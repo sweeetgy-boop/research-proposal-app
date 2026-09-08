@@ -1,0 +1,12 @@
+required_sections: [title, background, problem, prior_work, overlap_check, objective, differentiation, method, expected]
+max_chars:
+  title: 100
+  background: 1500
+  problem: 1500
+  prior_work: 2500
+  overlap_check: 1500
+  objective: 800
+  differentiation: 2000
+  method: 2500
+  expected: 1200
+evidence_required: [prior_work, overlap_check, differentiation]

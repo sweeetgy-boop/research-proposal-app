@@ -1,0 +1,11 @@
+# 섹션 키 → HWPX 슬롯. 실제 양식 확인 후 수정.
+slots:
+  title:         "{{과제명}}"
+  background:    "{{연구배경}}"
+  problem:       "{{문제점}}"
+  prior_work:    "{{선행연구}}"
+  overlap_check: "{{기존과제검토}}"
+  objective:     "{{연구목표}}"
+  differentiation: "{{차별성}}"
+  method:        "{{연구방법}}"
+  expected:      "{{기대효과}}"

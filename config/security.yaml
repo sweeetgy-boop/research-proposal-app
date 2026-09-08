@@ -1,0 +1,24 @@
+# C. 아웃바운드 허용목록 — 여기 없는 도메인은 어댑터가 접속 거부
+allowed_domains:
+  - api.openalex.org
+  - apis.data.go.kr
+  - plus.kipris.or.kr
+  - www.ntis.go.kr
+  - www.data.go.kr
+
+# B. 파일 상한
+file_limits:
+  max_file_mb: 200
+  max_zip_ratio: 100
+  max_pdf_pages: 600
+  parse_timeout_sec: 120
+  parse_mem_mb: 2048
+
+# G. 입력 상한
+input_limits:
+  slot_max_chars: 2000
+  query_max_chars: 500
+  concurrent_generations: 1
+
+# I. 보존
+retention_days: 180

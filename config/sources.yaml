@@ -1,0 +1,9 @@
+alio:
+  institutions:
+    - {code: C0268, name: 한국철도공사, tag: korail}
+    - {code: C0269, name: 한국철도기술연구원, tag: krri}
+    - {code: C0270, name: 국가철도공단, tag: kr}
+openalex:  {rate_limit: 10, concurrency: 4}
+scienceon: {rate_limit: 2,  concurrency: 1}
+kipris:    {rate_limit: 3,  concurrency: 2}
+ntis:      {rate_limit: 3,  concurrency: 2}

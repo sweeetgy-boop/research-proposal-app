@@ -1,0 +1,10 @@
+provider: mlx            # mlx | openai
+base_url: http://127.0.0.1:8080/v1
+stages:
+  expand:    {model: local-14b, max_tokens: 512}
+  summarize: {model: local-14b, max_tokens: 400}
+  compose:   {model: local-14b, max_tokens: 2000}
+  critique:  {model: local-14b, max_tokens: 800}
+embedding:
+  model: intfloat/multilingual-e5-base
+  device: mps
