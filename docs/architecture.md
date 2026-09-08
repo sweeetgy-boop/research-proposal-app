@@ -464,8 +464,8 @@ config/
 | Step | 산출물 | 포함 보안 항목 | 완료 기준 |
 |---|---|---|---|
 | **1** ✅ | `domain/`, `application/ports`, `usecases` 2개, `tests/fakes`, `_base.py` 보안 함수, pyproject·pre-commit·security.yaml | A(근거 검증·JSON 강제), D(SecretStr·.env 권한), C(허용목록·캐시키), J(import-linter·ruff S) | `pytest` 13 통과, `lint-imports` 3 계약 유지, `ruff` 무오류 |
-| 2 | `adapters/persistence/sqlite_repo.py`, `adapters/embedding/` | E(파라미터 바인딩, FTS5 MATCH 인용, 파일 권한 700) | 하이브리드 검색 왕복 테스트 |
-| 3 | `adapters/llm/openai_compat.py` + `prompts/`, `composition.py` 실연결, **MCP stdio (precheck·search)** | H(127.0.0.1, json_mode), A(프롬프트·MCP 결과에 구획 규칙) | mlx-lm 대상 실제 생성 1회, Kiro에서 도구 호출 |
+| **2** ✅ | `adapters/persistence/sqlite_repo.py`, `adapters/embedding/` | E(파라미터 바인딩, FTS5 MATCH 인용, 파일 권한 700) | 하이브리드 검색 왕복 테스트 |
+| **3** ✅ | `adapters/llm/openai_compat.py` + `prompts/`, `composition.py` 실연결, **MCP stdio (precheck·search)** | H(127.0.0.1, json_mode), A(프롬프트·MCP 결과에 구획 규칙) | mlx-lm 대상 실제 생성 1회, Claude Code에서 도구 호출 |
 | 4 | `adapters/sources/openalex.py` (허용목록 httpx) | C(리다이렉트 재검사, 사설IP 거부) | ingest → search |
 | 5 | `adapters/sources/alio/` catalog·filedrop·extract·`_sandbox.py`·metadata | B(subprocess 격리, zip 상한, defusedxml) | 코레일 보고서 10건 적재 |
 | 6 | `precheck_overlap` CLI 연결, `gap_analysis` 3단, **`RunManager` + MCP generate/get_draft** | G(세마포어 1) | 기수행 과제 경보 출력, IDE에서 생성 요청 |
@@ -504,7 +504,7 @@ Step 1 코드: `research-report-app-step1.zip`
 ### 9.3 MCP 서버 (`entrypoints/mcp/`)
 
 **전송**
-- `stdio`: Kiro / Claude Desktop / Claude Code에서 로컬 실행. 인증 불필요(프로세스 소유자 = 사용자).
+- `stdio`: Claude Code / Claude Desktop 에서 로컬 실행. 인증 불필요(프로세스 소유자 = 사용자).
 - `streamable-http`: Tailscale 뒤 `127.0.0.1:8001`. REST와 같은 Bearer 토큰.
 
 **Tools**
@@ -547,19 +547,22 @@ CLI는 `submit` 후 완료까지 대기, REST·MCP는 `run_id`만 돌려준다. 
 
 | Step | 변경 |
 |---|---|
-| 3 | `composition.py` 실연결과 함께 **MCP stdio 서버 먼저** 구현. Kiro에서 `rra_precheck`·`rra_search`로 검색 품질을 즉시 확인할 수 있어 개발 도구 역할. 도구 2개만. |
+| 3 | `composition.py` 실연결과 함께 **MCP stdio 서버 먼저** 구현. Claude Code에서 `rra_precheck`·`rra_search`로 검색 품질을 즉시 확인할 수 있어 개발 도구 역할. 도구 2개만. |
 | 6 | `RunManager` + `rra_generate`·`rra_get_draft` 추가 |
 | 10 | REST API + MCP streamable-http + 인증·헤더. Tailscale 뒤 공개 |
 
-**Kiro 등록 예 (`.kiro/settings/mcp.json`)**
+**Claude Code 등록 예 (프로젝트 루트 `.mcp.json`)**
 ```json
 {
   "mcpServers": {
     "rra": {
-      "command": "/path/.venv/bin/python",
+      "command": ".venv/bin/python",
       "args": ["-m", "rra.entrypoints.mcp.server", "--transport", "stdio"],
-      "env": {"RRA_CONFIG_DIR": "/path/research-proposal-app/config"}
+      "env": {"RRA_CONFIG_DIR": "config"}
     }
   }
 }
 ```
+경로는 프로젝트 루트 기준 상대경로다. 다른 디렉터리에서 띄우면 절대경로로 바꾸거나
+`uv run -- python -m rra.entrypoints.mcp.server` 형태를 쓴다. `env`에 키를 넣지 않는다(D).
+등록·도구 설명은 `docs/mcp.md`.

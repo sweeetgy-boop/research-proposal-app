@@ -1,10 +1,34 @@
+# provider·base_url 은 환경변수(RRA_LLM_PROVIDER, RRA_LLM_BASE_URL)가 있으면 그쪽이 이깁니다.
+# api_key 는 여기 두지 않습니다. settings.py(.env)에서만 옵니다 (보안 D).
 provider: mlx            # mlx | openai
 base_url: http://127.0.0.1:8080/v1
+
+# H: provider=mlx 면 base_url 이 127.0.0.1/localhost 가 아닐 때 기동을 거부합니다.
+
+json_mode: auto          # auto: response_format 먼저 시도 후 프롬프트 폴백 | native | prompt
+temperature: 0.2
+
+timeout:                 # 초
+  connect: 5
+  read: 180
+  write: 10
+  pool: 5
+
+retries:
+  attempts: 3
+  backoff_sec: 0.5
+  max_backoff_sec: 8
+
+limits:                  # DoS·메모리 보호 상한
+  max_tokens_cap: 4096
+  prompt_max_chars: 60000
+
 stages:
   expand:    {model: local-14b, max_tokens: 512}
   summarize: {model: local-14b, max_tokens: 400}
   compose:   {model: local-14b, max_tokens: 2000}
   critique:  {model: local-14b, max_tokens: 800}
+
 embedding:
   model: intfloat/multilingual-e5-base
   device: mps

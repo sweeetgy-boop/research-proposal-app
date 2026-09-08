@@ -5,13 +5,18 @@ import inspect
 import pytest
 
 from rra.adapters.embedding import SentenceTransformerEmbedding
+from rra.adapters.llm import FilePromptLibrary, OpenAICompatLLM
 from rra.adapters.persistence import SQLiteDocumentRepository
 from rra.application.ports.embedding import EmbeddingPort
+from rra.application.ports.llm import LLMPort
+from rra.application.ports.prompt_library import PromptLibraryPort
 from rra.application.ports.repository import DocumentRepository
 
 CASES = [
     (DocumentRepository, SQLiteDocumentRepository),
     (EmbeddingPort, SentenceTransformerEmbedding),
+    (LLMPort, OpenAICompatLLM),
+    (PromptLibraryPort, FilePromptLibrary),
 ]
 
 
@@ -41,6 +46,17 @@ def test_signatures_match(protocol, impl):
             got = actual.parameters[param.name]
             assert got.kind == param.kind, f"{name}.{param.name}"
             assert got.default == param.default, f"{name}.{param.name}"
+
+
+def test_fakes_still_satisfy_the_prompt_library_port():
+    from tests.fakes import FakePromptLibrary
+
+    fake = FakePromptLibrary()
+    for name in port_methods(PromptLibraryPort):
+        assert inspect.signature(getattr(FakePromptLibrary, name)) == inspect.signature(
+            getattr(PromptLibraryPort, name)
+        )
+    assert fake.system() and fake.section("background")
 
 
 def test_fakes_still_satisfy_the_embedding_port():

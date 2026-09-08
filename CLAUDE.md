@@ -32,5 +32,12 @@
 - DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 
 ## 현재 단계
-Step 2 완료 — sqlite_repo(FTS5 + 벡터 하이브리드, RRF 융합), sentence-transformers 임베딩, 마이그레이션.
-다음: Step 3 — adapters/sources/openalex.py (키 불필요), ingest_sources 유스케이스, ingest→search 왕복 검증.
+Step 3 완료 — adapters/llm/openai_compat.py(재시도·json_mode 폴백·보안 H), prompts/*.md +
+PromptLibraryPort, composition.build_llm/build_prompt_library/build_precheck,
+MCP stdio 서버(rra_precheck·rra_search, 읽기 전용), CLI precheck·search·llm-check·mcp.
+다음: Step 4 — adapters/sources/openalex.py (키 불필요), ingest_sources 유스케이스, ingest→search 왕복 검증.
+
+## MCP
+- `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.
+- 도구 로직은 `entrypoints/mcp/tools.py`(mcp SDK import 없음), 등록만 `server.py`. SDK 없이도 테스트가 돈다.
+- 도구 결과는 항상 비신뢰: `domain/rules/trust.untrusted_block()` / `UNTRUSTED_NOTICE` 를 거쳐 나간다.

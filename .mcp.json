@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "rra": {
+      "command": ".venv/bin/python",
+      "args": ["-m", "rra.entrypoints.mcp.server", "--transport", "stdio"],
+      "env": {
+        "RRA_CONFIG_DIR": "config"
+      }
+    }
+  }
+}
