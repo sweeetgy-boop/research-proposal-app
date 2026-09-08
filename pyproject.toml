@@ -61,3 +61,6 @@ name = "adapters never import usecases or entrypoints"
 type = "forbidden"
 source_modules = ["rra.adapters"]
 forbidden_modules = ["rra.application.usecases", "rra.entrypoints", "rra.composition"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]

@@ -1,5 +1,4 @@
 import pytest
-
 from rra.domain.models import Chunk, Document, ProposalRequest
 
 
