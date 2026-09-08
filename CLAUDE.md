@@ -29,7 +29,8 @@
 ## 환경
 - Python 3.12 (uv, .venv). WSL 개발, 배포는 M6 Mac mini 24GB + mlx-lm.
 - LLM: OpenAI 호환 base_url (mlx-lm). 임베딩: sentence-transformers.
-- DB: SQLite FTS5 + sqlite-vec.
+- DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 
 ## 현재 단계
-Step 1 완료. 다음: Step 2 — adapters/persistence/sqlite_repo.py, adapters/embedding/, 테스트.
+Step 2 완료 — sqlite_repo(FTS5 + 벡터 하이브리드, RRF 융합), sentence-transformers 임베딩, 마이그레이션.
+다음: Step 3 — adapters/sources/openalex.py (키 불필요), ingest_sources 유스케이스, ingest→search 왕복 검증.

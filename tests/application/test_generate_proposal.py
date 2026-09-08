@@ -1,9 +1,9 @@
 import json
 
 import pytest
+
 from rra.application.usecases.generate_proposal import DraftInvalid, GenerateProposal
 from rra.domain.rules.lint import LintRules
-
 from tests.fakes import FakeLLM, FakeRenderer, FakeRunLog, InMemoryRepository
 
 
