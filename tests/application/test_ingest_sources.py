@@ -1,7 +1,9 @@
 """ingest_sources 유스케이스 — fake 만으로 실행 (네트워크·임베딩 없음)."""
 
+import pytest
+
 from rra.application.usecases.ingest_sources import IngestSources
-from tests.fakes import FakeSource, InMemoryRepository
+from tests.fakes import FakeAckSource, FakeSource, InMemoryRepository
 
 
 class RecordingRepository(InMemoryRepository):
@@ -79,3 +81,30 @@ async def test_nothing_fetched_means_no_upsert():
     report = await IngestSources([FakeSource("openalex", [])], repo)()
     assert repo.upserts == []
     assert report.stored == 0 and report.chunks == 0
+
+
+# ── acknowledge (filedrop 처리 완료 통보) ─────────────────
+async def test_acknowledge_only_normalized_raws_after_upsert(docs):
+    broken = {"doc_id": "alio:2", "source": "alio"}
+    src = FakeAckSource("alio", [as_raw(docs[0]), broken])
+    repo = RecordingRepository()
+    await IngestSources([src], repo)()
+    assert len(repo.upserts) == 1
+    assert [r["doc_id"] for r in src.acked] == ["alio:1"]
+
+
+async def test_no_acknowledge_when_upsert_fails(docs):
+    class BrokenRepo(InMemoryRepository):
+        def upsert(self, docs, chunks):
+            raise RuntimeError("disk full")
+
+    src = FakeAckSource("alio", [as_raw(docs[0])])
+    with pytest.raises(RuntimeError):
+        await IngestSources([src], BrokenRepo())()
+    assert src.acked == []
+
+
+async def test_plain_source_is_not_acknowledged(docs):
+    src = FakeSource("openalex", [as_raw(docs[1])])
+    report = await IngestSources([src], InMemoryRepository())()
+    assert report.failed == {}

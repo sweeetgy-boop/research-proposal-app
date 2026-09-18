@@ -18,7 +18,7 @@ llm = ["httpx>=0.27"]
 mcp = ["mcp>=2.2"]
 adapters = ["research-proposal-app[persistence,embedding,sources,llm]"]
 api = ["fastapi>=0.111", "uvicorn>=0.30"]
-dev = ["research-proposal-app[persistence,llm,mcp]", "pytest>=8", "pytest-asyncio>=0.23",
+dev = ["research-proposal-app[persistence,llm,mcp,sources]", "pytest>=8", "pytest-asyncio>=0.23",
        "ruff>=0.5", "import-linter>=2.0", "bandit>=1.7", "pip-audit>=2.7", "pre-commit>=3.7"]
 
 [project.scripts]

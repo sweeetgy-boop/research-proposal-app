@@ -124,3 +124,22 @@ class FakeSource:
 
     def normalize(self, raw):
         return Document.model_validate(raw)
+
+
+class FakeAckSource(FakeSource):
+    """AcknowledgingSource fake. acknowledge 로 받은 raw 를 기록한다."""
+
+    def __init__(self, source, raws, **kw):
+        super().__init__(source, raws, **kw)
+        self.acked: list[dict[str, Any]] = []
+
+    def acknowledge(self, raws):
+        self.acked.extend(raws)
+
+
+class FakeCatalog:
+    def __init__(self, entries):
+        self._entries = list(entries)
+
+    async def entries(self):
+        return list(self._entries)

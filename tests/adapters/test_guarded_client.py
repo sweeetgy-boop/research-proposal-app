@@ -99,9 +99,7 @@ async def test_redirect_to_forbidden_target_is_blocked_before_request(target):
 
 
 async def test_redirect_to_allowed_host_that_resolves_private_is_blocked():
-    router = Router(
-        {"https://api.openalex.org/works": [redirect("https://mirror.openalex.org/w")]}
-    )
+    router = Router({"https://api.openalex.org/works": [redirect("https://mirror.openalex.org/w")]})
 
     def resolver(host):
         return host == "mirror.openalex.org"  # DNS 가 사설 IP 를 돌려준 상황
@@ -134,8 +132,9 @@ async def test_too_many_redirects():
 
 
 async def test_response_over_limit_is_rejected():
-    big = httpx.Response(200, content=b"[" + b"1," * 600 + b"1]",
-                         headers={"content-type": "application/json"})
+    big = httpx.Response(
+        200, content=b"[" + b"1," * 600 + b"1]", headers={"content-type": "application/json"}
+    )
     router = Router({"https://api.openalex.org/works": [big]})
     async with make(router, max_response_bytes=1000) as client:
         with pytest.raises(FetchError):
@@ -211,3 +210,41 @@ async def test_rate_limit_spaces_requests():
 
 def test_repr_has_no_secrets():
     assert "GuardedClient" in repr(GuardedClient(ALLOWED))
+
+
+# ── get_bytes (카탈로그 파일 다운로드) ────────────────────
+CSV_TYPES = {"text/csv", "application/octet-stream"}
+
+
+def file_response(body=b"a,b\n1,2\n", ctype="text/csv; charset=euc-kr", **kw):
+    return httpx.Response(200, content=body, headers={"content-type": ctype}, **kw)
+
+
+async def test_get_bytes_returns_body():
+    router = Router({"https://api.openalex.org/f.csv": [file_response()]})
+    async with make(router) as client:
+        assert (
+            await client.get_bytes("https://api.openalex.org/f.csv", accept_types=CSV_TYPES)
+            == b"a,b\n1,2\n"
+        )
+
+
+async def test_get_bytes_rejects_unexpected_content_type():
+    router = Router({"https://api.openalex.org/f.csv": [file_response(ctype="text/html")]})
+    async with make(router) as client:
+        with pytest.raises(FetchError, match="content-type"):
+            await client.get_bytes("https://api.openalex.org/f.csv", accept_types=CSV_TYPES)
+
+
+async def test_get_bytes_rechecks_every_redirect_hop():
+    router = Router({"https://api.openalex.org/f.csv": [redirect("https://evil.example/f.csv")]})
+    async with make(router) as client:
+        with pytest.raises(BlockedURL):
+            await client.get_bytes("https://api.openalex.org/f.csv", accept_types=CSV_TYPES)
+
+
+async def test_get_bytes_size_cap():
+    router = Router({"https://api.openalex.org/f.csv": [file_response(body=b"x" * 2048)]})
+    async with make(router, max_response_bytes=1024) as client:
+        with pytest.raises(FetchError, match="상한"):
+            await client.get_bytes("https://api.openalex.org/f.csv", accept_types=CSV_TYPES)

@@ -1323,11 +1323,13 @@ api = [
 ]
 dev = [
     { name = "bandit" },
+    { name = "defusedxml" },
     { name = "httpx" },
     { name = "import-linter" },
     { name = "mcp" },
     { name = "pip-audit" },
     { name = "pre-commit" },
+    { name = "pymupdf" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -1369,7 +1371,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "research-proposal-app", extras = ["persistence", "embedding", "sources", "llm"], marker = "extra == 'adapters'" },
-    { name = "research-proposal-app", extras = ["persistence", "llm", "mcp"], marker = "extra == 'dev'" },
+    { name = "research-proposal-app", extras = ["persistence", "llm", "mcp", "sources"], marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
     { name = "sentence-transformers", marker = "extra == 'embedding'", specifier = ">=3.0" },
     { name = "sqlite-vec", marker = "extra == 'persistence'", specifier = ">=0.1" },

@@ -3,6 +3,15 @@ alio:
     - {code: C0268, name: 한국철도공사, tag: korail}
     - {code: C0269, name: 한국철도기술연구원, tag: krri}
     - {code: C0270, name: 국가철도공단, tag: kr}
+  inbox_dir: data/inbox/alio   # 수동 다운로드 파일 투입 위치 (_done/·_quarantine/ 자동 생성)
+  catalog_dir: data/catalog    # 공공데이터포털 CSV. 가장 최근 파일을 쓴다
+  catalog:
+    # `rra alio catalog --fetch` 가 받을 fileData 다운로드 URL. 갱신마다 바뀌므로 비워두고
+    # 필요할 때 채운다. 호스트는 security.yaml allowed_domains 에 있어야 한다 (www.data.go.kr).
+    fetch_url: ""
+    max_response_mb: 50
+    # 필드 → 후보 헤더명 목록. 비워두면 어댑터 기본값(DEFAULT_COLUMNS). 실제 CSV 확인 후 확정.
+    columns: {}
 openalex:
   rate_limit: 10            # 초당 요청 수
   concurrency: 4

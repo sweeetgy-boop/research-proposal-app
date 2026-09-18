@@ -8,11 +8,13 @@ from rra.adapters.embedding import SentenceTransformerEmbedding
 from rra.adapters.llm import FilePromptLibrary, OpenAICompatLLM
 from rra.adapters.persistence import SQLiteDocumentRepository
 from rra.adapters.sources import OpenAlexSource
+from rra.adapters.sources.alio import AlioSource, FileCatalog
+from rra.application.ports.catalog import CatalogPort
 from rra.application.ports.embedding import EmbeddingPort
 from rra.application.ports.llm import LLMPort
 from rra.application.ports.prompt_library import PromptLibraryPort
 from rra.application.ports.repository import DocumentRepository
-from rra.application.ports.source import SourcePort
+from rra.application.ports.source import AcknowledgingSource, SourcePort
 
 CASES = [
     (DocumentRepository, SQLiteDocumentRepository),
@@ -20,6 +22,9 @@ CASES = [
     (LLMPort, OpenAICompatLLM),
     (PromptLibraryPort, FilePromptLibrary),
     (SourcePort, OpenAlexSource),
+    (SourcePort, AlioSource),
+    (AcknowledgingSource, AlioSource),
+    (CatalogPort, FileCatalog),
 ]
 
 

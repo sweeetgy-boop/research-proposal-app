@@ -140,3 +140,85 @@ def test_project_config_allows_openalex():
     src = build_openalex_source(Settings(_env_file=None))
     assert "api.openalex.org" in src.client.allowed
     assert src.base_url == "https://api.openalex.org"
+
+
+# ── alio ──────────────────────────────────────────────────
+ALIO_SOURCES = """
+alio:
+  institutions:
+    - {{code: C0268, name: 한국철도공사, tag: korail}}
+  inbox_dir: {inbox}
+  catalog_dir: {catalog}
+  catalog:
+    fetch_url: https://www.data.go.kr/f.csv
+    max_response_mb: 1
+    columns: {{title: [보고서제목]}}
+"""
+
+
+@pytest.fixture
+def alio_config(tmp_path):
+    (tmp_path / "security.yaml").write_text(
+        "allowed_domains: [www.data.go.kr]\n"
+        "file_limits: {parse_timeout_sec: 7, parse_mem_mb: 512, max_file_mb: 3,"
+        " max_output_mb: 4, max_zip_entries: 9}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sources.yaml").write_text(
+        ALIO_SOURCES.format(inbox=tmp_path / "inbox", catalog=tmp_path / "cat"),
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def test_sandbox_limits_from_security_yaml(alio_config):
+    from rra.composition import sandbox_limits
+
+    lim = sandbox_limits(settings_for(alio_config))
+    assert (lim.timeout_sec, lim.mem_mb, lim.max_input_mb) == (7, 512, 3)
+    assert (lim.max_output_mb, lim.max_zip_entries, lim.test_mode) == (4, 9, False)
+
+
+def test_alio_source_is_wired_with_inbox_catalog_and_limits(alio_config):
+    from rra.composition import build_sources
+
+    [src] = build_sources(["alio"], settings_for(alio_config))
+    assert src.source == "alio" and src.inbox == alio_config / "inbox"
+    assert src.limits.mem_mb == 512
+    assert src.catalog.catalog_dir == alio_config / "cat"
+    assert src.catalog.columns["title"] == ["보고서제목"]
+    assert src.catalog.institutions[0]["tag"] == "korail"
+
+
+async def test_fetch_alio_catalog_goes_through_guarded_client(alio_config):
+    from rra.composition import fetch_alio_catalog
+
+    seen = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        return httpx.Response(200, content=b"a,b\n", headers={"content-type": "text/csv"})
+
+    path = await fetch_alio_catalog(
+        settings_for(alio_config),
+        transport=httpx.MockTransport(handler),
+        resolver=lambda host: False,  # DNS 없이
+    )
+    assert seen == ["https://www.data.go.kr/f.csv"]
+    assert path.parent == alio_config / "cat" and path.read_bytes() == b"a,b\n"
+
+
+async def test_fetch_alio_catalog_requires_url(tmp_path):
+    from rra.composition import fetch_alio_catalog
+
+    with pytest.raises(ValueError, match="fetch_url"):
+        await fetch_alio_catalog(settings_for(tmp_path))
+
+
+def test_project_config_allows_data_go_kr_for_catalog():
+    from rra.composition import read_config
+
+    assert (
+        "www.data.go.kr"
+        in read_config("security.yaml", Settings(_env_file=None))["allowed_domains"]
+    )

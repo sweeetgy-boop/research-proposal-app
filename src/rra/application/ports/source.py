@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from rra.domain.models import Document
 
@@ -15,3 +15,10 @@ class SourcePort(Protocol):
     def normalize(self, raw: dict[str, Any]) -> Document:
         """순수 함수. 네트워크 접근 금지."""
         ...
+
+
+@runtime_checkable
+class AcknowledgingSource(Protocol):
+    """저장이 끝난 raw 를 통보받는 소스 (선택). filedrop 처럼 처리 완료 표시가 필요한 경우."""
+
+    def acknowledge(self, raws: list[dict[str, Any]]) -> None: ...

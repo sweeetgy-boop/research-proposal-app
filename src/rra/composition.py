@@ -12,17 +12,23 @@ from rra.settings import Settings, load_settings
 __all__ = [
     "Settings",
     "SOURCE_NAMES",
+    "alio_inbox_status",
+    "build_alio_catalog",
+    "build_alio_source",
     "build_embedding",
     "build_ingest",
+    "build_list_missing",
     "build_llm",
     "build_openalex_source",
     "build_precheck",
     "build_prompt_library",
     "build_repository",
     "build_sources",
+    "fetch_alio_catalog",
     "llm_config",
     "load_settings",
     "read_config",
+    "sandbox_limits",
 ]
 
 DEFAULT_STAGE = "compose"
@@ -170,7 +176,88 @@ def build_openalex_source(settings: Settings | None = None, *, transport=None):
     )
 
 
-_SOURCE_BUILDERS = {"openalex": build_openalex_source}
+def sandbox_limits(settings: Settings):
+    """B. 파서 격리 상한 — config/security.yaml 의 file_limits."""
+    from rra.adapters.sources._sandbox import SandboxLimits
+
+    return SandboxLimits.from_security_config(read_config("security.yaml", settings))
+
+
+def _alio_config(settings: Settings) -> dict[str, Any]:
+    return read_config("sources.yaml", settings).get("alio") or {}
+
+
+def build_alio_catalog(settings: Settings | None = None):
+    """CatalogPort 구현체 (data/catalog 의 최신 CSV)."""
+    from rra.adapters.sources.alio import FileCatalog
+
+    settings = settings or load_settings()
+    cfg = _alio_config(settings)
+    return FileCatalog(
+        Path(cfg.get("catalog_dir", "data/catalog")),
+        limits=sandbox_limits(settings),
+        institutions=cfg.get("institutions") or [],
+        columns=(cfg.get("catalog") or {}).get("columns") or None,
+    )
+
+
+def build_alio_source(settings: Settings | None = None):
+    """AlioSource (filedrop). 카탈로그가 있으면 파일명 stem 으로 메타데이터를 붙인다."""
+    from rra.adapters.sources.alio import AlioSource
+
+    settings = settings or load_settings()
+    cfg = _alio_config(settings)
+    return AlioSource(
+        Path(cfg.get("inbox_dir", "data/inbox/alio")),
+        limits=sandbox_limits(settings),
+        catalog=build_alio_catalog(settings),
+    )
+
+
+async def fetch_alio_catalog(
+    settings: Settings | None = None, *, transport=None, resolver=None
+) -> Path:
+    """sources.yaml 의 fetch_url 을 GuardedClient 로 받아 catalog_dir 에 저장 (보안 C·B)."""
+    from rra.adapters.sources import GuardedClient
+    from rra.adapters.sources.alio import fetch_catalog
+
+    settings = settings or load_settings()
+    cfg = _alio_config(settings)
+    catalog_cfg = cfg.get("catalog") or {}
+    url = str(catalog_cfg.get("fetch_url") or "")
+    if not url:
+        raise ValueError("config/sources.yaml 의 alio.catalog.fetch_url 이 비어 있습니다.")
+    max_bytes = int(float(catalog_cfg.get("max_response_mb", 50)) * 1024 * 1024)
+    security = read_config("security.yaml", settings)
+    async with GuardedClient(
+        security.get("allowed_domains") or [],
+        max_response_bytes=max_bytes,
+        transport=transport,
+        **({"resolver": resolver} if resolver else {}),
+    ) as client:
+        return await fetch_catalog(
+            client, url, Path(cfg.get("catalog_dir", "data/catalog")), max_bytes=max_bytes
+        )
+
+
+def alio_inbox_status(settings: Settings | None = None) -> dict[str, int]:
+    from rra.adapters.sources.alio import inbox_status
+
+    settings = settings or load_settings()
+    return inbox_status(Path(_alio_config(settings).get("inbox_dir", "data/inbox/alio")))
+
+
+def build_list_missing(settings: Settings | None = None, repo=None):
+    """ListMissing 유스케이스. repo 를 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.list_missing import ListMissing
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return ListMissing(build_alio_catalog(settings), repo)
+
+
+_SOURCE_BUILDERS = {"openalex": build_openalex_source, "alio": build_alio_source}
 SOURCE_NAMES = tuple(_SOURCE_BUILDERS)
 
 

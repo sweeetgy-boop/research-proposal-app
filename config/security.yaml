@@ -13,6 +13,8 @@ file_limits:
   max_pdf_pages: 600
   parse_timeout_sec: 120
   parse_mem_mb: 2048
+  max_output_mb: 32         # 파서 자식 프로세스 stdout 상한
+  max_zip_entries: 2000     # HWPX 엔트리 수 상한
 
 # G. 입력 상한
 input_limits:

@@ -167,6 +167,34 @@ class GuardedClient:
         await self.aclose()
 
     async def get_json(self, url: str, params: dict[str, Any] | None = None) -> Any:
+        headers, body, safe = await self._get(url, params)
+        ctype = headers.get("content-type", "").split(";")[0].strip().lower()
+        if ctype != "application/json" and not ctype.endswith("+json"):
+            raise FetchError(f"JSON 이 아닌 응답({ctype or '없음'}): {safe}")
+        try:
+            return json.loads(body)
+        except ValueError as exc:
+            raise FetchError(f"JSON 파싱 실패: {safe}") from exc
+
+    async def get_bytes(
+        self,
+        url: str,
+        params: dict[str, Any] | None = None,
+        *,
+        accept_types: Iterable[str],
+    ) -> bytes:
+        """파일 다운로드. content-type 이 accept_types 에 없으면 FetchError. 크기 상한 동일."""
+        accepted = {t.lower() for t in accept_types}
+        headers, body, safe = await self._get(url, params)
+        ctype = headers.get("content-type", "").split(";")[0].strip().lower()
+        if ctype not in accepted:
+            raise FetchError(f"허용되지 않은 content-type({ctype or '없음'}): {safe}")
+        return body
+
+    async def _get(
+        self, url: str, params: dict[str, Any] | None
+    ) -> tuple[httpx.Headers, bytes, str]:
+        """재시도·상태 코드 처리 공통 경로. (헤더, 본문, 비밀 제거된 최종 URL)."""
         target = httpx.URL(url, params=params) if params else httpx.URL(url)
         attempt = 0
         while True:
@@ -186,13 +214,7 @@ class GuardedClient:
             safe = strip_secrets(str(final))
             if status != 200:
                 raise FetchError(f"HTTP {status}: {safe}")
-            ctype = headers.get("content-type", "").split(";")[0].strip().lower()
-            if ctype != "application/json" and not ctype.endswith("+json"):
-                raise FetchError(f"JSON 이 아닌 응답({ctype or '없음'}): {safe}")
-            try:
-                return json.loads(body)
-            except ValueError as exc:
-                raise FetchError(f"JSON 파싱 실패: {safe}") from exc
+            return headers, body, safe
 
     async def _fetch(self, target: httpx.URL) -> tuple[int, httpx.Headers, bytes, httpx.URL]:
         for _ in range(self.max_redirects + 1):

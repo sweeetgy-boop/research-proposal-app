@@ -36,11 +36,12 @@
 - DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 
 ## 현재 단계
-Step 4 완료 — adapters/sources/_base.py check_url()·GuardedClient(허용목록, 리다이렉트 hop별 재검사,
-사설IP·루프백 거부, 응답 상한), adapters/sources/openalex.py(OpenAlexSource, normalize 순수 함수),
-usecases/ingest_sources.py(dedup → chunking → upsert 1회), composition.build_sources/build_ingest, CLI ingest.
-fixture: tests/fixtures/openalex/ (실제 응답). 원본 디스크 캐시는 미구현.
-다음: Step 5 — adapters/sources/alio/ (catalog·filedrop·extract·_sandbox.py, 보안 B).
+Step 5 구현 — adapters/sources/_sandbox.py·_worker.py(격리 파서: fd→stdin, 최소 env, rlimit,
+부모 측 RSS 감시, 타임아웃), alio/(filecheck·catalog·filedrop·extract/pdf·hwpx·csv_catalog),
+usecases/list_missing.py, IngestSources 의 upsert 후 acknowledge, GuardedClient.get_bytes,
+CLI `rra alio catalog|missing|status`, `rra ingest --source alio`.
+fixture 대기: tests/fixtures/alio/real/(실제 공시 1~2건 + expected.yaml), catalog/sample.csv —
+받으면 alio.catalog.columns 확정. .hwp(OLE)는 Step 5b.
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.

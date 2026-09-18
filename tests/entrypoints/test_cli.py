@@ -212,3 +212,77 @@ def test_ingest_failure_sets_exit_code_and_json(monkeypatch, capsys):
     _stub_ingest(monkeypatch, IngestReport(failed={"openalex": "FetchError"}))
     assert cli.main(["ingest", "--json"]) == cli.EXIT_ERROR
     assert json.loads(capsys.readouterr().out)["failed"] == {"openalex": "FetchError"}
+
+
+# ── alio ──────────────────────────────────────────────────
+def _alio_entries():
+    from datetime import date
+
+    from rra.domain.models import CatalogEntry
+
+    return [
+        CatalogEntry(catalog_id="2024-1", institution_tag="korail", title="궤도\x1b[31m 연구",
+                     published=date(2024, 1, 2)),
+        CatalogEntry(catalog_id="h0123", institution_tag="kr", title="교량 점검"),
+    ]
+
+
+def test_alio_missing_lists_entries_sanitized(monkeypatch, capsys):
+    from rra.application.usecases.list_missing import ListMissing
+    from tests.fakes import FakeCatalog, InMemoryRepository
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr(
+        "rra.composition.build_list_missing",
+        lambda s: ListMissing(FakeCatalog(_alio_entries()), InMemoryRepository()),
+    )
+    assert cli.main(["alio", "missing"]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "[미수집] 2건" in out and "2024-01-02" in out and "\x1b" not in out
+
+
+def test_alio_missing_json(monkeypatch, capsys):
+    from rra.application.usecases.list_missing import ListMissing
+    from tests.fakes import FakeCatalog, InMemoryRepository
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr(
+        "rra.composition.build_list_missing",
+        lambda s: ListMissing(FakeCatalog(_alio_entries()), InMemoryRepository()),
+    )
+    cli.main(["alio", "missing", "--json"])
+    assert [e["catalog_id"] for e in json.loads(capsys.readouterr().out)] == ["2024-1", "h0123"]
+
+
+def test_alio_catalog_summary_and_fetch(monkeypatch, capsys, tmp_path):
+    from tests.fakes import FakeCatalog
+
+    fetched = []
+
+    async def fake_fetch(settings):
+        fetched.append(True)
+        return tmp_path / "abc.csv"
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    catalog = FakeCatalog(_alio_entries())
+    monkeypatch.setattr("rra.composition.build_alio_catalog", lambda s: catalog)
+    monkeypatch.setattr("rra.composition.fetch_alio_catalog", fake_fetch)
+    assert cli.main(["alio", "catalog"]) == cli.EXIT_OK and not fetched
+    assert "대상 기관 2건 (korail 1건, kr 1건)" in capsys.readouterr().out
+    cli.main(["alio", "catalog", "--fetch"])
+    assert fetched and "abc.csv" in capsys.readouterr().out
+
+
+def test_alio_status(monkeypatch, capsys):
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr(
+        "rra.composition.alio_inbox_status",
+        lambda s: {"pending": 3, "done": 5, "quarantine": 1},
+    )
+    assert cli.main(["alio", "status"]) == cli.EXIT_OK
+    assert "대기 3 / 완료 5 / 격리 1" in capsys.readouterr().out
+
+
+def test_alio_requires_subcommand():
+    with pytest.raises(SystemExit):
+        cli.main(["alio"])

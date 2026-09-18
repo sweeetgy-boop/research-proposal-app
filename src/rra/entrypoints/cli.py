@@ -148,6 +148,50 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return EXIT_ERROR if report.failed else EXIT_OK
 
 
+# ── alio ──────────────────────────────────────────────────
+def cmd_alio_catalog(args: argparse.Namespace) -> int:
+    from rra.composition import build_alio_catalog, fetch_alio_catalog, load_settings
+
+    settings = load_settings()
+    if args.fetch:
+        saved = asyncio.run(fetch_alio_catalog(settings))
+        print(f"카탈로그 저장: {saved.name}")
+    entries = asyncio.run(build_alio_catalog(settings).entries())
+    counts: dict[str, int] = {}
+    for e in entries:
+        counts[e.institution_tag] = counts.get(e.institution_tag, 0) + 1
+    summary = ", ".join(f"{k} {v}건" for k, v in sorted(counts.items())) or "없음"
+    print(f"[알리오 카탈로그] 대상 기관 {len(entries)}건 ({summary})")
+    return EXIT_OK
+
+
+def cmd_alio_missing(args: argparse.Namespace) -> int:
+    from rra.composition import build_list_missing, load_settings
+
+    missing = asyncio.run(build_list_missing(load_settings())())
+    if args.json:
+        print(
+            json.dumps([e.model_dump(mode="json") for e in missing], ensure_ascii=False, indent=2)
+        )
+        return EXIT_OK
+    print(
+        f"[미수집] {len(missing)}건 — 알리오에서 받아 inbox 에 <catalog_id>.<확장자> 로 저장하세요."
+    )
+    for e in missing:
+        published = e.published.isoformat() if e.published else "-"
+        cid = _safe(e.catalog_id, 64)
+        print(f"  {cid:<20} {e.institution_tag:<7} {published:<10} {_safe(e.title)}")
+    return EXIT_OK
+
+
+def cmd_alio_status(args: argparse.Namespace) -> int:
+    from rra.composition import alio_inbox_status, load_settings
+
+    st = alio_inbox_status(load_settings())
+    print(f"[알리오 inbox] 대기 {st['pending']} / 완료 {st['done']} / 격리 {st['quarantine']}")
+    return EXIT_OK
+
+
 # ── mcp ───────────────────────────────────────────────────
 def cmd_mcp(args: argparse.Namespace) -> int:
     from rra.entrypoints.mcp.server import main as mcp_main
@@ -190,11 +234,22 @@ def build_parser() -> argparse.ArgumentParser:
     mcp.set_defaults(handler=cmd_mcp)
 
     ingest = sub.add_parser("ingest", help="외부 소스에서 문서 수집 → DB 적재")
-    ingest.add_argument("--source", default="openalex", help="쉼표로 구분 (현재: openalex)")
+    ingest.add_argument("--source", default="openalex", help="쉼표로 구분 (openalex, alio)")
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
     ingest.add_argument("--limit", type=int, default=200, help="소스당 최대 건수")
     ingest.add_argument("--json", action="store_true", help="JSON 으로 출력")
     ingest.set_defaults(handler=cmd_ingest)
+
+    alio = sub.add_parser("alio", help="알리오 공시 보고서 카탈로그·filedrop 관리")
+    alio_sub = alio.add_subparsers(dest="alio_cmd", required=True)
+    cat = alio_sub.add_parser("catalog", help="카탈로그 CSV 요약 (--fetch: 설정 URL 에서 받기)")
+    cat.add_argument("--fetch", action="store_true")
+    cat.set_defaults(handler=cmd_alio_catalog)
+    miss = alio_sub.add_parser("missing", help="카탈로그 중 아직 적재되지 않은 보고서")
+    miss.add_argument("--json", action="store_true")
+    miss.set_defaults(handler=cmd_alio_missing)
+    status = alio_sub.add_parser("status", help="inbox 대기·완료·격리 파일 수")
+    status.set_defaults(handler=cmd_alio_status)
 
     todo = sub.add_parser("generate", help="Step 6 이후")
     todo.set_defaults(handler=cmd_todo)

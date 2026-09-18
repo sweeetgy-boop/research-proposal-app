@@ -132,7 +132,7 @@ research-proposal-app/
 │   │   │   ├── prompt_library.py   # PromptLibraryPort: system(), section()
 │   │   │   ├── repository.py       # DocumentRepository: upsert(), hybrid_search(), find_similar(), get_document()
 │   │   │   ├── renderer.py         # RendererPort: render(Draft) -> bytes
-│   │   │   ├── catalog.py          # CatalogPort: list_missing() (알리오 전용)
+│   │   │   ├── catalog.py          # CatalogPort: async entries() (알리오 전용). 미수집 계산은 usecases/list_missing.py
 │   │   │   └── run_log.py          # RunLogPort: record()
 │   │   └── usecases/
 │   │       ├── ingest_sources.py   # 배치 수집 → dedup → chunk → index
@@ -144,7 +144,8 @@ research-proposal-app/
 │   ├── adapters/                   # ── 포트 구현 ──
 │   │   ├── sources/
 │   │   │   ├── _base.py            # C: check_url()·GuardedClient (허용목록·hop별 재검사·사설IP 거부·응답 상한·레이트리밋), 캐시키 비밀 제거
-│   │   ├── _sandbox.py         # B: subprocess 파서 실행 (timeout, rlimit)
+│   │   ├── _sandbox.py         # B: subprocess 파서 실행 (timeout, rlimit, 부모 측 RSS 감시)
+│   │   ├── _worker.py          # B: 자식 진입점 (rlimit 후 파서 import, JSON 1개 출력)
 │   │   │   ├── openalex.py
 │   │   │   ├── scienceon.py
 │   │   │   ├── kipris/
@@ -156,13 +157,16 @@ research-proposal-app/
 │   │   │   │   ├── projects.py     # 과제검색
 │   │   │   │   └── reports.py      # 연구보고서 검색
 │   │   │   └── alio/
-│   │   │       ├── catalog.py      # 공공데이터포털 파일 → 기관 필터
-│   │   │       ├── filedrop.py     # inbox 적재
-│   │   │       ├── extract/
+│   │   │       ├── catalog.py      # 공공데이터포털 CSV → 기관 필터 (FileCatalog, fetch_catalog)
+│   │   │       ├── filedrop.py     # inbox 적재 (AlioSource: 격리·_done·_quarantine)
+│   │   │       ├── filecheck.py    # 확장자·크기·매직바이트 검증 → 검증된 fd
+│   │   │       ├── _models.py      # 자식 출력 재검증 스키마
+│   │   │       ├── extract/        # 샌드박스 자식에서만 import
 │   │   │       │   ├── pdf.py
-│   │   │       │   ├── hwp.py
-│   │   │       │   └── hwpx.py
-│   │   │       └── metadata.py     # 표지·목차 → 부서·기간·책임자
+│   │   │       │   ├── hwpx.py
+│   │   │       │   ├── csv_catalog.py
+│   │   │       │   └── hwp.py      # (Step 5b) HWP 5.0 OLE — 현재는 UnsupportedFormat 격리
+│   │   │       └── metadata.py     # (후속) 표지·목차 → 부서·기간·책임자
 │   │   ├── llm/
 │   │   │   ├── openai_compat.py    # OpenAI / vLLM
 │   │   │   └── prompts/            # *.md
@@ -400,6 +404,14 @@ req -> expand (HyDE + terms)
 - XML은 `defusedxml`만 사용 (XXE·billion laughs 차단).
 - PDF: 페이지 수·크기 상한, 자바스크립트·첨부 무시.
 - 허용 확장자·매직바이트 검사 후에만 파서 진입.
+- 구현 (Step 5): `filecheck.open_validated()` 가 `O_NOFOLLOW` 로 열어 검사한 **같은 fd** 를 자식 stdin 으로
+  넘긴다(경로 미전달, TOCTOU 없음). 자식은 `python -I`, 최소 env(`RRA_*` 비밀 미전달), stderr 폐기,
+  `RLIMIT_AS/DATA/CPU/FSIZE=0/CORE=0/NOFILE`. macOS 는 RLIMIT_AS 를 강제하지 않으므로 부모가
+  `proc_pid_rusage`(Linux 는 `/proc/<pid>/statm`)로 RSS 를 50ms 마다 읽어 초과 시 kill (best-effort).
+- 한계: RSS 폴링은 50ms 간격이라 그 사이의 급격한 메모리 스파이크는 놓칠 수 있다. macOS 는 이 폴링이
+  유일한 메모리 방어선이고, Linux·WSL 은 OS rlimit(`RLIMIT_AS/DATA`)이 병행되어 커널이 즉시 할당을 거부한다.
+- 자식 출력(JSON)도 비신뢰: 크기 상한 + pydantic 재검증. 실패는 `SandboxError` 하위 클래스로만 올라온다.
+- 실패 파일은 `inbox/_quarantine/` 으로 이동, 로그는 `error=<클래스명> file=sha256:<8자>` 만.
 
 #### C. 아웃바운드 허용목록 — `adapters/sources/_base.py`
 - httpx 클라이언트에 **도메인 허용목록** 강제 (`api.openalex.org`, `apis.data.go.kr`, `plus.kipris.or.kr`, `www.ntis.go.kr` 등 config/sources.yaml 선언분만).
