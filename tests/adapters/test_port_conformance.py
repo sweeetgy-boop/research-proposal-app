@@ -7,16 +7,19 @@ import pytest
 from rra.adapters.embedding import SentenceTransformerEmbedding
 from rra.adapters.llm import FilePromptLibrary, OpenAICompatLLM
 from rra.adapters.persistence import SQLiteDocumentRepository
+from rra.adapters.sources import OpenAlexSource
 from rra.application.ports.embedding import EmbeddingPort
 from rra.application.ports.llm import LLMPort
 from rra.application.ports.prompt_library import PromptLibraryPort
 from rra.application.ports.repository import DocumentRepository
+from rra.application.ports.source import SourcePort
 
 CASES = [
     (DocumentRepository, SQLiteDocumentRepository),
     (EmbeddingPort, SentenceTransformerEmbedding),
     (LLMPort, OpenAICompatLLM),
     (PromptLibraryPort, FilePromptLibrary),
+    (SourcePort, OpenAlexSource),
 ]
 
 
@@ -66,3 +69,7 @@ def test_fakes_still_satisfy_the_embedding_port():
         assert isinstance(fake.dim, int)
         assert len(fake.embed(["a"])[0]) == fake.dim or fake.dim == 4
         assert fake.embed_query(["a"])
+
+
+def test_openalex_declares_source_name():
+    assert OpenAlexSource.source == "openalex"

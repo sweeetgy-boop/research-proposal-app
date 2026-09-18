@@ -105,3 +105,22 @@ class FakeRunLog:
 
     def record(self, run_id, manifest):
         self.records.append((run_id, manifest))
+
+
+class FakeSource:
+    """SourcePort fake. raws 는 Document 필드 dict. normalize 는 그대로 검증만 한다."""
+
+    def __init__(self, source: str, raws: list[dict[str, Any]], *, fail: bool = False):
+        self.source = source
+        self.raws = raws
+        self.fail = fail
+        self.calls: list[tuple[str | None, int]] = []
+
+    async def search(self, query, limit):
+        self.calls.append((query, limit))
+        if self.fail:
+            raise RuntimeError("https://example.invalid/?serviceKey=SECRET 연결 실패")
+        return self.raws[:limit]
+
+    def normalize(self, raw):
+        return Document.model_validate(raw)

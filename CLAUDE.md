@@ -36,10 +36,11 @@
 - DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 
 ## 현재 단계
-Step 3 완료 — adapters/llm/openai_compat.py(재시도·json_mode 폴백·보안 H), prompts/*.md +
-PromptLibraryPort, composition.build_llm/build_prompt_library/build_precheck,
-MCP stdio 서버(rra_precheck·rra_search, 읽기 전용), CLI precheck·search·llm-check·mcp.
-다음: Step 4 — adapters/sources/openalex.py (키 불필요), ingest_sources 유스케이스, ingest→search 왕복 검증.
+Step 4 완료 — adapters/sources/_base.py check_url()·GuardedClient(허용목록, 리다이렉트 hop별 재검사,
+사설IP·루프백 거부, 응답 상한), adapters/sources/openalex.py(OpenAlexSource, normalize 순수 함수),
+usecases/ingest_sources.py(dedup → chunking → upsert 1회), composition.build_sources/build_ingest, CLI ingest.
+fixture: tests/fixtures/openalex/ (실제 응답). 원본 디스크 캐시는 미구현.
+다음: Step 5 — adapters/sources/alio/ (catalog·filedrop·extract·_sandbox.py, 보안 B).
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.

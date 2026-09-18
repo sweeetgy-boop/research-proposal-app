@@ -11,11 +11,15 @@ from rra.settings import Settings, load_settings
 
 __all__ = [
     "Settings",
+    "SOURCE_NAMES",
     "build_embedding",
+    "build_ingest",
     "build_llm",
+    "build_openalex_source",
     "build_precheck",
     "build_prompt_library",
     "build_repository",
+    "build_sources",
     "llm_config",
     "load_settings",
     "read_config",
@@ -131,6 +135,62 @@ def build_llm(settings: Settings | None = None, *, stage: str = DEFAULT_STAGE):
         timeout=httpx.Timeout(**cfg["timeout"]),
         retry=RetryPolicy(**cfg["retry"]),
     )
+
+
+def build_openalex_source(settings: Settings | None = None, *, transport=None):
+    """OpenAlexSource. 허용목록은 security.yaml, 요청 정책은 sources.yaml 에서 읽는다 (보안 C)."""
+    import httpx
+
+    from rra.adapters.sources import GuardedClient, OpenAlexSource
+
+    settings = settings or load_settings()
+    security = read_config("security.yaml", settings)
+    cfg = read_config("sources.yaml", settings).get("openalex") or {}
+    timeout = cfg.get("timeout") or {}
+    client = GuardedClient(
+        security.get("allowed_domains") or [],
+        timeout=httpx.Timeout(
+            float(timeout.get("connect", 10)), read=float(timeout.get("read", 30))
+        ),
+        max_redirects=int(cfg.get("max_redirects", 3)),
+        max_response_bytes=int(float(cfg.get("max_response_mb", 20)) * 1024 * 1024),
+        rate_limit=float(cfg["rate_limit"]) if cfg.get("rate_limit") else None,
+        retries=int(cfg.get("retries", 3)),
+        transport=transport,
+    )
+    limits = security.get("input_limits") or {}
+    return OpenAlexSource(
+        client,
+        base_url=str(cfg.get("base_url", "https://api.openalex.org")),
+        per_page=int(cfg.get("per_page", 100)),
+        default_query=str(cfg.get("default_query", "railway")),
+        lookback_days=int(cfg.get("lookback_days", 7)),
+        query_max_chars=int(limits.get("query_max_chars", 500)),
+        mailto=cfg.get("mailto") or None,
+    )
+
+
+_SOURCE_BUILDERS = {"openalex": build_openalex_source}
+SOURCE_NAMES = tuple(_SOURCE_BUILDERS)
+
+
+def build_sources(names: list[str], settings: Settings | None = None) -> list:
+    """이름 목록 → SourcePort 구현체 목록. 모르는 이름은 KeyError."""
+    unknown = [n for n in names if n not in _SOURCE_BUILDERS]
+    if unknown:
+        raise KeyError(f"알 수 없는 소스: {unknown} (가능: {list(SOURCE_NAMES)})")
+    settings = settings or load_settings()
+    return [_SOURCE_BUILDERS[n](settings) for n in names]
+
+
+def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit: int = 200):
+    """IngestSources 유스케이스. repo 를 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.ingest_sources import IngestSources
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return IngestSources(sources, repo, limit=limit)
 
 
 def build_precheck(settings: Settings | None = None, repo=None):

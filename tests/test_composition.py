@@ -96,3 +96,47 @@ def test_prompt_library_prefers_config_override(config_dir):
 
 def test_prompt_library_falls_back_to_package(config_dir):
     assert "<doc" in build_prompt_library(settings_for(config_dir)).system()
+
+
+# ── sources ───────────────────────────────────────────────
+def test_openalex_source_reads_allowlist_and_policy(tmp_path):
+    from rra.composition import build_openalex_source
+
+    (tmp_path / "security.yaml").write_text(
+        "allowed_domains: [api.openalex.org]\ninput_limits: {query_max_chars: 42}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sources.yaml").write_text(
+        "openalex: {rate_limit: 5, per_page: 50, default_query: tram, lookback_days: 3,"
+        " max_response_mb: 1, max_redirects: 2}\n",
+        encoding="utf-8",
+    )
+    src = build_openalex_source(settings_for(tmp_path))
+    assert src.client.allowed == {"api.openalex.org"}
+    assert src.client.min_interval == pytest.approx(0.2)
+    assert src.client.max_response_bytes == 1024 * 1024
+    assert src.client.max_redirects == 2
+    assert (src.per_page, src.default_query, src.lookback_days) == (50, "tram", 3)
+    assert src.query_max_chars == 42
+    assert src.mailto is None
+
+
+def test_missing_security_yaml_means_nothing_is_allowed(tmp_path):
+    from rra.composition import build_openalex_source
+
+    assert build_openalex_source(settings_for(tmp_path)).client.allowed == set()
+
+
+def test_unknown_source_is_rejected(tmp_path):
+    from rra.composition import build_sources
+
+    with pytest.raises(KeyError):
+        build_sources(["dart"], settings_for(tmp_path))
+
+
+def test_project_config_allows_openalex():
+    from rra.composition import build_openalex_source
+
+    src = build_openalex_source(Settings(_env_file=None))
+    assert "api.openalex.org" in src.client.allowed
+    assert src.base_url == "https://api.openalex.org"

@@ -144,10 +144,71 @@ def test_llm_check_round_trip(monkeypatch, capsys):
 
 
 def test_unimplemented_commands_report_clearly(capsys):
-    assert cli.main(["ingest"]) == cli.EXIT_USAGE
+    assert cli.main(["generate"]) == cli.EXIT_USAGE
     assert "아직 구현 전" in capsys.readouterr().err
 
 
 def test_mcp_subcommand_rejects_other_transports():
     with pytest.raises(SystemExit):
         cli.main(["mcp", "--transport", "streamable-http"])
+
+
+# ── ingest ────────────────────────────────────────────────
+class StubSource:
+    source = "openalex"
+
+    def __init__(self):
+        self.closed = False
+
+    async def aclose(self):
+        self.closed = True
+
+
+def _stub_ingest(monkeypatch, report):
+    src = StubSource()
+    seen = {}
+
+    async def ingest(query):
+        seen["query"] = query
+        return report
+
+    def build_ingest(settings, *, sources, limit):
+        seen["limit"] = limit
+        seen["sources"] = sources
+        return ingest
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_sources", lambda names, s: [src])
+    monkeypatch.setattr("rra.composition.build_ingest", build_ingest)
+    return src, seen
+
+
+def test_ingest_reports_counts_and_closes_sources(monkeypatch, capsys):
+    from rra.application.usecases.ingest_sources import IngestReport
+
+    report = IngestReport(
+        fetched={"openalex": 5}, normalized={"openalex": 4}, skipped={"openalex": 1},
+        deduped=1, stored=3, chunks=3,
+    )
+    src, seen = _stub_ingest(monkeypatch, report)
+    assert cli.main(["ingest", "--query", "rail", "--limit", "5"]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "수집 5건" in out and "저장 3건" in out
+    assert seen == {"limit": 5, "sources": [src], "query": "rail"}
+    assert src.closed
+
+
+def test_ingest_without_query_is_incremental(monkeypatch, capsys):
+    from rra.application.usecases.ingest_sources import IngestReport
+
+    _, seen = _stub_ingest(monkeypatch, IngestReport())
+    cli.main(["ingest"])
+    assert seen["query"] is None
+
+
+def test_ingest_failure_sets_exit_code_and_json(monkeypatch, capsys):
+    from rra.application.usecases.ingest_sources import IngestReport
+
+    _stub_ingest(monkeypatch, IngestReport(failed={"openalex": "FetchError"}))
+    assert cli.main(["ingest", "--json"]) == cli.EXIT_ERROR
+    assert json.loads(capsys.readouterr().out)["failed"] == {"openalex": "FetchError"}

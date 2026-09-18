@@ -1,0 +1,3025 @@
+{
+ "_note": "works_page1.json 의 실제 레코드(W1966732442)를 복사해 필드만 바꾼 엣지 케이스. id 는 가짜.",
+ "results": [
+  {
+   "id": "https://openalex.org/W9000000001",
+   "doi": null,
+   "display_name": "Perspectives on railway track geometry condition monitoring from in-service railway vehicles",
+   "publication_date": "2015-04-30",
+   "language": "en",
+   "authorships": [
+    {
+     "author_position": "first",
+     "author": {
+      "id": "https://openalex.org/A5053975534",
+      "display_name": "Paul Weston",
+      "orcid": null
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "P. Weston",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "middle",
+     "author": {
+      "id": "https://openalex.org/A5114375483",
+      "display_name": "Clive Roberts",
+      "orcid": "https://orcid.org/0000-0002-1518-2105"
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": true,
+     "raw_author_name": "C. Roberts",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "middle",
+     "author": {
+      "id": "https://openalex.org/A5086344959",
+      "display_name": "Graeme Yeo",
+      "orcid": "https://orcid.org/0000-0001-7190-8065"
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "G. Yeo",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "last",
+     "author": {
+      "id": "https://openalex.org/A5032168338",
+      "display_name": "Edward Stewart",
+      "orcid": null
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "E. Stewart",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "This": [
+     0
+    ],
+    "paper": [
+     1
+    ],
+    "presents": [
+     2
+    ],
+    "a": [
+     3,
+     68
+    ],
+    "view": [
+     4
+    ],
+    "of": [
+     5,
+     9,
+     27,
+     32,
+     113,
+     128,
+     179,
+     181,
+     191
+    ],
+    "the": [
+     6,
+     30,
+     39,
+     71,
+     78,
+     81,
+     111,
+     126,
+     148,
+     153,
+     173,
+     177
+    ],
+    "current": [
+     7
+    ],
+    "state": [
+     8
+    ],
+    "monitoring": [
+     10
+    ],
+    "track": [
+     11,
+     55,
+     83,
+     93,
+     114,
+     139,
+     182,
+     197,
+     224,
+     245,
+     262
+    ],
+    "geometry": [
+     12,
+     56,
+     94,
+     140,
+     157,
+     183,
+     198,
+     225,
+     263
+    ],
+    "condition": [
+     13,
+     23,
+     115
+    ],
+    "from": [
+     14,
+     57,
+     228
+    ],
+    "in-service": [
+     15,
+     59,
+     145,
+     233
+    ],
+    "vehicles.": [
+     16
+    ],
+    "It": [
+     17
+    ],
+    "considers": [
+     18
+    ],
+    "technology": [
+     19
+    ],
+    "used": [
+     20,
+     100
+    ],
+    "to": [
+     21,
+     101,
+     109,
+     117,
+     124,
+     222,
+     243,
+     259
+    ],
+    "provide": [
+     22
+    ],
+    "monitoring;": [
+     24
+    ],
+    "some": [
+     25,
+     196,
+     249
+    ],
+    "issues": [
+     26
+    ],
+    "processing": [
+     28
+    ],
+    "and": [
+     29,
+     42,
+     85,
+     123,
+     150,
+     204,
+     220
+    ],
+    "determination": [
+     31
+    ],
+    "location;": [
+     33
+    ],
+    "how": [
+     34
+    ],
+    "things": [
+     35
+    ],
+    "have": [
+     36
+    ],
+    "evolved": [
+     37
+    ],
+    "over": [
+     38,
+     84,
+     86
+    ],
+    "past": [
+     40,
+     72
+    ],
+    "decade;": [
+     41
+    ],
+    "what": [
+     43
+    ],
+    "is": [
+     44,
+     61,
+     76,
+     107,
+     121,
+     169
+    ],
+    "being,": [
+     45
+    ],
+    "or": [
+     46,
+     201,
+     256
+    ],
+    "could/should": [
+     47
+    ],
+    "be": [
+     48,
+     99,
+     165
+    ],
+    "done": [
+     49,
+     171
+    ],
+    "in": [
+     50,
+     70,
+     147
+    ],
+    "future": [
+     51
+    ],
+    "research.": [
+     52
+    ],
+    "Monitoring": [
+     53
+    ],
+    "railway": [
+     54
+    ],
+    "an": [
+     58,
+     62,
+     89,
+     232
+    ],
+    "vehicle": [
+     60
+    ],
+    "attractive": [
+     63
+    ],
+    "proposition": [
+     64
+    ],
+    "that": [
+     65,
+     96,
+     184,
+     194,
+     217,
+     239
+    ],
+    "has": [
+     66
+    ],
+    "become": [
+     67
+    ],
+    "reality": [
+     69
+    ],
+    "decade.": [
+     73
+    ],
+    "However,": [
+     74
+    ],
+    "this": [
+     75
+    ],
+    "only": [
+     77
+    ],
+    "beginning.": [
+     79
+    ],
+    "Seeing": [
+     80
+    ],
+    "same": [
+     82
+    ],
+    "again": [
+     87
+    ],
+    "provides": [
+     88
+    ],
+    "opportunity": [
+     90
+    ],
+    "for": [
+     91
+    ],
+    "observing": [
+     92
+    ],
+    "degradation": [
+     95,
+     127
+    ],
+    "can": [
+     97,
+     164
+    ],
+    "potentially": [
+     98
+    ],
+    "inform": [
+     102
+    ],
+    "maintenance": [
+     103,
+     120
+    ],
+    "decisions.": [
+     104
+    ],
+    "Furthermore,": [
+     105
+    ],
+    "it": [
+     106
+    ],
+    "possible": [
+     108
+    ],
+    "extend": [
+     110
+    ],
+    "use": [
+     112,
+     218
+    ],
+    "information": [
+     116
+    ],
+    "identify": [
+     118
+    ],
+    "if": [
+     119
+    ],
+    "effective,": [
+     122
+    ],
+    "monitor": [
+     125,
+     248
+    ],
+    "individual": [
+     129
+    ],
+    "faults": [
+     130
+    ],
+    "such": [
+     131,
+     209,
+     252
+    ],
+    "as": [
+     132,
+     210,
+     253
+    ],
+    "dipped": [
+     133
+    ],
+    "joints.": [
+     134
+    ],
+    "There": [
+     135,
+     188
+    ],
+    "are": [
+     136,
+     189,
+     214,
+     237
+    ],
+    "full": [
+     137
+    ],
+    "unattended": [
+     138
+    ],
+    "measurement": [
+     141
+    ],
+    "systems": [
+     142,
+     193,
+     216,
+     238
+    ],
+    "running": [
+     143
+    ],
+    "on": [
+     144,
+     231
+    ],
+    "vehicles": [
+     146
+    ],
+    "UK": [
+     149
+    ],
+    "elsewhere": [
+     151
+    ],
+    "around": [
+     152
+    ],
+    "world,": [
+     154
+    ],
+    "feeding": [
+     155
+    ],
+    "their": [
+     156
+    ],
+    "measurements": [
+     158
+    ],
+    "into": [
+     159
+    ],
+    "large": [
+     160
+    ],
+    "databases.": [
+     161
+    ],
+    "These": [
+     162
+    ],
+    "data": [
+     163,
+     174,
+     227
+    ],
+    "retrieved,": [
+     166
+    ],
+    "but": [
+     167,
+     206,
+     247
+    ],
+    "little": [
+     168
+    ],
+    "currently": [
+     170
+    ],
+    "with": [
+     172
+    ],
+    "other": [
+     175,
+     250
+    ],
+    "than": [
+     176
+    ],
+    "generation": [
+     178
+    ],
+    "reports": [
+     180
+    ],
+    "exceeds": [
+     185
+    ],
+    "predefined": [
+     186
+    ],
+    "thresholds.": [
+     187
+    ],
+    "examples": [
+     190
+    ],
+    "simpler": [
+     192
+    ],
+    "measure": [
+     195,
+     244
+    ],
+    "parameters": [
+     199,
+     208
+    ],
+    "more": [
+     200
+    ],
+    "less": [
+     202
+    ],
+    "directly": [
+     203
+    ],
+    "accurately,": [
+     205
+    ],
+    "forego": [
+     207
+    ],
+    "gauge.": [
+     211
+    ],
+    "Additionally,": [
+     212
+    ],
+    "there": [
+     213,
+     236
+    ],
+    "experimental": [
+     215
+    ],
+    "mathematics": [
+     219
+    ],
+    "models": [
+     221
+    ],
+    "infer": [
+     223,
+     260
+    ],
+    "using": [
+     226
+    ],
+    "sensors": [
+     229
+    ],
+    "placed": [
+     230
+    ],
+    "vehicle.": [
+     234
+    ],
+    "Finally,": [
+     235
+    ],
+    "do": [
+     240
+    ],
+    "not": [
+     241
+    ],
+    "claim": [
+     242
+    ],
+    "geometry,": [
+     246
+    ],
+    "quantity": [
+     251
+    ],
+    "ride": [
+     254
+    ],
+    "quality": [
+     255
+    ],
+    "bogie": [
+     257
+    ],
+    "acceleration": [
+     258
+    ],
+    "poor": [
+     261
+    ],
+    "without": [
+     264
+    ],
+    "explicitly": [
+     265
+    ],
+    "measuring": [
+     266
+    ],
+    "it.": [
+     267
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.1080/00423114.2015.1034730",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.1080/00423114.2015.1034730",
+    "pdf_url": "https://www.tandfonline.com/doi/pdf/10.1080/00423114.2015.1034730?needAccess=true",
+    "source": {
+     "id": "https://openalex.org/S59320183",
+     "display_name": "Vehicle System Dynamics",
+     "issn_l": "0042-3114",
+     "issn": [
+      "0042-3114",
+      "1744-5159"
+     ],
+     "is_oa": false,
+     "is_in_doaj": false,
+     "is_core": true,
+     "host_organization": "https://openalex.org/P4310320547",
+     "host_organization_name": "Taylor & Francis",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310320547",
+      "https://openalex.org/P4310320449"
+     ],
+     "host_organization_lineage_names": [
+      "Taylor & Francis",
+      "Informa"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Vehicle System Dynamics",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W9000000002",
+   "doi": "https://doi.org/10.1080/00423114.2015.1034730",
+   "display_name": null,
+   "publication_date": "2015-04-30",
+   "language": "en",
+   "authorships": [
+    {
+     "author_position": "first",
+     "author": {
+      "id": "https://openalex.org/A5053975534",
+      "display_name": "Paul Weston",
+      "orcid": null
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "P. Weston",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "middle",
+     "author": {
+      "id": "https://openalex.org/A5114375483",
+      "display_name": "Clive Roberts",
+      "orcid": "https://orcid.org/0000-0002-1518-2105"
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": true,
+     "raw_author_name": "C. Roberts",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "middle",
+     "author": {
+      "id": "https://openalex.org/A5086344959",
+      "display_name": "Graeme Yeo",
+      "orcid": "https://orcid.org/0000-0001-7190-8065"
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "G. Yeo",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "last",
+     "author": {
+      "id": "https://openalex.org/A5032168338",
+      "display_name": "Edward Stewart",
+      "orcid": null
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "E. Stewart",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "This": [
+     0
+    ],
+    "paper": [
+     1
+    ],
+    "presents": [
+     2
+    ],
+    "a": [
+     3,
+     68
+    ],
+    "view": [
+     4
+    ],
+    "of": [
+     5,
+     9,
+     27,
+     32,
+     113,
+     128,
+     179,
+     181,
+     191
+    ],
+    "the": [
+     6,
+     30,
+     39,
+     71,
+     78,
+     81,
+     111,
+     126,
+     148,
+     153,
+     173,
+     177
+    ],
+    "current": [
+     7
+    ],
+    "state": [
+     8
+    ],
+    "monitoring": [
+     10
+    ],
+    "track": [
+     11,
+     55,
+     83,
+     93,
+     114,
+     139,
+     182,
+     197,
+     224,
+     245,
+     262
+    ],
+    "geometry": [
+     12,
+     56,
+     94,
+     140,
+     157,
+     183,
+     198,
+     225,
+     263
+    ],
+    "condition": [
+     13,
+     23,
+     115
+    ],
+    "from": [
+     14,
+     57,
+     228
+    ],
+    "in-service": [
+     15,
+     59,
+     145,
+     233
+    ],
+    "vehicles.": [
+     16
+    ],
+    "It": [
+     17
+    ],
+    "considers": [
+     18
+    ],
+    "technology": [
+     19
+    ],
+    "used": [
+     20,
+     100
+    ],
+    "to": [
+     21,
+     101,
+     109,
+     117,
+     124,
+     222,
+     243,
+     259
+    ],
+    "provide": [
+     22
+    ],
+    "monitoring;": [
+     24
+    ],
+    "some": [
+     25,
+     196,
+     249
+    ],
+    "issues": [
+     26
+    ],
+    "processing": [
+     28
+    ],
+    "and": [
+     29,
+     42,
+     85,
+     123,
+     150,
+     204,
+     220
+    ],
+    "determination": [
+     31
+    ],
+    "location;": [
+     33
+    ],
+    "how": [
+     34
+    ],
+    "things": [
+     35
+    ],
+    "have": [
+     36
+    ],
+    "evolved": [
+     37
+    ],
+    "over": [
+     38,
+     84,
+     86
+    ],
+    "past": [
+     40,
+     72
+    ],
+    "decade;": [
+     41
+    ],
+    "what": [
+     43
+    ],
+    "is": [
+     44,
+     61,
+     76,
+     107,
+     121,
+     169
+    ],
+    "being,": [
+     45
+    ],
+    "or": [
+     46,
+     201,
+     256
+    ],
+    "could/should": [
+     47
+    ],
+    "be": [
+     48,
+     99,
+     165
+    ],
+    "done": [
+     49,
+     171
+    ],
+    "in": [
+     50,
+     70,
+     147
+    ],
+    "future": [
+     51
+    ],
+    "research.": [
+     52
+    ],
+    "Monitoring": [
+     53
+    ],
+    "railway": [
+     54
+    ],
+    "an": [
+     58,
+     62,
+     89,
+     232
+    ],
+    "vehicle": [
+     60
+    ],
+    "attractive": [
+     63
+    ],
+    "proposition": [
+     64
+    ],
+    "that": [
+     65,
+     96,
+     184,
+     194,
+     217,
+     239
+    ],
+    "has": [
+     66
+    ],
+    "become": [
+     67
+    ],
+    "reality": [
+     69
+    ],
+    "decade.": [
+     73
+    ],
+    "However,": [
+     74
+    ],
+    "this": [
+     75
+    ],
+    "only": [
+     77
+    ],
+    "beginning.": [
+     79
+    ],
+    "Seeing": [
+     80
+    ],
+    "same": [
+     82
+    ],
+    "again": [
+     87
+    ],
+    "provides": [
+     88
+    ],
+    "opportunity": [
+     90
+    ],
+    "for": [
+     91
+    ],
+    "observing": [
+     92
+    ],
+    "degradation": [
+     95,
+     127
+    ],
+    "can": [
+     97,
+     164
+    ],
+    "potentially": [
+     98
+    ],
+    "inform": [
+     102
+    ],
+    "maintenance": [
+     103,
+     120
+    ],
+    "decisions.": [
+     104
+    ],
+    "Furthermore,": [
+     105
+    ],
+    "it": [
+     106
+    ],
+    "possible": [
+     108
+    ],
+    "extend": [
+     110
+    ],
+    "use": [
+     112,
+     218
+    ],
+    "information": [
+     116
+    ],
+    "identify": [
+     118
+    ],
+    "if": [
+     119
+    ],
+    "effective,": [
+     122
+    ],
+    "monitor": [
+     125,
+     248
+    ],
+    "individual": [
+     129
+    ],
+    "faults": [
+     130
+    ],
+    "such": [
+     131,
+     209,
+     252
+    ],
+    "as": [
+     132,
+     210,
+     253
+    ],
+    "dipped": [
+     133
+    ],
+    "joints.": [
+     134
+    ],
+    "There": [
+     135,
+     188
+    ],
+    "are": [
+     136,
+     189,
+     214,
+     237
+    ],
+    "full": [
+     137
+    ],
+    "unattended": [
+     138
+    ],
+    "measurement": [
+     141
+    ],
+    "systems": [
+     142,
+     193,
+     216,
+     238
+    ],
+    "running": [
+     143
+    ],
+    "on": [
+     144,
+     231
+    ],
+    "vehicles": [
+     146
+    ],
+    "UK": [
+     149
+    ],
+    "elsewhere": [
+     151
+    ],
+    "around": [
+     152
+    ],
+    "world,": [
+     154
+    ],
+    "feeding": [
+     155
+    ],
+    "their": [
+     156
+    ],
+    "measurements": [
+     158
+    ],
+    "into": [
+     159
+    ],
+    "large": [
+     160
+    ],
+    "databases.": [
+     161
+    ],
+    "These": [
+     162
+    ],
+    "data": [
+     163,
+     174,
+     227
+    ],
+    "retrieved,": [
+     166
+    ],
+    "but": [
+     167,
+     206,
+     247
+    ],
+    "little": [
+     168
+    ],
+    "currently": [
+     170
+    ],
+    "with": [
+     172
+    ],
+    "other": [
+     175,
+     250
+    ],
+    "than": [
+     176
+    ],
+    "generation": [
+     178
+    ],
+    "reports": [
+     180
+    ],
+    "exceeds": [
+     185
+    ],
+    "predefined": [
+     186
+    ],
+    "thresholds.": [
+     187
+    ],
+    "examples": [
+     190
+    ],
+    "simpler": [
+     192
+    ],
+    "measure": [
+     195,
+     244
+    ],
+    "parameters": [
+     199,
+     208
+    ],
+    "more": [
+     200
+    ],
+    "less": [
+     202
+    ],
+    "directly": [
+     203
+    ],
+    "accurately,": [
+     205
+    ],
+    "forego": [
+     207
+    ],
+    "gauge.": [
+     211
+    ],
+    "Additionally,": [
+     212
+    ],
+    "there": [
+     213,
+     236
+    ],
+    "experimental": [
+     215
+    ],
+    "mathematics": [
+     219
+    ],
+    "models": [
+     221
+    ],
+    "infer": [
+     223,
+     260
+    ],
+    "using": [
+     226
+    ],
+    "sensors": [
+     229
+    ],
+    "placed": [
+     230
+    ],
+    "vehicle.": [
+     234
+    ],
+    "Finally,": [
+     235
+    ],
+    "do": [
+     240
+    ],
+    "not": [
+     241
+    ],
+    "claim": [
+     242
+    ],
+    "geometry,": [
+     246
+    ],
+    "quantity": [
+     251
+    ],
+    "ride": [
+     254
+    ],
+    "quality": [
+     255
+    ],
+    "bogie": [
+     257
+    ],
+    "acceleration": [
+     258
+    ],
+    "poor": [
+     261
+    ],
+    "without": [
+     264
+    ],
+    "explicitly": [
+     265
+    ],
+    "measuring": [
+     266
+    ],
+    "it.": [
+     267
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.1080/00423114.2015.1034730",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.1080/00423114.2015.1034730",
+    "pdf_url": "https://www.tandfonline.com/doi/pdf/10.1080/00423114.2015.1034730?needAccess=true",
+    "source": {
+     "id": "https://openalex.org/S59320183",
+     "display_name": "Vehicle System Dynamics",
+     "issn_l": "0042-3114",
+     "issn": [
+      "0042-3114",
+      "1744-5159"
+     ],
+     "is_oa": false,
+     "is_in_doaj": false,
+     "is_core": true,
+     "host_organization": "https://openalex.org/P4310320547",
+     "host_organization_name": "Taylor & Francis",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310320547",
+      "https://openalex.org/P4310320449"
+     ],
+     "host_organization_lineage_names": [
+      "Taylor & Francis",
+      "Informa"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Vehicle System Dynamics",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W9000000003",
+   "doi": "https://doi.org/10.1080/00423114.2015.1034730",
+   "display_name": "  Track\u0000 geometry\u001b[31m <i>monitoring</i>  ",
+   "publication_date": "2015-04-30",
+   "language": "en",
+   "authorships": [
+    {
+     "author_position": "first",
+     "author": {
+      "id": "https://openalex.org/A5053975534",
+      "display_name": "Paul Weston",
+      "orcid": null
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "P. Weston",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "middle",
+     "author": {
+      "id": "https://openalex.org/A5114375483",
+      "display_name": "Clive Roberts",
+      "orcid": "https://orcid.org/0000-0002-1518-2105"
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": true,
+     "raw_author_name": "C. Roberts",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "middle",
+     "author": {
+      "id": "https://openalex.org/A5086344959",
+      "display_name": "Graeme Yeo",
+      "orcid": "https://orcid.org/0000-0001-7190-8065"
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "G. Yeo",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    },
+    {
+     "author_position": "last",
+     "author": {
+      "id": "https://openalex.org/A5032168338",
+      "display_name": "Edward Stewart",
+      "orcid": null
+     },
+     "institutions": [
+      {
+       "id": "https://openalex.org/I79619799",
+       "display_name": "University of Birmingham",
+       "ror": "https://ror.org/03angcq70",
+       "country_code": "GB",
+       "type": "education",
+       "lineage": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ],
+     "countries": [
+      "GB"
+     ],
+     "is_corresponding": false,
+     "raw_author_name": "E. Stewart",
+     "raw_affiliation_strings": [
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+      "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK"
+     ],
+     "raw_orcid": null,
+     "affiliations": [
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, BirminghamB15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      },
+      {
+       "raw_affiliation_string": "Centre for Railway Research and Education, Department of Electronic, Electrical and Systems Engineering, The University of Birmingham, Edgbaston, Birmingham B15 2TT, UK",
+       "institution_ids": [
+        "https://openalex.org/I79619799"
+       ]
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "This": [
+     0
+    ],
+    "paper": [
+     1
+    ],
+    "presents": [
+     2
+    ],
+    "a": [
+     3,
+     68
+    ],
+    "view": [
+     4
+    ],
+    "of": [
+     5,
+     9,
+     27,
+     32,
+     113,
+     128,
+     179,
+     181,
+     191
+    ],
+    "the": [
+     6,
+     30,
+     39,
+     71,
+     78,
+     81,
+     111,
+     126,
+     148,
+     153,
+     173,
+     177
+    ],
+    "current": [
+     7
+    ],
+    "state": [
+     8
+    ],
+    "monitoring": [
+     10
+    ],
+    "track": [
+     11,
+     55,
+     83,
+     93,
+     114,
+     139,
+     182,
+     197,
+     224,
+     245,
+     262
+    ],
+    "geometry": [
+     12,
+     56,
+     94,
+     140,
+     157,
+     183,
+     198,
+     225,
+     263
+    ],
+    "condition": [
+     13,
+     23,
+     115
+    ],
+    "from": [
+     14,
+     57,
+     228
+    ],
+    "in-service": [
+     15,
+     59,
+     145,
+     233
+    ],
+    "vehicles.": [
+     16
+    ],
+    "It": [
+     17
+    ],
+    "considers": [
+     18
+    ],
+    "technology": [
+     19
+    ],
+    "used": [
+     20,
+     100
+    ],
+    "to": [
+     21,
+     101,
+     109,
+     117,
+     124,
+     222,
+     243,
+     259
+    ],
+    "provide": [
+     22
+    ],
+    "monitoring;": [
+     24
+    ],
+    "some": [
+     25,
+     196,
+     249
+    ],
+    "issues": [
+     26
+    ],
+    "processing": [
+     28
+    ],
+    "and": [
+     29,
+     42,
+     85,
+     123,
+     150,
+     204,
+     220
+    ],
+    "determination": [
+     31
+    ],
+    "location;": [
+     33
+    ],
+    "how": [
+     34
+    ],
+    "things": [
+     35
+    ],
+    "have": [
+     36
+    ],
+    "evolved": [
+     37
+    ],
+    "over": [
+     38,
+     84,
+     86
+    ],
+    "past": [
+     40,
+     72
+    ],
+    "decade;": [
+     41
+    ],
+    "what": [
+     43
+    ],
+    "is": [
+     44,
+     61,
+     76,
+     107,
+     121,
+     169
+    ],
+    "being,": [
+     45
+    ],
+    "or": [
+     46,
+     201,
+     256
+    ],
+    "could/should": [
+     47
+    ],
+    "be": [
+     48,
+     99,
+     165
+    ],
+    "done": [
+     49,
+     171
+    ],
+    "in": [
+     50,
+     70,
+     147
+    ],
+    "future": [
+     51
+    ],
+    "research.": [
+     52
+    ],
+    "Monitoring": [
+     53
+    ],
+    "railway": [
+     54
+    ],
+    "an": [
+     58,
+     62,
+     89,
+     232
+    ],
+    "vehicle": [
+     60
+    ],
+    "attractive": [
+     63
+    ],
+    "proposition": [
+     64
+    ],
+    "that": [
+     65,
+     96,
+     184,
+     194,
+     217,
+     239
+    ],
+    "has": [
+     66
+    ],
+    "become": [
+     67
+    ],
+    "reality": [
+     69
+    ],
+    "decade.": [
+     73
+    ],
+    "However,": [
+     74
+    ],
+    "this": [
+     75
+    ],
+    "only": [
+     77
+    ],
+    "beginning.": [
+     79
+    ],
+    "Seeing": [
+     80
+    ],
+    "same": [
+     82
+    ],
+    "again": [
+     87
+    ],
+    "provides": [
+     88
+    ],
+    "opportunity": [
+     90
+    ],
+    "for": [
+     91
+    ],
+    "observing": [
+     92
+    ],
+    "degradation": [
+     95,
+     127
+    ],
+    "can": [
+     97,
+     164
+    ],
+    "potentially": [
+     98
+    ],
+    "inform": [
+     102
+    ],
+    "maintenance": [
+     103,
+     120
+    ],
+    "decisions.": [
+     104
+    ],
+    "Furthermore,": [
+     105
+    ],
+    "it": [
+     106
+    ],
+    "possible": [
+     108
+    ],
+    "extend": [
+     110
+    ],
+    "use": [
+     112,
+     218
+    ],
+    "information": [
+     116
+    ],
+    "identify": [
+     118
+    ],
+    "if": [
+     119
+    ],
+    "effective,": [
+     122
+    ],
+    "monitor": [
+     125,
+     248
+    ],
+    "individual": [
+     129
+    ],
+    "faults": [
+     130
+    ],
+    "such": [
+     131,
+     209,
+     252
+    ],
+    "as": [
+     132,
+     210,
+     253
+    ],
+    "dipped": [
+     133
+    ],
+    "joints.": [
+     134
+    ],
+    "There": [
+     135,
+     188
+    ],
+    "are": [
+     136,
+     189,
+     214,
+     237
+    ],
+    "full": [
+     137
+    ],
+    "unattended": [
+     138
+    ],
+    "measurement": [
+     141
+    ],
+    "systems": [
+     142,
+     193,
+     216,
+     238
+    ],
+    "running": [
+     143
+    ],
+    "on": [
+     144,
+     231
+    ],
+    "vehicles": [
+     146
+    ],
+    "UK": [
+     149
+    ],
+    "elsewhere": [
+     151
+    ],
+    "around": [
+     152
+    ],
+    "world,": [
+     154
+    ],
+    "feeding": [
+     155
+    ],
+    "their": [
+     156
+    ],
+    "measurements": [
+     158
+    ],
+    "into": [
+     159
+    ],
+    "large": [
+     160
+    ],
+    "databases.": [
+     161
+    ],
+    "These": [
+     162
+    ],
+    "data": [
+     163,
+     174,
+     227
+    ],
+    "retrieved,": [
+     166
+    ],
+    "but": [
+     167,
+     206,
+     247
+    ],
+    "little": [
+     168
+    ],
+    "currently": [
+     170
+    ],
+    "with": [
+     172
+    ],
+    "other": [
+     175,
+     250
+    ],
+    "than": [
+     176
+    ],
+    "generation": [
+     178
+    ],
+    "reports": [
+     180
+    ],
+    "exceeds": [
+     185
+    ],
+    "predefined": [
+     186
+    ],
+    "thresholds.": [
+     187
+    ],
+    "examples": [
+     190
+    ],
+    "simpler": [
+     192
+    ],
+    "measure": [
+     195,
+     244
+    ],
+    "parameters": [
+     199,
+     208
+    ],
+    "more": [
+     200
+    ],
+    "less": [
+     202
+    ],
+    "directly": [
+     203
+    ],
+    "accurately,": [
+     205
+    ],
+    "forego": [
+     207
+    ],
+    "gauge.": [
+     211
+    ],
+    "Additionally,": [
+     212
+    ],
+    "there": [
+     213,
+     236
+    ],
+    "experimental": [
+     215
+    ],
+    "mathematics": [
+     219
+    ],
+    "models": [
+     221
+    ],
+    "infer": [
+     223,
+     260
+    ],
+    "using": [
+     226
+    ],
+    "sensors": [
+     229
+    ],
+    "placed": [
+     230
+    ],
+    "vehicle.": [
+     234
+    ],
+    "Finally,": [
+     235
+    ],
+    "do": [
+     240
+    ],
+    "not": [
+     241
+    ],
+    "claim": [
+     242
+    ],
+    "geometry,": [
+     246
+    ],
+    "quantity": [
+     251
+    ],
+    "ride": [
+     254
+    ],
+    "quality": [
+     255
+    ],
+    "bogie": [
+     257
+    ],
+    "acceleration": [
+     258
+    ],
+    "poor": [
+     261
+    ],
+    "without": [
+     264
+    ],
+    "explicitly": [
+     265
+    ],
+    "measuring": [
+     266
+    ],
+    "it.": [
+     267
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.1080/00423114.2015.1034730",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.1080/00423114.2015.1034730",
+    "pdf_url": "https://www.tandfonline.com/doi/pdf/10.1080/00423114.2015.1034730?needAccess=true",
+    "source": {
+     "id": "https://openalex.org/S59320183",
+     "display_name": "Vehicle System Dynamics",
+     "issn_l": "0042-3114",
+     "issn": [
+      "0042-3114",
+      "1744-5159"
+     ],
+     "is_oa": false,
+     "is_in_doaj": false,
+     "is_core": true,
+     "host_organization": "https://openalex.org/P4310320547",
+     "host_organization_name": "Taylor & Francis",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310320547",
+      "https://openalex.org/P4310320449"
+     ],
+     "host_organization_lineage_names": [
+      "Taylor & Francis",
+      "Informa"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Vehicle System Dynamics",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W9000000004",
+   "doi": "https://doi.org/10.1080/00423114.2015.1034730",
+   "display_name": "Perspectives on railway track geometry condition monitoring from in-service railway vehicles",
+   "publication_date": "not-a-date",
+   "language": null,
+   "authorships": [],
+   "abstract_inverted_index": {
+    "This": [
+     0
+    ],
+    "paper": [
+     1
+    ],
+    "presents": [
+     2
+    ],
+    "a": [
+     3,
+     68
+    ],
+    "view": [
+     4
+    ],
+    "of": [
+     5,
+     9,
+     27,
+     32,
+     113,
+     128,
+     179,
+     181,
+     191
+    ],
+    "the": [
+     6,
+     30,
+     39,
+     71,
+     78,
+     81,
+     111,
+     126,
+     148,
+     153,
+     173,
+     177
+    ],
+    "current": [
+     7
+    ],
+    "state": [
+     8
+    ],
+    "monitoring": [
+     10
+    ],
+    "track": [
+     11,
+     55,
+     83,
+     93,
+     114,
+     139,
+     182,
+     197,
+     224,
+     245,
+     262
+    ],
+    "geometry": [
+     12,
+     56,
+     94,
+     140,
+     157,
+     183,
+     198,
+     225,
+     263
+    ],
+    "condition": [
+     13,
+     23,
+     115
+    ],
+    "from": [
+     14,
+     57,
+     228
+    ],
+    "in-service": [
+     15,
+     59,
+     145,
+     233
+    ],
+    "vehicles.": [
+     16
+    ],
+    "It": [
+     17
+    ],
+    "considers": [
+     18
+    ],
+    "technology": [
+     19
+    ],
+    "used": [
+     20,
+     100
+    ],
+    "to": [
+     21,
+     101,
+     109,
+     117,
+     124,
+     222,
+     243,
+     259
+    ],
+    "provide": [
+     22
+    ],
+    "monitoring;": [
+     24
+    ],
+    "some": [
+     25,
+     196,
+     249
+    ],
+    "issues": [
+     26
+    ],
+    "processing": [
+     28
+    ],
+    "and": [
+     29,
+     42,
+     85,
+     123,
+     150,
+     204,
+     220
+    ],
+    "determination": [
+     31
+    ],
+    "location;": [
+     33
+    ],
+    "how": [
+     34
+    ],
+    "things": [
+     35
+    ],
+    "have": [
+     36
+    ],
+    "evolved": [
+     37
+    ],
+    "over": [
+     38,
+     84,
+     86
+    ],
+    "past": [
+     40,
+     72
+    ],
+    "decade;": [
+     41
+    ],
+    "what": [
+     43
+    ],
+    "is": [
+     44,
+     61,
+     76,
+     107,
+     121,
+     169
+    ],
+    "being,": [
+     45
+    ],
+    "or": [
+     46,
+     201,
+     256
+    ],
+    "could/should": [
+     47
+    ],
+    "be": [
+     48,
+     99,
+     165
+    ],
+    "done": [
+     49,
+     171
+    ],
+    "in": [
+     50,
+     70,
+     147
+    ],
+    "future": [
+     51
+    ],
+    "research.": [
+     52
+    ],
+    "Monitoring": [
+     53
+    ],
+    "railway": [
+     54
+    ],
+    "an": [
+     58,
+     62,
+     89,
+     232
+    ],
+    "vehicle": [
+     60
+    ],
+    "attractive": [
+     63
+    ],
+    "proposition": [
+     64
+    ],
+    "that": [
+     65,
+     96,
+     184,
+     194,
+     217,
+     239
+    ],
+    "has": [
+     66
+    ],
+    "become": [
+     67
+    ],
+    "reality": [
+     69
+    ],
+    "decade.": [
+     73
+    ],
+    "However,": [
+     74
+    ],
+    "this": [
+     75
+    ],
+    "only": [
+     77
+    ],
+    "beginning.": [
+     79
+    ],
+    "Seeing": [
+     80
+    ],
+    "same": [
+     82
+    ],
+    "again": [
+     87
+    ],
+    "provides": [
+     88
+    ],
+    "opportunity": [
+     90
+    ],
+    "for": [
+     91
+    ],
+    "observing": [
+     92
+    ],
+    "degradation": [
+     95,
+     127
+    ],
+    "can": [
+     97,
+     164
+    ],
+    "potentially": [
+     98
+    ],
+    "inform": [
+     102
+    ],
+    "maintenance": [
+     103,
+     120
+    ],
+    "decisions.": [
+     104
+    ],
+    "Furthermore,": [
+     105
+    ],
+    "it": [
+     106
+    ],
+    "possible": [
+     108
+    ],
+    "extend": [
+     110
+    ],
+    "use": [
+     112,
+     218
+    ],
+    "information": [
+     116
+    ],
+    "identify": [
+     118
+    ],
+    "if": [
+     119
+    ],
+    "effective,": [
+     122
+    ],
+    "monitor": [
+     125,
+     248
+    ],
+    "individual": [
+     129
+    ],
+    "faults": [
+     130
+    ],
+    "such": [
+     131,
+     209,
+     252
+    ],
+    "as": [
+     132,
+     210,
+     253
+    ],
+    "dipped": [
+     133
+    ],
+    "joints.": [
+     134
+    ],
+    "There": [
+     135,
+     188
+    ],
+    "are": [
+     136,
+     189,
+     214,
+     237
+    ],
+    "full": [
+     137
+    ],
+    "unattended": [
+     138
+    ],
+    "measurement": [
+     141
+    ],
+    "systems": [
+     142,
+     193,
+     216,
+     238
+    ],
+    "running": [
+     143
+    ],
+    "on": [
+     144,
+     231
+    ],
+    "vehicles": [
+     146
+    ],
+    "UK": [
+     149
+    ],
+    "elsewhere": [
+     151
+    ],
+    "around": [
+     152
+    ],
+    "world,": [
+     154
+    ],
+    "feeding": [
+     155
+    ],
+    "their": [
+     156
+    ],
+    "measurements": [
+     158
+    ],
+    "into": [
+     159
+    ],
+    "large": [
+     160
+    ],
+    "databases.": [
+     161
+    ],
+    "These": [
+     162
+    ],
+    "data": [
+     163,
+     174,
+     227
+    ],
+    "retrieved,": [
+     166
+    ],
+    "but": [
+     167,
+     206,
+     247
+    ],
+    "little": [
+     168
+    ],
+    "currently": [
+     170
+    ],
+    "with": [
+     172
+    ],
+    "other": [
+     175,
+     250
+    ],
+    "than": [
+     176
+    ],
+    "generation": [
+     178
+    ],
+    "reports": [
+     180
+    ],
+    "exceeds": [
+     185
+    ],
+    "predefined": [
+     186
+    ],
+    "thresholds.": [
+     187
+    ],
+    "examples": [
+     190
+    ],
+    "simpler": [
+     192
+    ],
+    "measure": [
+     195,
+     244
+    ],
+    "parameters": [
+     199,
+     208
+    ],
+    "more": [
+     200
+    ],
+    "less": [
+     202
+    ],
+    "directly": [
+     203
+    ],
+    "accurately,": [
+     205
+    ],
+    "forego": [
+     207
+    ],
+    "gauge.": [
+     211
+    ],
+    "Additionally,": [
+     212
+    ],
+    "there": [
+     213,
+     236
+    ],
+    "experimental": [
+     215
+    ],
+    "mathematics": [
+     219
+    ],
+    "models": [
+     221
+    ],
+    "infer": [
+     223,
+     260
+    ],
+    "using": [
+     226
+    ],
+    "sensors": [
+     229
+    ],
+    "placed": [
+     230
+    ],
+    "vehicle.": [
+     234
+    ],
+    "Finally,": [
+     235
+    ],
+    "do": [
+     240
+    ],
+    "not": [
+     241
+    ],
+    "claim": [
+     242
+    ],
+    "geometry,": [
+     246
+    ],
+    "quantity": [
+     251
+    ],
+    "ride": [
+     254
+    ],
+    "quality": [
+     255
+    ],
+    "bogie": [
+     257
+    ],
+    "acceleration": [
+     258
+    ],
+    "poor": [
+     261
+    ],
+    "without": [
+     264
+    ],
+    "explicitly": [
+     265
+    ],
+    "measuring": [
+     266
+    ],
+    "it.": [
+     267
+    ]
+   },
+   "primary_location": null,
+   "type": "article"
+  }
+ ]
+}

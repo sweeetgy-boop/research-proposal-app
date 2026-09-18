@@ -40,3 +40,22 @@ def test_prepare_rejects_bad_limit():
 
 def test_query_and_passage_prefixes_differ():
     assert st_adapter.DEFAULT_QUERY_PREFIX != st_adapter.DEFAULT_PASSAGE_PREFIX
+
+
+def test_embedding_dimension_prefers_new_name():
+    class NewModel:
+        def get_embedding_dimension(self):
+            return 768
+
+        def get_sentence_embedding_dimension(self):  # pragma: no cover
+            raise AssertionError("deprecated name must not be called")
+
+    assert st_adapter.embedding_dimension(NewModel()) == 768
+
+
+def test_embedding_dimension_falls_back_to_old_name():
+    class OldModel:
+        def get_sentence_embedding_dimension(self):
+            return 384
+
+    assert st_adapter.embedding_dimension(OldModel()) == 384

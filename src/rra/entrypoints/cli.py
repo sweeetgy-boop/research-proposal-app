@@ -11,6 +11,7 @@ import json
 import re
 import sys
 import time
+from dataclasses import asdict
 from pathlib import Path
 
 EXIT_OK = 0
@@ -114,6 +115,39 @@ def cmd_llm_check(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── ingest ────────────────────────────────────────────────
+def cmd_ingest(args: argparse.Namespace) -> int:
+    from rra.composition import build_ingest, build_sources, load_settings
+
+    settings = load_settings()
+    names = [n.strip() for n in args.source.split(",") if n.strip()]
+
+    async def run():
+        sources = build_sources(names, settings)
+        try:
+            ingest = build_ingest(settings, sources=sources, limit=args.limit)
+            return await ingest(args.query)
+        finally:
+            for source in sources:
+                await source.aclose()
+
+    report = asyncio.run(run())
+    if args.json:
+        print(json.dumps(asdict(report), ensure_ascii=False, indent=2))
+    else:
+        for name in names:
+            if name in report.failed:
+                print(f"[{_safe(name)}] 실패: {report.failed[name]}")
+                continue
+            print(
+                f"[{_safe(name)}] 수집 {report.fetched.get(name, 0)}건, "
+                f"정규화 {report.normalized.get(name, 0)}건, "
+                f"건너뜀 {report.skipped.get(name, 0)}건"
+            )
+        print(f"저장 {report.stored}건 (중복 제거 {report.deduped}건), 청크 {report.chunks}개")
+    return EXIT_ERROR if report.failed else EXIT_OK
+
+
 # ── mcp ───────────────────────────────────────────────────
 def cmd_mcp(args: argparse.Namespace) -> int:
     from rra.entrypoints.mcp.server import main as mcp_main
@@ -155,9 +189,15 @@ def build_parser() -> argparse.ArgumentParser:
     mcp.add_argument("--transport", default="stdio", choices=["stdio"])
     mcp.set_defaults(handler=cmd_mcp)
 
-    for name in ("ingest", "generate"):
-        todo = sub.add_parser(name, help="Step 4 이후")
-        todo.set_defaults(handler=cmd_todo)
+    ingest = sub.add_parser("ingest", help="외부 소스에서 문서 수집 → DB 적재")
+    ingest.add_argument("--source", default="openalex", help="쉼표로 구분 (현재: openalex)")
+    ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
+    ingest.add_argument("--limit", type=int, default=200, help="소스당 최대 건수")
+    ingest.add_argument("--json", action="store_true", help="JSON 으로 출력")
+    ingest.set_defaults(handler=cmd_ingest)
+
+    todo = sub.add_parser("generate", help="Step 6 이후")
+    todo.set_defaults(handler=cmd_todo)
 
     return parser
 

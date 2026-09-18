@@ -20,6 +20,14 @@ def prepare(texts: list[str], prefix: str, *, max_chars: int = DEFAULT_MAX_CHARS
     return [f"{prefix}{(t or '').strip()[:max_chars]}" for t in texts]
 
 
+def embedding_dimension(model) -> int:
+    """임베딩 차원. 신버전 `get_embedding_dimension` 우선, 구버전 이름으로 폴백."""
+    getter = getattr(model, "get_embedding_dimension", None)
+    if getter is None:
+        getter = model.get_sentence_embedding_dimension
+    return int(getter())
+
+
 class SentenceTransformerEmbedding:
     def __init__(
         self,
@@ -52,7 +60,7 @@ class SentenceTransformerEmbedding:
             local_files_only=local_files_only,
             model_kwargs={"use_safetensors": True},  # H: safetensors 만
         )
-        self.dim = int(self.model.get_sentence_embedding_dimension())
+        self.dim = embedding_dimension(self.model)
 
     def _encode(self, texts: list[str], prefix: str) -> list[list[float]]:
         if not texts:

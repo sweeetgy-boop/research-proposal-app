@@ -143,7 +143,7 @@ research-proposal-app/
 │   │
 │   ├── adapters/                   # ── 포트 구현 ──
 │   │   ├── sources/
-│   │   │   ├── _base.py            # C: 허용목록·사설IP 거부·캐시키 비밀 제거, 레이트리밋
+│   │   │   ├── _base.py            # C: check_url()·GuardedClient (허용목록·hop별 재검사·사설IP 거부·응답 상한·레이트리밋), 캐시키 비밀 제거
 │   │   ├── _sandbox.py         # B: subprocess 파서 실행 (timeout, rlimit)
 │   │   │   ├── openalex.py
 │   │   │   ├── scienceon.py
@@ -488,7 +488,7 @@ config/
 | **1** ✅ | `domain/`, `application/ports`, `usecases` 2개, `tests/fakes.py`, `_base.py` 보안 함수, pyproject·pre-commit·security.yaml | A(근거 검증·JSON 강제), D(SecretStr·.env 권한), C(허용목록·캐시키), J(import-linter·ruff S) | `pytest` 13 통과, `lint-imports` 3 계약 유지, `ruff` 무오류 |
 | **2** ✅ | `adapters/persistence/sqlite_repo.py`, `adapters/embedding/` | E(파라미터 바인딩, FTS5 MATCH 인용, 파일 권한 700) | 하이브리드 검색 왕복 테스트 |
 | **3** ✅ | `adapters/llm/openai_compat.py` + `prompts/`, `composition.py` 실연결, **MCP stdio (precheck·search)** | H(127.0.0.1, json_mode), A(프롬프트·MCP 결과에 구획 규칙) | mlx-lm 대상 실제 생성 1회, Claude Code에서 도구 호출 |
-| 4 | `adapters/sources/openalex.py` (허용목록 httpx) | C(리다이렉트 재검사, 사설IP 거부) | ingest → search |
+| **4** ✅ | `adapters/sources/openalex.py`, `_base.GuardedClient`, `usecases/ingest_sources.py`, CLI `ingest` | C(리다이렉트 hop별 재검사, 사설IP·루프백 거부, 응답 크기 상한) | ingest → search 왕복 (fixture, 네트워크 없음) |
 | 5 | `adapters/sources/alio/` catalog·filedrop·extract·`_sandbox.py`·metadata | B(subprocess 격리, zip 상한, defusedxml) | 코레일 보고서 10건 적재 |
 | 6 | `precheck_overlap` CLI 연결, `gap_analysis` 3단, **`RunManager` + MCP generate/get_draft** | G(세마포어 1) | 기수행 과제 경보 출력, IDE에서 생성 요청 |
 | 7 | NTIS·KIPRIS·ScienceON 어댑터 | C | 소스 5종 |

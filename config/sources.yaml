@@ -3,7 +3,18 @@ alio:
     - {code: C0268, name: 한국철도공사, tag: korail}
     - {code: C0269, name: 한국철도기술연구원, tag: krri}
     - {code: C0270, name: 국가철도공단, tag: kr}
-openalex:  {rate_limit: 10, concurrency: 4}
+openalex:
+  rate_limit: 10            # 초당 요청 수
+  concurrency: 4
+  base_url: https://api.openalex.org   # 호스트는 security.yaml allowed_domains 에 있어야 함
+  per_page: 100             # 최대 200
+  default_query: railway    # rra ingest 에 --query 가 없을 때 (증분)
+  lookback_days: 7          # 증분 수집 기간 (publication_date 기준)
+  max_response_mb: 20
+  max_redirects: 3
+  retries: 3
+  timeout: {connect: 10, read: 30}
+  # mailto: you@example.org  # OpenAlex polite pool. 넣으면 요청 URL 에 그대로 실린다.
 scienceon: {rate_limit: 2,  concurrency: 1}
 kipris:    {rate_limit: 3,  concurrency: 2}
 ntis:      {rate_limit: 3,  concurrency: 2}
