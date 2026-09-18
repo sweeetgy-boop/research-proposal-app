@@ -182,6 +182,14 @@ class RunManager:
                     current = self._begin(state, section_step(key))
                     composed = await self.generate.compose_section(key, req, snapshot)
                     self.store.save_section(user, run_id, composed.section)
+                    if not composed.parse.ok:
+                        logger.warning(
+                            "run.parse_failed run=%s section=%s reason=%s raw_chars=%d",
+                            run_id,
+                            key,
+                            composed.parse.status,
+                            composed.parse.raw_chars,
+                        )
                     sections[key] = composed.section
                     self._finish(
                         state,
@@ -193,6 +201,8 @@ class RunManager:
                             {e for s in composed.section.sentences for e in s.evidence}
                         ),
                         prompt_hash=composed.prompt_hash,
+                        parse=composed.parse.status,
+                        raw_chars=composed.parse.raw_chars,
                     )
                     current = None
 
@@ -326,6 +336,8 @@ def manifest(state: RunState, snapshot: RetrievalSnapshot | None) -> dict[str, A
                 "dropped": s.dropped,
                 "evidence": s.evidence,
                 "prompt_hash": s.prompt_hash,
+                "parse": s.parse,
+                "raw_chars": s.raw_chars,
             }
             for s in state.steps
         ],

@@ -209,9 +209,10 @@ _STATUS_EXIT = {"done": EXIT_OK, "invalid": EXIT_INVALID}
 
 def _step_line(state, step) -> str:
     done, total = state.progress
-    detail = (
-        f" (문장 {step.sentences}, 폐기 {step.dropped})" if step.name.startswith("section:") else ""
-    )
+    detail = ""
+    if step.name.startswith("section:"):
+        detail = f" (문장 {step.sentences}, 폐기 {step.dropped}, 응답 {step.raw_chars}자"
+        detail += ")" if step.parse == "ok" else f", 파싱 실패: {step.parse})"
     return f"[{done}/{total}] {step.name} 완료{detail}"
 
 

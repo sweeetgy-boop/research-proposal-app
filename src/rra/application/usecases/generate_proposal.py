@@ -13,13 +13,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import uuid
 from dataclasses import dataclass
 
 from rra.application.ports import DocumentRepository, LLMPort, PromptLibraryPort
-from rra.domain.models import Draft, ProposalRequest, RetrievalSnapshot, Section, Sentence
+from rra.domain.models import Draft, ProposalRequest, RetrievalSnapshot, Section
 from rra.domain.rules.lint import LintProblem, LintRules, lint
+from rra.domain.rules.llm_output import ParseResult, parse_sentences
 from rra.domain.rules.trust import enforce_section_evidence, wrap_untrusted
 
 
@@ -34,6 +34,7 @@ class ComposedSection:
     section: Section
     dropped: list[str]
     prompt_hash: str  # 시스템 프롬프트 + 섹션 지시문 해시 (입력·자료 미포함)
+    parse: ParseResult  # 파싱 사유·원본 길이 (문장은 section 에 근거 검증 후 들어 있음)
 
 
 @dataclass
@@ -59,13 +60,14 @@ class GenerateProposal:
             f"[제안 입력]\n{req.model_dump_json()}\n\n[자료]\n{wrap_untrusted(snapshot.chunks)}"
         )
         raw = await self.llm.complete(prompt, system=system, json_mode=True)
+        parsed = parse_sentences(raw)
         section, dropped = enforce_section_evidence(
-            Section(key=key, sentences=self._parse(raw)),
+            Section(key=key, sentences=parsed.sentences),
             snapshot.retrieved_ids,
             evidence_required=key in self.rules.evidence_required,
         )
         digest = hashlib.sha256(f"{system}\x1f{instruction}".encode()).hexdigest()[:16]
-        return ComposedSection(section=section, dropped=dropped, prompt_hash=digest)
+        return ComposedSection(section=section, dropped=dropped, prompt_hash=digest, parse=parsed)
 
     def finalize(
         self,
@@ -91,12 +93,3 @@ class GenerateProposal:
         if problems:
             raise DraftInvalid(problems, dropped)
         return draft
-
-    @staticmethod
-    def _parse(raw: str) -> list[Sentence]:
-        """A: JSON 스키마 외 출력은 전부 거부."""
-        try:
-            data = json.loads(raw.strip().removeprefix("```json").removesuffix("```"))
-            return [Sentence.model_validate(x) for x in data]
-        except Exception:
-            return []

@@ -28,6 +28,8 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
                 "error": s.error,
                 "sentences": s.sentences,
                 "dropped": s.dropped,
+                "parse": s.parse,
+                "raw_chars": s.raw_chars,
             }
             for s in state.steps
         ],

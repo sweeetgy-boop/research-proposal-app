@@ -240,3 +240,31 @@ async def test_cancel_marks_interrupted_and_releases_lock(repo, req):
     final = store.load_state(USER, st.run_id)
     assert final.status == "interrupted" and not store.claimed
     assert final.step("section:background").error == "CancelledError"
+
+
+async def test_parse_status_and_raw_length_are_recorded_per_section(repo, req, caplog):
+    import logging
+
+    answers = [
+        sentence("배경"),
+        "```python\n[]\n```",  # fence
+        '```\n[{"text": "선행", "evidence": ["alio:1#0"]',  # 잘림 → json
+        '{"text": "목표"}',  # schema
+    ]
+    log = FakeRunLog()
+    mgr, _ = build(repo, FakeLLM(answers), log=log)
+    with caplog.at_level(logging.WARNING, logger="rra.runs"):
+        final = await run_to_end(mgr, req)
+    got = {s.name: (s.parse, s.raw_chars) for s in final.steps if s.name.startswith("section:")}
+    assert got == {
+        "section:background": ("ok", len(answers[0])),
+        "section:problem": ("fence", len(answers[1])),
+        "section:prior_work": ("json", len(answers[2])),
+        "section:objective": ("schema", len(answers[3])),
+    }
+    steps = {s["name"]: s for s in log.records[-1][1]["steps"]}
+    assert steps["section:prior_work"]["parse"] == "json"
+    assert steps["section:prior_work"]["raw_chars"] == len(answers[2])
+    assert "선행" not in json.dumps(log.records[-1][1], ensure_ascii=False)  # 원문은 없음
+    assert "reason=fence" in caplog.text and "선행" not in caplog.text
+    assert final.step("retrieve").parse is None  # section 이 아닌 step 에는 없다

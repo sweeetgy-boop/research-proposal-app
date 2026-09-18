@@ -47,6 +47,8 @@ class StepRecord(BaseModel):
     dropped: int = 0
     evidence: list[str] = Field(default_factory=list)
     prompt_hash: str | None = None
+    parse: str | None = None  # section 만: ok | fence | json | schema (rules/llm_output.py)
+    raw_chars: int | None = None  # section 만: LLM 원본 응답 길이 (원문은 저장하지 않음)
 
 
 class RunState(BaseModel):

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from rra.domain.models import Chunk, Draft, Section, Sentence
 
 DOC_OPEN = '<doc id="{id}">'
@@ -39,11 +41,23 @@ def untrusted_block(chunks: list[Chunk]) -> str:
     return f"{DOC_BLOCK_NOTICE}\n\n{wrap_untrusted(chunks)}"
 
 
+# 모델이 구획 태그를 통째로 옮겨 적는 경우만 id 로 되돌린다. 정확히 이 형태만.
+# 다른 태그·마크다운 링크 등은 그대로 두어 아래 대조에서 폐기된다 (파서를 넓히지 않는다).
+_DOC_TAG_ID = re.compile(r'\A<doc id="([^"<>]+)">\Z')
+
+
+def normalize_evidence_id(ev: str) -> str:
+    """`<doc id="X">` → `X`. 그 외 형태는 손대지 않는다. 결과도 검색 집합과 대조된다."""
+    m = _DOC_TAG_ID.match(ev)
+    return m.group(1) if m else ev
+
+
 def _valid_evidence(ev: list[str], allowed: set[str]) -> list[str]:
     out = []
-    for e in ev:
+    for raw in ev:
+        e = normalize_evidence_id(raw)
         base = e.split("#")[0]
-        if e in allowed or base in allowed:
+        if (e in allowed or base in allowed) and e not in out:
             out.append(e)
     return out
 

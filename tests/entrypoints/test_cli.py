@@ -216,8 +216,12 @@ def test_ingest_reports_counts_and_closes_sources(monkeypatch, capsys):
     from rra.application.usecases.ingest_sources import IngestReport
 
     report = IngestReport(
-        fetched={"openalex": 5}, normalized={"openalex": 4}, skipped={"openalex": 1},
-        deduped=1, stored=3, chunks=3,
+        fetched={"openalex": 5},
+        normalized={"openalex": 4},
+        skipped={"openalex": 1},
+        deduped=1,
+        stored=3,
+        chunks=3,
     )
     src, seen = _stub_ingest(monkeypatch, report)
     assert cli.main(["ingest", "--query", "rail", "--limit", "5"]) == cli.EXIT_OK
@@ -250,8 +254,12 @@ def _alio_entries():
     from rra.domain.models import CatalogEntry
 
     return [
-        CatalogEntry(catalog_id="2024-1", institution_tag="korail", title="궤도\x1b[31m 연구",
-                     published=date(2024, 1, 2)),
+        CatalogEntry(
+            catalog_id="2024-1",
+            institution_tag="korail",
+            title="궤도\x1b[31m 연구",
+            published=date(2024, 1, 2),
+        ),
         CatalogEntry(catalog_id="h0123", institution_tag="kr", title="교량 점검"),
     ]
 
@@ -318,8 +326,16 @@ def test_alio_requires_subcommand():
 
 
 # ── generate · runs ───────────────────────────────────────
-GEN_ARGS = ["--current-state", "수작업 점검", "--root-cause", "센서 부재",
-             "--limitation", "주기 점검", "--goal", "자동 감지"]
+GEN_ARGS = [
+    "--current-state",
+    "수작업 점검",
+    "--root-cause",
+    "센서 부재",
+    "--limitation",
+    "주기 점검",
+    "--goal",
+    "자동 감지",
+]
 GEN_KEYS = ["problem", "prior_work"]
 
 
@@ -370,7 +386,7 @@ def test_generate_prints_progress_and_draft_with_evidence(run_env, capsys):
     run_env["use"]([_sentence("문제 문장"), _sentence("선행\x1b[31m 문장", ["alio:1#0"])])
     assert cli.main(["generate", *GEN_ARGS]) == cli.EXIT_OK
     captured = capsys.readouterr()
-    assert "[2/4] section:problem 완료 (문장 1, 폐기 0)" in captured.err
+    assert "[2/4] section:problem 완료 (문장 1, 폐기 0, 응답 35자)" in captured.err
     assert "- 문제 문장  [제안자 입력]" in captured.out
     assert "[alio:1#0]" in captured.out and "\x1b" not in captured.out
     assert "궤도 상태 자동 감지 연구" in captured.out  # 근거 문서 제목
@@ -397,7 +413,9 @@ def test_generate_interrupted_then_resume(run_env, capsys):
     resumed = json.loads(capsys.readouterr().out)
     assert resumed["status"] == "done"
     assert resumed["sections"][1]["sentences"][0] == {
-        "text": "선행", "evidence": ["alio:1#0"], "source": "retrieved"
+        "text": "선행",
+        "evidence": ["alio:1#0"],
+        "source": "retrieved",
     }
 
 
@@ -410,6 +428,15 @@ def test_runs_list_and_show(run_env, capsys):
     assert f"{run_id}  done" in capsys.readouterr().out
     assert cli.main(["runs", "show", run_id, "--json"]) == cli.EXIT_OK
     assert json.loads(capsys.readouterr().out)["citations"][0]["doc_id"] == "alio:1"
+
+
+def test_generate_progress_shows_parse_failure_reason(run_env, capsys):
+    run_env["use"](
+        ["설명:\n```json\n" + _sentence("문제") + "\n```", _sentence("선행", ["alio:1#0"])]
+    )
+    cli.main(["generate", *GEN_ARGS])
+    assert "section:problem 완료 (문장 0, 폐기 0, 응답 " in (err := capsys.readouterr().err)
+    assert "파싱 실패: fence)" in err
 
 
 def test_runs_show_unknown_or_malformed_id(run_env, capsys):

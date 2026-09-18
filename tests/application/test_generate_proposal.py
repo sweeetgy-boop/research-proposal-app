@@ -61,11 +61,22 @@ def test_retrieve_snapshot_fixes_the_evidence_set(req, repo, rules):
 
 
 async def test_compose_section_enforces_evidence_per_section(req, repo, rules):
-    uc = make(FakeLLM([json.dumps([
-        {"text": "근거 있음", "evidence": ["alio:1#0"]},
-        {"text": "근거 없음", "evidence": []},
-        {"text": "위조 근거", "evidence": ["evil:9"]},
-    ], ensure_ascii=False)]), repo, rules)
+    uc = make(
+        FakeLLM(
+            [
+                json.dumps(
+                    [
+                        {"text": "근거 있음", "evidence": ["alio:1#0"]},
+                        {"text": "근거 없음", "evidence": []},
+                        {"text": "위조 근거", "evidence": ["evil:9"]},
+                    ],
+                    ensure_ascii=False,
+                )
+            ]
+        ),
+        repo,
+        rules,
+    )
     composed = await uc.compose_section("prior_work", req, uc.retrieve(req))
     assert [s.text for s in composed.section.sentences] == ["근거 있음"]
     assert len(composed.dropped) == 2
@@ -91,3 +102,17 @@ def test_finalize_lints(req, repo, rules):
     uc = make(FakeLLM(), repo, rules)
     draft, problems = uc.finalize("r1", req, uc.retrieve(req), [])
     assert draft.run_id == "r1" and {p.code for p in problems} == {"missing"}
+
+
+async def test_bare_fence_output_is_parsed_and_status_recorded(req, repo, rules):
+    raw = "```\n" + _llm_json("선행", ['<doc id="alio:1#0">']) + "\n```"
+    uc = make(FakeLLM([raw]), repo, rules)
+    composed = await uc.compose_section("prior_work", req, uc.retrieve(req))
+    assert composed.parse.status == "ok" and composed.parse.raw_chars == len(raw)
+    assert composed.section.sentences[0].evidence == ["alio:1#0"]
+
+
+async def test_parse_failure_reason_is_kept(req, repo, rules):
+    uc = make(FakeLLM(["결과:\n```json\n[]\n```"]), repo, rules)
+    composed = await uc.compose_section("problem", req, uc.retrieve(req))
+    assert composed.parse.status == "fence" and composed.section.sentences == []
