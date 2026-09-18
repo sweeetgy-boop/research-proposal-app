@@ -31,7 +31,7 @@
 - `.venv`는 OS별로 따로 만든다. macOS와 WSL이 같은 `.venv`를 공유하면 안 됨.
 
 ## 환경
-- Python 3.12 (uv, .venv). 개발은 macOS·WSL, 배포는 M6 Mac mini 24GB + mlx-lm.
+- Python 3.12 (uv, .venv). 개발은 macOS·WSL, 배포는 M6 Mac mini 32GB + mlx-lm.
 - LLM: OpenAI 호환 base_url (mlx-lm). 임베딩: sentence-transformers.
 - DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 

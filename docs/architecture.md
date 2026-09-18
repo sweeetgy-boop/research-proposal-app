@@ -35,12 +35,12 @@
 
 **KRRI 판단**: KRRI 연구 대부분이 국가R&D라 NTIS API로 거의 커버됨. 알리오 filedrop은 코레일·공단 위주로 운영하고, KRRI는 NTIS 우선 + 알리오 보완.
 
-### 런타임·배포 결정 (M6 Mac mini 24GB)
+### 런타임·배포 결정 (M6 Mac mini 32GB)
 
 | 항목 | 결정 | 근거 |
 |---|---|---|
 | LLM 서버 | **mlx-lm** (`mlx_lm.server`, OpenAI 호환) | 14B 이하에서 MLX가 llama.cpp 대비 20~87% 빠름, 메모리 5~10% 절약 |
-| 모델 | 14B급 4bit 1개 상주 (`mlx_lm.server --model <repo 또는 로컬 경로>`, 요청은 `model: default_model`) | 24GB에서 KV 캐시 여유 확보. mlx_lm.server 에는 별칭(`--served-model-name`)이 없고, `default_model` 이 아닌 이름을 보내면 그 모델을 새로 로드하려 한다 |
+| 모델 | 14B급 4bit 1개 상주 (`mlx_lm.server --model <repo 또는 로컬 경로>`, 요청은 `model: default_model`) | 32GB 기준: 14B 4bit 가중치(약 8~9GB) + 임베딩 모델 + OS·앱을 빼고도 KV 캐시·긴 프롬프트(섹션당 약 2만 자)에 여유가 크다. 더 큰 모델은 GPU 메모리 상한(`sysctl-iogpu.sh`)과 KV 캐시를 실측한 뒤 판단. mlx_lm.server 에는 별칭(`--served-model-name`)이 없고, `default_model` 이 아닌 이름을 보내면 그 모델을 새로 로드하려 한다 |
 | 임베딩 | sentence-transformers (MPS), `EmbeddingPort` 별도 | mlx-lm은 텍스트 생성 전용 |
 | DB | SQLite (FTS5 + sqlite-vec) 기본, Supabase/Postgres는 2차 어댑터 | 데이터 로컬 유지, 무료 한도 회피 |
 | 배포 | launchd 상시 구동 + Tailscale(소수) / Cloudflare Tunnel(시연) | 무료, 포트 개방 없음 |
@@ -451,7 +451,7 @@ req -> expand (HyDE + terms)
 #### G. 웹 UI — `entrypoints/api.py`
 - `127.0.0.1:8000` 바인딩. TLS는 Tailscale/Cloudflare가 종단.
 - 터널 뒤라도 **자체 인증 필수**: 초기엔 단일 관리 토큰(헤더), 다중 사용자 시 Cloudflare Access JWT 검증.
-- 요청 본문 크기·필드 길이 상한(5슬롯 각 2,000자), 동시 생성 요청 1개(세마포어) → 24GB 메모리 보호.
+- 요청 본문 크기·필드 길이 상한(5슬롯 각 2,000자), 동시 생성 요청 1개(세마포어) → 32GB 메모리 보호 (상주 모델 1개의 KV 캐시를 여러 생성이 나눠 쓰지 않게).
 - 보안 헤더(CSP, X-Frame-Options, Referrer-Policy), CORS 비활성(동일 출처만).
 - 파일 업로드 엔드포인트 없음. filedrop은 로컬 폴더로만.
 - 사용자별 run 격리: `runs/<user_id>/<run_id>/`, 타 사용자 run 조회 불가.
@@ -529,7 +529,7 @@ Step 1 코드: `research-report-app-step1.zip`
 ### 9.1 원칙
 
 - **진입점은 얇게.** CLI·REST·MCP 모두 `application/usecases`를 호출만 한다. 로직·검증·보안 규칙은 아래 계층에 있으므로 진입점이 셋이어도 한 번만 구현된다.
-- **생성은 비동기·단일.** `generate_proposal`은 수 분 걸리고 24GB에서 동시 실행이 불가하므로, 모든 진입점이 `RunManager`(세마포어 1, 큐)를 공유한다. REST는 202 + `run_id`, MCP는 `run_id` 반환 후 폴링.
+- **생성은 비동기·단일.** `generate_proposal`은 수 분 걸리고, 32GB로 메모리 여유는 늘었지만 동시 실행은 상주 모델 하나의 KV 캐시·연산을 나눠 써 섹션별 응답이 느려지므로 (동시 2는 실측 후 재검토), 모든 진입점이 `RunManager`(세마포어 1, 큐)를 공유한다. REST는 202 + `run_id`, MCP는 `run_id` 반환 후 폴링.
 - **읽기 도구 우선.** MCP·API 모두 수집(ingest)·filedrop 같은 쓰기 작업은 노출하지 않는다. 필요하면 CLI로만.
 
 ### 9.2 REST API (`entrypoints/api/`)
