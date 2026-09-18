@@ -1,4 +1,4 @@
-# research-report-app 헥사고날 아키텍처 설계
+# research-proposal-app 헥사고날 아키텍처 설계
 
 작성일: 2026-09-08 (v4 — MCP·REST API 제공 구조 추가)
 
@@ -72,7 +72,7 @@ entrypoints ──▶ application ──▶ domain
 ## 2. 디렉토리 구조
 
 ```
-research-report-app/
+research-proposal-app/
 ├── pyproject.toml                  # uv, python 3.12, import-linter, ruff S 규칙
 ├── .pre-commit-config.yaml         # D·J: gitleaks, detect-secrets, bandit, ruff
 ├── .env.example
@@ -127,11 +127,13 @@ research-report-app/
 │   ├── application/                # ── 유스케이스 + 포트 ──
 │   │   ├── ports/
 │   │   │   ├── source.py           # SourcePort: search(), normalize()
-│   │   │   ├── llm.py              # LLMPort: complete(), embed()
-│   │   │   ├── repository.py       # DocumentRepository: upsert(), hybrid_search(), find_similar()
+│   │   │   ├── llm.py              # LLMPort: complete(json_mode)
+│   │   │   ├── embedding.py        # EmbeddingPort: dim, embed(), embed_query()
+│   │   │   ├── prompt_library.py   # PromptLibraryPort: system(), section()
+│   │   │   ├── repository.py       # DocumentRepository: upsert(), hybrid_search(), find_similar(), get_document()
 │   │   │   ├── renderer.py         # RendererPort: render(Draft) -> bytes
 │   │   │   ├── catalog.py          # CatalogPort: list_missing() (알리오 전용)
-│   │   │   └── run_log.py          # RunLogPort
+│   │   │   └── run_log.py          # RunLogPort: record()
 │   │   └── usecases/
 │   │       ├── ingest_sources.py   # 배치 수집 → dedup → chunk → index
 │   │       ├── precheck_overlap.py # 입력 직후 중복 경보
@@ -166,8 +168,9 @@ research-report-app/
 │   │   │   └── prompts/            # *.md
 │   │   ├── persistence/
 │   │   │   ├── sqlite_repo.py      # FTS5 + sqlite-vec
-│   │   │   ├── embed.py
 │   │   │   └── migrations/
+│   │   ├── embedding/
+│   │   │   └── sentence_transformers.py  # EmbeddingPort 구현 (e5 passage/query 접두어)
 │   │   ├── rendering/
 │   │   │   ├── hwpx.py
 │   │   │   └── docx.py             # 검토용
@@ -197,7 +200,7 @@ research-report-app/
 │   └── composition.py              # 설정 읽고 포트에 구현체 주입
 │
 └── tests/
-    ├── fakes/                      # FakeLLM, InMemoryRepository, FakeSource
+    ├── fakes.py                    # FakeLLM, FakePromptLibrary, FakeEmbedding, DeterministicEmbedding, InMemoryRepository, FakeRenderer, FakeRunLog
     ├── fixtures/                   # 어댑터별 원본 응답
     ├── domain/
     ├── application/                # fake만으로 실행
@@ -213,28 +216,47 @@ research-report-app/
 # application/ports/source.py
 class SourcePort(Protocol):
     source: str
-    async def search(self, query: str | None, limit: int) -> list[dict]: ...
-    def normalize(self, raw: dict) -> Document: ...
+    async def search(self, query: str | None, limit: int) -> list[dict[str, Any]]: ...
+    def normalize(self, raw: dict[str, Any]) -> Document: ...
 
 # application/ports/llm.py
 class LLMPort(Protocol):
-    async def complete(self, prompt: str, *, system: str | None = None,
-                       max_tokens: int | None = None) -> str: ...
+    async def complete(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> str: ...
 
 # application/ports/embedding.py
 class EmbeddingPort(Protocol):
     dim: int
-    def embed(self, texts: list[str]) -> list[list[float]]: ...
+    def embed(self, texts: list[str]) -> list[list[float]]: ...        # 색인 대상 문서(passage)
+    def embed_query(self, texts: list[str]) -> list[list[float]]: ...  # 검색 질의(query)
+
+# application/ports/prompt_library.py
+class PromptLibraryPort(Protocol):
+    def system(self) -> str: ...
+    def section(self, key: str) -> str: ...
 
 # application/ports/repository.py
 class DocumentRepository(Protocol):
-    def upsert(self, docs: list[Document]) -> None: ...
-    def hybrid_search(self, queries: list[str], *, k: int, orgs: list[str] | None) -> list[Chunk]: ...
-    def find_similar(self, text: str, *, k: int) -> list[tuple[Document, float]]: ...
+    def upsert(self, docs: list[Document], chunks: list[Chunk]) -> None: ...
+    def hybrid_search(
+        self, queries: list[str], *, k: int = 20, orgs: list[str] | None = None
+    ) -> list[Chunk]: ...
+    def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]: ...
+    def get_document(self, doc_id: str) -> Document | None: ...
 
 # application/ports/renderer.py
 class RendererPort(Protocol):
     def render(self, draft: Draft) -> bytes: ...
+
+# application/ports/run_log.py
+class RunLogPort(Protocol):
+    def record(self, run_id: str, manifest: dict[str, Any]) -> None: ...
 ```
 
 ### 단계별 LLM 설정 예 (`config/llm.yaml`)
@@ -336,8 +358,8 @@ req -> expand (HyDE + terms)
 
 | 단계 | 내용 | 검증 |
 |---|---|---|
-| 1 | `domain/models`, `application/ports`, `tests/fakes` | 유스케이스가 fake로 통과 |
-| 2 | `sqlite_repo` + `embed` | hybrid_search 동작 |
+| 1 | `domain/models`, `application/ports`, `tests/fakes.py` | 유스케이스가 fake로 통과 |
+| 2 | `sqlite_repo` + `adapters/embedding` | hybrid_search 동작 |
 | 3 | OpenAlex 어댑터 (키 불필요) | ingest → search 왕복 |
 | 4 | 알리오 catalog + filedrop + extract | 코레일 보고서 10건 적재 |
 | 5 | `precheck_overlap` | 기수행 과제 경보 |
@@ -463,7 +485,7 @@ config/
 
 | Step | 산출물 | 포함 보안 항목 | 완료 기준 |
 |---|---|---|---|
-| **1** ✅ | `domain/`, `application/ports`, `usecases` 2개, `tests/fakes`, `_base.py` 보안 함수, pyproject·pre-commit·security.yaml | A(근거 검증·JSON 강제), D(SecretStr·.env 권한), C(허용목록·캐시키), J(import-linter·ruff S) | `pytest` 13 통과, `lint-imports` 3 계약 유지, `ruff` 무오류 |
+| **1** ✅ | `domain/`, `application/ports`, `usecases` 2개, `tests/fakes.py`, `_base.py` 보안 함수, pyproject·pre-commit·security.yaml | A(근거 검증·JSON 강제), D(SecretStr·.env 권한), C(허용목록·캐시키), J(import-linter·ruff S) | `pytest` 13 통과, `lint-imports` 3 계약 유지, `ruff` 무오류 |
 | **2** ✅ | `adapters/persistence/sqlite_repo.py`, `adapters/embedding/` | E(파라미터 바인딩, FTS5 MATCH 인용, 파일 권한 700) | 하이브리드 검색 왕복 테스트 |
 | **3** ✅ | `adapters/llm/openai_compat.py` + `prompts/`, `composition.py` 실연결, **MCP stdio (precheck·search)** | H(127.0.0.1, json_mode), A(프롬프트·MCP 결과에 구획 규칙) | mlx-lm 대상 실제 생성 1회, Claude Code에서 도구 호출 |
 | 4 | `adapters/sources/openalex.py` (허용목록 httpx) | C(리다이렉트 재검사, 사설IP 거부) | ingest → search |
