@@ -26,8 +26,12 @@
 - 커밋 전: `pytest -q && lint-imports && ruff check src tests`
 - 임베딩·LLM 호출 없이 테스트가 돌아야 함 (tests/fakes.py 사용).
 
+## 개발 환경
+- macOS와 WSL 양쪽에서 작업. 둘 다 uv로 만든 `.venv` 사용.
+- `.venv`는 OS별로 따로 만든다. macOS와 WSL이 같은 `.venv`를 공유하면 안 됨.
+
 ## 환경
-- Python 3.12 (uv, .venv). WSL 개발, 배포는 M6 Mac mini 24GB + mlx-lm.
+- Python 3.12 (uv, .venv). 개발은 macOS·WSL, 배포는 M6 Mac mini 24GB + mlx-lm.
 - LLM: OpenAI 호환 base_url (mlx-lm). 임베딩: sentence-transformers.
 - DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 
