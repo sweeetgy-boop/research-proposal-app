@@ -28,6 +28,8 @@ DEFAULT_MAX_TOKENS = 1024
 DEFAULT_MAX_TOKENS_CAP = 4096
 DEFAULT_PROMPT_MAX_CHARS = 60_000
 DEFAULT_TEMPERATURE = 0.2
+MAX_LISTED_MODELS = 500
+MAX_MODEL_ID_CHARS = 300
 RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 
 JSON_FALLBACK_INSTRUCTION = (
@@ -95,6 +97,25 @@ class OpenAICompatLLM:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def list_models(self) -> list[str]:
+        """GET /v1/models 의 id 목록 (진단용, 재시도 없음). 실패는 LLMError(클래스명만)."""
+        try:
+            resp = await self._client.get(
+                _endpoint.models_url(self.base_url), headers=self._headers
+            )
+        except httpx.HTTPError as exc:
+            raise LLMError(f"모델 목록을 가져오지 못했습니다 ({type(exc).__name__})") from None
+        if resp.status_code >= 400:
+            raise LLMError(f"모델 목록 요청이 거부됐습니다 (HTTP {resp.status_code})")
+        try:
+            data = resp.json().get("data")
+        except (ValueError, AttributeError):
+            raise LLMResponseInvalid("모델 목록 응답이 JSON 객체가 아닙니다.") from None
+        if not isinstance(data, list):
+            raise LLMResponseInvalid("모델 목록 응답에 data 배열이 없습니다.")
+        ids = [m.get("id") for m in data[:MAX_LISTED_MODELS] if isinstance(m, dict)]
+        return [i[:MAX_MODEL_ID_CHARS] for i in ids if isinstance(i, str)]
 
     async def __aenter__(self) -> OpenAICompatLLM:
         return self

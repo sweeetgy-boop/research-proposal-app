@@ -50,6 +50,19 @@ def chat_url(base_url: str) -> str:
     return f"{base_url.rstrip('/')}/chat/completions"
 
 
+def models_url(base_url: str) -> str:
+    return f"{base_url.rstrip('/')}/models"
+
+
+def served_model_listed(candidates: set[str], listed: list[str]) -> bool:
+    """/v1/models 목록에 선언한 모델 이름이 있는지. 오타·엉뚱한 이름만 거른다.
+
+    mlx_lm.server 의 목록은 HF 캐시 스캔 결과라 '로드된' 모델을 특정하지는 못한다.
+    candidates 는 원래 문자열 + (로컬 경로라면) 절대경로 — 서버가 경로를 resolve 해서 싣기 때문.
+    """
+    return bool({c.strip() for c in candidates if c.strip()} & {m.strip() for m in listed})
+
+
 def auth_headers(api_key: str | None) -> dict[str, str]:
     """로컬 LLM 은 키가 없다. 자리표시자 키는 Authorization 을 만들지 않는다 (보안 D)."""
     headers = {

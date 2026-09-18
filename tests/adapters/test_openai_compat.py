@@ -261,3 +261,47 @@ def test_response_format_error_detection(status, body, expected):
 
 def test_redact_ignores_short_secrets():
     assert _payload.redact("a none b", ["no"]) == "a none b"
+
+
+# ── /v1/models (llm-check 진단) ──────────────────────────
+async def test_list_models_reads_ids():
+    rec = Recorder(
+        httpx.Response(
+            200,
+            json={
+                "object": "list",
+                "data": [
+                    {"id": "mlx-community/Qwen2.5-3B-Instruct-4bit"},
+                    {"id": 7},
+                    "junk",
+                    {"id": "/abs/model"},
+                ],
+            },
+        )
+    )
+    async with build(rec) as llm:
+        assert await llm.list_models() == ["mlx-community/Qwen2.5-3B-Instruct-4bit", "/abs/model"]
+    assert str(rec.requests[0].url) == f"{BASE}/models"
+    assert rec.requests[0].method == "GET"
+
+
+@pytest.mark.parametrize(
+    ("response", "error"),
+    [
+        (httpx.Response(500, text="boom"), LLMError),
+        (httpx.Response(200, text="not json"), LLMResponseInvalid),
+        (httpx.Response(200, json={"data": "nope"}), LLMResponseInvalid),
+    ],
+)
+async def test_list_models_errors(response, error):
+    async with build(Recorder(response)) as llm:
+        with pytest.raises(error):
+            await llm.list_models()
+
+
+def test_served_model_listed_is_exact():
+    from rra.adapters.llm._endpoint import served_model_listed
+
+    assert served_model_listed({"a/b"}, [" a/b "])
+    assert not served_model_listed({"a/B"}, ["a/b"])
+    assert not served_model_listed({""}, [""])

@@ -143,6 +143,35 @@ def test_llm_check_round_trip(monkeypatch, capsys):
     assert stub.closed  # 클라이언트를 반드시 닫는다
 
 
+def test_llm_check_warns_but_does_not_block_on_unknown_served_model(monkeypatch, capsys):
+    class StubLLM:
+        async def complete(self, prompt, **kw):
+            return "[]"
+
+        async def list_models(self):
+            return ["mlx-community/Qwen2.5-7B-Instruct-4bit"]
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr(
+        "rra.composition.llm_config",
+        lambda *a, **k: {
+            "provider": "mlx",
+            "base_url": "http://127.0.0.1:8080/v1",
+            "model": "default_model",
+            "served_model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+        },
+    )
+    monkeypatch.setattr("rra.composition.build_llm", lambda *a, **k: StubLLM())
+    assert cli.main(["llm-check"]) == cli.EXIT_OK  # 경고만, 왕복은 계속
+    captured = capsys.readouterr()
+    assert "served_model=mlx-community/Qwen2.5-3B-Instruct-4bit" in captured.out
+    assert "경고: served_model" in captured.err and "7B" in captured.err
+    assert "[]" in captured.out
+
+
 def test_generate_requires_the_four_slots(capsys):
     assert cli.main(["generate"]) == cli.EXIT_USAGE
     assert "필수 슬롯이 비었습니다" in capsys.readouterr().err

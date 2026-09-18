@@ -5,7 +5,14 @@ base_url: http://127.0.0.1:8080/v1
 
 # H: provider=mlx 면 base_url 이 127.0.0.1/localhost 가 아닐 때 기동을 거부합니다.
 
-json_mode: auto          # auto: response_format 먼저 시도 후 프롬프트 폴백 | native | prompt
+# manifest 에 기록할 실제 모델 이름 (표시용 선언). 요청에는 항상 stages 의 model 을 보낸다.
+# `mlx_lm.server --model` 에 준 값과 똑같이 적는다. 모델을 바꾸면 여기도 바꿔야 manifest 가 맞다.
+# rra llm-check 가 서버 /v1/models(HF 캐시 목록)에 이 이름이 있는지 확인하고, 없으면 경고만 한다.
+served_model: mlx-community/Qwen2.5-3B-Instruct-4bit
+
+# auto: response_format 먼저 시도, 서버가 '오류로' 거부할 때만 프롬프트 폴백 | native | prompt
+# mlx_lm.server 는 response_format 을 오류 없이 무시하므로 auto 로는 폴백이 일어나지 않는다 → prompt.
+json_mode: prompt
 temperature: 0.2
 
 timeout:                 # 초
@@ -23,11 +30,13 @@ limits:                  # DoS·메모리 보호 상한
   max_tokens_cap: 4096
   prompt_max_chars: 60000
 
+# mlx_lm.server 는 요청의 model 이 "default_model" 이면 기동 시 --model 로 띄운 모델을 쓰고,
+# 그 밖의 문자열은 그 이름의 모델을 새로 로드하려 한다 (없으면 404). 별칭 기능(--served-model-name)은 없다.
 stages:
-  expand:    {model: local-14b, max_tokens: 512}
-  summarize: {model: local-14b, max_tokens: 400}
-  compose:   {model: local-14b, max_tokens: 2000}
-  critique:  {model: local-14b, max_tokens: 800}
+  expand:    {model: default_model, max_tokens: 512}
+  summarize: {model: default_model, max_tokens: 400}
+  compose:   {model: default_model, max_tokens: 2000}
+  critique:  {model: default_model, max_tokens: 800}
 
 embedding:
   model: intfloat/multilingual-e5-base

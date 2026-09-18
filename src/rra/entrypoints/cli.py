@@ -95,15 +95,25 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 # ── llm-check ─────────────────────────────────────────────
 def cmd_llm_check(args: argparse.Namespace) -> int:
-    from rra.composition import build_llm, build_prompt_library, llm_config, load_settings
+    from rra.composition import (
+        build_llm,
+        build_prompt_library,
+        check_served_model,
+        llm_config,
+        load_settings,
+    )
 
     settings = load_settings()
     cfg = llm_config(settings, args.stage)
     print(f"provider={cfg['provider']} base_url={cfg['base_url']} stage={args.stage}")
+    if cfg.get("served_model"):
+        print(f"served_model={_safe(cfg['served_model'], 200)} (manifest 에 기록)")
 
     async def run() -> str:
         llm = build_llm(settings, stage=args.stage)
         try:
+            if warning := await check_served_model(cfg, llm):
+                _eprint(f"경고: {_safe(warning, 500)}")
             system = build_prompt_library(settings).system() if args.system else None
             return await llm.complete(args.prompt, system=system, json_mode=args.json_mode)
         finally:

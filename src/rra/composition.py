@@ -27,6 +27,7 @@ __all__ = [
     "build_repository",
     "build_run_manager",
     "build_sources",
+    "check_served_model",
     "fetch_alio_catalog",
     "lint_rules",
     "llm_config",
@@ -102,6 +103,7 @@ def llm_config(settings: Settings, stage: str = DEFAULT_STAGE) -> dict[str, Any]
         "provider": _env_first(settings, "llm_provider", cfg.get("provider")),
         "base_url": _env_first(settings, "llm_base_url", cfg.get("base_url")),
         "model": stage_cfg.get("model") or "local",
+        "served_model": str(cfg.get("served_model") or "").strip() or None,
         "max_tokens": int(stage_cfg.get("max_tokens", 1024)),
         "max_tokens_cap": int(limits.get("max_tokens_cap", 4096)),
         "prompt_max_chars": int(limits.get("prompt_max_chars", 60_000)),
@@ -144,6 +146,37 @@ def build_llm(settings: Settings | None = None, *, stage: str = DEFAULT_STAGE):
         json_mode=cfg["json_mode"],
         timeout=httpx.Timeout(**cfg["timeout"]),
         retry=RetryPolicy(**cfg["retry"]),
+    )
+
+
+async def check_served_model(cfg: dict[str, Any], llm) -> str | None:
+    """llm-check 용 진단. served_model 이 서버 /v1/models 목록에 없으면 경고 문구, 괜찮으면 None.
+
+    목록은 HF 캐시 스캔이라 '로드된' 모델을 특정하지 못한다 — 오타·엉뚱한 이름만 거른다.
+    기동을 막지 않는다 (경고만).
+    """
+    from rra.adapters.llm._endpoint import served_model_listed
+
+    served = cfg.get("served_model")
+    if not served:
+        return "llm.yaml 에 served_model 이 없습니다 — manifest 에 요청용 모델 이름이 남습니다."
+    lister = getattr(llm, "list_models", None)
+    if lister is None:
+        return None
+    try:
+        listed = await lister()
+    except Exception as exc:  # 진단일 뿐 — 실패해도 왕복 확인은 계속한다
+        return f"/v1/models 조회 실패 ({type(exc).__name__}) — served_model 을 확인하지 못했습니다."
+    candidates = {served}
+    path = Path(served).expanduser()
+    if path.exists():  # 로컬 경로로 띄운 경우 서버는 절대경로를 싣는다
+        candidates.add(str(path.resolve()))
+    if served_model_listed(candidates, listed):
+        return None
+    shown = ", ".join(listed[:5]) + (" …" if len(listed) > 5 else "") if listed else "(비어 있음)"
+    return (
+        f"served_model {served!r} 이 서버 /v1/models 목록에 없습니다 — 오타이거나 다른 모델입니다. "
+        f"목록: {shown}"
     )
 
 
@@ -342,7 +375,9 @@ def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None):
     settings = settings or load_settings()
     limits = read_config("security.yaml", settings).get("input_limits") or {}
     root = Path(settings.runs_dir)
-    model = llm_config(settings, "compose")["model"] if llm is None else None
+    compose_cfg = llm_config(settings, "compose")
+    # manifest 에는 선언된 실제 모델명(served_model)을, 없으면 요청용 이름을 남긴다
+    model = compose_cfg["served_model"] or compose_cfg["model"]
     if repo is None:
         repo = _Lazy(lambda: build_repository(build_embedding(settings), settings))
     if llm is None:

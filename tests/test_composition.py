@@ -253,7 +253,61 @@ def test_run_manager_wiring_is_lazy(tmp_path, monkeypatch):
     settings = Settings(_env_file=None, runs_dir=tmp_path / "runs")
     mgr = comp.build_run_manager(settings)
     assert mgr.list_runs(comp.LOCAL_USER) == []
-    assert mgr.max_queued == 3 and mgr.model == "local-14b"
+    assert mgr.max_queued == 3
+    # manifest 에는 선언된 실제 모델명, 요청은 default_model
+    assert mgr.model == "mlx-community/Qwen2.5-3B-Instruct-4bit"
+    assert comp.llm_config(settings, "compose")["model"] == "default_model"
     assert mgr.store.root == tmp_path / "runs"
     assert mgr.slot.path == tmp_path / "runs" / ".generate.lock"
     assert mgr.generate.section_keys[0] == "title"
+
+
+# ── served_model (manifest 표시용 모델명) ─────────────────
+class ListingLLM:
+    def __init__(self, listed=None, error=None):
+        self.listed, self.error = listed or [], error
+
+    async def list_models(self):
+        if self.error:
+            raise self.error
+        return self.listed
+
+
+def test_served_model_is_optional(config_dir):
+    assert llm_config(settings_for(config_dir), "compose")["served_model"] is None
+
+
+async def test_served_model_listed_means_no_warning():
+    from rra.composition import check_served_model
+
+    cfg = {"served_model": "mlx-community/Qwen2.5-3B-Instruct-4bit"}
+    llm = ListingLLM(["mlx-community/Qwen2.5-3B-Instruct-4bit", "other/model"])
+    assert await check_served_model(cfg, llm) is None
+
+
+async def test_typo_in_served_model_warns_with_the_list():
+    from rra.composition import check_served_model
+
+    cfg = {"served_model": "mlx-community/Qwen2.5-3b-Instruct-4bit"}  # 대소문자 오타
+    warning = await check_served_model(cfg, ListingLLM(["mlx-community/Qwen2.5-3B-Instruct-4bit"]))
+    assert "목록에 없습니다" in warning and "Qwen2.5-3B" in warning
+
+
+async def test_local_path_matches_the_resolved_path(tmp_path, monkeypatch):
+    from rra.composition import check_served_model
+
+    model_dir = tmp_path / "models" / "qwen"
+    model_dir.mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    cfg = {"served_model": "models/qwen"}  # 상대경로로 선언, 서버는 절대경로로 싣는다
+    assert await check_served_model(cfg, ListingLLM([str(model_dir.resolve())])) is None
+
+
+async def test_listing_failure_and_missing_key_only_warn():
+    from rra.adapters.llm import LLMError
+    from rra.composition import check_served_model
+
+    failed = await check_served_model({"served_model": "x"}, ListingLLM(error=LLMError("down")))
+    assert "조회 실패 (LLMError)" in failed and "down" not in failed
+    assert "served_model 이 없습니다" in await check_served_model({}, ListingLLM())
+    assert await check_served_model({"served_model": "x"}, object()) is None  # 목록 기능 없는 LLM

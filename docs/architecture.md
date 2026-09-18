@@ -40,7 +40,7 @@
 | 항목 | 결정 | 근거 |
 |---|---|---|
 | LLM 서버 | **mlx-lm** (`mlx_lm.server`, OpenAI 호환) | 14B 이하에서 MLX가 llama.cpp 대비 20~87% 빠름, 메모리 5~10% 절약 |
-| 모델 | 14B급 4bit 1개 상주 (`--served-model-name local-14b`) | 24GB에서 KV 캐시 여유 확보 |
+| 모델 | 14B급 4bit 1개 상주 (`mlx_lm.server --model <repo 또는 로컬 경로>`, 요청은 `model: default_model`) | 24GB에서 KV 캐시 여유 확보. mlx_lm.server 에는 별칭(`--served-model-name`)이 없고, `default_model` 이 아닌 이름을 보내면 그 모델을 새로 로드하려 한다 |
 | 임베딩 | sentence-transformers (MPS), `EmbeddingPort` 별도 | mlx-lm은 텍스트 생성 전용 |
 | DB | SQLite (FTS5 + sqlite-vec) 기본, Supabase/Postgres는 2차 어댑터 | 데이터 로컬 유지, 무료 한도 회피 |
 | 배포 | launchd 상시 구동 + Tailscale(소수) / Cloudflare Tunnel(시연) | 무료, 포트 개방 없음 |
@@ -270,11 +270,12 @@ class RunLogPort(Protocol):
 llm:
   provider: mlx                     # mlx | openai
   base_url: http://127.0.0.1:8080/v1
+  json_mode: prompt                 # mlx_lm.server 는 response_format 을 조용히 무시한다
   stages:
-    expand:    { model: local-14b, max_tokens: 512 }
-    summarize: { model: local-14b, max_tokens: 400 }   # 공개자료는 provider: openai로 뺄 수 있음
-    compose:   { model: local-14b, max_tokens: 2000 }
-    critique:  { model: local-14b, max_tokens: 800 }
+    expand:    { model: default_model, max_tokens: 512 }
+    summarize: { model: default_model, max_tokens: 400 }   # 공개자료는 provider: openai로 뺄 수 있음
+    compose:   { model: default_model, max_tokens: 2000 }
+    critique:  { model: default_model, max_tokens: 800 }
 embedding:
   model: intfloat/multilingual-e5-base
   device: mps
