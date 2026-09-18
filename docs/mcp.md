@@ -1,4 +1,4 @@
-# MCP 서버 (Step 3)
+# MCP 서버 (Step 3 · Step 6)
 
 Claude Code에서 `rra_precheck`·`rra_search`를 도구로 쓰기 위한 stdio 서버다.
 검색 품질을 IDE에서 바로 확인하는 개발 도구 역할을 겸한다.
@@ -33,7 +33,24 @@ Claude Code에서 `rra_precheck`·`rra_search`를 도구로 쓰기 위한 stdio 
 | `rra_precheck` | `current_state`, `root_cause`, `limitation`, `goal`, `constraints?` | 중복 경보 목록 + `blocking` |
 | `rra_search` | `query`, `orgs?`, `k?` | `<doc id="...">` 구획으로 감싼 검색 결과 |
 
-쓰기 도구는 없다. 생성(`rra_generate`)·초안 조회는 `RunManager`와 함께 Step 6에서,
+### 쓰기 도구 (`--enable-generate` 일 때만)
+
+`.mcp.json` 에는 서버 항목이 둘이다: `rra`(읽기 2개)와 `rra-write`(`--enable-generate`, 4개).
+클라이언트에서 `rra-write` 만 따로 켜고 끌 수 있다.
+
+| 도구 | 입력 | 출력 |
+|---|---|---|
+| `rra_generate` | 5슬롯 또는 `resume_run_id` | `{run_id, status, progress, hint}` — 즉시 반환, 생성은 백그라운드 |
+| `rra_get_draft` | `run_id` | 상태·step 기록·(부분) 초안·`citations`·lint 문제 + 경고 문구 |
+
+- 초안 문장마다 `evidence`(근거 id)와 `source`(`retrieved` / 근거 없이 제안자 입력만으로 쓴
+  `proposer_input`)가 붙는다. 근거 필수 섹션(prior_work·overlap_check·differentiation)에는
+  `proposer_input` 문장이 남지 않는다.
+- 생성은 프로세스를 가리지 않고 동시에 1개. 대기·실행 중 run 상한은 `security.yaml`
+  `input_limits.max_queued_runs`(기본 3). 넘으면 입력 오류로 거부한다.
+- 권한 경계: 읽기 도구 모듈은 RunManager 에 닿을 수 없다(import-linter 계약). 사용자는 stdio
+  프로세스 소유자(`local`) 하나이고 `runs/local/` 밖은 조회되지 않는다.
+
 streamable-http 전송과 토큰 인증은 Step 10에서 추가한다.
 
 ## 보안 (§7 G-MCP)

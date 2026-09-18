@@ -222,3 +222,38 @@ def test_project_config_allows_data_go_kr_for_catalog():
         "www.data.go.kr"
         in read_config("security.yaml", Settings(_env_file=None))["allowed_domains"]
     )
+
+
+# ── generate · RunManager ─────────────────────────────────
+def test_lint_rules_and_section_order_come_from_template():
+    from rra.composition import lint_rules
+
+    rules = lint_rules(Settings(_env_file=None))
+    assert rules.required_sections[:2] == ["title", "background"]
+    assert set(rules.evidence_required) == {"prior_work", "overlap_check", "differentiation"}
+
+
+def test_every_section_has_a_prompt():
+    from rra.composition import build_prompt_library, lint_rules
+
+    settings = Settings(_env_file=None)
+    prompts = build_prompt_library(settings)
+    for key in lint_rules(settings).required_sections:
+        assert prompts.section(key).strip(), key
+
+
+def test_run_manager_wiring_is_lazy(tmp_path, monkeypatch):
+    import rra.composition as comp
+
+    def boom(*a, **k):
+        raise AssertionError("상태 조회만 하는데 모델을 띄웠다")
+
+    monkeypatch.setattr(comp, "build_embedding", boom)
+    monkeypatch.setattr(comp, "build_llm", boom)
+    settings = Settings(_env_file=None, runs_dir=tmp_path / "runs")
+    mgr = comp.build_run_manager(settings)
+    assert mgr.list_runs(comp.LOCAL_USER) == []
+    assert mgr.max_queued == 3 and mgr.model == "local-14b"
+    assert mgr.store.root == tmp_path / "runs"
+    assert mgr.slot.path == tmp_path / "runs" / ".generate.lock"
+    assert mgr.generate.section_keys[0] == "title"

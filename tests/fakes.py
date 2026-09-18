@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import math
@@ -10,11 +11,18 @@ from rra.domain.models import Chunk, Document
 
 
 class FakeLLM:
-    def __init__(self, responses: list[str] | None = None):
+    """응답을 순서대로 돌려준다. fail_at 에 든 호출 번호(0부터)에서는 예외를 던진다."""
+
+    def __init__(self, responses: list[str] | None = None, *, fail_at: set[int] | None = None):
         self.responses = list(responses or [])
         self.calls: list[str] = []
+        self.fail_at = set(fail_at or ())
+        self._n = 0
 
     async def complete(self, prompt, *, system=None, max_tokens=None, json_mode=False) -> str:
+        n, self._n = self._n, self._n + 1
+        if n in self.fail_at:
+            raise TimeoutError("http://127.0.0.1:8080/v1 응답 없음 — 제안 내용 포함 가능")
         self.calls.append(prompt)
         return self.responses.pop(0) if self.responses else "[]"
 
@@ -143,3 +151,111 @@ class FakeCatalog:
 
     async def entries(self):
         return list(self._entries)
+
+
+class _FakeClaim:
+    def __init__(self, store, key):
+        self.store, self.key = store, key
+
+    def release(self):
+        self.store.claimed.discard(self.key)
+
+
+class InMemoryRunStore:
+    """RunStorePort fake. 락은 프로세스 안 집합으로 흉내 낸다.
+
+    프로세스 간 락은 tests/adapters/test_file_run_store.py 에서 실제 파일로 검증한다.
+    """
+
+    def __init__(self):
+        self.states: dict[tuple[str, str], Any] = {}
+        self.requests: dict[tuple[str, str], Any] = {}
+        self.snapshots: dict[tuple[str, str], Any] = {}
+        self.sections: dict[tuple[str, str], dict[str, Any]] = {}
+        self.drafts: dict[tuple[str, str], Any] = {}
+        self.claimed: set[tuple[str, str]] = set()
+        self._seq = 0
+
+    def _key(self, user, run_id):
+        from rra.application.ports import RunNotFound
+
+        if (user, run_id) not in self.states:
+            raise RunNotFound(run_id)
+        return (user, run_id)
+
+    def create(self, user, req, steps, now):
+        from rra.domain.models import RunState, StepRecord
+
+        self._seq += 1
+        run_id = f"20260101000000-{self._seq:08x}"
+        state = RunState(
+            run_id=run_id,
+            user=user,
+            steps=[StepRecord(name=n) for n in steps],
+            created_at=now,
+            updated_at=now,
+        )
+        self.states[(user, run_id)] = state.model_copy(deep=True)
+        self.requests[(user, run_id)] = req
+        return state
+
+    def load_state(self, user, run_id):
+        return self.states[self._key(user, run_id)].model_copy(deep=True)
+
+    def save_state(self, state):
+        self.states[(state.user, state.run_id)] = state.model_copy(deep=True)
+
+    def load_request(self, user, run_id):
+        return self.requests[self._key(user, run_id)]
+
+    def save_snapshot(self, user, run_id, snapshot):
+        self.snapshots[self._key(user, run_id)] = snapshot
+
+    def load_snapshot(self, user, run_id):
+        return self.snapshots.get((user, run_id))
+
+    def save_section(self, user, run_id, section):
+        self.sections.setdefault(self._key(user, run_id), {})[section.key] = section
+
+    def load_sections(self, user, run_id):
+        return dict(self.sections.get(self._key(user, run_id), {}))
+
+    def save_draft(self, user, run_id, draft):
+        self.drafts[self._key(user, run_id)] = draft
+
+    def list_runs(self, user, limit=50):
+        runs = [s for (u, _), s in self.states.items() if u == user]
+        return [s.model_copy(deep=True) for s in sorted(runs, key=lambda s: s.run_id)][-limit:]
+
+    def claim(self, user, run_id):
+        from rra.application.ports import RunBusy
+
+        key = self._key(user, run_id)
+        if key in self.claimed:
+            raise RunBusy(run_id)
+        self.claimed.add(key)
+        return _FakeClaim(self, key)
+
+    def is_alive(self, user, run_id):
+        return (user, run_id) in self.claimed
+
+
+class FakeSlot:
+    """GenerationSlot fake — 한 프로세스 안의 asyncio.Lock. 동시 실행 여부를 기록한다."""
+
+    def __init__(self):
+        import asyncio
+
+        self._lock = asyncio.Lock()
+        self.active = 0
+        self.max_active = 0
+
+    @contextlib.asynccontextmanager
+    async def acquire(self):
+        async with self._lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            try:
+                yield
+            finally:
+                self.active -= 1

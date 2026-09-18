@@ -143,9 +143,9 @@ def test_llm_check_round_trip(monkeypatch, capsys):
     assert stub.closed  # 클라이언트를 반드시 닫는다
 
 
-def test_unimplemented_commands_report_clearly(capsys):
+def test_generate_requires_the_four_slots(capsys):
     assert cli.main(["generate"]) == cli.EXIT_USAGE
-    assert "아직 구현 전" in capsys.readouterr().err
+    assert "필수 슬롯이 비었습니다" in capsys.readouterr().err
 
 
 def test_mcp_subcommand_rejects_other_transports():
@@ -286,3 +286,112 @@ def test_alio_status(monkeypatch, capsys):
 def test_alio_requires_subcommand():
     with pytest.raises(SystemExit):
         cli.main(["alio"])
+
+
+# ── generate · runs ───────────────────────────────────────
+GEN_ARGS = ["--current-state", "수작업 점검", "--root-cause", "센서 부재",
+             "--limitation", "주기 점검", "--goal", "자동 감지"]
+GEN_KEYS = ["problem", "prior_work"]
+
+
+def _sentence(text, ev=()):
+    return json.dumps([{"text": text, "evidence": list(ev)}], ensure_ascii=False)
+
+
+@pytest.fixture
+def run_env(monkeypatch, docs, chunks):
+    """실제 RunManager + 메모리 저장소 + FakeLLM. 모델·파일 없음."""
+    from rra.application.services import RunManager
+    from rra.application.usecases.generate_proposal import GenerateProposal
+    from rra.domain.rules.lint import LintRules
+    from tests.fakes import (
+        FakeLLM,
+        FakePromptLibrary,
+        FakeRunLog,
+        FakeSlot,
+        InMemoryRepository,
+        InMemoryRunStore,
+    )
+
+    repo = InMemoryRepository()
+    repo.upsert(docs, chunks)
+    store = InMemoryRunStore()
+    env = {"store": store, "llm": None, "closed": 0}
+
+    class ClosingLLM(FakeLLM):
+        async def aclose(self):
+            env["closed"] += 1
+
+    def build(settings, **kw):
+        llm = env["llm"]
+        rules = LintRules(required_sections=GEN_KEYS, evidence_required=["prior_work"])
+        gen = GenerateProposal(llm, repo, FakePromptLibrary(), rules, GEN_KEYS)
+        return RunManager(gen, store, FakeSlot(), FakeRunLog())
+
+    def use(responses, **kw):
+        env["llm"] = ClosingLLM(responses, **kw)
+
+    env["use"] = use
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_run_manager", build)
+    return env
+
+
+def test_generate_prints_progress_and_draft_with_evidence(run_env, capsys):
+    run_env["use"]([_sentence("문제 문장"), _sentence("선행\x1b[31m 문장", ["alio:1#0"])])
+    assert cli.main(["generate", *GEN_ARGS]) == cli.EXIT_OK
+    captured = capsys.readouterr()
+    assert "[2/4] section:problem 완료 (문장 1, 폐기 0)" in captured.err
+    assert "- 문제 문장  [제안자 입력]" in captured.out
+    assert "[alio:1#0]" in captured.out and "\x1b" not in captured.out
+    assert "궤도 상태 자동 감지 연구" in captured.out  # 근거 문서 제목
+    assert run_env["closed"] == 1
+
+
+def test_generate_lint_failure_exit_code(run_env, capsys):
+    run_env["use"]([_sentence("문제"), _sentence("근거 없음")])  # prior_work 근거 필수
+    assert cli.main(["generate", *GEN_ARGS]) == cli.EXIT_INVALID
+    assert "! prior_work: missing" in capsys.readouterr().out
+
+
+def test_generate_interrupted_then_resume(run_env, capsys):
+    run_env["use"]([_sentence("문제"), _sentence("선행", ["alio:1#0"])], fail_at={1})
+    assert cli.main(["generate", *GEN_ARGS, "--json"]) == cli.EXIT_ERROR
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["status"] == "interrupted"
+    assert [s["key"] for s in payload["sections"]] == ["problem"]
+    assert "--resume " + payload["run_id"] in captured.err
+
+    run_env["use"]([_sentence("선행", ["alio:1#0"])])
+    assert cli.main(["generate", "--resume", payload["run_id"], "--json"]) == cli.EXIT_OK
+    resumed = json.loads(capsys.readouterr().out)
+    assert resumed["status"] == "done"
+    assert resumed["sections"][1]["sentences"][0] == {
+        "text": "선행", "evidence": ["alio:1#0"], "source": "retrieved"
+    }
+
+
+def test_runs_list_and_show(run_env, capsys):
+    run_env["use"]([_sentence("문제"), _sentence("선행", ["alio:1#0"])])
+    cli.main(["generate", *GEN_ARGS, "--json"])
+    run_id = json.loads(capsys.readouterr().out)["run_id"]
+
+    assert cli.main(["runs", "list"]) == cli.EXIT_OK
+    assert f"{run_id}  done" in capsys.readouterr().out
+    assert cli.main(["runs", "show", run_id, "--json"]) == cli.EXIT_OK
+    assert json.loads(capsys.readouterr().out)["citations"][0]["doc_id"] == "alio:1"
+
+
+def test_runs_show_unknown_or_malformed_id(run_env, capsys):
+    run_env["use"]([])
+    assert cli.main(["runs", "show", "../../etc"]) == cli.EXIT_ERROR
+    assert "오류" in capsys.readouterr().err
+
+
+def test_resume_of_finished_run_is_an_error(run_env, capsys):
+    run_env["use"]([_sentence("문제"), _sentence("선행", ["alio:1#0"])])
+    cli.main(["generate", *GEN_ARGS, "--json"])
+    run_id = json.loads(capsys.readouterr().out)["run_id"]
+    assert cli.main(["generate", "--resume", run_id]) == cli.EXIT_ERROR
+    assert "재개할 수 없습니다" in capsys.readouterr().err

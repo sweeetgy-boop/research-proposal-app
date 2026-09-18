@@ -80,5 +80,12 @@ source_modules = ["rra.entrypoints"]
 forbidden_modules = ["rra.adapters"]
 allow_indirect_imports = true
 
+# MCP 권한 경계: 읽기 도구는 생성(쓰기) 경로에 닿지 못한다.
+[[tool.importlinter.contracts]]
+name = "read-only MCP tools never reach the run manager"
+type = "forbidden"
+source_modules = ["rra.entrypoints.mcp.tools"]
+forbidden_modules = ["rra.application.services", "rra.entrypoints.mcp.run_tools"]
+
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]

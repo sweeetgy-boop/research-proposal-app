@@ -15,7 +15,9 @@ __all__ = [
     "alio_inbox_status",
     "build_alio_catalog",
     "build_alio_source",
+    "LOCAL_USER",
     "build_embedding",
+    "build_generate",
     "build_ingest",
     "build_list_missing",
     "build_llm",
@@ -23,8 +25,10 @@ __all__ = [
     "build_precheck",
     "build_prompt_library",
     "build_repository",
+    "build_run_manager",
     "build_sources",
     "fetch_alio_catalog",
+    "lint_rules",
     "llm_config",
     "load_settings",
     "read_config",
@@ -278,6 +282,79 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
     return IngestSources(sources, repo, limit=limit)
+
+
+TEMPLATE = "proposal_krri"
+LOCAL_USER = "local"  # stdio·CLI: 프로세스 소유자 = 사용자. 다중 사용자는 Step 10 (REST 인증)
+
+
+def lint_rules(settings: Settings):
+    """config/templates/<TEMPLATE>.rules.yaml → LintRules. 섹션 순서 = required_sections."""
+    from rra.domain.rules.lint import LintRules
+
+    data = read_config(f"templates/{TEMPLATE}.rules.yaml", settings)
+    if not data.get("required_sections"):
+        raise KeyError(f"templates/{TEMPLATE}.rules.yaml 에 required_sections 가 없습니다.")
+    return LintRules.model_validate(data)
+
+
+def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
+    """GenerateProposal 유스케이스. repo·llm 을 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.generate_proposal import GenerateProposal
+
+    settings = settings or load_settings()
+    rules = lint_rules(settings)
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    if llm is None:
+        llm = build_llm(settings, stage="compose")
+    return GenerateProposal(
+        llm, repo, build_prompt_library(settings), rules, list(rules.required_sections)
+    )
+
+
+class _Lazy:
+    """처음 쓰일 때 만든다. `rra runs list` 처럼 상태만 읽을 때 임베딩 모델·LLM 클라이언트를
+    띄우지 않기 위함."""
+
+    def __init__(self, factory):
+        self._factory = factory
+        self._obj = None
+
+    def __getattr__(self, name):
+        if self._obj is None:
+            self._obj = self._factory()
+        return getattr(self._obj, name)
+
+    async def aclose(self) -> None:
+        if self._obj is not None and hasattr(self._obj, "aclose"):
+            await self._obj.aclose()
+
+
+def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None):
+    """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그.
+
+    repo·llm 을 안 주면 처음 쓰일 때 만든다 (상태 조회만 할 때는 로드하지 않음).
+    """
+    from rra.adapters.runs import FileRunLog, FileRunStore, FlockSlot
+    from rra.application.services import RunManager
+
+    settings = settings or load_settings()
+    limits = read_config("security.yaml", settings).get("input_limits") or {}
+    root = Path(settings.runs_dir)
+    model = llm_config(settings, "compose")["model"] if llm is None else None
+    if repo is None:
+        repo = _Lazy(lambda: build_repository(build_embedding(settings), settings))
+    if llm is None:
+        llm = _Lazy(lambda: build_llm(settings, stage="compose"))
+    return RunManager(
+        build_generate(settings, repo=repo, llm=llm),
+        FileRunStore(root),
+        FlockSlot(root / ".generate.lock"),
+        FileRunLog(root),
+        max_queued=int(limits.get("max_queued_runs", 3)),
+        model=model,
+    )
 
 
 def build_precheck(settings: Settings | None = None, repo=None):

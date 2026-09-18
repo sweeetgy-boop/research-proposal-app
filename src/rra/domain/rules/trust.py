@@ -48,22 +48,34 @@ def _valid_evidence(ev: list[str], allowed: set[str]) -> list[str]:
     return out
 
 
+def enforce_section_evidence(
+    section: Section, allowed: set[str], *, evidence_required: bool
+) -> tuple[Section, list[str]]:
+    """섹션 하나에 근거 규칙 적용. 재개 가능한 생성은 섹션마다 이 검증을 통과한 결과만 저장한다."""
+    dropped: list[str] = []
+    kept: list[Sentence] = []
+    for s in section.sentences:
+        ev = _valid_evidence(s.evidence, allowed)
+        if s.evidence and not ev:
+            dropped.append(f"{section.key}: 근거 불일치 → 폐기: {s.text[:40]}")
+            continue
+        if evidence_required and not ev:
+            dropped.append(f"{section.key}: 근거 없음 → 폐기: {s.text[:40]}")
+            continue
+        kept.append(Sentence(text=s.text, evidence=ev))
+    return Section(key=section.key, sentences=kept), dropped
+
+
 def enforce_evidence(draft: Draft, evidence_required: set[str]) -> tuple[Draft, list[str]]:
     """검색 집합에 없는 근거를 단 문장은 폐기. 근거 필수 섹션에서 근거 없는 문장도 폐기."""
     dropped: list[str] = []
     new_sections: list[Section] = []
     for sec in draft.sections:
-        kept: list[Sentence] = []
-        for s in sec.sentences:
-            ev = _valid_evidence(s.evidence, draft.retrieved_ids)
-            if s.evidence and not ev:
-                dropped.append(f"{sec.key}: 근거 불일치 → 폐기: {s.text[:40]}")
-                continue
-            if sec.key in evidence_required and not ev:
-                dropped.append(f"{sec.key}: 근거 없음 → 폐기: {s.text[:40]}")
-                continue
-            kept.append(Sentence(text=s.text, evidence=ev))
-        new_sections.append(Section(key=sec.key, sentences=kept))
+        kept, lost = enforce_section_evidence(
+            sec, draft.retrieved_ids, evidence_required=sec.key in evidence_required
+        )
+        new_sections.append(kept)
+        dropped.extend(lost)
     return Draft(
         run_id=draft.run_id,
         request=draft.request,

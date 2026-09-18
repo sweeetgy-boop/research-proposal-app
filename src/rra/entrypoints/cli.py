@@ -1,6 +1,6 @@
 """CLI 진입점. 유스케이스 호출과 출력만 담당한다 (로직 없음).
 
-종료 코드: 0 정상 / 1 실행 오류 / 2 사용법 오류 / 3 차단 경보 있음
+종료 코드: 0 정상 / 1 실행 오류·중단 / 2 사용법 오류 / 3 차단 경보 있음 / 4 초안 lint 실패
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_USAGE = 2
 EXIT_BLOCKED = 3
+EXIT_INVALID = 4
 
 SLOTS = ("current_state", "root_cause", "limitation", "goal", "constraints")
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
@@ -192,16 +193,147 @@ def cmd_alio_status(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── generate · runs ───────────────────────────────────────
+_STATUS_EXIT = {"done": EXIT_OK, "invalid": EXIT_INVALID}
+
+
+def _step_line(state, step) -> str:
+    done, total = state.progress
+    detail = (
+        f" (문장 {step.sentences}, 폐기 {step.dropped})" if step.name.startswith("section:") else ""
+    )
+    return f"[{done}/{total}] {step.name} 완료{detail}"
+
+
+def _draft_payload(view) -> dict:
+    from rra.entrypoints.views import draft_payload
+
+    return draft_payload(view)
+
+
+def _print_draft(payload: dict) -> None:
+    done, total = payload["progress"]
+    print(f"[run {payload['run_id']}] {payload['status']} ({done}/{total})")
+    for sec in payload["sections"]:
+        print(f"\n## {sec['key']}")
+        for sent in sec["sentences"]:
+            ev = ", ".join(sent["evidence"]) if sent["evidence"] else "제안자 입력"
+            print(f"- {_safe(sent['text'], 500)}  [{_safe(ev, 200)}]")
+    if payload["citations"]:
+        print("\n## 근거 문서")
+        for c in payload["citations"]:
+            print(f"  {_safe(c['id'], 80):<24} {_safe(c['title'] or '-')}")
+    for pr in payload["problems"]:
+        print(f"! {pr['section']}: {pr['code']} — {_safe(pr['message'])}")
+
+
+def cmd_generate(args: argparse.Namespace) -> int:
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.domain.models import ProposalRequest
+
+    if args.resume:
+        req = None
+    else:
+        slots = _read_slots(args)
+        missing = [k for k in SLOTS[:4] if not slots[k].strip()]
+        if missing:
+            _eprint(f"필수 슬롯이 비었습니다: {', '.join(missing)}")
+            return EXIT_USAGE
+        req = ProposalRequest(**slots)
+
+    started: dict[str, str] = {}
+
+    def on_step(state, step) -> None:
+        _eprint(_step_line(state, step))
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            if req is None:
+                state = await mgr.resume(LOCAL_USER, args.resume, on_step=on_step)
+            else:
+                state = await mgr.submit(LOCAL_USER, req, on_step=on_step)
+            started["run_id"] = state.run_id
+            _eprint(f"[run {state.run_id}] 시작 — 다른 생성이 진행 중이면 끝날 때까지 기다립니다.")
+            final = await mgr.wait(LOCAL_USER, state.run_id)
+            return final, await mgr.get_draft(LOCAL_USER, final.run_id)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        final, view = asyncio.run(run())
+    except KeyboardInterrupt:
+        rid = started.get("run_id", "<run_id>")
+        _eprint(f"\n중단했습니다. 완료된 섹션은 저장돼 있습니다: rra generate --resume {rid}")
+        return EXIT_ERROR
+    payload = _draft_payload(view)
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        _print_draft(payload)
+    if final.status == "interrupted":  # stderr 라 --json 출력과 섞이지 않는다
+        failed = next((s for s in final.steps if s.status == "error"), None)
+        where = f"{failed.name} ({failed.error})" if failed else "알 수 없음"
+        _eprint(f"중단: {where} — rra generate --resume {final.run_id}")
+    return _STATUS_EXIT.get(final.status, EXIT_ERROR)
+
+
+def cmd_runs_list(args: argparse.Namespace) -> int:
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+
+    runs = build_run_manager(load_settings()).list_runs(LOCAL_USER, limit=args.limit)
+    if args.json:
+        print(
+            json.dumps(
+                [
+                    {
+                        "run_id": r.run_id,
+                        "status": r.status,
+                        "progress": list(r.progress),
+                        "created_at": r.created_at,
+                        "updated_at": r.updated_at,
+                    }
+                    for r in runs
+                ],
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return EXIT_OK
+    if not runs:
+        print("생성 기록이 없습니다.")
+    for r in runs:
+        done, total = r.progress
+        print(f"{r.run_id}  {r.status:<11} {done:>2}/{total:<2}  {r.updated_at}")
+    return EXIT_OK
+
+
+def cmd_runs_show(args: argparse.Namespace) -> int:
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.get_draft(LOCAL_USER, args.run_id)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    payload = _draft_payload(asyncio.run(run()))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        _print_draft(payload)
+    return EXIT_OK
+
+
 # ── mcp ───────────────────────────────────────────────────
 def cmd_mcp(args: argparse.Namespace) -> int:
     from rra.entrypoints.mcp.server import main as mcp_main
 
-    return mcp_main(["--transport", args.transport])
-
-
-def cmd_todo(args: argparse.Namespace) -> int:
-    _eprint(f"[rra] {args.cmd}: 아직 구현 전입니다 (설계 문서 §8 참조).")
-    return EXIT_USAGE
+    argv = ["--transport", args.transport]
+    if args.enable_generate:
+        argv.append("--enable-generate")
+    return mcp_main(argv)
 
 
 # ── 파서 ──────────────────────────────────────────────────
@@ -231,6 +363,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     mcp = sub.add_parser("mcp", help="MCP 서버 실행 (stdio)")
     mcp.add_argument("--transport", default="stdio", choices=["stdio"])
+    mcp.add_argument(
+        "--enable-generate", action="store_true", help="쓰기 도구(생성·초안 조회)도 등록"
+    )
     mcp.set_defaults(handler=cmd_mcp)
 
     ingest = sub.add_parser("ingest", help="외부 소스에서 문서 수집 → DB 적재")
@@ -251,8 +386,24 @@ def build_parser() -> argparse.ArgumentParser:
     status = alio_sub.add_parser("status", help="inbox 대기·완료·격리 파일 수")
     status.set_defaults(handler=cmd_alio_status)
 
-    todo = sub.add_parser("generate", help="Step 6 이후")
-    todo.set_defaults(handler=cmd_todo)
+    gen = sub.add_parser("generate", help="제안서 초안 생성 (섹션별 저장, 중단 후 --resume)")
+    for slot in SLOTS:
+        gen.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    gen.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    gen.add_argument("--resume", metavar="RUN_ID", help="중단된 run 을 이어서 생성")
+    gen.add_argument("--json", action="store_true", help="JSON 으로 출력")
+    gen.set_defaults(handler=cmd_generate)
+
+    runs = sub.add_parser("runs", help="생성 기록 조회")
+    runs_sub = runs.add_subparsers(dest="runs_cmd", required=True)
+    rl = runs_sub.add_parser("list", help="최근 생성 기록")
+    rl.add_argument("--limit", type=int, default=20)
+    rl.add_argument("--json", action="store_true")
+    rl.set_defaults(handler=cmd_runs_list)
+    rs = runs_sub.add_parser("show", help="초안(문장별 근거 포함)·진행 상태")
+    rs.add_argument("run_id")
+    rs.add_argument("--json", action="store_true")
+    rs.set_defaults(handler=cmd_runs_show)
 
     return parser
 
@@ -265,7 +416,7 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_USAGE
     try:
         return args.handler(args)
-    except (ValueError, OSError, RuntimeError, KeyError) as exc:
+    except (ValueError, OSError, RuntimeError, LookupError) as exc:
         _eprint(f"오류: {exc}")
         return EXIT_ERROR
 

@@ -3,6 +3,7 @@ from .document import Chunk, DocType, Document, SourceType
 from .draft import Draft, Section, Sentence
 from .gap import GapRow, GapTable, OverlapAlert, Tier
 from .request import ProposalRequest
+from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
 
 __all__ = [
     "CatalogEntry",
@@ -18,4 +19,8 @@ __all__ = [
     "OverlapAlert",
     "Tier",
     "ProposalRequest",
+    "RetrievalSnapshot",
+    "RunState",
+    "RunStatus",
+    "StepRecord",
 ]

@@ -36,14 +36,14 @@
 - DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 
 ## 현재 단계
-Step 5 구현 — adapters/sources/_sandbox.py·_worker.py(격리 파서: fd→stdin, 최소 env, rlimit,
-부모 측 RSS 감시, 타임아웃), alio/(filecheck·catalog·filedrop·extract/pdf·hwpx·csv_catalog),
-usecases/list_missing.py, IngestSources 의 upsert 후 acknowledge, GuardedClient.get_bytes,
-CLI `rra alio catalog|missing|status`, `rra ingest --source alio`.
-fixture 대기: tests/fixtures/alio/real/(실제 공시 1~2건 + expected.yaml), catalog/sample.csv —
-받으면 alio.catalog.columns 확정. .hwp(OLE)는 Step 5b.
+Step 6 구현 (브랜치 step6-runs, step5-alio 기반) — application/services/run_manager.py(제출·재개·상태·
+부분 초안, step = retrieve → section:<key> → finalize), GenerateProposal 단계 분해(렌더링 분리),
+adapters/runs/(FileRunStore·FileRunLog·flock 락, runs/<user>/<run_id>/), CLI `rra generate [--resume]`·
+`rra runs list|show`, MCP 쓰기 도구 rra_generate·rra_get_draft(`--enable-generate`, .mcp.json `rra-write`).
+Step 5 fixture 대기(테스트 2건 skip)는 그대로. 다음: Step 7 — HWPX 렌더링(rra_render).
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.
-- 도구 로직은 `entrypoints/mcp/tools.py`(mcp SDK import 없음), 등록만 `server.py`. SDK 없이도 테스트가 돈다.
+- 도구 로직은 `entrypoints/mcp/tools.py`(읽기)·`run_tools.py`(쓰기, mcp SDK import 없음), 등록만 `server.py`.
+  쓰기 도구는 `--enable-generate` 일 때만 등록. tools.py 는 RunManager 를 import 할 수 없다(계약 5).
 - 도구 결과는 항상 비신뢰: `domain/rules/trust.untrusted_block()` / `UNTRUSTED_NOTICE` 를 거쳐 나간다.

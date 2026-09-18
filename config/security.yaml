@@ -21,6 +21,7 @@ input_limits:
   slot_max_chars: 2000
   query_max_chars: 500
   concurrent_generations: 1
+  max_queued_runs: 3         # 사용자별 대기·실행 중 run 상한 (MCP 무한 제출 방지)
 
 # I. 보존
 retention_days: 180
