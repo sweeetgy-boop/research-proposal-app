@@ -7,7 +7,7 @@ import yaml
 
 from rra.adapters.llm.prompt_files import FilePromptLibrary, PromptNotFound
 
-RULES_PATH = Path(__file__).parents[2] / "config/templates/proposal_krri.rules.yaml"
+RULES_PATH = Path(__file__).parents[2] / "config/templates/proposal_korail.rules.yaml"
 RULES = yaml.safe_load(RULES_PATH.read_text(encoding="utf-8"))
 REQUIRED_SECTIONS = RULES["required_sections"]
 

@@ -284,7 +284,7 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
     return IngestSources(sources, repo, limit=limit)
 
 
-TEMPLATE = "proposal_krri"
+TEMPLATE = "proposal_korail"
 LOCAL_USER = "local"  # stdio·CLI: 프로세스 소유자 = 사용자. 다중 사용자는 Step 10 (REST 인증)
 
 

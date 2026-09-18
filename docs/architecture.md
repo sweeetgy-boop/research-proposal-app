@@ -16,8 +16,8 @@
 | 6 | 재현성 기록 | `application/ports/run_log.py` → `runs/<run_id>/manifest.json` | 반영 |
 | 7 | 원본 응답 캐시 | `adapters/sources/_base.py` 디스크 캐시, `tests/fixtures/`로 복사 | 반영 |
 | 8 | 교차 소스 dedup | `domain/rules/dedup.py`, `ingest_sources`에서 upsert 직전 호출 | 반영 |
-| 9 | 슬롯 매핑 외부화 | `config/templates/proposal_krri.slots.yaml` | 반영 |
-| 10 | lint 규칙 외부화 | `config/templates/proposal_krri.rules.yaml` + `lint/engine.py` | 반영 |
+| 9 | 슬롯 매핑 외부화 | `config/templates/proposal_korail.slots.yaml` | 반영 |
+| 10 | lint 규칙 외부화 | `config/templates/proposal_korail.rules.yaml` + `lint/engine.py` | 반영 |
 
 ---
 
@@ -86,9 +86,9 @@ research-proposal-app/
 │   ├── gap_thresholds.yaml         # 중복 경보 임계치 (기관별)
 │   ├── security.yaml               # C·B·G·I: 허용 도메인, 파일 상한, 입력 상한, 보존기간
 │   └── templates/
-│       ├── proposal_krri.hwpx
-│       ├── proposal_krri.slots.yaml
-│       └── proposal_krri.rules.yaml
+│       ├── proposal_korail.hwpx
+│       ├── proposal_korail.slots.yaml
+│       └── proposal_korail.rules.yaml
 │
 ├── data/                           # gitignore
 │   ├── rra.sqlite
