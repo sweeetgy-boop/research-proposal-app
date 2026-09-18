@@ -410,6 +410,8 @@ req -> expand (HyDE + terms)
   `proc_pid_rusage`(Linux 는 `/proc/<pid>/statm`)로 RSS 를 50ms 마다 읽어 초과 시 kill (best-effort).
 - 한계: RSS 폴링은 50ms 간격이라 그 사이의 급격한 메모리 스파이크는 놓칠 수 있다. macOS 는 이 폴링이
   유일한 메모리 방어선이고, Linux·WSL 은 OS rlimit(`RLIMIT_AS/DATA`)이 병행되어 커널이 즉시 할당을 거부한다.
+  배포 대상이 M6 Mac mini 이므로 **이 macOS 폴링 경로가 최종 운영 환경의 실제 방어선**이다
+  (개발 중 WSL 에서 통과한 메모리 테스트가 운영 환경의 보장을 뜻하지 않는다).
 - 자식 출력(JSON)도 비신뢰: 크기 상한 + pydantic 재검증. 실패는 `SandboxError` 하위 클래스로만 올라온다.
 - 실패 파일은 `inbox/_quarantine/` 으로 이동, 로그는 `error=<클래스명> file=sha256:<8자>` 만.
 
