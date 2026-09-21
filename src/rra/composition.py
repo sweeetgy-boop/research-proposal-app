@@ -26,7 +26,13 @@ __all__ = [
     "build_prompt_library",
     "build_repository",
     "build_run_manager",
+    "build_ntis_source",
+    "build_scienceon_source",
     "build_sources",
+    "check_sources",
+    "credential_status",
+    "institutions",
+    "MissingCredential",
     "check_served_model",
     "fetch_alio_catalog",
     "lint_rules",
@@ -233,7 +239,7 @@ def build_alio_catalog(settings: Settings | None = None):
     return FileCatalog(
         Path(cfg.get("catalog_dir", "data/catalog")),
         limits=sandbox_limits(settings),
-        institutions=cfg.get("institutions") or [],
+        institutions=institutions(settings),
         columns=(cfg.get("catalog") or {}).get("columns") or None,
     )
 
@@ -294,7 +300,162 @@ def build_list_missing(settings: Settings | None = None, repo=None):
     return ListMissing(build_alio_catalog(settings), repo)
 
 
-_SOURCE_BUILDERS = {"openalex": build_openalex_source, "alio": build_alio_source}
+def institutions(settings: Settings) -> list[dict[str, Any]]:
+    """대상 기관 목록 (sources.yaml 최상위). 예전 위치(alio.institutions)도 읽는다."""
+    cfg = read_config("sources.yaml", settings)
+    return list(cfg.get("institutions") or (cfg.get("alio") or {}).get("institutions") or [])
+
+
+class MissingCredential(ValueError):
+    """요청한 소스의 키가 .env 에 없다. 메시지에는 변수 이름만 (값 없음)."""
+
+
+# 소스별 필요한 .env 변수 → Settings 필드
+CREDENTIALS: dict[str, dict[str, str]] = {
+    "scienceon": {
+        "RRA_SCIENCEON_CLIENT_ID": "scienceon_client_id",
+        "RRA_SCIENCEON_KEY": "scienceon_key",
+        "RRA_SCIENCEON_MAC": "scienceon_mac",
+    },
+    "ntis": {"RRA_NTIS_KEY": "ntis_key"},
+}
+
+
+def credential_status(settings: Settings, source: str) -> dict[str, bool]:
+    """{변수 이름: 값이 있는지}. 값 자체는 돌려주지 않는다."""
+    out = {}
+    for env, field in CREDENTIALS.get(source, {}).items():
+        secret = getattr(settings, field)
+        out[env] = bool(secret is not None and secret.get_secret_value().strip())
+    return out
+
+
+def _require(settings: Settings, source: str) -> None:
+    missing = [env for env, ok in credential_status(settings, source).items() if not ok]
+    if missing:
+        raise MissingCredential(
+            f"{source} 수집에 필요한 키가 .env 에 없습니다: {', '.join(missing)} "
+            "(README 발급 절차 참고)"
+        )
+
+
+def _guarded(settings: Settings, cfg: dict[str, Any], *, transport=None, resolver=None):
+    import httpx
+
+    from rra.adapters.sources import GuardedClient
+
+    security = read_config("security.yaml", settings)
+    timeout = cfg.get("timeout") or {}
+    return GuardedClient(
+        security.get("allowed_domains") or [],
+        timeout=httpx.Timeout(
+            float(timeout.get("connect", 10)), read=float(timeout.get("read", 30))
+        ),
+        max_redirects=int(cfg.get("max_redirects", 3)),
+        max_response_bytes=int(float(cfg.get("max_response_mb", 20)) * 1024 * 1024),
+        rate_limit=float(cfg["rate_limit"]) if cfg.get("rate_limit") else None,
+        max_requests=int(cfg["max_requests_per_run"]) if cfg.get("max_requests_per_run") else None,
+        retries=int(cfg.get("retries", 3)),
+        max_backoff_sec=float(cfg.get("max_backoff_sec", 30)),
+        transport=transport,
+        **({"resolver": resolver} if resolver else {}),
+    )
+
+
+def build_scienceon_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """ScienceONSource. 키 3종(.env) 없으면 MissingCredential. 레이트리밋은 sources.yaml."""
+    from rra.adapters.sources.scienceon import ScienceOnSource, TokenManager
+
+    settings = settings or load_settings()
+    _require(settings, "scienceon")
+    cfg = read_config("sources.yaml", settings).get("scienceon") or {}
+    base_url = str(cfg.get("base_url", "https://apigateway.kisti.re.kr"))
+    client = _guarded(settings, cfg, transport=transport, resolver=resolver)
+    tokens = TokenManager(
+        client,
+        base_url,
+        client_id=settings.scienceon_client_id,
+        auth_key=settings.scienceon_key,
+        mac=settings.scienceon_mac,
+    )
+    return ScienceOnSource(
+        client,
+        tokens,
+        base_url=base_url,
+        targets=list(cfg.get("targets") or ["ARTI"]),
+        queries=list(cfg.get("queries") or ["철도"]),
+        search_field=str(cfg.get("search_field", "BI")),
+        row_count=int(cfg.get("row_count", 50)),
+        max_consecutive_429=int(cfg.get("max_consecutive_429", 2)),
+    )
+
+
+def build_ntis_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """NtisProjectSource (과제검색). RRA_NTIS_KEY 없으면 MissingCredential."""
+    from rra.adapters.sources.ntis import NtisProjectSource
+
+    settings = settings or load_settings()
+    _require(settings, "ntis")
+    cfg = read_config("sources.yaml", settings).get("ntis") or {}
+    return NtisProjectSource(
+        _guarded(settings, cfg, transport=transport, resolver=resolver),
+        apprv_key=settings.ntis_key,
+        base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
+        project_path=str(cfg.get("project_path", "/rndopen/openApi/public_project")),
+        queries=list(cfg.get("queries") or ["철도"]),
+        institutions=institutions(settings),
+        search_field=str(cfg.get("search_field", "BI")),
+        display_count=int(cfg.get("display_count", 100)),
+        record_tag=str(cfg.get("record_tag") or "") or None,
+    )
+
+
+KEYED_SOURCES = ("scienceon", "ntis")
+
+
+async def check_sources(
+    settings: Settings | None = None, names=KEYED_SOURCES, *, transport=None, resolver=None
+) -> list[dict[str, Any]]:
+    """rra sources check — 소스별 키 유무(값 없음)·허용목록·왕복 1회. 실패는 예외 클래스명과 메시지.
+
+    메시지는 FetchError 계열이라 비밀이 제거된 URL 만 담는다.
+    """
+    from urllib.parse import urlsplit
+
+    settings = settings or load_settings()
+    allowed = set(read_config("security.yaml", settings).get("allowed_domains") or [])
+    builders = {"scienceon": build_scienceon_source, "ntis": build_ntis_source}
+    results = []
+    for name in names:
+        cfg = read_config("sources.yaml", settings).get(name) or {}
+        host = urlsplit(str(cfg.get("base_url", ""))).hostname or ""
+        row: dict[str, Any] = {
+            "source": name,
+            "credentials": credential_status(settings, name),
+            "host": host,
+            "host_allowed": host in allowed,
+            "roundtrip": "skipped",
+        }
+        if all(row["credentials"].values()) and row["host_allowed"]:
+            source = builders[name](settings, transport=transport, resolver=resolver)
+            try:
+                row["result"] = await source.probe()
+                row["roundtrip"] = "ok"
+            except Exception as exc:  # 진단 — 다음 소스도 확인한다
+                row["roundtrip"] = type(exc).__name__
+                row["error"] = str(exc)[:300]
+            finally:
+                await source.aclose()
+        results.append(row)
+    return results
+
+
+_SOURCE_BUILDERS = {
+    "openalex": build_openalex_source,
+    "alio": build_alio_source,
+    "scienceon": build_scienceon_source,
+    "ntis": build_ntis_source,
+}
 SOURCE_NAMES = tuple(_SOURCE_BUILDERS)
 
 

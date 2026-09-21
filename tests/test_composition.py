@@ -311,3 +311,107 @@ async def test_listing_failure_and_missing_key_only_warn():
     assert "조회 실패 (LLMError)" in failed and "down" not in failed
     assert "served_model 이 없습니다" in await check_served_model({}, ListingLLM())
     assert await check_served_model({"served_model": "x"}, object()) is None  # 목록 기능 없는 LLM
+
+
+# ── Step 7: 키 관리·ScienceON·NTIS 조립 ─────────────────
+SCIENCEON_KEYS = {
+    "scienceon_client_id": "CID-1",
+    "scienceon_key": "0123456789abcdef0123456789abcdef",
+    "scienceon_mac": "AA-BB-CC-DD-EE-FF",
+}
+
+
+def project_settings(**kw):
+    return Settings(_env_file=None, **kw)
+
+
+def test_missing_credentials_name_variables_not_values():
+    from rra.composition import MissingCredential, build_sources
+
+    with pytest.raises(MissingCredential) as info:
+        build_sources(["ntis"], project_settings())
+    assert "RRA_NTIS_KEY" in str(info.value)
+    with pytest.raises(MissingCredential) as info:
+        build_sources(
+            ["scienceon"], project_settings(scienceon_key=SCIENCEON_KEYS["scienceon_key"])
+        )
+    msg = str(info.value)
+    assert "RRA_SCIENCEON_CLIENT_ID" in msg and "RRA_SCIENCEON_MAC" in msg
+    assert "RRA_SCIENCEON_KEY" not in msg and "0123456789abcdef" not in msg
+
+
+def test_blank_env_values_count_as_missing():
+    from rra.composition import credential_status
+
+    assert credential_status(project_settings(ntis_key="  "), "ntis") == {"RRA_NTIS_KEY": False}
+    assert credential_status(project_settings(ntis_key="k"), "ntis") == {"RRA_NTIS_KEY": True}
+
+
+def test_scienceon_wiring_uses_rate_limit_policy():
+    from rra.composition import build_scienceon_source
+
+    src = build_scienceon_source(project_settings(**SCIENCEON_KEYS))
+    assert src.client.min_interval == pytest.approx(1.0)  # 초당 1회
+    assert src.client.max_requests == 40 and src.max_consecutive_429 == 2
+    assert src.client.max_backoff_sec == 30
+    assert "apigateway.kisti.re.kr" in src.client.allowed
+    assert src.targets == ["ARTI", "REPORT"]
+    assert "CID-1" not in repr(src) and "CID-1" not in repr(src.tokens)
+
+
+def test_ntis_wiring_and_shared_institutions():
+    from rra.composition import build_ntis_source, institutions
+
+    settings = project_settings(ntis_key="NTIS-K")
+    src = build_ntis_source(settings)
+    assert src.url.startswith("https://www.ntis.go.kr/")
+    assert src.client.max_requests == 60
+    tags = {i["tag"]: i for i in institutions(settings)}
+    assert "한국철도시설공단" in tags["kr"]["aliases"]
+    assert src.institutions == institutions(settings)
+    assert "NTIS-K" not in repr(src)
+
+
+def test_alio_still_reads_institutions_after_move(tmp_path):
+    from rra.composition import build_alio_catalog, institutions
+
+    settings = project_settings()
+    assert [i["tag"] for i in institutions(settings)] == ["korail", "krri", "kr"]
+    assert build_alio_catalog(settings).institutions == institutions(settings)
+    # 예전 위치(alio.institutions)만 있는 설정도 읽는다
+    (tmp_path / "sources.yaml").write_text(
+        "alio:\n  institutions:\n    - {code: C0268, name: 한국철도공사, tag: korail}\n",
+        encoding="utf-8",
+    )
+    assert institutions(settings_for(tmp_path))[0]["tag"] == "korail"
+
+
+async def test_check_sources_reports_without_values():
+    from rra.composition import check_sources
+
+    def handler(request):
+        if request.url.path == "/tokenrequest.do":
+            return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
+        return httpx.Response(
+            200,
+            content=b"<MetaData><resultSummary><TotalCount>7</TotalCount></resultSummary></MetaData>",
+            headers={"content-type": "text/xml"},
+        )
+
+    settings = project_settings(**SCIENCEON_KEYS)
+    rows = await check_sources(
+        settings,
+        ["scienceon", "ntis"],
+        transport=httpx.MockTransport(handler),
+        resolver=lambda h: False,
+    )
+    sci, ntis = rows
+    assert sci["roundtrip"] == "ok" and sci["result"] == {
+        "auth": "ok",
+        "totals": {"ARTI": 7, "REPORT": 7},
+    }
+    assert ntis["roundtrip"] == "skipped" and ntis["credentials"] == {"RRA_NTIS_KEY": False}
+    import json as _json
+
+    dumped = _json.dumps(rows, ensure_ascii=False)
+    assert "CID-1" not in dumped and "0123456789abcdef" not in dumped and "AA-BB-CC" not in dumped

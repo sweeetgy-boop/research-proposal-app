@@ -26,9 +26,9 @@
 | 소스 | 대상 | 접근 방식 | 상태 |
 |---|---|---|---|
 | OpenAlex | 해외 논문 | REST API (무료, 키 불필요) | 확정 |
-| ScienceON | 국내 논문·보고서 | REST API (KISTI 키) | 확정 |
+| ScienceON | 국내 논문·보고서 | API Gateway — client_id + 32자 인증키 + **등록 MAC** 으로 토큰 발급(access 2시간·refresh 2주), 응답 XML. 429 이력 → 초당 1회·run 당 예산 | 확정 (Step 7) |
 | KIPRIS | 국내·해외 특허 | REST API (특허청 키) | 확정 |
-| **NTIS** | 국가R&D 과제·연구보고서 (KRRI 포함) | REST API — `국가R&D 연구보고서 검색 서비스(대국민용)`, `국가R&D 과제검색 서비스(대국민용)`. ntis.go.kr/rndopen에서 신청 | **신규 확정** |
+| **NTIS** | 국가R&D 과제·연구보고서 (KRRI 포함) | Step 7 은 과제검색만(rndopen apprvKey, 응답 XML). REST API — `국가R&D 연구보고서 검색 서비스(대국민용)`, `국가R&D 과제검색 서비스(대국민용)`. ntis.go.kr/rndopen에서 신청 | **신규 확정** |
 | **알리오** | 코레일(C0268)·KRRI(C0269)·공단(C0270) 공시 연구보고서 | robots.txt 자동접근 금지 → 공공데이터포털 `기획재정부_공공기관 연구보고서 공시` 파일로 카탈로그 + 수동 다운로드 filedrop | **신규 확정** |
 | ~~DART~~ | ~~기업공시~~ | — | 제외 |
 | ~~kr.or.kr 게시판~~ | ~~공단 연구개발과제~~ | 제안 접수 창구, 비밀글 | 제외 (양식 참고용만) |
@@ -429,10 +429,20 @@ req -> expand (HyDE + terms)
 - 리다이렉트 시 대상 도메인 재검사, 사설 IP 대역(10/8, 172.16/12, 192.168/16, 127/8, 169.254/16) 해석 결과 거부 → SSRF 차단.
 - 카탈로그·API 응답에 들어있는 URL은 허용목록 통과 시에만 다운로드.
 - 캐시 키는 **쿼리스트링에서 인증 파라미터 제거 후** 해시 → 캐시 파일명에 키 노출 방지.
+- (Step 7) 제거 대상 `SECRET_PARAMS` 에 `client_id·accounts·refreshToken·apprvKey` 추가. httpx·httpcore 로거는
+  WARNING 으로 고정(INFO 에서 키가 든 요청 URL 을 남기기 때문).
+- (Step 7) 레이트리밋: `Retry-After` 가 상한보다 길면 재시도 없이 `RateLimited`, 재시도를 다 쓴 429 도
+  `RateLimited`, run 당 요청 예산(`max_requests_per_run`) 초과 시 모은 만큼만 적재. ScienceON 은 연속 429
+  N회면 그 run 에서 중단. 레이트 상태는 프로세스 안에만 있다(ingest 는 한 번에 하나).
+- (Step 7) XML API 응답(ScienceON·NTIS)은 본체에서 defusedxml 로 파싱한다 — B 의 subprocess 격리는 외부 파일
+  (PDF·HWPX) 대상. 응답은 허용목록 호스트·크기 상한·DTD 금지로 다룬다.
 
 #### D. 비밀 관리 — `settings.py`
 - `pydantic.SecretStr`로 로딩, `repr`·로그·매니페스트에 절대 미출력.
 - `.env` 권한 600 검사, 아니면 기동 거부.
+- (Step 7) 소스 키: `RRA_SCIENCEON_CLIENT_ID·_KEY·_MAC`, `RRA_NTIS_KEY`. yaml·`.mcp.json`·manifest·로그·fixture 에
+  두지 않는다. 키가 없는 소스는 요청했을 때만 `MissingCredential`(변수 이름만). ScienceON MAC 은 기기별로 다르다
+  (개발·배포 기기 모두 등록). 토큰은 메모리에만. fixture 녹화 도구는 응답 속 비밀 값을 가리고 남으면 저장 거부.
 - 프리커밋에 `gitleaks` + `detect-secrets`.
 - 로컬 LLM은 키가 없으므로 `api_key="none"` 고정, 외부 provider 사용 시에만 키 요구.  # pragma: allowlist secret
 
@@ -514,7 +524,7 @@ config/
 | **4** ✅ | `adapters/sources/openalex.py`, `_base.GuardedClient`, `usecases/ingest_sources.py`, CLI `ingest` | C(리다이렉트 hop별 재검사, 사설IP·루프백 거부, 응답 크기 상한) | ingest → search 왕복 (fixture, 네트워크 없음) |
 | 5 | `adapters/sources/alio/` catalog·filedrop·extract·`_sandbox.py`·metadata | B(subprocess 격리, zip 상한, defusedxml) | 코레일 보고서 10건 적재 |
 | 6 | `precheck_overlap` CLI 연결, `gap_analysis` 3단, **`RunManager` + MCP generate/get_draft** | G(세마포어 1) | 기수행 과제 경보 출력, IDE에서 생성 요청 |
-| 7 | NTIS·KIPRIS·ScienceON 어댑터 | C | 소스 5종 |
+| 7 | ScienceON·NTIS(과제검색) 어댑터 — KIPRIS·NTIS 연구보고서는 후속 | C·D(키 관리, 레이트리밋) | NTIS 과제가 overlap 티어대로 경보 |
 | 8 | `adapters/rendering/hwpx.py`, slots·rules 실양식 반영 | F(escape·재파싱) | 빈 초안 → HWPX 열림 |
 | 9 | `critique_draft`, 예산표, 차별성 매트릭스, `run_log` 파일 구현 | I(해시만 기록, 보존기간) | 골든셋 1건 |
 | 10 | `entrypoints/api/`, **MCP streamable-http**, `adapters/security/`, `deploy/launchd`, Tailscale | G(인증·헤더·업로드 없음, MCP 토큰), H | 타 제안자 시연 |

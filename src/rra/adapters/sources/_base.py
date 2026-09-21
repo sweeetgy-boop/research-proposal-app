@@ -17,6 +17,7 @@ import asyncio
 import hashlib
 import ipaddress
 import json
+import logging
 import socket
 import time
 from collections.abc import Awaitable, Callable, Iterable
@@ -25,7 +26,24 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 
-SECRET_PARAMS = {"key", "apikey", "api_key", "servicekey", "accesskey", "token"}
+# D: httpx·httpcore 는 INFO 레벨에서 요청 URL 을 통째로 로그에 남긴다 (쿼리스트링의 키 포함).
+# 애플리케이션 로그 설정과 무관하게 WARNING 미만은 내보내지 않도록 고정한다.
+for _name in ("httpx", "httpcore"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
+
+# 쿼리스트링에 실리는 비밀. 오류 메시지·캐시 키에서 제거된다 (대소문자 무시).
+SECRET_PARAMS = {
+    "key",
+    "apikey",
+    "api_key",
+    "servicekey",
+    "accesskey",
+    "token",
+    "client_id",
+    "accounts",
+    "refreshtoken",
+    "apprvkey",  # ScienceON · NTIS (Step 7)
+}
 PRIVATE_NETS = [
     ipaddress.ip_network(n)
     for n in (
@@ -54,6 +72,17 @@ class BlockedURL(ValueError):
 
 class FetchError(RuntimeError):
     """상태 코드·크기·형식 오류. 메시지에는 비밀 제거된 URL 만 넣는다 (D)."""
+
+
+class RateLimited(FetchError):
+    """429 재시도를 다 썼거나 서버가 상한보다 긴 대기(Retry-After)를 요구했다.
+
+    더 두드리지 않는다 — 호출자는 이 소스 수집을 멈춘다.
+    """
+
+
+class RequestBudgetExceeded(FetchError):
+    """이 클라이언트에 허용된 요청 수(run 당 예산)를 다 썼다. 수집을 멈추라는 신호."""
 
 
 def strip_secrets(url: str) -> str:
@@ -128,6 +157,7 @@ class GuardedClient:
         max_redirects: int = 3,
         max_response_bytes: int = 20 * 1024 * 1024,
         rate_limit: float | None = None,
+        max_requests: int | None = None,
         retries: int = 3,
         backoff_sec: float = 0.5,
         max_backoff_sec: float = 30.0,
@@ -140,6 +170,8 @@ class GuardedClient:
         self.max_redirects = max_redirects
         self.max_response_bytes = max_response_bytes
         self.min_interval = 1.0 / rate_limit if rate_limit else 0.0
+        self.max_requests = max_requests
+        self.requests_made = 0  # 실제로 보낸 HTTP 요청 수 (리다이렉트 hop·재시도 포함)
         self.retries = retries
         self.backoff_sec = backoff_sec
         self.max_backoff_sec = max_backoff_sec
@@ -207,11 +239,17 @@ class GuardedClient:
                 await self._sleep(self._retry_delay(attempt, None))
                 attempt += 1
                 continue
+            safe = strip_secrets(str(final))
+            if status == 429:
+                wait = _retry_after_seconds(headers.get("retry-after"))
+                if wait is not None and wait > self.max_backoff_sec:
+                    raise RateLimited(f"HTTP 429, Retry-After {wait:.0f}s > 상한: {safe}")
+                if attempt >= self.retries:
+                    raise RateLimited(f"HTTP 429, 재시도 {self.retries}회 소진: {safe}")
             if status in RETRY_STATUS and attempt < self.retries:
                 await self._sleep(self._retry_delay(attempt, headers.get("retry-after")))
                 attempt += 1
                 continue
-            safe = strip_secrets(str(final))
             if status != 200:
                 raise FetchError(f"HTTP {status}: {safe}")
             return headers, body, safe
@@ -219,7 +257,12 @@ class GuardedClient:
     async def _fetch(self, target: httpx.URL) -> tuple[int, httpx.Headers, bytes, httpx.URL]:
         for _ in range(self.max_redirects + 1):
             check_url(str(target), self.allowed, resolver=self._resolver)
+            if self.max_requests is not None and self.requests_made >= self.max_requests:
+                raise RequestBudgetExceeded(
+                    f"요청 예산 {self.max_requests}회를 다 썼습니다: {strip_secrets(str(target))}"
+                )
             await self._throttle()
+            self.requests_made += 1
             async with self._client.stream("GET", target) as resp:
                 if resp.has_redirect_location:
                     target = target.join(resp.headers["location"])
@@ -248,6 +291,13 @@ class GuardedClient:
         self._last_request = self._clock()
 
     def _retry_delay(self, attempt: int, retry_after: str | None) -> float:
-        if retry_after and retry_after.strip().isdigit():
-            return min(float(retry_after), self.max_backoff_sec)
+        wait = _retry_after_seconds(retry_after)
+        if wait is not None:
+            return min(wait, self.max_backoff_sec)
         return min(self.backoff_sec * (2**attempt), self.max_backoff_sec)
+
+
+def _retry_after_seconds(value: str | None) -> float | None:
+    """Retry-After 의 초 단위 값. HTTP-date 형식·이상한 값은 None (기본 백오프 사용)."""
+    text = (value or "").strip()
+    return float(text) if text.isdigit() else None

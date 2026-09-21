@@ -451,3 +451,30 @@ def test_resume_of_finished_run_is_an_error(run_env, capsys):
     run_id = json.loads(capsys.readouterr().out)["run_id"]
     assert cli.main(["generate", "--resume", run_id]) == cli.EXIT_ERROR
     assert "재개할 수 없습니다" in capsys.readouterr().err
+
+
+# ── sources check · 키 없는 ingest ─────────────────────────
+def test_sources_check_prints_presence_only(monkeypatch, capsys):
+    async def fake_check(settings, names):
+        return [
+            {"source": "ntis", "credentials": {"RRA_NTIS_KEY": True}, "host": "www.ntis.go.kr",
+             "host_allowed": True, "roundtrip": "ok",
+             "result": {"total": 12, "record_tag_candidates": ["HIT"]}},
+            {"source": "scienceon", "credentials": {"RRA_SCIENCEON_MAC": False},
+             "host": "apigateway.kisti.re.kr", "host_allowed": True, "roundtrip": "skipped"},
+        ]
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.check_sources", fake_check)
+    assert cli.main(["sources", "check"]) == cli.EXIT_ERROR  # 하나라도 ok 가 아니면 1
+    out = capsys.readouterr().out
+    assert "RRA_NTIS_KEY=있음" in out and "RRA_SCIENCEON_MAC=없음" in out
+    assert '"record_tag_candidates": ["HIT"]' in out
+
+
+def test_ingest_without_key_reports_variable_name(monkeypatch, capsys):
+    from rra.settings import Settings
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: Settings(_env_file=None))
+    assert cli.main(["ingest", "--source", "ntis"]) == cli.EXIT_ERROR
+    assert "RRA_NTIS_KEY" in capsys.readouterr().err

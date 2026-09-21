@@ -1,6 +1,7 @@
 # C. 아웃바운드 허용목록 — 여기 없는 도메인은 어댑터가 접속 거부
 allowed_domains:
   - api.openalex.org
+  - apigateway.kisti.re.kr   # ScienceON API Gateway (Step 7)
   - apis.data.go.kr
   - plus.kipris.or.kr
   - www.ntis.go.kr

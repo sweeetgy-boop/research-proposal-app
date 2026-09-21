@@ -337,6 +337,29 @@ def cmd_runs_show(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── sources check ─────────────────────────────────────────
+def cmd_sources_check(args: argparse.Namespace) -> int:
+    from rra.composition import KEYED_SOURCES, check_sources, load_settings
+
+    names = [n.strip() for n in args.source.split(",") if n.strip()] if args.source else None
+    results = asyncio.run(check_sources(load_settings(), names or KEYED_SOURCES))
+    if args.json:
+        print(json.dumps(results, ensure_ascii=False, indent=2))
+    else:
+        for r in results:
+            keys = ", ".join(
+                f"{k}={'있음' if ok else '없음'}" for k, ok in r["credentials"].items()
+            )
+            allowed = "허용" if r["host_allowed"] else "허용목록에 없음"
+            head = f"[{r['source']}] 키: {keys} / 호스트 {r['host']} {allowed}"
+            print(f"{head} / 왕복: {r['roundtrip']}")
+            if r.get("result"):
+                print(f"    {_safe(json.dumps(r['result'], ensure_ascii=False), 300)}")
+            if r.get("error"):
+                print(f"    {_safe(r['error'], 300)}")
+    return EXIT_OK if all(r["roundtrip"] == "ok" for r in results) else EXIT_ERROR
+
+
 # ── mcp ───────────────────────────────────────────────────
 def cmd_mcp(args: argparse.Namespace) -> int:
     from rra.entrypoints.mcp.server import main as mcp_main
@@ -380,11 +403,20 @@ def build_parser() -> argparse.ArgumentParser:
     mcp.set_defaults(handler=cmd_mcp)
 
     ingest = sub.add_parser("ingest", help="외부 소스에서 문서 수집 → DB 적재")
-    ingest.add_argument("--source", default="openalex", help="쉼표로 구분 (openalex, alio)")
+    ingest.add_argument(
+        "--source", default="openalex", help="쉼표로 구분 (openalex, alio, scienceon, ntis)"
+    )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
     ingest.add_argument("--limit", type=int, default=200, help="소스당 최대 건수")
     ingest.add_argument("--json", action="store_true", help="JSON 으로 출력")
     ingest.set_defaults(handler=cmd_ingest)
+
+    src = sub.add_parser("sources", help="키가 필요한 수집 소스 점검")
+    src_sub = src.add_subparsers(dest="sources_cmd", required=True)
+    chk = src_sub.add_parser("check", help="키 유무(값 미표시)·허용목록·왕복 1회")
+    chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis)")
+    chk.add_argument("--json", action="store_true")
+    chk.set_defaults(handler=cmd_sources_check)
 
     alio = sub.add_parser("alio", help="알리오 공시 보고서 카탈로그·filedrop 관리")
     alio_sub = alio.add_subparsers(dest="alio_cmd", required=True)

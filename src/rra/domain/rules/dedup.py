@@ -12,6 +12,9 @@ def _norm_title(t: str) -> str:
 
 
 def identity_key(d: Document) -> str:
+    if d.doc_type == "rnd_project":
+        # 과제는 고유번호(doc_id)로 식별 — 같은 제목의 보고서·논문과 합쳐지지 않게
+        return f"project:{d.doc_id}"
     if d.doi:
         return f"doi:{d.doi.lower()}"
     if d.application_no:

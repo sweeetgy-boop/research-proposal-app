@@ -1,8 +1,10 @@
+# 대상 기관 (alio·ntis 공용). 이름·별칭이 수행기관명 안에 들어 있으면 그 태그를 붙인다.
+# 기관 개칭: 한국철도시설공단 → 국가철도공단 (2020). 서로 포함 관계인 이름은 넣지 않는다.
+institutions:
+  - {code: C0268, name: 한국철도공사, tag: korail, aliases: [코레일]}
+  - {code: C0269, name: 한국철도기술연구원, tag: krri}
+  - {code: C0270, name: 국가철도공단, tag: kr, aliases: [한국철도시설공단]}
 alio:
-  institutions:
-    - {code: C0268, name: 한국철도공사, tag: korail}
-    - {code: C0269, name: 한국철도기술연구원, tag: krri}
-    - {code: C0270, name: 국가철도공단, tag: kr}
   inbox_dir: data/inbox/alio   # 수동 다운로드 파일 투입 위치 (_done/·_quarantine/ 자동 생성)
   catalog_dir: data/catalog    # 공공데이터포털 CSV. 가장 최근 파일을 쓴다
   catalog:
@@ -24,6 +26,32 @@ openalex:
   retries: 3
   timeout: {connect: 10, read: 30}
   # mailto: you@example.org  # OpenAlex polite pool. 넣으면 요청 URL 에 그대로 실린다.
-scienceon: {rate_limit: 2,  concurrency: 1}
+# 키는 여기 두지 않는다. .env 의 RRA_SCIENCEON_* · RRA_NTIS_KEY 에서만 온다 (보안 D).
+scienceon:
+  base_url: https://apigateway.kisti.re.kr   # 호스트는 security.yaml allowed_domains 에 있어야 함
+  targets: [ARTI, REPORT]   # ARTI 국내논문 · REPORT 보고서
+  search_field: BI          # searchQuery 필드 (첫 실응답으로 확인)
+  queries: [철도 궤도, 철도 차량 유지보수, 전차선, 철도 신호]
+  row_count: 50
+  # 레이트리밋 — 과거 429 이력이 있어 보수적으로
+  rate_limit: 1             # 초당 요청 수 (토큰 요청 포함)
+  max_requests_per_run: 40  # ingest 1회당 요청 예산. 다 쓰면 모은 만큼만 적재
+  max_consecutive_429: 2    # 재시도까지 소진한 429 가 연속 N회면 이 run 에서 중단
+  retries: 3
+  max_backoff_sec: 30       # Retry-After 가 이보다 길면 재시도하지 않고 중단
+  max_response_mb: 20
+  timeout: {connect: 10, read: 30}
+ntis:
+  base_url: https://www.ntis.go.kr
+  project_path: /rndopen/openApi/public_project   # 과제검색 경로 — 매뉴얼·첫 실응답으로 확인
+  record_tag: ""            # 필수 — 녹화 도구가 알려 주는 레코드 요소 이름을 적는다 (비우면 ntis 수집 불가)
+  search_field: BI
+  queries: [철도, 궤도, 전차선, 철도신호, 철도차량]
+  display_count: 100
+  rate_limit: 2
+  max_requests_per_run: 60
+  retries: 3
+  max_backoff_sec: 30
+  max_response_mb: 20
+  timeout: {connect: 10, read: 30}
 kipris:    {rate_limit: 3,  concurrency: 2}
-ntis:      {rate_limit: 3,  concurrency: 2}

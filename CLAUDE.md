@@ -36,11 +36,10 @@
 - DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 
 ## 현재 단계
-Step 6 구현 (브랜치 step6-runs, step5-alio 기반) — application/services/run_manager.py(제출·재개·상태·
-부분 초안, step = retrieve → section:<key> → finalize), GenerateProposal 단계 분해(렌더링 분리),
-adapters/runs/(FileRunStore·FileRunLog·flock 락, runs/<user>/<run_id>/), CLI `rra generate [--resume]`·
-`rra runs list|show`, MCP 쓰기 도구 rra_generate·rra_get_draft(`--enable-generate`, .mcp.json `rra-write`).
-Step 5 fixture 대기(테스트 2건 skip)는 그대로. 다음: Step 7 — HWPX 렌더링(rra_render).
+Step 7 진행 중 (브랜치 step7-sources) — ScienceON(토큰 인증·레이트리밋)·NTIS 과제검색 어댑터,
+_base.py 보강(SECRET_PARAMS·RateLimited·요청 예산·httpx 로거), 기관 태그(_orgs, 개칭 별칭), `rra sources check`,
+fixture 녹화 도구(tests/tools/record_fixture.py). **키 투입·실응답 녹화 대기** — 받으면 FIELDS 매핑·
+ntis.project_path·record_tag 확정. Step 5 fixture 대기(2건 skip)도 그대로. 다음: Step 8 — HWPX 렌더링.
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.

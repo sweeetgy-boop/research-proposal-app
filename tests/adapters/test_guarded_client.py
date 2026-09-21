@@ -248,3 +248,70 @@ async def test_get_bytes_size_cap():
     async with make(router, max_response_bytes=1024) as client:
         with pytest.raises(FetchError, match="상한"):
             await client.get_bytes("https://api.openalex.org/f.csv", accept_types=CSV_TYPES)
+
+
+# ── Step 7: 레이트리밋 보강·요청 예산·로그 비노출 ─────────
+from rra.adapters.sources._base import RateLimited, RequestBudgetExceeded  # noqa: E402
+
+
+def too_many(retry_after=None):
+    headers = {"retry-after": retry_after} if retry_after is not None else {}
+    return httpx.Response(429, headers=headers)
+
+
+async def test_long_retry_after_fails_fast_without_retrying():
+    router = Router({"https://api.openalex.org/works": [too_many("600")]})
+    sleeps = []
+    async with make(router, sleeps=sleeps, max_backoff_sec=30) as client:
+        with pytest.raises(RateLimited, match="Retry-After 600s"):
+            await client.get_json("https://api.openalex.org/works")
+    assert len(router.requests) == 1 and sleeps == []  # 10분 쉬라는데 다시 두드리지 않는다
+
+
+async def test_short_retry_after_is_honoured_then_succeeds():
+    router = Router({"https://api.openalex.org/works": [too_many("2"), json_response()]})
+    sleeps = []
+    async with make(router, sleeps=sleeps) as client:
+        await client.get_json("https://api.openalex.org/works")
+    assert sleeps == [2.0]
+
+
+async def test_exhausted_429_is_rate_limited_not_generic():
+    router = Router({"https://api.openalex.org/works": [too_many()]})
+    async with make(router, retries=2) as client:
+        with pytest.raises(RateLimited, match="재시도 2회 소진"):
+            await client.get_json("https://api.openalex.org/works")
+    assert len(router.requests) == 3
+
+
+async def test_rate_limited_is_still_a_fetch_error():
+    assert issubclass(RateLimited, FetchError) and issubclass(RequestBudgetExceeded, FetchError)
+
+
+async def test_request_budget_counts_retries_and_stops_before_sending():
+    router = Router({"https://api.openalex.org/works": [too_many("0"), json_response()]})
+    async with make(router, max_requests=2) as client:
+        await client.get_json("https://api.openalex.org/works")  # 429 + 재시도 = 2회
+        assert client.requests_made == 2
+        with pytest.raises(RequestBudgetExceeded):
+            await client.get_json("https://api.openalex.org/works")
+    assert len(router.requests) == 2  # 예산 초과 요청은 나가지 않았다
+
+
+async def test_rate_limit_message_has_no_secrets():
+    router = Router({"https://api.openalex.org/works": [too_many("900")]})
+    async with make(router) as client:
+        with pytest.raises(RateLimited) as info:
+            await client.get_json(
+                "https://api.openalex.org/works",
+                {"client_id": "CID123", "token": "TOK456", "apprvKey": "NTISKEY", "q": "rail"},
+            )
+    msg = str(info.value)
+    assert "CID123" not in msg and "TOK456" not in msg and "NTISKEY" not in msg and "q=rail" in msg
+
+
+def test_httpx_loggers_never_emit_request_urls():
+    import logging
+
+    for name in ("httpx", "httpcore"):
+        assert logging.getLogger(name).getEffectiveLevel() >= logging.WARNING
