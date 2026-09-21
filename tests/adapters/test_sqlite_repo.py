@@ -88,8 +88,8 @@ def loaded(repo):
 
 # ── 스키마·마이그레이션 ──────────────────────────────────────────
 def test_migration_is_applied_and_idempotent(repo):
-    assert runner.current_version(repo.conn) == 1
-    assert runner.migrate(repo.conn) == 1
+    assert runner.current_version(repo.conn) == 2
+    assert runner.migrate(repo.conn) == 2
 
 
 def test_reopening_reuses_the_pinned_backend(tmp_path, loaded):
@@ -220,3 +220,38 @@ def test_pack_round_trip():
 def test_validate_dim_rejects_bad_input(bad):
     with pytest.raises(ValueError):
         _vec.validate_dim(bad)
+
+
+def test_text_basis_roundtrip_and_chunk_basis(tmp_path):
+    from rra.domain.models import Chunk, Document
+
+    repo = SQLiteDocumentRepository(tmp_path / "b.db", DeterministicEmbedding())
+    doc = Document(
+        doc_id="alio:s1",
+        source="alio",
+        doc_type="internal_report",
+        title="궤도 요약",
+        body="■ 연구목적 궤도 상태 진단",
+        text_basis="summary",
+    )
+    repo.upsert([doc], [Chunk(chunk_id="alio:s1#0", doc_id="alio:s1", ordinal=0, text=doc.body)])
+    assert repo.get_document("alio:s1").text_basis == "summary"
+    (chunk,) = repo.hybrid_search(["궤도"], k=5)
+    assert chunk.basis == "summary"
+
+
+def test_migration_002_backfills_existing_rows(tmp_path):
+    import sqlite3
+
+    conn = sqlite3.connect(tmp_path / "old.db")
+    first = [(v, p) for v, p in runner.discover() if v == 1]
+    conn.executescript(first[0][1].read_text(encoding="utf-8"))
+    conn.execute("PRAGMA user_version = 1")
+    conn.executemany(
+        "INSERT INTO documents (doc_id, source, doc_type, title) VALUES (?,?,?,?)",
+        [("alio:1", "alio", "internal_report", "a"), ("ntis:1", "ntis", "rnd_project", "b")],
+    )
+    conn.commit()
+    assert runner.migrate(conn) == 2
+    rows = dict(conn.execute("SELECT doc_id, text_basis FROM documents"))
+    assert rows == {"alio:1": "full_text", "ntis:1": "abstract"}

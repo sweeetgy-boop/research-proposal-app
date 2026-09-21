@@ -25,6 +25,7 @@ PARSERS = {
     "pdf": "rra.adapters.sources.alio.extract.pdf",
     "hwpx": "rra.adapters.sources.alio.extract.hwpx",
     "csv": "rra.adapters.sources.alio.extract.csv_catalog",
+    "txt": "rra.adapters.sources.alio.extract.text",
 }
 TEST_PARSERS = {
     "_test_echo",

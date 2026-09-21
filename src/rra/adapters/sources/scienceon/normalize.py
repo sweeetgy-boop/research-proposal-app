@@ -62,6 +62,7 @@ def normalize_record(raw: dict[str, Any]) -> Document:
         pub_date=_year(_pick(raw, "year")),
         authors=authors[:50],
         lang="ko",
+        text_basis="abstract",
         url=url if url.startswith("https://") else None,
         doi=doi_match.group(0).rstrip(".").lower() if doi_match else None,
         raw={"cn": native, "target": raw.get("target")},

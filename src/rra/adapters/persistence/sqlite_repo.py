@@ -306,8 +306,9 @@ class SQLiteDocumentRepository:
         for start in range(0, len(chunk_ids), self.max_k):
             batch = chunk_ids[start : start + self.max_k]
             sql = (
-                "SELECT chunk_id, doc_id, ordinal, heading, text FROM chunks "  # noqa: S608  # nosec B608
-                f"WHERE chunk_id IN ({_sql.placeholders(len(batch))})"
+                "SELECT c.chunk_id, c.doc_id, c.ordinal, c.heading, c.text, "  # noqa: S608  # nosec B608
+                "d.text_basis AS basis FROM chunks c JOIN documents d ON d.doc_id = c.doc_id "
+                f"WHERE c.chunk_id IN ({_sql.placeholders(len(batch))})"
             )
             for row in self.conn.execute(sql, tuple(batch)):
                 found[row["chunk_id"]] = _mapping.row_to_chunk(row)

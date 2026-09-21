@@ -115,6 +115,7 @@ def normalize_work(raw: dict[str, Any]) -> Document:
         pub_date=_parse_date(raw.get("publication_date")),
         authors=_authors(raw.get("authorships")),
         lang=raw["language"] if isinstance(raw.get("language"), str) else "und",
+        text_basis="abstract",
         url=_landing_url(raw.get("primary_location"))
         or (f"https://doi.org/{doi}" if doi else None),
         doi=doi,

@@ -51,3 +51,11 @@ def chunks(docs):
         Chunk(chunk_id="alio:1#0", doc_id="alio:1", ordinal=0, text="1장 서론 ..."),
         Chunk(chunk_id="openalex:W1#0", doc_id="openalex:W1", ordinal=0, text="IMU-based"),
     ]
+
+
+@pytest.fixture
+def own():
+    """own 티어 기준 (config/sources.yaml own_unit 과 같은 모양)."""
+    from rra.domain.rules.overlap import OwnUnit
+
+    return OwnUnit(org="korail", departments=frozenset({"철도연구원", "경영연구처", "기술연구처"}))

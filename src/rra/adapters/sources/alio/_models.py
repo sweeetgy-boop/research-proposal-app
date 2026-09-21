@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field
 
 MAX_TEXT_CHARS = 5_000_000
@@ -22,3 +24,9 @@ class CatalogRows(BaseModel):
 
     header: list[str] = Field(max_length=200)
     rows: list[dict[str, str]]
+
+
+class TextLines(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    lines: list[Annotated[str, Field(max_length=20_000)]] = Field(max_length=5_000)

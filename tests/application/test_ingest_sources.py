@@ -2,7 +2,7 @@
 
 import pytest
 
-from rra.application.usecases.ingest_sources import IngestSources
+from rra.application.usecases.ingest_sources import IngestSources, IngestWarning
 from tests.fakes import FakeAckSource, FakeSource, InMemoryRepository
 
 
@@ -108,3 +108,84 @@ async def test_plain_source_is_not_acknowledged(docs):
     src = FakeSource("openalex", [as_raw(docs[1])])
     report = await IngestSources([src], InMemoryRepository())()
     assert report.failed == {}
+
+
+async def test_summary_does_not_overwrite_stored_full_text(docs):
+    full = docs[0]  # alio:1, text_basis=full_text
+    summary = full.model_copy(update={"text_basis": "summary", "body": "공개 요약 " * 50})
+    repo = RecordingRepository()
+    repo.upsert([full], [])
+    src = FakeAckSource("alio_summary", [as_raw(summary)])
+    report = await IngestSources([src], repo)()
+
+    assert report.stored == 0 and report.kept_existing == 1
+    assert repo.get_document("alio:1").text_basis == "full_text"
+    assert len(repo.upserts) == 1  # 사전 적재 1회뿐
+    assert src.acked == [as_raw(summary)]  # 더 나은 판본이 있으니 처리 완료
+
+
+async def test_full_text_replaces_stored_summary(docs):
+    full = docs[0]
+    summary = full.model_copy(update={"text_basis": "summary"})
+    repo = RecordingRepository()
+    repo.upsert([summary], [])
+    report = await IngestSources([FakeSource("alio", [as_raw(full)])], repo)()
+    assert report.stored == 1 and report.kept_existing == 0
+    assert repo.get_document("alio:1").text_basis == "full_text"
+
+
+async def test_warns_on_own_org_department_not_in_list(docs, own, caplog):
+    import logging
+
+    unknown = docs[0].model_copy(
+        update={"doc_id": "alio:2", "title": "다른 보고서", "department": "신규\x1b[31m연구처"}
+    )
+    listed = docs[0].model_copy(update={"department": "경영연구처"})
+    src = FakeSource("alio", [as_raw(unknown), as_raw(listed), as_raw(docs[1])])
+    with caplog.at_level(logging.WARNING, logger="rra.ingest"):
+        report = await IngestSources([src], RecordingRepository(), own=own)()
+
+    assert report.warnings == [
+        IngestWarning(code="unlisted_department", doc_id="alio:2", detail="신규 [31m연구처")
+    ]
+    [record] = caplog.records
+    message = record.getMessage()
+    assert "ingest.unlisted_department doc=alio:2" in message and "\x1b" not in message
+
+
+async def test_no_department_warning_without_own_unit(docs):
+    report = await IngestSources([FakeSource("alio", [as_raw(docs[0])])], RecordingRepository())()
+    assert report.warnings == []
+
+
+class WarningFakeSource(FakeSource):
+    """WarningSource fake: 제목에 '추정' 이 있으면 assumed_org 경고."""
+
+    def ingest_warnings(self, doc):
+        return [("assumed_org", "korail")] if "추정" in doc.title else []
+
+
+async def test_source_warnings_reported_only_for_stored_docs(docs):
+    guessed = docs[0].model_copy(update={"doc_id": "alio:sum-1", "title": "추정 기관 요약"})
+    plain = docs[0].model_copy(update={"doc_id": "alio:sum-2", "title": "매칭된 요약"})
+    # 같은 제목의 원문이 이미 저장돼 있으면 요약은 저장되지 않으므로 경고도 없다
+    stored_full = docs[0].model_copy(update={"doc_id": "alio:sum-3", "title": "추정 원문 있음"})
+    lower = stored_full.model_copy(update={"text_basis": "summary"})
+    repo = RecordingRepository()
+    repo.upsert([stored_full], [])
+    src = WarningFakeSource("alio_summary", [as_raw(guessed), as_raw(plain), as_raw(lower)])
+    report = await IngestSources([src], repo)()
+
+    assert report.kept_existing == 1
+    assert report.warnings == [
+        IngestWarning(code="assumed_org", doc_id="alio:sum-1", detail="korail")
+    ]
+
+
+async def test_broken_warning_source_does_not_block_ingest(docs):
+    class Broken(FakeSource):
+        def ingest_warnings(self, doc):
+            raise RuntimeError("boom")
+
+    report = await IngestSources([Broken("alio", [as_raw(docs[0])])], RecordingRepository())()
+    assert report.stored == 1 and report.warnings == []

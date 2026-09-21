@@ -27,6 +27,7 @@ DOCUMENT_COLUMNS = (
     "codes_json",
     "orgs_json",
     "toc_json",
+    "text_basis",
     "raw_json",
 )
 
@@ -64,6 +65,7 @@ def document_to_row(doc: Document) -> tuple[Any, ...]:
         "codes_json": _dumps(doc.codes),
         "orgs_json": _dumps(doc.orgs),
         "toc_json": _dumps(doc.toc) if doc.toc is not None else None,
+        "text_basis": doc.text_basis,
         "raw_json": _dumps(doc.raw),
     }
     return tuple(values[c] for c in DOCUMENT_COLUMNS)
@@ -91,6 +93,7 @@ def row_to_document(row: Any) -> Document:
         department=row["department"],
         project_period=(start, end) if start and end else None,
         toc=toc,
+        text_basis=row["text_basis"],
         raw=json.loads(row["raw_json"]),
     )
 
@@ -100,10 +103,12 @@ def chunk_to_row(chunk: Chunk) -> tuple[Any, ...]:
 
 
 def row_to_chunk(row: Any) -> Chunk:
+    """basis 는 documents.text_basis 를 JOIN 해 온 컬럼."""
     return Chunk(
         chunk_id=row["chunk_id"],
         doc_id=row["doc_id"],
         ordinal=row["ordinal"],
         heading=row["heading"],
         text=row["text"],
+        basis=row["basis"],
     )

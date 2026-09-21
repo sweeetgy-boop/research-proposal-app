@@ -7,7 +7,7 @@ from .renderer import RendererPort
 from .repository import DocumentRepository
 from .run_log import RunLogPort
 from .run_store import RunBusy, RunClaim, RunNotFound, RunStorePort
-from .source import AcknowledgingSource, SourcePort
+from .source import AcknowledgingSource, SourcePort, WarningSource
 
 __all__ = [
     "AcknowledgingSource",
@@ -24,4 +24,5 @@ __all__ = [
     "RunNotFound",
     "RunStorePort",
     "SourcePort",
+    "WarningSource",
 ]

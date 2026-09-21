@@ -1,0 +1,25 @@
+# summary/ 에 넣은 공개 요약 복사본(.txt)별 기대값. 비어 있으면 실제 요약 테스트는 skip 된다.
+# 키: file, sha256, fields(잡혀야 할 필드), absent(비어서 없어야 할 필드), title, published,
+#     authors, project_type, pi, department, period, budget_krw, disclosure_status,
+#     open_date(없으면 null), sections(본문 절 제목), orgs·org_source(카탈로그 없이 돌린 결과),
+#     tier(config own_unit 기준)
+files:
+  - file: korail_2026_asset.txt
+    sha256: d9b595f79f6f20ec4aae0d12e9354cc10d3e2a595208ff2592a802e0bd775387
+    fields: [title, published, authors, project_type, pi, period, budget,
+             purpose, content, effect, usage, disclosure_status, disclosure_reason]
+    absent: [open_date]            # "* 공개예정일" 값이 비어 있다
+    title: 지속가능한 자산개발 사업다각화 모델 제안 연구
+    published: 2026-08-31
+    authors: [홍길동]
+    project_type: 수시연구과제
+    pi: 경영연구처 홍길동
+    department: 경영연구처         # 연구책임자 앞부분 (괄호 없음)
+    period: [2025-11-24, 2026-08-31] # 2025.11.24.∼2026.8.31.(9개월), 물결표 U+223C
+    budget_krw: 90000000           # 90,000천원
+    disclosure_status: 비공개
+    open_date: null
+    sections: [연구목적, 연구내용, 기대효과, 활용계획]
+    orgs: [korail]
+    org_source: default            # 기관명 라벨 없음·카탈로그 없음 → alio.summary.default_org (assumed_org 경고)
+    tier: own                      # 한국철도공사 · 경영연구처 (own_unit.departments)

@@ -61,6 +61,12 @@ def test_precheck_exit_code_signals_blocking_alert(stub, capsys):
     assert "차단 1건" in capsys.readouterr().out
 
 
+def test_precheck_marks_summary_basis(stub, capsys):
+    stub.alerts = [alert().model_copy(update={"basis": "summary"})]
+    cli.main(["precheck", *SLOT_ARGS])
+    assert "own            요약 alio:1" in capsys.readouterr().out
+
+
 def test_precheck_json_output(stub, capsys):
     stub.alerts = [alert(blocking=True)]
     cli.main(["precheck", *SLOT_ARGS, "--json"])
@@ -239,6 +245,34 @@ def test_ingest_without_query_is_incremental(monkeypatch, capsys):
     assert seen["query"] is None
 
 
+def test_ingest_prints_warnings_on_stderr(monkeypatch, capsys):
+    from rra.application.usecases.ingest_sources import IngestReport, IngestWarning
+
+    warnings = [
+        IngestWarning(code="unlisted_department", doc_id="alio:2", detail="안전계획처"),
+        IngestWarning(code="assumed_org", doc_id="alio:sum-1", detail="korail"),
+        IngestWarning(code="other\x1b", doc_id="x:1", detail="d"),
+    ]
+    _stub_ingest(monkeypatch, IngestReport(warnings=warnings))
+    assert cli.main(["ingest"]) == cli.EXIT_OK  # 경고일 뿐 실패가 아니다
+    err = capsys.readouterr().err.splitlines()
+    assert len(err) == 3 and all(line.startswith("[경고]") for line in err)
+    assert "own 부서 목록" in err[0] and "안전계획처" in err[0] and "alio:2" in err[0]
+    assert "기본 기관(korail)" in err[1] and "alio:sum-1" in err[1] and "catalog_id" in err[1]
+    assert "\x1b" not in err[2]
+
+
+def test_ingest_json_includes_warnings(monkeypatch, capsys):
+    from rra.application.usecases.ingest_sources import IngestReport, IngestWarning
+
+    w = IngestWarning(code="assumed_org", doc_id="alio:sum-1", detail="korail")
+    _stub_ingest(monkeypatch, IngestReport(warnings=[w]))
+    cli.main(["ingest", "--json"])
+    assert json.loads(capsys.readouterr().out)["warnings"] == [
+        {"code": "assumed_org", "doc_id": "alio:sum-1", "detail": "korail"}
+    ]
+
+
 def test_ingest_failure_sets_exit_code_and_json(monkeypatch, capsys):
     from rra.application.usecases.ingest_sources import IngestReport
 
@@ -316,8 +350,49 @@ def test_alio_status(monkeypatch, capsys):
         "rra.composition.alio_inbox_status",
         lambda s: {"pending": 3, "done": 5, "quarantine": 1},
     )
+    monkeypatch.setattr(
+        "rra.composition.alio_summary_inbox_status",
+        lambda s: {"pending": 0, "done": 2, "quarantine": 0},
+    )
     assert cli.main(["alio", "status"]) == cli.EXIT_OK
-    assert "대기 3 / 완료 5 / 격리 1" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "[알리오 inbox] 대기 3 / 완료 5 / 격리 1" in out
+    assert "[알리오 요약 inbox] 대기 0 / 완료 2 / 격리 0" in out
+
+
+def _repo_with_opened_summary():
+    from rra.domain.models import Document
+    from tests.fakes import InMemoryRepository
+
+    repo = InMemoryRepository()
+    doc = Document(
+        doc_id="alio:2024-1",
+        source="alio",
+        doc_type="internal_report",
+        title="궤도 연구",
+        body="요약",
+        text_basis="summary",
+        raw={"disclosure": {"status": "비공개", "open_date": "2020-01-01"}},
+    )
+    repo.upsert([doc], [])
+    return repo
+
+
+def test_alio_missing_shows_upgradable_summaries(monkeypatch, capsys):
+    from rra.application.usecases.list_missing import ListMissing
+    from tests.fakes import FakeCatalog
+
+    repo = _repo_with_opened_summary()
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr(
+        "rra.composition.build_list_missing",
+        lambda s: ListMissing(FakeCatalog(_alio_entries()), repo),
+    )
+    assert cli.main(["alio", "missing"]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "[미수집] 1건" in out and "[원문 확보 가능] 1건" in out
+    cli.main(["alio", "missing", "--json", "--upgradable"])
+    assert [e["catalog_id"] for e in json.loads(capsys.readouterr().out)] == ["2024-1"]
 
 
 def test_alio_requires_subcommand():

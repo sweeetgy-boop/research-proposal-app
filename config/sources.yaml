@@ -4,9 +4,29 @@ institutions:
   - {code: C0268, name: 한국철도공사, tag: korail, aliases: [코레일]}
   - {code: C0269, name: 한국철도기술연구원, tag: krri}
   - {code: C0270, name: 국가철도공단, tag: kr, aliases: [한국철도시설공단]}
+# own 티어(중복 임계치 0.80) 기준: org 태그 문서 중 부서가 아래 목록에 있는 것 (철도연구원 소속).
+# 부서명 전체 또는 공백·괄호·/ 로 나눈 토큰이 목록과 정확히 같아야 한다 (부분 문자열 매칭 없음).
+# org 문서인데 목록에 없는 부서가 나오면 ingest 가 경고한다 → 철도연구원 소속이면 여기에 추가.
+own_unit:
+  org: korail
+  departments:
+    - 철도연구원      # 부서 칸에 연구원 이름 자체가 오는 경우 (NTIS 수행부서 등)
+    - 경영연구처
+    - 기술연구처
 alio:
   inbox_dir: data/inbox/alio   # 수동 다운로드 파일 투입 위치 (_done/·_quarantine/ 자동 생성)
   catalog_dir: data/catalog    # 공공데이터포털 CSV. 가장 최근 파일을 쓴다
+  summary:
+    # 원문 비공개(정보공개법 제9조①7호) 보고서: 알리오 상세 페이지 텍스트를 복사해
+    # <catalog_id>.txt 로 저장한다. 원문 filedrop 과 같은 doc_id 를 쓰므로 원문이 나오면 대체된다.
+    inbox_dir: data/inbox/alio_summary
+    max_file_kb: 256
+    # 카탈로그 매칭·기관명 라벨이 없을 때 붙일 기관 태그 (요약 inbox 는 코레일 보고서용)
+    default_org: korail
+    # 필드 → 후보 라벨. 비워두면 어댑터 기본값(summary.DEFAULT_LABELS). 실제 복사본 확인 후 확정.
+    # 필드: title institution published authors project_type pi department period budget
+    #       purpose content effect usage disclosure_status disclosure_reason open_date
+    labels: {}
   catalog:
     # `rra alio catalog --fetch` 가 받을 fileData 다운로드 URL. 갱신마다 바뀌므로 비워두고
     # 필요할 때 채운다. 호스트는 security.yaml allowed_domains 에 있어야 한다 (www.data.go.kr).

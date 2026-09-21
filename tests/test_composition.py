@@ -1,11 +1,15 @@
 """조립 지점 검증. 임베딩·DB·네트워크를 만들지 않는다."""
 
+from pathlib import Path
+
 import httpx
 import pytest
 
 from rra.adapters.llm.errors import InsecureLLMEndpoint
 from rra.composition import build_llm, build_prompt_library, llm_config
 from rra.settings import Settings
+
+ROOT_CONFIG = Path(__file__).parents[1] / "config"
 
 YAML = """
 provider: mlx
@@ -149,6 +153,11 @@ alio:
     - {{code: C0268, name: 한국철도공사, tag: korail}}
   inbox_dir: {inbox}
   catalog_dir: {catalog}
+  summary:
+    inbox_dir: {summary}
+    max_file_kb: 64
+    default_org: korail
+    labels: {{title: [과제명칭]}}
   catalog:
     fetch_url: https://www.data.go.kr/f.csv
     max_response_mb: 1
@@ -165,7 +174,9 @@ def alio_config(tmp_path):
         encoding="utf-8",
     )
     (tmp_path / "sources.yaml").write_text(
-        ALIO_SOURCES.format(inbox=tmp_path / "inbox", catalog=tmp_path / "cat"),
+        ALIO_SOURCES.format(
+            inbox=tmp_path / "inbox", catalog=tmp_path / "cat", summary=tmp_path / "summary"
+        ),
         encoding="utf-8",
     )
     return tmp_path
@@ -188,6 +199,49 @@ def test_alio_source_is_wired_with_inbox_catalog_and_limits(alio_config):
     assert src.catalog.catalog_dir == alio_config / "cat"
     assert src.catalog.columns["title"] == ["보고서제목"]
     assert src.catalog.institutions[0]["tag"] == "korail"
+
+
+def test_alio_summary_source_is_wired(alio_config):
+    from rra.composition import build_sources
+
+    [src] = build_sources(["alio_summary"], settings_for(alio_config))
+    assert src.source == "alio_summary" and src.inbox == alio_config / "summary"
+    assert src.max_bytes == 64 * 1024 and src.limits.mem_mb == 512
+    assert src.labels["title"] == ["과제명칭"]
+    assert src.labels["purpose"] == ["연구목적"]  # 나머지는 기본값
+    assert src.institutions[0]["tag"] == "korail"
+    assert src.catalog.catalog_dir == alio_config / "cat"
+    assert src.default_org == "korail"
+
+
+def test_own_unit_from_sources_yaml_reaches_precheck_and_ingest(tmp_path):
+    from rra.composition import build_ingest, build_precheck, own_unit
+    from tests.fakes import InMemoryRepository
+
+    (tmp_path / "sources.yaml").write_text(
+        "own_unit:\n  org: korail\n  departments: [경영연구처, ' 기술연구처 ', '']\n",
+        encoding="utf-8",
+    )
+    settings = settings_for(tmp_path)
+    own = own_unit(settings)
+    assert own.org == "korail" and own.departments == {"경영연구처", "기술연구처"}
+    repo = InMemoryRepository()
+    assert build_precheck(settings, repo=repo).own == own
+    assert build_ingest(settings, sources=[], repo=repo).own == own
+
+
+def test_own_unit_absent_means_no_own_tier(tmp_path):
+    from rra.composition import own_unit
+
+    (tmp_path / "sources.yaml").write_text("institutions: []\n", encoding="utf-8")
+    assert own_unit(settings_for(tmp_path)) is None
+
+
+def test_shipped_config_lists_own_departments():
+    from rra.composition import own_unit
+
+    own = own_unit(settings_for(ROOT_CONFIG))
+    assert {"경영연구처", "기술연구처"} <= own.departments
 
 
 async def test_fetch_alio_catalog_goes_through_guarded_client(alio_config):

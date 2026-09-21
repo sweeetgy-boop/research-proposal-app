@@ -18,9 +18,10 @@ MAGIC: dict[str, bytes] = {
     "hwpx": b"PK\x03\x04",
     "hwp": b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",  # OLE2 Compound File (HWP 5.0)
 }
-PARSEABLE = frozenset({"pdf", "hwpx", "csv"})  # hwp 는 식별만 (Step 5b)
+TEXT_FORMATS = frozenset({"csv", "txt"})  # 매직바이트 없음 — 텍스트인지만 본다
+PARSEABLE = frozenset({"pdf", "hwpx", "csv", "txt"})  # hwp 는 식별만 (Step 5b)
 _BINARY_MAGICS = tuple(MAGIC.values())
-_CSV_SNIFF = 64 * 1024
+_TEXT_SNIFF = 64 * 1024
 
 
 class FileRejected(Exception):
@@ -76,7 +77,7 @@ def extension_of(path: Path) -> str:
 
 def open_validated(path: Path, *, max_bytes: int, allowed: frozenset[str]) -> ValidatedFile:
     ext = extension_of(path)
-    if ext not in allowed or ext not in (*MAGIC, "csv"):
+    if ext not in allowed or ext not in (*MAGIC, *TEXT_FORMATS):
         raise BadExtension("extension")
     try:
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -90,7 +91,7 @@ def open_validated(path: Path, *, max_bytes: int, allowed: frozenset[str]) -> Va
             raise EmptyFile("empty")
         if st.st_size > max_bytes:
             raise TooLarge("size")
-        head = os.pread(fd, _CSV_SNIFF if ext == "csv" else 8, 0)
+        head = os.pread(fd, _TEXT_SNIFF if ext in TEXT_FORMATS else 8, 0)
         check_magic(ext, head)
         if ext == "hwp":
             raise UnsupportedFormat("hwp")
@@ -103,7 +104,7 @@ def open_validated(path: Path, *, max_bytes: int, allowed: frozenset[str]) -> Va
 
 
 def check_magic(ext: str, head: bytes) -> None:
-    if ext == "csv":
+    if ext in TEXT_FORMATS:
         # 텍스트여야 한다: 바이너리 서명(엑셀 xlsx=zip, xls=OLE 등)·NUL 바이트 거부
         if head.startswith(_BINARY_MAGICS) or b"\x00" in head:
             raise MagicMismatch("magic")

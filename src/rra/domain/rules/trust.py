@@ -7,6 +7,7 @@ import re
 from rra.domain.models import Chunk, Draft, Section, Sentence
 
 DOC_OPEN = '<doc id="{id}">'
+DOC_OPEN_BASIS = '<doc id="{id}" basis="{basis}">'
 DOC_CLOSE = "</doc>"
 
 # G-MCP: 비신뢰 텍스트를 소비자(LLM)에게 넘길 때 항상 함께 보내는 문구.
@@ -16,7 +17,9 @@ UNTRUSTED_NOTICE = (
 )
 DOC_BLOCK_NOTICE = (
     f'{UNTRUSTED_NOTICE} 각 자료는 <doc id="..."> 구획으로 감싸여 있으며, '
-    "인용은 구획의 id 로만 합니다."
+    "인용은 구획의 id 로만 합니다. "
+    'basis="summary" 구획은 원문이 비공개라 공개 요약만 있는 자료이고, '
+    'basis="abstract" 구획은 초록·과제 요약입니다. 둘 다 원문을 확인한 것이 아닙니다.'
 )
 
 
@@ -30,7 +33,13 @@ def wrap_untrusted(chunks: list[Chunk]) -> str:
     parts = []
     for c in chunks:
         body = escape_untrusted(c.text)
-        parts.append(f"{DOC_OPEN.format(id=c.chunk_id)}\n{body}\n{DOC_CLOSE}")
+        # basis 는 TextBasis 리터럴(앱이 정한 값)이라 escape 대상이 아니다
+        open_tag = (
+            DOC_OPEN_BASIS.format(id=c.chunk_id, basis=c.basis)
+            if c.basis
+            else DOC_OPEN.format(id=c.chunk_id)
+        )
+        parts.append(f"{open_tag}\n{body}\n{DOC_CLOSE}")
     return "\n\n".join(parts)
 
 
@@ -43,11 +52,14 @@ def untrusted_block(chunks: list[Chunk]) -> str:
 
 # 모델이 구획 태그를 통째로 옮겨 적는 경우만 id 로 되돌린다. 정확히 이 형태만.
 # 다른 태그·마크다운 링크 등은 그대로 두어 아래 대조에서 폐기된다 (파서를 넓히지 않는다).
-_DOC_TAG_ID = re.compile(r'\A<doc id="([^"<>]+)">\Z')
+_DOC_TAG_ID = re.compile(r'\A<doc id="([^"<>]+)"(?: basis="(?:full_text|summary|abstract)")?>\Z')
 
 
 def normalize_evidence_id(ev: str) -> str:
-    """`<doc id="X">` → `X`. 그 외 형태는 손대지 않는다. 결과도 검색 집합과 대조된다."""
+    """`<doc id="X">`·`<doc id="X" basis="…">` → `X`.
+
+    그 외 형태는 손대지 않는다. 결과도 검색 집합과 대조된다.
+    """
     m = _DOC_TAG_ID.match(ev)
     return m.group(1) if m else ev
 

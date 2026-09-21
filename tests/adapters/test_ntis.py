@@ -80,8 +80,9 @@ def test_normalize_project_fields():
         ("서울대학교", "", "external"),
     ],
 )
-def test_ntis_projects_land_in_the_right_overlap_tier(agency, dept, tier):
-    assert tier_of(normalize_project(raw_project(agency=agency, dept=dept), INSTITUTIONS)) == tier
+def test_ntis_projects_land_in_the_right_overlap_tier(agency, dept, tier, own):
+    doc = normalize_project(raw_project(agency=agency, dept=dept), INSTITUTIONS)
+    assert tier_of(doc, own) == tier
 
 
 @pytest.mark.parametrize("no", ["", "../x", "1 2", "x" * 50])

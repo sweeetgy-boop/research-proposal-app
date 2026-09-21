@@ -67,7 +67,10 @@ def cmd_precheck(args: argparse.Namespace) -> int:
         print(f"[중복 경보] {len(alerts)}건 (차단 {blocking}건)")
         for a in alerts:
             mark = "!" if a.blocking else " "
-            print(f" {mark} {a.similarity:.2f}  {a.tier:<14} {a.doc_id:<20} {_safe(a.title)}")
+            basis = "요약" if a.basis == "summary" else "  "  # 공개 요약만으로 판정
+            print(
+                f" {mark} {a.similarity:.2f}  {a.tier:<14} {basis} {a.doc_id:<20} {_safe(a.title)}"
+            )
         if not alerts:
             print("  유사한 기수행 과제가 없습니다.")
     return EXIT_BLOCKED if any(a.blocking for a in alerts) else EXIT_OK
@@ -155,8 +158,33 @@ def cmd_ingest(args: argparse.Namespace) -> int:
                 f"정규화 {report.normalized.get(name, 0)}건, "
                 f"건너뜀 {report.skipped.get(name, 0)}건"
             )
-        print(f"저장 {report.stored}건 (중복 제거 {report.deduped}건), 청크 {report.chunks}개")
+        kept = f", 원문 보존 {report.kept_existing}건" if report.kept_existing else ""
+        print(
+            f"저장 {report.stored}건 (중복 제거 {report.deduped}건{kept}), 청크 {report.chunks}개"
+        )
+        for w in report.warnings:
+            _eprint(_warning_line(w))
     return EXIT_ERROR if report.failed else EXIT_OK
+
+
+_WARNING_TEXT = {
+    "unlisted_department": (
+        "own 부서 목록(sources.yaml own_unit)에 없는 부서: {detail} ({doc_id})"
+        " — 철도연구원 소속이면 목록에 추가하세요."
+    ),
+    "assumed_org": (
+        "카탈로그 매칭 없이 기본 기관({detail})으로 태깅: {doc_id}"
+        " — 파일명을 <catalog_id>.txt 로 바꾸면 카탈로그 기관코드로 정해집니다."
+    ),
+}
+
+
+def _warning_line(w) -> str:
+    template = _WARNING_TEXT.get(w.code, "{code}: {detail} ({doc_id})")
+    text = template.format(
+        code=_safe(w.code, 40), detail=_safe(w.detail, 40), doc_id=_safe(w.doc_id, 64)
+    )
+    return f"[경고] {text}"
 
 
 # ── alio ──────────────────────────────────────────────────
@@ -177,29 +205,50 @@ def cmd_alio_catalog(args: argparse.Namespace) -> int:
 
 
 def cmd_alio_missing(args: argparse.Namespace) -> int:
+    from datetime import date
+
     from rra.composition import build_list_missing, load_settings
 
-    missing = asyncio.run(build_list_missing(load_settings())())
+    use = build_list_missing(load_settings())
+
+    async def run():
+        return await use(), await use.upgradable(date.today())
+
+    missing, upgradable = asyncio.run(run())
     if args.json:
-        print(
-            json.dumps([e.model_dump(mode="json") for e in missing], ensure_ascii=False, indent=2)
-        )
+        rows = upgradable if args.upgradable else missing
+        print(json.dumps([e.model_dump(mode="json") for e in rows], ensure_ascii=False, indent=2))
         return EXIT_OK
     print(
         f"[미수집] {len(missing)}건 — 알리오에서 받아 inbox 에 <catalog_id>.<확장자> 로 저장하세요."
+        " 원문 비공개면 상세 페이지 요약을 alio_summary inbox 에 <catalog_id>.txt 로."
     )
-    for e in missing:
-        published = e.published.isoformat() if e.published else "-"
-        cid = _safe(e.catalog_id, 64)
-        print(f"  {cid:<20} {e.institution_tag:<7} {published:<10} {_safe(e.title)}")
+    _print_entries(missing)
+    if upgradable:
+        print(
+            f"[원문 확보 가능] {len(upgradable)}건 — 요약만 적재됐는데 원문이 공개됐습니다"
+            " (공개예정일 경과). 받아서 inbox 에 넣으면 원문으로 대체됩니다."
+        )
+        _print_entries(upgradable)
     return EXIT_OK
 
 
-def cmd_alio_status(args: argparse.Namespace) -> int:
-    from rra.composition import alio_inbox_status, load_settings
+def _print_entries(entries) -> None:
+    for e in entries:
+        published = e.published.isoformat() if e.published else "-"
+        cid = _safe(e.catalog_id, 64)
+        print(f"  {cid:<20} {e.institution_tag:<7} {published:<10} {_safe(e.title)}")
 
-    st = alio_inbox_status(load_settings())
-    print(f"[알리오 inbox] 대기 {st['pending']} / 완료 {st['done']} / 격리 {st['quarantine']}")
+
+def cmd_alio_status(args: argparse.Namespace) -> int:
+    from rra.composition import alio_inbox_status, alio_summary_inbox_status, load_settings
+
+    settings = load_settings()
+    for label, st in (
+        ("알리오 inbox", alio_inbox_status(settings)),
+        ("알리오 요약 inbox", alio_summary_inbox_status(settings)),
+    ):
+        print(f"[{label}] 대기 {st['pending']} / 완료 {st['done']} / 격리 {st['quarantine']}")
     return EXIT_OK
 
 
@@ -404,7 +453,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     ingest = sub.add_parser("ingest", help="외부 소스에서 문서 수집 → DB 적재")
     ingest.add_argument(
-        "--source", default="openalex", help="쉼표로 구분 (openalex, alio, scienceon, ntis)"
+        "--source",
+        default="openalex",
+        help="쉼표로 구분 (openalex, alio, alio_summary, scienceon, ntis)",
     )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
     ingest.add_argument("--limit", type=int, default=200, help="소스당 최대 건수")
@@ -425,6 +476,9 @@ def build_parser() -> argparse.ArgumentParser:
     cat.set_defaults(handler=cmd_alio_catalog)
     miss = alio_sub.add_parser("missing", help="카탈로그 중 아직 적재되지 않은 보고서")
     miss.add_argument("--json", action="store_true")
+    miss.add_argument(
+        "--upgradable", action="store_true", help="--json 과 함께: 원문 확보 가능한 요약 목록"
+    )
     miss.set_defaults(handler=cmd_alio_missing)
     status = alio_sub.add_parser("status", help="inbox 대기·완료·격리 파일 수")
     status.set_defaults(handler=cmd_alio_status)

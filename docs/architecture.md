@@ -29,11 +29,54 @@
 | ScienceON | 국내 논문·보고서 | API Gateway — client_id + 32자 인증키 + **등록 MAC** 으로 토큰 발급(access 2시간·refresh 2주), 응답 XML. 429 이력 → 초당 1회·run 당 예산 | 확정 (Step 7) |
 | KIPRIS | 국내·해외 특허 | REST API (특허청 키) | 확정 |
 | **NTIS** | 국가R&D 과제·연구보고서 (KRRI 포함) | Step 7 은 과제검색만(rndopen apprvKey, 응답 XML). REST API — `국가R&D 연구보고서 검색 서비스(대국민용)`, `국가R&D 과제검색 서비스(대국민용)`. ntis.go.kr/rndopen에서 신청 | **신규 확정** |
-| **알리오** | 코레일(C0268)·KRRI(C0269)·공단(C0270) 공시 연구보고서 | robots.txt 자동접근 금지 → 공공데이터포털 `기획재정부_공공기관 연구보고서 공시` 파일로 카탈로그 + 수동 다운로드 filedrop | **신규 확정** |
+| **알리오** | 코레일(C0268)·KRRI(C0269)·공단(C0270) 공시 연구보고서 | robots.txt 자동접근 금지 → 공공데이터포털 `기획재정부_공공기관 연구보고서 공시` 파일로 카탈로그 + 수동 다운로드 filedrop. **원문 비공개(정보공개법 제9조①7호) 건은 상세 페이지 공개 요약을 `.txt` 로 투입** (§0.1) | **신규 확정** |
 | ~~DART~~ | ~~기업공시~~ | — | 제외 |
 | ~~kr.or.kr 게시판~~ | ~~공단 연구개발과제~~ | 제안 접수 창구, 비밀글 | 제외 (양식 참고용만) |
 
 **KRRI 판단**: KRRI 연구 대부분이 국가R&D라 NTIS API로 거의 커버됨. 알리오 filedrop은 코레일·공단 위주로 운영하고, KRRI는 NTIS 우선 + 알리오 보완.
+
+### 0.1 알리오 원문 비공개 보고서 — 공개 요약 경로 (Step 5 보강)
+
+실물 확인 결과 코레일 연구보고서 상당수가 원문 비공개(정보공개법 제9조 제1항 제7호)다. 파일을 받을 수 없고,
+상세 페이지에 구조화된 요약만 공개된다: 제목·발간일·저자·과제유형/연구책임자·연구기간/소요예산·
+연구목적·연구내용·기대효과·활용계획·원문공개 여부·비공개사유·공개예정일.
+overlap 판정(특히 철도연구원 자체 과제 = own 티어)에는 이 요약으로 충분하므로 **1급 문서**로 적재한다.
+
+- **근거 수준 필드** `Document.text_basis`: `full_text`(원문 파일) / `summary`(공개 요약) / `abstract`(초록·과제요약).
+  청크는 `Chunk.basis` 로 물려받고(DB 는 documents 에서 JOIN), LLM·MCP 에는 `<doc id="…" basis="summary">` 로 보인다.
+  근거 검사(A)는 id 만 대조하므로 basis 속성이 붙은 태그를 옮겨 적어도 id 로 정규화된다.
+- **경로 분리**: 원문 filedrop(`AlioSource`, `data/inbox/alio/`)은 그대로 두고, `AlioSummarySource`
+  (`data/inbox/alio_summary/<catalog_id>.txt`)를 추가했다. 파일 처리(filecheck → 샌드박스 → 격리/완료)는
+  `alio/_inbox.py` 로 공유한다. 텍스트도 샌드박스(`txt` 파서: 디코드·줄 분리)를 거친다. B 에는 예외를 두지 않는다.
+- **매핑**: 연구기간 → `project_period`, 부서(또는 `연구책임자` 괄호 안 소속) → `department`(own 티어 판정),
+  저자 → `authors`, 발간일 → `pub_date`. 예산은 `raw.budget_krw`·`raw.budget_text`(NTIS `raw.budget` 과 같은 위치),
+  과제유형·연구책임자는 `raw`, 공개 정보는 `raw.disclosure{status, reason, open_date}`.
+  본문은 `[공개 요약] 과제유형 · 연구기간 · 소요예산 · 부서` 한 줄 + `■ 연구목적/연구내용/기대효과/활용계획` 절.
+  LLM 은 청크 텍스트만 보므로 기간·예산·부서를 첫 청크에 넣는다. 비공개사유는 본문에 넣지 않는다.
+- **실물 형식** (`tests/fixtures/alio/summary/korail_2026_asset.txt`): `* 제목` 처럼 `* ` 뒤 라벨·값은 다음 줄,
+  `* 내용` 아래 `1. 과제개요`·`2. 연구목적` … 번호 절, `  - 과제유형 / 연구책임자 : 수시연구과제 / 경영연구처 홍길동`
+  (라벨 둘·값 둘을 ` / ` 로 짝지음), 연구기간 물결표 `∼`(U+223C)와 날짜 끝 마침표, 예산 `90,000천원`,
+  빈 공개예정일. 파서는 글머리표·번호를 건너뛰고, `* 내용`·`과제개요` 는 묶음 머리글(`_group`)로 앞 필드를 끊기만 한다.
+  연구책임자에 괄호가 없으면 이름 앞 토큰이 조직 단위 접미사(처·실·단 …)로 끝날 때 부서로 본다(직급 토큰은 뺀다).
+- **기관 태그 출처** (`raw.org_source`): `catalog`(파일명 stem = catalog_id → 카탈로그 행의 기관, 기관코드
+  C0268·C0269·C0270 우선) → `text`(기관명·부서·연구책임자에서 찾은 태그) → `default`(`alio.summary.default_org`).
+  카탈로그 매칭이 있으면 default_org 를 쓰지 않는다 — KRRI·공단 요약도 같은 inbox 에 넣으므로 전부 korail 로
+  태깅되면 안 된다. `default` 로 태깅된 문서는 ingest 경고 `assumed_org` 로 알린다
+  (실물 fixture 는 기관명 라벨이 없어 카탈로그 없이 돌리면 `default` 가 된다).
+- **own 티어 판정** (`domain/rules/overlap.OwnUnit`): `config/sources.yaml` 의 `own_unit{org, departments}` 기준.
+  `org` 태그 문서이면서 부서명 전체 또는 공백·괄호·`/` 로 나눈 토큰이 목록과 **정확히** 같을 때만 own.
+  부분 문자열("철도연구원" 포함 여부) 판정은 없앴다. 설정이 없으면 own 티어가 없다(korail·kr → domestic_rail).
+  org 문서인데 목록에 없는 부서가 나오면 ingest 가 경고한다(`unlisted_department`).
+- **ingest 경고**: `IngestReport.warnings: list[IngestWarning(code, doc_id, detail)]`. 저장된 문서에 대해서만 모은다.
+  `unlisted_department` 는 유스케이스가, 그 밖의 코드는 선택 포트 `WarningSource.ingest_warnings(doc)` 가 준다
+  (요약 소스의 `assumed_org`). 로그 `ingest.<code> doc=… detail=…`(detail 은 제어문자 제거·40자), CLI stderr `[경고]`,
+  `--json` 에는 `warnings` 배열. 경고는 적재를 막지 않는다.
+- **원문 승격**: 카탈로그와 매칭되면 doc_id 를 원문 filedrop 과 같은 `alio:<catalog_id>` 로 둔다. 원문이 들어오면
+  요약을 대체하고, 반대(원문 위에 요약)는 `dedup.should_replace` 로 막는다(`IngestReport.kept_existing`).
+  `rra alio missing` 은 공개예정일이 지났거나 공개로 바뀐 요약을 "[원문 확보 가능]"으로 따로 보여 준다.
+- **인용**: 시스템 프롬프트가 summary 자료는 과제 존재·대상·기간·목적 수준에서만 근거로 쓰고, "공개 요약에 따르면"처럼
+  드러내도록 지시한다. overlap_check 는 summary 로 판단해도 되고, method·prior_work 는 세부 방법을 추정하지 않는다.
+  precheck(CLI·MCP)는 경보마다 `basis` 를 표시한다. 임계치는 basis 와 무관하다.
 
 ### 런타임·배포 결정 (M6 Mac mini 32GB)
 
@@ -94,6 +137,7 @@ research-proposal-app/
 │   ├── rra.sqlite
 │   ├── cache/                      # 어댑터 원본 응답
 │   ├── inbox/alio/                 # 수동 다운로드 파일 투입 위치
+│   ├── inbox/alio_summary/         # 원문 비공개 보고서의 공개 요약 .txt (§0.1)
 │   └── catalog/                    # 공공데이터포털 파일
 ├── runs/                           # gitignore. 실행 매니페스트
 │
@@ -158,13 +202,16 @@ research-proposal-app/
 │   │   │   │   └── reports.py      # 연구보고서 검색
 │   │   │   └── alio/
 │   │   │       ├── catalog.py      # 공공데이터포털 CSV → 기관 필터 (FileCatalog, fetch_catalog)
-│   │   │       ├── filedrop.py     # inbox 적재 (AlioSource: 격리·_done·_quarantine)
+│   │   │       ├── filedrop.py     # inbox 적재 (AlioSource: 원문 파일)
+│   │   │       ├── summary.py      # 공개 요약 .txt 적재 (AlioSummarySource, 라벨 해석·정규화)
+│   │   │       ├── _inbox.py       # 공통: 대기 목록·격리·_done 이동
 │   │   │       ├── filecheck.py    # 확장자·크기·매직바이트 검증 → 검증된 fd
 │   │   │       ├── _models.py      # 자식 출력 재검증 스키마
 │   │   │       ├── extract/        # 샌드박스 자식에서만 import
 │   │   │       │   ├── pdf.py
 │   │   │       │   ├── hwpx.py
 │   │   │       │   ├── csv_catalog.py
+│   │   │       │   ├── text.py     # 공개 요약 .txt → 줄 목록
 │   │   │       │   └── hwp.py      # (Step 5b) HWP 5.0 OLE — 현재는 UnsupportedFormat 격리
 │   │   │       └── metadata.py     # (후속) 표지·목차 → 부서·기간·책임자
 │   │   ├── llm/
@@ -290,7 +337,8 @@ embedding:
 for source in sources:
     raw = await source.search(None, limit)     # 증분
     docs = [source.normalize(r) for r in raw]
-docs = dedup(docs)                              # domain.rules
+docs = dedup(docs)                              # domain.rules (원문 > 요약 > 초록)
+docs = [d for d in docs if should_replace(repo.get_document(d.doc_id), d)]
 chunks = chunk_by_toc(docs)                     # domain.services
 repo.upsert(docs, chunks)
 ```
@@ -423,6 +471,8 @@ req -> expand (HyDE + terms)
   (개발 중 WSL 에서 통과한 메모리 테스트가 운영 환경의 보장을 뜻하지 않는다).
 - 자식 출력(JSON)도 비신뢰: 크기 상한 + pydantic 재검증. 실패는 `SandboxError` 하위 클래스로만 올라온다.
 - 실패 파일은 `inbox/_quarantine/` 으로 이동, 로그는 `error=<클래스명> file=sha256:<8자>` 만.
+- 공개 요약 `.txt`(§0.1)도 같은 경로: 텍스트 검사(바이너리 서명·NUL 거부, 기본 256KB) → 자식에서 디코드
+  (utf-8-sig → cp949)·줄 분리 → 줄 수·길이 재검증. 라벨 해석은 본체의 순수 함수.
 
 #### C. 아웃바운드 허용목록 — `adapters/sources/_base.py`
 - httpx 클라이언트에 **도메인 허용목록** 강제 (`api.openalex.org`, `apis.data.go.kr`, `plus.kipris.or.kr`, `www.ntis.go.kr` 등 config/sources.yaml 선언분만).
@@ -522,7 +572,7 @@ config/
 | **2** ✅ | `adapters/persistence/sqlite_repo.py`, `adapters/embedding/` | E(파라미터 바인딩, FTS5 MATCH 인용, 파일 권한 700) | 하이브리드 검색 왕복 테스트 |
 | **3** ✅ | `adapters/llm/openai_compat.py` + `prompts/`, `composition.py` 실연결, **MCP stdio (precheck·search)** | H(127.0.0.1, json_mode), A(프롬프트·MCP 결과에 구획 규칙) | mlx-lm 대상 실제 생성 1회, Claude Code에서 도구 호출 |
 | **4** ✅ | `adapters/sources/openalex.py`, `_base.GuardedClient`, `usecases/ingest_sources.py`, CLI `ingest` | C(리다이렉트 hop별 재검사, 사설IP·루프백 거부, 응답 크기 상한) | ingest → search 왕복 (fixture, 네트워크 없음) |
-| 5 | `adapters/sources/alio/` catalog·filedrop·extract·`_sandbox.py`·metadata | B(subprocess 격리, zip 상한, defusedxml) | 코레일 보고서 10건 적재 |
+| 5 | `adapters/sources/alio/` catalog·filedrop·extract·`_sandbox.py`·metadata, **공개 요약 경로(§0.1)** | B(subprocess 격리, zip 상한, defusedxml) | 코레일 보고서 10건 적재 (원문 또는 공개 요약) |
 | 6 | `precheck_overlap` CLI 연결, `gap_analysis` 3단, **`RunManager` + MCP generate/get_draft** | G(세마포어 1) | 기수행 과제 경보 출력, IDE에서 생성 요청 |
 | 7 | ScienceON·NTIS(과제검색) 어댑터 — KIPRIS·NTIS 연구보고서는 후속 | C·D(키 관리, 레이트리밋) | NTIS 과제가 overlap 티어대로 경보 |
 | 8 | `adapters/rendering/hwpx.py`, slots·rules 실양식 반영 | F(escape·재파싱) | 빈 초안 → HWPX 열림 |

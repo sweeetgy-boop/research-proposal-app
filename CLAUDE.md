@@ -39,7 +39,11 @@
 Step 7 진행 중 (브랜치 step7-sources) — ScienceON(토큰 인증·레이트리밋)·NTIS 과제검색 어댑터,
 _base.py 보강(SECRET_PARAMS·RateLimited·요청 예산·httpx 로거), 기관 태그(_orgs, 개칭 별칭), `rra sources check`,
 fixture 녹화 도구(tests/tools/record_fixture.py). **키 투입·실응답 녹화 대기** — 받으면 FIELDS 매핑·
-ntis.project_path·record_tag 확정. Step 5 fixture 대기(2건 skip)도 그대로. 다음: Step 8 — HWPX 렌더링.
+ntis.project_path·record_tag 확정. Step 5 fixture 대기(2건 skip)도 그대로.
+Step 5 보강 (브랜치 step5-summary): 원문 비공개 알리오 보고서의 공개 요약 경로(`alio/summary.py`,
+`Document.text_basis`, `<doc basis=…>`, migration 002). 실물 fixture 1건(korail_2026_asset.txt)으로 파서 확정.
+own 티어는 `sources.yaml own_unit` 부서 목록 기준(부분 문자열 매칭 없음). 설계: docs/architecture.md §0.1.
+다음: Step 8 — HWPX 렌더링.
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.

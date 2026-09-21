@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 SourceType = Literal["openalex", "scienceon", "kipris_kr", "kipris_intl", "ntis", "alio"]
 DocType = Literal["paper", "patent", "internal_report", "rnd_project"]
+# 본문의 근거. full_text=원문 파일, summary=공개 요약(원문 비공개), abstract=초록·과제요약
+TextBasis = Literal["full_text", "summary", "abstract"]
 
 
 class Document(BaseModel):
@@ -29,6 +31,7 @@ class Document(BaseModel):
     department: str | None = None  # 철도연구원 등
     project_period: tuple[date, date] | None = None
     toc: list[str] | None = None
+    text_basis: TextBasis = "full_text"
     raw: dict[str, Any] = Field(default_factory=dict)
     trust: Literal["untrusted"] = "untrusted"
 
@@ -39,4 +42,5 @@ class Chunk(BaseModel):
     ordinal: int
     heading: str | None = None
     text: str
+    basis: TextBasis | None = None  # None: basis 도입 전 스냅샷
     trust: Literal["untrusted"] = "untrusted"

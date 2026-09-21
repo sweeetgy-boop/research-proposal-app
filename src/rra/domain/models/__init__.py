@@ -1,5 +1,5 @@
 from .catalog import CatalogEntry
-from .document import Chunk, DocType, Document, SourceType
+from .document import Chunk, DocType, Document, SourceType, TextBasis
 from .draft import Draft, Section, Sentence
 from .gap import GapRow, GapTable, OverlapAlert, Tier
 from .request import ProposalRequest
@@ -11,6 +11,7 @@ __all__ = [
     "Document",
     "DocType",
     "SourceType",
+    "TextBasis",
     "Draft",
     "Section",
     "Sentence",

@@ -13,8 +13,10 @@ __all__ = [
     "Settings",
     "SOURCE_NAMES",
     "alio_inbox_status",
+    "alio_summary_inbox_status",
     "build_alio_catalog",
     "build_alio_source",
+    "build_alio_summary_source",
     "LOCAL_USER",
     "build_embedding",
     "build_generate",
@@ -32,6 +34,7 @@ __all__ = [
     "check_sources",
     "credential_status",
     "institutions",
+    "own_unit",
     "MissingCredential",
     "check_served_model",
     "fetch_alio_catalog",
@@ -257,6 +260,27 @@ def build_alio_source(settings: Settings | None = None):
     )
 
 
+def _alio_summary_config(settings: Settings) -> dict[str, Any]:
+    return _alio_config(settings).get("summary") or {}
+
+
+def build_alio_summary_source(settings: Settings | None = None):
+    """AlioSummarySource (원문 비공개 보고서의 공개 요약 .txt). 파일명 stem 으로 카탈로그 매칭."""
+    from rra.adapters.sources.alio import AlioSummarySource
+
+    settings = settings or load_settings()
+    cfg = _alio_summary_config(settings)
+    return AlioSummarySource(
+        Path(cfg.get("inbox_dir", "data/inbox/alio_summary")),
+        limits=sandbox_limits(settings),
+        institutions=institutions(settings),
+        catalog=build_alio_catalog(settings),
+        labels=cfg.get("labels") or None,
+        max_bytes=int(cfg.get("max_file_kb", 256)) * 1024,
+        default_org=cfg.get("default_org") or None,
+    )
+
+
 async def fetch_alio_catalog(
     settings: Settings | None = None, *, transport=None, resolver=None
 ) -> Path:
@@ -290,6 +314,15 @@ def alio_inbox_status(settings: Settings | None = None) -> dict[str, int]:
     return inbox_status(Path(_alio_config(settings).get("inbox_dir", "data/inbox/alio")))
 
 
+def alio_summary_inbox_status(settings: Settings | None = None) -> dict[str, int]:
+    from rra.adapters.sources.alio import inbox_status
+
+    settings = settings or load_settings()
+    return inbox_status(
+        Path(_alio_summary_config(settings).get("inbox_dir", "data/inbox/alio_summary"))
+    )
+
+
 def build_list_missing(settings: Settings | None = None, repo=None):
     """ListMissing 유스케이스. repo 를 주면 그대로 쓴다(테스트용)."""
     from rra.application.usecases.list_missing import ListMissing
@@ -298,6 +331,19 @@ def build_list_missing(settings: Settings | None = None, repo=None):
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
     return ListMissing(build_alio_catalog(settings), repo)
+
+
+def own_unit(settings: Settings):
+    """own 티어 기준 (sources.yaml own_unit). 설정이 없으면 None → own 티어 없음."""
+    from rra.domain.rules.overlap import OwnUnit
+
+    cfg = read_config("sources.yaml", settings).get("own_unit")
+    if not cfg:
+        return None
+    return OwnUnit(
+        org=str(cfg.get("org") or "korail"),
+        departments=frozenset(str(d).strip() for d in cfg.get("departments") or [] if d),
+    )
 
 
 def institutions(settings: Settings) -> list[dict[str, Any]]:
@@ -453,6 +499,7 @@ async def check_sources(
 _SOURCE_BUILDERS = {
     "openalex": build_openalex_source,
     "alio": build_alio_source,
+    "alio_summary": build_alio_summary_source,
     "scienceon": build_scienceon_source,
     "ntis": build_ntis_source,
 }
@@ -475,7 +522,7 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
     settings = settings or load_settings()
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
-    return IngestSources(sources, repo, limit=limit)
+    return IngestSources(sources, repo, limit=limit, own=own_unit(settings))
 
 
 TEMPLATE = "proposal_korail"
@@ -560,4 +607,4 @@ def build_precheck(settings: Settings | None = None, repo=None):
     settings = settings or load_settings()
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
-    return PrecheckOverlap(repo)
+    return PrecheckOverlap(repo, own=own_unit(settings))

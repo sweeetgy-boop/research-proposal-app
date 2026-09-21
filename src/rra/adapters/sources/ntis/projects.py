@@ -81,6 +81,7 @@ def normalize_project(
         orgs=org_tags([*org_names, department], institutions),
         authors=[m for m in re.split(r"\s*\|\s*", _pick(raw, "manager")) if m][:10],
         lang="ko",
+        text_basis="abstract",
         department=department or None,
         project_period=(start, end) if start and end and start <= end else None,
         codes=[k for k in re.split(r"\s*[|,;]\s*", _pick(raw, "keywords")) if k][:20],

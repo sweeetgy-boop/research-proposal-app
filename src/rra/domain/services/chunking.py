@@ -33,6 +33,7 @@ def chunk_document(doc: Document, max_chars: int = 1500) -> list[Chunk]:
                     ordinal=n,
                     heading=heading,
                     text=seg[i : i + max_chars],
+                    basis=doc.text_basis,
                 )
             )
             n += 1
