@@ -77,8 +77,14 @@ def test_blocked_message_has_no_secret():
 
 
 @pytest.mark.parametrize(
-    "ip", ["0.0.0.0",  # noqa: S104 — 바인딩이 아니라 거부 대상 주소
-           "100.64.0.1", "fe80::1", "::ffff:127.0.0.1", "::ffff:10.0.0.1"]
+    "ip",
+    [
+        "0.0.0.0",  # noqa: S104 — 바인딩이 아니라 거부 대상 주소
+        "100.64.0.1",
+        "fe80::1",
+        "::ffff:127.0.0.1",
+        "::ffff:10.0.0.1",
+    ],
 )
 def test_added_private_ranges(monkeypatch, ip):
     monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [(0, 0, 0, "", (ip, 0))])
@@ -86,7 +92,5 @@ def test_added_private_ranges(monkeypatch, ip):
 
 
 def test_public_address_is_not_private(monkeypatch):
-    monkeypatch.setattr(
-        socket, "getaddrinfo", lambda *a, **k: [(0, 0, 0, "", ("104.18.0.1", 0))]
-    )
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [(0, 0, 0, "", ("104.18.0.1", 0))])
     assert not resolves_private("api.openalex.org")

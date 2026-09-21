@@ -532,11 +532,21 @@ def test_resume_of_finished_run_is_an_error(run_env, capsys):
 def test_sources_check_prints_presence_only(monkeypatch, capsys):
     async def fake_check(settings, names):
         return [
-            {"source": "ntis", "credentials": {"RRA_NTIS_KEY": True}, "host": "www.ntis.go.kr",
-             "host_allowed": True, "roundtrip": "ok",
-             "result": {"total": 12, "record_tag_candidates": ["HIT"]}},
-            {"source": "scienceon", "credentials": {"RRA_SCIENCEON_MAC": False},
-             "host": "apigateway.kisti.re.kr", "host_allowed": True, "roundtrip": "skipped"},
+            {
+                "source": "ntis",
+                "credentials": {"RRA_NTIS_KEY": True},
+                "host": "www.ntis.go.kr",
+                "host_allowed": True,
+                "roundtrip": "ok",
+                "result": {"total": 12, "record_tag_candidates": ["HIT"]},
+            },
+            {
+                "source": "scienceon",
+                "credentials": {"RRA_SCIENCEON_MAC": False},
+                "host": "apigateway.kisti.re.kr",
+                "host_allowed": True,
+                "roundtrip": "skipped",
+            },
         ]
 
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)
