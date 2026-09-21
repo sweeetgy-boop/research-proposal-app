@@ -101,6 +101,12 @@ class InMemoryRepository:
     def get_document(self, doc_id):
         return self.docs.get(doc_id)
 
+    def count_by_source(self):
+        out: dict[str, int] = {}
+        for d in self.docs.values():
+            out[d.source] = out.get(d.source, 0) + 1
+        return out
+
 
 class FakeRenderer:
     def render(self, draft) -> bytes:
@@ -173,6 +179,7 @@ class InMemoryRunStore:
         self.snapshots: dict[tuple[str, str], Any] = {}
         self.sections: dict[tuple[str, str], dict[str, Any]] = {}
         self.drafts: dict[tuple[str, str], Any] = {}
+        self.confirmations: dict[tuple[str, str], Any] = {}
         self.claimed: set[tuple[str, str]] = set()
         self._seq = 0
 
@@ -222,6 +229,12 @@ class InMemoryRunStore:
 
     def save_draft(self, user, run_id, draft):
         self.drafts[self._key(user, run_id)] = draft
+
+    def save_confirmation(self, user, run_id, confirmation):
+        self.confirmations[self._key(user, run_id)] = confirmation
+
+    def load_confirmation(self, user, run_id):
+        return self.confirmations.get((user, run_id))
 
     def list_runs(self, user, limit=50):
         runs = [s for (u, _), s in self.states.items() if u == user]

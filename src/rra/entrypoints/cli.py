@@ -21,6 +21,8 @@ EXIT_BLOCKED = 3
 EXIT_INVALID = 4
 
 SLOTS = ("current_state", "root_cause", "limitation", "goal", "constraints")
+# generate 전용 추가 입력 (모두 선택). 제안자 성명·연락처는 받지 않는다 — 렌더 시점 입력.
+EXTRA_SLOTS = ("title_hint", "policy_basis", "beneficiaries", "remarks", "department")
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 DEFAULT_LLM_CHECK_PROMPT = "연결 확인입니다. 정확히 다음만 출력하십시오: []"
 
@@ -260,8 +262,13 @@ def _step_line(state, step) -> str:
     done, total = state.progress
     detail = ""
     if step.name.startswith("section:"):
-        detail = f" (문장 {step.sentences}, 폐기 {step.dropped}, 응답 {step.raw_chars}자"
-        detail += ")" if step.parse == "ok" else f", 파싱 실패: {step.parse})"
+        if step.parse == "skipped":
+            detail = " (입력·목록이 비어 LLM 생략 — 빈칸)"
+        elif step.parse == "app":
+            detail = f" (앱 확정 문장 {step.sentences})"
+        else:
+            detail = f" (문장 {step.sentences}, 폐기 {step.dropped}, 응답 {step.raw_chars}자"
+            detail += ")" if step.parse == "ok" else f", 파싱 실패: {step.parse})"
     return f"[{done}/{total}] {step.name} 완료{detail}"
 
 
@@ -274,32 +281,71 @@ def _draft_payload(view) -> dict:
 def _print_draft(payload: dict) -> None:
     done, total = payload["progress"]
     print(f"[run {payload['run_id']}] {payload['status']} ({done}/{total})")
+    if payload["legacy"]:
+        print("  (이전 양식으로 만든 run — 조회만 가능. rra generate --reuse-input 으로 새로 생성)")
     for sec in payload["sections"]:
         print(f"\n## {sec['key']}")
+        choices = sec.get("choices")
+        if choices is not None:
+            proposed = ", ".join(c["id"] for c in choices["proposed"]) or "없음"
+            confirmed = choices["confirmed"]
+            shown = ", ".join(c["id"] for c in confirmed) if confirmed is not None else "미확정"
+            print(f"  선택 — 제안: {_safe(proposed)} / 확정: {_safe(shown)}")
         for sent in sec["sentences"]:
-            ev = ", ".join(sent["evidence"]) if sent["evidence"] else "제안자 입력"
+            if sent["source"] == "app":
+                ev = "앱 판정"
+            else:
+                ev = ", ".join(sent["evidence"]) if sent["evidence"] else "제안자 입력"
             print(f"- {_safe(sent['text'], 500)}  [{_safe(ev, 200)}]")
     if payload["citations"]:
         print("\n## 근거 문서")
         for c in payload["citations"]:
             print(f"  {_safe(c['id'], 80):<24} {_safe(c['title'] or '-')}")
     for pr in payload["problems"]:
-        print(f"! {pr['section']}: {pr['code']} — {_safe(pr['message'])}")
+        mark = "!" if pr["severity"] == "error" else "~"
+        print(f"{mark} {pr['section']}: {pr['code']} — {_safe(pr['message'])}")
+
+
+def _read_request_fields(args: argparse.Namespace) -> dict:
+    """generate 입력. --file 이 있으면 파일만, 없으면 플래그.
+
+    budget 은 {account, amount_thousand_krw} 매핑.
+    """
+    keys = SLOTS + EXTRA_SLOTS
+    if args.file:
+        import yaml
+
+        data = yaml.safe_load(Path(args.file).read_text(encoding="utf-8")) or {}
+        if not isinstance(data, dict):
+            raise ValueError("입력 파일은 매핑이어야 합니다.")
+        fields: dict = {k: str(data.get(k) or "") for k in keys}
+        budget = data.get("budget")
+        if budget is not None and not isinstance(budget, dict):
+            raise ValueError("budget 은 {account, amount_thousand_krw} 매핑이어야 합니다.")
+        fields["budget"] = budget or None
+        return fields
+    fields = {k: getattr(args, k) or "" for k in keys}
+    if args.budget_account or args.budget_amount is not None:
+        fields["budget"] = {
+            "account": args.budget_account or "",
+            "amount_thousand_krw": args.budget_amount,
+        }
+    return fields
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
     from rra.composition import LOCAL_USER, build_run_manager, load_settings
     from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import REQUIRED_SLOTS
 
-    if args.resume:
-        req = None
-    else:
-        slots = _read_slots(args)
-        missing = [k for k in SLOTS[:4] if not slots[k].strip()]
+    req = None
+    if not args.resume and not args.reuse_input:
+        fields = _read_request_fields(args)
+        missing = [k for k in REQUIRED_SLOTS if not fields[k].strip()]
         if missing:
             _eprint(f"필수 슬롯이 비었습니다: {', '.join(missing)}")
             return EXIT_USAGE
-        req = ProposalRequest(**slots)
+        req = ProposalRequest(**fields)
 
     started: dict[str, str] = {}
 
@@ -309,10 +355,11 @@ def cmd_generate(args: argparse.Namespace) -> int:
     async def run():
         mgr = build_run_manager(load_settings())
         try:
-            if req is None:
+            if args.resume:
                 state = await mgr.resume(LOCAL_USER, args.resume, on_step=on_step)
             else:
-                state = await mgr.submit(LOCAL_USER, req, on_step=on_step)
+                request = req or await mgr.load_request(LOCAL_USER, args.reuse_input)
+                state = await mgr.submit(LOCAL_USER, request, on_step=on_step)
             started["run_id"] = state.run_id
             _eprint(f"[run {state.run_id}] 시작 — 다른 생성이 진행 중이면 끝날 때까지 기다립니다.")
             final = await mgr.wait(LOCAL_USER, state.run_id)
@@ -383,6 +430,45 @@ def cmd_runs_show(args: argparse.Namespace) -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         _print_draft(payload)
+    return EXIT_OK
+
+
+def _csv(value: str | None) -> list[str]:
+    return [v.strip() for v in (value or "").split(",") if v.strip()]
+
+
+def cmd_runs_confirm(args: argparse.Namespace) -> int:
+    from rra.application.services import ConfirmRejected
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+
+    choices: dict[str, list[str]] = {}
+    if args.task_type:
+        choices["task_type"] = [args.task_type]
+    if args.utilization:
+        choices["utilization"] = _csv(args.utilization)
+    if args.strategy:
+        choices["strategy_alignment"] = _csv(args.strategy)
+    if not choices:
+        _eprint("확정할 값이 없습니다 (--task-type / --utilization / --strategy).")
+        return EXIT_USAGE
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.confirm(LOCAL_USER, args.run_id, choices)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        confirmation = asyncio.run(run())
+    except ConfirmRejected as exc:
+        _eprint(f"확정 거부: {exc}")
+        return EXIT_USAGE
+    if args.json:
+        print(json.dumps(confirmation.choices, ensure_ascii=False, indent=2))
+    else:
+        for key, values in confirmation.choices.items():
+            print(f"{key}: {', '.join(values)}")
     return EXIT_OK
 
 
@@ -484,10 +570,18 @@ def build_parser() -> argparse.ArgumentParser:
     status.set_defaults(handler=cmd_alio_status)
 
     gen = sub.add_parser("generate", help="제안서 초안 생성 (섹션별 저장, 중단 후 --resume)")
-    for slot in SLOTS:
+    for slot in SLOTS + EXTRA_SLOTS:
         gen.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
-    gen.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
-    gen.add_argument("--resume", metavar="RUN_ID", help="중단된 run 을 이어서 생성")
+    gen.add_argument("--budget-account", default="", help="예산과목 (양식 칸에만 쓰임)")
+    gen.add_argument("--budget-amount", type=int, default=None, help="소요예산 (천원)")
+    gen.add_argument(
+        "--file", help="입력이 담긴 yaml/json 파일 (budget: {account, amount_thousand_krw})"
+    )
+    once = gen.add_mutually_exclusive_group()
+    once.add_argument("--resume", metavar="RUN_ID", help="중단된 run 을 이어서 생성")
+    once.add_argument(
+        "--reuse-input", metavar="RUN_ID", help="기존 run(이전 양식 포함)의 입력으로 새로 생성"
+    )
     gen.add_argument("--json", action="store_true", help="JSON 으로 출력")
     gen.set_defaults(handler=cmd_generate)
 
@@ -501,6 +595,13 @@ def build_parser() -> argparse.ArgumentParser:
     rs.add_argument("run_id")
     rs.add_argument("--json", action="store_true")
     rs.set_defaults(handler=cmd_runs_show)
+    rc = runs_sub.add_parser("confirm", help="과제유형·활용계획·전략과제 선택 확정")
+    rc.add_argument("run_id")
+    rc.add_argument("--task-type", choices=["basic", "applied", "development"])
+    rc.add_argument("--utilization", help="쉼표로 구분 (예: software,manual,commercialization)")
+    rc.add_argument("--strategy", help="전략과제 id, 쉼표로 구분 (1~2개)")
+    rc.add_argument("--json", action="store_true")
+    rc.set_defaults(handler=cmd_runs_confirm)
 
     return parser
 

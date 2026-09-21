@@ -1,12 +1,69 @@
-required_sections: [title, background, problem, prior_work, overlap_check, objective, differentiation, method, expected]
+# 한국철도공사 연구개발 규정 시행세칙 별지 제2호서식 「연구과제 제안서」 (개정 2024.02.19.)
+# 섹션 키는 run 폴더(sections/<key>.json)와 step 이름에 남는다. 바꾸면 template 도 바꿀 것
+# (template 이 다른 run 은 조회만 되고 재개·확정은 거부된다).
+template: korail_rnd_proposal_v2024
+form: "한국철도공사 연구개발 규정 시행세칙 별지 제2호서식 (개정 2024.02.19.)"
+
+# 생성 순서
+sections:
+  - title                # 1-가 연구과제명
+  - task_type            # 1-다 과제유형 (선택형, 단일)
+  - policy_importance    # 2-가-(1) 정책적 중요도 (제안자 입력만 근거)
+  - tech_importance      # 2-가-(2) 기술적 중요도 (구 prior_work + differentiation + problem)
+  - strategy_alignment   # 2-가-(3) 공사 경영전략과의 정합성 (선택형, 전략 목록에서만)
+  - objective            # 2-나 연구목적
+  - method               # 2-다 연구 방법 및 주요내용
+  - expected_management  # 3-가 경영혁신 측면
+  - expected_technology  # 3-나 기술혁신 측면
+  - expected_standing    # 3-다 대외위상 측면
+  - utilization          # 4 연구결과 활용계획 (선택형, 복수) + 실용화 계획
+  - overlap_review       # 5 특이사항 — 유사과제 검토 결과
+# 1-나 예산과목·금액, 하단 제안일자·제안자·부서장 정보는 섹션이 아니다 (사용자 입력, slots.yaml).
+
+# 비면 lint 오류. policy_importance·strategy_alignment 는 입력·목록이 비면 빈칸이 정상(경고만).
+required_sections:
+  - title
+  - task_type
+  - tech_importance
+  - objective
+  - method
+  - expected_management
+  - expected_technology
+  - expected_standing
+  - utilization
+  - overlap_review
+
 max_chars:
   title: 100
-  background: 1500
-  problem: 1500
-  prior_work: 2500
-  overlap_check: 1500
+  task_type: 300
+  policy_importance: 800
+  tech_importance: 2500
+  strategy_alignment: 600
   objective: 800
-  differentiation: 2000
   method: 2500
-  expected: 1200
-evidence_required: [prior_work, overlap_check, differentiation]
+  expected_management: 700
+  expected_technology: 700
+  expected_standing: 700
+  utilization: 1000
+  overlap_review: 1200
+
+# 모든 문장이 수집 자료를 인용해야 하는 섹션 (앱이 만든 확정 문장은 예외)
+evidence_required: [tech_importance, overlap_review]
+# 수집 자료 인용 금지 — 제안자 입력만 근거 (수집 자료에 정책 문서가 없다)
+evidence_forbidden: [policy_importance]
+
+# 여기 적은 입력이 모두 비면 LLM 을 부르지 않고 빈칸 + 경고(input_missing)
+requires_input:
+  policy_importance: [policy_basis]
+
+# 정책·계획명, 차수·연도 같은 고유 표현이 이 출처에 없으면 문장 폐기 (domain/rules/grounding.py)
+input_grounded:
+  policy_importance: [policy_basis]
+  strategy_alignment: [policy_basis, strategy_catalog]
+
+# 선택형 섹션. options: task_types | utilization | strategy_catalog
+# LLM 은 목록 안에서만 제안하고, 확정은 사용자가 한다 (rra runs confirm / rra_confirm).
+choices:
+  task_type:          {options: task_types, min: 1, max: 1}
+  utilization:        {options: utilization, min: 1, max: 10}
+  strategy_alignment: {options: strategy_catalog, min: 1, max: 2}

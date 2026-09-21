@@ -198,6 +198,10 @@ class SQLiteDocumentRepository:
         self.backend.add(list(zip(rowids, vectors, strict=True)))
 
     # ── 읽기 ─────────────────────────────────────────────────────
+    def count_by_source(self) -> dict[str, int]:
+        rows = self.conn.execute("SELECT source, COUNT(*) FROM documents GROUP BY source")
+        return {str(source): int(n) for source, n in rows}
+
     def get_document(self, doc_id: str) -> Document | None:
         row = self.conn.execute(_SELECT_DOCUMENT, (doc_id,)).fetchone()
         return _mapping.row_to_document(row) if row else None

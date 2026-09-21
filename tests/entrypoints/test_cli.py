@@ -528,6 +528,139 @@ def test_resume_of_finished_run_is_an_error(run_env, capsys):
     assert "재개할 수 없습니다" in capsys.readouterr().err
 
 
+# ── 양식 개정: 선택 확정 · 입력 재사용 · 예산 ───────────────────
+FORM_KEYS = ["title", "task_type"]
+
+
+def _choice(ids, text="사유"):
+    return json.dumps({"choices": ids, "sentences": [{"text": text, "evidence": []}]})
+
+
+@pytest.fixture
+def form_env(monkeypatch, docs, chunks):
+    from rra.application.services import RunManager
+    from rra.application.usecases.generate_proposal import GenerateProposal
+    from rra.domain.rules.lint import ChoiceSpec, LintRules
+    from tests.fakes import (
+        FakeLLM,
+        FakePromptLibrary,
+        FakeRunLog,
+        FakeSlot,
+        InMemoryRepository,
+        InMemoryRunStore,
+    )
+
+    repo = InMemoryRepository()
+    repo.upsert(docs, chunks)
+    store = InMemoryRunStore()
+    env = {"store": store, "llm": None}
+
+    class ClosingLLM(FakeLLM):
+        async def aclose(self):
+            pass
+
+    def build(settings, **kw):
+        rules = LintRules(
+            template="v2",
+            required_sections=FORM_KEYS,
+            choices={"task_type": ChoiceSpec(options="task_types")},
+        )
+        gen = GenerateProposal(env["llm"], repo, FakePromptLibrary(), rules, FORM_KEYS)
+        return RunManager(gen, store, FakeSlot(), FakeRunLog())
+
+    env["use"] = lambda responses: env.__setitem__("llm", ClosingLLM(responses))
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_run_manager", build)
+    return env
+
+
+def test_generate_shows_proposed_choice_then_confirm(form_env, capsys):
+    form_env["use"]([_sentence("제목"), _choice(["applied"])])
+    assert cli.main(["generate", *GEN_ARGS]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "선택 — 제안: applied / 확정: 미확정" in out
+    run_id = out.split("[run ", 1)[1].split("]", 1)[0]
+
+    assert cli.main(["runs", "confirm", run_id, "--task-type", "development"]) == cli.EXIT_OK
+    assert "task_type: development" in capsys.readouterr().out
+    assert cli.main(["runs", "show", run_id, "--json"]) == cli.EXIT_OK
+    task = json.loads(capsys.readouterr().out)["sections"][1]["choices"]
+    assert task["proposed"] == [{"id": "applied", "label": "응용연구"}]
+    assert task["confirmed"] == [{"id": "development", "label": "개발연구"}]
+
+
+def test_confirm_rejects_values_outside_the_rules(form_env, capsys):
+    form_env["use"]([_sentence("제목"), _choice(["applied"])])
+    cli.main(["generate", *GEN_ARGS, "--json"])
+    run_id = json.loads(capsys.readouterr().out)["run_id"]
+    assert cli.main(["runs", "confirm", run_id, "--strategy", "D1-1"]) == cli.EXIT_USAGE
+    assert "확정 거부" in capsys.readouterr().err
+    assert cli.main(["runs", "confirm", run_id]) == cli.EXIT_USAGE
+
+
+def test_generate_stores_budget_and_extra_fields_but_no_personal_info(form_env, capsys):
+    form_env["use"]([_sentence("제목"), _choice(["basic"])])
+    args = [*GEN_ARGS, "--policy-basis", "국가철도망 구축계획", "--department", "기술연구처"]
+    args += ["--budget-account", "연구개발비", "--budget-amount", "50000", "--json"]
+    assert cli.main(["generate", *args]) == cli.EXIT_OK
+    run_id = json.loads(capsys.readouterr().out)["run_id"]
+    req = form_env["store"].requests[("local", run_id)]
+    assert req.policy_basis == "국가철도망 구축계획" and req.department == "기술연구처"
+    assert req.budget.account == "연구개발비" and req.budget.amount_thousand_krw == 50000
+
+
+def test_generate_reads_budget_from_file(form_env, tmp_path, capsys):
+    import yaml
+
+    path = tmp_path / "in.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "current_state": "수작업",
+                "root_cause": "센서 부재",
+                "limitation": "주기 점검",
+                "goal": "자동 감지",
+                "title_hint": "궤도 감지",
+                "budget": {"account": "연구개발비", "amount_thousand_krw": 30000},
+            },
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    form_env["use"]([_sentence("제목"), _choice(["basic"])])
+    assert cli.main(["generate", "--file", str(path), "--json"]) == cli.EXIT_OK
+    run_id = json.loads(capsys.readouterr().out)["run_id"]
+    req = form_env["store"].requests[("local", run_id)]
+    assert req.title_hint == "궤도 감지" and req.budget.amount_thousand_krw == 30000
+
+
+def test_legacy_run_resume_points_to_reuse_input(form_env, req, capsys):
+    from rra.domain.models.run import plan_steps
+
+    store = form_env["store"]
+    old = store.create("local", req, plan_steps(["background", "prior_work"]), "t")
+    old.status = "interrupted"
+    store.save_state(old)
+
+    form_env["use"]([])
+    assert cli.main(["generate", "--resume", old.run_id]) == cli.EXIT_ERROR
+    assert f"--reuse-input {old.run_id}" in capsys.readouterr().err
+
+    assert cli.main(["runs", "show", old.run_id]) == cli.EXIT_OK
+    assert "이전 양식으로 만든 run" in capsys.readouterr().out
+
+    form_env["use"]([_sentence("제목"), _choice(["basic"])])
+    assert cli.main(["generate", "--reuse-input", old.run_id, "--json"]) == cli.EXIT_OK
+    fresh = json.loads(capsys.readouterr().out)
+    assert fresh["run_id"] != old.run_id and fresh["template"] == "v2" and not fresh["legacy"]
+    assert store.requests[("local", fresh["run_id"])].goal == req.goal
+
+
+def test_resume_and_reuse_input_are_exclusive(capsys):
+    with pytest.raises(SystemExit):
+        cli.main(["generate", "--resume", "a", "--reuse-input", "b"])
+
+
 # ── sources check · 키 없는 ingest ─────────────────────────
 def test_sources_check_prints_presence_only(monkeypatch, capsys):
     async def fake_check(settings, names):

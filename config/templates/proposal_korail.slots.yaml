@@ -1,11 +1,53 @@
-# 섹션 키 → HWPX 슬롯. 실제 양식 확인 후 수정.
-slots:
-  title:         "{{과제명}}"
-  background:    "{{연구배경}}"
-  problem:       "{{문제점}}"
-  prior_work:    "{{선행연구}}"
-  overlap_check: "{{기존과제검토}}"
-  objective:     "{{연구목표}}"
-  differentiation: "{{차별성}}"
-  method:        "{{연구방법}}"
-  expected:      "{{기대효과}}"
+# 별지 제2호서식 → HWPX 자리표시자. 자리표시자 이름은 Step 8 에서 실물 양식을 확인한 뒤 확정한다.
+# 치환 규칙: XML escape + 재파싱 검증 (보안 F).
+
+# 섹션 문장 → 칸 (문장을 이어 붙여 치환)
+text:
+  title: "{{연구과제명}}"
+  policy_importance: "{{정책적중요도}}"
+  tech_importance: "{{기술적중요도}}"
+  strategy_alignment: "{{전략정합성}}"
+  objective: "{{연구목적}}"
+  method: "{{연구방법}}"
+  expected_management: "{{기대효과_경영}}"
+  expected_technology: "{{기대효과_기술}}"
+  expected_standing: "{{기대효과_대외}}"
+  utilization: "{{실용화계획}}"
+  overlap_review: "{{특이사항}}"   # 뒤에 request.remarks 를 이어 붙인다
+
+# 체크 칸 — 사용자가 확정한 값(confirmed.json)으로만 채운다. 확정 전이면 렌더를 거부한다.
+choice:
+  task_type:
+    basic: "{{체크_기초연구}}"
+    applied: "{{체크_응용연구}}"
+    development: "{{체크_개발연구}}"
+  utilization:
+    strategy_plan: "{{체크_활용_가}}"
+    regulation: "{{체크_활용_나}}"
+    feasibility: "{{체크_활용_다}}"
+    negotiation: "{{체크_활용_라}}"
+    facility_method: "{{체크_활용_마}}"
+    rolling_stock: "{{체크_활용_바}}"
+    software: "{{체크_활용_사}}"
+    manual: "{{체크_활용_아}}"
+    other: "{{체크_활용_자}}"
+    commercialization: "{{체크_활용_차}}"
+  strategy_alignment:          # 확정한 전략과제 id → korail_strategy.yaml 의 이름
+    direction: "{{전략방향}}"
+    task: "{{전략과제}}"
+
+# 사용자 입력 (request.json) — LLM 이 만들지 않는다
+input:
+  budget.account: "{{예산과목}}"
+  budget.amount_thousand_krw: "{{예산금액}}"   # 천원
+  department: "{{제안부서}}"
+
+# 렌더할 때만 받는 개인정보 (ProposerInfo). run 폴더·manifest 에 저장하지 않는다. 없으면 빈칸.
+render_only:
+  proposed_on: "{{제안일자}}"
+  proposer.rank: "{{제안자_직급}}"
+  proposer.name: "{{제안자_성명}}"
+  proposer.phone: "{{제안자_연락처}}"
+  head.rank: "{{부서장_직급}}"
+  head.name: "{{부서장_성명}}"
+  head.phone: "{{부서장_연락처}}"

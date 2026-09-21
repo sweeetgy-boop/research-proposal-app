@@ -7,10 +7,11 @@ own 티어 = 우리 기관(코레일) 문서이면서 부서가 설정의 own �
 from __future__ import annotations
 
 import re
+from typing import get_args
 
 from pydantic import BaseModel, ConfigDict
 
-from rra.domain.models import Document, OverlapAlert, Tier
+from rra.domain.models import Document, OverlapAlert, SourceType, Tier
 
 DEFAULT_THRESHOLDS: dict[Tier, float] = {"own": 0.80, "domestic_rail": 0.85, "external": 0.90}
 DOMESTIC_RAIL_ORGS = ("korail", "kr")
@@ -80,3 +81,55 @@ def judge(
             )
         )
     return sorted(alerts, key=lambda a: (-int(a.blocking), -a.similarity))
+
+
+_TIER_LABEL: dict[Tier, str] = {"own": "사내", "domestic_rail": "국내 철도기관", "external": "외부"}
+
+# 자료원 → 검토 범위 문장에 쓰는 이름. 순서 = 문장에 나열하는 순서
+SOURCE_LABELS: dict[str, str] = {
+    "alio": "알리오 공시 연구보고서",
+    "ntis": "NTIS 국가R&D 과제",
+    "scienceon": "ScienceON 국내 논문·보고서",
+    "openalex": "OpenAlex 해외 논문",
+    "kipris_kr": "KIPRIS 국내 특허",
+    "kipris_intl": "KIPRIS 해외 특허",
+}
+ALL_SOURCES: tuple[str, ...] = tuple(get_args(SourceType))
+
+
+def uncollected_sources(counts: dict[str, int]) -> list[str]:
+    """적재 문서가 한 건도 없는 자료원 (SourceType 순서)."""
+    return [s for s in ALL_SOURCES if not counts.get(s)]
+
+
+def _label(source: str) -> str:
+    return SOURCE_LABELS.get(source, source)
+
+
+def _ordered(sources) -> list[str]:
+    order = list(SOURCE_LABELS)
+    return sorted(sources, key=lambda s: (order.index(s) if s in order else len(order), s))
+
+
+def no_overlap_statement(
+    scope: dict[str, int],
+    uncollected: list[str] | None,
+    thresholds: dict[Tier, float] | None = None,
+) -> list[str]:
+    """5. 특이사항 — 중복 기준을 넘는 유사과제가 없을 때 앱이 쓰는 확정 문장 (LLM 미사용).
+
+    실제로 본 범위(자료원별 문서 수)와 아직 수집되지 않은 자료원을 함께 적는다.
+    사내 과제·국가R&D 를 모두 찾아본 것처럼 읽히지 않게 하기 위함이다.
+    """
+    if not scope:
+        return ["비교할 수집 자료가 없어 기수행 유사과제 검토를 수행하지 못함."]
+    th = thresholds or DEFAULT_THRESHOLDS
+    tiers: tuple[Tier, ...] = ("own", "domestic_rail", "external")
+    criteria = ", ".join(f"{_TIER_LABEL[t]} {th[t]:.2f}" for t in tiers)
+    searched = ", ".join(f"{_label(s)} {scope[s]}건" for s in _ordered(scope))
+    out = [f"유사과제 검토 범위는 수집 자료 중 본 제안과 관련도가 높은 {searched}임."]
+    if uncollected:
+        missing = "·".join(_label(s) for s in _ordered(uncollected))
+        out.append(f"{missing}은(는) 아직 수집되지 않아 검토 범위에 포함되지 않음.")
+    out.append(f"위 범위에서 중복 판정 기준(유사도 {criteria}) 이상의 유사과제는 확인되지 않음.")
+    return out

@@ -1,4 +1,4 @@
-"""MCP 쓰기 도구 본체 — rra_generate · rra_get_draft. mcp SDK 를 import 하지 않는다.
+"""MCP 쓰기 도구 본체 — rra_generate · rra_get_draft · rra_confirm. mcp SDK 를 import 하지 않는다.
 
 권한 경계 (G-MCP):
 - RunManager 를 받는 유일한 MCP 객체다. 읽기 도구(tools.py)는 이 모듈·RunManager 를
@@ -7,6 +7,7 @@
 - 사용자는 stdio 프로세스 소유자 한 명(`local`). 다른 사용자의 run 은 보이지 않는다.
 - 생성은 백그라운드로 돌고 run_id 만 즉시 돌려준다. 진행은 rra_get_draft 로 폴링한다.
 - 초안은 비신뢰 자료에서 파생된 텍스트다 → 경고 문구 + 구획 태그 무력화.
+- 예산은 양식 칸에만 쓰는 사용자 입력이다. 제안자 성명·연락처는 받지 않는다 (렌더 시점 입력).
 """
 
 from __future__ import annotations
@@ -14,8 +15,9 @@ from __future__ import annotations
 from typing import Any
 
 from rra.application.ports import RunBusy, RunNotFound
-from rra.application.services import QueueFull, RunManager, RunNotResumable
-from rra.domain.models import ProposalRequest
+from rra.application.services import ConfirmRejected, QueueFull, RunManager, RunNotResumable
+from rra.domain.models import Budget, ProposalRequest
+from rra.domain.models.request import REQUIRED_SLOTS
 from rra.domain.models.run import is_valid_run_id
 from rra.domain.rules.trust import UNTRUSTED_NOTICE, escape_untrusted
 from rra.entrypoints.mcp.tools import ToolInputError
@@ -44,23 +46,38 @@ class RraRunTools:
         goal: str = "",
         constraints: str = "",
         resume_run_id: str | None = None,
+        *,
+        title_hint: str = "",
+        policy_basis: str = "",
+        beneficiaries: str = "",
+        remarks: str = "",
+        department: str = "",
+        budget_account: str = "",
+        budget_amount_thousand_krw: int | None = None,
     ) -> dict[str, Any]:
         try:
             if resume_run_id:
                 state = await self._manager.resume(self._user, _run_id(resume_run_id))
             else:
+                budget = (
+                    Budget(account=budget_account, amount_thousand_krw=budget_amount_thousand_krw)
+                    if budget_account or budget_amount_thousand_krw is not None
+                    else None
+                )
                 req = ProposalRequest(  # 길이 상한은 도메인 모델이 강제한다
                     current_state=current_state,
                     root_cause=root_cause,
                     limitation=limitation,
                     goal=goal,
                     constraints=constraints,
+                    title_hint=title_hint,
+                    policy_basis=policy_basis,
+                    beneficiaries=beneficiaries,
+                    remarks=remarks,
+                    department=department,
+                    budget=budget,
                 )
-                missing = [
-                    k
-                    for k in ("current_state", "root_cause", "limitation", "goal")
-                    if not getattr(req, k)
-                ]
+                missing = [k for k in REQUIRED_SLOTS if not getattr(req, k)]
                 if missing:
                     raise ToolInputError(f"필수 슬롯이 비었습니다: {', '.join(missing)}")
                 state = await self._manager.submit(self._user, req)
@@ -80,3 +97,24 @@ class RraRunTools:
         except RunNotFound as exc:
             raise ToolInputError("해당 run 이 없습니다.") from exc
         return {"notice": UNTRUSTED_NOTICE, **draft_payload(view, clean=escape_untrusted)}
+
+    async def confirm(
+        self,
+        run_id: str,
+        task_type: str | None = None,
+        utilization: list[str] | None = None,
+        strategy: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """사용자가 고른 과제유형·활용계획·전략과제를 확정한다. 넘긴 항목만 덮어쓴다."""
+        choices: dict[str, list[str]] = {}
+        if task_type:
+            choices["task_type"] = [task_type]
+        if utilization:
+            choices["utilization"] = list(utilization)
+        if strategy:
+            choices["strategy_alignment"] = list(strategy)
+        try:
+            confirmation = await self._manager.confirm(self._user, _run_id(run_id), choices)
+        except (ConfirmRejected, RunNotFound) as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {"run_id": run_id, "confirmed": confirmation.choices}

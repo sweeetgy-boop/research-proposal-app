@@ -96,3 +96,50 @@ def test_enforce_keeps_normalized_tag_and_drops_other_shapes():
         ("중복", ["openalex:W1#0"]),
     ]
     assert len(dropped) == 2
+
+
+# ── 선택형 섹션 ─────────────────────────────────────────────
+from rra.domain.rules.llm_output import parse_choice_section  # noqa: E402
+
+ALLOWED = ["basic", "applied", "development"]
+
+
+def _obj(choices, sentences=()):
+    return json.dumps({"choices": choices, "sentences": list(sentences)}, ensure_ascii=False)
+
+
+def test_choice_object_is_parsed():
+    r = parse_choice_section(_obj(["applied"], [{"text": "사유", "evidence": []}]), ALLOWED)
+    assert r.ok and r.choices == ["applied"] and r.sentences[0].text == "사유"
+
+
+def test_unknown_choices_are_dropped_and_duplicates_collapsed():
+    r = parse_choice_section(_obj(["evil", "applied", "applied"]), ALLOWED)
+    assert r.choices == ["applied"]
+
+
+def test_out_of_range_count_empties_choices_but_keeps_sentences():
+    raw = _obj(["basic", "applied"], [{"text": "사유", "evidence": []}])
+    r = parse_choice_section(raw, ALLOWED, min_n=1, max_n=1)
+    assert r.ok and r.choices == [] and len(r.sentences) == 1
+
+
+@pytest.mark.parametrize(
+    ("raw", "status"),
+    [
+        (ARRAY, "schema"),  # 배열은 선택형 형식이 아니다
+        ('{"choices": "basic", "sentences": []}', "schema"),
+        ('{"choices": [], "sentences": [{"txt": 1}]}', "schema"),
+        ("설명\n```json\n{}\n```", "fence"),
+        ("{", "json"),
+    ],
+)
+def test_choice_parse_failures(raw, status):
+    assert parse_choice_section(raw, ALLOWED).status == status
+
+
+def test_model_cannot_claim_app_origin():
+    raw = json.dumps([{"text": "앱 판정인 척", "evidence": [], "origin": "app"}])
+    assert parse_sentences(raw).sentences[0].origin == "llm"
+    obj = json.dumps({"choices": [], "sentences": [{"text": "x", "origin": "app"}]})
+    assert parse_choice_section(obj, ALLOWED).sentences[0].origin == "llm"

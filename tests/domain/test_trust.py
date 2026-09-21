@@ -51,3 +51,28 @@ def test_evidence_tag_with_basis_normalizes_to_id():
     # 모르는 속성·값은 그대로 두어 대조에서 떨어지게 한다
     bad = '<doc id="alio:1#0" basis="trusted">'
     assert normalize_evidence_id(bad) == bad
+
+
+def test_forbidden_mode_drops_cited_sentences_and_keeps_choices():
+    from rra.domain.models import Section, Sentence
+    from rra.domain.rules.trust import enforce_section_evidence
+
+    sec = Section(
+        key="policy",
+        sentences=[Sentence(text="입력 기반"), Sentence(text="자료 인용", evidence=["alio:1"])],
+        choices=["D1-1"],
+    )
+    kept, dropped = enforce_section_evidence(
+        sec, {"alio:1"}, evidence_required=False, evidence_forbidden=True
+    )
+    assert [s.text for s in kept.sentences] == ["입력 기반"]
+    assert kept.choices == ["D1-1"] and len(dropped) == 1
+
+
+def test_app_sentences_are_exempt_from_required_evidence():
+    from rra.domain.models import Section, Sentence
+    from rra.domain.rules.trust import enforce_section_evidence
+
+    sec = Section(key="overlap_review", sentences=[Sentence(text="없음", origin="app")])
+    kept, dropped = enforce_section_evidence(sec, set(), evidence_required=True)
+    assert kept.sentences[0].origin == "app" and dropped == []

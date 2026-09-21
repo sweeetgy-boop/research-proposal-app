@@ -238,3 +238,42 @@ async def test_process_killed_mid_run_is_resumed_from_files(tmp_path):
     assert [s["key"] for s in draft["sections"]] == keys
     manifest = json.loads((root / "local" / run_id / "manifest.json").read_text())
     assert manifest["status"] == "done" and "목표 문장" not in json.dumps(manifest)
+
+
+# ── 양식 개정 (확정값·예전 run) ──────────────────────────────
+def test_confirmation_roundtrip_is_private(store, req):
+    from rra.domain.models import Confirmation
+
+    state = store.create("local", req, STEPS, "t")
+    assert store.load_confirmation("local", state.run_id) is None
+    store.save_confirmation(
+        "local", state.run_id, Confirmation(choices={"task_type": ["applied"]}, updated_at="t")
+    )
+    path = store.root / "local" / state.run_id / "confirmed.json"
+    assert mode(path) == 0o600
+    assert store.load_confirmation("local", state.run_id).choices == {"task_type": ["applied"]}
+
+
+def test_confirmation_keys_are_validated(store, req):
+    from rra.domain.models import Confirmation
+
+    state = store.create("local", req, STEPS, "t")
+    with pytest.raises(ValueError):
+        store.save_confirmation("local", state.run_id, Confirmation(choices={"../x": ["a"]}))
+
+
+def test_legacy_request_with_proposer_still_loads(store, req):
+    """양식 개정 전 request.json (proposer 필드 포함, 새 필드 없음)."""
+    state = store.create("local", req, STEPS, "t")
+    path = store.root / "local" / state.run_id / "request.json"
+    old = {k: getattr(req, k) for k in ("current_state", "root_cause", "limitation", "goal")}
+    path.write_text(json.dumps({**old, "constraints": "", "proposer": "홍길동"}), encoding="utf-8")
+    loaded = store.load_request("local", state.run_id)
+    assert loaded.goal == req.goal and loaded.policy_basis == "" and loaded.budget is None
+    assert "proposer" not in loaded.model_dump()
+
+
+def test_new_request_json_has_no_personal_fields(store, req):
+    state = store.create("local", req, STEPS, "t")
+    saved = json.loads((store.root / "local" / state.run_id / "request.json").read_text())
+    assert not {"proposer", "name", "phone", "rank", "head"} & set(saved)

@@ -9,6 +9,7 @@ from rra.application.ports import RunBusy, RunNotFound
 from rra.application.services import QueueFull, RunManager, RunNotResumable
 from rra.application.usecases.generate_proposal import GenerateProposal
 from rra.domain.models import Chunk
+from rra.domain.models.run import plan_steps
 from rra.domain.rules.lint import LintRules
 from tests.fakes import (
     FakeLLM,
@@ -192,7 +193,7 @@ async def test_dead_process_is_reported_as_interrupted_and_resumable(repo, req):
 async def test_live_run_elsewhere_is_not_resumable(repo, req):
     store = InMemoryRunStore()
     mgr, _ = build(repo, FakeLLM(list(ANSWERS)), store=store)
-    st = store.create(USER, req, ["retrieve", "finalize"], "t")
+    st = store.create(USER, req, plan_steps(KEYS), "t")
     st.status = "interrupted"
     store.save_state(st)
     store.claim(USER, st.run_id)  # 다른 프로세스가 막 이어서 돌리기 시작함
@@ -268,3 +269,119 @@ async def test_parse_status_and_raw_length_are_recorded_per_section(repo, req, c
     assert "선행" not in json.dumps(log.records[-1][1], ensure_ascii=False)  # 원문은 없음
     assert "reason=fence" in caplog.text and "선행" not in caplog.text
     assert final.step("retrieve").parse is None  # section 이 아닌 step 에는 없다
+
+
+# ── 양식 개정: 확정·예전 run ─────────────────────────────────
+from rra.application.services import ConfirmRejected  # noqa: E402
+from rra.domain.rules.lint import ChoiceSpec  # noqa: E402
+
+CHOICE_KEYS = ["task_type", "utilization"]
+
+
+def build_form(repo, llm, store=None):
+    rules = LintRules(
+        template="v2",
+        required_sections=CHOICE_KEYS,
+        choices={
+            "task_type": ChoiceSpec(options="task_types"),
+            "utilization": ChoiceSpec(options="utilization", max=10),
+        },
+    )
+    gen = GenerateProposal(llm, repo, FakePromptLibrary(), rules, CHOICE_KEYS)
+    store = store or InMemoryRunStore()
+    mgr = RunManager(gen, store, FakeSlot(), FakeRunLog(), clock=lambda: "t")
+    return mgr, store
+
+
+def choice(ids, text="사유"):
+    return json.dumps({"choices": ids, "sentences": [{"text": text, "evidence": []}]})
+
+
+async def test_confirm_validates_against_options_and_counts(repo, req):
+    mgr, store = build_form(repo, FakeLLM([choice(["applied"]), choice(["software"])]))
+    final = await run_to_end(mgr, req)
+    assert final.status == "done" and final.template == "v2"
+
+    view = await mgr.get_draft(USER, final.run_id)
+    assert view.sections[0].choices == ["applied"] and view.confirmation is None
+    assert list(view.choice_options["task_type"]) == ["basic", "applied", "development"]
+
+    with pytest.raises(ConfirmRejected):
+        await mgr.confirm(USER, final.run_id, {"task_type": ["basic", "applied"]})  # 단일
+    with pytest.raises(ConfirmRejected):
+        await mgr.confirm(USER, final.run_id, {"utilization": ["evil"]})
+    with pytest.raises(ConfirmRejected):
+        await mgr.confirm(USER, final.run_id, {"title": ["x"]})  # 선택형 아님
+    with pytest.raises(ConfirmRejected):
+        await mgr.confirm(USER, final.run_id, {})
+
+    await mgr.confirm(USER, final.run_id, {"task_type": ["basic"]})
+    conf = await mgr.confirm(USER, final.run_id, {"utilization": ["manual", "software"]})
+    assert conf.choices == {"task_type": ["basic"], "utilization": ["manual", "software"]}
+    view = await mgr.get_draft(USER, final.run_id)
+    assert view.confirmation.choices["task_type"] == ["basic"]  # 제안(applied)과 따로 보관
+
+
+async def test_confirm_needs_a_finished_run(repo, req):
+    mgr, store = build_form(repo, FakeLLM())
+    st = store.create(USER, req, plan_steps(CHOICE_KEYS), "t")
+    st.template = "v2"
+    store.save_state(st)
+    with pytest.raises(ConfirmRejected):
+        await mgr.confirm(USER, st.run_id, {"task_type": ["basic"]})
+
+
+async def test_manifest_records_template_and_confirmed_keys_only(repo, req):
+    log = FakeRunLog()
+    mgr, store = build_form(repo, FakeLLM([choice(["applied"]), choice(["software"])]))
+    mgr.run_log = log
+    final = await run_to_end(mgr, req)
+    await mgr.confirm(USER, final.run_id, {"task_type": ["development"]})
+    last = log.records[-1][1]
+    assert last["template"] == "v2" and last["confirmed"] == ["task_type"]
+    assert "development" not in json.dumps(last)
+    assert req.goal not in json.dumps(log.records, ensure_ascii=False)
+
+
+async def test_legacy_run_is_readable_but_not_resumable_or_confirmable(repo, req):
+    """양식 개정 전 run: template 없음, 예전 섹션 키로 저장됨."""
+    from rra.domain.models import Section, Sentence
+
+    mgr, store = build_form(repo, FakeLLM())
+    old_keys = ["background", "prior_work", "expected"]
+    st = store.create(USER, req, plan_steps(old_keys), "t")
+    st.status = "interrupted"
+    store.save_state(st)
+    for k in old_keys[:2]:
+        store.save_section(USER, st.run_id, Section(key=k, sentences=[Sentence(text=k)]))
+
+    view = await mgr.get_draft(USER, st.run_id)
+    assert view.legacy and [s.key for s in view.sections] == ["background", "prior_work"]
+    assert view.choice_options == {}
+    with pytest.raises(RunNotResumable, match="--reuse-input"):
+        await mgr.resume(USER, st.run_id)
+    with pytest.raises(ConfirmRejected):
+        await mgr.confirm(USER, st.run_id, {"task_type": ["basic"]})
+
+    # 예전 입력으로 새 run 을 만든다
+    old_req = await mgr.load_request(USER, st.run_id)
+    mgr.generate.llm = FakeLLM([choice(["applied"]), choice(["software"])])
+    fresh = await run_to_end(mgr, old_req)
+    assert fresh.status == "done" and fresh.run_id != st.run_id
+    assert not mgr.is_legacy(fresh)
+
+
+async def test_warnings_alone_leave_the_run_done(repo, req):
+    rules = LintRules(
+        sections=["policy_importance", "title"],
+        required_sections=["title"],
+        requires_input={"policy_importance": ["policy_basis"]},
+    )
+    llm = FakeLLM([sentence("제목")])
+    gen = GenerateProposal(llm, repo, FakePromptLibrary(), rules, rules.order)
+    mgr = RunManager(gen, InMemoryRunStore(), FakeSlot(), FakeRunLog(), clock=lambda: "t")
+    final = await run_to_end(mgr, req)
+    assert final.status == "done"
+    assert final.step("section:policy_importance").parse == "skipped"
+    assert final.problems[0]["severity"] == "warning"
+    assert len(llm.calls) == 1

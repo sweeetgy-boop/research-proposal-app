@@ -106,7 +106,7 @@ async def test_tool_call_reports_input_errors_to_the_caller(server):
 
 
 # ── 쓰기 도구 (--enable-generate) ────────────────────────
-WRITE_TOOLS = {"rra_generate", "rra_get_draft"}
+WRITE_TOOLS = {"rra_generate", "rra_get_draft", "rra_confirm"}
 SLOTS = {"current_state": "수작업", "root_cause": "센서 부재", "limitation": "주기", "goal": "자동"}
 
 
@@ -214,3 +214,69 @@ async def test_resume_of_finished_run_is_an_input_error(write_server):
     await mgr.wait("local", run_id)
     with pytest.raises(ToolError, match="재개할 수 없습니다"):
         await server.call_tool("rra_generate", {"resume_run_id": run_id})
+
+
+# ── 선택 확정 (rra_confirm) ─────────────────────────────────
+@pytest.fixture
+def form_server(docs, chunks):
+    from rra.application.services import RunManager
+    from rra.application.usecases.generate_proposal import GenerateProposal
+    from rra.domain.rules.lint import ChoiceSpec, LintRules
+    from rra.entrypoints.mcp.run_tools import RraRunTools
+    from tests.fakes import FakeLLM, FakePromptLibrary, FakeRunLog, FakeSlot, InMemoryRunStore
+
+    repo = InMemoryRepository()
+    repo.upsert(docs, chunks)
+    keys = ["task_type", "utilization"]
+    rules = LintRules(
+        template="v2",
+        required_sections=keys,
+        choices={
+            "task_type": ChoiceSpec(options="task_types"),
+            "utilization": ChoiceSpec(options="utilization", max=10),
+        },
+    )
+    answers = [
+        '{"choices": ["applied"], "sentences": [{"text": "사유", "evidence": []}]}',
+        '{"choices": ["software"], "sentences": [{"text": "계획", "evidence": []}]}',
+    ]
+    store = InMemoryRunStore()
+    gen = GenerateProposal(FakeLLM(answers), repo, FakePromptLibrary(), rules, keys)
+    mgr = RunManager(gen, store, FakeSlot(), FakeRunLog())
+    server = srv.build_server(RraTools(PrecheckOverlap(repo), repo), RraRunTools(mgr))
+    return server, mgr, store
+
+
+async def test_generate_accepts_form_fields_then_confirm(form_server):
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    server, mgr, store = form_server
+    args = {**SLOTS, "policy_basis": "국가철도망 구축계획", "budget_account": "연구개발비"}
+    args["budget_amount_thousand_krw"] = 1000
+    started = (await server.call_tool("rra_generate", args)).structured_content
+    rid = started["run_id"]
+    await mgr.wait("local", rid)
+    req = store.requests[("local", rid)]
+    assert req.policy_basis == "국가철도망 구축계획" and req.budget.amount_thousand_krw == 1000
+
+    body = (await server.call_tool("rra_get_draft", {"run_id": rid})).structured_content
+    task = body["sections"][0]["choices"]
+    assert task["proposed"][0]["id"] == "applied" and task["confirmed"] is None
+
+    done = await server.call_tool(
+        "rra_confirm", {"run_id": rid, "task_type": "basic", "utilization": ["manual"]}
+    )
+    assert done.structured_content["confirmed"] == {
+        "task_type": ["basic"],
+        "utilization": ["manual"],
+    }
+    with pytest.raises(ToolError, match="선택지에 없는 값"):
+        await server.call_tool("rra_confirm", {"run_id": rid, "utilization": ["evil"]})
+    with pytest.raises(ToolError, match="run_id 형식"):
+        await server.call_tool("rra_confirm", {"run_id": "../x", "task_type": "basic"})
+
+
+async def test_confirm_tool_is_not_read_only(form_server):
+    server, _, _ = form_server
+    tools = {t.name: t for t in await server.list_tools()}
+    assert tools["rra_confirm"].annotations.read_only_hint is False

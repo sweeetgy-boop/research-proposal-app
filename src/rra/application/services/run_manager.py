@@ -8,6 +8,11 @@
 - 동시성: run 락(claim) → 전역 슬롯(slot) 순서로 잡는다. 둘 다 프로세스 간 락이라
   CLI 와 MCP 서버가 동시에 생성하지 않고, 락을 잡은 프로세스가 죽으면 run 은 interrupted 가 된다.
 - manifest(보안 I): 해시·id·개수·예외 클래스명만. 제안 입력·문장·오류 메시지는 넣지 않는다.
+- 양식 개정: run 은 생성 때의 양식 id(state.template)와 섹션 순서(state.steps)를 기억한다.
+  현재 양식과 다른 run(legacy)은 조회만 되고 재개·확정은 거부한다. 섹션 키를 자동 변환하지 않는다
+  — 섹션의 의미·근거 규칙이 달라 변환하면 양식에 맞지 않는 글이 새 양식처럼 보인다.
+- 선택형 섹션(과제유형·활용계획·전략)은 LLM 제안(Section.choices)과
+  사용자 확정(confirm)을 따로 둔다.
 """
 
 from __future__ import annotations
@@ -30,16 +35,25 @@ from rra.application.ports import (
     RunStorePort,
 )
 from rra.application.usecases.generate_proposal import GenerateProposal
-from rra.domain.models import ProposalRequest, RetrievalSnapshot, RunState, Section, StepRecord
+from rra.domain.models import (
+    Confirmation,
+    ProposalRequest,
+    RetrievalSnapshot,
+    RunState,
+    Section,
+    StepRecord,
+)
 from rra.domain.models.run import (
     ACTIVE,
     FINALIZE,
+    FINISHED,
     RESUMABLE,
     RETRIEVE,
     is_valid_run_id,
     plan_steps,
     section_step,
 )
+from rra.domain.rules.lint import has_errors
 
 logger = logging.getLogger("rra.runs")
 
@@ -47,6 +61,7 @@ StepCallback = Callable[[RunState, StepRecord], None]
 
 __all__ = [
     "Citation",
+    "ConfirmRejected",
     "DraftView",
     "QueueFull",
     "RunBusy",
@@ -61,7 +76,16 @@ class QueueFull(RuntimeError):
 
 
 class RunNotResumable(RuntimeError):
-    """interrupted 상태가 아니라 재개할 수 없다."""
+    """interrupted 상태가 아니거나, 양식 개정 전 run 이라 재개할 수 없다."""
+
+
+class ConfirmRejected(ValueError):
+    """선택값 확정 요청이 규칙(선택지 목록·개수·run 상태)에 맞지 않는다."""
+
+
+LEGACY_HINT = (
+    "이전 양식으로 만든 run 입니다 — rra generate --reuse-input {run_id} 로 새로 생성하십시오."
+)
 
 
 @dataclass(frozen=True)
@@ -78,6 +102,10 @@ class DraftView:
     state: RunState
     sections: list[Section]
     citations: list[Citation] = field(default_factory=list)
+    legacy: bool = False  # 양식 개정 전 run (조회만 가능)
+    confirmation: Confirmation | None = None
+    # 선택형 섹션 → {선택지 id: 표시 이름}. legacy 면 비어 있다
+    choice_options: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 def _utcnow() -> str:
@@ -117,6 +145,7 @@ class RunManager:
             )
         state = self.store.create(user, req, plan_steps(self.generate.section_keys), self._clock())
         state.model = self.model
+        state.template = self.generate.template
         self.store.save_state(state)
         claim = self.store.claim(user, state.run_id)  # 백그라운드 시작 전에 잡아 공백을 없앤다
         self._start(state, claim, on_step)
@@ -127,6 +156,8 @@ class RunManager:
         self, user: str, run_id: str, *, on_step: StepCallback | None = None
     ) -> RunState:
         state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise RunNotResumable(LEGACY_HINT.format(run_id=run_id))
         if state.status not in RESUMABLE:
             raise RunNotResumable(f"{state.status} 상태의 run 은 재개할 수 없습니다.")
         claim = self.store.claim(user, run_id)  # 다른 프로세스가 이미 이어서 돌리면 RunBusy
@@ -182,13 +213,14 @@ class RunManager:
                     current = self._begin(state, section_step(key))
                     composed = await self.generate.compose_section(key, req, snapshot)
                     self.store.save_section(user, run_id, composed.section)
-                    if not composed.parse.ok:
+                    parse = composed.parse
+                    if parse is not None and not parse.ok:
                         logger.warning(
                             "run.parse_failed run=%s section=%s reason=%s raw_chars=%d",
                             run_id,
                             key,
-                            composed.parse.status,
-                            composed.parse.raw_chars,
+                            parse.status,
+                            parse.raw_chars,
                         )
                     sections[key] = composed.section
                     self._finish(
@@ -201,8 +233,8 @@ class RunManager:
                             {e for s in composed.section.sentences for e in s.evidence}
                         ),
                         prompt_hash=composed.prompt_hash,
-                        parse=composed.parse.status,
-                        raw_chars=composed.parse.raw_chars,
+                        parse=parse.status if parse is not None else composed.mode,
+                        raw_chars=parse.raw_chars if parse is not None else None,
                     )
                     current = None
 
@@ -211,7 +243,7 @@ class RunManager:
                 draft, problems = self.generate.finalize(run_id, req, snapshot, ordered)
                 self.store.save_draft(user, run_id, draft)
                 state.problems = [p.model_dump() for p in problems]
-                state.status = "invalid" if problems else "done"
+                state.status = "invalid" if has_errors(problems) else "done"
                 self._finish(state, current, on_step)
                 current = None
                 return state
@@ -265,7 +297,12 @@ class RunManager:
 
     def _record(self, state: RunState) -> None:
         self.run_log.record(
-            state.run_id, manifest(state, self.store.load_snapshot(state.user, state.run_id))
+            state.run_id,
+            manifest(
+                state,
+                self.store.load_snapshot(state.user, state.run_id),
+                self.store.load_confirmation(state.user, state.run_id),
+            ),
         )
 
     # ── 조회 ─────────────────────────────────────────────
@@ -288,14 +325,67 @@ class RunManager:
                 self._record(state)
         return state
 
+    async def load_request(self, user: str, run_id: str) -> ProposalRequest:
+        """저장된 제안 입력 — 예전 양식 run 의 입력으로 새 run 을 만들 때 쓴다.
+
+        예전 request.json 은 새 모델로 그대로 읽힌다 (새 필드는 기본값, 없어진 필드는 무시).
+        """
+        await self.status(user, run_id)  # 형식·존재 확인
+        return self.store.load_request(user, run_id)
+
+    def is_legacy(self, state: RunState) -> bool:
+        """현재 양식과 다른 run — 양식 id 또는 섹션 계획이 다르다."""
+        return (
+            state.template != self.generate.template
+            or state.section_keys != self.generate.section_keys
+        )
+
     async def get_draft(self, user: str, run_id: str) -> DraftView:
         state = await self.status(user, run_id)
         stored = self.store.load_sections(user, run_id)
-        sections = [stored[k] for k in self.generate.section_keys if k in stored]
+        # 순서는 run 이 계획한 순서 — 양식이 바뀌어도 예전 run 은 자기 섹션으로 보인다
+        sections = [stored[k] for k in state.section_keys if k in stored]
         snapshot = self.store.load_snapshot(user, run_id)
+        legacy = self.is_legacy(state)
         return DraftView(
-            state=state, sections=sections, citations=self._citations(sections, snapshot)
+            state=state,
+            sections=sections,
+            citations=self._citations(sections, snapshot),
+            legacy=legacy,
+            confirmation=self.store.load_confirmation(user, run_id),
+            choice_options={} if legacy else self.generate.choice_options(),
         )
+
+    # ── 선택값 확정 ───────────────────────────────────────
+    async def confirm(self, user: str, run_id: str, choices: dict[str, list[str]]) -> Confirmation:
+        """과제유형·활용계획·전략 선택을 사용자가 확정한다. 기존 확정값에 키 단위로 덮어쓴다."""
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise ConfirmRejected(LEGACY_HINT.format(run_id=run_id))
+        if state.status not in FINISHED or state.status == "failed":
+            raise ConfirmRejected(f"{state.status} 상태의 run 은 확정할 수 없습니다 (생성 후에).")
+        if not choices:
+            raise ConfirmRejected("확정할 선택값이 없습니다.")
+        options = self.generate.choice_options()
+        current = self.store.load_confirmation(user, run_id) or Confirmation()
+        merged = dict(current.choices)
+        for key, values in choices.items():
+            spec = self.generate.rules.choices.get(key)
+            if spec is None:
+                raise ConfirmRejected(f"선택형 항목이 아닙니다: {key}")
+            picked = list(dict.fromkeys(values))
+            unknown = [v for v in picked if v not in options.get(key, {})]
+            if unknown:
+                raise ConfirmRejected(f"{key}: 선택지에 없는 값 {unknown}")
+            if not max(spec.min, 1) <= len(picked) <= spec.max:
+                raise ConfirmRejected(
+                    f"{key}: {max(spec.min, 1)}~{spec.max}개를 골라야 합니다 ({len(picked)}개)."
+                )
+            merged[key] = picked
+        confirmation = Confirmation(choices=merged, updated_at=self._clock())
+        self.store.save_confirmation(user, run_id, confirmation)
+        self._record(state)
+        return confirmation
 
     def _citations(
         self, sections: list[Section], snapshot: RetrievalSnapshot | None
@@ -315,12 +405,17 @@ class RunManager:
         return out
 
 
-def manifest(state: RunState, snapshot: RetrievalSnapshot | None) -> dict[str, Any]:
+def manifest(
+    state: RunState,
+    snapshot: RetrievalSnapshot | None,
+    confirmation: Confirmation | None = None,
+) -> dict[str, Any]:
     """보안 I: 해시·id·개수·클래스명만. 입력·문장·lint 메시지(문장 앞부분 포함)는 제외."""
     return {
         "run_id": state.run_id,
         "status": state.status,
         "model": state.model,
+        "template": state.template,
         "created_at": state.created_at,
         "updated_at": state.updated_at,
         "query_hash": snapshot.query_hash if snapshot else None,
@@ -341,5 +436,13 @@ def manifest(state: RunState, snapshot: RetrievalSnapshot | None) -> dict[str, A
             }
             for s in state.steps
         ],
-        "problems": [{"section": p["section"], "code": p["code"]} for p in state.problems],
+        "problems": [
+            {
+                "section": p["section"],
+                "code": p["code"],
+                "severity": p.get("severity", "error"),
+            }
+            for p in state.problems
+        ],
+        "confirmed": sorted(confirmation.choices) if confirmation else [],
     }

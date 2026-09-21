@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from rra.domain.models import Draft, ProposalRequest, RetrievalSnapshot, RunState, Section
+from rra.domain.models import (
+    Confirmation,
+    Draft,
+    ProposalRequest,
+    RetrievalSnapshot,
+    RunState,
+    Section,
+)
 
 
 class RunNotFound(LookupError):
@@ -37,6 +44,12 @@ class RunStorePort(Protocol):
     def load_sections(self, user: str, run_id: str) -> dict[str, Section]: ...
 
     def save_draft(self, user: str, run_id: str, draft: Draft) -> None: ...
+
+    def save_confirmation(self, user: str, run_id: str, confirmation: Confirmation) -> None:
+        """사용자가 확정한 선택값 (선택지 id 만)."""
+        ...
+
+    def load_confirmation(self, user: str, run_id: str) -> Confirmation | None: ...
 
     def list_runs(self, user: str, limit: int = 50) -> list[RunState]: ...
 

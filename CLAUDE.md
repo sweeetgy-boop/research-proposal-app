@@ -46,7 +46,10 @@
   - ScienceON·NTIS 키 투입 → 실응답 녹화 → FIELDS 매핑·ntis.project_path·record_tag 확정 (skip 2)
   - 알리오 원문 공시 파일·카탈로그 CSV 샘플 투입 (skip 2)
   - `own_unit.departments` 나머지 철도연구원 부서 추가 (현재 철도연구원·경영연구처·기술연구처)
-- 다음: Step 8 — HWPX 렌더링.
+- 양식 개정 반영 — 별지 제2호서식(2024.02.19.) 섹션 12개·선택형 확정(`rra runs confirm`/`rra_confirm`)·
+  정책적 중요도 입력 근거 규칙·유사과제 앱 판정·legacy run 조회 전용 (docs/architecture.md §4.1).
+- 대기: `config/templates/korail_strategy.yaml` 전략체계 목록 채우기 (비어 있으면 2-가-(3) 빈칸).
+- 다음: Step 8 — HWPX 렌더링 (slots.yaml 자리표시자 확정, 확정값·ProposerInfo 로만 체크·하단 칸 채움).
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.

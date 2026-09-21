@@ -283,8 +283,47 @@ def test_lint_rules_and_section_order_come_from_template():
     from rra.composition import lint_rules
 
     rules = lint_rules(Settings(_env_file=None))
-    assert rules.required_sections[:2] == ["title", "background"]
-    assert set(rules.evidence_required) == {"prior_work", "overlap_check", "differentiation"}
+    assert rules.template == "korail_rnd_proposal_v2024"
+    assert rules.order[:3] == ["title", "task_type", "policy_importance"]
+    assert rules.order[-1] == "overlap_review"
+    assert set(rules.evidence_required) == {"tech_importance", "overlap_review"}
+    assert rules.evidence_forbidden == ["policy_importance"]
+    assert set(rules.choices) == {"task_type", "utilization", "strategy_alignment"}
+    # 입력·목록이 비면 빈칸이 정상인 섹션은 필수가 아니다
+    assert not {"policy_importance", "strategy_alignment"} & set(rules.required_sections)
+
+
+def test_strategy_catalog_template_is_empty_until_filled():
+    from rra.composition import build_generate, strategy_catalog
+
+    settings = Settings(_env_file=None)
+    assert strategy_catalog(settings).options() == {}
+    gen = build_generate(settings, repo=object(), llm=object())
+    assert gen.check_overlap and gen.section_keys == gen.rules.order
+    assert gen.choice_options()["strategy_alignment"] == {}
+    assert list(gen.choice_options()["task_type"]) == ["basic", "applied", "development"]
+
+
+def test_strategy_catalog_rejects_bad_or_duplicate_ids(tmp_path):
+    from pydantic import ValidationError
+
+    from rra.composition import strategy_catalog
+
+    (tmp_path / "templates").mkdir()
+    path = tmp_path / "templates" / "korail_strategy.yaml"
+    settings = Settings(_env_file=None, config_dir=tmp_path)
+    path.write_text(
+        "directions:\n  - id: D1\n    name: 안전\n    tasks:\n"
+        "      - {id: D1-1, name: 예방정비}\n      - {id: D1-1, name: 중복}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValidationError):
+        strategy_catalog(settings)
+    path.write_text(
+        "directions:\n  - id: D1\n    name: 안전\n    tasks:\n      - {id: D1-1, name: 예방정비}\n",
+        encoding="utf-8",
+    )
+    assert strategy_catalog(settings).options() == {"D1-1": "안전 > 예방정비"}
 
 
 def test_every_section_has_a_prompt():
@@ -292,7 +331,7 @@ def test_every_section_has_a_prompt():
 
     settings = Settings(_env_file=None)
     prompts = build_prompt_library(settings)
-    for key in lint_rules(settings).required_sections:
+    for key in lint_rules(settings).order:
         assert prompts.section(key).strip(), key
 
 

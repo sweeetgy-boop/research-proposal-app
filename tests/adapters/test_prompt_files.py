@@ -9,7 +9,7 @@ from rra.adapters.llm.prompt_files import FilePromptLibrary, PromptNotFound
 
 RULES_PATH = Path(__file__).parents[2] / "config/templates/proposal_korail.rules.yaml"
 RULES = yaml.safe_load(RULES_PATH.read_text(encoding="utf-8"))
-REQUIRED_SECTIONS = RULES["required_sections"]
+REQUIRED_SECTIONS = RULES["sections"]
 
 
 @pytest.fixture
@@ -72,3 +72,18 @@ def test_reads_are_cached(prompts):
 
 def test_json_fallback_prompt_exists(prompts):
     assert "JSON" in prompts.json_fallback()
+
+
+@pytest.mark.parametrize("key", sorted(RULES["choices"]))
+def test_choice_sections_ask_for_an_object(prompts, key):
+    assert '"choices"' in prompts.section(key)
+
+
+def test_policy_section_forbids_invented_names(prompts):
+    text = prompts.section("policy_importance")
+    assert "policy_basis" in text and "지어내" in text
+
+
+def test_old_section_prompts_are_gone(prompts):
+    old = {"background", "problem", "prior_work", "overlap_check", "differentiation", "expected"}
+    assert not old & set(prompts.available_sections())

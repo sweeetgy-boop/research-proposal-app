@@ -43,6 +43,7 @@ __all__ = [
     "load_settings",
     "read_config",
     "sandbox_limits",
+    "strategy_catalog",
 ]
 
 DEFAULT_STAGE = "compose"
@@ -526,17 +527,28 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
 
 
 TEMPLATE = "proposal_korail"
+STRATEGY_FILE = "templates/korail_strategy.yaml"
 LOCAL_USER = "local"  # stdio·CLI: 프로세스 소유자 = 사용자. 다중 사용자는 Step 10 (REST 인증)
 
 
 def lint_rules(settings: Settings):
-    """config/templates/<TEMPLATE>.rules.yaml → LintRules. 섹션 순서 = required_sections."""
+    """config/templates/<TEMPLATE>.rules.yaml → LintRules. 섹션 순서 = sections."""
     from rra.domain.rules.lint import LintRules
 
     data = read_config(f"templates/{TEMPLATE}.rules.yaml", settings)
     if not data.get("required_sections"):
         raise KeyError(f"templates/{TEMPLATE}.rules.yaml 에 required_sections 가 없습니다.")
     return LintRules.model_validate(data)
+
+
+def strategy_catalog(settings: Settings):
+    """코레일 전략체계 (config/templates/korail_strategy.yaml). 파일이 없거나 비면 빈 목록."""
+    from rra.domain.models import StrategyCatalog
+
+    data = read_config(STRATEGY_FILE, settings)
+    return StrategyCatalog.model_validate(
+        {"source": data.get("source") or "", "directions": data.get("directions") or []}
+    )
 
 
 def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
@@ -550,7 +562,14 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
     if llm is None:
         llm = build_llm(settings, stage="compose")
     return GenerateProposal(
-        llm, repo, build_prompt_library(settings), rules, list(rules.required_sections)
+        llm,
+        repo,
+        build_prompt_library(settings),
+        rules,
+        rules.order,
+        strategy=strategy_catalog(settings),
+        own=own_unit(settings),
+        check_overlap=True,
     )
 
 

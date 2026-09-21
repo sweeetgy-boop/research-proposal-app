@@ -2,10 +2,11 @@
 
 from rra.application.services.run_manager import (
     Citation,
+    ConfirmRejected,
     DraftView,
     QueueFull,
     RunManager,
     RunNotResumable,
 )
 
-__all__ = ["Citation", "DraftView", "QueueFull", "RunManager", "RunNotResumable"]
+__all__ = ["Citation", "ConfirmRejected", "DraftView", "QueueFull", "RunManager", "RunNotResumable"]

@@ -255,3 +255,15 @@ def test_migration_002_backfills_existing_rows(tmp_path):
     assert runner.migrate(conn) == 2
     rows = dict(conn.execute("SELECT doc_id, text_basis FROM documents"))
     assert rows == {"alio:1": "full_text", "ntis:1": "abstract"}
+
+
+def test_count_by_source(tmp_path):
+    from rra.adapters.persistence import SQLiteDocumentRepository
+    from tests.fakes import FakeEmbedding
+
+    repo = SQLiteDocumentRepository(tmp_path / "c.sqlite", FakeEmbedding())
+    assert repo.count_by_source() == {}
+    repo.upsert(make_docs(), [])
+    counts = repo.count_by_source()
+    assert sum(counts.values()) == len(make_docs())
+    assert set(counts) == {d.source for d in make_docs()}

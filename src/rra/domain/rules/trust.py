@@ -75,21 +75,32 @@ def _valid_evidence(ev: list[str], allowed: set[str]) -> list[str]:
 
 
 def enforce_section_evidence(
-    section: Section, allowed: set[str], *, evidence_required: bool
+    section: Section,
+    allowed: set[str],
+    *,
+    evidence_required: bool,
+    evidence_forbidden: bool = False,
 ) -> tuple[Section, list[str]]:
-    """섹션 하나에 근거 규칙 적용. 재개 가능한 생성은 섹션마다 이 검증을 통과한 결과만 저장한다."""
+    """섹션 하나에 근거 규칙 적용. 재개 가능한 생성은 섹션마다 이 검증을 통과한 결과만 저장한다.
+
+    evidence_forbidden: 제안자 입력만 근거로 쓰는 섹션 — 자료를 인용한 문장은 폐기한다.
+    origin="app" 문장(앱이 만든 확정 문장)은 근거 필수 규칙에서 제외한다.
+    """
     dropped: list[str] = []
     kept: list[Sentence] = []
     for s in section.sentences:
+        if evidence_forbidden and s.evidence:
+            dropped.append(f"{section.key}: 입력 전용 섹션에 자료 인용 → 폐기: {s.text[:40]}")
+            continue
         ev = _valid_evidence(s.evidence, allowed)
         if s.evidence and not ev:
             dropped.append(f"{section.key}: 근거 불일치 → 폐기: {s.text[:40]}")
             continue
-        if evidence_required and not ev:
+        if evidence_required and not ev and s.origin != "app":
             dropped.append(f"{section.key}: 근거 없음 → 폐기: {s.text[:40]}")
             continue
-        kept.append(Sentence(text=s.text, evidence=ev))
-    return Section(key=section.key, sentences=kept), dropped
+        kept.append(Sentence(text=s.text, evidence=ev, origin=s.origin))
+    return Section(key=section.key, sentences=kept, choices=list(section.choices)), dropped
 
 
 def enforce_evidence(draft: Draft, evidence_required: set[str]) -> tuple[Draft, list[str]]:
@@ -102,9 +113,4 @@ def enforce_evidence(draft: Draft, evidence_required: set[str]) -> tuple[Draft, 
         )
         new_sections.append(kept)
         dropped.extend(lost)
-    return Draft(
-        run_id=draft.run_id,
-        request=draft.request,
-        sections=new_sections,
-        retrieved_ids=draft.retrieved_ids,
-    ), dropped
+    return draft.model_copy(update={"sections": new_sections}), dropped
