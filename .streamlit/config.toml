@@ -1,0 +1,17 @@
+# 보안 G: 화면은 127.0.0.1 에만 바인딩. 업로드 위젯 없음. 사용 통계 전송 안 함.
+[server]
+address = "127.0.0.1"
+port = 8501
+headless = true
+# enableCORS=false 는 오히려 모든 origin 을 허용한다(Streamlit 경고). 기본값 true + 허용 호스트 제한.
+enableCORS = true
+allowedHosts = ["127.0.0.1", "localhost"]
+enableXsrfProtection = true
+fileWatcherType = "none"
+maxUploadSize = 1
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"

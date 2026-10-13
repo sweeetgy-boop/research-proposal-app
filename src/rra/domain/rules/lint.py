@@ -49,6 +49,7 @@ class LintRules(BaseModel):
     # 문장의 수치가 입력·인용 근거에 없으면 경고(unsupported_number). 폐기하지 않는다
     number_checked: list[str] = Field(default_factory=list)
     choices: dict[str, ChoiceSpec] = Field(default_factory=dict)
+    titles: dict[str, str] = Field(default_factory=dict)  # 섹션 → 양식 항목 이름 (표시용)
 
     @property
     def order(self) -> list[str]:
@@ -65,6 +66,7 @@ class LintRules(BaseModel):
             "input_grounded": set(self.input_grounded),
             "number_checked": set(self.number_checked),
             "choices": set(self.choices),
+            "titles": set(self.titles),
         }
         for name, keys in referenced.items():
             unknown = keys - known
@@ -90,6 +92,8 @@ class LintProblem(BaseModel):
     code: str
     message: str
     severity: Severity = "error"
+    # 문장 단위 문제면 그 문장의 섹션 내 인덱스 (화면이 문장 옆에 붙인다)
+    sentence: int | None = None
 
 
 def has_errors(problems: list[LintProblem]) -> bool:
@@ -187,25 +191,29 @@ def lint(
                 )
             )
         if sec.key in rules.evidence_required:
-            for s in sec.sentences:
+            for i, s in enumerate(sec.sentences):
                 if not s.evidence and s.origin != "app":
                     problems.append(
                         LintProblem(
-                            section=sec.key, code="no_evidence", message=f"근거 없음: {s.text[:30]}"
+                            section=sec.key,
+                            code="no_evidence",
+                            message=f"근거 없음: {s.text[:30]}",
+                            sentence=i,
                         )
                     )
         if sec.key in rules.evidence_forbidden:
-            for s in sec.sentences:
+            for i, s in enumerate(sec.sentences):
                 if s.evidence:
                     problems.append(
                         LintProblem(
                             section=sec.key,
                             code="evidence_forbidden",
                             message=f"입력만 근거로 써야 함: {s.text[:30]}",
+                            sentence=i,
                         )
                     )
         if sec.key in rules.number_checked:
-            for s in sec.sentences:
+            for i, s in enumerate(sec.sentences):
                 if s.origin != "llm":
                     continue
                 cited = _cited_texts(s, chunk_texts or {})
@@ -217,6 +225,7 @@ def lint(
                             code=UNSUPPORTED_NUMBER,
                             message=f"입력·근거에 없는 수치 {', '.join(bad)}: {s.text[:30]}",
                             severity="warning",
+                            sentence=i,
                         )
                     )
     return problems

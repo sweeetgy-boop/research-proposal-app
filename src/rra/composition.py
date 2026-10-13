@@ -632,6 +632,21 @@ def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None):
     )
 
 
+def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
+    """Agent(ProposalAssistant) — precheck·RunManager·검색이 같은 repo 를 쓴다.
+
+    repo 는 처음 쓰일 때 만든다. sqlite 연결은 만든 스레드에서만 쓸 수 있으므로 호출자(UI 워커)는
+    모든 호출을 한 스레드에서 한다.
+    """
+    from rra.application.services import ProposalAssistant
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = _Lazy(lambda: build_repository(build_embedding(settings), settings))
+    manager = build_run_manager(settings, repo=repo, llm=llm)
+    return ProposalAssistant(build_precheck(settings, repo=repo), manager, repo, user=LOCAL_USER)
+
+
 def build_precheck(settings: Settings | None = None, repo=None):
     """PrecheckOverlap 유스케이스. repo 를 주면 그대로 쓴다(테스트·MCP 조립용)."""
     from rra.application.usecases.precheck_overlap import PrecheckOverlap

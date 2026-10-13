@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -57,7 +57,8 @@ class RunState(BaseModel):
     user: str
     status: RunStatus = "queued"
     steps: list[StepRecord]
-    problems: list[dict[str, str]] = Field(default_factory=list)  # LintProblem dump
+    # LintProblem.model_dump() — sentence 는 int | None
+    problems: list[dict[str, Any]] = Field(default_factory=list)
     model: str | None = None
     template: str | None = None  # 생성 때의 양식 id. None 이면 양식 개정 전 run (재개 불가)
     created_at: str

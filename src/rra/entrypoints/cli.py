@@ -513,6 +513,13 @@ def cmd_mcp(args: argparse.Namespace) -> int:
     return mcp_main(argv)
 
 
+# ── ui ────────────────────────────────────────────────────
+def cmd_ui(args: argparse.Namespace) -> int:
+    from rra.entrypoints.ui.__main__ import main as ui_main
+
+    return ui_main(["--server.port", str(args.port)])
+
+
 # ── 파서 ──────────────────────────────────────────────────
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("rra", description="연구과제 제안서 작성 보조")
@@ -592,6 +599,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     gen.add_argument("--json", action="store_true", help="JSON 으로 출력")
     gen.set_defaults(handler=cmd_generate)
+
+    ui = sub.add_parser("ui", help="Streamlit 화면 (127.0.0.1 전용, RRA_API_TOKEN 필요)")
+    ui.add_argument("--port", type=int, default=8501)
+    ui.set_defaults(handler=cmd_ui)
 
     runs = sub.add_parser("runs", help="생성 기록 조회")
     runs_sub = runs.add_subparsers(dest="runs_cmd", required=True)

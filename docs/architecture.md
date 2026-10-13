@@ -423,7 +423,8 @@ req -> expand (HyDE + terms)
   - 후속: 재순위 모델(cross-encoder reranker, 예: bge-reranker-v2-m3)로 상위 k 를 다시 점수화하면 유사도 분포의
     압축 문제를 근본적으로 줄일 수 있다. 모델 로딩(수백 MB)·속도·safetensors(H) 검토 뒤 `RerankerPort` 로 넣는다.
 - **lint 심각도**: `LintProblem.severity` error·warning. 경고(`input_missing`·`catalog_empty`·`no_choice`·
-  `unsupported_number`)만 있으면 run 은 done. `origin="app"` 문장은 근거 필수 검사에서 제외.
+  `unsupported_number`)만 있으면 run 은 done. 문장 단위 문제는 `LintProblem.sentence`(섹션 내 인덱스)를 가져
+  화면이 그 문장 옆에 붙인다. `origin="app"` 문장은 근거 필수 검사에서 제외.
 - **개인정보**: `ProposalRequest.proposer` 삭제. 제안자·부서장 성명·직급·연락처와 제안일자는
   `domain/models/proposer.ProposerInfo` 로 렌더 시점에만 받는다 (repr 마스킹, run 폴더·manifest 에 없음).
   제안부서·예산은 개인정보가 아니라 request.json 에 두되 프롬프트에서는 뺀다(`ProposalRequest.prompt_view`).
@@ -434,6 +435,57 @@ req -> expand (HyDE + terms)
   예전 request.json 에 들어 있던 `proposer` 값은 새 코드가 쓰지 않으며 보존기간(`retention_days`)에 따라 지워진다.
 
 ---
+
+
+### 4.2 Streamlit 화면과 Agent (2026-10-13, 기획서 Ⅱ·Ⅲ)
+
+**위치**: `entrypoints/ui/` (`app.py` 위젯·순서, `worker.py`, `service.py` 조립 통로, `auth.py`, `labels.py`).
+실행 `rra ui` / `python -m rra.entrypoints.ui` → `streamlit run` 127.0.0.1:8501 (`.streamlit/config.toml`,
+업로드 없음, 사용 통계 끔). 유스케이스·`composition` 만 부르고 로직은 없다. import-linter 계약 6:
+`rra.entrypoints.ui` 는 `cli`·`mcp`·`adapters` 를 import 하지 않는다 (공용 변환은 `entrypoints/views`).
+`streamlit` 은 domain·application 금지 목록에 있다.
+
+**흐름** (기획서 활용 시나리오): 입력(필수 4칸 + 가제·정책 근거·제약·제안부서·활용 주체·특이사항·예산.
+성명·연락처 칸 없음) → [유사과제 확인] → 표(구분·유사도·겹친 키워드·공개 요약 여부) → 차단 경보가 있으면
+체크박스 확인 전에는 [초안 생성] 비활성 → 진행 표시 → 양식 순서 초안(문장마다 근거 id, 문장 단위 lint 경고는
+그 문장 옆) → 선택형 세 섹션은 제안값을 기본 선택으로 두고 [확정 저장](`RunManager.confirm`) → 결과 JSON
+다운로드(`draft_payload` + request + confirmed) → 자료 질의(`repo.hybrid_search`, `UNTRUSTED_NOTICE` 함께).
+
+**2분 생성 중 화면이 멈추지 않는 방법**: Streamlit 은 상호작용마다 스크립트를 재실행하고 이벤트 루프를 유지하지
+않는다. `RunManager.submit` 은 `asyncio.create_task` 라 살아 있는 루프가 필요하다. 그래서 프로세스에 워커 스레드
+하나(`Worker`, 자체 루프, `st.cache_resource`)를 두고 모든 유스케이스 호출을 `run_coroutine_threadsafe` 로 그 루프에서
+돈다. sqlite 연결·LLM httpx 클라이언트는 만든 스레드/루프에 묶이므로 동기 호출(precheck·검색)도 워커에서 실행한다.
+진행 표시는 `@st.fragment(run_every=2)` 가 `state.json`(step 마다 원자적 저장)을 읽어 다시 그리고, 끝나면
+`st.rerun()` 으로 초안 화면으로 넘긴다. 생성 동시성 1 은 `FlockSlot(runs/.generate.lock)` 그대로 — CLI·MCP 와 공유.
+서버가 죽어 `interrupted` 면 "이어서 생성"(`resume`).
+
+**Agent 를 어떻게 드러내나**: 기획서 Ⅲ "Tool 호출 조건" 표는 조건 → 동작 규칙이다. 보안 A 로 생성 LLM 에는
+도구 권한이 없으므로 Agent 는 **규칙 기반 오케스트레이터**다. 판단은 domain 순수 함수
+`domain/rules/agent_policy.py`(`on_intake`·`after_precheck`·`may_generate`·`on_query`·`on_confirm`), 실행은
+`application/services/assistant.py` `ProposalAssistant`(`intake`→precheck, `proceed`→submit, `poll`→get_draft,
+`ask`→search, `confirm`). 모든 호출은 `ToolCall(at, condition, tool, summary)` 로 `trace` 에 남고 화면 사이드바
+"Agent 활동 기록"에 보인다 — "아이디어 입력 수신 → rra_precheck", "차단 경보 있음 → 담당자 확인 요청",
+"담당자 진행 선택 → rra_generate", "정책 근거 미입력 → 정책적 중요도 생략". 버튼은 사람이 사건을 넘기는 자리
+(입력 제출·진행 선택·질의·확정)에만 있고 Tool 을 언제 부를지는 규칙이 정한다. LLM function calling 은 쓰지 않았다:
+재현성, 수집 문서가 tool 호출을 조종할 수 없게(보안 A), 2분 생성에 판단 호출을 더하지 않기 위해서다.
+
+**설정 거부는 보이게**: `load_settings()` 는 `.env` 권한이 600 이 아니면 `SystemExit` 를 올린다(CLI 용 메시지).
+Streamlit 의 ScriptRunner 는 `SystemExit`(BaseException)를 잡지 않아 스크립트 스레드가 조용히 죽고 브라우저는
+하얀 화면만 본다 (2026-10-13 실측: 웹소켓은 101 로 열리고 `page_config_changed` 뒤 delta 가 영영 없음).
+`ui/service.get_settings` 가 `SystemExit` 를 `ConfigError` 로 바꾸고 `app.py` 가 `st.error` 로 보인 뒤 멈춘다.
+`tests/entrypoints/ui/test_server.py` 는 `streamlit run` 을 자식 프로세스로 띄워 health → XSRF 쿠키 → 웹소켓
+핸드셰이크(Origin 127.0.0.1·localhost) → `rerun_script` → `new_session`·delta·`script_finished` 까지 확인하고,
+다른 Origin 은 accept 전에 거부(1008)되는지 본다. AppTest 는 이 경로(서버·웹소켓·config.toml)를 거치지 않는다.
+`.streamlit/config.toml` 의 `server.enableCORS=true` + `server.allowedHosts=["127.0.0.1","localhost"]` 는
+1.65 에 있는 옵션이며 같은 호스트 접속을 막지 않는다 (`enableCORS=false` 는 오히려 모든 origin 허용).
+
+**인증(G)**: `RRA_API_TOKEN`(`Settings.api_token`)이 없으면 화면이 열리지 않는다. 사이드바에 토큰을 한 번 입력
+(`secrets.compare_digest`)하면 세션 동안 유지. 다중 사용자·터널 공개는 Step 10.
+
+**테스트**: `tests/domain/test_agent_policy.py`(표의 행), `tests/application/test_assistant.py`,
+`tests/entrypoints/ui/test_worker.py`, `tests/entrypoints/ui/test_app.py`(`AppTest`, FakeLLM·InMemory 저장소,
+토큰 게이트·필수 입력·차단 게이트·초안 표시·확정·다운로드·검색·개인정보 칸 없음). `AppTest` 는 `run_every`
+fragment 를 자동 재실행하지 않으므로 `Worker.wait(run_id)` 뒤 `at.run()` 으로 완료 화면을 본다.
 
 ## 5. 추가 권장 10항목
 

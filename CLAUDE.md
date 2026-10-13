@@ -7,7 +7,7 @@
 - `src/rra/domain/`: 순수 파이썬. pydantic·표준라이브러리만. 다른 rra 패키지·I/O 라이브러리 import 금지.
 - `src/rra/application/`: domain만 의존. ports는 `typing.Protocol`. usecases는 포트만 받음.
 - `src/rra/adapters/`: 포트 구현체. 외부 라이브러리는 여기서만. usecases·entrypoints import 금지.
-- `src/rra/entrypoints/`: cli·api·mcp. usecases 호출만, 로직 없음.
+- `src/rra/entrypoints/`: cli·api·mcp·ui(Streamlit). usecases 호출만, 로직 없음. ui 는 cli·mcp 를 import 하지 않는다(계약 6).
 - `src/rra/composition.py`: 유일하게 전 계층을 아는 조립 지점.
 
 ## 보안 규칙 (반드시 지킬 것)
@@ -52,6 +52,12 @@
   e5 유사도만으로는 무관한 한국어 문서도 own 0.80 을 넘는다. 임계치는 표본이 쌓인 뒤 조정. reranker 는 후속.
 - 7B(Qwen2.5-7B-Instruct-4bit) 전환 반영 — 본문 속 자료 태그 조각 제거(`llm_output.strip_doc_fragments`),
   지어낸 수치 lint 경고(`numbers.py`, `rules.yaml number_checked`), grounding 관형형 예외. 실응답 fixture tests/fixtures/llm.
+- Streamlit 화면 (`entrypoints/ui/`, `rra ui`, 127.0.0.1:8501, RRA_API_TOKEN 게이트) — 기획서 Ⅱ 흐름.
+  Agent = 규칙 기반 오케스트레이터: 판단 `domain/rules/agent_policy.py`(기획서 Tool 호출 조건 표), 실행
+  `application/services/assistant.py`(ProposalAssistant, trace → 화면 "Agent 활동 기록"). LLM 은 판단에 쓰지 않는다.
+  생성은 워커 스레드(자체 이벤트 루프, `ui/worker.py`)에서 돌고 화면은 2초 fragment 로 state.json 을 폴링한다.
+  모든 repo(sqlite)·LLM 호출은 워커 스레드에서만. 화면 테스트는 `streamlit.testing.v1.AppTest` + FakeLLM
+  (tests/entrypoints/ui). docs/architecture.md §4.2.
 - 대기: `config/templates/korail_strategy.yaml` 전략체계 목록 채우기 (비어 있으면 2-가-(3) 빈칸).
 - 다음: Step 8 — HWPX 렌더링 (slots.yaml 자리표시자 확정, 확정값·ProposerInfo 로만 체크·하단 칸 채움).
 

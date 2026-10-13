@@ -20,6 +20,21 @@ sections:
   - overlap_review       # 5 특이사항 — 유사과제 검토 결과
 # 1-나 예산과목·금액, 하단 제안일자·제안자·부서장 정보는 섹션이 아니다 (사용자 입력, slots.yaml).
 
+# 화면·출력에 쓰는 양식 항목 이름 (키는 sections 와 같아야 한다)
+titles:
+  title: "1-가 연구과제명"
+  task_type: "1-다 과제유형"
+  policy_importance: "2-가-(1) 정책적 중요도"
+  tech_importance: "2-가-(2) 기술적 중요도"
+  strategy_alignment: "2-가-(3) 공사 경영전략과의 정합성"
+  objective: "2-나 연구목적"
+  method: "2-다 연구 방법 및 주요내용"
+  expected_management: "3-가 기대효과 (경영혁신 측면)"
+  expected_technology: "3-나 기대효과 (기술혁신 측면)"
+  expected_standing: "3-다 기대효과 (대외위상 측면)"
+  utilization: "4 연구결과 활용계획"
+  overlap_review: "5 특이사항 (유사과제 검토 결과)"
+
 # 비면 lint 오류. policy_importance·strategy_alignment 는 입력·목록이 비면 빈칸이 정상(경고만).
 required_sections:
   - title

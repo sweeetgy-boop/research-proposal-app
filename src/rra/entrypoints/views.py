@@ -86,6 +86,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
                 "code": p["code"],
                 "severity": p.get("severity", "error"),
                 "message": clean(p["message"]),
+                "sentence": p.get("sentence"),
             }
             for p in state.problems
         ],

@@ -174,3 +174,22 @@ def test_sections_outside_number_checked_are_not_checked(req):
 def test_number_checked_must_name_known_sections():
     with pytest.raises(ValidationError):
         LintRules(sections=["a"], required_sections=["a"], number_checked=["zzz"])
+
+
+def test_sentence_index_survives_run_state_round_trip(req):
+    """state.json 의 problems(sentence 가 int|None)를 RunState 가 다시 읽을 수 있어야 한다."""
+    from rra.domain.models import RunState
+
+    d = _draft(req, Sentence(text="약 10% 절감"))
+    problems = [p.model_dump() for p in lint(d, NUMBERS)]
+    assert problems and problems[0]["sentence"] == 0
+    state = RunState(
+        run_id="20260101000000-00000001",
+        user="local",
+        steps=[],
+        problems=problems,
+        created_at="2026-01-01T00:00:00+00:00",
+        updated_at="2026-01-01T00:00:00+00:00",
+    )
+    reloaded = RunState.model_validate(state.model_dump(mode="json"))
+    assert reloaded.problems[0]["sentence"] == 0
