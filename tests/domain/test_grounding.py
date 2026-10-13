@@ -17,6 +17,9 @@ BASIS = (
         "정부의 구축계획에 부합함",  # 조사로 끝나는 수식어는 이름에 포함하지 않는다
         "경영전략과 연계되며 정책적 중요도가 높음",  # 일반어
         "관련 계획을 수립함",
+        "궤도 보수에 대한 정책적 중요성이 높아짐",  # 파생어 "정책적" 은 고유명이 아니다
+        "유지보수를 계획적으로 추진함",  # "계획적으로"
+        "검측 체계의 전략적 개선이 필요함",  # "전략적"
     ],
 )
 def test_grounded_sentences_pass(text):
@@ -31,6 +34,9 @@ def test_grounded_sentences_pass(text):
         ("2030 탄소중립 로드맵을 따름", "탄소중립 로드맵"),
         ("「철도 혁신 비전」과 연계됨", "철도 혁신 비전"),
         ("탄소중립 로드맵 2030을 따름", "2030"),
+        ("제5차 국가철도망 구축계획을 근거로 함", "제5차"),  # 조사 "을"
+        ("탄소중립 로드맵으로 전환함", "탄소중립 로드맵"),  # 조사 "으로"
+        ("철도안전 종합계획이며 중요함", "철도안전 종합계획"),  # 조사 "이며"
     ],
 )
 def test_invented_names_and_numbers_are_caught(text, invented):
@@ -48,3 +54,16 @@ def test_no_allowed_text_means_every_name_is_ungrounded():
 def test_named_references_dedupes_in_order():
     refs = named_references("「가 나」 「가 나」 2030 2030")
     assert refs == ["가 나", "2030"]
+
+
+@pytest.mark.parametrize(
+    ("text", "refs"),
+    [
+        ("보수에 대한 정책적 중요성", []),
+        ("계획적으로 추진", []),
+        ("국가철도망 구축계획에 따라", ["국가철도망 구축계획"]),
+        ("국가철도망 구축계획으로", ["국가철도망 구축계획"]),
+    ],
+)
+def test_suffix_must_end_the_word(text, refs):
+    assert named_references(text) == refs

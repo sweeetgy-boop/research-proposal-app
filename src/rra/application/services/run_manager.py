@@ -215,8 +215,11 @@ class RunManager:
                     self.store.save_section(user, run_id, composed.section)
                     parse = composed.parse
                     if parse is not None and not parse.ok:
+                        partial = parse.status == "choices_only"
+                        event = "parse_partial" if partial else "parse_failed"
                         logger.warning(
-                            "run.parse_failed run=%s section=%s reason=%s raw_chars=%d",
+                            "run.%s run=%s section=%s reason=%s raw_chars=%d",
+                            event,
                             run_id,
                             key,
                             parse.status,

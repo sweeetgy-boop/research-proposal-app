@@ -194,7 +194,13 @@ class GenerateProposal:
                 for a in snapshot.overlap
             )
             parts.append(f"[유사과제 판정 — 앱 계산]\n{rows}")
-        parts.append(f"[자료]\n{wrap_untrusted(snapshot.chunks)}")
+        if key in self.rules.evidence_forbidden:
+            # 자료 인용 금지 섹션에 자료를 주면 약한 모델은 그래도 인용한다 → 아예 주지 않는다.
+            parts.append(
+                "[자료]\n(없음 — 이 섹션은 제안자 입력만 근거로 쓴다. evidence 는 빈 배열)"
+            )
+        else:
+            parts.append(f"[자료]\n{wrap_untrusted(snapshot.chunks)}")
         return "\n\n".join(parts)
 
     def _enforce_grounding(

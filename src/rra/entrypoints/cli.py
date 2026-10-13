@@ -268,7 +268,12 @@ def _step_line(state, step) -> str:
             detail = f" (앱 확정 문장 {step.sentences})"
         else:
             detail = f" (문장 {step.sentences}, 폐기 {step.dropped}, 응답 {step.raw_chars}자"
-            detail += ")" if step.parse == "ok" else f", 파싱 실패: {step.parse})"
+            if step.parse == "ok":
+                detail += ")"
+            elif step.parse == "choices_only":
+                detail += ", 선택지만 수용 — 문장 스키마 오류)"
+            else:
+                detail += f", 파싱 실패: {step.parse})"
     return f"[{done}/{total}] {step.name} 완료{detail}"
 
 

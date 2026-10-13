@@ -223,3 +223,34 @@ async def test_missing_required_section_is_still_an_error(req, repo):
     _, problems = uc.finalize("r", req, snap, sections)
     assert has_errors(problems)
     assert ("title", "missing") in {(p.section, p.code) for p in problems}
+
+
+async def test_policy_prompt_carries_no_retrieved_documents(req, repo):
+    """자료 인용 금지 섹션에는 검색 결과 블록을 주지 않는다 — 주면 약한 모델이 인용한다."""
+    req = req.model_copy(update={"policy_basis": "제4차 국가철도망 구축계획 — 철도 디지털 전환"})
+    llm = by_key(FULL)
+    uc = make(llm, repo)
+    snap = uc.retrieve(req)
+    assert snap.chunks  # 자료는 있다
+    await uc.compose_section("policy_importance", req, snap)
+    (prompt,) = llm.calls
+    assert "<doc id=" not in prompt and "제4차 국가철도망 구축계획" in prompt
+    await uc.compose_section("tech_importance", req, snap)
+    assert "<doc id=" in llm.calls[1]  # 다른 섹션은 그대로 받는다
+
+
+async def test_choice_section_keeps_valid_choices_when_sentences_are_malformed(req, repo):
+    bad = json.dumps(
+        {"choices": ["software", "commercialization"], "sentences": ["문자열 문장"]},
+        ensure_ascii=False,
+    )
+    llm = by_key({"utilization": bad})
+    uc = make(llm, repo)
+    composed = await uc.compose_section("utilization", req, uc.retrieve(req))
+    assert composed.parse is not None and composed.parse.status == "choices_only"
+    assert composed.section.choices == ["software", "commercialization"]
+    assert composed.section.sentences == []
+    _, problems = uc.finalize("r", req, uc.retrieve(req), [composed.section])
+    codes = {(p.section, p.code) for p in problems}
+    assert ("utilization", "no_choice") not in codes  # 선택지는 살았다
+    assert ("utilization", "missing") in codes  # 문장은 비어 필수 섹션 오류는 그대로

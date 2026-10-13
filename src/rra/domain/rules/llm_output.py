@@ -3,6 +3,7 @@
 선택형 섹션(과제유형·활용계획·전략 정합성)은 객체
 {"choices": [id…], "sentences": [...]} 하나만 받는다.
 choices 는 허용 목록과 대조해 없는 값을 버리고, 개수가 범위를 벗어나면 비운다 (문장은 남긴다).
+sentences 가 스키마에 맞지 않아도 choices 가 유효하면 choices 만 살린다 (choices_only).
 
 허용하는 감싸기는 딱 하나: 전체가 코드펜스 한 개(``` 또는 ```json)로 둘러싸인 경우.
 그 밖의 형태(다른 언어 태그, 펜스 밖 설명문, 펜스 여러 개)는 fence 실패로 거부한다.
@@ -13,6 +14,8 @@ choices 는 허용 목록과 대조해 없는 값을 버리고, 개수가 범위
 - fence   코드펜스 형태가 허용 범위 밖
 - json    JSON 문법 오류 (응답이 잘려 닫는 펜스가 없는 경우 포함)
 - schema  JSON 이지만 배열이 아니거나 항목이 Sentence 스키마에 맞지 않음
+- choices_only  (선택형) choices 는 목록 안의 유효한 값이라 살렸지만 sentences 가 스키마에 맞지 않아
+  문장은 버렸다. 경고로 기록되고, 선택지는 확정 단계의 제안으로 남는다.
 """
 
 from __future__ import annotations
@@ -27,7 +30,7 @@ from pydantic import ValidationError
 
 from rra.domain.models import Sentence
 
-ParseStatus = Literal["ok", "fence", "json", "schema"]
+ParseStatus = Literal["ok", "fence", "json", "schema", "choices_only"]
 
 FENCE = "```"
 _OPEN = re.compile(r"\A```(json)?[ \t]*\n", re.IGNORECASE)
@@ -103,8 +106,7 @@ def parse_choice_section(
     if not isinstance(data, dict):
         return ParseResult("schema", n)
     picked = data.get("choices", [])
-    sentences = _sentences(data.get("sentences", []))
-    if sentences is None or not isinstance(picked, list):
+    if not isinstance(picked, list):
         return ParseResult("schema", n)
     choices: list[str] = []
     for c in picked:
@@ -112,4 +114,8 @@ def parse_choice_section(
             choices.append(c)
     if not min_n <= len(choices) <= max_n:
         choices = []
+    sentences = _sentences(data.get("sentences", []))
+    if sentences is None:
+        # 문장 스키마 오류 → 유효한 선택지만 살린다 (약한 모델이 문장 형식을 자주 틀린다)
+        return ParseResult("choices_only", n, [], choices) if choices else ParseResult("schema", n)
     return ParseResult("ok", n, sentences, choices)

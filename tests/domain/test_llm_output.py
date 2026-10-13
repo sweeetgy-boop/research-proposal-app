@@ -143,3 +143,23 @@ def test_model_cannot_claim_app_origin():
     assert parse_sentences(raw).sentences[0].origin == "llm"
     obj = json.dumps({"choices": [], "sentences": [{"text": "x", "origin": "app"}]})
     assert parse_choice_section(obj, ALLOWED).sentences[0].origin == "llm"
+
+
+# ── 부분 수용: choices 유효 + sentences 스키마 오류 ──
+def test_valid_choices_survive_bad_sentences():
+    nested = json.dumps({"choices": ["applied"], "sentences": [[{"text": "x", "evidence": []}]]})
+    r = parse_choice_section(nested, ALLOWED)
+    assert r.status == "choices_only" and not r.ok
+    assert r.choices == ["applied"] and r.sentences == []
+    plain = json.dumps({"choices": ["applied"], "sentences": ["문자열 문장"]}, ensure_ascii=False)
+    assert parse_choice_section(plain, ALLOWED).choices == ["applied"]
+
+
+@pytest.mark.parametrize(
+    "choices",
+    [["evil"], [], ["basic", "applied"]],  # 목록 밖 / 없음 / 개수 초과(max 1)
+)
+def test_bad_sentences_without_valid_choices_stay_schema(choices):
+    raw = json.dumps({"choices": choices, "sentences": ["문자열"]}, ensure_ascii=False)
+    r = parse_choice_section(raw, ALLOWED, min_n=1, max_n=1)
+    assert r.status == "schema" and r.choices == [] and r.sentences == []

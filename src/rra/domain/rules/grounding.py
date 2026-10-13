@@ -7,7 +7,8 @@
 뽑는 대상 (보수적으로 — 놓치는 것보다 과하게 버리는 쪽):
 - 「」·『』·“”·"" 안의 표현
 - `…계획`·`…전략`·`…정책`·`…로드맵`·`…규정`·`…지침`·`…비전`·`…법률`·`…시행령` 으로 끝나는 어절
-  (앞에 한 글자 이상 붙은 경우. 일반어는 GENERIC_TERMS 로 허용)
+  (뒤에는 조사만 허용. "정책적·계획적으로" 같은 파생어는 고유명이 아니다.
+  앞에 한 글자 이상 붙은 경우. 일반어는 GENERIC_TERMS 로 허용)
 - 두 자리 이상 숫자 (연도·차수·목표치)
 
 대조는 공백을 없앤 부분 문자열 비교다.
@@ -22,7 +23,13 @@ from collections.abc import Iterable
 
 _SUFFIX = r"(?:기본계획|계획|전략|정책|로드맵|규정|지침|비전|법률|시행령|시행규칙)"
 _W = r"[가-힣A-Za-z0-9·\-]"
-_TERM = re.compile(rf"\A{_W}*?{_SUFFIX}")  # 어절 머리에서: 조사 앞까지
+# 어절 뒤에 붙을 수 있는 조사. "계획적·정책적·계획안" 처럼 접미사 뒤에 다른 말이 오면
+# 고유명이 아니다.
+_PARTICLE = (
+    r"(?:은|는|이|가|을|를|의|에|에서|에는|에도|에만|도|와|과|와의|과의|로|으로|로서|으로서|로써|으로써"
+    r"|로의|으로의|만|부터|까지|처럼|보다|이며|며|이고|고|이다|다|입니다|이라|라|인|이란|란|임|이자)"
+)
+_TERM = re.compile(rf"\A({_W}*?{_SUFFIX}){_PARTICLE}{{0,2}}\Z")  # 접미사로 끝나는 어절(조사 허용)
 _BARE = re.compile(rf"\A{_SUFFIX}\Z")
 _QUOTED = re.compile(r"「([^」]{1,80})」|『([^』]{1,80})』|“([^”]{1,80})”|\"([^\"]{1,80})\"")
 _NUMBER = re.compile(r"제\s?\d+\s?차|\d{2,}")
@@ -76,7 +83,7 @@ def named_references(text: str) -> list[str]:
         m = _TERM.match(word)
         if m is None:
             continue
-        term = m.group(0)
+        term = m.group(1)
         prev = words[i - 1] if i > 0 else ""
         name_like = prev and prev[-1] not in _PARTICLE_END and prev not in GENERIC_MODIFIERS
         if name_like and not _NUMBER.fullmatch(prev):
