@@ -16,6 +16,11 @@ sentences 가 스키마에 맞지 않아도 choices 가 유효하면 choices 만
 - schema  JSON 이지만 배열이 아니거나 항목이 Sentence 스키마에 맞지 않음
 - choices_only  (선택형) choices 는 목록 안의 유효한 값이라 살렸지만 sentences 가 스키마에 맞지 않아
   문장은 버렸다. 경고로 기록되고, 선택지는 확정 단계의 제안으로 남는다.
+
+파싱 직전 보정은 하나뿐: 모델이 `text` 안에 자료 구획 태그 조각(`<doc id="…" basis="…">`,
+`(basis="…" id="…")`, `</doc>`)을 그대로 베껴 넣은 것을 지운다 (Qwen2.5-7B 가 이렇게 쓰면서
+안의 따옴표가 이스케이프되지 않아 JSON 이 깨진다 — tests/fixtures/llm). 정확히 그 형태만 지우고
+다른 태그·속성 표기는 건드리지 않는다. 지운 개수는 ParseResult.stripped 에 남긴다.
 """
 
 from __future__ import annotations
@@ -35,6 +40,21 @@ ParseStatus = Literal["ok", "fence", "json", "schema", "choices_only"]
 FENCE = "```"
 _OPEN = re.compile(r"\A```(json)?[ \t]*\n", re.IGNORECASE)
 
+# 자료 구획 태그 조각 — trust.wrap_untrusted 가 만드는 형태(와 그 속성을 괄호에 옮긴 형태)만.
+_BASIS = r"(?:full_text|summary|abstract)"
+_FRAG_ID = r"[^\"<>()\\\s]+"
+_TAG_FRAGMENT = re.compile(
+    rf'\s?\(?\\?<doc id="{_FRAG_ID}"(?: basis="{_BASIS}")?>\)?'  # <doc id="…" basis="…">
+    rf'|\s?\(basis="{_BASIS}" id="{_FRAG_ID}"\)'  # (basis="…" id="…")
+    rf'|\s?\(id="{_FRAG_ID}" basis="{_BASIS}"\)'  # (id="…" basis="…")
+    rf"|\s?\\?</doc>"
+)
+
+
+def strip_doc_fragments(body: str) -> tuple[str, int]:
+    """자료 구획 태그 조각을 지운 본문과 지운 개수. 정확히 그 형태만."""
+    return _TAG_FRAGMENT.subn("", body)
+
 
 @dataclass(frozen=True)
 class ParseResult:
@@ -42,6 +62,7 @@ class ParseResult:
     raw_chars: int
     sentences: list[Sentence] = field(default_factory=list)
     choices: list[str] = field(default_factory=list)
+    stripped: int = 0  # 파싱 전 지운 자료 구획 태그 조각 수
 
     @property
     def ok(self) -> bool:
@@ -64,14 +85,15 @@ def _unwrap(text: str) -> str | None:
     return inner
 
 
-def _load(raw: str) -> tuple[ParseStatus, object]:
+def _load(raw: str) -> tuple[ParseStatus, object, int]:
     body = _unwrap((raw or "").strip())
     if body is None:
-        return "fence", None
+        return "fence", None, 0
+    body, stripped = strip_doc_fragments(body)
     try:
-        return "ok", json.loads(body)
+        return "ok", json.loads(body), stripped
     except ValueError:
-        return "json", None
+        return "json", None, stripped
 
 
 def _sentences(data: object) -> list[Sentence] | None:
@@ -87,27 +109,27 @@ def _sentences(data: object) -> list[Sentence] | None:
 
 def parse_sentences(raw: str) -> ParseResult:
     n = len(raw or "")
-    status, data = _load(raw)
+    status, data, stripped = _load(raw)
     if status != "ok":
-        return ParseResult(status, n)
+        return ParseResult(status, n, stripped=stripped)
     sentences = _sentences(data)
     if sentences is None:
-        return ParseResult("schema", n)
-    return ParseResult("ok", n, sentences)
+        return ParseResult("schema", n, stripped=stripped)
+    return ParseResult("ok", n, sentences, stripped=stripped)
 
 
 def parse_choice_section(
     raw: str, allowed: Collection[str], *, min_n: int = 1, max_n: int = 1
 ) -> ParseResult:
     n = len(raw or "")
-    status, data = _load(raw)
+    status, data, stripped = _load(raw)
     if status != "ok":
-        return ParseResult(status, n)
+        return ParseResult(status, n, stripped=stripped)
     if not isinstance(data, dict):
-        return ParseResult("schema", n)
+        return ParseResult("schema", n, stripped=stripped)
     picked = data.get("choices", [])
     if not isinstance(picked, list):
-        return ParseResult("schema", n)
+        return ParseResult("schema", n, stripped=stripped)
     choices: list[str] = []
     for c in picked:
         if isinstance(c, str) and c in allowed and c not in choices:
@@ -117,5 +139,7 @@ def parse_choice_section(
     sentences = _sentences(data.get("sentences", []))
     if sentences is None:
         # 문장 스키마 오류 → 유효한 선택지만 살린다 (약한 모델이 문장 형식을 자주 틀린다)
-        return ParseResult("choices_only", n, [], choices) if choices else ParseResult("schema", n)
-    return ParseResult("ok", n, sentences, choices)
+        if choices:
+            return ParseResult("choices_only", n, [], choices, stripped=stripped)
+        return ParseResult("schema", n, stripped=stripped)
+    return ParseResult("ok", n, sentences, choices, stripped=stripped)

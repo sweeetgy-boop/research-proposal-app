@@ -214,6 +214,13 @@ class RunManager:
                     composed = await self.generate.compose_section(key, req, snapshot)
                     self.store.save_section(user, run_id, composed.section)
                     parse = composed.parse
+                    if parse is not None and parse.stripped:
+                        logger.warning(
+                            "run.tag_fragments_stripped run=%s section=%s n=%d",
+                            run_id,
+                            key,
+                            parse.stripped,
+                        )
                     if parse is not None and not parse.ok:
                         partial = parse.status == "choices_only"
                         event = "parse_partial" if partial else "parse_failed"

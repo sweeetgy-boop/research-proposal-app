@@ -388,6 +388,16 @@ req -> expand (HyDE + terms)
   비면 LLM 을 부르지 않고 빈칸 + 경고(`input_missing`). 문장 속 정책·계획명(`…계획/전략/정책/로드맵/규정…`
   어절과 앞 수식어), 「」 안 고유명, `제n차`·두 자리 이상 숫자가 `policy_basis` 에 없으면 문장 폐기
   (`domain/rules/grounding.py`, 과하게 버리는 쪽). 전략 정합성 문장도 `policy_basis` + 전략 목록 이름으로 대조한다.
+  바로 앞 어절이 관형형(~한·~된·~는·~적인·~운)이면 이름이 아니다 — "중요한 정책"은 통과, "제5차 국가철도망 구축계획"은
+  차수·이름 모두 대조 (2026-10-13, 7B 가 쓴 "중요한 정책" 폐기 오탐에서).
+- **지어낸 수치 경고** (`domain/rules/numbers.py`, 2026-10-13): `number_checked` 섹션(method·expected_*)의 LLM 문장에
+  든 수치(%, 년·개월, 금액, 건·회…)가 제안자 입력이나 그 문장이 인용한 청크 본문에 없으면 lint 경고
+  `unsupported_number`. 폐기하지 않는다 — 수치가 맞는지는 담당자가 본다. 같은 종류 단위는 환산해 비교한다
+  ("1년 이내" ↔ "12개월", "90000천원" ↔ "9천만원"). 7B 가 "약 10% 절감", "2년 동안" 을 지어낸 데서 왔다.
+- **자료 태그 조각 제거** (`domain/rules/llm_output.strip_doc_fragments`, 2026-10-13): Qwen2.5-7B 는 `text` 안에
+  `(basis="summary" id="…")`·`\<doc id="…" basis="summary">` 를 베껴 넣고 그 따옴표를 이스케이프하지 않아 JSON 이
+  깨진다 (tests/fixtures/llm). 파싱 직전에 정확히 그 형태만 지우고(`ParseResult.stripped`, run 로그 경고) 다른 태그·
+  속성 표기는 건드리지 않는다. 시스템 프롬프트에도 본문에 태그·속성을 쓰지 말라고 적었다.
 - **전략 목록**: `config/templates/korail_strategy.yaml` (directions → tasks, id 형식·중복 검증). 비어 있으면
   `strategy_alignment` 는 LLM 없이 빈칸 + 경고(`catalog_empty`).
 - **유사과제 검토**: retrieve 단계에서 `find_similar` + `judge`(own·domestic_rail·external 임계치) 결과를
@@ -412,8 +422,8 @@ req -> expand (HyDE + terms)
     부풀리지 않았고, 평균은 긴 문서의 한 절만 겹치는 진짜 중복을 놓친다. 키워드 조건이 거짓 양성을 막는다.
   - 후속: 재순위 모델(cross-encoder reranker, 예: bge-reranker-v2-m3)로 상위 k 를 다시 점수화하면 유사도 분포의
     압축 문제를 근본적으로 줄일 수 있다. 모델 로딩(수백 MB)·속도·safetensors(H) 검토 뒤 `RerankerPort` 로 넣는다.
-- **lint 심각도**: `LintProblem.severity` error·warning. 경고(`input_missing`·`catalog_empty`·`no_choice`)만
-  있으면 run 은 done. `origin="app"` 문장은 근거 필수 검사에서 제외.
+- **lint 심각도**: `LintProblem.severity` error·warning. 경고(`input_missing`·`catalog_empty`·`no_choice`·
+  `unsupported_number`)만 있으면 run 은 done. `origin="app"` 문장은 근거 필수 검사에서 제외.
 - **개인정보**: `ProposalRequest.proposer` 삭제. 제안자·부서장 성명·직급·연락처와 제안일자는
   `domain/models/proposer.ProposerInfo` 로 렌더 시점에만 받는다 (repr 마스킹, run 폴더·manifest 에 없음).
   제안부서·예산은 개인정보가 아니라 request.json 에 두되 프롬프트에서는 뺀다(`ProposalRequest.prompt_view`).

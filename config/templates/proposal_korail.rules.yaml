@@ -61,6 +61,10 @@ input_grounded:
   policy_importance: [policy_basis]
   strategy_alignment: [policy_basis, strategy_catalog]
 
+# 문장의 수치(%, 년·개월, 금액, 건수…)가 제안자 입력이나 그 문장이 인용한 근거 청크에 없으면
+# 경고(unsupported_number). 폐기하지 않고 담당자가 확인한다 (domain/rules/numbers.py)
+number_checked: [method, expected_management, expected_technology, expected_standing]
+
 # 선택형 섹션. options: task_types | utilization | strategy_catalog
 # LLM 은 목록 안에서만 제안하고, 확정은 사용자가 한다 (rra runs confirm / rra_confirm).
 choices:

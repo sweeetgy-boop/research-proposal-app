@@ -7,8 +7,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from rra.domain.models import Draft, ProposalRequest
+from rra.domain.models import Draft, ProposalRequest, Sentence
 from rra.domain.models.selection import OPTION_SOURCES, STRATEGY_SOURCE
+from rra.domain.rules.numbers import unsupported_numbers
 
 Severity = Literal["error", "warning"]
 
@@ -16,6 +17,7 @@ Severity = Literal["error", "warning"]
 INPUT_MISSING = "input_missing"  # 입력에만 근거하는 섹션인데 입력이 비었다 → LLM 생략, 빈칸
 CATALOG_EMPTY = "catalog_empty"  # 선택지 목록이 비었다 → LLM 생략, 빈칸
 NO_CHOICE = "no_choice"  # 선택형 섹션인데 LLM 이 유효한 선택지를 내지 못했다 → 사용자가 고른다
+UNSUPPORTED_NUMBER = "unsupported_number"  # 입력·인용 근거에 없는 수치 → 담당자 확인
 
 
 class ChoiceSpec(BaseModel):
@@ -44,6 +46,8 @@ class LintRules(BaseModel):
     requires_input: dict[str, list[str]] = Field(default_factory=dict)
     # 섹션 → 고유명(정책·계획명 등)이 반드시 등장해야 하는 출처 (요청 필드명 또는 strategy_catalog)
     input_grounded: dict[str, list[str]] = Field(default_factory=dict)
+    # 문장의 수치가 입력·인용 근거에 없으면 경고(unsupported_number). 폐기하지 않는다
+    number_checked: list[str] = Field(default_factory=list)
     choices: dict[str, ChoiceSpec] = Field(default_factory=dict)
 
     @property
@@ -59,6 +63,7 @@ class LintRules(BaseModel):
             "evidence_forbidden": set(self.evidence_forbidden),
             "requires_input": set(self.requires_input),
             "input_grounded": set(self.input_grounded),
+            "number_checked": set(self.number_checked),
             "choices": set(self.choices),
         }
         for name, keys in referenced.items():
@@ -122,13 +127,35 @@ _SKIP_MESSAGE = {
 }
 
 
+def _request_texts(req: ProposalRequest) -> list[str]:
+    """수치 대조에 쓰는 제안자 입력 — 문자열 필드 전부 + 예산 금액."""
+    texts = [v for v in req.model_dump().values() if isinstance(v, str)]
+    if req.budget is not None and req.budget.amount_thousand_krw is not None:
+        texts.append(f"{req.budget.amount_thousand_krw}천원")
+    return texts
+
+
+def _cited_texts(sentence: Sentence, chunk_texts: Mapping[str, str]) -> list[str]:
+    """문장이 인용한 근거 청크의 본문. doc_id 로 인용했으면 그 문서의 청크 전부."""
+    out: list[str] = []
+    for ev in sentence.evidence:
+        if ev in chunk_texts:
+            out.append(chunk_texts[ev])
+            continue
+        out.extend(t for cid, t in chunk_texts.items() if cid.split("#")[0] == ev)
+    return out
+
+
 def lint(
     draft: Draft,
     rules: LintRules,
     *,
     choice_options: Mapping[str, Mapping[str, str]] | None = None,
+    chunk_texts: Mapping[str, str] | None = None,
 ) -> list[LintProblem]:
+    """chunk_texts: 이번 run 스냅샷의 chunk_id → 본문. 수치 검사(number_checked)에만 쓴다."""
     problems: list[LintProblem] = []
+    request_texts = _request_texts(draft.request)
     skipped = skipped_sections(draft.request, rules, choice_options)
     for key, code in skipped.items():
         problems.append(
@@ -175,6 +202,21 @@ def lint(
                             section=sec.key,
                             code="evidence_forbidden",
                             message=f"입력만 근거로 써야 함: {s.text[:30]}",
+                        )
+                    )
+        if sec.key in rules.number_checked:
+            for s in sec.sentences:
+                if s.origin != "llm":
+                    continue
+                cited = _cited_texts(s, chunk_texts or {})
+                bad = unsupported_numbers(s.text, [*request_texts, *cited])
+                if bad:
+                    problems.append(
+                        LintProblem(
+                            section=sec.key,
+                            code=UNSUPPORTED_NUMBER,
+                            message=f"입력·근거에 없는 수치 {', '.join(bad)}: {s.text[:30]}",
+                            severity="warning",
                         )
                     )
     return problems

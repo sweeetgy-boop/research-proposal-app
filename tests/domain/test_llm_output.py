@@ -1,6 +1,7 @@
 """A. LLM 출력 파서 — 허용하는 감싸기는 펜스 한 개뿐. 실패 사유를 구분한다."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -54,6 +55,60 @@ def test_rejections_are_classified(raw, status):
 
 def test_empty_array_is_ok_with_no_sentences():
     assert parse_sentences("[]").status == "ok"
+
+
+# ── 자료 구획 태그 조각: 정확히 그 형태만 지운다 ─────────────
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "llm"
+
+
+@pytest.mark.parametrize(
+    "name", ["qwen7b_tech_importance_tag_fragment_1", "qwen7b_tech_importance_tag_fragment_2"]
+)
+def test_qwen7b_tag_fragments_in_text_are_stripped(name):
+    raw = (FIXTURES / f"{name}.txt").read_text(encoding="utf-8")
+    assert parse_sentences.__module__  # 파서 자체로 파싱이 되어야 한다
+    result = parse_sentences(raw)
+    assert result.status == "ok" and result.stripped == 3
+    assert [s.evidence for s in result.sentences] == [
+        ["alio:sum-8f69f1e778ff7e36#1"],
+        ["alio:sum-8f69f1e778ff7e36#0" if name.endswith("1") else "alio:sum-8f69f1e778ff7e36#2"],
+        ["alio:sum-8f69f1e778ff7e36#0"],
+    ]
+    for s in result.sentences:
+        assert "<doc" not in s.text and "basis=" not in s.text and "id=" not in s.text
+        assert "()" not in s.text  # 괄호에 넣은 태그는 괄호까지 지운다
+
+
+def test_fragment_1_text_ends_cleanly():
+    raw = (FIXTURES / "qwen7b_tech_importance_tag_fragment_1.txt").read_text(encoding="utf-8")
+    assert parse_sentences(raw).sentences[0].text.endswith("노력의 일환으로 진행되었다.")
+
+
+def test_fragment_2_prose_reads_through():
+    raw = (FIXTURES / "qwen7b_tech_importance_tag_fragment_2.txt").read_text(encoding="utf-8")
+    assert "공개 요약에 따르면, 국내외 연구들은" in parse_sentences(raw).sentences[0].text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "<b>강조</b> 와 (basis=요약) 은 그대로",  # 다른 태그·속성 표기
+        "<doc id=a:1> 따옴표 없는 형태",
+        '(basis="요약" id="a:1")',  # basis 값이 허용 리터럴이 아님
+        "[문서](http://x) 링크",
+    ],
+)
+def test_other_shapes_are_left_alone(text):
+    raw = json.dumps([{"text": text, "evidence": []}], ensure_ascii=False)
+    result = parse_sentences(raw)
+    assert result.status == "ok" and result.stripped == 0
+    assert result.sentences[0].text == text
+
+
+def test_escaped_doc_tag_in_evidence_is_untouched():
+    raw = json.dumps([{"text": "문장", "evidence": ['<doc id="a:1#0">']}], ensure_ascii=False)
+    result = parse_sentences(raw)
+    assert result.stripped == 0 and result.sentences[0].evidence == ['<doc id="a:1#0">']
 
 
 # ── 근거 id: <doc id="..."> 정확히 그 형태만 되돌린다 ────────

@@ -9,6 +9,7 @@
 - 선택형(choices): {"choices", "sentences"} 객체. 선택지는 앱 목록 안에서만, 확정은 사용자가 한다.
 - 입력 전용(requires_input): 근거가 될 입력이 비면 LLM 을 부르지 않고 빈칸으로 둔다 (lint 경고).
 - 고유명 대조(input_grounded): 정책·계획명·차수·연도가 허용 출처에 없으면 문장을 폐기한다.
+- 수치 대조(number_checked): 수치가 입력·인용 청크에 없으면 lint 경고만 (finalize, 폐기 없음).
 - overlap_review: 유사과제 판정에서 중복 기준을 넘는 것이 없으면 앱이 확정 문장을 쓴다 (LLM 미사용).
 
 상태 저장·재개·동시성은 application/services/run_manager.py 가 맡는다.
@@ -245,7 +246,11 @@ class GenerateProposal:
             retrieved_ids=snapshot.retrieved_ids,
             template=self.template,
         )
-        return draft, lint(draft, self.rules, choice_options=self.choice_options())
+        chunk_texts = {c.chunk_id: c.text for c in snapshot.chunks}
+        problems = lint(
+            draft, self.rules, choice_options=self.choice_options(), chunk_texts=chunk_texts
+        )
+        return draft, problems
 
     async def __call__(self, req: ProposalRequest) -> Draft:
         snapshot = self.retrieve(req)

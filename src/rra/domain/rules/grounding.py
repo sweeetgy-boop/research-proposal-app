@@ -9,6 +9,8 @@
 - `…계획`·`…전략`·`…정책`·`…로드맵`·`…규정`·`…지침`·`…비전`·`…법률`·`…시행령` 으로 끝나는 어절
   (뒤에는 조사만 허용. "정책적·계획적으로" 같은 파생어는 고유명이 아니다.
   앞에 한 글자 이상 붙은 경우. 일반어는 GENERIC_TERMS 로 허용)
+- 바로 앞 어절이 관형형(~한·~된·~는·~적인·~운: "중요한 정책", "새로운 계획")이면 이름을 이루지
+  않는다 → 뒤의 일반어("정책")만 남고 그것은 _BARE 로 허용된다
 - 두 자리 이상 숫자 (연도·차수·목표치)
 
 대조는 공백을 없앤 부분 문자열 비교다.
@@ -35,6 +37,8 @@ _QUOTED = re.compile(r"「([^」]{1,80})」|『([^』]{1,80})』|“([^”]{1,80
 _NUMBER = re.compile(r"제\s?\d+\s?차|\d{2,}")
 _PUNCT = "()[]{}<>,.;:!?'\"「」『』“”‘’·"
 _PARTICLE_END = set("은는이가을를의에도와과로서및며고")
+# 관형형 어미 — "중요한·필요한·관련된·새로운·정책적인 + 계획" 은 고유명이 아니다
+_ADJECTIVE_END = ("한", "된", "는", "적인", "운")
 
 # 고유명이 아닌 일반어 — 입력에 없어도 허용
 GENERIC_TERMS: frozenset[str] = frozenset(
@@ -85,7 +89,12 @@ def named_references(text: str) -> list[str]:
             continue
         term = m.group(1)
         prev = words[i - 1] if i > 0 else ""
-        name_like = prev and prev[-1] not in _PARTICLE_END and prev not in GENERIC_MODIFIERS
+        name_like = (
+            prev
+            and prev[-1] not in _PARTICLE_END
+            and prev not in GENERIC_MODIFIERS
+            and not prev.endswith(_ADJECTIVE_END)
+        )
         if name_like and not _NUMBER.fullmatch(prev):
             found.append(f"{prev} {term}")
         elif not _BARE.match(term) and term not in GENERIC_TERMS:

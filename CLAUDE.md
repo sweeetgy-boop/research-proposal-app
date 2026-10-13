@@ -50,6 +50,8 @@
   정책적 중요도 입력 근거 규칙·유사과제 앱 판정·legacy run 조회 전용 (docs/architecture.md §4.1).
 - 유사과제 차단 = 유사도 AND 공유 키워드(`domain/rules/keywords.py`, `config/overlap.yaml`; architecture §4.1).
   e5 유사도만으로는 무관한 한국어 문서도 own 0.80 을 넘는다. 임계치는 표본이 쌓인 뒤 조정. reranker 는 후속.
+- 7B(Qwen2.5-7B-Instruct-4bit) 전환 반영 — 본문 속 자료 태그 조각 제거(`llm_output.strip_doc_fragments`),
+  지어낸 수치 lint 경고(`numbers.py`, `rules.yaml number_checked`), grounding 관형형 예외. 실응답 fixture tests/fixtures/llm.
 - 대기: `config/templates/korail_strategy.yaml` 전략체계 목록 채우기 (비어 있으면 2-가-(3) 빈칸).
 - 다음: Step 8 — HWPX 렌더링 (slots.yaml 자리표시자 확정, 확정값·ProposerInfo 로만 체크·하단 칸 채움).
 

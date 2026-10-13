@@ -105,3 +105,72 @@ def test_skipped_sections_is_shared_by_generation_and_lint(req):
 def test_inconsistent_rules_are_rejected(bad):
     with pytest.raises(ValidationError):
         LintRules.model_validate(bad)
+
+
+# ── 수치 검사 (number_checked) — 경고만, 폐기 없음 ────────────────
+NUMBERS = LintRules(
+    sections=["method", "effect"],
+    required_sections=["method"],
+    number_checked=["method", "effect"],
+)
+
+
+def _draft(req, *sentences):
+    return Draft(
+        run_id="r",
+        request=req.model_copy(update={"constraints": "연구기간 1년 이내"}),
+        sections=[
+            Section(key="method", sentences=list(sentences)),
+            Section(key="effect", sentences=[]),
+        ],
+    )
+
+
+def test_unsupported_number_is_a_warning_with_the_numbers_named(req):
+    d = _draft(req, Sentence(text="2년 동안 개발해 비용을 약 10% 절감함"))
+    problems = lint(d, NUMBERS)
+    [p] = [p for p in problems if p.code == "unsupported_number"]
+    assert p.severity == "warning" and p.section == "method"
+    assert "2년" in p.message and "10%" in p.message
+    assert not has_errors(problems)
+
+
+def test_converted_units_and_cited_chunk_numbers_pass(req):
+    d = _draft(
+        req,
+        Sentence(text="12개월 안에 완료함"),  # 1년 이내 → 환산 통과
+        Sentence(text="선행연구는 15% 개선을 보고함", evidence=["openalex:W1#0"]),
+        Sentence(
+            text="문서 단위 인용도 그 문서 청크 전부를 근거로 봄 24개월", evidence=["openalex:W1"]
+        ),
+    )
+    chunks = {"openalex:W1#0": "RMSE decreased by 15% over 24 months", "alio:1#0": "서론"}
+    assert [p.code for p in lint(d, NUMBERS, chunk_texts=chunks)] == []
+
+
+def test_numbers_cited_from_an_uncited_chunk_are_not_support(req):
+    d = _draft(req, Sentence(text="15% 개선", evidence=["alio:1#0"]))
+    chunks = {"openalex:W1#0": "15% improvement", "alio:1#0": "서론"}
+    assert [p.code for p in lint(d, NUMBERS, chunk_texts=chunks)] == ["unsupported_number"]
+
+
+def test_app_and_input_sentences_are_not_number_checked(req):
+    d = _draft(
+        req,
+        Sentence(text="유사도 0.80 기준", origin="app"),
+        Sentence(text="예산 5억원", origin="input"),
+    )
+    assert lint(d, NUMBERS) == []
+
+
+def test_sections_outside_number_checked_are_not_checked(req):
+    rules = LintRules(sections=["method"], required_sections=["method"])
+    d = Draft(
+        run_id="r", request=req, sections=[Section(key="method", sentences=[Sentence(text="10%")])]
+    )
+    assert lint(d, rules) == []
+
+
+def test_number_checked_must_name_known_sections():
+    with pytest.raises(ValidationError):
+        LintRules(sections=["a"], required_sections=["a"], number_checked=["zzz"])
