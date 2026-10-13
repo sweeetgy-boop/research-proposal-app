@@ -108,7 +108,10 @@ async def test_full_form_is_done_with_only_expected_warnings(req, repo):
         "유사과제 검토 범위는 수집 자료 중 본 제안과 관련도가 높은 "
         "알리오 공시 연구보고서 1건, OpenAlex 해외 논문 1건임."
     )
-    assert overlap[1].startswith("NTIS 국가R&D 과제·KIPRIS 국내 특허·KIPRIS 해외 특허은(는) 아직")
+    assert overlap[1] == (
+        "미수집 자료원(NTIS 국가R&D 과제, KIPRIS 국내 특허, KIPRIS 해외 특허)은 "
+        "검토 범위에서 제외됨."
+    )
     assert "ScienceON" not in overlap[1]  # 적재된 자료원은 미수집으로 쓰지 않는다
     assert "확인되지 않음" in overlap[2]
     assert not any("[섹션: overlap_review]" in c for c in llm.calls)  # 유사과제 없음 → LLM 미사용

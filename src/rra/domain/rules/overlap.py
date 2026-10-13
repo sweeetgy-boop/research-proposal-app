@@ -129,7 +129,7 @@ def no_overlap_statement(
     searched = ", ".join(f"{_label(s)} {scope[s]}건" for s in _ordered(scope))
     out = [f"유사과제 검토 범위는 수집 자료 중 본 제안과 관련도가 높은 {searched}임."]
     if uncollected:
-        missing = "·".join(_label(s) for s in _ordered(uncollected))
-        out.append(f"{missing}은(는) 아직 수집되지 않아 검토 범위에 포함되지 않음.")
+        missing = ", ".join(_label(s) for s in _ordered(uncollected))
+        out.append(f"미수집 자료원({missing})은 검토 범위에서 제외됨.")
     out.append(f"위 범위에서 중복 판정 기준(유사도 {criteria}) 이상의 유사과제는 확인되지 않음.")
     return out

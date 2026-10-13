@@ -11,8 +11,7 @@ def test_statement_lists_scope_and_uncollected_sources():
         "알리오 공시 연구보고서 1건, OpenAlex 해외 논문 16건임."
     )
     assert texts[1] == (
-        "NTIS 국가R&D 과제·ScienceON 국내 논문·보고서은(는) 아직 수집되지 않아 "
-        "검토 범위에 포함되지 않음."
+        "미수집 자료원(NTIS 국가R&D 과제, ScienceON 국내 논문·보고서)은 검토 범위에서 제외됨."
     )
     assert "사내 0.80" in texts[2] and texts[2].endswith("확인되지 않음.")
 
