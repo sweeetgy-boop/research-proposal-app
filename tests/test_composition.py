@@ -508,3 +508,29 @@ async def test_check_sources_reports_without_values():
 
     dumped = _json.dumps(rows, ensure_ascii=False)
     assert "CID-1" not in dumped and "0123456789abcdef" not in dumped and "AA-BB-CC" not in dumped
+
+
+def test_keyword_rule_from_overlap_yaml_reaches_precheck_and_generate(tmp_path):
+    from rra.composition import keyword_rule
+    from rra.domain.rules.keywords import DEFAULT_GENERIC_TERMS
+
+    (tmp_path / "overlap.yaml").write_text(
+        "keywords:\n  min_hits: 3\n  generic_terms: [안전성을, ' Data ']\n", encoding="utf-8"
+    )
+    rule = keyword_rule(settings_for(tmp_path))
+    assert rule.min_hits == 3
+    assert {"안전성", "data"} <= rule.generic_terms and DEFAULT_GENERIC_TERMS <= rule.generic_terms
+
+
+def test_keyword_rule_defaults_without_overlap_yaml(tmp_path):
+    from rra.composition import keyword_rule
+    from rra.domain.rules.keywords import KeywordRule
+
+    assert keyword_rule(settings_for(tmp_path)) == KeywordRule()
+
+
+def test_shipped_overlap_yaml_loads():
+    from rra.composition import keyword_rule, load_settings
+
+    rule = keyword_rule(load_settings())
+    assert rule.min_hits == 2 and "안전" in rule.generic_terms

@@ -82,6 +82,7 @@ class RraTools:
                     "similarity": round(a.similarity, 4),
                     "blocking": a.blocking,
                     "basis": a.basis,  # summary: 원문 비공개, 공개 요약만으로 판정
+                    "keywords": list(a.keywords),  # 질의와 문서가 공유한 키워드 (차단 근거)
                 }
                 for a in alerts
             ],

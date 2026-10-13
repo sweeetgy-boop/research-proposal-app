@@ -70,8 +70,11 @@ def cmd_precheck(args: argparse.Namespace) -> int:
         for a in alerts:
             mark = "!" if a.blocking else " "
             basis = "요약" if a.basis == "summary" else "  "  # 공개 요약만으로 판정
+            # 키워드는 제안자 입력에서 온 토큰(문서에도 등장한 것)이라 비신뢰 텍스트가 아니다
+            words = f"  [키워드: {', '.join(a.keywords)}]" if a.keywords else "  [키워드 없음]"
             print(
                 f" {mark} {a.similarity:.2f}  {a.tier:<14} {basis} {a.doc_id:<20} {_safe(a.title)}"
+                f"{words}"
             )
         if not alerts:
             print("  유사한 기수행 과제가 없습니다.")

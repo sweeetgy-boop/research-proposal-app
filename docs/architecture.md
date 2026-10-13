@@ -126,7 +126,7 @@ research-proposal-app/
 │   ├── sources.yaml                # 어댑터별 엔드포인트·레이트리밋·기관코드
 │   ├── llm.yaml                    # provider(mlx|openai), 단계별 모델·max_tokens
 │   ├── rail_terms.yaml             # 현장어↔학술어↔영문↔IPC/CPC
-│   ├── gap_thresholds.yaml         # 중복 경보 임계치 (기관별)
+│   ├── overlap.yaml                # 유사과제 차단의 키워드 조건 (min_hits, 일반어 목록). 임계치는 코드
 │   ├── security.yaml               # C·B·G·I: 허용 도메인, 파일 상한, 입력 상한, 보존기간
 │   └── templates/
 │       ├── proposal_korail.hwpx
@@ -345,9 +345,9 @@ repo.upsert(docs, chunks)
 
 ### precheck_overlap (입력 직후)
 ```
-req -> find_similar(req.problem + req.goal)
-    -> overlap.judge(hits, thresholds)          # 기관별 임계치
-    -> OverlapAlert (철도연구원 기수행 / 공단 기수행 / KRRI 기수행)
+req -> find_similar(req.search_text())           # 벡터 유사도, 문서 점수 = 청크 최댓값
+    -> overlap.judge(hits, thresholds, query, keywords)   # 기관별 임계치 AND 공유 키워드 ≥ min_hits
+    -> OverlapAlert (철도연구원 기수행 / 공단 기수행 / KRRI 기수행, keywords=겹친 키워드)
 ```
 
 ### generate_proposal
@@ -395,8 +395,23 @@ req -> expand (HyDE + terms)
   LLM 을 부르지 않는다. 문장에는 실제 검토 범위(스냅샷의 자료원별 문서 수, `snapshot.scope`)와 retrieve 시점에
   한 건도 적재되지 않은 자료원(`snapshot.uncollected`, 예: NTIS·ScienceON)을 밝힌다 — 사내 과제·국가R&D 를
   다 찾아본 것처럼 읽히지 않게. 비교할 자료가 아예 없으면 "검토를 수행하지 못함"으로 쓴다 — Step 6 에서 약한 모델이 "확인되지 않음"이라 쓰면서 무관한 청크를 인용하던 경로를 없앴다.
-  기준 초과가 있으면 판정표(id·구분·유사도·basis, 제목 제외)를 주고 LLM 이 겹치는 범위·활용 방안을 쓴다.
+  기준 초과가 있으면 판정표(id·구분·유사도·basis·겹친 키워드, 제목 제외)를 주고 LLM 이 겹치는 범위·활용 방안을 쓴다.
   검색 청크에 없는 초과 문서는 제목·초록으로 `<doc_id>#overlap` 청크를 만들어 넣는다(비신뢰 구획).
+- **차단 = 유사도 AND 키워드** (`domain/rules/keywords.py`, 2026-10-13). multilingual-e5 의 코사인은 분포가
+  압축돼 서로 무관한 한국어 문장 쌍도 0.79~0.83 이 나온다 (실측: 궤도 기하 열화 제안 vs 자산개발 공개 요약 0.832,
+  진짜 유사한 자산개발 입력 0.867, 구내식당 메뉴 개선 0.797). own 임계치 0.80 이 그 바닥에 걸려 유사도만으로는
+  주제가 다른 제안도 차단됐다. 그래서 차단에는 질의 키워드가 문서에도 `min_hits`(기본 2) 개 이상 등장해야 한다.
+  유사도만 넘은 문서는 경보 목록에 남고(비차단) precheck·판정표에 `keywords` 를 보인다.
+  - 토큰화는 FTS5 unicode61 과 같은 어절 단위(형태소 분석 없음). 한국어 조사는 양쪽 토큰의 끝에서 떼고(`stem`),
+    FTS 접두 질의처럼 "문서 토큰이 질의 어간으로 시작"하면 일치로 본다 ("자산개발을·자산개발의·자산개발사업" ↔ "자산개발").
+    한 글자 어미(다·고·가…)는 "평가·비교·참고" 를 깨므로 떼지 않는다.
+  - 일반어(철도·개선·연구·분석·시스템·방안·기술 …)는 세지 않는다. 기본 목록은 코드(`DEFAULT_GENERIC_TERMS`),
+    보충은 `config/overlap.yaml keywords.generic_terms`. 일반어만 겹치면 비차단.
+  - 임계치(0.80·0.85·0.90)는 바꾸지 않았다. own 문서 표본이 쌓여 참·거짓 양성 분포를 본 뒤 조정한다.
+  - 문서 점수는 청크 최댓값을 유지한다. 실측에서 최댓값 간격 0.035, 청크 평균 간격 0.029 로 최댓값이 판정을
+    부풀리지 않았고, 평균은 긴 문서의 한 절만 겹치는 진짜 중복을 놓친다. 키워드 조건이 거짓 양성을 막는다.
+  - 후속: 재순위 모델(cross-encoder reranker, 예: bge-reranker-v2-m3)로 상위 k 를 다시 점수화하면 유사도 분포의
+    압축 문제를 근본적으로 줄일 수 있다. 모델 로딩(수백 MB)·속도·safetensors(H) 검토 뒤 `RerankerPort` 로 넣는다.
 - **lint 심각도**: `LintProblem.severity` error·warning. 경고(`input_missing`·`catalog_empty`·`no_choice`)만
   있으면 run 은 done. `origin="app"` 문장은 근거 필수 검사에서 제외.
 - **개인정보**: `ProposalRequest.proposer` 삭제. 제안자·부서장 성명·직급·연락처와 제안일자는

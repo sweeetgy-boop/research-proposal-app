@@ -45,6 +45,7 @@ from rra.domain.models.selection import (
     UTILIZATION_SOURCE,
 )
 from rra.domain.rules.grounding import ungrounded
+from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.lint import LintProblem, LintRules, has_errors, lint, skipped_sections
 from rra.domain.rules.llm_output import ParseResult, parse_choice_section, parse_sentences
 from rra.domain.rules.overlap import OwnUnit, judge, no_overlap_statement, uncollected_sources
@@ -85,6 +86,7 @@ class GenerateProposal:
     own: OwnUnit | None = None
     check_overlap: bool = False
     overlap_k: int = 10
+    keywords: KeywordRule | None = None  # 차단에 키워드 조건을 더한다 (None 이면 유사도만)
 
     @property
     def template(self) -> str | None:
@@ -106,7 +108,7 @@ class GenerateProposal:
         if not self.check_overlap:
             return RetrievalSnapshot.of(query, chunks)
         hits = self.repo.find_similar(query, k=self.overlap_k)
-        alerts = judge(hits, own=self.own)
+        alerts = judge(hits, own=self.own, query=query, keywords=self.keywords)
         extra = self._overlap_chunks(hits, alerts, chunks)
         snapshot = RetrievalSnapshot.of(query, chunks + extra, alerts)
         snapshot.uncollected = uncollected_sources(self.repo.count_by_source())
@@ -190,7 +192,8 @@ class GenerateProposal:
         if key == OVERLAP_SECTION and snapshot.overlap_checked:
             rows = "\n".join(
                 f"- id={a.doc_id} 구분={a.tier} 유사도={a.similarity:.2f} "
-                f"중복기준초과={'예' if a.blocking else '아니오'} basis={a.basis or '-'}"
+                f"중복기준초과={'예' if a.blocking else '아니오'} basis={a.basis or '-'} "
+                f"겹친키워드={','.join(a.keywords) or '-'}"
                 for a in snapshot.overlap
             )
             parts.append(f"[유사과제 판정 — 앱 계산]\n{rows}")

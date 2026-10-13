@@ -40,6 +40,7 @@ def test_precheck_returns_alerts_with_notice(tools, repo, docs):
     assert out["blocking"] is True
     assert out["alerts"][0]["doc_id"] == "alio:1"
     assert out["alerts"][0]["blocking"] is True
+    assert out["alerts"][0]["keywords"] == []  # 규칙 없이 조립한 도구 — 키 자체는 항상 있다
     assert repo.calls[0][0] == "find_similar"
 
 

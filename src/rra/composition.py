@@ -347,6 +347,18 @@ def own_unit(settings: Settings):
     )
 
 
+def keyword_rule(settings: Settings):
+    """유사과제 차단의 키워드 조건 (config/overlap.yaml `keywords`). 파일이 없으면 도메인 기본값."""
+    from rra.domain.rules.keywords import KeywordRule
+
+    cfg = read_config("overlap.yaml", settings).get("keywords") or {}
+    rule = KeywordRule(min_hits=int(cfg.get("min_hits") or 2))
+    extra = cfg.get("generic_terms") or []
+    if not isinstance(extra, list):
+        raise ValueError("overlap.yaml keywords.generic_terms 는 목록이어야 합니다.")
+    return rule.with_extra_generic([str(t) for t in extra])
+
+
 def institutions(settings: Settings) -> list[dict[str, Any]]:
     """대상 기관 목록 (sources.yaml 최상위). 예전 위치(alio.institutions)도 읽는다."""
     cfg = read_config("sources.yaml", settings)
@@ -570,6 +582,7 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
         strategy=strategy_catalog(settings),
         own=own_unit(settings),
         check_overlap=True,
+        keywords=keyword_rule(settings),
     )
 
 
@@ -626,4 +639,4 @@ def build_precheck(settings: Settings | None = None, repo=None):
     settings = settings or load_settings()
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
-    return PrecheckOverlap(repo, own=own_unit(settings))
+    return PrecheckOverlap(repo, own=own_unit(settings), keywords=keyword_rule(settings))

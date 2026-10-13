@@ -1,0 +1,30 @@
+# 유사과제 판정(5. 특이사항·precheck)의 키워드 조건.
+# 임계치(own 0.80 · domestic_rail 0.85 · external 0.90)는 domain/rules/overlap.DEFAULT_THRESHOLDS 에 있고
+# 여기서 바꾸지 않는다 — own 문서 표본이 쌓여 참·거짓 양성 분포를 본 뒤 조정한다.
+#
+# 차단 = 유사도가 티어 임계치 이상 AND 질의 키워드(일반어 제외)가 문서에 min_hits 개 이상 등장.
+# 유사도만 넘고 키워드가 없으면 경보 목록에는 남지만 차단하지 않는다.
+keywords:
+  min_hits: 2
+  # 철도 과제 문서에 흔해 겹쳐도 근거가 안 되는 말. domain/rules/keywords.DEFAULT_GENERIC_TERMS 에 더해진다.
+  # 조사를 뗀 어간으로 적는다 (예: "안전성" 이 아니라 "안전").
+  generic_terms:
+    - 안전
+    - 효율
+    - 비용
+    - 절감
+    - 데이터
+    - 정보
+    - 측정
+    - 평가
+    - 제도
+    - 지원
+    - 열차
+    - 노선
+    - 구간
+    - 현장
+    - 국내
+    - 해외
+    - 사례
+    - 수행
+    - 도입

@@ -48,6 +48,8 @@
   - `own_unit.departments` 나머지 철도연구원 부서 추가 (현재 철도연구원·경영연구처·기술연구처)
 - 양식 개정 반영 — 별지 제2호서식(2024.02.19.) 섹션 12개·선택형 확정(`rra runs confirm`/`rra_confirm`)·
   정책적 중요도 입력 근거 규칙·유사과제 앱 판정·legacy run 조회 전용 (docs/architecture.md §4.1).
+- 유사과제 차단 = 유사도 AND 공유 키워드(`domain/rules/keywords.py`, `config/overlap.yaml`; architecture §4.1).
+  e5 유사도만으로는 무관한 한국어 문서도 own 0.80 을 넘는다. 임계치는 표본이 쌓인 뒤 조정. reranker 는 후속.
 - 대기: `config/templates/korail_strategy.yaml` 전략체계 목록 채우기 (비어 있으면 2-가-(3) 빈칸).
 - 다음: Step 8 — HWPX 렌더링 (slots.yaml 자리표시자 확정, 확정값·ProposerInfo 로만 체크·하단 칸 채움).
 

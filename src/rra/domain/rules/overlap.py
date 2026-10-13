@@ -12,6 +12,7 @@ from typing import get_args
 from pydantic import BaseModel, ConfigDict
 
 from rra.domain.models import Document, OverlapAlert, SourceType, Tier
+from rra.domain.rules.keywords import KeywordRule, enough, keyword_overlap
 
 DEFAULT_THRESHOLDS: dict[Tier, float] = {"own": 0.80, "domestic_rail": 0.85, "external": 0.90}
 DOMESTIC_RAIL_ORGS = ("korail", "kr")
@@ -60,24 +61,38 @@ def tier_of(doc: Document, own: OwnUnit | None = None) -> Tier:
     return "external"
 
 
+def document_text(doc: Document) -> str:
+    """키워드 대조에 쓰는 문서 텍스트 (비신뢰 — 토큰 비교에만 쓴다)."""
+    return " ".join(p for p in (doc.title, doc.abstract, doc.body) if p)
+
+
 def judge(
     hits: list[tuple[Document, float]],
     thresholds: dict[Tier, float] | None = None,
     *,
     own: OwnUnit | None = None,
+    query: str | None = None,
+    keywords: KeywordRule | None = None,
 ) -> list[OverlapAlert]:
+    """임계치 초과 문서를 경보로. `keywords` 가 있으면 차단에는 질의 키워드가 문서에도
+    `min_hits` 개 이상 등장해야 한다 (e5 유사도만으로는 무관한 한국어 문서도 임계치를 넘는다).
+    `keywords` 가 없으면 종전처럼 유사도만 본다."""
     th = thresholds or DEFAULT_THRESHOLDS
     alerts = []
     for doc, sim in hits:
         t = tier_of(doc, own)
+        shared = keyword_overlap(query or "", document_text(doc), keywords) if keywords else []
+        over = sim >= th[t]
+        blocking = over and (keywords is None or enough(shared, keywords))
         alerts.append(
             OverlapAlert(
                 doc_id=doc.doc_id,
                 title=doc.title,
                 tier=t,
                 similarity=sim,
-                blocking=sim >= th[t],
+                blocking=blocking,
                 basis=doc.text_basis,
+                keywords=shared,
             )
         )
     return sorted(alerts, key=lambda a: (-int(a.blocking), -a.similarity))

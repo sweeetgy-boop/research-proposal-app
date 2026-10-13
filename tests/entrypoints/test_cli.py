@@ -696,3 +696,13 @@ def test_ingest_without_key_reports_variable_name(monkeypatch, capsys):
     monkeypatch.setattr("rra.composition.load_settings", lambda: Settings(_env_file=None))
     assert cli.main(["ingest", "--source", "ntis"]) == cli.EXIT_ERROR
     assert "RRA_NTIS_KEY" in capsys.readouterr().err
+
+
+def test_precheck_shows_shared_keywords(stub, capsys):
+    stub.alerts = [
+        alert(blocking=True).model_copy(update={"keywords": ["궤도", "틀림"]}),
+        alert().model_copy(update={"similarity": 0.83}),
+    ]
+    cli.main(["precheck", *SLOT_ARGS])
+    out = capsys.readouterr().out
+    assert "[키워드: 궤도, 틀림]" in out and "[키워드 없음]" in out

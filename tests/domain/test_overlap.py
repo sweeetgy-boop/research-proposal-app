@@ -67,3 +67,66 @@ def test_unlisted_department_only_for_own_org(own):
     assert unlisted_department(_korail("경영연구처"), own) is None
     assert unlisted_department(_korail("안전계획처", orgs=("kr",)), own) is None
     assert unlisted_department(_korail(None), own) is None
+
+
+# ── 키워드 조건: 유사도만으로 차단하지 않는다 ─────────────────
+from pathlib import Path  # noqa: E402
+
+from rra.domain.models import Document  # noqa: E402
+from rra.domain.rules.keywords import KeywordRule  # noqa: E402
+
+SUMMARY = (Path(__file__).parents[1] / "fixtures/alio/summary/korail_2026_asset.txt").read_text(
+    encoding="utf-8"
+)
+ASSET_DOC = Document(
+    doc_id="alio:sum-asset",
+    source="alio",
+    doc_type="internal_report",
+    title="지속가능한 자산개발 사업다각화 모델 제안 연구",
+    body=SUMMARY,
+    orgs=["korail"],
+    department="경영연구처",
+    text_basis="summary",
+)
+# 실측 (multilingual-e5-base, 2026-10-13): 궤도 0.832 · 자산개발 0.867 · 구내식당 0.797
+TRACK = (
+    "궤도 검측 이력 기반 궤도 틀림 열화 예측 및 보수 우선순위 산정 경부선 구간에서 궤도 틀림이 "
+    "반복 발생하고 다짐 작업 후에도 다시 열화된다 노반·도상 침하로 진행 속도가 다르다"
+)
+ASSET = (
+    "코레일 보유 유휴부지와 역세권 자산이 단순 매각 방식으로 처분되어 자산이 줄고 있다. "
+    "직접개발·임대·합작 등 다양한 자산개발 구조를 검토할 사업 모델과 타당성 분석 체계가 없다. "
+    "자산개발 사업다각화 모델을 제안하고 시범부지의 사업 타당성을 분석한다."
+)
+CAFETERIA = (
+    "역 구내 식당의 점심 메뉴를 개선하여 직원 만족도를 높이는 방안. "
+    "메뉴가 단조롭고 대기 시간이 길다."
+)
+RULE = KeywordRule()
+
+
+def test_only_asset_proposal_blocks_against_asset_summary(own):
+    asset = judge([(ASSET_DOC, 0.867)], own=own, query=ASSET, keywords=RULE)[0]
+    track = judge([(ASSET_DOC, 0.832)], own=own, query=TRACK, keywords=RULE)[0]
+    cafe = judge([(ASSET_DOC, 0.80)], own=own, query=CAFETERIA, keywords=RULE)[0]
+    assert asset.tier == track.tier == cafe.tier == "own"
+    assert asset.blocking and {"자산개발", "유휴부지", "매각", "타당성"} <= set(asset.keywords)
+    assert not track.blocking and track.keywords == []  # 유사도는 0.80 을 넘지만 비차단 경보
+    assert not cafe.blocking and cafe.keywords == []
+
+
+def test_generic_only_overlap_does_not_block(own):
+    doc = ASSET_DOC.model_copy(update={"body": "철도 공사 사업 개선 연구 분석 방안 기술 시스템"})
+    query = "철도 공사 사업 개선 연구 궤도 틀림"
+    (alert,) = judge([(doc, 0.95)], own=own, query=query, keywords=RULE)
+    assert not alert.blocking and alert.keywords == []
+
+
+def test_without_keyword_rule_similarity_alone_decides(own):
+    (alert,) = judge([(ASSET_DOC, 0.832)], own=own, query=TRACK)
+    assert alert.blocking and alert.keywords == []
+
+
+def test_keywords_below_threshold_do_not_block(own):
+    (alert,) = judge([(ASSET_DOC, 0.70)], own=own, query=ASSET, keywords=RULE)
+    assert not alert.blocking and alert.keywords  # 키워드는 보여 주되 임계치 미달

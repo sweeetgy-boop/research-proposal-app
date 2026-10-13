@@ -14,8 +14,9 @@ class OverlapAlert(BaseModel):
     title: str
     tier: Tier
     similarity: float
-    blocking: bool  # 임계치 초과 → 제안 진행 전 확인 필요
+    blocking: bool  # 임계치 초과(+ 키워드 조건) → 제안 진행 전 확인 필요
     basis: TextBasis | None = None  # summary 면 공개 요약만으로 판정한 것
+    keywords: list[str] = Field(default_factory=list)  # 질의와 문서가 공유한 키워드 (일반어 제외)
 
 
 class GapRow(BaseModel):
