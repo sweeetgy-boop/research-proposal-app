@@ -8,7 +8,7 @@ base_url: http://127.0.0.1:8080/v1
 # manifest 에 기록할 실제 모델 이름 (표시용 선언). 요청에는 항상 stages 의 model 을 보낸다.
 # `mlx_lm.server --model` 에 준 값과 똑같이 적는다. 모델을 바꾸면 여기도 바꿔야 manifest 가 맞다.
 # rra llm-check 가 서버 /v1/models(HF 캐시 목록)에 이 이름이 있는지 확인하고, 없으면 경고만 한다.
-served_model: mlx-community/Qwen2.5-3B-Instruct-4bit
+served_model: mlx-community/Qwen2.5-7B-Instruct-4bit
 
 # auto: response_format 먼저 시도, 서버가 '오류로' 거부할 때만 프롬프트 폴백 | native | prompt
 # mlx_lm.server 는 response_format 을 오류 없이 무시하므로 auto 로는 폴백이 일어나지 않는다 → prompt.

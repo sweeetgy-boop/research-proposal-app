@@ -348,7 +348,7 @@ def test_run_manager_wiring_is_lazy(tmp_path, monkeypatch):
     assert mgr.list_runs(comp.LOCAL_USER) == []
     assert mgr.max_queued == 3
     # manifest 에는 선언된 실제 모델명, 요청은 default_model
-    assert mgr.model == "mlx-community/Qwen2.5-3B-Instruct-4bit"
+    assert mgr.model == "mlx-community/Qwen2.5-7B-Instruct-4bit"
     assert comp.llm_config(settings, "compose")["model"] == "default_model"
     assert mgr.store.root == tmp_path / "runs"
     assert mgr.slot.path == tmp_path / "runs" / ".generate.lock"
