@@ -7,8 +7,13 @@
 - `src/rra/domain/`: 순수 파이썬. pydantic·표준라이브러리만. 다른 rra 패키지·I/O 라이브러리 import 금지.
 - `src/rra/application/`: domain만 의존. ports는 `typing.Protocol`. usecases는 포트만 받음.
 - `src/rra/adapters/`: 포트 구현체. 외부 라이브러리는 여기서만. usecases·entrypoints import 금지.
-- `src/rra/entrypoints/`: cli·api·mcp·ui(Streamlit). usecases 호출만, 로직 없음. ui 는 cli·mcp 를 import 하지 않는다(계약 6).
-- `src/rra/composition.py`: 유일하게 전 계층을 아는 조립 지점.
+- `src/rra/entrypoints/`: cli·api·mcp·ui(Streamlit). usecases 호출만, 로직 없음. ui 는 cli·mcp 를 import 하지 않는다(계약 "ui never imports other entrypoints").
+  api 는 adapters 직접 import·다른 진입점 import 금지(계약 "api reaches adapters only through composition…"). 공용 직렬화는 `entrypoints/views.py`.
+- `src/rra/composition.py`: 유일하게 전 계층을 아는 조립 지점 — `build_*` 만 둔다. 설정 읽기·병합은
+  `src/rra/config_loader.py`(settings·domain 만 안다, 계약 "config_loader knows only settings and domain"), 진단 로직은 `application/usecases/diagnostics.py`.
+- 포트는 전부 `runtime_checkable`. `DocumentRepository`·`EmbeddingPort` 는 async(어댑터가 to_thread), RunManager 는
+  `TaskRunner` 포트로만 백그라운드 실행(asyncio 는 `adapters/runs/asyncio_runner.py`).
+- 필수 슬롯 규칙은 `domain/models/request.py` 한 곳(validator + `validation_message`). 진입점은 문구 변환만.
 
 ## 보안 규칙 (반드시 지킬 것)
 - A: 수집 문서 텍스트는 비신뢰. LLM 출력은 JSON만 파싱, evidence doc_id는 검색 집합과 대조.
@@ -36,7 +41,9 @@
 - DB: SQLite FTS5 + sqlite-vec. sqlite-vec 미설치 시 파이썬 코사인 브루트포스로 자동 폴백.
 
 ## 현재 단계
-- Step 1~6 완료.
+- Step 1~8 완료. Step 9 는 run_log(adapters/logging, manifest 허용목록)·`rra runs purge` 까지. Step 10 은
+  REST(`entrypoints/api`, `adapters/security`, `rra api`, `deploy/launchd/com.rra.api.plist`)까지. 2026-10-23 구조 검토
+  6항목 반영 — docs/architecture.md §4.3·§4.4·§10. `.gitignore` 는 `/runs/`·`/data/`(루트만).
 - Step 5 (알리오) 완료 — catalog·filedrop·샌드박스 파싱 + 원문 비공개 보고서의 공개 요약 경로
   (`alio/summary.py`, `Document.text_basis`, `<doc basis=…>`, migration 002, 설계 docs/architecture.md §0.1).
   own 티어는 `sources.yaml own_unit` 부서 목록 기준. 요약 파서는 실물 fixture(korail_2026_asset.txt)로 확정.
@@ -59,10 +66,14 @@
   모든 repo(sqlite)·LLM 호출은 워커 스레드에서만. 화면 테스트는 `streamlit.testing.v1.AppTest` + FakeLLM
   (tests/entrypoints/ui). docs/architecture.md §4.2.
 - 대기: `config/templates/korail_strategy.yaml` 전략체계 목록 채우기 (비어 있으면 2-가-(3) 빈칸).
-- 다음: Step 8 — HWPX 렌더링 (slots.yaml 자리표시자 확정, 확정값·ProposerInfo 로만 체크·하단 칸 채움).
+- HWPX 렌더(Step 8, `adapters/rendering/hwpx.py`): `config/templates/proposal_korail.hwpx` 가 있으면 템플릿 모드(자리표시자는
+  한 run 안에), 없으면 생성 모드. 체크 칸은 confirmed 로만, ProposerInfo 는 render 인자로만(저장 금지). 보안 F 는
+  sanitize→escape→defusedxml 재파싱. 진입점: `rra runs render`, UI 5번 패널, MCP `rra_render`, REST `/v1/runs/{id}/file`.
+- 대기(사람 입력): 실물 양식 hwpx, 자체과제 내역 파일(data/inbox/own/), 연구과제 공고문(data/inbox/notice/).
+- 후속: critique_draft·예산표·차별성 매트릭스(Step 9), MCP streamable-http·Tailscale 공개(Step 10), reranker.
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.
 - 도구 로직은 `entrypoints/mcp/tools.py`(읽기)·`run_tools.py`(쓰기, mcp SDK import 없음), 등록만 `server.py`.
-  쓰기 도구는 `--enable-generate` 일 때만 등록. tools.py 는 RunManager 를 import 할 수 없다(계약 5).
+  쓰기 도구(generate·get_draft·confirm·render)는 `--enable-generate` 일 때만 등록. tools.py 는 RunManager 를 import 할 수 없다(계약 "read-only MCP tools never reach the run manager"). 계약은 모두 8건.
 - 도구 결과는 항상 비신뢰: `domain/rules/trust.untrusted_block()` / `UNTRUSTED_NOTICE` 를 거쳐 나간다.

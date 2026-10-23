@@ -1,6 +1,6 @@
 # research-proposal-app 헥사고날 아키텍처 설계
 
-작성일: 2026-09-08 (v4 — MCP·REST API 제공 구조 추가)
+작성일: 2026-09-08 (v4 — MCP·REST API 제공 구조 추가) · 갱신 2026-10-23 (v5 — 구조 검토 반영, Step 8~10 구현. 변경 이력은 §10)
 
 ---
 
@@ -103,161 +103,162 @@ entrypoints ──▶ application ──▶ domain
 | 계층 | 허용 import | 금지 |
 |---|---|---|
 | `domain` | 표준 라이브러리, `pydantic`/`dataclasses` | 다른 모든 rra 패키지, 외부 I/O 라이브러리 |
-| `application` | `domain` | `adapters`, `entrypoints`, 외부 I/O |
-| `adapters` | `domain`, `application.ports` | `application.usecases`, `entrypoints` |
-| `entrypoints` | `application`, `composition` | `adapters` 직접 참조 |
-| `composition` | 전부 | — |
+| `application` | `domain` (포트는 `typing.Protocol`, 전부 `runtime_checkable`) | `adapters`, `entrypoints`, `composition`, `config_loader`, `settings`, 외부 I/O |
+| `adapters` | `domain`, `application.ports`, 외부 라이브러리 | `application.usecases`·`services`, `entrypoints`, `composition`, `config_loader` |
+| `entrypoints` (cli·mcp·ui·api) | `application`, `composition` | `adapters` 직접 참조. `ui`·`api` 는 다른 진입점도 금지 |
+| `config_loader` | `settings`, `domain`, yaml | `application`, `adapters`, `entrypoints`, `composition` |
+| `composition` | 전부 — 단, `build_*`(포트↔어댑터 연결)만 둔다 | 설정 병합·진단 로직(각각 `config_loader`·`usecases/diagnostics`) |
 
-`import-linter`로 CI에서 강제.
+`import-linter` 계약 8건으로 CI 에서 강제 (`pyproject.toml [tool.importlinter]`):
+domain 순수 · application→domain 만 · adapters 는 usecases·entrypoints 금지 · entrypoints 는 composition 경유 ·
+config_loader 는 settings·domain 만 · MCP 읽기 도구는 RunManager 금지 · ui 는 다른 진입점 금지 · api 는 adapters·다른 진입점 금지.
+
+**2026-10-23 구조 검토에서 고친 것** (상세 §4.3): composition 657→build_* 만, `_Lazy` 프록시 제거(어댑터 지연 로딩),
+`DocumentRepository`·`EmbeddingPort` 비동기화(어댑터가 `asyncio.to_thread`), `TaskRunner` 포트(application 에서 asyncio 제거),
+필수 슬롯 규칙을 도메인 validator 한 곳으로.
 
 ---
 
 ## 2. 디렉토리 구조
 
+실제 코드 기준 (2026-10-23, `find src/rra -name '*.py'`). 계획만 있고 아직 없는 모듈(critique_draft·gap_analysis·kipris·docx 렌더러·MCP resources/prompts)은 §5·§8 에만 적는다.
+
 ```
-research-proposal-app/
-├── pyproject.toml                  # uv, python 3.12, import-linter, ruff S 규칙
-├── .pre-commit-config.yaml         # D·J: gitleaks, detect-secrets, bandit, ruff
-├── .env.example
-├── .gitignore                      # data/ runs/ .env
-├── import-linter.toml
-│
-├── config/
-│   ├── sources.yaml                # 어댑터별 엔드포인트·레이트리밋·기관코드
-│   ├── llm.yaml                    # provider(mlx|openai), 단계별 모델·max_tokens
-│   ├── rail_terms.yaml             # 현장어↔학술어↔영문↔IPC/CPC
-│   ├── overlap.yaml                # 유사과제 차단의 키워드 조건 (min_hits, 일반어 목록). 임계치는 코드
-│   ├── security.yaml               # C·B·G·I: 허용 도메인, 파일 상한, 입력 상한, 보존기간
-│   └── templates/
-│       ├── proposal_korail.hwpx
-│       ├── proposal_korail.slots.yaml
-│       └── proposal_korail.rules.yaml
-│
-├── data/                           # gitignore
-│   ├── rra.sqlite
-│   ├── cache/                      # 어댑터 원본 응답
-│   ├── inbox/alio/                 # 수동 다운로드 파일 투입 위치
-│   ├── inbox/alio_summary/         # 원문 비공개 보고서의 공개 요약 .txt (§0.1)
-│   └── catalog/                    # 공공데이터포털 파일
-├── runs/                           # gitignore. 실행 매니페스트
-│
-├── deploy/
-│   ├── launchd/
-│   │   ├── com.rra.mlx.plist       # mlx_lm.server, 127.0.0.1:8080
-│   │   ├── com.rra.api.plist       # FastAPI :8000
-│   │   └── com.rra.ingest.plist    # 야간 배치 (StartCalendarInterval)
-│   ├── sysctl-iogpu.sh             # GPU 메모리 상한
-│   └── README.md                   # Tailscale / Cloudflare Tunnel 절차
-│
-├── src/rra/
-│   ├── __init__.py
-│   │
-│   ├── domain/                     # ── 순수 파이썬 ──
-│   │   ├── models/
-│   │   │   ├── document.py         # Document, Chunk
-│   │   │   ├── request.py          # ProposalRequest (필수 4 + 선택 입력, 개인정보 없음)
-│   │   │   ├── draft.py            # Draft, Section, Sentence(evidence)
-│   │   │   └── gap.py              # GapTable, OverlapAlert
-│   │   ├── rules/
-│   │   │   ├── trust.py            # A: 비신뢰 구획, 근거 검증
-│   │   │   ├── dedup.py            # DOI·출원번호·제목유사도 동일성
-│   │   │   ├── terms.py            # 용어 확장 규칙
-│   │   │   ├── lint.py             # 근거·분량·필수항목 검사
-│   │   │   └── overlap.py          # 기관별 중복 판정
-│   │   └── services/
-│   │       ├── gap_analysis.py     # 3단 갭 (철도연구원 / 코레일·공단 / KRRI·외부)
-│   │       └── chunking.py         # 목차 기반 청킹
-│   │
-│   ├── application/                # ── 유스케이스 + 포트 ──
-│   │   ├── ports/
-│   │   │   ├── source.py           # SourcePort: search(), normalize()
-│   │   │   ├── llm.py              # LLMPort: complete(json_mode)
-│   │   │   ├── embedding.py        # EmbeddingPort: dim, embed(), embed_query()
-│   │   │   ├── prompt_library.py   # PromptLibraryPort: system(), section()
-│   │   │   ├── repository.py       # DocumentRepository: upsert(), hybrid_search(), find_similar(), get_document()
-│   │   │   ├── renderer.py         # RendererPort: render(Draft) -> bytes
-│   │   │   ├── catalog.py          # CatalogPort: async entries() (알리오 전용). 미수집 계산은 usecases/list_missing.py
-│   │   │   └── run_log.py          # RunLogPort: record()
-│   │   └── usecases/
-│   │       ├── ingest_sources.py   # 배치 수집 → dedup → chunk → index
-│   │       ├── precheck_overlap.py # 입력 직후 중복 경보
-│   │       ├── generate_proposal.py
-│   │       ├── critique_draft.py   # 심사위원 모드
-│   │       └── validate_draft.py
-│   │
-│   ├── adapters/                   # ── 포트 구현 ──
-│   │   ├── sources/
-│   │   │   ├── _base.py            # C: check_url()·GuardedClient (허용목록·hop별 재검사·사설IP 거부·응답 상한·레이트리밋), 캐시키 비밀 제거
-│   │   ├── _sandbox.py         # B: subprocess 파서 실행 (timeout, rlimit, 부모 측 RSS 감시)
-│   │   ├── _worker.py          # B: 자식 진입점 (rlimit 후 파서 import, JSON 1개 출력)
-│   │   │   ├── openalex.py
-│   │   │   ├── scienceon.py
-│   │   │   ├── kipris/
-│   │   │   │   ├── client.py
-│   │   │   │   ├── kr.py
-│   │   │   │   └── intl.py
-│   │   │   ├── ntis/
-│   │   │   │   ├── client.py
-│   │   │   │   ├── projects.py     # 과제검색
-│   │   │   │   └── reports.py      # 연구보고서 검색
-│   │   │   └── alio/
-│   │   │       ├── catalog.py      # 공공데이터포털 CSV → 기관 필터 (FileCatalog, fetch_catalog)
-│   │   │       ├── filedrop.py     # inbox 적재 (AlioSource: 원문 파일)
-│   │   │       ├── summary.py      # 공개 요약 .txt 적재 (AlioSummarySource, 라벨 해석·정규화)
-│   │   │       ├── _inbox.py       # 공통: 대기 목록·격리·_done 이동
-│   │   │       ├── filecheck.py    # 확장자·크기·매직바이트 검증 → 검증된 fd
-│   │   │       ├── _models.py      # 자식 출력 재검증 스키마
-│   │   │       ├── extract/        # 샌드박스 자식에서만 import
-│   │   │       │   ├── pdf.py
-│   │   │       │   ├── hwpx.py
-│   │   │       │   ├── csv_catalog.py
-│   │   │       │   ├── text.py     # 공개 요약 .txt → 줄 목록
-│   │   │       │   └── hwp.py      # (Step 5b) HWP 5.0 OLE — 현재는 UnsupportedFormat 격리
-│   │   │       └── metadata.py     # (후속) 표지·목차 → 부서·기간·책임자
-│   │   ├── llm/
-│   │   │   ├── openai_compat.py    # OpenAI / vLLM
-│   │   │   └── prompts/            # *.md
-│   │   ├── persistence/
-│   │   │   ├── sqlite_repo.py      # FTS5 + sqlite-vec
-│   │   │   └── migrations/
-│   │   ├── embedding/
-│   │   │   └── sentence_transformers.py  # EmbeddingPort 구현 (e5 passage/query 접두어)
-│   │   ├── rendering/
-│   │   │   ├── hwpx.py
-│   │   │   └── docx.py             # 검토용
-│   │   └── runs/                   # (Step 6) RunStorePort·RunLogPort·GenerationSlot 구현
-│   │       ├── file_run_store.py   # runs/<user>/<run_id>/ 상태·체크포인트 (700/600, 원자적 쓰기)
-│   │       ├── file_run_log.py     # manifest.json (해시·id 만)
-│   │       └── locks.py            # fcntl.flock — run 락·전역 슬롯 (프로세스 간)
-│   │
-│   ├── application/services/       # 진입점이 공유하는 실행 관리
-│   │   └── run_manager.py          # 제출·재개·상태·부분 초안. 포트는 ports/run_store.py·generation_slot.py
-│   │
-│   ├── entrypoints/                # driving adapters — 전부 같은 usecase 호출
-│   │   ├── cli.py
-│   │   ├── api/                    # REST (FastAPI)
-│   │   │   ├── app.py              # 라우터 조립, 보안 헤더, 인증 미들웨어
-│   │   │   ├── routes/
-│   │   │   │   ├── precheck.py     # POST /v1/precheck
-│   │   │   │   ├── search.py       # POST /v1/search
-│   │   │   │   ├── runs.py         # POST /v1/runs (202) · GET /v1/runs/{id} · /draft · /file
-│   │   │   │   └── health.py       # GET /healthz (LLM·DB 상태)
-│   │   │   └── schemas.py          # 요청/응답 DTO (domain 모델 재사용 + 길이 상한)
-│   │   └── mcp/                    # MCP 서버
-│   │       ├── server.py           # FastMCP 인스턴스, stdio / streamable-http 선택
-│   │       ├── tools.py            # rra_precheck, rra_search, rra_generate, rra_get_draft, rra_render
-│   │       ├── resources.py        # rra://runs/{id}/manifest, rra://docs/{doc_id}
-│   │       └── prompts.py          # proposal_intake (5슬롯 안내)
-│   │
-│   └── composition.py              # 설정 읽고 포트에 구현체 주입
-│
-└── tests/
-    ├── fakes.py                    # FakeLLM, FakePromptLibrary, FakeEmbedding, DeterministicEmbedding, InMemoryRepository, FakeRenderer, FakeRunLog
-    ├── fixtures/                   # 어댑터별 원본 응답
-    ├── domain/
-    ├── application/                # fake만으로 실행
-    ├── adapters/                   # normalize 검증, 네트워크 없음
-    └── evals/                      # 골든셋 (추가 항목 3)
+src/rra/
+├── adapters/
+│   ├── embedding/
+│   │   └── sentence_transformers.py  # 지연 로딩(loaded), to_thread
+│   ├── llm/
+│   │   ├── _endpoint.py
+│   │   ├── _payload.py
+│   │   ├── errors.py
+│   │   ├── openai_compat.py
+│   │   └── prompt_files.py
+│   ├── logging/
+│   │   └── file_run_log.py  # RunLogPort — manifest.json, 키 허용목록 (I)
+│   ├── persistence/
+│   │   ├── migrations/
+│   │   │   └── runner.py
+│   │   ├── _mapping.py
+│   │   ├── _sql.py
+│   │   ├── _vec.py
+│   │   └── sqlite_repo.py  # FTS5+벡터, to_thread + RLock
+│   ├── rendering/
+│   │   └── hwpx.py  # RendererPort — 템플릿·생성 모드, escape+defusedxml (F)
+│   ├── runs/
+│   │   ├── _fs.py
+│   │   ├── asyncio_runner.py  # TaskRunner 구현
+│   │   ├── file_run_store.py  # RunStorePort — runs/<user>/<run_id>/, list_users·delete_run
+│   │   └── locks.py  # flock — run 락·전역 슬롯
+│   ├── security/
+│   │   └── middleware.py  # TokenAuth·BodyLimit·SecurityHeaders ASGI (G)
+│   └── sources/
+│       ├── alio/
+│       │   ├── extract/
+│       │   │   ├── csv_catalog.py
+│       │   │   ├── hwpx.py
+│       │   │   ├── pdf.py
+│       │   │   └── text.py
+│       │   ├── _inbox.py
+│       │   ├── _models.py
+│       │   ├── catalog.py  # FileCatalog·CatalogFetcher
+│       │   ├── filecheck.py
+│       │   ├── filedrop.py
+│       │   └── summary.py
+│       ├── ntis/
+│       │   ├── client.py
+│       │   └── projects.py
+│       ├── scienceon/
+│       │   ├── auth.py
+│       │   ├── client.py
+│       │   └── normalize.py
+│       ├── _base.py
+│       ├── _orgs.py
+│       ├── _sandbox.py
+│       ├── _worker.py
+│       ├── _xml.py
+│       └── openalex.py
+├── application/
+│   ├── ports/
+│   │   ├── catalog.py
+│   │   ├── embedding.py  # EmbeddingPort — async embed/embed_query, dim
+│   │   ├── generation_slot.py
+│   │   ├── llm.py
+│   │   ├── prompt_library.py
+│   │   ├── renderer.py  # RendererPort(draft, confirmation, proposer)·RenderRejected
+│   │   ├── repository.py  # DocumentRepository — 전부 async
+│   │   ├── run_log.py
+│   │   ├── run_store.py
+│   │   ├── source.py
+│   │   └── task_runner.py  # TaskRunner (RunManager 백그라운드 실행기)
+│   ├── services/
+│   │   ├── assistant.py  # ProposalAssistant (규칙 기반 Agent 실행)
+│   │   └── run_manager.py  # 제출·재개·상태·확정·render — TaskRunner·RendererPort 사용
+│   └── usecases/
+│       ├── diagnostics.py  # check_served_model·CheckSources (llm-check·sources check)
+│       ├── generate_proposal.py
+│       ├── ingest_sources.py
+│       ├── list_missing.py
+│       ├── precheck_overlap.py
+│       └── purge_runs.py  # 보존기간 삭제 (retention_days)
+├── domain/
+│   ├── models/
+│   │   ├── catalog.py
+│   │   ├── document.py
+│   │   ├── draft.py
+│   │   ├── gap.py
+│   │   ├── proposer.py  # ProposerInfo — 렌더 시점에만, 저장 안 함
+│   │   ├── request.py  # ProposalRequest — 필수 슬롯 validator·validation_message (한 곳)
+│   │   ├── run.py
+│   │   └── selection.py
+│   ├── rules/
+│   │   ├── agent_policy.py  # 규칙 기반 Agent 판단 (기획서 Tool 호출 조건 표)
+│   │   ├── dedup.py
+│   │   ├── disclosure.py
+│   │   ├── fusion.py
+│   │   ├── grounding.py
+│   │   ├── keywords.py
+│   │   ├── lint.py
+│   │   ├── llm_output.py
+│   │   ├── numbers.py
+│   │   ├── overlap.py
+│   │   └── trust.py
+│   └── services/
+│       └── chunking.py
+├── entrypoints/
+│   ├── api/
+│   │   ├── app.py  # FastAPI create_app — /v1/* (Step 10)
+│   │   └── schemas.py  # ConfirmIn·ProposerIn
+│   ├── mcp/
+│   │   ├── run_tools.py  # 쓰기 도구 (generate·get_draft·confirm·render)
+│   │   ├── server.py
+│   │   └── tools.py
+│   ├── ui/
+│   │   ├── __main__.py
+│   │   ├── app.py  # Streamlit 화면 (위젯·순서만)
+│   │   ├── auth.py
+│   │   ├── labels.py
+│   │   ├── service.py
+│   │   └── worker.py  # 전용 루프 스레드 — 조립·호출 모두 여기서
+│   ├── cli.py  # rra precheck|search|llm-check|ingest|sources|alio|generate|runs|ui|api|mcp
+│   └── views.py  # 진입점 공용 직렬화 (draft·alerts·run_state·chunks)
+├── composition.py  # 조립 — build_* 만 (포트↔어댑터 연결)
+├── config_loader.py  # yaml 읽기·병합·환경변수 우선순위·domain 값 객체 (settings·domain 만 안다)
+└── settings.py  # D: SecretStr, .env 권한 검사, api_host/api_port
+
+config/
+├── llm.yaml · overlap.yaml · security.yaml (allowed_domains·file_limits·input_limits[api_max_body_bytes]·retention_days) · sources.yaml
+└── templates/  korail_strategy.yaml · proposal_korail.rules.yaml · proposal_korail.slots.yaml · (proposal_korail.hwpx — 실물 양식, 있으면 템플릿 모드)
+deploy/
+├── README.md                       # 127.0.0.1 바인딩 + HTTPS 역프록시(Tailscale·Cloudflare) 전제, 엔드포인트 표
+└── launchd/com.rra.api.plist       # rra api (실경로, 비밀은 .env 경유)
+tests/
+├── fakes.py                        # 포트별 fake (전부 isinstance 로 포트 만족 검사)
+├── fixtures/                       # alio·llm·ntis·openalex·scienceon 실응답, hwpx/proposal_template_min.hwpx
+├── tools/                          # record_fixture.py, make_hwpx_template.py
+├── domain/ · application/ · adapters/ · entrypoints/(cli·mcp·api·ui)
+└── test_composition.py · test_config_loader.py
+data/ (gitignore: /data/) · runs/ (gitignore: /runs/)
 ```
 
 ---
@@ -282,33 +283,47 @@ class LLMPort(Protocol):
         json_mode: bool = False,
     ) -> str: ...
 
-# application/ports/embedding.py
+# application/ports/embedding.py — 비동기. 어댑터는 모델 로드를 첫 호출로 미루고 계산을 스레드로 넘긴다
 class EmbeddingPort(Protocol):
     dim: int
-    def embed(self, texts: list[str]) -> list[list[float]]: ...        # 색인 대상 문서(passage)
-    def embed_query(self, texts: list[str]) -> list[list[float]]: ...  # 검색 질의(query)
+    async def embed(self, texts: list[str]) -> list[list[float]]: ...        # 색인 대상 문서(passage)
+    async def embed_query(self, texts: list[str]) -> list[list[float]]: ...  # 검색 질의(query)
 
 # application/ports/prompt_library.py
 class PromptLibraryPort(Protocol):
     def system(self) -> str: ...
     def section(self, key: str) -> str: ...
 
-# application/ports/repository.py
+# application/ports/repository.py — 전부 비동기 (SQLite 어댑터는 to_thread + RLock, check_same_thread=False)
 class DocumentRepository(Protocol):
-    def upsert(self, docs: list[Document], chunks: list[Chunk]) -> None: ...
-    def hybrid_search(
+    async def upsert(self, docs: list[Document], chunks: list[Chunk]) -> None: ...
+    async def hybrid_search(
         self, queries: list[str], *, k: int = 20, orgs: list[str] | None = None
     ) -> list[Chunk]: ...
-    def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]: ...
-    def get_document(self, doc_id: str) -> Document | None: ...
+    async def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]: ...
+    async def get_document(self, doc_id: str) -> Document | None: ...
+    async def count_by_source(self) -> dict[str, int]: ...
 
-# application/ports/renderer.py
+# application/ports/renderer.py — 체크 칸은 confirmation 으로만, 제안자 정보는 인자로만 (저장 안 함)
+class RenderRejected(ValueError): ...
 class RendererPort(Protocol):
-    def render(self, draft: Draft) -> bytes: ...
+    def render(self, draft: Draft, *, confirmation: Confirmation | None = None,
+               proposer: ProposerInfo | None = None) -> bytes: ...
 
 # application/ports/run_log.py
 class RunLogPort(Protocol):
     def record(self, run_id: str, manifest: dict[str, Any]) -> None: ...
+
+# application/ports/task_runner.py — RunManager 의 백그라운드 실행기 (asyncio 는 어댑터에만)
+class TaskRunner(Protocol):
+    def submit(self, key: str, coro: Coroutine) -> None: ...
+    def cancel(self, key: str) -> bool: ...
+    def is_running(self, key: str) -> bool: ...
+    async def wait(self, key: str) -> Any: ...
+
+# application/ports/run_store.py — list_users()·delete_run() 추가 (보존기간 삭제)
+# application/ports/source.py — 선택 프로토콜: AcknowledgingSource·WarningSource·ProbingSource(probe/aclose)·InboxSource
+# application/ports/llm.py — 선택 프로토콜: ModelListingPort(list_models)
 ```
 
 ### 단계별 LLM 설정 예 (`config/llm.yaml`)
@@ -358,9 +373,46 @@ req -> expand (HyDE + terms)
     -> compose (섹션별, 근거 doc_id 필수)
     -> critique (심사위원 모드, 약한 섹션 재생성)
     -> lint (규칙 위반 시 예외)
-    -> render (hwpx)
-    -> run_log.record(...)
+    -> run_log.record(...)                      # 제출·섹션 완료마다·종료 (adapters/logging, 해시·id 만)
+    -> [확정 뒤] render (hwpx)                  # RunManager.render — done 만, 체크 칸은 확정값으로만
 ```
+
+### 4.3 구조 검토 반영 (2026-10-23)
+
+| 검토 항목 | 조치 | 위치 |
+|---|---|---|
+| 필수 슬롯 규칙이 CLI·UI·MCP 에 중복 | `ProposalRequest` `model_validator` 로 올림. 진입점은 `validation_message()` 로 문구만 바꾼다. REST 도 같은 문구 | `domain/models/request.py` |
+| composition 이 조립 이상(진단·설정 병합) | yaml 읽기·병합·환경변수 우선순위·domain 값 객체 변환 → `rra/config_loader.py`. 진단 → `usecases/diagnostics.py`(`check_served_model`·`CheckSources`, 포트 `ModelListingPort`·`ProbingSource`). 카탈로그 내려받기 → `adapters/sources/alio/catalog.CatalogFetcher`. composition 은 `build_*` 만 | `composition.py` 657→약 530줄(REST 포함) |
+| `_Lazy` `__getattr__` 프록시 | 제거. 임베딩 모델은 `SentenceTransformerEmbedding` 이 첫 `embed`/`dim` 때 올린다(`loaded`). 모든 포트 `runtime_checkable`, 어댑터·fake 전부 `isinstance` 검사 | `adapters/embedding`, `tests/adapters/test_port_conformance.py` |
+| 포트 sync/async 혼재 | `DocumentRepository`·`EmbeddingPort` 비동기. SQLite 접근은 `asyncio.to_thread`(연결 `check_same_thread=False` + RLock), 임베딩 계산도 스레드. 느린 임베딩이 도는 동안 검색·precheck 가 먼저 끝나는 테스트로 고정 | `adapters/persistence/sqlite_repo.py`, `tests/adapters/test_repository_concurrency.py` |
+| RunManager 가 asyncio 에 결합 | `TaskRunner` 포트 + `adapters/runs/asyncio_runner.AsyncioTaskRunner`. UI 워커·CLI·REST 가 같은 구현을 각자 루프에서 쓴다 | `application/ports/task_runner.py` |
+| 설계 문서와 코드 불일치 | Step 8(렌더러)·9(run_log·purge)·10(REST·보안·launchd) 구현 → §4.4, §8 표 갱신 | — |
+
+### 4.4 Step 8~10 (2026-10-23)
+
+**Step 8 HWPX 렌더러** (`adapters/rendering/hwpx.py`, python-hwpx, extra `render`): `config/templates/proposal_korail.hwpx`
+가 있으면 **템플릿 모드** — 섹션 XML 문자열에서 `slots.yaml` 자리표시자만 `escape(값)` 으로 치환, zip 구조 불변 검사,
+치환되지 않은 선언 슬롯이 남으면 거부(자리표시자는 한 run 안에 있어야 한다). 없으면 **생성 모드** — 별지 제2호서식
+1~5 표와 하단 제안자 칸을 python-hwpx 로 만든다. 보안 F: `sanitize`(XML 금지 문자 제거) → escape 삽입 → 결과의
+모든 섹션 XML 을 defusedxml 로 재파싱, 실패 시 `RenderedXmlInvalid`. 체크 칸(과제유형·활용계획·전략)은 `confirmed.json`
+으로만 채우고 과제유형·활용계획이 미확정이면 `ConfirmationRequired`. `slots.yaml` 에 없는 자리표시자·선택지는 `UnknownSlot`.
+`RunManager.render(user, run_id, proposer)` 는 done·현행 양식 run 만. 진입점: `rra runs render <run_id> --out`(0600),
+UI 5번 패널 "제안서 받기(hwpx)", MCP `rra_render`(base64, 쓰기 서버만), REST `GET/POST /v1/runs/{id}/file`.
+`ProposerInfo` 는 호출 인자로만 — 저장소·manifest·로그에 없음을 테스트로 고정. 템플릿 fixture 는
+`tests/tools/make_hwpx_template.py` 가 만든 `tests/fixtures/hwpx/proposal_template_min.hwpx`.
+
+**Step 9 run_log·보존** (`adapters/logging/file_run_log.py`): manifest 는 `RunManager.manifest()` 가 만들고 어댑터가
+키 허용목록(`check_manifest`: run·step·problem 키, 문자열 200자 상한)으로 원문·개인정보 유입을 한 번 더 막는다. 제출(queued)·
+섹션 완료마다·종료 시점에 기록. `usecases/purge_runs.PurgeRuns(store, retention_days, clock)` 가 `updated_at` 이
+`security.yaml retention_days`(180) 보다 오래된 run 을 지운다(실행 중·락 잡힌 run 제외). `rra runs purge [--dry-run]`.
+`RunStorePort.list_users/delete_run`. critique·예산표·매트릭스는 미구현(§5).
+
+**Step 10 REST·보안·배포** (`entrypoints/api/`, `adapters/security/middleware.py`, `deploy/`): §9.2 표. 토큰
+(`X-RRA-Token` 또는 Bearer, `compare_digest`), 본문 상한(`input_limits.api_max_body_bytes` 64KB → 413, chunked 411),
+보안 헤더(CSP `default-src 'none'`, X-Frame-Options DENY, Referrer-Policy no-referrer, nosniff, no-store), CORS 미들웨어
+없음, 문서 UI 없음, 업로드 없음. `build_api` 는 `RRA_API_TOKEN` 없으면 기동 거부. 기본 127.0.0.1:8000
+(`RRA_API_HOST/PORT`), 외부 공개는 HTTPS 역프록시(Tailscale·Cloudflare) 뒤에서만 — `deploy/README.md`.
+`deploy/launchd/com.rra.api.plist` 는 실경로로 채웠고 비밀은 `.env` 경유. MCP streamable-http 는 미구현.
 
 ### 4.1 제안서 양식 매핑 — 별지 제2호서식 (개정 2024.02.19.)
 
@@ -627,12 +679,12 @@ fragment 를 자동 재실행하지 않으므로 `Worker.wait(run_id)` 뒤 `at.r
 - DB 파일·`runs/`·`data/` 권한 700, 소유자 전용. macOS FileVault 활성화 전제.
 - 선택: 다중 사용자 단계에서 SQLCipher.
 
-#### F. 렌더링 안전 — `adapters/rendering/hwpx.py`
+#### F. 렌더링 안전 — `adapters/rendering/hwpx.py` (Step 8 구현)
 - 슬롯 치환은 `xml.sax.saxutils.escape` 적용 후 삽입. 템플릿 XML 구조는 불변.
 - 치환 후 결과를 `defusedxml`로 재파싱해 well-formed 검증. 실패 시 출력 거부.
 - 슬롯 키는 `slots.yaml`에 선언된 것만 허용, 미선언 키 요청 시 예외.
 
-#### G. 웹 UI — `entrypoints/api.py`
+#### G. 웹 UI — `entrypoints/api/`, `adapters/security/middleware.py` (Step 10 구현)
 - `127.0.0.1:8000` 바인딩. TLS는 Tailscale/Cloudflare가 종단.
 - 터널 뒤라도 **자체 인증 필수**: 초기엔 단일 관리 토큰(헤더), 다중 사용자 시 Cloudflare Access JWT 검증.
 - 요청 본문 크기·필드 길이 상한(5슬롯 각 2,000자), 동시 생성 요청 1개(세마포어) → 32GB 메모리 보호 (상주 모델 1개의 KV 캐시를 여러 생성이 나눠 쓰지 않게).
@@ -644,7 +696,7 @@ fragment 를 자동 재실행하지 않으므로 `Worker.wait(run_id)` 뒤 `at.r
 - `--host 127.0.0.1` 고정. mlx-lm은 인증이 없으므로 외부 노출 금지.
 - 모델은 `safetensors` 형식만 로드(pickle 금지), `revision` 커밋 해시 고정.
 
-#### I. 로깅·감사 — `adapters/logging/`
+#### I. 로깅·감사 — `adapters/logging/` (Step 9 구현: `file_run_log.py` 허용목록, `rra runs purge`)
 - 기본 로그 레벨에서 제안 내용·청크 본문 미기록. `DEBUG`에서도 최대 200자 절단.
 - 매니페스트에는 doc_id·쿼리 해시·모델명·프롬프트 해시만. 원문은 별도 파일, 권한 600.
 - `runs/` 보존 기간 설정(기본 180일) 및 삭제 명령 제공.
@@ -664,8 +716,7 @@ src/rra/
 │   ├── _base.py                 # 허용목록 httpx, 캐시 키 정제
 │   └── _sandbox.py              # subprocess 파서 실행기 (timeout, rlimit)
 ├── adapters/security/
-│   ├── auth.py                  # 토큰 / Cloudflare Access JWT
-│   └── headers.py               # 보안 헤더 미들웨어
+│   └── middleware.py            # TokenAuth(토큰)·BodyLimit·SecurityHeaders — 순수 ASGI (Step 10)
 └── settings.py                  # SecretStr, 권한 검사
 
 config/
@@ -696,12 +747,12 @@ config/
 | **2** ✅ | `adapters/persistence/sqlite_repo.py`, `adapters/embedding/` | E(파라미터 바인딩, FTS5 MATCH 인용, 파일 권한 700) | 하이브리드 검색 왕복 테스트 |
 | **3** ✅ | `adapters/llm/openai_compat.py` + `prompts/`, `composition.py` 실연결, **MCP stdio (precheck·search)** | H(127.0.0.1, json_mode), A(프롬프트·MCP 결과에 구획 규칙) | mlx-lm 대상 실제 생성 1회, Claude Code에서 도구 호출 |
 | **4** ✅ | `adapters/sources/openalex.py`, `_base.GuardedClient`, `usecases/ingest_sources.py`, CLI `ingest` | C(리다이렉트 hop별 재검사, 사설IP·루프백 거부, 응답 크기 상한) | ingest → search 왕복 (fixture, 네트워크 없음) |
-| 5 | `adapters/sources/alio/` catalog·filedrop·extract·`_sandbox.py`·metadata, **공개 요약 경로(§0.1)** | B(subprocess 격리, zip 상한, defusedxml) | 코레일 보고서 10건 적재 (원문 또는 공개 요약) |
-| 6 | `precheck_overlap` CLI 연결, `gap_analysis` 3단, **`RunManager` + MCP generate/get_draft** | G(세마포어 1) | 기수행 과제 경보 출력, IDE에서 생성 요청 |
-| 7 | ScienceON·NTIS(과제검색) 어댑터 — KIPRIS·NTIS 연구보고서는 후속 | C·D(키 관리, 레이트리밋) | NTIS 과제가 overlap 티어대로 경보 |
-| 8 | `adapters/rendering/hwpx.py`, slots·rules 실양식 반영 | F(escape·재파싱) | 빈 초안 → HWPX 열림 |
-| 9 | `critique_draft`, 예산표, 차별성 매트릭스, `run_log` 파일 구현 | I(해시만 기록, 보존기간) | 골든셋 1건 |
-| 10 | `entrypoints/api/`, **MCP streamable-http**, `adapters/security/`, `deploy/launchd`, Tailscale | G(인증·헤더·업로드 없음, MCP 토큰), H | 타 제안자 시연 |
+| **5** ✅ | `adapters/sources/alio/` catalog·filedrop·extract·`_sandbox.py`·metadata, **공개 요약 경로(§0.1)** | B(subprocess 격리, zip 상한, defusedxml) | 코레일 보고서 10건 적재 (원문 또는 공개 요약) |
+| **6** ✅ | `precheck_overlap` CLI 연결, **`RunManager` + MCP generate/get_draft** (gap_analysis 3단은 후속) | G(세마포어 1) | 기수행 과제 경보 출력, IDE에서 생성 요청 |
+| **7** ✅(코드) | ScienceON·NTIS(과제검색) 어댑터 — KIPRIS·NTIS 연구보고서는 후속. 키 투입·실응답 fixture 대기 | C·D(키 관리, 레이트리밋) | NTIS 과제가 overlap 티어대로 경보 |
+| **8** ✅ | `adapters/rendering/hwpx.py`(템플릿·생성 모드), `RunManager.render`, CLI·UI·MCP·REST 연결 (2026-10-23). 실물 양식 hwpx 투입 대기 | F(escape·재파싱) | 빈 초안 → HWPX 열림 (테스트로 고정) |
+| 9 (부분) ✅ | `run_log` 파일 구현(`adapters/logging`, 허용목록)·`rra runs purge` (2026-10-23). `critique_draft`·예산표·차별성 매트릭스는 미구현 | I(해시만 기록, 보존기간) | 골든셋 1건 (미) |
+| **10** ✅(REST) | `entrypoints/api/`, `adapters/security/`, `deploy/launchd/com.rra.api.plist`, `deploy/README.md` (2026-10-23). MCP streamable-http·Tailscale 공개는 미구현 | G(인증·헤더·업로드 없음), H | 타 제안자 시연 (대기) |
 
 Step 1 코드: `research-report-app-step1.zip`
 
@@ -718,17 +769,24 @@ Step 1 코드: `research-report-app-step1.zip`
 
 ### 9.2 REST API (`entrypoints/api/`)
 
+구현 (2026-10-23, `entrypoints/api/app.py`). 모든 응답 직렬화는 `entrypoints/views.py`(CLI·MCP 와 공용).
+
 | 메서드 | 경로 | 유스케이스 | 비고 |
 |---|---|---|---|
-| POST | `/v1/precheck` | `PrecheckOverlap` | 5슬롯 → 중복 경보 목록. 동기 |
-| POST | `/v1/search` | `repo.hybrid_search` | 쿼리·orgs·k. 결과 청크는 `trust: untrusted` 표시 |
-| POST | `/v1/runs` | `GenerateProposal` (큐 등록) | 202, `{run_id, status: queued}` |
-| GET | `/v1/runs/{id}` | `RunStore.get` | 상태·진행 섹션·lint 문제 |
-| GET | `/v1/runs/{id}/draft` | `RunStore.get_draft` | JSON Draft (문장별 evidence 포함) |
-| GET | `/v1/runs/{id}/file?format=hwpx\|docx` | `RendererPort` | 완료 시에만 |
-| GET | `/healthz` | — | LLM 서버·DB·모델명 |
+| POST | `/v1/precheck` | `PrecheckOverlap` | 본문 = `ProposalRequest`(필수 4슬롯·길이는 도메인이 검증, 422 문구는 CLI 와 동일). `{notice, blocking, alerts[]}` |
+| GET | `/v1/search?q=&k=&orgs=` | `repo.hybrid_search` | k ≤ 20, q ≤ 500자. 청크마다 `trust: untrusted` + notice |
+| POST | `/v1/runs` | `RunManager.submit` | 202 `{run_id, status, progress, steps…}`. 대기열 초과 429, 락 충돌 409 |
+| GET | `/v1/runs/{id}` | `RunManager.status` | 상태·step·legacy (초안 본문 없음). 모르는·형식 틀린 id 는 404 |
+| POST | `/v1/runs/{id}/resume` | `RunManager.resume` | 202. 재개 불가 409 |
+| GET | `/v1/runs/{id}/draft` | `RunManager.get_draft` | `draft_payload` (문장별 evidence·source, choices proposed/confirmed) |
+| POST | `/v1/runs/{id}/confirm` | `RunManager.confirm` | `{task_type?, utilization?[], strategy?[]}`. 거부 422 |
+| GET | `/v1/runs/{id}/file` | `RunManager.render` | HWPX(`application/hwp+zip`), 하단 제안자 칸 빈칸. 미확정·미완료 409 |
+| POST | `/v1/runs/{id}/file` | `RunManager.render` | 본문 `{proposed_on, proposer{rank,name,phone}, head{…}}` — 파일에만 들어가고 서버에 남지 않는다 |
+| GET | `/healthz` | — | `{"status":"ok"}` 만. 무인증, 내부 정보 없음 |
 
-보안(G): 모든 `/v1/*`에 Bearer 토큰 필수, 요청 본문 상한, 사용자별 run 격리(`runs/<user>/`), CORS 없음, 보안 헤더, 127.0.0.1 바인딩.
+보안(G): 모든 `/v1/*` 에 `X-RRA-Token` 또는 `Authorization: Bearer` 필수(없으면 기동 자체 거부), 본문 상한
+(`input_limits.api_max_body_bytes`, 기본 64KB), 사용자 = 토큰 소유자(`runs/local/`, 다중 사용자는 후속), CORS 미들웨어 없음,
+보안 헤더, 문서 UI 없음, 127.0.0.1:8000 기본 바인딩(`RRA_API_HOST/PORT`), 외부 공개는 HTTPS 역프록시 뒤 (`deploy/README.md`).
 
 ### 9.3 MCP 서버 (`entrypoints/mcp/`)
 
@@ -769,7 +827,7 @@ Step 1 코드: `research-report-app-step1.zip`
 ```python
 class RunManager:
     def __init__(self, generate, store: RunStorePort, slot: GenerationSlot, run_log: RunLogPort,
-                 *, max_queued=3, model=None): ...
+                 runner: TaskRunner, *, max_queued=3, model=None, renderer: RendererPort | None = None): ...
     async def submit(self, user, req, *, on_step=None) -> RunState    # queued, 즉시 반환
     async def resume(self, user, run_id, *, on_step=None) -> RunState # interrupted 만
     async def wait(self, user, run_id) -> RunState                    # CLI 용
@@ -777,6 +835,8 @@ class RunManager:
     async def get_draft(self, user, run_id) -> DraftView              # 완료 섹션 + citations
     async def confirm(self, user, run_id, choices) -> Confirmation     # 선택형 확정 (§4.1)
     async def load_request(self, user, run_id) -> ProposalRequest      # --reuse-input
+    async def render(self, user, run_id, *, proposer=None) -> bytes     # Step 8 — done 만, 확정값으로만
+    def cancel(self, user, run_id) -> bool                             # TaskRunner.cancel
 ```
 
 - **저장은 파일** (`runs/<user>/<run_id>/`: state·request·context(검색 스냅샷)·sections/<key>·draft·
@@ -814,3 +874,14 @@ class RunManager:
 경로는 프로젝트 루트 기준 상대경로다. 다른 디렉터리에서 띄우면 절대경로로 바꾸거나
 `uv run -- python -m rra.entrypoints.mcp.server` 형태를 쓴다. `env`에 키를 넣지 않는다(D).
 등록·도구 설명은 `docs/mcp.md`.
+
+---
+
+## 10. 변경 이력
+
+| 날짜 | 내용 |
+|---|---|
+| 2026-09-08 | v4 — MCP·REST API 제공 구조(§9) 추가 |
+| 2026-10-13 | 7B 전환 보정, 유사과제 차단 키워드 조건, Streamlit 화면·규칙 기반 Agent(§4.2) |
+| 2026-10-23 | 구조 검토 6항목 반영(§4.3: 필수 슬롯 단일화, `config_loader`·`diagnostics` 분리, `_Lazy` 제거, 포트 비동기화, `TaskRunner`), Step 8 HWPX 렌더러·Step 9 run_log 이동·`runs purge`·Step 10 REST·보안 미들웨어·launchd(§4.4, §9.2). import-linter 계약 6→8. `.gitignore` `runs/`→`/runs/`(그동안 `src/rra/adapters/runs/` 가 커밋되지 않던 문제 수정). 이 문서 §1·§2·§3·§8 를 코드와 맞춤 |
+

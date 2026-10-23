@@ -1,34 +1,58 @@
 # 연구제안서 작성 앱 (research-proposal-app)
 
-연구과제 제안서 자동 작성 — 헥사고날 구조, 보안코딩 반영. 설계는 `docs/architecture.md`.
+한국철도공사 철도연구원 양식(별지 제2호서식, 2024.02.19.) 연구과제 제안서 초안을 로컬 LLM 으로 만드는 앱.
+헥사고날 구조(domain → application(ports·usecases) → adapters, 진입점 CLI·MCP·Streamlit·REST 는 같은
+application 을 호출), 보안코딩 A~J 반영. 설계·현황은 `docs/architecture.md`, MCP 는 `docs/mcp.md`,
+배포는 `deploy/README.md`.
 
 ## 설치
 
 ```bash
 uv venv --python 3.12 && source .venv/bin/activate
-uv pip install -e ".[dev]"        # persistence + llm + mcp + 검사 도구
+uv pip install -e ".[dev]"   # persistence·llm·mcp·sources·ui·render·api + 검사 도구
 pytest -q && lint-imports && ruff check src tests
 ```
 
-임베딩 모델까지 쓰려면 `uv pip install -e ".[adapters]"` (torch 포함, 무겁다).
+임베딩 모델까지 쓰려면 `uv pip install -e ".[adapters]"` (sentence-transformers·torch, 무겁다).
+macOS 와 WSL 은 `.venv` 를 따로 만든다. `.env` 는 `.env.example` 을 복사해 권한 600 으로 둔다(없으면 기동 거부).
 
-## Step 3 (현재)
+## 구성
 
-- `adapters/llm/openai_compat.py` — OpenAI 호환 `/v1/chat/completions` (mlx-lm · OpenAI 공용).
-  재시도·타임아웃·`json_mode` 폴백. provider가 로컬인데 base_url이 루프백이 아니면 기동 거부(보안 H).
-- `adapters/llm/prompts/*.md` — 시스템·섹션 프롬프트. `PromptLibraryPort`로 주입한다.
-- `composition.py` — `build_llm(stage=)` · `build_prompt_library()` · `build_precheck()`.
-- `entrypoints/mcp/` — stdio MCP 서버. 읽기 도구 2개(`rra_precheck`, `rra_search`). `docs/mcp.md`.
+| 계층 | 위치 | 내용 |
+|---|---|---|
+| domain | `src/rra/domain/` | 모델(ProposalRequest·Draft·RunState…)·규칙(근거 검증·lint·유사과제 판정·Agent 정책). pydantic·표준 라이브러리만 |
+| application | `src/rra/application/` | 포트(`typing.Protocol`, 전부 비동기 저장소·임베딩·TaskRunner·Renderer…)·유즈케이스(ingest·precheck·generate·list_missing·diagnostics·purge_runs)·서비스(RunManager·ProposalAssistant) |
+| adapters | `src/rra/adapters/` | SQLite FTS5+sqlite-vec, sentence-transformers, OpenAI 호환 LLM, 자료원(OpenAlex·알리오·ScienceON·NTIS), runs 파일 저장소·락·asyncio 실행기, logging(manifest), rendering(HWPX), security(ASGI 미들웨어) |
+| entrypoints | `src/rra/entrypoints/` | `cli.py`, `mcp/`, `ui/`(Streamlit), `api/`(FastAPI). 유즈케이스 호출만 |
+| 조립 | `src/rra/composition.py`, `src/rra/config_loader.py` | `build_*` 만 / yaml·환경변수 병합 |
+
+`import-linter` 계약 8건이 계층 방향을 강제한다 (`pyproject.toml`).
+
+## 실행
 
 ```bash
-rra precheck --current-state "..." --root-cause "..." --limitation "..." --goal "..."
-rra search "궤도 틀림 자동 감지" -k 5
-rra llm-check --stage compose     # mlx-lm 왕복 1회
-rra mcp                           # = python -m rra.entrypoints.mcp.server
+rra precheck --current-state "..." --root-cause "..." --limitation "..." --goal "..."   # 유사과제 사전 점검
+rra search "궤도 틀림 자동 감지" -k 5                                                # 하이브리드 검색
+rra llm-check --stage compose                                                        # mlx-lm 왕복 1회 + served_model 확인
+rra ingest --source openalex,alio,alio_summary [--query ...]                          # 수집 → 적재
+rra sources check                                                                    # ScienceON·NTIS 키 유무(값 미표시)·왕복
+rra alio catalog [--fetch] | rra alio missing | rra alio status                       # 알리오 카탈로그·filedrop
+rra generate --current-state ... --goal ... [--file in.yaml] [--resume RUN] [--reuse-input RUN]
+rra runs list | rra runs show RUN [--json]
+rra runs confirm RUN --task-type applied --utilization software,manual [--strategy D1-1]
+rra runs render RUN --out out/proposal.hwpx [--proposer-name ... --proposer-phone ...]  # HWPX (제안자 정보는 파일에만)
+rra runs purge [--dry-run]                                                           # 보존기간(180일) 지난 run 삭제
+rra ui  [--port 8501]      # Streamlit, 127.0.0.1, RRA_API_TOKEN 필요
+rra api [--port 8000]      # REST, 127.0.0.1, RRA_API_TOKEN 필요 (deploy/README.md)
+rra mcp [--enable-generate]  # MCP stdio — 읽기 2개 / 쓰기 포함 6개 (docs/mcp.md)
 ```
 
-## 다음 단계
+LLM 은 `mlx_lm.server --host 127.0.0.1 --port 8080` (OpenAI 호환, `config/llm.yaml`). 테스트는 LLM·임베딩 없이
+`tests/fakes.py` 로 돈다. 실응답 fixture 는 `tests/fixtures/`, 녹화 도구는 `tests/tools/`.
 
-- Step 4: `adapters/sources/openalex.py` (허용목록 httpx 클라이언트), `ingest_sources`
-- Step 5: `adapters/sources/alio/` (catalog · filedrop · sandbox 파서)
-- Step 6: `RunManager` + MCP `rra_generate` · `rra_get_draft`
+## 현재 상태 (2026-10-23)
+
+- Step 1~8 완료, Step 9 는 run_log·보존기간 삭제까지(critique·예산표·매트릭스 후속), Step 10 은 REST·보안·launchd 까지
+  (MCP streamable-http·Tailscale 공개 후속). 구조 검토 6항목 반영 — `docs/architecture.md` §4.3·§4.4·§10.
+- 대기(사람 입력): ScienceON·NTIS 키, 알리오 원문 파일·카탈로그 CSV, 실물 양식 `config/templates/proposal_korail.hwpx`,
+  `korail_strategy.yaml` 전략체계, 자체과제 내역 파일·연구과제 공고문(적재 예정).
