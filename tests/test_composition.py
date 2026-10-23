@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from rra.adapters.llm.errors import InsecureLLMEndpoint
-from rra.composition import build_llm, build_prompt_library, llm_config
+from rra.composition import build_llm, build_prompt_library
 from rra.settings import Settings
 
 ROOT_CONFIG = Path(__file__).parents[1] / "config"
@@ -33,39 +33,6 @@ def config_dir(tmp_path):
 
 def settings_for(config_dir, **kw):
     return Settings(_env_file=None, config_dir=config_dir, **kw)
-
-
-def test_stage_table_drives_model_and_max_tokens(config_dir):
-    s = settings_for(config_dir)
-    assert llm_config(s, "compose")["model"] == "local-14b"
-    assert llm_config(s, "compose")["max_tokens"] == 2000
-    assert llm_config(s, "critique")["model"] == "local-7b"
-    assert llm_config(s, "critique")["max_tokens"] == 800
-
-
-def test_unknown_stage_is_an_error(config_dir):
-    with pytest.raises(KeyError, match="expand"):
-        llm_config(settings_for(config_dir), "expand")
-
-
-def test_limits_and_policies_come_from_yaml(config_dir):
-    cfg = llm_config(settings_for(config_dir))
-    assert cfg["max_tokens_cap"] == 1500
-    assert cfg["prompt_max_chars"] == 900
-    assert cfg["json_mode"] == "prompt"
-    assert cfg["retry"] == {"attempts": 5, "backoff_sec": 0.25, "max_backoff_sec": 2.0}
-    assert cfg["timeout"]["read"] == 2.0
-
-
-def test_env_overrides_yaml_only_when_set(config_dir, monkeypatch):
-    assert llm_config(settings_for(config_dir))["base_url"] == "http://127.0.0.1:8080/v1"
-    monkeypatch.setenv("RRA_LLM_BASE_URL", "http://localhost:9999/v1")
-    assert llm_config(settings_for(config_dir))["base_url"] == "http://localhost:9999/v1"
-
-
-def test_missing_llm_yaml_reports_the_stage(tmp_path):
-    with pytest.raises(KeyError):
-        llm_config(settings_for(tmp_path), "compose")
 
 
 def test_build_llm_binds_stage_settings(config_dir):
@@ -230,22 +197,8 @@ def test_own_unit_from_sources_yaml_reaches_precheck_and_ingest(tmp_path):
     assert build_ingest(settings, sources=[], repo=repo).own == own
 
 
-def test_own_unit_absent_means_no_own_tier(tmp_path):
-    from rra.composition import own_unit
-
-    (tmp_path / "sources.yaml").write_text("institutions: []\n", encoding="utf-8")
-    assert own_unit(settings_for(tmp_path)) is None
-
-
-def test_shipped_config_lists_own_departments():
-    from rra.composition import own_unit
-
-    own = own_unit(settings_for(ROOT_CONFIG))
-    assert {"경영연구처", "기술연구처"} <= own.departments
-
-
-async def test_fetch_alio_catalog_goes_through_guarded_client(alio_config):
-    from rra.composition import fetch_alio_catalog
+async def test_alio_catalog_fetcher_goes_through_guarded_client(alio_config):
+    from rra.composition import build_alio_catalog_fetcher
 
     seen = []
 
@@ -253,44 +206,25 @@ async def test_fetch_alio_catalog_goes_through_guarded_client(alio_config):
         seen.append(str(request.url))
         return httpx.Response(200, content=b"a,b\n", headers={"content-type": "text/csv"})
 
-    path = await fetch_alio_catalog(
+    fetcher = build_alio_catalog_fetcher(
         settings_for(alio_config),
         transport=httpx.MockTransport(handler),
         resolver=lambda host: False,  # DNS 없이
     )
+    assert fetcher.client.allowed == {"www.data.go.kr"} and fetcher.max_bytes == 1024 * 1024
+    path = await fetcher.fetch()
     assert seen == ["https://www.data.go.kr/f.csv"]
     assert path.parent == alio_config / "cat" and path.read_bytes() == b"a,b\n"
 
 
-async def test_fetch_alio_catalog_requires_url(tmp_path):
-    from rra.composition import fetch_alio_catalog
+def test_alio_catalog_fetcher_requires_url(tmp_path):
+    from rra.composition import build_alio_catalog_fetcher
 
     with pytest.raises(ValueError, match="fetch_url"):
-        await fetch_alio_catalog(settings_for(tmp_path))
-
-
-def test_project_config_allows_data_go_kr_for_catalog():
-    from rra.composition import read_config
-
-    assert (
-        "www.data.go.kr"
-        in read_config("security.yaml", Settings(_env_file=None))["allowed_domains"]
-    )
+        build_alio_catalog_fetcher(settings_for(tmp_path))
 
 
 # ── generate · RunManager ─────────────────────────────────
-def test_lint_rules_and_section_order_come_from_template():
-    from rra.composition import lint_rules
-
-    rules = lint_rules(Settings(_env_file=None))
-    assert rules.template == "korail_rnd_proposal_v2024"
-    assert rules.order[:3] == ["title", "task_type", "policy_importance"]
-    assert rules.order[-1] == "overlap_review"
-    assert set(rules.evidence_required) == {"tech_importance", "overlap_review"}
-    assert rules.evidence_forbidden == ["policy_importance"]
-    assert set(rules.choices) == {"task_type", "utilization", "strategy_alignment"}
-    # 입력·목록이 비면 빈칸이 정상인 섹션은 필수가 아니다
-    assert not {"policy_importance", "strategy_alignment"} & set(rules.required_sections)
 
 
 def test_strategy_catalog_template_is_empty_until_filled():
@@ -302,28 +236,6 @@ def test_strategy_catalog_template_is_empty_until_filled():
     assert gen.check_overlap and gen.section_keys == gen.rules.order
     assert gen.choice_options()["strategy_alignment"] == {}
     assert list(gen.choice_options()["task_type"]) == ["basic", "applied", "development"]
-
-
-def test_strategy_catalog_rejects_bad_or_duplicate_ids(tmp_path):
-    from pydantic import ValidationError
-
-    from rra.composition import strategy_catalog
-
-    (tmp_path / "templates").mkdir()
-    path = tmp_path / "templates" / "korail_strategy.yaml"
-    settings = Settings(_env_file=None, config_dir=tmp_path)
-    path.write_text(
-        "directions:\n  - id: D1\n    name: 안전\n    tasks:\n"
-        "      - {id: D1-1, name: 예방정비}\n      - {id: D1-1, name: 중복}\n",
-        encoding="utf-8",
-    )
-    with pytest.raises(ValidationError):
-        strategy_catalog(settings)
-    path.write_text(
-        "directions:\n  - id: D1\n    name: 안전\n    tasks:\n      - {id: D1-1, name: 예방정비}\n",
-        encoding="utf-8",
-    )
-    assert strategy_catalog(settings).options() == {"D1-1": "안전 > 예방정비"}
 
 
 def test_every_section_has_a_prompt():
@@ -355,57 +267,6 @@ def test_run_manager_wiring_is_lazy(tmp_path, monkeypatch):
     assert mgr.generate.section_keys[0] == "title"
 
 
-# ── served_model (manifest 표시용 모델명) ─────────────────
-class ListingLLM:
-    def __init__(self, listed=None, error=None):
-        self.listed, self.error = listed or [], error
-
-    async def list_models(self):
-        if self.error:
-            raise self.error
-        return self.listed
-
-
-def test_served_model_is_optional(config_dir):
-    assert llm_config(settings_for(config_dir), "compose")["served_model"] is None
-
-
-async def test_served_model_listed_means_no_warning():
-    from rra.composition import check_served_model
-
-    cfg = {"served_model": "mlx-community/Qwen2.5-3B-Instruct-4bit"}
-    llm = ListingLLM(["mlx-community/Qwen2.5-3B-Instruct-4bit", "other/model"])
-    assert await check_served_model(cfg, llm) is None
-
-
-async def test_typo_in_served_model_warns_with_the_list():
-    from rra.composition import check_served_model
-
-    cfg = {"served_model": "mlx-community/Qwen2.5-3b-Instruct-4bit"}  # 대소문자 오타
-    warning = await check_served_model(cfg, ListingLLM(["mlx-community/Qwen2.5-3B-Instruct-4bit"]))
-    assert "목록에 없습니다" in warning and "Qwen2.5-3B" in warning
-
-
-async def test_local_path_matches_the_resolved_path(tmp_path, monkeypatch):
-    from rra.composition import check_served_model
-
-    model_dir = tmp_path / "models" / "qwen"
-    model_dir.mkdir(parents=True)
-    monkeypatch.chdir(tmp_path)
-    cfg = {"served_model": "models/qwen"}  # 상대경로로 선언, 서버는 절대경로로 싣는다
-    assert await check_served_model(cfg, ListingLLM([str(model_dir.resolve())])) is None
-
-
-async def test_listing_failure_and_missing_key_only_warn():
-    from rra.adapters.llm import LLMError
-    from rra.composition import check_served_model
-
-    failed = await check_served_model({"served_model": "x"}, ListingLLM(error=LLMError("down")))
-    assert "조회 실패 (LLMError)" in failed and "down" not in failed
-    assert "served_model 이 없습니다" in await check_served_model({}, ListingLLM())
-    assert await check_served_model({"served_model": "x"}, object()) is None  # 목록 기능 없는 LLM
-
-
 # ── Step 7: 키 관리·ScienceON·NTIS 조립 ─────────────────
 SCIENCEON_KEYS = {
     "scienceon_client_id": "CID-1",
@@ -431,13 +292,6 @@ def test_missing_credentials_name_variables_not_values():
     msg = str(info.value)
     assert "RRA_SCIENCEON_CLIENT_ID" in msg and "RRA_SCIENCEON_MAC" in msg
     assert "RRA_SCIENCEON_KEY" not in msg and "0123456789abcdef" not in msg
-
-
-def test_blank_env_values_count_as_missing():
-    from rra.composition import credential_status
-
-    assert credential_status(project_settings(ntis_key="  "), "ntis") == {"RRA_NTIS_KEY": False}
-    assert credential_status(project_settings(ntis_key="k"), "ntis") == {"RRA_NTIS_KEY": True}
 
 
 def test_scienceon_wiring_uses_rate_limit_policy():
@@ -479,8 +333,8 @@ def test_alio_still_reads_institutions_after_move(tmp_path):
     assert institutions(settings_for(tmp_path))[0]["tag"] == "korail"
 
 
-async def test_check_sources_reports_without_values():
-    from rra.composition import check_sources
+async def test_sources_check_wiring_reports_without_values():
+    from rra.composition import build_sources_check
 
     def handler(request):
         if request.url.path == "/tokenrequest.do":
@@ -492,12 +346,15 @@ async def test_check_sources_reports_without_values():
         )
 
     settings = project_settings(**SCIENCEON_KEYS)
-    rows = await check_sources(
+    check = build_sources_check(
         settings,
         ["scienceon", "ntis"],
         transport=httpx.MockTransport(handler),
         resolver=lambda h: False,
     )
+    sci_t, ntis_t = check.targets
+    assert sci_t.ready and not ntis_t.ready and ntis_t.connect is None  # 키 없으면 연결 공장 없음
+    rows = await check()
     sci, ntis = rows
     assert sci["roundtrip"] == "ok" and sci["result"] == {
         "auth": "ok",
@@ -510,27 +367,22 @@ async def test_check_sources_reports_without_values():
     assert "CID-1" not in dumped and "0123456789abcdef" not in dumped and "AA-BB-CC" not in dumped
 
 
-def test_keyword_rule_from_overlap_yaml_reaches_precheck_and_generate(tmp_path):
-    from rra.composition import keyword_rule
-    from rra.domain.rules.keywords import DEFAULT_GENERIC_TERMS
+def test_sources_check_rejects_unknown_source():
+    from rra.composition import build_sources_check
 
-    (tmp_path / "overlap.yaml").write_text(
-        "keywords:\n  min_hits: 3\n  generic_terms: [안전성을, ' Data ']\n", encoding="utf-8"
-    )
-    rule = keyword_rule(settings_for(tmp_path))
-    assert rule.min_hits == 3
-    assert {"안전성", "data"} <= rule.generic_terms and DEFAULT_GENERIC_TERMS <= rule.generic_terms
+    with pytest.raises(KeyError, match="openalex"):
+        build_sources_check(project_settings(), ["openalex"])
 
 
-def test_keyword_rule_defaults_without_overlap_yaml(tmp_path):
-    from rra.composition import keyword_rule
-    from rra.domain.rules.keywords import KeywordRule
+def test_served_model_check_is_wired_from_llm_yaml(config_dir):
+    from rra.composition import build_served_model_check
+    from tests.fakes import ListingLLM
 
-    assert keyword_rule(settings_for(tmp_path)) == KeywordRule()
+    (config_dir / "llm.yaml").write_text(YAML + "served_model: a/b\n", encoding="utf-8")
+    settings = settings_for(config_dir)
+    check = build_served_model_check(settings, ListingLLM(["a/b"]))
+    import asyncio
 
-
-def test_shipped_overlap_yaml_loads():
-    from rra.composition import keyword_rule, load_settings
-
-    rule = keyword_rule(load_settings())
-    assert rule.min_hits == 2 and "안전" in rule.generic_terms
+    assert asyncio.run(check) is None
+    warned = asyncio.run(build_served_model_check(settings, ListingLLM(["x/y"])))
+    assert "목록에 없습니다" in warned

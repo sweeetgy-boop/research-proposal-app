@@ -28,7 +28,7 @@ from pydantic import ValidationError
 
 from rra.adapters.sources._orgs import org_tags
 from rra.adapters.sources._sandbox import SandboxError, SandboxLimits, run_parser
-from rra.adapters.sources.alio._inbox import Inbox, error_name
+from rra.adapters.sources.alio._inbox import Inbox, error_name, inbox_status
 from rra.adapters.sources.alio._models import TextLines
 from rra.adapters.sources.alio.filecheck import FileRejected, open_validated
 from rra.application.ports import CatalogPort
@@ -389,6 +389,10 @@ class AlioSummarySource:
 
     async def aclose(self) -> None:
         return None
+
+    def inbox_status(self) -> dict[str, int]:
+        """InboxSource: 대기·완료·격리 건수 (`rra alio status`)."""
+        return inbox_status(self.inbox)
 
     async def search(self, query: str | None, limit: int) -> list[dict[str, Any]]:
         """query 는 쓰지 않는다 (inbox 전체가 대상). 파일은 순차 처리 (동시성 1)."""

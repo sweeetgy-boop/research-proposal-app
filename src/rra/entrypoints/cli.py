@@ -107,7 +107,7 @@ def cmd_llm_check(args: argparse.Namespace) -> int:
     from rra.composition import (
         build_llm,
         build_prompt_library,
-        check_served_model,
+        build_served_model_check,
         llm_config,
         load_settings,
     )
@@ -121,7 +121,7 @@ def cmd_llm_check(args: argparse.Namespace) -> int:
     async def run() -> str:
         llm = build_llm(settings, stage=args.stage)
         try:
-            if warning := await check_served_model(cfg, llm):
+            if warning := await build_served_model_check(settings, llm, stage=args.stage):
                 _eprint(f"경고: {_safe(warning, 500)}")
             system = build_prompt_library(settings).system() if args.system else None
             return await llm.complete(args.prompt, system=system, json_mode=args.json_mode)
@@ -195,11 +195,11 @@ def _warning_line(w) -> str:
 
 # ── alio ──────────────────────────────────────────────────
 def cmd_alio_catalog(args: argparse.Namespace) -> int:
-    from rra.composition import build_alio_catalog, fetch_alio_catalog, load_settings
+    from rra.composition import build_alio_catalog, build_alio_catalog_fetcher, load_settings
 
     settings = load_settings()
     if args.fetch:
-        saved = asyncio.run(fetch_alio_catalog(settings))
+        saved = asyncio.run(build_alio_catalog_fetcher(settings).fetch())
         print(f"카탈로그 저장: {saved.name}")
     entries = asyncio.run(build_alio_catalog(settings).entries())
     counts: dict[str, int] = {}
@@ -247,14 +247,13 @@ def _print_entries(entries) -> None:
 
 
 def cmd_alio_status(args: argparse.Namespace) -> int:
-    from rra.composition import alio_inbox_status, alio_summary_inbox_status, load_settings
+    from rra.composition import build_sources, load_settings
 
-    settings = load_settings()
-    for label, st in (
-        ("알리오 inbox", alio_inbox_status(settings)),
-        ("알리오 요약 inbox", alio_summary_inbox_status(settings)),
-    ):
-        print(f"[{label}] 대기 {st['pending']} / 완료 {st['done']} / 격리 {st['quarantine']}")
+    labels = {"alio": "알리오 inbox", "alio_summary": "알리오 요약 inbox"}
+    for src in build_sources(list(labels), load_settings()):
+        st = src.inbox_status()  # InboxSource
+        counts = f"대기 {st['pending']} / 완료 {st['done']} / 격리 {st['quarantine']}"
+        print(f"[{labels[src.source]}] {counts}")
     return EXIT_OK
 
 
@@ -482,10 +481,10 @@ def cmd_runs_confirm(args: argparse.Namespace) -> int:
 
 # ── sources check ─────────────────────────────────────────
 def cmd_sources_check(args: argparse.Namespace) -> int:
-    from rra.composition import KEYED_SOURCES, check_sources, load_settings
+    from rra.composition import KEYED_SOURCES, build_sources_check, load_settings
 
     names = [n.strip() for n in args.source.split(",") if n.strip()] if args.source else None
-    results = asyncio.run(check_sources(load_settings(), names or KEYED_SOURCES))
+    results = asyncio.run(build_sources_check(load_settings(), names or KEYED_SOURCES)())
     if args.json:
         print(json.dumps(results, ensure_ascii=False, indent=2))
     else:

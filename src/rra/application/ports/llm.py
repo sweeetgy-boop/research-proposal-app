@@ -12,3 +12,9 @@ class LLMPort(Protocol):
         max_tokens: int | None = None,
         json_mode: bool = False,
     ) -> str: ...
+
+
+class ModelListingPort(Protocol):
+    """진단용 (선택): 서버가 제공하는 모델 id 목록. LLM 어댑터가 함께 구현할 수 있다."""
+
+    async def list_models(self) -> list[str]: ...

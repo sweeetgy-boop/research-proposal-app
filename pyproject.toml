@@ -57,20 +57,22 @@ name = "domain is pure"
 type = "forbidden"
 source_modules = ["rra.domain"]
 forbidden_modules = ["rra.application", "rra.adapters", "rra.entrypoints", "rra.composition",
+                     "rra.config_loader", "rra.settings",
                      "httpx", "sqlite3", "openai", "yaml", "fastapi", "mcp", "streamlit"]
 
 [[tool.importlinter.contracts]]
 name = "application depends only on domain"
 type = "forbidden"
 source_modules = ["rra.application"]
-forbidden_modules = ["rra.adapters", "rra.entrypoints", "rra.composition",
-                     "httpx", "sqlite3", "openai", "fastapi", "mcp", "streamlit"]
+forbidden_modules = ["rra.adapters", "rra.entrypoints", "rra.composition", "rra.config_loader",
+                     "rra.settings", "httpx", "sqlite3", "openai", "fastapi", "mcp", "streamlit"]
 
 [[tool.importlinter.contracts]]
 name = "adapters never import usecases or entrypoints"
 type = "forbidden"
 source_modules = ["rra.adapters"]
-forbidden_modules = ["rra.application.usecases", "rra.entrypoints", "rra.composition"]
+forbidden_modules = ["rra.application.usecases", "rra.application.services", "rra.entrypoints",
+                     "rra.composition", "rra.config_loader", "rra.settings"]
 
 # 진입점은 어댑터를 직접 고르지 않는다. 조립은 composition 만 한다.
 # (composition 을 거치는 간접 경로는 허용해야 하므로 allow_indirect_imports)
@@ -80,6 +82,14 @@ type = "forbidden"
 source_modules = ["rra.entrypoints"]
 forbidden_modules = ["rra.adapters"]
 allow_indirect_imports = true
+
+# 설정 로더는 yaml·Settings·domain 값 객체만 안다. 어댑터·유스케이스·진입점을 만들지 않는다.
+[[tool.importlinter.contracts]]
+name = "config_loader knows only settings and domain"
+type = "forbidden"
+source_modules = ["rra.config_loader"]
+forbidden_modules = ["rra.application", "rra.adapters", "rra.entrypoints", "rra.composition",
+                     "httpx", "sqlite3", "streamlit", "mcp", "fastapi"]
 
 # MCP 권한 경계: 읽기 도구는 생성(쓰기) 경로에 닿지 못한다.
 [[tool.importlinter.contracts]]

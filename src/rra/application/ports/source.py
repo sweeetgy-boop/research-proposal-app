@@ -32,3 +32,23 @@ class WarningSource(Protocol):
     """
 
     def ingest_warnings(self, doc: Document) -> list[tuple[str, str]]: ...
+
+
+@runtime_checkable
+class ProbingSource(Protocol):
+    """연결 확인이 가능한 소스 (선택). `rra sources check` 가 쓴다. 결과에 비밀·본문은 없다."""
+
+    source: str
+
+    async def probe(self) -> dict[str, Any]: ...
+
+    async def aclose(self) -> None: ...
+
+
+@runtime_checkable
+class InboxSource(Protocol):
+    """파일 투입함(inbox)을 가진 소스 (선택). 대기·완료·격리 건수를 돌려준다."""
+
+    source: str
+
+    def inbox_status(self) -> dict[str, int]: ...

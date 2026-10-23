@@ -164,6 +164,21 @@ class FileCatalog:
         return list(seen.values())
 
 
+class CatalogFetcher:
+    """sources.yaml 의 fetch_url 을 GuardedClient 로 받아 catalog_dir 에 저장한다 (보안 C·B).
+
+    조립(composition)이 만들고 CLI `rra alio catalog --fetch` 가 fetch() 한 번 부른다.
+    """
+
+    def __init__(self, client: GuardedClient, url: str, catalog_dir: Path, *, max_bytes: int):
+        self.client, self.url = client, url
+        self.catalog_dir, self.max_bytes = catalog_dir, max_bytes
+
+    async def fetch(self) -> Path:
+        async with self.client as client:
+            return await fetch_catalog(client, self.url, self.catalog_dir, max_bytes=self.max_bytes)
+
+
 async def fetch_catalog(
     client: GuardedClient, url: str, catalog_dir: Path, *, max_bytes: int
 ) -> Path:

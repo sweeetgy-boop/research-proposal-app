@@ -340,14 +340,15 @@ def test_alio_catalog_summary_and_fetch(monkeypatch, capsys, tmp_path):
 
     fetched = []
 
-    async def fake_fetch(settings):
-        fetched.append(True)
-        return tmp_path / "abc.csv"
+    class FakeFetcher:
+        async def fetch(self):
+            fetched.append(True)
+            return tmp_path / "abc.csv"
 
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)
     catalog = FakeCatalog(_alio_entries())
     monkeypatch.setattr("rra.composition.build_alio_catalog", lambda s: catalog)
-    monkeypatch.setattr("rra.composition.fetch_alio_catalog", fake_fetch)
+    monkeypatch.setattr("rra.composition.build_alio_catalog_fetcher", lambda s: FakeFetcher())
     assert cli.main(["alio", "catalog"]) == cli.EXIT_OK and not fetched
     assert "대상 기관 2건 (korail 1건, kr 1건)" in capsys.readouterr().out
     cli.main(["alio", "catalog", "--fetch"])
@@ -355,14 +356,20 @@ def test_alio_catalog_summary_and_fetch(monkeypatch, capsys, tmp_path):
 
 
 def test_alio_status(monkeypatch, capsys):
+    class InboxOnly:  # InboxSource 만 구현
+        def __init__(self, source, status):
+            self.source, self._status = source, status
+
+        def inbox_status(self):
+            return dict(self._status)
+
+    boxes = {
+        "alio": InboxOnly("alio", {"pending": 3, "done": 5, "quarantine": 1}),
+        "alio_summary": InboxOnly("alio_summary", {"pending": 0, "done": 2, "quarantine": 0}),
+    }
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)
     monkeypatch.setattr(
-        "rra.composition.alio_inbox_status",
-        lambda s: {"pending": 3, "done": 5, "quarantine": 1},
-    )
-    monkeypatch.setattr(
-        "rra.composition.alio_summary_inbox_status",
-        lambda s: {"pending": 0, "done": 2, "quarantine": 0},
+        "rra.composition.build_sources", lambda names, settings: [boxes[n] for n in names]
     )
     assert cli.main(["alio", "status"]) == cli.EXIT_OK
     out = capsys.readouterr().out
@@ -673,7 +680,7 @@ def test_resume_and_reuse_input_are_exclusive(capsys):
 
 # ── sources check · 키 없는 ingest ─────────────────────────
 def test_sources_check_prints_presence_only(monkeypatch, capsys):
-    async def fake_check(settings, names):
+    async def fake_run():
         return [
             {
                 "source": "ntis",
@@ -693,7 +700,7 @@ def test_sources_check_prints_presence_only(monkeypatch, capsys):
         ]
 
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)
-    monkeypatch.setattr("rra.composition.check_sources", fake_check)
+    monkeypatch.setattr("rra.composition.build_sources_check", lambda settings, names: fake_run)
     assert cli.main(["sources", "check"]) == cli.EXIT_ERROR  # 하나라도 ok 가 아니면 1
     out = capsys.readouterr().out
     assert "RRA_NTIS_KEY=있음" in out and "RRA_SCIENCEON_MAC=없음" in out

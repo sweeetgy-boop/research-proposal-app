@@ -272,3 +272,32 @@ class FakeSlot:
                 yield
             finally:
                 self.active -= 1
+
+
+class ListingLLM(FakeLLM):
+    """ModelListingPort 를 함께 구현한 LLM fake. error 를 주면 list_models 가 그 예외를 던진다."""
+
+    def __init__(self, listed=None, error=None, **kw):
+        super().__init__(**kw)
+        self.listed, self.error = list(listed or []), error
+
+    async def list_models(self):
+        if self.error:
+            raise self.error
+        return list(self.listed)
+
+
+class FakeProbingSource:
+    """ProbingSource fake. probe 결과 또는 예외를 돌려주고 aclose 호출을 기록한다."""
+
+    def __init__(self, source: str, result=None, *, error: Exception | None = None):
+        self.source, self.result, self.error = source, result or {}, error
+        self.closed = False
+
+    async def probe(self):
+        if self.error:
+            raise self.error
+        return dict(self.result)
+
+    async def aclose(self):
+        self.closed = True
