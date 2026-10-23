@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     kipris_key: SecretStr | None = None
     ntis_key: SecretStr | None = None  # NTIS rndopen apprvKey (과제검색 활용신청)
     api_token: SecretStr | None = None
+    # REST API 바인딩 (G). 기본 루프백. 외부 공개는 HTTPS 역프록시(Tailscale·Cloudflare) 뒤에서만.
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
 
     deploy_mode: str = "local"
 

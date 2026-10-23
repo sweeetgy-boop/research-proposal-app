@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
@@ -21,19 +21,26 @@ def missing_required_slots(values: Mapping[str, object]) -> list[str]:
     return [k for k in REQUIRED_SLOTS if not str(values.get(k) or "").strip()]
 
 
-def validation_message(exc: ValidationError, labels: Mapping[str, str] | None = None) -> str:
-    """ValidationError → 한 줄 사용자 메시지. labels 로 슬롯 이름을 표시명으로 바꿀 수 있다.
+def validation_message(
+    exc: ValidationError | Iterable[Mapping[str, Any]], labels: Mapping[str, str] | None = None
+) -> str:
+    """ValidationError(또는 .errors() 형태의 dict 목록) → 한 줄 사용자 메시지.
 
-    필수 슬롯 누락은 어느 진입점에서든 같은 문구("필수 슬롯이 비었습니다: a, b")로 나온다.
+    labels 로 슬롯 이름을 표시명으로 바꿀 수 있다. 필수 슬롯 누락은 어느 진입점에서든 같은
+    문구("필수 슬롯이 비었습니다: a, b")로 나온다. loc 앞의 "body"(웹 프레임워크 접두)는 뗀다.
     """
     labels = labels or {}
     parts: list[str] = []
-    for err in exc.errors():
+    errors = exc.errors() if hasattr(exc, "errors") else list(exc)
+    for err in errors:
         if err["type"] == MISSING_SLOTS_ERROR:
             fields = [labels.get(f, f) for f in err.get("ctx", {}).get("fields", [])]
             parts.append(f"{MISSING_SLOTS_MESSAGE}: {', '.join(fields)}")
             continue
-        loc = ".".join(labels.get(str(p), str(p)) for p in err["loc"])
+        loc_parts = [str(p) for p in err.get("loc", ())]
+        if loc_parts and loc_parts[0] == "body":
+            loc_parts = loc_parts[1:]
+        loc = ".".join(labels.get(p, p) for p in loc_parts)
         msg = err["msg"].removeprefix("Value error, ")
         parts.append(f"{loc}: {msg}" if loc else msg)
     return "; ".join(parts)

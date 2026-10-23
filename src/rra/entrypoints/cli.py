@@ -577,6 +577,30 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 
 
 # ── ui ────────────────────────────────────────────────────
+def cmd_api(args: argparse.Namespace) -> int:
+    """REST API (uvicorn). 기본 127.0.0.1:8000. 토큰 없으면 기동 거부 (G)."""
+    import uvicorn
+
+    from rra.composition import ApiTokenMissing, build_api, load_settings
+
+    settings = load_settings()
+    host = args.host or settings.api_host
+    port = args.port or settings.api_port
+    try:
+        app = build_api(settings)
+    except ApiTokenMissing as exc:
+        _eprint(str(exc))
+        return EXIT_USAGE
+    if host not in ("127.0.0.1", "::1", "localhost"):
+        _eprint(
+            f"경고: {host} 에 바인딩합니다 — HTTPS 역프록시 뒤에서만 공개하십시오. deploy/README.md"
+        )
+    uvicorn.run(
+        app, host=host, port=port, log_level="warning", access_log=False, server_header=False
+    )
+    return EXIT_OK
+
+
 def cmd_ui(args: argparse.Namespace) -> int:
     from rra.entrypoints.ui.__main__ import main as ui_main
 
@@ -662,6 +686,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     gen.add_argument("--json", action="store_true", help="JSON 으로 출력")
     gen.set_defaults(handler=cmd_generate)
+
+    api = sub.add_parser("api", help="REST API (기본 127.0.0.1:8000, RRA_API_TOKEN 필요)")
+    api.add_argument("--port", type=int, default=None, help="기본 RRA_API_PORT 또는 8000")
+    api.add_argument("--host", default=None, help="기본 RRA_API_HOST 또는 127.0.0.1")
+    api.set_defaults(handler=cmd_api)
 
     ui = sub.add_parser("ui", help="Streamlit 화면 (127.0.0.1 전용, RRA_API_TOKEN 필요)")
     ui.add_argument("--port", type=int, default=8501)

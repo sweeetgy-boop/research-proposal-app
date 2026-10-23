@@ -19,7 +19,7 @@ mcp = ["mcp>=2.2"]
 render = ["python-hwpx>=6.8", "defusedxml>=0.7"]
 adapters = ["research-proposal-app[persistence,embedding,sources,llm]"]
 api = ["fastapi>=0.111", "uvicorn>=0.30"]
-dev = ["research-proposal-app[persistence,llm,mcp,sources,ui,render]", "pytest>=8", "pytest-asyncio>=0.23",
+dev = ["research-proposal-app[persistence,llm,mcp,sources,ui,render,api]", "pytest>=8", "pytest-asyncio>=0.23",
        "ruff>=0.5", "import-linter>=2.0", "bandit>=1.7", "pip-audit>=2.7", "pre-commit>=3.7"]
 ui = ["streamlit>=1.40"]
 
@@ -91,6 +91,14 @@ type = "forbidden"
 source_modules = ["rra.config_loader"]
 forbidden_modules = ["rra.application", "rra.adapters", "rra.entrypoints", "rra.composition",
                      "httpx", "sqlite3", "streamlit", "mcp", "fastapi"]
+
+# REST 진입점은 어댑터를 직접 고르지 않고(composition 경유) 다른 진입점(ui·cli·mcp)을 빌리지 않는다.
+[[tool.importlinter.contracts]]
+name = "api reaches adapters only through composition and never other entrypoints"
+type = "forbidden"
+source_modules = ["rra.entrypoints.api"]
+forbidden_modules = ["rra.adapters", "rra.entrypoints.ui", "rra.entrypoints.cli", "rra.entrypoints.mcp"]
+allow_indirect_imports = true
 
 # MCP 권한 경계: 읽기 도구는 생성(쓰기) 경로에 닿지 못한다.
 [[tool.importlinter.contracts]]

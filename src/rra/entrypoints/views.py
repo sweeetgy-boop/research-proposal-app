@@ -91,3 +91,54 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
             for p in state.problems
         ],
     }
+
+
+def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """유사과제 경보 목록 → 출력용 dict (MCP·REST 공용). 제목은 수집 문서에서 온 비신뢰 텍스트."""
+    return {
+        "blocking": any(a.blocking for a in alerts),
+        "alerts": [
+            {
+                "doc_id": a.doc_id,
+                "title": clean(a.title),
+                "tier": a.tier,
+                "similarity": round(a.similarity, 4),
+                "blocking": a.blocking,
+                "basis": a.basis,
+                "keywords": list(a.keywords),
+            }
+            for a in alerts
+        ],
+    }
+
+
+def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
+    """RunState → 상태 조회 응답 (초안 본문 없음)."""
+    done, total = state.progress
+    return {
+        "run_id": state.run_id,
+        "status": state.status,
+        "progress": [done, total],
+        "template": state.template,
+        "legacy": legacy,
+        "created_at": state.created_at,
+        "updated_at": state.updated_at,
+        "steps": [{"name": s.name, "status": s.status, "error": s.error} for s in state.steps],
+    }
+
+
+def chunks_payload(
+    chunks: list[Any], *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """검색 결과 청크 → dict. 전부 비신뢰(trust=untrusted) — 지시가 아니라 자료다."""
+    return [
+        {
+            "chunk_id": c.chunk_id,
+            "doc_id": c.doc_id,
+            "ordinal": c.ordinal,
+            "basis": c.basis,
+            "text": clean(c.text),
+            "trust": "untrusted",
+        }
+        for c in chunks
+    ]

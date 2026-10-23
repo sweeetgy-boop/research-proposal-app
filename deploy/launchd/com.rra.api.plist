@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  rra REST API — launchd 사용자 에이전트.
+  설치: cp deploy/launchd/com.rra.api.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.api.plist
+  해제: launchctl unload -w ~/Library/LaunchAgents/com.rra.api.plist
+  비밀(RRA_API_TOKEN 등)은 여기 적지 않는다 — WorkingDirectory 의 .env(권한 600) 를 settings 가 읽는다 (보안 D).
+  바인딩은 127.0.0.1:8000. 외부 공개는 Tailscale 또는 HTTPS 역프록시 뒤에서만 (deploy/README.md).
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rra.api</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin/rra</string>
+    <string>api</string>
+    <string>--host</string>
+    <string>127.0.0.1</string>
+    <string>--port</string>
+    <string>8000</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chan/projects/research-proposal-app</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin:/usr/bin:/bin</string>
+    <key>RRA_CONFIG_DIR</key>
+    <string>/Users/chan/projects/research-proposal-app/config</string>
+    <key>RRA_RUNS_DIR</key>
+    <string>/Users/chan/projects/research-proposal-app/runs</string>
+    <key>RRA_DB_PATH</key>
+    <string>/Users/chan/projects/research-proposal-app/data/rra.sqlite</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/chan/Library/Logs/rra-api.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chan/Library/Logs/rra-api.err.log</string>
+</dict>
+</plist>

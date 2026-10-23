@@ -58,6 +58,7 @@ __all__ = [
     "build_alio_catalog_fetcher",
     "build_alio_source",
     "build_alio_summary_source",
+    "build_api",
     "build_assistant",
     "build_embedding",
     "build_generate",
@@ -461,6 +462,56 @@ def build_run_manager(
         max_queued=int(input_limits(settings).get("max_queued_runs", 3)),
         model=model,
         renderer=renderer or build_renderer(settings),
+    )
+
+
+# ── REST API (Step 10, 보안 G) ────────────────────────────
+class ApiTokenMissing(RuntimeError):
+    """RRA_API_TOKEN 이 없다 — 인증 없는 API 는 띄우지 않는다."""
+
+
+def api_middlewares(settings: Settings, token: str) -> list[tuple[type, dict[str, Any]]]:
+    """등록 순서(안쪽부터): 인증 → 본문 상한 → 헤더.
+
+    FastAPI.add_middleware 는 마지막에 넣은 것이 바깥이 된다.
+    → 헤더가 가장 바깥에서 모든 응답에 붙는다.
+    """
+    from rra.adapters.security import (
+        BodyLimitMiddleware,
+        SecurityHeadersMiddleware,
+        TokenAuthMiddleware,
+    )
+
+    limits = input_limits(settings)
+    outer_to_inner = [
+        (SecurityHeadersMiddleware, {}),
+        (BodyLimitMiddleware, {"max_bytes": int(limits.get("api_max_body_bytes", 64 * 1024))}),
+        (TokenAuthMiddleware, {"token": token}),
+    ]
+    return list(reversed(outer_to_inner))
+
+
+def build_api(settings: Settings | None = None, *, repo=None, llm=None, runner=None):
+    """FastAPI 앱. 토큰이 없으면 ApiTokenMissing (G: 인증 필수)."""
+    from rra.entrypoints.api import create_app
+
+    settings = settings or load_settings()
+    token = settings.api_token.get_secret_value().strip() if settings.api_token else ""
+    if not token:
+        raise ApiTokenMissing(
+            "RRA_API_TOKEN 이 없습니다 — .env 에 넣고 다시 실행하십시오 (보안 G)."
+        )
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    manager = build_run_manager(settings, repo=repo, llm=llm, runner=runner)
+    return create_app(
+        manager=manager,
+        precheck=build_precheck(settings, repo=repo),
+        repo=repo,
+        user=LOCAL_USER,
+        middlewares=api_middlewares(settings, token),
+        query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
+        on_shutdown=manager.generate.llm.aclose,
     )
 
 
