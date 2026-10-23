@@ -67,13 +67,13 @@ def test_fakes_still_satisfy_the_prompt_library_port():
     assert fake.system() and fake.section("background")
 
 
-def test_fakes_still_satisfy_the_embedding_port():
+async def test_fakes_still_satisfy_the_embedding_port():
     from tests.fakes import DeterministicEmbedding, FakeEmbedding
 
     for fake in (FakeEmbedding(), DeterministicEmbedding()):
         assert isinstance(fake.dim, int)
-        assert len(fake.embed(["a"])[0]) == fake.dim or fake.dim == 4
-        assert fake.embed_query(["a"])
+        assert len((await fake.embed(["a"]))[0]) == fake.dim or fake.dim == 4
+        assert await fake.embed_query(["a"])
 
 
 def test_openalex_declares_source_name():

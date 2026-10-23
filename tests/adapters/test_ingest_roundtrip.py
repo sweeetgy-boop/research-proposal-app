@@ -54,11 +54,11 @@ async def test_ingest_then_search_round_trip(source, repo):
     assert report.stored == n
     assert report.chunks >= n - 1  # 초록 없는 레코드는 청크가 없다
 
-    hits = repo.hybrid_search(["tamping degradation"], k=5)
+    hits = await repo.hybrid_search(["tamping degradation"], k=5)
     assert hits and hits[0].doc_id == "openalex:W2118179191"
     assert all(c.trust == "untrusted" for c in hits)
 
-    doc = repo.get_document("openalex:W2118179191")
+    doc = await repo.get_document("openalex:W2118179191")
     assert doc.title == "The effects of tamping on railway track geometry degradation"
     assert doc.doi == "10.1177/0954409713480439"
 
@@ -67,5 +67,5 @@ async def test_second_ingest_is_idempotent(source, repo):
     ingest = IngestSources([source], repo)
     await ingest("railway track geometry")
     await ingest("railway track geometry")
-    hits = repo.hybrid_search(["tamping degradation"], k=20)
+    hits = await repo.hybrid_search(["tamping degradation"], k=20)
     assert len([c for c in hits if c.doc_id == "openalex:W2118179191"]) == 1

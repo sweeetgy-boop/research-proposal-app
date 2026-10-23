@@ -24,7 +24,7 @@ class StubPrecheck:
         self.alerts = alerts
         self.requests = []
 
-    def __call__(self, req):
+    async def __call__(self, req):
         self.requests.append(req)
         return self.alerts
 
@@ -118,7 +118,7 @@ def test_search_uses_the_same_untrusted_wrapping(monkeypatch, capsys, docs, chun
     from tests.fakes import InMemoryRepository
 
     repo = InMemoryRepository()
-    repo.upsert(docs, chunks)
+    repo.seed(docs, chunks)
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)
     monkeypatch.setattr("rra.composition.build_embedding", lambda *a, **k: None)
     monkeypatch.setattr("rra.composition.build_repository", lambda *a, **k: repo)
@@ -391,7 +391,7 @@ def _repo_with_opened_summary():
         text_basis="summary",
         raw={"disclosure": {"status": "비공개", "open_date": "2020-01-01"}},
     )
-    repo.upsert([doc], [])
+    repo.seed([doc], [])
     return repo
 
 
@@ -451,7 +451,7 @@ def run_env(monkeypatch, docs, chunks):
     )
 
     repo = InMemoryRepository()
-    repo.upsert(docs, chunks)
+    repo.seed(docs, chunks)
     store = InMemoryRunStore()
     env = {"store": store, "llm": None, "closed": 0}
 
@@ -568,7 +568,7 @@ def form_env(monkeypatch, docs, chunks):
     )
 
     repo = InMemoryRepository()
-    repo.upsert(docs, chunks)
+    repo.seed(docs, chunks)
     store = InMemoryRunStore()
     env = {"store": store, "llm": None}
 

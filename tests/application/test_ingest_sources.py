@@ -11,9 +11,9 @@ class RecordingRepository(InMemoryRepository):
         super().__init__()
         self.upserts = []
 
-    def upsert(self, docs, chunks):
+    async def upsert(self, docs, chunks):
         self.upserts.append((list(docs), list(chunks)))
-        super().upsert(docs, chunks)
+        await super().upsert(docs, chunks)
 
 
 def as_raw(doc):
@@ -114,12 +114,12 @@ async def test_summary_does_not_overwrite_stored_full_text(docs):
     full = docs[0]  # alio:1, text_basis=full_text
     summary = full.model_copy(update={"text_basis": "summary", "body": "공개 요약 " * 50})
     repo = RecordingRepository()
-    repo.upsert([full], [])
+    await repo.upsert([full], [])
     src = FakeAckSource("alio_summary", [as_raw(summary)])
     report = await IngestSources([src], repo)()
 
     assert report.stored == 0 and report.kept_existing == 1
-    assert repo.get_document("alio:1").text_basis == "full_text"
+    assert (await repo.get_document("alio:1")).text_basis == "full_text"
     assert len(repo.upserts) == 1  # 사전 적재 1회뿐
     assert src.acked == [as_raw(summary)]  # 더 나은 판본이 있으니 처리 완료
 
@@ -128,10 +128,10 @@ async def test_full_text_replaces_stored_summary(docs):
     full = docs[0]
     summary = full.model_copy(update={"text_basis": "summary"})
     repo = RecordingRepository()
-    repo.upsert([summary], [])
+    await repo.upsert([summary], [])
     report = await IngestSources([FakeSource("alio", [as_raw(full)])], repo)()
     assert report.stored == 1 and report.kept_existing == 0
-    assert repo.get_document("alio:1").text_basis == "full_text"
+    assert (await repo.get_document("alio:1")).text_basis == "full_text"
 
 
 async def test_warns_on_own_org_department_not_in_list(docs, own, caplog):
@@ -172,7 +172,7 @@ async def test_source_warnings_reported_only_for_stored_docs(docs):
     stored_full = docs[0].model_copy(update={"doc_id": "alio:sum-3", "title": "추정 원문 있음"})
     lower = stored_full.model_copy(update={"text_basis": "summary"})
     repo = RecordingRepository()
-    repo.upsert([stored_full], [])
+    await repo.upsert([stored_full], [])
     src = WarningFakeSource("alio_summary", [as_raw(guessed), as_raw(plain), as_raw(lower)])
     report = await IngestSources([src], repo)()
 

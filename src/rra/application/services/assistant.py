@@ -71,9 +71,9 @@ class ProposalAssistant:
         del self.trace[: -self._max_trace]
 
     # ── 아이디어 입력 수신 → rra_precheck ──────────────────
-    def intake(self, req: ProposalRequest) -> IntakeResult:
-        alerts = self.precheck(req)
-        counts = self.repo.count_by_source()
+    async def intake(self, req: ProposalRequest) -> IntakeResult:
+        alerts = await self.precheck(req)
+        counts = await self.repo.count_by_source()
         corpus = sum(counts.values())
         blocking = sum(1 for a in alerts if a.blocking)
         self._log(
@@ -125,12 +125,12 @@ class ProposalAssistant:
         return self.manager.list_runs(self.user, limit=limit)
 
     # ── 담당자 자료 질의 → rra_search ───────────────────────
-    def ask(self, query: str, *, k: int = 5) -> list[Chunk]:
+    async def ask(self, query: str, *, k: int = 5) -> list[Chunk]:
         q = query.strip()
         if not q:
             return []
         k = max(1, min(int(k), SEARCH_K_MAX))
-        chunks = list(self.repo.hybrid_search([q], k=k))
+        chunks = list(await self.repo.hybrid_search([q], k=k))
         self._log(policy.on_query(), f"구획 {len(chunks)}건 (k={k})")
         return chunks
 

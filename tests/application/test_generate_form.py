@@ -45,7 +45,7 @@ def obj(choices, *sentences):
 @pytest.fixture
 def repo(docs, chunks):
     r = InMemoryRepository()
-    r.upsert(docs, chunks)
+    r.seed(docs, chunks)
     return r
 
 
@@ -120,7 +120,7 @@ async def test_full_form_is_done_with_only_expected_warnings(req, repo):
 async def test_policy_section_is_skipped_without_basis(req, repo):
     llm = by_key(FULL)
     uc = make(llm, repo)
-    snap = uc.retrieve(req)
+    snap = await uc.retrieve(req)
     composed = await uc.compose_section("policy_importance", req, snap)
     assert composed.mode == "skipped" and composed.section.sentences == []
     assert composed.parse is None and composed.prompt_hash is None and llm.calls == []
@@ -143,7 +143,7 @@ async def test_policy_section_drops_invented_names_and_citations(req, repo):
         }
     )
     uc = make(llm, repo)
-    composed = await uc.compose_section("policy_importance", req, uc.retrieve(req))
+    composed = await uc.compose_section("policy_importance", req, await uc.retrieve(req))
     assert [s.text for s in composed.section.sentences] == [
         "제4차 국가철도망 구축계획의 방향과 부합함"
     ]
@@ -153,14 +153,14 @@ async def test_policy_section_drops_invented_names_and_citations(req, repo):
 async def test_strategy_is_skipped_when_catalog_is_empty(req, repo):
     llm = by_key(FULL)
     uc = make(llm, repo)
-    composed = await uc.compose_section("strategy_alignment", req, uc.retrieve(req))
+    composed = await uc.compose_section("strategy_alignment", req, await uc.retrieve(req))
     assert composed.mode == "skipped" and llm.calls == []
 
 
 async def test_strategy_prompt_lists_only_catalog_and_rejects_others(req, repo):
     llm = by_key({"strategy_alignment": obj(["D9-9"], ("없는 전략", []))})
     uc = make(llm, repo, strategy=CATALOG)
-    composed = await uc.compose_section("strategy_alignment", req, uc.retrieve(req))
+    composed = await uc.compose_section("strategy_alignment", req, await uc.retrieve(req))
     assert composed.section.choices == []  # 목록에 없는 id 는 버린다
     assert "- D1-1: 안전 최우선 > 예방적 유지보수 고도화" in llm.calls[0]
 
@@ -174,7 +174,7 @@ async def test_prompt_carries_no_budget_or_department(req, repo):
     )
     llm = by_key({"title": arr(("제목", []))})
     uc = make(llm, repo)
-    await uc.compose_section("title", req, uc.retrieve(req))
+    await uc.compose_section("title", req, await uc.retrieve(req))
     assert "123456" not in llm.calls[0] and "기술연구처" not in llm.calls[0]
     assert "연구개발비" not in llm.calls[0]
 
@@ -190,7 +190,7 @@ async def test_overlap_review_uses_llm_when_blocking_alert_exists(req, repo, doc
         }
     )
     uc = make(llm, repo)
-    snap = uc.retrieve(req)
+    snap = await uc.retrieve(req)
     assert snap.overlap_checked and snap.overlap[0].blocking
     composed = await uc.compose_section("overlap_review", req, snap)
     assert [s.text for s in composed.section.sentences] == ["사내 과제와 대상이 겹침"]
@@ -201,7 +201,7 @@ async def test_overlap_review_uses_llm_when_blocking_alert_exists(req, repo, doc
 async def test_blocking_doc_outside_search_gets_a_chunk(req, repo, docs):
     repo.chunks = [c for c in repo.chunks if c.doc_id != "alio:1"]
     repo.similar = [(docs[0], 0.95)]
-    snap = make(FakeLLM(), repo).retrieve(req)
+    snap = await make(FakeLLM(), repo).retrieve(req)
     assert "alio:1#overlap" in {c.chunk_id for c in snap.chunks}
     assert "alio:1" in snap.retrieved_ids
 
@@ -209,7 +209,7 @@ async def test_blocking_doc_outside_search_gets_a_chunk(req, repo, docs):
 async def test_without_overlap_check_the_section_falls_back_to_llm(req, repo):
     llm = by_key({"overlap_review": arr(("겹침 없음", ["alio:1#0"]))})
     uc = make(llm, repo, check_overlap=False)
-    snap = uc.retrieve(req)
+    snap = await uc.retrieve(req)
     assert not snap.overlap_checked
     composed = await uc.compose_section("overlap_review", req, snap)
     assert composed.mode == "llm" and composed.section.sentences[0].origin == "llm"
@@ -218,7 +218,7 @@ async def test_without_overlap_check_the_section_falls_back_to_llm(req, repo):
 async def test_missing_required_section_is_still_an_error(req, repo):
     llm = by_key({})  # 전부 빈 배열
     uc = make(llm, repo)
-    snap = uc.retrieve(req)
+    snap = await uc.retrieve(req)
     sections = [(await uc.compose_section(k, req, snap)).section for k in RULES.order]
     _, problems = uc.finalize("r", req, snap, sections)
     assert has_errors(problems)
@@ -230,7 +230,7 @@ async def test_policy_prompt_carries_no_retrieved_documents(req, repo):
     req = req.model_copy(update={"policy_basis": "제4차 국가철도망 구축계획 — 철도 디지털 전환"})
     llm = by_key(FULL)
     uc = make(llm, repo)
-    snap = uc.retrieve(req)
+    snap = await uc.retrieve(req)
     assert snap.chunks  # 자료는 있다
     await uc.compose_section("policy_importance", req, snap)
     (prompt,) = llm.calls
@@ -246,11 +246,11 @@ async def test_choice_section_keeps_valid_choices_when_sentences_are_malformed(r
     )
     llm = by_key({"utilization": bad})
     uc = make(llm, repo)
-    composed = await uc.compose_section("utilization", req, uc.retrieve(req))
+    composed = await uc.compose_section("utilization", req, await uc.retrieve(req))
     assert composed.parse is not None and composed.parse.status == "choices_only"
     assert composed.section.choices == ["software", "commercialization"]
     assert composed.section.sentences == []
-    _, problems = uc.finalize("r", req, uc.retrieve(req), [composed.section])
+    _, problems = uc.finalize("r", req, await uc.retrieve(req), [composed.section])
     codes = {(p.section, p.code) for p in problems}
     assert ("utilization", "no_choice") not in codes  # 선택지는 살았다
     assert ("utilization", "missing") in codes  # 문장은 비어 필수 섹션 오류는 그대로

@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import re
+import time
 from typing import Any
 
 from rra.domain.models import Chunk, Document
@@ -45,11 +46,11 @@ class FakePromptLibrary:
 class FakeEmbedding:
     dim = 4
 
-    def embed(self, texts):
+    async def embed(self, texts):
         return [[float(len(t) % 7), 0.0, 0.0, 0.0] for t in texts]
 
-    def embed_query(self, texts):
-        return self.embed(texts)
+    async def embed_query(self, texts):
+        return await self.embed(texts)
 
 
 class DeterministicEmbedding:
@@ -71,11 +72,39 @@ class DeterministicEmbedding:
         norm = math.sqrt(sum(v * v for v in vec))
         return [v / norm for v in vec] if norm else vec
 
-    def embed(self, texts):
+    async def embed(self, texts):
         return [self._vector(t) for t in texts]
 
-    def embed_query(self, texts):
-        return self.embed(texts)
+    async def embed_query(self, texts):
+        return await self.embed(texts)
+
+
+class SlowEmbedding(DeterministicEmbedding):
+    """실물처럼 CPU 를 오래 쓰는 임베딩 — SLOW_MARK 가 든 텍스트만 delay 초 동안 블로킹한다.
+
+    실제 어댑터처럼 계산을 asyncio.to_thread 로 넘긴다. 동시성 테스트용.
+    """
+
+    SLOW_MARK = "[SLOW]"
+
+    def __init__(self, delay: float = 0.3, dim: int = 32):
+        super().__init__(dim)
+        self.delay = delay
+        self.slow_calls = 0
+
+    def _encode(self, texts):
+        if any(self.SLOW_MARK in t for t in texts):
+            self.slow_calls += 1
+            time.sleep(self.delay)  # 블로킹 — 루프가 막히면 다른 코루틴이 멈춘다
+        return [self._vector(t.replace(self.SLOW_MARK, "")) for t in texts]
+
+    async def embed(self, texts):
+        import asyncio
+
+        return await asyncio.to_thread(self._encode, texts)
+
+    async def embed_query(self, texts):
+        return await self.embed(texts)
 
 
 class InMemoryRepository:
@@ -85,23 +114,27 @@ class InMemoryRepository:
         self.similar: list[tuple[Document, float]] = []
         self.calls: list[tuple[str, dict[str, Any]]] = []  # 진입점이 넘긴 인자 검증용
 
-    def upsert(self, docs, chunks):
+    def seed(self, docs, chunks):
+        """테스트 준비용 동기 적재 (fixture 에서 쓴다). 포트 메서드는 전부 비동기."""
         for d in docs:
             self.docs[d.doc_id] = d
         self.chunks.extend(chunks)
 
-    def hybrid_search(self, queries, *, k=20, orgs=None):
+    async def upsert(self, docs, chunks):
+        self.seed(docs, chunks)
+
+    async def hybrid_search(self, queries, *, k=20, orgs=None):
         self.calls.append(("hybrid_search", {"queries": queries, "k": k, "orgs": orgs}))
         return self.chunks[:k]
 
-    def find_similar(self, text, *, k=10):
+    async def find_similar(self, text, *, k=10):
         self.calls.append(("find_similar", {"text": text, "k": k}))
         return self.similar[:k]
 
-    def get_document(self, doc_id):
+    async def get_document(self, doc_id):
         return self.docs.get(doc_id)
 
-    def count_by_source(self):
+    async def count_by_source(self):
         out: dict[str, int] = {}
         for d in self.docs.values():
             out[d.source] = out.get(d.source, 0) + 1

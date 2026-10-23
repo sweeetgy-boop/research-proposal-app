@@ -61,7 +61,7 @@ def cmd_precheck(args: argparse.Namespace) -> int:
     except ValidationError as exc:
         _eprint(validation_message(exc))
         return EXIT_USAGE
-    alerts = build_precheck(load_settings())(req)
+    alerts = asyncio.run(build_precheck(load_settings())(req))
 
     if args.json:
         print(json.dumps([a.model_dump() for a in alerts], ensure_ascii=False, indent=2))
@@ -98,7 +98,7 @@ def cmd_search(args: argparse.Namespace) -> int:
     limits = ToolLimits.from_security_config(read_config("security.yaml", settings))
     tools = RraTools(build_precheck(settings, repo=repo), repo, limits)
     orgs = [o.strip() for o in args.orgs.split(",")] if args.orgs else None
-    print(_CONTROL.sub(" ", tools.search(args.query, orgs=orgs, k=args.k)))
+    print(_CONTROL.sub(" ", asyncio.run(tools.search(args.query, orgs=orgs, k=args.k))))
     return EXIT_OK
 
 

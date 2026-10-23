@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import sys
 import threading
@@ -109,8 +110,8 @@ class SentenceTransformerEmbedding:
         )
         return [[float(v) for v in row] for row in vectors]
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        return self._encode(texts, self.passage_prefix)
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        return await asyncio.to_thread(self._encode, texts, self.passage_prefix)
 
-    def embed_query(self, texts: list[str]) -> list[list[float]]:
-        return self._encode(texts, self.query_prefix)
+    async def embed_query(self, texts: list[str]) -> list[list[float]]:
+        return await asyncio.to_thread(self._encode, texts, self.query_prefix)

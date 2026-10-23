@@ -39,7 +39,7 @@ ANSWERS = [
 @pytest.fixture
 def repo(docs, chunks):
     r = InMemoryRepository()
-    r.upsert(docs, chunks)
+    r.seed(docs, chunks)
     return r
 
 
@@ -129,7 +129,7 @@ async def test_resume_keeps_the_original_evidence_set_even_if_db_changed(repo, r
     mgr, store = build(repo, llm)
     st = await run_to_end(mgr, req)
     # 중단 사이에 ingest 가 새 문서를 넣었다
-    repo.upsert([], [Chunk(chunk_id="new:1#0", doc_id="new:1", ordinal=0, text="새 자료")])
+    repo.seed([], [Chunk(chunk_id="new:1#0", doc_id="new:1", ordinal=0, text="새 자료")])
     await mgr.resume(USER, st.run_id)
     done = await mgr.wait(USER, st.run_id)
     # 스냅샷에 없던 id 는 인용할 수 없다 → 근거 필수 섹션이 비어 invalid

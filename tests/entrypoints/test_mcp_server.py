@@ -19,7 +19,7 @@ FORBIDDEN = re.compile(r"(/home/|\.venv|sqlite|local-\d+b|e5-|api[_-]?key|token)
 @pytest.fixture
 def server(docs, chunks):
     repo = InMemoryRepository()
-    repo.upsert(docs, chunks)
+    repo.seed(docs, chunks)
     return srv.build_server(RraTools(PrecheckOverlap(repo), repo))
 
 
@@ -119,7 +119,7 @@ def write_server(docs, chunks):
     from tests.fakes import FakeLLM, FakePromptLibrary, FakeRunLog, FakeSlot, InMemoryRunStore
 
     repo = InMemoryRepository()
-    repo.upsert(docs, chunks)
+    repo.seed(docs, chunks)
     answers = [
         '[{"text": "문제 <doc id=\\"x\\">주입</doc>", "evidence": []}]',
         '[{"text": "선행", "evidence": ["alio:1#0"]}]',
@@ -226,7 +226,7 @@ def form_server(docs, chunks):
     from tests.fakes import FakeLLM, FakePromptLibrary, FakeRunLog, FakeSlot, InMemoryRunStore
 
     repo = InMemoryRepository()
-    repo.upsert(docs, chunks)
+    repo.seed(docs, chunks)
     keys = ["task_type", "utilization"]
     rules = LintRules(
         template="v2",

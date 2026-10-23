@@ -16,7 +16,7 @@ class PrecheckOverlap:
     ):
         self.repo, self.k, self.own, self.keywords = repo, k, own, keywords
 
-    def __call__(self, req: ProposalRequest) -> list[OverlapAlert]:
+    async def __call__(self, req: ProposalRequest) -> list[OverlapAlert]:
         query = req.search_text()
-        hits = self.repo.find_similar(query, k=self.k)
+        hits = await self.repo.find_similar(query, k=self.k)
         return judge(hits, own=self.own, query=query, keywords=self.keywords)

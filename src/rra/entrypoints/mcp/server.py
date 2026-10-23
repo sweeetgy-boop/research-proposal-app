@@ -77,7 +77,7 @@ def build_server(tools: RraTools, run_tools: RraRunTools | None = None) -> MCPSe
     server = MCPServer(name=SERVER_NAME, instructions=INSTRUCTIONS)
 
     @server.tool(name="rra_precheck", description=PRECHECK_DESCRIPTION, annotations=READ_ONLY)
-    def rra_precheck(
+    async def rra_precheck(
         current_state: str,
         root_cause: str,
         limitation: str,
@@ -85,14 +85,14 @@ def build_server(tools: RraTools, run_tools: RraRunTools | None = None) -> MCPSe
         constraints: str = "",
     ) -> dict[str, Any]:
         try:
-            return tools.precheck(current_state, root_cause, limitation, goal, constraints)
+            return await tools.precheck(current_state, root_cause, limitation, goal, constraints)
         except (ToolInputError, ValidationError) as exc:
             raise _input_error(exc) from exc
 
     @server.tool(name="rra_search", description=SEARCH_DESCRIPTION, annotations=READ_ONLY)
-    def rra_search(query: str, orgs: list[str] | None = None, k: int = DEFAULT_K) -> str:
+    async def rra_search(query: str, orgs: list[str] | None = None, k: int = DEFAULT_K) -> str:
         try:
-            return tools.search(query, orgs=orgs, k=k)
+            return await tools.search(query, orgs=orgs, k=k)
         except (ToolInputError, ValidationError) as exc:
             raise _input_error(exc) from exc
 

@@ -14,9 +14,9 @@ REQ = ProposalRequest(
 )
 
 
-def test_intake_runs_precheck_and_announces_conditions():
+async def test_intake_runs_precheck_and_announces_conditions():
     a = make_assistant(blocking=True)
-    res = a.intake(REQ)
+    res = await a.intake(REQ)
     assert [x.blocking for x in res.alerts] == [True]
     assert res.decisions[0].needs_human and "정책 근거 미입력" in [
         d.condition for d in res.decisions
@@ -28,7 +28,7 @@ def test_intake_runs_precheck_and_announces_conditions():
 
 async def test_blocking_without_acknowledgement_does_not_generate():
     a = make_assistant(blocking=True)
-    res = a.intake(REQ)
+    res = await a.intake(REQ)
     with pytest.raises(HumanConfirmationRequired):
         await a.proceed(REQ, res.alerts, acknowledged=False)
     assert all(t.tool != "rra_generate" for t in a.trace)
@@ -36,7 +36,7 @@ async def test_blocking_without_acknowledgement_does_not_generate():
 
 async def test_acknowledged_generation_runs_to_done_and_polls_are_logged_once_per_status():
     a = make_assistant(blocking=True)
-    res = a.intake(REQ)
+    res = await a.intake(REQ)
     state = await a.proceed(REQ, res.alerts, acknowledged=True)
     assert state.status == "queued" and "차단 경보 확인 후" in a.trace[-1].summary
     final = await a.manager.wait(a.user, state.run_id)
@@ -52,11 +52,11 @@ async def test_acknowledged_generation_runs_to_done_and_polls_are_logged_once_pe
 
 async def test_search_and_confirm_are_logged():
     a = make_assistant()
-    res = a.intake(REQ)
+    res = await a.intake(REQ)
     assert res.alerts == [] and res.decisions[0].tool == "rra_generate"
-    chunks = a.ask("궤도", k=50)
+    chunks = await a.ask("궤도", k=50)
     assert len(chunks) == 2 and a.trace[-1].tool == "rra_search" and "k=10" in a.trace[-1].summary
-    assert a.ask("   ") == []
+    assert await a.ask("   ") == []
     state = await a.proceed(REQ, [], acknowledged=False)
     await a.manager.wait(a.user, state.run_id)
     confirmation = await a.confirm(state.run_id, {"task_type": ["basic"]})

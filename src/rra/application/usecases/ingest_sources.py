@@ -107,14 +107,13 @@ class IngestSources:
             skipped[name] = len(raws) - ok
 
         deduped = dedup(docs)
-        get = self.repo.get_document
-        unique = [d for d in deduped if should_replace(get(d.doc_id), d)]
+        unique = [d for d in deduped if should_replace(await self.repo.get_document(d.doc_id), d)]
         warnings = self._warnings(unique, origin)
         chunks: list[Chunk] = [
             c for d in unique for c in chunk_document(d, max_chars=self.chunk_max_chars)
         ]
         if unique:
-            self.repo.upsert(unique, chunks)
+            await self.repo.upsert(unique, chunks)
 
         for source, ok_raws in accepted:
             if ok_raws and isinstance(source, AcknowledgingSource):

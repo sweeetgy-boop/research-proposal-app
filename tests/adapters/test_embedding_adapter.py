@@ -61,7 +61,7 @@ def test_embedding_dimension_falls_back_to_old_name():
     assert st_adapter.embedding_dimension(OldModel()) == 384
 
 
-def test_model_is_loaded_on_first_use_not_at_construction(monkeypatch):
+async def test_model_is_loaded_on_first_use_not_at_construction(monkeypatch):
     created = []
 
     class FakeST:
@@ -82,7 +82,7 @@ def test_model_is_loaded_on_first_use_not_at_construction(monkeypatch):
     emb = st_adapter.SentenceTransformerEmbedding("org/model", local_files_only=True)
     assert not emb.loaded and created == []
     assert emb.dim == 3 and emb.loaded
-    assert emb.embed_query(["a"]) == [[1.0, 0.0, 0.0]]
+    assert await emb.embed_query(["a"]) == [[1.0, 0.0, 0.0]]
     assert len(created) == 1  # 한 번만 올린다
     name, kw = created[0]
     assert name == "org/model"

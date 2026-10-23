@@ -14,7 +14,7 @@ def test_calls_run_on_the_worker_thread_and_background_run_completes():
     try:
         assert worker.sync(threading.get_ident) != threading.get_ident()
         a = worker.assistant
-        res = worker.sync(a.intake, REQ)
+        res = worker.call(a.intake(REQ))
         state = worker.call(a.proceed(REQ, res.alerts, acknowledged=False))
         assert state.status == "queued"
         final = worker.wait(state.run_id)

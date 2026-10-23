@@ -54,7 +54,7 @@ class RraTools:
         self._repo = repo
         self.limits = limits or ToolLimits()
 
-    def precheck(
+    async def precheck(
         self,
         current_state: str,
         root_cause: str,
@@ -70,7 +70,7 @@ class RraTools:
             goal=goal,
             constraints=constraints,
         )
-        alerts = self._precheck(req)
+        alerts = await self._precheck(req)
         return {
             "notice": UNTRUSTED_NOTICE,  # 과제명은 수집 문서에서 온 비신뢰 텍스트
             "blocking": any(a.blocking for a in alerts),
@@ -88,14 +88,14 @@ class RraTools:
             ],
         }
 
-    def search(self, query: str, orgs: list[str] | None = None, k: int = DEFAULT_K) -> str:
+    async def search(self, query: str, orgs: list[str] | None = None, k: int = DEFAULT_K) -> str:
         """하이브리드 검색 결과를 <doc> 구획 텍스트로 돌려준다."""
         q = (query or "").strip()
         if not q:
             raise ToolInputError("query 가 비어 있습니다.")
         if len(q) > self.limits.query_max_chars:
             raise ToolInputError(f"query 길이 {len(q)} > 상한 {self.limits.query_max_chars}")
-        chunks = self._repo.hybrid_search(
+        chunks = await self._repo.hybrid_search(
             [q], k=self._clamp_k(k), orgs=self._clean_orgs(orgs) or None
         )
         return untrusted_block(list(chunks))

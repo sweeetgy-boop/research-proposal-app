@@ -81,8 +81,8 @@ def make_chunks():
 
 
 @pytest.fixture
-def loaded(repo):
-    repo.upsert(make_docs(), make_chunks())
+async def loaded(repo):
+    await repo.upsert(make_docs(), make_chunks())
     return repo
 
 
@@ -92,99 +92,99 @@ def test_migration_is_applied_and_idempotent(repo):
     assert runner.migrate(repo.conn) == 2
 
 
-def test_reopening_reuses_the_pinned_backend(tmp_path, loaded):
+async def test_reopening_reuses_the_pinned_backend(tmp_path, loaded):
     path = loaded.db_path
     loaded.close()
     again = SQLiteDocumentRepository(path, DeterministicEmbedding())
     assert again.backend.name == loaded.backend.name
-    assert again.get_document("alio:1") is not None
+    assert await again.get_document("alio:1") is not None
     again.close()
 
 
 # ── 쓰기 ─────────────────────────────────────────────────────────
-def test_upsert_is_idempotent(repo):
+async def test_upsert_is_idempotent(repo):
     for _ in range(3):
-        repo.upsert(make_docs(), make_chunks())
+        await repo.upsert(make_docs(), make_chunks())
     counts = {
         table: repo.conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]  # noqa: S608
         for table in ("documents", "chunks", "chunks_fts", "document_orgs")
     }
     assert counts == {"documents": 2, "chunks": 2, "chunks_fts": 2, "document_orgs": 3}
-    assert len(repo.hybrid_search(["궤도"], k=10)) == 1
+    assert len(await repo.hybrid_search(["궤도"], k=10)) == 1
 
 
-def test_upsert_replaces_only_touched_documents_chunks(loaded):
-    loaded.upsert(
+async def test_upsert_replaces_only_touched_documents_chunks(loaded):
+    await loaded.upsert(
         [],
         [Chunk(chunk_id="alio:1#0", doc_id="alio:1", ordinal=0, text="완전히 다른 본문")],
     )
     assert loaded.conn.execute("SELECT count(*) FROM chunks").fetchone()[0] == 2
-    hit = loaded.hybrid_search(["다른 본문"], k=5)
+    hit = await loaded.hybrid_search(["다른 본문"], k=5)
     assert hit[0].text == "완전히 다른 본문"
 
 
-def test_chunk_without_document_violates_foreign_key(repo):
+async def test_chunk_without_document_violates_foreign_key(repo):
     with pytest.raises(sqlite3.IntegrityError):
-        repo.upsert([], [Chunk(chunk_id="ghost#0", doc_id="ghost", ordinal=0, text="x")])
+        await repo.upsert([], [Chunk(chunk_id="ghost#0", doc_id="ghost", ordinal=0, text="x")])
 
 
-def test_embedding_dimension_change_requires_reindex(loaded):
+async def test_embedding_dimension_change_requires_reindex(loaded):
     loaded.embedding = DeterministicEmbedding(dim=8)
     with pytest.raises(ReindexRequired):
-        loaded.upsert(make_docs(), make_chunks())
+        await loaded.upsert(make_docs(), make_chunks())
 
 
 # ── 읽기 ─────────────────────────────────────────────────────────
-def test_get_document_round_trips_every_field(loaded):
-    doc = loaded.get_document("alio:1")
+async def test_get_document_round_trips_every_field(loaded):
+    doc = await loaded.get_document("alio:1")
     original = make_docs()[0]
     assert doc == original
     assert doc.project_period == (date(2022, 1, 1), date(2023, 12, 31))
     assert doc.toc == ["1장 서론", "2장 방법"]
-    assert loaded.get_document("nope") is None
+    assert await loaded.get_document("nope") is None
 
 
-def test_fts_prefix_matches_korean_particles(loaded):
-    assert [c.chunk_id for c in loaded.hybrid_search(["궤도"], k=5)] == ["alio:1#0"]
+async def test_fts_prefix_matches_korean_particles(loaded):
+    assert [c.chunk_id for c in await loaded.hybrid_search(["궤도"], k=5)] == ["alio:1#0"]
 
 
-def test_hybrid_search_ranks_document_matching_both_signals_first(loaded):
-    hits = loaded.hybrid_search(["track geometry monitoring"], k=5)
+async def test_hybrid_search_ranks_document_matching_both_signals_first(loaded):
+    hits = await loaded.hybrid_search(["track geometry monitoring"], k=5)
     assert hits[0].chunk_id == "openalex:W1#0"
 
 
-def test_orgs_filter(loaded):
-    assert [c.chunk_id for c in loaded.hybrid_search(["궤도 track"], k=5, orgs=["korail"])] == [
-        "alio:1#0"
-    ]
-    assert [c.chunk_id for c in loaded.hybrid_search(["궤도 track"], k=5, orgs=["external"])] == [
-        "openalex:W1#0"
-    ]
-    assert loaded.hybrid_search(["궤도 track"], k=5, orgs=["없는기관"]) == []
+async def test_orgs_filter(loaded):
+    assert [
+        c.chunk_id for c in await loaded.hybrid_search(["궤도 track"], k=5, orgs=["korail"])
+    ] == ["alio:1#0"]
+    assert [
+        c.chunk_id for c in await loaded.hybrid_search(["궤도 track"], k=5, orgs=["external"])
+    ] == ["openalex:W1#0"]
+    assert await loaded.hybrid_search(["궤도 track"], k=5, orgs=["없는기관"]) == []
 
 
-def test_k_and_query_count_are_clamped(loaded):
-    assert len(loaded.hybrid_search(["궤도 track"], k=10**9)) == 2
-    assert loaded.hybrid_search([], k=5) == []
-    assert loaded.hybrid_search(["   ", ""], k=5) == []
-    assert len(loaded.hybrid_search(["궤도"] * 50, k=5)) == 1
+async def test_k_and_query_count_are_clamped(loaded):
+    assert len(await loaded.hybrid_search(["궤도 track"], k=10**9)) == 2
+    assert await loaded.hybrid_search([], k=5) == []
+    assert await loaded.hybrid_search(["   ", ""], k=5) == []
+    assert len(await loaded.hybrid_search(["궤도"] * 50, k=5)) == 1
 
 
-def test_search_on_empty_database_returns_nothing(repo):
-    assert repo.hybrid_search(["궤도"], k=5) == []
-    assert repo.find_similar("궤도") == []
+async def test_search_on_empty_database_returns_nothing(repo):
+    assert await repo.hybrid_search(["궤도"], k=5) == []
+    assert await repo.find_similar("궤도") == []
 
 
-def test_find_similar_scores_documents_by_best_chunk(loaded):
-    hits = loaded.find_similar("궤도의 틀림을 자동으로 감지한다", k=5)
+async def test_find_similar_scores_documents_by_best_chunk(loaded):
+    hits = await loaded.find_similar("궤도의 틀림을 자동으로 감지한다", k=5)
     assert hits[0][0].doc_id == "alio:1"
     assert hits[0][1] == pytest.approx(1.0)
     assert all(0.0 <= score <= 1.0 for _, score in hits)
     assert [s for _, s in hits] == sorted((s for _, s in hits), reverse=True)
 
 
-def test_search_input_is_never_interpreted_as_sql(loaded):
-    loaded.hybrid_search(["'; DROP TABLE chunks; --", '" OR 1=1 --'], k=5)
+async def test_search_input_is_never_interpreted_as_sql(loaded):
+    await loaded.hybrid_search(["'; DROP TABLE chunks; --", '" OR 1=1 --'], k=5)
     assert loaded.conn.execute("SELECT count(*) FROM chunks").fetchone()[0] == 2
 
 
@@ -222,7 +222,7 @@ def test_validate_dim_rejects_bad_input(bad):
         _vec.validate_dim(bad)
 
 
-def test_text_basis_roundtrip_and_chunk_basis(tmp_path):
+async def test_text_basis_roundtrip_and_chunk_basis(tmp_path):
     from rra.domain.models import Chunk, Document
 
     repo = SQLiteDocumentRepository(tmp_path / "b.db", DeterministicEmbedding())
@@ -234,9 +234,11 @@ def test_text_basis_roundtrip_and_chunk_basis(tmp_path):
         body="■ 연구목적 궤도 상태 진단",
         text_basis="summary",
     )
-    repo.upsert([doc], [Chunk(chunk_id="alio:s1#0", doc_id="alio:s1", ordinal=0, text=doc.body)])
-    assert repo.get_document("alio:s1").text_basis == "summary"
-    (chunk,) = repo.hybrid_search(["궤도"], k=5)
+    await repo.upsert(
+        [doc], [Chunk(chunk_id="alio:s1#0", doc_id="alio:s1", ordinal=0, text=doc.body)]
+    )
+    assert (await repo.get_document("alio:s1")).text_basis == "summary"
+    (chunk,) = await repo.hybrid_search(["궤도"], k=5)
     assert chunk.basis == "summary"
 
 
@@ -257,13 +259,13 @@ def test_migration_002_backfills_existing_rows(tmp_path):
     assert rows == {"alio:1": "full_text", "ntis:1": "abstract"}
 
 
-def test_count_by_source(tmp_path):
+async def test_count_by_source(tmp_path):
     from rra.adapters.persistence import SQLiteDocumentRepository
     from tests.fakes import FakeEmbedding
 
     repo = SQLiteDocumentRepository(tmp_path / "c.sqlite", FakeEmbedding())
-    assert repo.count_by_source() == {}
-    repo.upsert(make_docs(), [])
-    counts = repo.count_by_source()
+    assert await repo.count_by_source() == {}
+    await repo.upsert(make_docs(), [])
+    counts = await repo.count_by_source()
     assert sum(counts.values()) == len(make_docs())
     assert set(counts) == {d.source for d in make_docs()}

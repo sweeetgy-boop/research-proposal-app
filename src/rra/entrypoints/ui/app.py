@@ -88,7 +88,7 @@ def intake_form() -> None:
         st.error(f"입력 오류 — {plain(validation_message(exc, labels))}")
         return
     ss["rra_request"] = req
-    ss["rra_intake"] = worker.sync(assistant.intake, req)
+    ss["rra_intake"] = worker.call(assistant.intake(req))
     ss["rra_run_id"] = None
 
 
@@ -291,7 +291,7 @@ def search_panel() -> None:
     query = c1.text_input("질의", key="search_q", max_chars=500)
     k = c2.slider("결과 수", 1, 10, 5, key="search_k")
     if st.button("검색", key="search_btn") and query.strip():
-        ss["rra_search_results"] = worker.sync(assistant.ask, query, k=k)
+        ss["rra_search_results"] = worker.call(assistant.ask(query, k=k))
     results = ss.get("rra_search_results")
     if results is None:
         return

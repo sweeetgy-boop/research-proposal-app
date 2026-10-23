@@ -1,5 +1,8 @@
 """DocumentRepository 구현 — SQLite FTS5 + 벡터, RRF 하이브리드.
 
+포트는 비동기다. 임베딩은 EmbeddingPort(비동기) 에 맡기고, SQLite 접근은 asyncio.to_thread 로
+돌린다. 연결은 check_same_thread=False 로 열고 RLock 으로 직렬화한다 (스레드풀 어느 스레드든 1개씩).
+
 보안 E:
 - 모든 SQL 은 모듈 상수. 사용자 문자열은 항상 바인딩 파라미터로만 들어간다.
 - FTS5 MATCH 식은 `_sql.quote_fts_query()` 를 거친 것만 사용한다.
@@ -9,8 +12,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sqlite3
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -93,7 +98,8 @@ class SQLiteDocumentRepository:
 
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         _secure_paths(self.db_path)
-        self.conn = sqlite3.connect(self.db_path)
+        self._lock = threading.RLock()
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._configure()
         runner.migrate(self.conn)
@@ -159,23 +165,32 @@ class SQLiteDocumentRepository:
         self.close()
 
     # ── 쓰기 ─────────────────────────────────────────────────────
-    def upsert(self, docs: list[Document], chunks: list[Chunk]) -> None:
+    async def upsert(self, docs: list[Document], chunks: list[Chunk]) -> None:
         if not docs and not chunks:
             return
-        if chunks:
-            self._ensure_vec_table()
-        with self.conn:  # 단일 트랜잭션
-            for doc in docs:
-                self.conn.execute(_INSERT_DOCUMENT, _mapping.document_to_row(doc))
-                self.conn.execute("DELETE FROM document_orgs WHERE doc_id = ?", (doc.doc_id,))
-                self.conn.executemany(
-                    "INSERT INTO document_orgs(doc_id, org) VALUES (?, ?)",
-                    [(doc.doc_id, org) for org in dict.fromkeys(doc.orgs)],
-                )
-            self._replace_chunks(chunks)
+        vectors = await self.embedding.embed([c.text for c in chunks]) if chunks else []
+        if len(vectors) != len(chunks):
+            raise ValueError("임베딩 개수가 청크 개수와 다릅니다")
+        await asyncio.to_thread(self._upsert_sync, docs, chunks, vectors)
+
+    def _upsert_sync(
+        self, docs: list[Document], chunks: list[Chunk], vectors: list[list[float]]
+    ) -> None:
+        with self._lock:
+            if chunks:
+                self._ensure_vec_table()
+            with self.conn:  # 단일 트랜잭션
+                for doc in docs:
+                    self.conn.execute(_INSERT_DOCUMENT, _mapping.document_to_row(doc))
+                    self.conn.execute("DELETE FROM document_orgs WHERE doc_id = ?", (doc.doc_id,))
+                    self.conn.executemany(
+                        "INSERT INTO document_orgs(doc_id, org) VALUES (?, ?)",
+                        [(doc.doc_id, org) for org in dict.fromkeys(doc.orgs)],
+                    )
+                self._replace_chunks(chunks, vectors)
         _secure_paths(self.db_path)
 
-    def _replace_chunks(self, chunks: list[Chunk]) -> None:
+    def _replace_chunks(self, chunks: list[Chunk], vectors: list[list[float]]) -> None:
         if not chunks:
             return
         touched = list(dict.fromkeys(c.doc_id for c in chunks))
@@ -192,21 +207,26 @@ class SQLiteDocumentRepository:
         for chunk in chunks:
             cur = self.conn.execute(_INSERT_CHUNK, _mapping.chunk_to_row(chunk))
             rowids.append(int(cur.lastrowid))
-        vectors = self.embedding.embed([c.text for c in chunks])
-        if len(vectors) != len(chunks):
-            raise ValueError("임베딩 개수가 청크 개수와 다릅니다")
         self.backend.add(list(zip(rowids, vectors, strict=True)))
 
     # ── 읽기 ─────────────────────────────────────────────────────
-    def count_by_source(self) -> dict[str, int]:
-        rows = self.conn.execute("SELECT source, COUNT(*) FROM documents GROUP BY source")
-        return {str(source): int(n) for source, n in rows}
+    async def count_by_source(self) -> dict[str, int]:
+        return await asyncio.to_thread(self._count_by_source_sync)
 
-    def get_document(self, doc_id: str) -> Document | None:
-        row = self.conn.execute(_SELECT_DOCUMENT, (doc_id,)).fetchone()
+    def _count_by_source_sync(self) -> dict[str, int]:
+        with self._lock:
+            rows = self.conn.execute("SELECT source, COUNT(*) FROM documents GROUP BY source")
+            return {str(source): int(n) for source, n in rows}
+
+    async def get_document(self, doc_id: str) -> Document | None:
+        return await asyncio.to_thread(self._get_document_sync, doc_id)
+
+    def _get_document_sync(self, doc_id: str) -> Document | None:
+        with self._lock:
+            row = self.conn.execute(_SELECT_DOCUMENT, (doc_id,)).fetchone()
         return _mapping.row_to_document(row) if row else None
 
-    def hybrid_search(
+    async def hybrid_search(
         self, queries: list[str], *, k: int = 20, orgs: list[str] | None = None
     ) -> list[Chunk]:
         limit = _sql.clamp_k(k, max_k=self.max_k)
@@ -215,39 +235,61 @@ class SQLiteDocumentRepository:
         )
         if not cleaned:
             return []
+        vectors: list[list[float] | None]
+        if self._vec_dim is None:  # 색인 전 — 벡터 랭킹 없음, 임베딩 계산도 하지 않는다
+            vectors = [None] * len(cleaned)
+        else:
+            vectors = list(await self.embedding.embed_query(cleaned))
+        return await asyncio.to_thread(
+            self._hybrid_search_sync, cleaned, vectors, limit, self._clean_orgs(orgs)
+        )
+
+    def _hybrid_search_sync(
+        self,
+        queries: list[str],
+        vectors: list[list[float] | None],
+        limit: int,
+        org_filter: list[str],
+    ) -> list[Chunk]:
         fetch = limit * FETCH_MULTIPLIER
-        org_filter = self._clean_orgs(orgs)
+        with self._lock:
+            rankings: list[list[str]] = []
+            for query, vector in zip(queries, vectors, strict=True):
+                rankings.append(self._fts_ids(query, fetch, org_filter))
+                rankings.append(self._vec_ids(vector, fetch, org_filter))
+            fused = reciprocal_rank_fusion(rankings, k=self.rrf_k)
+            return self._load_chunks([chunk_id for chunk_id, _ in fused[:limit]])
 
-        rankings: list[list[str]] = []
-        for query in cleaned:
-            rankings.append(self._fts_ids(query, fetch, org_filter))
-            rankings.append(self._vec_ids(query, fetch, org_filter))
-        fused = reciprocal_rank_fusion(rankings, k=self.rrf_k)
-        return self._load_chunks([chunk_id for chunk_id, _ in fused[:limit]])
-
-    def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]:
+    async def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]:
         limit = _sql.clamp_k(k, max_k=self.max_k)
         query = _sql.clamp_query(text, max_chars=self.max_query_chars)
         if not query or self._vec_dim is None:
             return []
-        hits = self.backend.search(self.embedding.embed_query([query])[0], limit * FETCH_MULTIPLIER)
-        best: dict[str, float] = {}
-        for rowid, score in hits:
-            if score <= self.min_similarity:
-                continue
-            row = self.conn.execute("SELECT doc_id FROM chunks WHERE id = ?", (rowid,)).fetchone()
-            if row is None:
-                continue
-            doc_id = row["doc_id"]
-            if score > best.get(doc_id, -1.0):
-                best[doc_id] = score
-        ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
-        out: list[tuple[Document, float]] = []
-        for doc_id, score in ranked:
-            doc = self.get_document(doc_id)
-            if doc is not None:
-                out.append((doc, score))
-        return out
+        vector = (await self.embedding.embed_query([query]))[0]
+        return await asyncio.to_thread(self._find_similar_sync, vector, limit)
+
+    def _find_similar_sync(self, vector: list[float], limit: int) -> list[tuple[Document, float]]:
+        with self._lock:
+            hits = self.backend.search(vector, limit * FETCH_MULTIPLIER)
+            best: dict[str, float] = {}
+            for rowid, score in hits:
+                if score <= self.min_similarity:
+                    continue
+                row = self.conn.execute(
+                    "SELECT doc_id FROM chunks WHERE id = ?", (rowid,)
+                ).fetchone()
+                if row is None:
+                    continue
+                doc_id = row["doc_id"]
+                if score > best.get(doc_id, -1.0):
+                    best[doc_id] = score
+            ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
+            out: list[tuple[Document, float]] = []
+            for doc_id, score in ranked:
+                doc = self._get_document_sync(doc_id)
+                if doc is not None:
+                    out.append((doc, score))
+            return out
 
     # ── 내부 검색 ────────────────────────────────────────────────
     def _clean_orgs(self, orgs: list[str] | None) -> list[str]:
@@ -267,10 +309,9 @@ class SQLiteDocumentRepository:
         # quote_fts_query 가 문법적으로 안전한 식만 만들므로 예외를 삼키지 않는다.
         return [row["chunk_id"] for row in self.conn.execute(sql, params)]
 
-    def _vec_ids(self, query: str, fetch: int, orgs: list[str]) -> list[str]:
-        if self._vec_dim is None:
+    def _vec_ids(self, vector: list[float] | None, fetch: int, orgs: list[str]) -> list[str]:
+        if vector is None or self._vec_dim is None:
             return []
-        vector = self.embedding.embed_query([query])[0]
         hits = [
             (rowid, score)
             for rowid, score in self.backend.search(

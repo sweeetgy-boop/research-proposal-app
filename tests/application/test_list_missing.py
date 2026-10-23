@@ -11,7 +11,7 @@ def entry(cid):
 
 async def test_lists_only_entries_not_in_repo(docs):
     repo = InMemoryRepository()
-    repo.upsert([docs[0]], [])  # alio:1 은 이미 적재
+    repo.seed([docs[0]], [])  # alio:1 은 이미 적재
     missing = await ListMissing(FakeCatalog([entry("1"), entry("2")]), repo)()
     assert [e.catalog_id for e in missing] == ["2"]
 
@@ -38,7 +38,7 @@ async def test_upgradable_lists_summaries_whose_original_opened(docs):
     from datetime import date
 
     repo = InMemoryRepository()
-    repo.upsert(
+    repo.seed(
         [
             summary_doc("a", {"status": "비공개", "open_date": "2026-01-01"}),  # 경과
             summary_doc("b", {"status": "비공개", "open_date": "2027-01-01"}),  # 미경과

@@ -199,7 +199,7 @@ class RunManager:
                 snapshot = self.store.load_snapshot(user, run_id)
                 if snapshot is None:
                     current = self._begin(state, RETRIEVE)
-                    snapshot = self.generate.retrieve(req)
+                    snapshot = await self.generate.retrieve(req)
                     self.store.save_snapshot(user, run_id, snapshot)
                     self._finish(state, current, on_step, evidence=sorted(snapshot.retrieved_ids))
                     current = None
@@ -360,7 +360,7 @@ class RunManager:
         return DraftView(
             state=state,
             sections=sections,
-            citations=self._citations(sections, snapshot),
+            citations=await self._citations(sections, snapshot),
             legacy=legacy,
             confirmation=self.store.load_confirmation(user, run_id),
             choice_options={} if legacy else self.generate.choice_options(),
@@ -397,7 +397,7 @@ class RunManager:
         self._record(state)
         return confirmation
 
-    def _citations(
+    async def _citations(
         self, sections: list[Section], snapshot: RetrievalSnapshot | None
     ) -> list[Citation]:
         if snapshot is None:
@@ -410,7 +410,7 @@ class RunManager:
             if ev in seen or ev not in doc_of:
                 continue
             seen.add(ev)
-            doc = self.generate.repo.get_document(doc_of[ev])
+            doc = await self.generate.repo.get_document(doc_of[ev])
             out.append(Citation(id=ev, doc_id=doc_of[ev], title=doc.title if doc else None))
         return out
 

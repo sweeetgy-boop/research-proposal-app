@@ -18,13 +18,16 @@ class ListMissing:
         self.catalog, self.repo = catalog, repo
 
     async def __call__(self) -> list[CatalogEntry]:
-        get = self.repo.get_document
-        return [e for e in await self.catalog.entries() if get(f"alio:{e.catalog_id}") is None]
+        out = []
+        for e in await self.catalog.entries():
+            if await self.repo.get_document(f"alio:{e.catalog_id}") is None:
+                out.append(e)
+        return out
 
     async def upgradable(self, today: date) -> list[CatalogEntry]:
         out = []
         for e in await self.catalog.entries():
-            doc = self.repo.get_document(f"alio:{e.catalog_id}")
+            doc = await self.repo.get_document(f"alio:{e.catalog_id}")
             if doc is not None and original_obtainable(doc, today):
                 out.append(e)
         return out

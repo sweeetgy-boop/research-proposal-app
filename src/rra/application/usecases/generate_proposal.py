@@ -103,16 +103,16 @@ class GenerateProposal:
         return {key: dict(sources[spec.options]) for key, spec in self.rules.choices.items()}
 
     # ── retrieve ─────────────────────────────────────────
-    def retrieve(self, req: ProposalRequest) -> RetrievalSnapshot:
+    async def retrieve(self, req: ProposalRequest) -> RetrievalSnapshot:
         query = req.search_text()
-        chunks = list(self.repo.hybrid_search([query], k=self.k))
+        chunks = list(await self.repo.hybrid_search([query], k=self.k))
         if not self.check_overlap:
             return RetrievalSnapshot.of(query, chunks)
-        hits = self.repo.find_similar(query, k=self.overlap_k)
+        hits = await self.repo.find_similar(query, k=self.overlap_k)
         alerts = judge(hits, own=self.own, query=query, keywords=self.keywords)
         extra = self._overlap_chunks(hits, alerts, chunks)
         snapshot = RetrievalSnapshot.of(query, chunks + extra, alerts)
-        snapshot.uncollected = uncollected_sources(self.repo.count_by_source())
+        snapshot.uncollected = uncollected_sources(await self.repo.count_by_source())
         return snapshot
 
     @staticmethod
@@ -253,7 +253,7 @@ class GenerateProposal:
         return draft, problems
 
     async def __call__(self, req: ProposalRequest) -> Draft:
-        snapshot = self.retrieve(req)
+        snapshot = await self.retrieve(req)
         sections: list[Section] = []
         dropped: list[str] = []
         for key in self.section_keys:

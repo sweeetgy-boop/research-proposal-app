@@ -18,7 +18,7 @@ def _llm_json(text, ev):
 @pytest.fixture
 def repo(docs, chunks):
     r = InMemoryRepository()
-    r.upsert(docs, chunks)
+    r.seed(docs, chunks)
     return r
 
 
@@ -54,8 +54,8 @@ async def test_non_json_output_rejected(req, repo, rules):
 
 
 # ── 단계 ─────────────────────────────────────────────────
-def test_retrieve_snapshot_fixes_the_evidence_set(req, repo, rules):
-    snap = make(FakeLLM(), repo, rules).retrieve(req)
+async def test_retrieve_snapshot_fixes_the_evidence_set(req, repo, rules):
+    snap = await make(FakeLLM(), repo, rules).retrieve(req)
     assert snap.retrieved_ids == {"alio:1#0", "alio:1", "openalex:W1#0", "openalex:W1"}
     assert len(snap.query_hash) == 64 and "궤도" not in snap.query_hash
 
@@ -77,7 +77,7 @@ async def test_compose_section_enforces_evidence_per_section(req, repo, rules):
         repo,
         rules,
     )
-    composed = await uc.compose_section("prior_work", req, uc.retrieve(req))
+    composed = await uc.compose_section("prior_work", req, await uc.retrieve(req))
     assert [s.text for s in composed.section.sentences] == ["근거 있음"]
     assert len(composed.dropped) == 2
     assert len(composed.prompt_hash) == 16
@@ -85,34 +85,34 @@ async def test_compose_section_enforces_evidence_per_section(req, repo, rules):
 
 async def test_non_required_section_keeps_proposer_input_sentences(req, repo, rules):
     uc = make(FakeLLM([_llm_json("제안자 입력 기반 문장", [])]), repo, rules)
-    composed = await uc.compose_section("problem", req, uc.retrieve(req))
+    composed = await uc.compose_section("problem", req, await uc.retrieve(req))
     assert composed.section.sentences[0].evidence == [] and composed.dropped == []
 
 
 async def test_prompt_hash_changes_with_prompt_not_with_input(req, repo, rules):
     uc = make(FakeLLM([_llm_json("a", []), _llm_json("b", [])]), repo, rules)
-    snap = uc.retrieve(req)
+    snap = await uc.retrieve(req)
     h1 = (await uc.compose_section("problem", req, snap)).prompt_hash
     other = req.model_copy(update={"goal": "완전히 다른 목표"})
     h2 = (await uc.compose_section("problem", other, snap)).prompt_hash
     assert h1 == h2
 
 
-def test_finalize_lints(req, repo, rules):
+async def test_finalize_lints(req, repo, rules):
     uc = make(FakeLLM(), repo, rules)
-    draft, problems = uc.finalize("r1", req, uc.retrieve(req), [])
+    draft, problems = uc.finalize("r1", req, await uc.retrieve(req), [])
     assert draft.run_id == "r1" and {p.code for p in problems} == {"missing"}
 
 
 async def test_bare_fence_output_is_parsed_and_status_recorded(req, repo, rules):
     raw = "```\n" + _llm_json("선행", ['<doc id="alio:1#0">']) + "\n```"
     uc = make(FakeLLM([raw]), repo, rules)
-    composed = await uc.compose_section("prior_work", req, uc.retrieve(req))
+    composed = await uc.compose_section("prior_work", req, await uc.retrieve(req))
     assert composed.parse.status == "ok" and composed.parse.raw_chars == len(raw)
     assert composed.section.sentences[0].evidence == ["alio:1#0"]
 
 
 async def test_parse_failure_reason_is_kept(req, repo, rules):
     uc = make(FakeLLM(["결과:\n```json\n[]\n```"]), repo, rules)
-    composed = await uc.compose_section("problem", req, uc.retrieve(req))
+    composed = await uc.compose_section("problem", req, await uc.retrieve(req))
     assert composed.parse.status == "fence" and composed.section.sentences == []

@@ -69,7 +69,7 @@ def make_assistant(
     *, blocking: bool = False, answers: list[str] | None = None
 ) -> ProposalAssistant:
     repo = InMemoryRepository()
-    repo.upsert(DOCS, CHUNKS)
+    repo.seed(DOCS, CHUNKS)
     if blocking:
         repo.similar = [(DOCS[0], 0.9)]  # own 임계치 0.80 초과, 키워드 조건 없음 → 차단
     own = OwnUnit(org="korail", departments=frozenset({"철도연구원"}))
