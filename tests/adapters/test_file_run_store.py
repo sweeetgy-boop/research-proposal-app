@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from rra.adapters.runs import FileRunLog, FileRunStore, FlockSlot
+from rra.adapters.runs import AsyncioTaskRunner, FileRunLog, FileRunStore, FlockSlot
 from rra.application.ports import RunBusy, RunNotFound
 from rra.domain.models import Section, Sentence
 
@@ -167,7 +167,7 @@ def test_run_log_writes_manifest_next_to_state(store, req, tmp_path):
 CHILD = textwrap.dedent("""
     import asyncio, json, sys
     from pathlib import Path
-    from rra.adapters.runs import FileRunLog, FileRunStore, FlockSlot
+    from rra.adapters.runs import AsyncioTaskRunner, FileRunLog, FileRunStore, FlockSlot
     from rra.application.services import RunManager
     from rra.application.usecases.generate_proposal import GenerateProposal
     from rra.domain.models import ProposalRequest
@@ -188,7 +188,7 @@ CHILD = textwrap.dedent("""
         gen = GenerateProposal(HangOnThird(ans), InMemoryRepository(), FakePromptLibrary(),
                                LintRules(required_sections=keys), keys)
         mgr = RunManager(gen, FileRunStore(root), FlockSlot(root / ".generate.lock"),
-                         FileRunLog(root))
+                         FileRunLog(root), AsyncioTaskRunner())
         req = ProposalRequest(current_state="a", root_cause="b", limitation="c", goal="d")
         st = await mgr.submit("local", req)
         print(st.run_id, flush=True)
@@ -224,7 +224,11 @@ async def test_process_killed_mid_run_is_resumed_from_files(tmp_path):
     )
     store = FileRunStore(root)
     mgr = RunManager(
-        gen, store, FlockSlot(root / ".generate.lock", poll_sec=0.02), FileRunLog(root)
+        gen,
+        store,
+        FlockSlot(root / ".generate.lock", poll_sec=0.02),
+        FileRunLog(root),
+        AsyncioTaskRunner(),
     )
 
     state = await mgr.status("local", run_id)

@@ -446,6 +446,7 @@ def run_env(monkeypatch, docs, chunks):
         FakePromptLibrary,
         FakeRunLog,
         FakeSlot,
+        FakeTaskRunner,
         InMemoryRepository,
         InMemoryRunStore,
     )
@@ -463,7 +464,7 @@ def run_env(monkeypatch, docs, chunks):
         llm = env["llm"]
         rules = LintRules(required_sections=GEN_KEYS, evidence_required=["prior_work"])
         gen = GenerateProposal(llm, repo, FakePromptLibrary(), rules, GEN_KEYS)
-        return RunManager(gen, store, FakeSlot(), FakeRunLog())
+        return RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner())
 
     def use(responses, **kw):
         env["llm"] = ClosingLLM(responses, **kw)
@@ -563,6 +564,7 @@ def form_env(monkeypatch, docs, chunks):
         FakePromptLibrary,
         FakeRunLog,
         FakeSlot,
+        FakeTaskRunner,
         InMemoryRepository,
         InMemoryRunStore,
     )
@@ -583,7 +585,7 @@ def form_env(monkeypatch, docs, chunks):
             choices={"task_type": ChoiceSpec(options="task_types")},
         )
         gen = GenerateProposal(env["llm"], repo, FakePromptLibrary(), rules, FORM_KEYS)
-        return RunManager(gen, store, FakeSlot(), FakeRunLog())
+        return RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner())
 
     env["use"] = lambda responses: env.__setitem__("llm", ClosingLLM(responses))
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)

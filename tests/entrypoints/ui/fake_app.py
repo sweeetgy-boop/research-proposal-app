@@ -15,6 +15,7 @@ from tests.fakes import (
     FakePromptLibrary,
     FakeRunLog,
     FakeSlot,
+    FakeTaskRunner,
     InMemoryRepository,
     InMemoryRunStore,
 )
@@ -89,7 +90,12 @@ def make_assistant(
         FakeLLM(list(answers or ANSWERS)), repo, FakePromptLibrary(), rules, KEYS
     )
     mgr = RunManager(
-        gen, InMemoryRunStore(), FakeSlot(), FakeRunLog(), clock=lambda: "2026-01-01T00:00:00+00:00"
+        gen,
+        InMemoryRunStore(),
+        FakeSlot(),
+        FakeRunLog(),
+        FakeTaskRunner(),
+        clock=lambda: "2026-01-01T00:00:00+00:00",
     )
     return ProposalAssistant(
         PrecheckOverlap(repo, own=own), mgr, repo, clock=lambda: "2026-01-01T00:00:00+00:00"

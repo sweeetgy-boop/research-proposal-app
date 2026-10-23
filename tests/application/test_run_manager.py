@@ -16,6 +16,7 @@ from tests.fakes import (
     FakePromptLibrary,
     FakeRunLog,
     FakeSlot,
+    FakeTaskRunner,
     InMemoryRepository,
     InMemoryRunStore,
 )
@@ -52,6 +53,7 @@ def build(repo, llm, *, store=None, slot=None, log=None, required=None, **kw):
         store,
         slot or FakeSlot(),
         log or FakeRunLog(),
+        FakeTaskRunner(),
         model="local-14b",
         clock=lambda: "2026-01-01T00:00:00+00:00",
         **kw,
@@ -235,7 +237,8 @@ async def test_cancel_marks_interrupted_and_releases_lock(repo, req):
     mgr, store = build(repo, SlowLLM())
     st = await mgr.submit(USER, req)
     await asyncio.sleep(0.01)
-    mgr._tasks[st.run_id].cancel()
+    assert mgr.cancel(USER, st.run_id)
+    assert mgr.runner.cancelled == [st.run_id]
     with pytest.raises(asyncio.CancelledError):
         await mgr.wait(USER, st.run_id)
     final = store.load_state(USER, st.run_id)
@@ -289,7 +292,7 @@ def build_form(repo, llm, store=None):
     )
     gen = GenerateProposal(llm, repo, FakePromptLibrary(), rules, CHOICE_KEYS)
     store = store or InMemoryRunStore()
-    mgr = RunManager(gen, store, FakeSlot(), FakeRunLog(), clock=lambda: "t")
+    mgr = RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner(), clock=lambda: "t")
     return mgr, store
 
 
@@ -379,7 +382,9 @@ async def test_warnings_alone_leave_the_run_done(repo, req):
     )
     llm = FakeLLM([sentence("제목")])
     gen = GenerateProposal(llm, repo, FakePromptLibrary(), rules, rules.order)
-    mgr = RunManager(gen, InMemoryRunStore(), FakeSlot(), FakeRunLog(), clock=lambda: "t")
+    mgr = RunManager(
+        gen, InMemoryRunStore(), FakeSlot(), FakeRunLog(), FakeTaskRunner(), clock=lambda: "t"
+    )
     final = await run_to_end(mgr, req)
     assert final.status == "done"
     assert final.step("section:policy_importance").parse == "skipped"

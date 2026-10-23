@@ -116,7 +116,14 @@ def write_server(docs, chunks):
     from rra.application.usecases.generate_proposal import GenerateProposal
     from rra.domain.rules.lint import LintRules
     from rra.entrypoints.mcp.run_tools import RraRunTools
-    from tests.fakes import FakeLLM, FakePromptLibrary, FakeRunLog, FakeSlot, InMemoryRunStore
+    from tests.fakes import (
+        FakeLLM,
+        FakePromptLibrary,
+        FakeRunLog,
+        FakeSlot,
+        FakeTaskRunner,
+        InMemoryRunStore,
+    )
 
     repo = InMemoryRepository()
     repo.seed(docs, chunks)
@@ -132,7 +139,7 @@ def write_server(docs, chunks):
         LintRules(required_sections=keys, evidence_required=["prior_work"]),
         keys,
     )
-    mgr = RunManager(gen, InMemoryRunStore(), FakeSlot(), FakeRunLog())
+    mgr = RunManager(gen, InMemoryRunStore(), FakeSlot(), FakeRunLog(), FakeTaskRunner())
     return srv.build_server(RraTools(PrecheckOverlap(repo), repo), RraRunTools(mgr)), mgr
 
 
@@ -223,7 +230,14 @@ def form_server(docs, chunks):
     from rra.application.usecases.generate_proposal import GenerateProposal
     from rra.domain.rules.lint import ChoiceSpec, LintRules
     from rra.entrypoints.mcp.run_tools import RraRunTools
-    from tests.fakes import FakeLLM, FakePromptLibrary, FakeRunLog, FakeSlot, InMemoryRunStore
+    from tests.fakes import (
+        FakeLLM,
+        FakePromptLibrary,
+        FakeRunLog,
+        FakeSlot,
+        FakeTaskRunner,
+        InMemoryRunStore,
+    )
 
     repo = InMemoryRepository()
     repo.seed(docs, chunks)
@@ -242,7 +256,7 @@ def form_server(docs, chunks):
     ]
     store = InMemoryRunStore()
     gen = GenerateProposal(FakeLLM(answers), repo, FakePromptLibrary(), rules, keys)
-    mgr = RunManager(gen, store, FakeSlot(), FakeRunLog())
+    mgr = RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner())
     server = srv.build_server(RraTools(PrecheckOverlap(repo), repo), RraRunTools(mgr))
     return server, mgr, store
 

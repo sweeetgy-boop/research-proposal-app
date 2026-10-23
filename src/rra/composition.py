@@ -411,13 +411,13 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
     )
 
 
-def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None):
-    """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그.
+def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None, runner=None):
+    """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, asyncio 실행기.
 
     repo·llm 은 바로 만든다. 임베딩 모델은 어댑터가 첫 호출 때 올리므로 상태 조회만 할 때는
     로드되지 않는다 (SentenceTransformerEmbedding.loaded).
     """
-    from rra.adapters.runs import FileRunLog, FileRunStore, FlockSlot
+    from rra.adapters.runs import AsyncioTaskRunner, FileRunLog, FileRunStore, FlockSlot
     from rra.application.services import RunManager
 
     settings = settings or load_settings()
@@ -434,6 +434,7 @@ def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None):
         FileRunStore(root),
         FlockSlot(root / ".generate.lock"),
         FileRunLog(root),
+        runner or AsyncioTaskRunner(),
         max_queued=int(input_limits(settings).get("max_queued_runs", 3)),
         model=model,
     )

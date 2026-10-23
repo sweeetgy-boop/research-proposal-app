@@ -86,7 +86,7 @@ def _adapters(tmp_path, monkeypatch):
     import sys
     import types
 
-    from rra.adapters.runs import FileRunLog, FileRunStore, FlockSlot
+    from rra.adapters.runs import AsyncioTaskRunner, FileRunLog, FileRunStore, FlockSlot
     from rra.adapters.sources.alio import AlioSummarySource, CatalogFetcher
     from rra.composition import (
         build_alio_catalog,
@@ -139,6 +139,7 @@ def _adapters(tmp_path, monkeypatch):
         "run_store": FileRunStore(tmp_path / "runs"),
         "run_log": FileRunLog(tmp_path / "runs"),
         "slot": FlockSlot(tmp_path / "runs" / ".lock"),
+        "runner": AsyncioTaskRunner(),
     }
 
 
@@ -156,6 +157,7 @@ ADAPTER_PORTS = {
     "run_store": ["RunStorePort"],
     "run_log": ["RunLogPort"],
     "slot": ["GenerationSlot"],
+    "runner": ["TaskRunner"],
 }
 
 
@@ -190,6 +192,7 @@ def test_every_fake_is_an_instance_of_its_port(tmp_path):
         (fakes.FakeCatalog([]), ["CatalogPort"]),
         (fakes.InMemoryRunStore(), ["RunStorePort"]),
         (fakes.FakeSlot(), ["GenerationSlot"]),
+        (fakes.FakeTaskRunner(), ["TaskRunner"]),
     ]
     assert Draft  # RendererPort 가 참조하는 도메인 타입
     for obj, names in cases:

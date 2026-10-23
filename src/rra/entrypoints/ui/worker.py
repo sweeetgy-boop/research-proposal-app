@@ -1,8 +1,9 @@
 """화면 스레드와 분리된 단일 워커 — 자체 이벤트 루프를 가진 데몬 스레드.
 
 Streamlit 은 상호작용마다 스크립트를 다시 실행하고 이벤트 루프를 유지하지 않는다.
-RunManager.submit 은 asyncio.create_task 로 백그라운드 실행하므로 살아 있는 루프가 필요하다.
-그래서 프로세스에 워커 하나를 두고(st.cache_resource), 모든 유스케이스 호출을 그 루프에서 돈다.
+RunManager 는 TaskRunner 포트(조립: AsyncioTaskRunner)로 백그라운드 실행하므로 살아 있는 루프가
+필요하다. 그래서 프로세스에 워커 하나를 두고(st.cache_resource), 조립과 모든 유스케이스 호출을
+그 루프에서 돈다 — 실행기는 그 루프에 Task 를 만든다.
 화면은 run_coroutine_threadsafe(...).result(timeout) 로 짧게 기다리기만 한다.
 
 sqlite 연결·LLM 클라이언트는 만든 스레드/루프에 묶인다.

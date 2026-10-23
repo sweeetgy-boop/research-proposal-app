@@ -8,6 +8,7 @@ from .repository import DocumentRepository
 from .run_log import RunLogPort
 from .run_store import RunBusy, RunClaim, RunNotFound, RunStorePort
 from .source import AcknowledgingSource, InboxSource, ProbingSource, SourcePort, WarningSource
+from .task_runner import TaskRunner
 
 __all__ = [
     "AcknowledgingSource",
@@ -27,5 +28,6 @@ __all__ = [
     "RunNotFound",
     "RunStorePort",
     "SourcePort",
+    "TaskRunner",
     "WarningSource",
 ]

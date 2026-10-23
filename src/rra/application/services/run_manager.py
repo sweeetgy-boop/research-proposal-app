@@ -5,6 +5,8 @@
 - 재개 단위는 step: retrieve(1회, 스냅샷 저장) → section:<key>(LLM 1회씩) → finalize(lint).
   이미 저장된 step 은 건너뛴다. 검색은 재개 때 다시 하지 않는다 (근거 집합 고정).
 - 섹션은 근거 검증을 통과한 뒤에만 저장된다 → 부분 초안도 항상 인용 규칙을 만족한다.
+- 백그라운드 실행은 TaskRunner 포트로만 띄운다 (asyncio 를 직접 쓰지 않는다). 진입점마다 루프가
+  달라도(CLI·UI 워커·REST) 조립에서 맞는 구현을 끼운다.
 - 동시성: run 락(claim) → 전역 슬롯(slot) 순서로 잡는다. 둘 다 프로세스 간 락이라
   CLI 와 MCP 서버가 동시에 생성하지 않고, 락을 잡은 프로세스가 죽으면 run 은 interrupted 가 된다.
 - manifest(보안 I): 해시·id·개수·예외 클래스명만. 제안 입력·문장·오류 메시지는 넣지 않는다.
@@ -17,7 +19,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -33,6 +34,7 @@ from rra.application.ports import (
     RunLogPort,
     RunNotFound,
     RunStorePort,
+    TaskRunner,
 )
 from rra.application.usecases.generate_proposal import GenerateProposal
 from rra.domain.models import (
@@ -119,6 +121,7 @@ class RunManager:
         store: RunStorePort,
         slot: GenerationSlot,
         run_log: RunLogPort,
+        runner: TaskRunner,
         *,
         max_queued: int = 3,
         model: str | None = None,
@@ -128,10 +131,10 @@ class RunManager:
         self.store = store
         self.slot = slot
         self.run_log = run_log
+        self.runner = runner
         self.max_queued = max_queued
         self.model = model
         self._clock = clock
-        self._tasks: dict[str, asyncio.Task[RunState]] = {}
 
     # ── 제출·재개 ─────────────────────────────────────────
     async def submit(
@@ -170,15 +173,19 @@ class RunManager:
 
     async def wait(self, user: str, run_id: str) -> RunState:
         """같은 프로세스에서 시작한 run 이 끝날 때까지 기다린다 (CLI 용)."""
-        task = self._tasks.get(run_id)
-        if task is not None:
-            return await task
+        if self.runner.is_running(run_id):
+            return await self.runner.wait(run_id)
         return await self.status(user, run_id)
 
+    def cancel(self, user: str, run_id: str) -> bool:
+        """같은 프로세스에서 돌고 있는 run 을 취소한다. 상태는 interrupted 로 남아 재개 가능."""
+        if not is_valid_run_id(run_id) or not self.runner.is_running(run_id):
+            return False
+        self.store.load_state(user, run_id)  # 다른 사용자의 run 이면 RunNotFound
+        return self.runner.cancel(run_id)
+
     def _start(self, state: RunState, claim: RunClaim, on_step: StepCallback | None) -> None:
-        task = asyncio.create_task(self._execute(state.user, state.run_id, claim, on_step))
-        self._tasks[state.run_id] = task
-        task.add_done_callback(lambda _t, rid=state.run_id: self._tasks.pop(rid, None))
+        self.runner.submit(state.run_id, self._execute(state.user, state.run_id, claim, on_step))
 
     # ── 실행 ─────────────────────────────────────────────
     async def _execute(
@@ -257,13 +264,13 @@ class RunManager:
                 self._finish(state, current, on_step)
                 current = None
                 return state
-        except asyncio.CancelledError:
-            self._interrupt(state, current, "CancelledError")
-            raise
         except Exception as exc:  # 어떤 실패든 저장된 step 은 남고, 재개로 이어서 한다
             self._interrupt(state, current, type(exc).__name__)
             logger.warning("run.interrupted run=%s error=%s", run_id, type(exc).__name__)
             return state
+        except BaseException as exc:  # 취소(CancelledError 는 BaseException) — 상태만 남기고 전파
+            self._interrupt(state, current, type(exc).__name__)
+            raise
         finally:
             state.updated_at = self._clock()
             self._save(state)
@@ -327,7 +334,7 @@ class RunManager:
 
     def _normalize(self, state: RunState) -> RunState:
         """queued·running 인데 아무도 락을 잡고 있지 않으면 실행하던 프로세스가 죽은 것."""
-        if state.status in ACTIVE and state.run_id not in self._tasks:
+        if state.status in ACTIVE and not self.runner.is_running(state.run_id):
             if not self.store.is_alive(state.user, state.run_id):
                 state.status = "interrupted"
                 state.updated_at = self._clock()

@@ -334,3 +334,37 @@ class FakeProbingSource:
 
     async def aclose(self):
         self.closed = True
+
+
+class FakeTaskRunner:
+    """TaskRunner fake — 제출·취소를 기록하고, 코루틴은 현재 루프의 Task 로 실제 실행한다."""
+
+    def __init__(self):
+        import asyncio
+
+        self._asyncio = asyncio
+        self.tasks: dict[str, Any] = {}
+        self.submitted: list[str] = []
+        self.cancelled: list[str] = []
+
+    def submit(self, key, coro):
+        if key in self.tasks:
+            coro.close()
+            raise ValueError(key)
+        task = self._asyncio.ensure_future(coro)
+        self.tasks[key] = task
+        self.submitted.append(key)
+        task.add_done_callback(lambda _t, k=key: self.tasks.pop(k, None))
+
+    def cancel(self, key):
+        task = self.tasks.get(key)
+        if task is None:
+            return False
+        self.cancelled.append(key)
+        return task.cancel()
+
+    def is_running(self, key):
+        return key in self.tasks
+
+    async def wait(self, key):
+        return await self.tasks[key]
