@@ -1509,6 +1509,7 @@ dev = [
     { name = "bandit" },
     { name = "cryptography" },
     { name = "defusedxml" },
+    { name = "fastapi" },
     { name = "httpx" },
     { name = "import-linter" },
     { name = "mcp" },
@@ -1521,6 +1522,7 @@ dev = [
     { name = "ruff" },
     { name = "sqlite-vec" },
     { name = "streamlit" },
+    { name = "uvicorn" },
 ]
 embedding = [
     { name = "sentence-transformers" },
@@ -1569,7 +1571,7 @@ requires-dist = [
     { name = "python-hwpx", marker = "extra == 'render'", specifier = ">=6.8" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "research-proposal-app", extras = ["persistence", "embedding", "sources", "llm"], marker = "extra == 'adapters'" },
-    { name = "research-proposal-app", extras = ["persistence", "llm", "mcp", "sources", "ui", "render"], marker = "extra == 'dev'" },
+    { name = "research-proposal-app", extras = ["persistence", "llm", "mcp", "sources", "ui", "render", "api"], marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
     { name = "sentence-transformers", marker = "extra == 'embedding'", specifier = ">=3.0" },
     { name = "sqlite-vec", marker = "extra == 'persistence'", specifier = ">=0.1" },
