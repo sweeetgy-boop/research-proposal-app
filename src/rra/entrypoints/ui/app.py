@@ -21,7 +21,7 @@ from rra.application.services import (
     RunNotResumable,
 )
 from rra.domain.models import Budget, ProposalRequest
-from rra.domain.models.request import REQUIRED_SLOTS, SHORT_MAX, SLOT_MAX
+from rra.domain.models.request import SHORT_MAX, SLOT_MAX, validation_message
 from rra.domain.models.run import ACTIVE
 from rra.domain.rules import agent_policy as policy
 from rra.domain.rules.overlap import SOURCE_LABELS
@@ -79,16 +79,13 @@ def intake_form() -> None:
         submitted = st.form_submit_button("유사과제 확인", type="primary")
     if not submitted:
         return
-    missing = [FIELDS[k][0] for k in REQUIRED_SLOTS if not (ss.get(k) or "").strip()]
-    if missing:
-        st.error(f"필수 입력이 비었습니다: {', '.join(missing)}")
-        return
-    try:
+    try:  # 필수 슬롯·길이 규칙은 도메인 모델이 검사한다 — 화면은 메시지로 바꾸기만 한다
         amount = int(ss.get("budget_amount") or 0)
         budget = Budget(account=ss.get("budget_account") or "", amount_thousand_krw=amount or None)
         req = ProposalRequest(**{k: ss.get(k) or "" for k in FIELDS}, budget=budget)
     except ValidationError as exc:
-        st.error(f"입력 형식 오류: {plain(exc)}")
+        labels = {k: label for k, (label, _) in FIELDS.items()}
+        st.error(f"입력 오류 — {plain(validation_message(exc, labels))}")
         return
     ss["rra_request"] = req
     ss["rra_intake"] = worker.sync(assistant.intake, req)

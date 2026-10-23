@@ -1,14 +1,44 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 SLOT_MAX = 2000
 SHORT_MAX = 200
 
-# 필수 입력. 비면 생성하지 않는다 (진입점이 검사).
+# 필수 입력. 비면 ProposalRequest 가 거부한다 — 진입점(CLI·UI·MCP·API)은 ValidationError 를
+# 사용자 메시지로 바꾸기만 한다 (validation_message). 규칙은 여기 한 곳에만 둔다.
 REQUIRED_SLOTS = ("current_state", "root_cause", "limitation", "goal")
+MISSING_SLOTS_ERROR = "missing_slots"
+MISSING_SLOTS_MESSAGE = "필수 슬롯이 비었습니다"
+
+
+def missing_required_slots(values: Mapping[str, object]) -> list[str]:
+    """비어 있거나 공백뿐인 필수 슬롯 이름 (REQUIRED_SLOTS 순서)."""
+    return [k for k in REQUIRED_SLOTS if not str(values.get(k) or "").strip()]
+
+
+def validation_message(exc: ValidationError, labels: Mapping[str, str] | None = None) -> str:
+    """ValidationError → 한 줄 사용자 메시지. labels 로 슬롯 이름을 표시명으로 바꿀 수 있다.
+
+    필수 슬롯 누락은 어느 진입점에서든 같은 문구("필수 슬롯이 비었습니다: a, b")로 나온다.
+    """
+    labels = labels or {}
+    parts: list[str] = []
+    for err in exc.errors():
+        if err["type"] == MISSING_SLOTS_ERROR:
+            fields = [labels.get(f, f) for f in err.get("ctx", {}).get("fields", [])]
+            parts.append(f"{MISSING_SLOTS_MESSAGE}: {', '.join(fields)}")
+            continue
+        loc = ".".join(labels.get(str(p), str(p)) for p in err["loc"])
+        msg = err["msg"].removeprefix("Value error, ")
+        parts.append(f"{loc}: {msg}" if loc else msg)
+    return "; ".join(parts)
+
+
 # LLM 에 보내지 않는 입력 — 양식 칸에 그대로 옮기는 값.
 FORM_ONLY_FIELDS = frozenset({"budget", "department"})
 
@@ -45,6 +75,19 @@ class ProposalRequest(BaseModel):
     remarks: str = Field(default="", description="특이사항에 덧붙일 내용")
     department: str = Field(default="", description="제안부서 (양식 칸에만 쓴다)")
     budget: Budget | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _require_slots(cls, data: Any) -> Any:
+        if isinstance(data, Mapping):
+            missing = missing_required_slots(data)
+            if missing:
+                raise PydanticCustomError(
+                    MISSING_SLOTS_ERROR,
+                    MISSING_SLOTS_MESSAGE + ": {slots}",
+                    {"slots": ", ".join(missing), "fields": missing},
+                )
+        return data
 
     @field_validator(
         "current_state",

@@ -14,6 +14,8 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
+from pydantic import ValidationError
+
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_USAGE = 2
@@ -52,14 +54,13 @@ def _read_slots(args: argparse.Namespace) -> dict[str, str]:
 def cmd_precheck(args: argparse.Namespace) -> int:
     from rra.composition import build_precheck, load_settings
     from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
 
-    slots = _read_slots(args)
-    missing = [k for k in SLOTS[:4] if not slots[k].strip()]
-    if missing:
-        _eprint(f"필수 슬롯이 비었습니다: {', '.join(missing)}")
+    try:
+        req = ProposalRequest(**_read_slots(args))  # 필수 슬롯·길이 규칙은 도메인이 검사한다
+    except ValidationError as exc:
+        _eprint(validation_message(exc))
         return EXIT_USAGE
-
-    req = ProposalRequest(**slots)
     alerts = build_precheck(load_settings())(req)
 
     if args.json:
@@ -344,16 +345,15 @@ def _read_request_fields(args: argparse.Namespace) -> dict:
 def cmd_generate(args: argparse.Namespace) -> int:
     from rra.composition import LOCAL_USER, build_run_manager, load_settings
     from rra.domain.models import ProposalRequest
-    from rra.domain.models.request import REQUIRED_SLOTS
+    from rra.domain.models.request import validation_message
 
     req = None
     if not args.resume and not args.reuse_input:
-        fields = _read_request_fields(args)
-        missing = [k for k in REQUIRED_SLOTS if not fields[k].strip()]
-        if missing:
-            _eprint(f"필수 슬롯이 비었습니다: {', '.join(missing)}")
+        try:
+            req = ProposalRequest(**_read_request_fields(args))
+        except ValidationError as exc:
+            _eprint(validation_message(exc))
             return EXIT_USAGE
-        req = ProposalRequest(**fields)
 
     started: dict[str, str] = {}
 

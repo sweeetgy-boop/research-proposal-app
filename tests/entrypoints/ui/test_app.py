@@ -97,7 +97,8 @@ def app_for_labels():
 
 def test_missing_required_slot_is_an_error(app):
     at = submit_form(login(app()), {"current_state": "x"})
-    assert "필수 입력이 비었습니다" in at.error[0].value
+    assert "필수 슬롯이 비었습니다" in at.error[0].value  # CLI·MCP 와 같은 도메인 문구
+    assert "발생 원인" in at.error[0].value  # 화면은 슬롯 이름을 표시명으로 바꾼다
     assert at.session_state["rra_intake"] is None
 
 

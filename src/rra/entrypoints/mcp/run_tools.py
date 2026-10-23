@@ -17,7 +17,6 @@ from typing import Any
 from rra.application.ports import RunBusy, RunNotFound
 from rra.application.services import ConfirmRejected, QueueFull, RunManager, RunNotResumable
 from rra.domain.models import Budget, ProposalRequest
-from rra.domain.models.request import REQUIRED_SLOTS
 from rra.domain.models.run import is_valid_run_id
 from rra.domain.rules.trust import UNTRUSTED_NOTICE, escape_untrusted
 from rra.entrypoints.mcp.tools import ToolInputError
@@ -64,7 +63,7 @@ class RraRunTools:
                     if budget_account or budget_amount_thousand_krw is not None
                     else None
                 )
-                req = ProposalRequest(  # 길이 상한은 도메인 모델이 강제한다
+                req = ProposalRequest(  # 필수 슬롯·길이 상한은 도메인 모델이 강제한다
                     current_state=current_state,
                     root_cause=root_cause,
                     limitation=limitation,
@@ -77,9 +76,6 @@ class RraRunTools:
                     department=department,
                     budget=budget,
                 )
-                missing = [k for k in REQUIRED_SLOTS if not getattr(req, k)]
-                if missing:
-                    raise ToolInputError(f"필수 슬롯이 비었습니다: {', '.join(missing)}")
                 state = await self._manager.submit(self._user, req)
         except (QueueFull, RunBusy, RunNotResumable, RunNotFound) as exc:
             raise ToolInputError(str(exc)) from exc

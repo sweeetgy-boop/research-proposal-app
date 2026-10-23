@@ -99,8 +99,18 @@ def test_precheck_reads_slot_file(stub, tmp_path, capsys):
 
 
 def test_slot_length_violation_is_reported_not_raised(stub, capsys):
-    assert cli.main(["precheck", *SLOT_ARGS[:6], "--goal", "가" * 2001]) == cli.EXIT_ERROR
-    assert "오류:" in capsys.readouterr().err
+    # 입력 규칙 위반은 사용 오류(EXIT_USAGE) — 필수 슬롯 누락과 같은 경로(도메인 ValidationError)
+    assert cli.main(["precheck", *SLOT_ARGS[:6], "--goal", "가" * 2001]) == cli.EXIT_USAGE
+    assert "goal: 슬롯 길이 2001 > 2000" in capsys.readouterr().err
+    assert stub.requests == []
+
+
+def test_blank_slot_in_file_is_rejected_like_cli_flags(stub, tmp_path, capsys):
+    f = tmp_path / "in.yaml"
+    f.write_text("current_state: a\nroot_cause: '   '\nlimitation: c\ngoal: d\n", encoding="utf-8")
+    assert cli.main(["precheck", "--file", str(f)]) == cli.EXIT_USAGE
+    assert "필수 슬롯이 비었습니다: root_cause" in capsys.readouterr().err
+    assert stub.requests == []
 
 
 def test_search_uses_the_same_untrusted_wrapping(monkeypatch, capsys, docs, chunks):

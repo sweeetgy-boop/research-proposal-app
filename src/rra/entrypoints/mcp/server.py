@@ -20,6 +20,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import ValidationError
 
+from rra.domain.models.request import validation_message
 from rra.entrypoints.mcp.run_tools import RraRunTools
 from rra.entrypoints.mcp.tools import DEFAULT_K, RraTools, ToolInputError, ToolLimits
 
@@ -68,10 +69,7 @@ WRITES_LOCAL_RUN = ToolAnnotations(
 def _input_error(exc: Exception) -> ToolError:
     """입력 오류만 호출자에게 돌려준다. 그 외 예외는 SDK 가 일반 메시지로 감춘다 (보안 I)."""
     if isinstance(exc, ValidationError):
-        detail = "; ".join(
-            f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()
-        )
-        return ToolError(f"입력이 올바르지 않습니다 — {detail}")
+        return ToolError(f"입력이 올바르지 않습니다 — {validation_message(exc)}")
     return ToolError(str(exc))
 
 

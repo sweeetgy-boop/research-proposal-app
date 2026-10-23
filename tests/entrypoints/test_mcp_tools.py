@@ -70,6 +70,14 @@ def test_precheck_without_hits_is_not_blocking(tools):
     assert out["blocking"] is False
 
 
+@pytest.mark.parametrize("slot", ["current_state", "root_cause", "limitation", "goal"])
+def test_precheck_requires_the_four_slots(tools, slot):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match=f"필수 슬롯이 비었습니다: {slot}"):
+        tools.precheck(**{**SLOTS, slot: "  "})
+
+
 def test_precheck_enforces_slot_length(tools, repo):
     with pytest.raises(ValueError, match="슬롯 길이"):
         tools.precheck(**{**SLOTS, "goal": "가" * 2001})
