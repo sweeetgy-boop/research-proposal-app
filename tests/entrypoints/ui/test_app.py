@@ -1,5 +1,6 @@
 """Streamlit 화면 — AppTest. LLM 은 FakeLLM, 저장소는 메모리. 토큰 게이트·흐름·개인정보 칸 없음."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -136,6 +137,10 @@ def test_clean_flow_generates_confirms_and_downloads(app):
     assert any("확정됨" in c.value for c in at.caption)
     assert "확정값을 저장했습니다." in [s.value for s in at.success]
     assert at.download_button[0].label == "결과 JSON 다운로드"
+    assert at.download_button[1].label == "제안서 받기(hwpx)"  # 확정 뒤 양식 파일
+    call = worker.assistant.manager.renderer.calls[-1]  # FakeRenderer 가 받은 인자
+    assert call["run_id"] == run_id and call["proposer"].proposer.name == ""  # 입력 없으면 빈칸
+    assert "proposer" not in json.dumps(store.states[("local", run_id)].model_dump())
     view = worker.call(worker.assistant.poll(run_id))
     payload = service.download_payload(view, at.session_state["rra_request"])
     assert payload["confirmed"]["choices"]["utilization"] == ["software", "manual"]

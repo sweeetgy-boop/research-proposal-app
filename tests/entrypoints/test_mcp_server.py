@@ -106,7 +106,7 @@ async def test_tool_call_reports_input_errors_to_the_caller(server):
 
 
 # ── 쓰기 도구 (--enable-generate) ────────────────────────
-WRITE_TOOLS = {"rra_generate", "rra_get_draft", "rra_confirm"}
+WRITE_TOOLS = {"rra_generate", "rra_get_draft", "rra_confirm", "rra_render"}
 SLOTS = {"current_state": "수작업", "root_cause": "센서 부재", "limitation": "주기", "goal": "자동"}
 
 
@@ -233,6 +233,7 @@ def form_server(docs, chunks):
     from tests.fakes import (
         FakeLLM,
         FakePromptLibrary,
+        FakeRenderer,
         FakeRunLog,
         FakeSlot,
         FakeTaskRunner,
@@ -256,7 +257,9 @@ def form_server(docs, chunks):
     ]
     store = InMemoryRunStore()
     gen = GenerateProposal(FakeLLM(answers), repo, FakePromptLibrary(), rules, keys)
-    mgr = RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner())
+    mgr = RunManager(
+        gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner(), renderer=FakeRenderer()
+    )
     server = srv.build_server(RraTools(PrecheckOverlap(repo), repo), RraRunTools(mgr))
     return server, mgr, store
 
@@ -288,6 +291,36 @@ async def test_generate_accepts_form_fields_then_confirm(form_server):
         await server.call_tool("rra_confirm", {"run_id": rid, "utilization": ["evil"]})
     with pytest.raises(ToolError, match="run_id 형식"):
         await server.call_tool("rra_confirm", {"run_id": "../x", "task_type": "basic"})
+
+
+async def test_render_tool_returns_base64_and_keeps_proposer_out_of_storage(form_server):
+    import base64
+    import json as _json
+
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    server, mgr, store = form_server
+    rid = (await server.call_tool("rra_generate", SLOTS)).structured_content["run_id"]
+    await mgr.wait("local", rid)
+    await server.call_tool("rra_confirm", {"run_id": rid, "task_type": "basic"})
+    out = (
+        await server.call_tool(
+            "rra_render", {"run_id": rid, "proposer_name": "홍길동", "proposer_phone": "010-1"}
+        )
+    ).structured_content
+    assert out["filename"] == f"proposal-{rid}.hwpx" and out["size"] > 0
+    body = _json.loads(base64.b64decode(out["content_base64"]))
+    assert body["proposer"]["proposer"]["name"] == "홍길동"
+    assert body["confirmed"] == {"task_type": ["basic"]}
+    # 제안자 정보는 run 저장소·manifest 어디에도 없다
+    dumped = _json.dumps(
+        {k: str(v) for k, v in vars(store).items()}, ensure_ascii=False, default=str
+    ) + _json.dumps(mgr.run_log.records, ensure_ascii=False, default=str)
+    assert "홍길동" not in dumped and "010-1" not in dumped
+    with pytest.raises(ToolError, match="run_id 형식"):
+        await server.call_tool("rra_render", {"run_id": "../x"})
+    with pytest.raises(ToolError, match="해당 run|run 이 없습니다"):
+        await server.call_tool("rra_render", {"run_id": "20260101000000-deadbeef"})
 
 
 async def test_confirm_tool_is_not_read_only(form_server):

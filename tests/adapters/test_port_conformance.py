@@ -96,6 +96,7 @@ def _adapters(tmp_path, monkeypatch):
         build_ntis_source,
         build_openalex_source,
         build_prompt_library,
+        build_renderer,
         build_repository,
         build_scienceon_source,
         build_sources,
@@ -140,6 +141,7 @@ def _adapters(tmp_path, monkeypatch):
         "run_log": FileRunLog(tmp_path / "runs"),
         "slot": FlockSlot(tmp_path / "runs" / ".lock"),
         "runner": AsyncioTaskRunner(),
+        "renderer": build_renderer(settings),
     }
 
 
@@ -158,6 +160,7 @@ ADAPTER_PORTS = {
     "run_log": ["RunLogPort"],
     "slot": ["GenerationSlot"],
     "runner": ["TaskRunner"],
+    "renderer": ["RendererPort"],
 }
 
 

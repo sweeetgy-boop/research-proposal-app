@@ -562,6 +562,7 @@ def form_env(monkeypatch, docs, chunks):
     from tests.fakes import (
         FakeLLM,
         FakePromptLibrary,
+        FakeRenderer,
         FakeRunLog,
         FakeSlot,
         FakeTaskRunner,
@@ -572,7 +573,8 @@ def form_env(monkeypatch, docs, chunks):
     repo = InMemoryRepository()
     repo.seed(docs, chunks)
     store = InMemoryRunStore()
-    env = {"store": store, "llm": None}
+    renderer = FakeRenderer()
+    env = {"store": store, "llm": None, "renderer": renderer}
 
     class ClosingLLM(FakeLLM):
         async def aclose(self):
@@ -585,7 +587,7 @@ def form_env(monkeypatch, docs, chunks):
             choices={"task_type": ChoiceSpec(options="task_types")},
         )
         gen = GenerateProposal(env["llm"], repo, FakePromptLibrary(), rules, FORM_KEYS)
-        return RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner())
+        return RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner(), renderer=renderer)
 
     env["use"] = lambda responses: env.__setitem__("llm", ClosingLLM(responses))
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)
@@ -606,6 +608,60 @@ def test_generate_shows_proposed_choice_then_confirm(form_env, capsys):
     task = json.loads(capsys.readouterr().out)["sections"][1]["choices"]
     assert task["proposed"] == [{"id": "applied", "label": "응용연구"}]
     assert task["confirmed"] == [{"id": "development", "label": "개발연구"}]
+
+
+def test_runs_render_writes_owner_only_file_and_keeps_proposer_out_of_runs(
+    form_env, tmp_path, capsys
+):
+    import os
+
+    form_env["use"]([_sentence("제목"), _choice(["applied"])])
+    cli.main(["generate", *GEN_ARGS])
+    run_id = capsys.readouterr().out.split("[run ", 1)[1].split("]", 1)[0]
+    cli.main(["runs", "confirm", run_id, "--task-type", "applied"])
+    capsys.readouterr()
+    out = tmp_path / "out" / "p.hwpx"
+    code = cli.main(
+        [
+            "runs",
+            "render",
+            run_id,
+            "--out",
+            str(out),
+            "--proposer-name",
+            "홍길동",
+            "--proposer-phone",
+            "010-9",
+            "--proposed-on",
+            "2026-10-23",
+        ]
+    )
+    assert code == cli.EXIT_OK and "저장:" in capsys.readouterr().out
+    assert out.is_file() and os.stat(out).st_mode & 0o777 == 0o600
+    body = json.loads(out.read_bytes())
+    assert body["proposer"]["proposer"]["name"] == "홍길동" and body["confirmed"]["task_type"] == [
+        "applied"
+    ]
+    store = form_env["store"]
+    dumped = json.dumps({k: str(v) for k, v in vars(store).items()}, ensure_ascii=False)
+    assert "홍길동" not in dumped and "010-9" not in dumped  # run 폴더(저장소)에 없다
+    assert form_env["renderer"].calls[-1]["proposer"].proposer.name == "홍길동"
+
+
+def test_runs_render_refusal_is_a_usage_error(form_env, tmp_path, capsys):
+    from rra.application.ports.renderer import RenderRejected
+
+    class Refusing:
+        def render(self, draft, *, confirmation=None, proposer=None):
+            raise RenderRejected("확정되지 않은 선택형 항목: task_type")
+
+    form_env["renderer"].render = Refusing().render
+    form_env["use"]([_sentence("제목"), _choice(["applied"])])
+    cli.main(["generate", *GEN_ARGS])
+    run_id = capsys.readouterr().out.split("[run ", 1)[1].split("]", 1)[0]
+    out = tmp_path / "p.hwpx"
+    assert cli.main(["runs", "render", run_id, "--out", str(out)]) == cli.EXIT_USAGE
+    assert "렌더 거부: 확정되지 않은" in capsys.readouterr().err and not out.exists()
 
 
 def test_confirm_rejects_values_outside_the_rules(form_env, capsys):

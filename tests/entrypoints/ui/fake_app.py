@@ -13,6 +13,7 @@ from rra.domain.rules.overlap import OwnUnit
 from tests.fakes import (
     FakeLLM,
     FakePromptLibrary,
+    FakeRenderer,
     FakeRunLog,
     FakeSlot,
     FakeTaskRunner,
@@ -96,6 +97,7 @@ def make_assistant(
         FakeRunLog(),
         FakeTaskRunner(),
         clock=lambda: "2026-01-01T00:00:00+00:00",
+        renderer=FakeRenderer(),
     )
     return ProposalAssistant(
         PrecheckOverlap(repo, own=own), mgr, repo, clock=lambda: "2026-01-01T00:00:00+00:00"

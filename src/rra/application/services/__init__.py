@@ -11,6 +11,7 @@ from rra.application.services.run_manager import (
     ConfirmRejected,
     DraftView,
     QueueFull,
+    RenderUnavailable,
     RunManager,
     RunNotResumable,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "IntakeResult",
     "ProposalAssistant",
     "QueueFull",
+    "RenderUnavailable",
     "RunManager",
     "RunNotResumable",
     "ToolCall",

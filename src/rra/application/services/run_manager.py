@@ -29,6 +29,7 @@ from pydantic import ValidationError
 
 from rra.application.ports import (
     GenerationSlot,
+    RendererPort,
     RunBusy,
     RunClaim,
     RunLogPort,
@@ -36,10 +37,13 @@ from rra.application.ports import (
     RunStorePort,
     TaskRunner,
 )
+from rra.application.ports.renderer import RenderRejected
 from rra.application.usecases.generate_proposal import GenerateProposal
 from rra.domain.models import (
     Confirmation,
+    Draft,
     ProposalRequest,
+    ProposerInfo,
     RetrievalSnapshot,
     RunState,
     Section,
@@ -79,6 +83,10 @@ class QueueFull(RuntimeError):
 
 class RunNotResumable(RuntimeError):
     """interrupted 상태가 아니거나, 양식 개정 전 run 이라 재개할 수 없다."""
+
+
+class RenderUnavailable(RuntimeError):
+    """렌더러가 조립되지 않았다 (python-hwpx 미설치 등)."""
 
 
 class ConfirmRejected(ValueError):
@@ -126,12 +134,14 @@ class RunManager:
         max_queued: int = 3,
         model: str | None = None,
         clock: Callable[[], str] = _utcnow,
+        renderer: RendererPort | None = None,
     ):
         self.generate = generate
         self.store = store
         self.slot = slot
         self.run_log = run_log
         self.runner = runner
+        self.renderer = renderer
         self.max_queued = max_queued
         self.model = model
         self._clock = clock
@@ -372,6 +382,29 @@ class RunManager:
             confirmation=self.store.load_confirmation(user, run_id),
             choice_options={} if legacy else self.generate.choice_options(),
         )
+
+    # ── 양식 렌더 (Step 8) ───────────────────────────────
+    async def render(
+        self, user: str, run_id: str, *, proposer: ProposerInfo | None = None
+    ) -> bytes:
+        """완료(done)된 run 을 양식 파일로. 체크 칸은 확정값으로만, 제안자 정보는 인자로만.
+
+        제안자 정보는 저장하지 않는다 (run 폴더·manifest·로그 어디에도).
+        """
+        if self.renderer is None:
+            raise RenderUnavailable("렌더러가 설정되지 않았습니다 (uv pip install -e '.[render]').")
+        view = await self.get_draft(user, run_id)
+        if view.legacy:
+            raise RenderRejected(LEGACY_HINT.format(run_id=run_id))
+        if view.state.status != "done":
+            raise RenderRejected(f"{view.state.status} 상태의 run 은 렌더할 수 없습니다 (done 만).")
+        draft = Draft(
+            run_id=run_id,
+            request=self.store.load_request(user, run_id),
+            sections=view.sections,
+            template=view.state.template,
+        )
+        return self.renderer.render(draft, confirmation=view.confirmation, proposer=proposer)
 
     # ── 선택값 확정 ───────────────────────────────────────
     async def confirm(self, user: str, run_id: str, choices: dict[str, list[str]]) -> Confirmation:

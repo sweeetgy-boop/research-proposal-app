@@ -14,10 +14,12 @@ import streamlit as st
 from pydantic import ValidationError
 
 from rra.application.ports import RunBusy, RunNotFound
+from rra.application.ports.renderer import RenderRejected
 from rra.application.services import (
     ConfirmRejected,
     HumanConfirmationRequired,
     QueueFull,
+    RenderUnavailable,
     RunNotResumable,
 )
 from rra.domain.models import Budget, ProposalRequest
@@ -201,6 +203,44 @@ def draft_panel(view, run_id: str) -> None:
         file_name=f"{run_id}.json",
         mime="application/json",
         key="download_btn",
+    )
+    render_panel(view, run_id)
+
+
+# ── 5. 제안서 받기 (hwpx) ─────────────────────────────────
+def render_panel(view, run_id: str) -> None:
+    """확정 뒤 양식 파일. 제안자·부서장 정보는 이 화면 입력값으로만 쓰고 저장하지 않는다."""
+    st.subheader("5. 제안서 받기 (hwpx)")
+    if view.state.status != "done" or view.legacy:
+        st.caption("완료(done)된 현행 양식 run 만 양식 파일로 만들 수 있습니다.")
+        return
+    with st.expander("양식 하단 정보 (선택 — 파일에만 들어가고 저장되지 않습니다)"):
+        c = st.columns(4)
+        proposed_on = c[0].text_input("제안일자", key=f"r_on_{run_id}", max_chars=20)
+        p_rank = c[1].text_input("제안자 직급", key=f"r_prank_{run_id}", max_chars=100)
+        p_name = c[2].text_input("제안자 성명", key=f"r_pname_{run_id}", max_chars=100)
+        p_phone = c[3].text_input("제안자 연락처", key=f"r_pphone_{run_id}", max_chars=100)
+        h = st.columns(4)
+        h_rank = h[1].text_input("부서장 직급", key=f"r_hrank_{run_id}", max_chars=100)
+        h_name = h[2].text_input("부서장 성명", key=f"r_hname_{run_id}", max_chars=100)
+        h_phone = h[3].text_input("부서장 연락처", key=f"r_hphone_{run_id}", max_chars=100)
+    proposer = service.proposer_info(
+        proposed_on, (p_rank, p_name, p_phone), (h_rank, h_name, h_phone)
+    )
+    try:
+        data = worker.call(assistant.manager.render(assistant.user, run_id, proposer=proposer))
+    except RenderRejected as exc:
+        st.caption(f"아직 만들 수 없습니다: {plain(exc)}")
+        return
+    except RenderUnavailable as exc:
+        st.caption(plain(exc))
+        return
+    st.download_button(
+        "제안서 받기(hwpx)",
+        data=data,
+        file_name=f"proposal-{run_id}.hwpx",
+        mime="application/hwp+zip",
+        key="download_hwpx_btn",
     )
 
 

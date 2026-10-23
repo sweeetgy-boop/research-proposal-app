@@ -12,11 +12,20 @@
 
 from __future__ import annotations
 
+import base64
 from typing import Any
 
 from rra.application.ports import RunBusy, RunNotFound
-from rra.application.services import ConfirmRejected, QueueFull, RunManager, RunNotResumable
-from rra.domain.models import Budget, ProposalRequest
+from rra.application.ports.renderer import RenderRejected
+from rra.application.services import (
+    ConfirmRejected,
+    QueueFull,
+    RenderUnavailable,
+    RunManager,
+    RunNotResumable,
+)
+from rra.domain.models import Budget, ProposalRequest, ProposerInfo
+from rra.domain.models.proposer import Person
 from rra.domain.models.run import is_valid_run_id
 from rra.domain.rules.trust import UNTRUSTED_NOTICE, escape_untrusted
 from rra.entrypoints.mcp.tools import ToolInputError
@@ -114,3 +123,36 @@ class RraRunTools:
         except (ConfirmRejected, RunNotFound) as exc:
             raise ToolInputError(str(exc)) from exc
         return {"run_id": run_id, "confirmed": confirmation.choices}
+
+    async def render(
+        self,
+        run_id: str,
+        *,
+        proposed_on: str = "",
+        proposer_rank: str = "",
+        proposer_name: str = "",
+        proposer_phone: str = "",
+        head_rank: str = "",
+        head_name: str = "",
+        head_phone: str = "",
+    ) -> dict[str, Any]:
+        """완료된 run → HWPX(base64). 제안자 정보는 이 호출 인자로만 받고 저장하지 않는다."""
+        rid = _run_id(run_id)
+        proposer = ProposerInfo(
+            proposed_on=proposed_on,
+            proposer=Person(name=proposer_name, rank=proposer_rank, phone=proposer_phone),
+            head=Person(name=head_name, rank=head_rank, phone=head_phone),
+        )
+        try:
+            data = await self._manager.render(self._user, rid, proposer=proposer)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        except (RenderRejected, RenderUnavailable) as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {
+            "run_id": rid,
+            "filename": f"proposal-{rid}.hwpx",
+            "media_type": "application/hwp+zip",
+            "size": len(data),
+            "content_base64": base64.b64encode(data).decode("ascii"),
+        }

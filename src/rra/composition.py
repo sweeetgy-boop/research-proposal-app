@@ -25,6 +25,8 @@ from rra.config_loader import (
     llm_config,
     own_unit,
     read_config,
+    render_slots,
+    render_template_path,
     require_credentials,
     security_config,
     served_model_aliases,
@@ -65,6 +67,7 @@ __all__ = [
     "build_openalex_source",
     "build_precheck",
     "build_prompt_library",
+    "build_renderer",
     "build_repository",
     "build_run_manager",
     "build_scienceon_source",
@@ -357,6 +360,21 @@ def build_sources_check(
     return CheckSources(targets)
 
 
+# ── 렌더러 (Step 8) ───────────────────────────────────────
+def build_renderer(settings: Settings | None = None):
+    """RendererPort 구현체 — HWPX. config/templates/proposal_korail.hwpx 가 있으면 템플릿 모드."""
+    from rra.adapters.rendering import HwpxRenderer, SlotMap
+
+    settings = settings or load_settings()
+    rules = lint_rules(settings)
+    return HwpxRenderer(
+        SlotMap.from_config(render_slots(settings)),
+        titles=rules.titles,
+        strategy=strategy_catalog(settings),
+        template_path=render_template_path(settings),
+    )
+
+
 # ── 유스케이스 ─────────────────────────────────────────────
 def build_list_missing(settings: Settings | None = None, repo=None):
     """ListMissing 유스케이스. repo 를 주면 그대로 쓴다(테스트용)."""
@@ -411,8 +429,10 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
     )
 
 
-def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None, runner=None):
-    """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, asyncio 실행기.
+def build_run_manager(
+    settings: Settings | None = None, *, repo=None, llm=None, runner=None, renderer=None
+):
+    """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, 실행기, HWPX 렌더러.
 
     repo·llm 은 바로 만든다. 임베딩 모델은 어댑터가 첫 호출 때 올리므로 상태 조회만 할 때는
     로드되지 않는다 (SentenceTransformerEmbedding.loaded).
@@ -437,6 +457,7 @@ def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None, 
         runner or AsyncioTaskRunner(),
         max_queued=int(input_limits(settings).get("max_queued_runs", 3)),
         model=model,
+        renderer=renderer or build_renderer(settings),
     )
 
 

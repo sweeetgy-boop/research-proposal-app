@@ -11,7 +11,8 @@ from typing import Any
 import streamlit as st
 
 from rra import composition
-from rra.domain.models import OverlapAlert
+from rra.domain.models import OverlapAlert, ProposerInfo
+from rra.domain.models.proposer import Person
 from rra.entrypoints.ui.labels import BASIS, TIER, clean
 from rra.entrypoints.ui.worker import Worker
 from rra.entrypoints.views import draft_payload
@@ -65,6 +66,17 @@ def download_payload(view, request) -> dict[str, Any]:
     payload["request"] = request.model_dump(mode="json") if request is not None else None
     payload["confirmed"] = view.confirmation.model_dump(mode="json") if view.confirmation else None
     return payload
+
+
+def proposer_info(
+    proposed_on: str, proposer: tuple[str, str, str], head: tuple[str, str, str]
+) -> ProposerInfo:
+    """화면 입력 → ProposerInfo (직급, 성명, 연락처 순). 세션 밖으로 저장되지 않는다."""
+    return ProposerInfo(
+        proposed_on=(proposed_on or "").strip(),
+        proposer=Person(rank=proposer[0] or "", name=proposer[1] or "", phone=proposer[2] or ""),
+        head=Person(rank=head[0] or "", name=head[1] or "", phone=head[2] or ""),
+    )
 
 
 def download_bytes(view, request) -> bytes:

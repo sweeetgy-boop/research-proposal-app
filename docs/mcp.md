@@ -35,7 +35,7 @@ Claude Code에서 `rra_precheck`·`rra_search`를 도구로 쓰기 위한 stdio 
 
 ### 쓰기 도구 (`--enable-generate` 일 때만)
 
-`.mcp.json` 에는 서버 항목이 둘이다: `rra`(읽기 2개)와 `rra-write`(`--enable-generate`, 5개).
+`.mcp.json` 에는 서버 항목이 둘이다: `rra`(읽기 2개)와 `rra-write`(`--enable-generate`, 6개).
 클라이언트에서 `rra-write` 만 따로 켜고 끌 수 있다.
 
 | 도구 | 입력 | 출력 |
@@ -43,6 +43,7 @@ Claude Code에서 `rra_precheck`·`rra_search`를 도구로 쓰기 위한 stdio 
 | `rra_generate` | 필수 4슬롯 + 선택(`constraints`·`title_hint`·`policy_basis`·`beneficiaries`·`remarks`·`department`·`budget_account`·`budget_amount_thousand_krw`) 또는 `resume_run_id` | `{run_id, status, progress, hint}` — 즉시 반환, 생성은 백그라운드 |
 | `rra_get_draft` | `run_id` | 상태·step 기록·(부분) 초안·`citations`·lint 문제(`severity`) + 경고 문구 |
 | `rra_confirm` | `run_id`, `task_type?`, `utilization?[]`, `strategy?[]` | 확정된 선택값 — 넘긴 항목만 덮어쓴다 |
+| `rra_render` | `run_id`, 선택: `proposed_on`·`proposer_rank/name/phone`·`head_rank/name/phone` | 완료(done)·확정된 run 의 별지 제2호서식 HWPX(`content_base64`, `filename`, `size`). 제안자 정보는 파일에만 들어가고 저장되지 않는다 |
 
 - 섹션 구성은 별지 제2호서식(docs/architecture.md §4.1). 제안자 성명·연락처는 받지 않는다(렌더 시점 입력).
 - 초안 문장마다 `evidence`(근거 id)와 `source`(`retrieved` / 근거 없이 제안자 입력만으로 쓴

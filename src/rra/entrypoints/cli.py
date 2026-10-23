@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import re
 import sys
 import time
@@ -479,6 +480,47 @@ def cmd_runs_confirm(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_runs_render(args: argparse.Namespace) -> int:
+    """완료된 run → HWPX 파일. 제안자 정보는 플래그로만 받고 run 폴더·로그에 남기지 않는다."""
+    from rra.application.ports.renderer import RenderRejected
+    from rra.application.services import RenderUnavailable
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.domain.models import ProposerInfo
+    from rra.domain.models.proposer import Person
+
+    proposer = ProposerInfo(
+        proposed_on=args.proposed_on or "",
+        proposer=Person(
+            name=args.proposer_name or "",
+            rank=args.proposer_rank or "",
+            phone=args.proposer_phone or "",
+        ),
+        head=Person(
+            name=args.head_name or "", rank=args.head_rank or "", phone=args.head_phone or ""
+        ),
+    )
+
+    async def run() -> bytes:
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.render(LOCAL_USER, args.run_id, proposer=proposer)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        data = asyncio.run(run())
+    except (RenderRejected, RenderUnavailable) as exc:
+        _eprint(f"렌더 거부: {exc}")
+        return EXIT_USAGE
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+    print(f"저장: {out} ({len(data):,} bytes)")
+    return EXIT_OK
+
+
 # ── sources check ─────────────────────────────────────────
 def cmd_sources_check(args: argparse.Namespace) -> int:
     from rra.composition import KEYED_SOURCES, build_sources_check, load_settings
@@ -620,6 +662,16 @@ def build_parser() -> argparse.ArgumentParser:
     rc.add_argument("--strategy", help="전략과제 id, 쉼표로 구분 (1~2개)")
     rc.add_argument("--json", action="store_true")
     rc.set_defaults(handler=cmd_runs_confirm)
+    rr = runs_sub.add_parser("render", help="완료된 run 을 별지 제2호서식 HWPX 로 저장")
+    rr.add_argument("run_id")
+    rr.add_argument("--out", required=True, help="저장할 .hwpx 경로")
+    rr.add_argument("--proposed-on", help="제안일자 (양식 하단, 저장되지 않음)")
+    for who, label in (("proposer", "제안자"), ("head", "제안부서장")):
+        for field_name, desc in (("rank", "직급"), ("name", "성명"), ("phone", "연락처")):
+            rr.add_argument(
+                f"--{who}-{field_name}", help=f"{label} {desc} (양식 하단에만, 저장되지 않음)"
+            )
+    rr.set_defaults(handler=cmd_runs_render)
 
     return parser
 

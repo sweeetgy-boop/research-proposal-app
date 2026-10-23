@@ -142,8 +142,19 @@ class InMemoryRepository:
 
 
 class FakeRenderer:
-    def render(self, draft) -> bytes:
-        return json.dumps({s.key: s.text for s in draft.sections}, ensure_ascii=False).encode()
+    """RendererPort fake — JSON 바이트. 받은 proposer 를 기록해 '저장되지 않았는지' 검사에 쓴다."""
+
+    def __init__(self):
+        self.calls: list[dict[str, Any]] = []
+
+    def render(self, draft, *, confirmation=None, proposer=None) -> bytes:
+        self.calls.append({"run_id": draft.run_id, "proposer": proposer})
+        body = {
+            "sections": {s.key: s.text for s in draft.sections},
+            "confirmed": confirmation.choices if confirmation else None,
+            "proposer": proposer.model_dump() if proposer else None,
+        }
+        return json.dumps(body, ensure_ascii=False).encode()
 
 
 class FakeRunLog:

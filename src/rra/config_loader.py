@@ -20,6 +20,8 @@ from rra.settings import Settings
 DEFAULT_STAGE = "compose"
 TEMPLATE = "proposal_korail"
 STRATEGY_FILE = "templates/korail_strategy.yaml"
+SLOTS_FILE = f"templates/{TEMPLATE}.slots.yaml"
+FORM_FILE = f"templates/{TEMPLATE}.hwpx"
 
 
 # ── 원시 읽기 ──────────────────────────────────────────────
@@ -142,6 +144,20 @@ def strategy_catalog(settings: Settings) -> StrategyCatalog:
     return StrategyCatalog.model_validate(
         {"source": data.get("source") or "", "directions": data.get("directions") or []}
     )
+
+
+def render_slots(settings: Settings) -> dict[str, Any]:
+    """HWPX 자리표시자 선언 (config/templates/<TEMPLATE>.slots.yaml). 비어 있으면 KeyError."""
+    data = read_config(SLOTS_FILE, settings)
+    if not data.get("text"):
+        raise KeyError(f"{SLOTS_FILE} 에 text 슬롯이 없습니다.")
+    return data
+
+
+def render_template_path(settings: Settings) -> Path | None:
+    """실물 양식 HWPX 가 있으면 그 경로 (템플릿 모드), 없으면 None (생성 모드)."""
+    path = Path(settings.config_dir) / FORM_FILE
+    return path if path.is_file() else None
 
 
 # ── 키 유무 (값은 절대 돌려주지 않는다) ─────────────────────

@@ -60,6 +60,11 @@ CONFIRM_DESCRIPTION = (
     "utilization(활용계획 id 목록), strategy(전략과제 id 1~2개). 선택지는 rra_get_draft 의 "
     "choices.options 에 있다. 넘긴 항목만 덮어쓴다. 사용자가 고른 값만 넘길 것."
 )
+RENDER_DESCRIPTION = (
+    "완료(done)된 run 을 별지 제2호서식 HWPX 로 만든다 (base64). 과제유형·활용계획을 "
+    "rra_confirm 으로 확정한 뒤에만 된다. 제안자·부서장 성명·직급·연락처는 선택 인자이며 "
+    "어디에도 저장되지 않는다."
+)
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 WRITES_LOCAL_RUN = ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False
@@ -157,6 +162,31 @@ def _register_run_tools(server: MCPServer, run_tools: RraRunTools) -> None:
     async def rra_get_draft(run_id: str) -> dict[str, Any]:
         try:
             return await run_tools.get_draft(run_id)
+        except (ToolInputError, ValidationError) as exc:
+            raise _input_error(exc) from exc
+
+    @server.tool(name="rra_render", description=RENDER_DESCRIPTION, annotations=READ_ONLY)
+    async def rra_render(
+        run_id: str,
+        proposed_on: str = "",
+        proposer_rank: str = "",
+        proposer_name: str = "",
+        proposer_phone: str = "",
+        head_rank: str = "",
+        head_name: str = "",
+        head_phone: str = "",
+    ) -> dict[str, Any]:
+        try:
+            return await run_tools.render(
+                run_id,
+                proposed_on=proposed_on,
+                proposer_rank=proposer_rank,
+                proposer_name=proposer_name,
+                proposer_phone=proposer_phone,
+                head_rank=head_rank,
+                head_name=head_name,
+                head_phone=head_phone,
+            )
         except (ToolInputError, ValidationError) as exc:
             raise _input_error(exc) from exc
 
