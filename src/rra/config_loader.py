@@ -51,6 +51,14 @@ def input_limits(settings: Settings) -> dict[str, Any]:
     return security_config(settings).get("input_limits") or {}
 
 
+def retention_days(settings: Settings, default: int = 180) -> int:
+    """I. runs/ 보존 기간 (security.yaml retention_days). 0 이하는 거부."""
+    days = int(security_config(settings).get("retention_days", default))
+    if days <= 0:
+        raise ValueError("security.yaml retention_days 는 1 이상이어야 합니다.")
+    return days
+
+
 def source_config(settings: Settings, name: str) -> dict[str, Any]:
     return read_config("sources.yaml", settings).get(name) or {}
 

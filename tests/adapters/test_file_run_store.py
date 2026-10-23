@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from rra.adapters.runs import AsyncioTaskRunner, FileRunLog, FileRunStore, FlockSlot
+from rra.adapters.logging import FileRunLog
+from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockSlot
 from rra.application.ports import RunBusy, RunNotFound
 from rra.domain.models import Section, Sentence
 
@@ -167,7 +168,8 @@ def test_run_log_writes_manifest_next_to_state(store, req, tmp_path):
 CHILD = textwrap.dedent("""
     import asyncio, json, sys
     from pathlib import Path
-    from rra.adapters.runs import AsyncioTaskRunner, FileRunLog, FileRunStore, FlockSlot
+    from rra.adapters.logging import FileRunLog
+    from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockSlot
     from rra.application.services import RunManager
     from rra.application.usecases.generate_proposal import GenerateProposal
     from rra.domain.models import ProposalRequest
@@ -281,3 +283,36 @@ def test_new_request_json_has_no_personal_fields(store, req):
     state = store.create("local", req, STEPS, "t")
     saved = json.loads((store.root / "local" / state.run_id / "request.json").read_text())
     assert not {"proposer", "name", "phone", "rank", "head"} & set(saved)
+
+
+# ── 보존기간 삭제 (Step 9) ─────────────────────────────────
+def test_list_users_and_delete_run_remove_the_whole_directory(store, req):
+    a = store.create("local", req, STEPS, "t0")
+    b = store.create("alice", req, STEPS, "t0")
+    (store.root / "not-a-user!").mkdir()  # 형식이 틀린 이름은 사용자가 아니다
+    assert store.list_users() == ["alice", "local"]
+    store.delete_run("local", a.run_id)
+    assert not (store.root / "local" / a.run_id).exists()
+    assert (store.root / "alice" / b.run_id / "state.json").is_file()
+    from rra.application.ports import RunNotFound
+
+    with pytest.raises(RunNotFound):
+        store.delete_run("local", a.run_id)
+    with pytest.raises(RunNotFound):
+        store.delete_run("alice", "../../etc")
+
+
+def test_run_log_rejects_manifest_with_unexpected_or_long_fields(store, req):
+    from rra.adapters.logging import check_manifest
+
+    st = store.create("local", req, STEPS, "t0")
+    log = FileRunLog(store.root)
+    with pytest.raises(ValueError, match="허용되지 않은 키"):
+        log.record(st.run_id, {"run_id": st.run_id, "request": {"goal": "원문"}})
+    with pytest.raises(ValueError, match="step"):
+        check_manifest({"steps": [{"name": "x", "message": "lint 메시지"}]})
+    with pytest.raises(ValueError, match="problem"):
+        check_manifest({"problems": [{"section": "a", "code": "b", "message": "원문"}]})
+    with pytest.raises(ValueError, match="긴 문자열"):
+        check_manifest({"run_id": "x" * 201})
+    assert not (store.root / "local" / st.run_id / "manifest.json").exists()

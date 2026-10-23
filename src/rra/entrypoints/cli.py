@@ -480,6 +480,28 @@ def cmd_runs_confirm(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_runs_purge(args: argparse.Namespace) -> int:
+    """보존 기간(security.yaml retention_days) 지난 run 폴더 삭제. --dry-run 없으면 실제 삭제."""
+    from rra.composition import build_purge_runs, load_settings
+
+    report = build_purge_runs(load_settings())(dry_run=args.dry_run)
+    if args.json:
+        print(json.dumps(asdict(report), ensure_ascii=False, indent=2))
+        return EXIT_OK
+    verb = "삭제 대상" if args.dry_run else "삭제"
+    print(
+        f"[runs purge] 보존 {report.retention_days}일, 기준 {report.cutoff} — "
+        f"{verb} {len(report.expired)}건"
+        + (f", 실행 중이라 건너뜀 {len(report.skipped_active)}건" if report.skipped_active else "")
+    )
+    for row in report.expired:
+        mark = "-" if args.dry_run else "x"
+        print(f" {mark} {row.user}/{row.run_id}  {row.status:<11} {row.updated_at}")
+    for row in report.skipped_active:
+        print(f" ! {row.user}/{row.run_id}  {row.status:<11} {row.updated_at} (건너뜀)")
+    return EXIT_OK
+
+
 def cmd_runs_render(args: argparse.Namespace) -> int:
     """완료된 run → HWPX 파일. 제안자 정보는 플래그로만 받고 run 폴더·로그에 남기지 않는다."""
     from rra.application.ports.renderer import RenderRejected
@@ -672,6 +694,10 @@ def build_parser() -> argparse.ArgumentParser:
                 f"--{who}-{field_name}", help=f"{label} {desc} (양식 하단에만, 저장되지 않음)"
             )
     rr.set_defaults(handler=cmd_runs_render)
+    rp = runs_sub.add_parser("purge", help="보존 기간(security.yaml retention_days) 지난 run 삭제")
+    rp.add_argument("--dry-run", action="store_true", help="지울 대상만 보여 주고 삭제하지 않는다")
+    rp.add_argument("--json", action="store_true")
+    rp.set_defaults(handler=cmd_runs_purge)
 
     return parser
 

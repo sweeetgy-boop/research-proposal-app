@@ -296,6 +296,23 @@ class InMemoryRunStore:
     def is_alive(self, user, run_id):
         return (user, run_id) in self.claimed
 
+    def list_users(self):
+        return sorted({u for (u, _) in self.states})
+
+    def delete_run(self, user, run_id):
+        key = self._key(user, run_id)
+        self.deleted = getattr(self, "deleted", [])
+        self.deleted.append(key)
+        for table in (
+            self.states,
+            self.requests,
+            self.snapshots,
+            self.sections,
+            self.drafts,
+            self.confirmations,
+        ):
+            table.pop(key, None)
+
 
 class FakeSlot:
     """GenerationSlot fake — 한 프로세스 안의 asyncio.Lock. 동시 실행 여부를 기록한다."""

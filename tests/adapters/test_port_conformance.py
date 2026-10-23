@@ -86,7 +86,8 @@ def _adapters(tmp_path, monkeypatch):
     import sys
     import types
 
-    from rra.adapters.runs import AsyncioTaskRunner, FileRunLog, FileRunStore, FlockSlot
+    from rra.adapters.logging import FileRunLog
+    from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockSlot
     from rra.adapters.sources.alio import AlioSummarySource, CatalogFetcher
     from rra.composition import (
         build_alio_catalog,

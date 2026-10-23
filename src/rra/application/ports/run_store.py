@@ -62,3 +62,11 @@ class RunStorePort(Protocol):
     def is_alive(self, user: str, run_id: str) -> bool:
         """누군가 이 run 의 락을 잡고 있으면 True (= 실행 중이거나 대기 중)."""
         ...
+
+    def list_users(self) -> list[str]:
+        """run 이 하나라도 있는 사용자 목록 (보존기간 삭제용)."""
+        ...
+
+    def delete_run(self, user: str, run_id: str) -> None:
+        """run 폴더(상태·입력·초안·manifest)를 통째로 지운다. 없으면 RunNotFound."""
+        ...

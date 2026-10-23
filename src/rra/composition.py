@@ -28,6 +28,7 @@ from rra.config_loader import (
     render_slots,
     render_template_path,
     require_credentials,
+    retention_days,
     security_config,
     served_model_aliases,
     source_config,
@@ -67,6 +68,7 @@ __all__ = [
     "build_openalex_source",
     "build_precheck",
     "build_prompt_library",
+    "build_purge_runs",
     "build_renderer",
     "build_repository",
     "build_run_manager",
@@ -437,7 +439,8 @@ def build_run_manager(
     repo·llm 은 바로 만든다. 임베딩 모델은 어댑터가 첫 호출 때 올리므로 상태 조회만 할 때는
     로드되지 않는다 (SentenceTransformerEmbedding.loaded).
     """
-    from rra.adapters.runs import AsyncioTaskRunner, FileRunLog, FileRunStore, FlockSlot
+    from rra.adapters.logging import FileRunLog
+    from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockSlot
     from rra.application.services import RunManager
 
     settings = settings or load_settings()
@@ -459,6 +462,16 @@ def build_run_manager(
         model=model,
         renderer=renderer or build_renderer(settings),
     )
+
+
+def build_purge_runs(settings: Settings | None = None, *, clock=None):
+    """PurgeRuns — security.yaml retention_days 로 만료 run 폴더 삭제 (`rra runs purge`)."""
+    from rra.adapters.runs import FileRunStore
+    from rra.application.usecases.purge_runs import PurgeRuns
+
+    settings = settings or load_settings()
+    kwargs = {"clock": clock} if clock is not None else {}
+    return PurgeRuns(FileRunStore(Path(settings.runs_dir)), retention_days(settings), **kwargs)
 
 
 def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):

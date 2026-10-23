@@ -781,3 +781,34 @@ def test_precheck_shows_shared_keywords(stub, capsys):
     cli.main(["precheck", *SLOT_ARGS])
     out = capsys.readouterr().out
     assert "[키워드: 궤도, 틀림]" in out and "[키워드 없음]" in out
+
+
+# ── runs purge (보안 I 보존기간) ───────────────────────────
+def test_runs_purge_dry_run_then_delete(monkeypatch, capsys):
+    from datetime import UTC, datetime
+
+    from rra.application.usecases.purge_runs import PurgeRuns
+    from rra.domain.models import ProposalRequest
+    from tests.fakes import InMemoryRunStore
+
+    store = InMemoryRunStore()
+    req = ProposalRequest(current_state="a", root_cause="b", limitation="c", goal="d")
+    old = store.create("local", req, ["a"], "2026-01-01T00:00:00+00:00")
+    old.status, old.updated_at = "done", "2026-01-01T00:00:00+00:00"
+    store.save_state(old)
+    fresh = store.create("local", req, ["a"], "2026-10-20T00:00:00+00:00")
+    fresh.status = "done"
+    store.save_state(fresh)
+    purge = PurgeRuns(store, 180, clock=lambda: datetime(2026, 10, 23, tzinfo=UTC))
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_purge_runs", lambda settings: purge)
+
+    assert cli.main(["runs", "purge", "--dry-run"]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "삭제 대상 1건" in out and f"- local/{old.run_id}" in out
+    assert ("local", old.run_id) in store.states
+
+    assert cli.main(["runs", "purge", "--json"]) == cli.EXIT_OK
+    report = json.loads(capsys.readouterr().out)
+    assert [r["run_id"] for r in report["deleted"]] == [old.run_id] and not report["dry_run"]
+    assert set(store.states) == {("local", fresh.run_id)}

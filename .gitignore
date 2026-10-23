@@ -1,6 +1,6 @@
 .env
-data/
-runs/
+/data/
+/runs/
 .venv*/
 __pycache__/
 *.pyc

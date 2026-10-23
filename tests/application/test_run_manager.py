@@ -390,3 +390,21 @@ async def test_warnings_alone_leave_the_run_done(repo, req):
     assert final.step("section:policy_importance").parse == "skipped"
     assert final.problems[0]["severity"] == "warning"
     assert len(llm.calls) == 1
+
+
+async def test_run_log_is_recorded_at_start_each_section_and_end(repo, req):
+    """보안 I: 생성 시작(queued)·섹션 완료마다·종료(done) 시점에 manifest 를 남긴다."""
+    log = FakeRunLog()
+    mgr, _ = build(repo, FakeLLM(ANSWERS), log=log)
+    st = await run_to_end(mgr, req)
+    statuses = [m["status"] for _, m in log.records]
+    assert statuses[0] == "queued" and statuses[-1] == "done"
+    assert all(rid == st.run_id for rid, _ in log.records)
+    # retrieve + 섹션 N + finalize 마다 한 번씩 (running 상태) 기록된다
+    assert statuses.count("running") >= len(KEYS) + 1
+    done_steps = [[s["name"] for s in m["steps"] if s["status"] == "done"] for _, m in log.records]
+    assert done_steps[-1] == ["retrieve", *(f"section:{k}" for k in KEYS), "finalize"]
+    from rra.adapters.logging import check_manifest
+
+    for _, m in log.records:
+        check_manifest(m)  # 파일 어댑터의 허용목록을 전부 통과한다
