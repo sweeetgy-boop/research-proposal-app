@@ -247,17 +247,31 @@ def test_every_section_has_a_prompt():
         assert prompts.section(key).strip(), key
 
 
-def test_run_manager_wiring_is_lazy(tmp_path, monkeypatch):
+def test_run_manager_wiring_does_not_load_the_model(tmp_path, monkeypatch):
+    """상태 조회(`rra runs list`)만으로는 임베딩 모델을 올리지 않는다.
+
+    __getattr__ 프록시 없이 어댑터가 첫 호출까지 로드를 미룬다.
+    """
+    import sys
+    import types
+
     import rra.composition as comp
+    from rra.application.ports import DocumentRepository, EmbeddingPort, LLMPort
 
     def boom(*a, **k):
         raise AssertionError("상태 조회만 하는데 모델을 띄웠다")
 
-    monkeypatch.setattr(comp, "build_embedding", boom)
-    monkeypatch.setattr(comp, "build_llm", boom)
-    settings = Settings(_env_file=None, runs_dir=tmp_path / "runs")
+    monkeypatch.setitem(
+        sys.modules, "sentence_transformers", types.SimpleNamespace(SentenceTransformer=boom)
+    )
+    settings = Settings(_env_file=None, runs_dir=tmp_path / "runs", db_path=tmp_path / "db.sqlite")
     mgr = comp.build_run_manager(settings)
     assert mgr.list_runs(comp.LOCAL_USER) == []
+    # 포트 타입이 그대로 보인다 (__getattr__ 프록시 없음)
+    assert isinstance(mgr.generate.repo, DocumentRepository)
+    assert isinstance(mgr.generate.llm, LLMPort)
+    assert isinstance(mgr.generate.repo.embedding, EmbeddingPort)
+    assert not mgr.generate.repo.embedding.loaded
     assert mgr.max_queued == 3
     # manifest 에는 선언된 실제 모델명, 요청은 default_model
     assert mgr.model == "mlx-community/Qwen2.5-7B-Instruct-4bit"

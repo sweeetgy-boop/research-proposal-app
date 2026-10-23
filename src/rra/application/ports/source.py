@@ -5,6 +5,7 @@ from typing import Any, Protocol, runtime_checkable
 from rra.domain.models import Document
 
 
+@runtime_checkable
 class SourcePort(Protocol):
     source: str
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from rra.domain.models import (
     Confirmation,
@@ -20,10 +20,12 @@ class RunBusy(RuntimeError):
     """다른 실행(같은 프로세스든 다른 프로세스든)이 이 run 을 잡고 있다."""
 
 
+@runtime_checkable
 class RunClaim(Protocol):
     def release(self) -> None: ...
 
 
+@runtime_checkable
 class RunStorePort(Protocol):
     """생성 실행의 상태·체크포인트 저장소. 사용자별로 격리된다."""
 

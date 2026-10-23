@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from rra.domain.models import Chunk, Document
 
 
+@runtime_checkable
 class DocumentRepository(Protocol):
     def upsert(self, docs: list[Document], chunks: list[Chunk]) -> None: ...
 

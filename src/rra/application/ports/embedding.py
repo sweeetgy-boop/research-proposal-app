@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class EmbeddingPort(Protocol):
+    """문장 임베딩. dim 은 벡터 차원 — 저장소가 색인 차원 검증에 쓴다.
+
+    구현은 모델 로드를 첫 embed/dim 호출로 미룰 수 있다 (생성만으로 모델을 띄우지 않는다).
+    """
+
     dim: int
 
     def embed(self, texts: list[str]) -> list[list[float]]:

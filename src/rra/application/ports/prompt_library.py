@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class PromptLibraryPort(Protocol):
     """프롬프트 텍스트 공급자.
 

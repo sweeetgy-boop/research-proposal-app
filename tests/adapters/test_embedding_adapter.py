@@ -59,3 +59,32 @@ def test_embedding_dimension_falls_back_to_old_name():
             return 384
 
     assert st_adapter.embedding_dimension(OldModel()) == 384
+
+
+def test_model_is_loaded_on_first_use_not_at_construction(monkeypatch):
+    created = []
+
+    class FakeST:
+        def __init__(self, name, **kw):
+            created.append((name, kw))
+
+        def get_embedding_dimension(self):
+            return 3
+
+        def encode(self, texts, **kw):
+            return [[1.0, 0.0, 0.0] for _ in texts]
+
+    import types
+
+    monkeypatch.setitem(
+        sys.modules, "sentence_transformers", types.SimpleNamespace(SentenceTransformer=FakeST)
+    )
+    emb = st_adapter.SentenceTransformerEmbedding("org/model", local_files_only=True)
+    assert not emb.loaded and created == []
+    assert emb.dim == 3 and emb.loaded
+    assert emb.embed_query(["a"]) == [[1.0, 0.0, 0.0]]
+    assert len(created) == 1  # 한 번만 올린다
+    name, kw = created[0]
+    assert name == "org/model"
+    assert kw["trust_remote_code"] is False and kw["local_files_only"] is True
+    assert kw["model_kwargs"] == {"use_safetensors": True}

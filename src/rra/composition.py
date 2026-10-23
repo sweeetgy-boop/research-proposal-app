@@ -411,28 +411,11 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
     )
 
 
-class _Lazy:
-    """처음 쓰일 때 만든다. `rra runs list` 처럼 상태만 읽을 때 임베딩 모델·LLM 클라이언트를
-    띄우지 않기 위함."""
-
-    def __init__(self, factory):
-        self._factory = factory
-        self._obj = None
-
-    def __getattr__(self, name):
-        if self._obj is None:
-            self._obj = self._factory()
-        return getattr(self._obj, name)
-
-    async def aclose(self) -> None:
-        if self._obj is not None and hasattr(self._obj, "aclose"):
-            await self._obj.aclose()
-
-
 def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None):
     """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그.
 
-    repo·llm 을 안 주면 처음 쓰일 때 만든다 (상태 조회만 할 때는 로드하지 않음).
+    repo·llm 은 바로 만든다. 임베딩 모델은 어댑터가 첫 호출 때 올리므로 상태 조회만 할 때는
+    로드되지 않는다 (SentenceTransformerEmbedding.loaded).
     """
     from rra.adapters.runs import FileRunLog, FileRunStore, FlockSlot
     from rra.application.services import RunManager
@@ -443,9 +426,9 @@ def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None):
     # manifest 에는 선언된 실제 모델명(served_model)을, 없으면 요청용 이름을 남긴다
     model = compose_cfg["served_model"] or compose_cfg["model"]
     if repo is None:
-        repo = _Lazy(lambda: build_repository(build_embedding(settings), settings))
+        repo = build_repository(build_embedding(settings), settings)
     if llm is None:
-        llm = _Lazy(lambda: build_llm(settings, stage="compose"))
+        llm = build_llm(settings, stage="compose")
     return RunManager(
         build_generate(settings, repo=repo, llm=llm),
         FileRunStore(root),
@@ -459,13 +442,13 @@ def build_run_manager(settings: Settings | None = None, *, repo=None, llm=None):
 def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
     """Agent(ProposalAssistant) — precheck·RunManager·검색이 같은 repo 를 쓴다.
 
-    repo 는 처음 쓰일 때 만든다. sqlite 연결은 만든 스레드에서만 쓸 수 있으므로 호출자(UI 워커)는
-    모든 호출을 한 스레드에서 한다.
+    sqlite 연결은 만든 스레드에서만 쓸 수 있으므로 호출자(UI 워커)는 조립과 모든 호출을
+    한 스레드에서 한다.
     """
     from rra.application.services import ProposalAssistant
 
     settings = settings or load_settings()
     if repo is None:
-        repo = _Lazy(lambda: build_repository(build_embedding(settings), settings))
+        repo = build_repository(build_embedding(settings), settings)
     manager = build_run_manager(settings, repo=repo, llm=llm)
     return ProposalAssistant(build_precheck(settings, repo=repo), manager, repo, user=LOCAL_USER)
