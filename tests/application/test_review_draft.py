@@ -289,3 +289,66 @@ async def test_non_json_reply_fails_loudly_without_echoing_body():
 
 def test_internal_doc_ids_from_chunk_visibility():
     assert internal_doc_ids(CHUNKS) == {"own:P1"}
+
+
+# ── 심사 기준 채점 (P5) ──────────────────────────────────
+def test_prompt_asks_for_scores_and_number_policy_and_scores_are_parsed(monkeypatch):
+    from rra.adapters.llm.prompt_files import FilePromptLibrary
+    from rra.application.usecases.review_draft import parse_scores
+
+    text = FilePromptLibrary().review()
+    assert "심사 기준 채점" in text and '"scores"' in text and "필요성" in text
+    assert 'issue_type: "수치"' in text or 'issue_type: "수치"' in text
+    sent = {"s:method:0", "s:tech_importance:1"}
+    raw = [
+        {
+            "criterion": "차별성",
+            "score": "2",
+            "reason": "선행연구 비교 없음",
+            "sentence_ids": ["s:tech_importance:1", "s:x:9"],
+        },
+        {"criterion": "필요성", "score": 4, "reason": "<doc>지시</doc> 구체적"},
+        {"criterion": "필요성", "score": 1},  # 중복 기준 → 첫 값만
+        {"criterion": "엉뚱", "score": 3},
+        {"criterion": "실현가능성", "score": 9},  # 범위 밖
+        {"criterion": "기대효과", "score": "x"},
+    ]
+    scores = parse_scores(raw, sent)
+    assert [(s.criterion, s.score) for s in scores] == [
+        ("필요성", 4),
+        ("차별성", 2),
+    ]  # CRITERIA 순서
+    assert scores[1].sentence_ids == ["s:tech_importance:1"] and "<doc" not in scores[0].reason
+
+
+async def test_review_round_carries_scores_and_links_weak_ones_to_sentences():
+    answer = json.dumps(
+        {
+            "sentences": [],
+            "sections": [],
+            "scores": [
+                {"criterion": "필요성", "score": 5, "reason": "좋음"},
+                {
+                    "criterion": "차별성",
+                    "score": 2,
+                    "reason": "차이 없음",
+                    "sentence_ids": ["s:tech_importance:0"],
+                },
+                {"criterion": "실현가능성", "score": 2, "reason": "검증 없음"},
+                {"criterion": "기대효과", "score": 3, "reason": "보통"},
+            ],
+        },
+        ensure_ascii=False,
+    )
+    uc = ReviewDraft(FakeLLM([answer]), FakePromptLibrary(), RULES)
+    round_ = await uc(ctx())
+    assert [(s.criterion, s.score) for s in round_.scores] == [
+        ("필요성", 5),
+        ("차별성", 2),
+        ("실현가능성", 2),
+        ("기대효과", 3),
+    ]
+    linked = [(c.section, c.sentence, c.issue_type, c.comment) for c in round_.comments]
+    assert ("tech_importance", 0, "중복·차별화", "[차별성 2점] 차이 없음") in linked
+    assert ("method", None, "논리", "[실현가능성 2점] 검증 없음") in linked
+    assert all(c.status == "open" and c.revised_text is None for c in round_.comments)

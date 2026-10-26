@@ -86,6 +86,9 @@
   reopen, runs/…/versions·reviews 파일, 양식 파일은 finalize 로만), [6] REST 세션·CSRF·SSE·problem+json·정적 SPA·
   RRA_FAKE_LLM 가짜 모드(adapters/fake)·`rra api schema`, [7] Streamlit [최종 마무리 및 다운로드]. 설계 architecture §4.5·§4.6·§9.2.
 - Gemini 키는 .env 에 있고 Argon 왕복 확인됨. 대기(사람 입력): 연구과제 공고문(data/inbox/notice/).
+- 검토 채점(P5, architecture §4.11): Argon 검토가 필요성·차별성·실현가능성·기대효과 1~5점(`ReviewRound.scores`)을 함께 내고,
+  2점 이하는 `score_comments` 로 문장·섹션 의견에 붙는다(자동 재생성 없음). 수치는 막지 않고 알림 유지 + 검토 프롬프트
+  지적 의무 + render_check 맨 위 건수. 차별성 매트릭스·예산표는 양식 밖(화면·API 표), HWPX 붙임은 설계만.
 - 외부 자료원(P4, architecture §4.10, docs/external-apis.md): KIPRIS 어댑터 `adapters/sources/kipris/`(KIPRIS Plus
   freeSearchInfo, accessKey, 레코드 PatentUtilityInfo, 발명자 제외·출원인 기관만), `RRA_KIPRIS_KEY`, `rra sources check` 에
   kipris + record_tag 진단. NTIS 연구보고서는 가능 여부만 확인(키 뒤 구현).

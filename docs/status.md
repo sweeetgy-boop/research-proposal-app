@@ -47,6 +47,7 @@
 | 계층·검증 | 헥사고날 4계층, import-linter 계약 8건, 포트 전부 runtime_checkable·비동기 저장소/임베딩, TaskRunner 포트 | `pyproject.toml`, `composition.py`·`config_loader.py`; `tests/test_composition.py`·`test_config_loader.py`, `tests/adapters/test_port_conformance.py`; 0ecbe46, 6b31f35~0bcac95 |
 | 보안 A~J | 근거 id 대조·JSON 전용 파싱, subprocess 파싱 격리·zip 상한·defusedxml, 허용 도메인·리다이렉트 재검사·사설 IP 거부, SecretStr, SQL 바인딩·FTS5 토큰 인용, HWPX escape·재파싱, 127.0.0.1·토큰·동시성 1, 로그 허용목록 | `adapters/sources/_base.py`·`_sandbox.py`, `adapters/security/`, `adapters/llm/_endpoint.py`; `tests/adapters/test_base_security.py`·`test_guarded_client.py`·`test_sandbox.py`·`test_llm_endpoint.py`, `tests/entrypoints/test_api.py` |
 | DB 정비 | migration 001~004(schema_version·valid_until·visibility·ingested_at), 만료 문서 검색 제외, `rra reindex`, `rra db backup`(VACUUM INTO·보관 회전), 일일 백업 plist | `adapters/persistence/migrations/`, `usecases/maintain_db.py`; `tests/application/test_maintain_db.py`; 42c2eaf |
+| 검토 채점 (P5) | Argon 검토에 필요성·차별성·실현가능성·기대효과 1~5점 + 근거 문장. 2점 이하 → 문장·섹션 의견. 수치는 알림 유지 + 검토 지적 의무 + 마무리 점검 맨 위 건수 | `domain/models/review.py`(CriterionScore·score_comments), `usecases/review_draft.parse_scores`, `prompts/review.md`, `usecases/render_check.py`; `tests/domain/test_review_scores.py`, `tests/application/test_review_draft.py`·`test_render_check.py`; architecture §4.11 |
 | 검토·수정·마무리 흐름 | 작성 → Argon(Gemini) 검토 → 제안자 수정 → 재검토 → finalize → reopen. 버전(versions·revert)·검토 라운드 파일·manifest 검토 요약. 양식 파일은 finalize 로만 | `domain/rules/review_flow.py`, `usecases/review_draft.py`, `run_manager.py`; `tests/domain/test_review_flow.py`, `tests/application/test_review_draft.py`·`test_review_manager.py`; 4b22913~71d860c |
 | 외부 LLM provider | `llm.yaml providers`(mlx·gemini·openai)·단계별 provider(review=gemini)·`RRA_GEMINI_API_KEY`·allowed_domains·reasoning_effort·401/403 비재시도. **`.env` 에 키가 있고 `rra llm-check --provider gemini` 왕복 성공(Argon 연결됨)** | `config_loader.py`, `adapters/llm/openai_compat.py`; `tests/adapters/test_openai_compat.py`, `tests/adapters/test_gemini_live.py`(키 있을 때만); 9cb311f. 모델 목록의 `models/` 접두어 비교는 P0 에서 수정 |
 | 로컬 모델 프로필·벤치 | `model_profiles`(qwen·midm·ax_light), `rra llm-bench`, 골든셋 3건, 스키마 오류 1회 교정 재요청. Qwen2.5-7B-Instruct-4bit 유지 결정 | `usecases/bench.py`, `tests/golden/`, `llm-bench-2026-10-26.md`; `tests/application/test_bench.py`; 3a98056~3f208c8 (PR #1) |
@@ -60,7 +61,6 @@
 
 | 항목 | 내용 | 단계 |
 |---|---|---|
-| 검토 고도화 | Argon 검토에 필요성·차별성·실현가능성·기대효과 1~5점 채점, 2점 이하는 섹션 문장 의견으로 연결. 수치 알림 건수를 render_check 맨 위에. 차별성 매트릭스·예산표는 양식 밖(화면·API 표, HWPX 는 설계만) | P5 |
 | 운영 준비 | `com.rra.ingest.plist`(야간 적재), 백업 7벌 회전 테스트, `deploy/README` 설치 순서, Tailscale/Cloudflare 비교 문서 | P6 |
 
 ### 3.2 사람 입력 대기
@@ -90,6 +90,6 @@ reranker·유사과제 임계치 재조정(표본 축적 후), 공고문 반영,
 | P2 | `feat/own-ingest` | 사내 자료 적재: 엑셀 1,119건·공시 요약문 121건, precheck 예시 3건 (PR 본문) | 완료 2026-10-26 | #5 |
 | P3 | `feat/differentiation` | 기능 2 차별화 제안: 실례 2건(미채택 재제안 2건·완료 근접 4건, 폐기 0) | 완료 2026-10-26 | #6 |
 | P4 | `feat/external-apis` | 전수 점검 표(`external-apis.md`), KIPRIS 어댑터, record_tag 진단, ScienceON MAC 안내 | 완료 2026-10-26 | #7 |
-| P5 | `feat/review-scoring` | Argon 검토 채점·수치 정책 | 대기 | — |
+| P5 | `feat/review-scoring` | 심사 기준 4개 채점·2점 이하 의견 연결·수치 정책(알림 유지 + 검토 지적 + render_check 맨 위)·양식 밖 산출물 결정 | 완료 2026-10-26 | #8 |
 | P6 | `chore/ops` | 야간 적재 plist·설치 문서·공개 방식 비교 | 대기 | — |
 | P7 | — | 이슈 등록만 | 대기 | — |

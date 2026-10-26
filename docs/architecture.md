@@ -563,6 +563,26 @@ precheck 결과에 차단 또는 기준 근접(유사도 ≥ 티어 임계치 ×
 - `rra sources check` 가 kipris 를 포함하고, NTIS·KIPRIS 의 `record_tag` 를 probe 후보와 대조해 다음 할 일을 안내한다.
 - NTIS 연구보고서 검색은 OpenAPI 목록에 있음을 확인(과제검색과 별도 활용신청). 키 확보 뒤 구현.
 
+### 4.11 검토 고도화 — 심사 기준 채점·수치 정책 (2026-10-26, P5)
+
+- **채점**: 별도 critique_draft 단계를 두지 않고 Argon 검토(`review_draft`)에 심사 기준 4개(필요성·차별성·실현가능성·
+  기대효과)의 1~5점과 근거 한 줄·근거 문장 id 를 함께 받는다(`prompts/review.md` "심사 기준 채점", 출력 `scores`).
+  `parse_scores` 가 기준 밖·범위 밖을 버리고 기준당 첫 값만 CRITERIA 순서로 남긴다. `ReviewRound.scores`
+  (`CriterionScore`, review_rN.json)·REST/MCP `review_payload.scores`·CLI `rra runs review` `[채점]` 줄·Streamlit 검토
+  expander 맨 위 표(2점 이하 ⚠)로 보인다. manifest 는 차수별 `{기준: 점수}` 만.
+- **2점 이하 → 의견 연결**(`domain/models/review.score_comments`): 근거 문장 id(보낸 문장 안에서만)가 있으면 그 문장에,
+  없으면 기준의 기본 섹션(`CRITERION_SECTIONS`: 필요성 → policy/tech_importance, 차별성 → tech_importance/overlap_review,
+  실현가능성 → method/objective, 기대효과 → expected_*) 중 존재하는 첫 섹션에 `[기준 n점] 사유` 의견을 붙인다.
+  issue_type 은 `CRITERION_ISSUE`. 약한 섹션 자동 재생성은 하지 않는다 — 제안자가 고친다.
+- **수치 정책(결정)**: 근거 없는 수치는 막지 않고 `unsupported_number` 알림을 유지한다. 대신 검토 프롬프트에 "근거 구간에
+  없는 수치는 반드시 issue_type 수치로 지적"을 넣고, 최종 마무리 `render_check` 가 미해결 수치 알림 건수
+  (`RenderCheck.unsupported_numbers`, payload `unsupported_numbers`)를 알림 목록 맨 위 `!` 줄로 보여 준다.
+- **양식 밖 산출물(결정)**: 차별성 매트릭스·예산·일정표는 공식 양식(별지 제2호서식)에 칸이 없으므로 양식 본문에 넣지
+  않는다. 차별성 매트릭스는 P3 결과(`DifferentiationProposal.items`: 겹치는 점·이어받을 점·차별화 방향)를 화면·API 표로만
+  제공한다. HWPX 에는 선택 옵션으로 "붙임" 쪽(별도 페이지: 과제 × 겹침/이어받기/차별화 표, 예산·일정표)을 템플릿 뒤에
+  덧붙이는 방식만 설계로 남긴다 — `renderer.render(..., attachments=[...])` 인자와 `slots.yaml attachments` 블록,
+  양식 본문은 바꾸지 않고 새 구역(section)을 추가. 구현은 보류.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -1071,6 +1091,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (P5) | 검토 고도화(§4.11): `ReviewRound.scores`·`CriterionScore`·`score_comments`, `parse_scores`, review.md 채점·수치 정책, `RenderCheck.unsupported_numbers`(맨 위 표시), 화면·CLI·API 점수 표시, manifest scores |
 | 2026-10-26 (P4) | 외부 자료원 전수 점검(§4.10, `docs/external-apis.md`): KIPRIS 어댑터(`adapters/sources/kipris/`, `sources.yaml kipris`, `RRA_KIPRIS_KEY`), `rra sources check` kipris·record_tag 진단, 녹화 도구 kipris, `.env.example` 정리 |
 | 2026-10-26 (P3) | 기획서 기능 2 유사과제 활용·차별화 제안(§4.9): `domain/rules/differentiation.py`, `usecases/differentiate.py`, `ProposalRequest.differentiation`, `llm.yaml stages.differentiate`, `prompts/differentiate.md`, agent_policy 행, CLI·REST·MCP·Streamlit 진입점, manifest `differentiation` |
 | 2026-10-26 (P2) | 사내 자료 적재(§4.8): `adapters/sources/own/`(own_projects 엑셀·own_docs 공시 요약문), 샌드박스 hwp·xlsx·xls 파서, `SourceType own`, `OverlapAlert.status`, `sources.yaml own` |

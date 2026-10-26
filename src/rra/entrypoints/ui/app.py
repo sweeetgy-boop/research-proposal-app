@@ -290,6 +290,19 @@ def review_panel(view) -> None:
         return
     with st.expander(f"검토 결과 ({view.review.round}차, 읽기 전용)", expanded=False):
         payload = review_payload(view.review, clean=clean)
+        if payload["scores"]:
+            st.dataframe(
+                [
+                    {
+                        "기준": s["criterion"],
+                        "점수": f"{s['score']}/5" + (" ⚠" if s["weak"] else ""),
+                        "근거": s["reason"],
+                    }
+                    for s in payload["scores"]
+                ],
+                hide_index=True,
+                width="stretch",
+            )
         t = payload["transfer"]
         st.caption(
             f"보낸 문장 {t['sentences_sent']} · 검토 제외 {t['sentences_excluded']} · "
