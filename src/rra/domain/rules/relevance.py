@@ -77,20 +77,27 @@ def filter_chunks(
 def balance_sources(chunks: list[Chunk], k: int, min_per_source: int) -> list[Chunk]:
     """순위 목록에서 k 개를 고르되 출처(doc_id 의 ':' 앞)마다 최소 min_per_source 건을 먼저 보장.
 
-    보장분은 출처별 순위 순, 나머지는 전체 순위 순. 출처가 많아 보장분만으로 k 를 넘으면 전체 순위
-    순으로 자른다.
+    보장분은 출처별 순위 순, 나머지는 전체 순위 순. 출처가 많아 보장분만으로 k 를 넘으면 출처를
+    돌아가며(각 출처의 첫 순위부터) k 개를 고른다 — 전체 순위로 자르면 뒤에 붙은 출처가 통째로
+    빠지기 때문 (2026-10-26, 3 출처 × 8 > 20 에서 논문이 다시 4 건으로 준 데서).
     """
     if k <= 0:
         return []
     if min_per_source <= 0 or len(chunks) <= k:
         return chunks[:k]
-    picked: list[Chunk] = []
-    per_source: dict[str, int] = {}
+    queues: dict[str, list[Chunk]] = {}
     for c in chunks:
         src = c.doc_id.split(":", 1)[0]
-        if per_source.get(src, 0) < min_per_source:
-            per_source[src] = per_source.get(src, 0) + 1
-            picked.append(c)
+        if len(queues.setdefault(src, [])) < min_per_source:
+            queues[src].append(c)
+    picked: list[Chunk] = []
+    if sum(len(q) for q in queues.values()) > k:
+        for i in range(min_per_source):  # 라운드 로빈 — 출처 순서는 각 출처의 첫 등장 순
+            for q in queues.values():
+                if i < len(q) and len(picked) < k:
+                    picked.append(q[i])
+    else:
+        picked = [c for q in queues.values() for c in q]
     chosen = {c.chunk_id for c in picked}
     for c in chunks:
         if len(picked) >= k:

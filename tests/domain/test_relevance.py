@@ -137,3 +137,23 @@ def test_balance_sources_guarantees_each_source_then_fills_by_rank():
     assert balance_sources(ranked[:5], 8, 3) == ranked[:5]  # k 보다 적으면 그대로
     assert balance_sources(ranked, 0, 3) == []
     assert RelevanceFloor().min_per_source == 4 and RelevanceFloor().search_multiplier == 4
+
+
+def test_balance_sources_overflow_is_round_robin_not_rank_cut():
+    """보장분 합이 k 를 넘으면 출처를 돌아가며 고른다 — 뒤에 붙은 출처가 통째로 잘리지 않게."""
+    from rra.domain.rules.relevance import balance_sources
+
+    ranked = (
+        [chunk("k", 0.9, f"alio:{i}#0") for i in range(8)]
+        + [chunk("k", 0.9, f"own:{i}#0") for i in range(8)]
+        + [chunk("e", 0.9, f"openalex:W{i}#0") for i in range(8)]
+    )
+    out = balance_sources(ranked, 20, 8)  # 3 × 8 = 24 > 20
+    by = {}
+    for c in out:
+        by[c.doc_id.split(":")[0]] = by.get(c.doc_id.split(":")[0], 0) + 1
+    assert len(out) == 20 and by == {"alio": 7, "own": 7, "openalex": 6}
+    assert [c.chunk_id for c in out] == [c.chunk_id for c in ranked if c in out]  # 순위 유지
+    assert [c.chunk_id for c in out if c.doc_id.startswith("openalex")] == [
+        f"openalex:W{i}#0" for i in range(6)
+    ]
