@@ -164,6 +164,55 @@ async def test_orgs_filter(loaded):
     assert await loaded.hybrid_search(["궤도 track"], k=5, orgs=["없는기관"]) == []
 
 
+async def test_sources_filter(loaded):
+    assert [
+        c.doc_id for c in await loaded.hybrid_search(["궤도 track"], k=5, sources=["openalex"])
+    ] == ["openalex:W1"]
+    assert [
+        c.doc_id for c in await loaded.hybrid_search(["궤도 track"], k=5, sources=["alio"])
+    ] == ["alio:1"]
+    assert await loaded.hybrid_search(["궤도 track"], k=5, sources=["없는자료원"]) == []
+    # orgs 와 함께 — 둘 다 만족해야 한다
+    both = await loaded.hybrid_search(["궤도 track"], k=5, orgs=["korail"], sources=["openalex"])
+    assert both == []
+    assert [
+        c.doc_id
+        for c in await loaded.hybrid_search(["궤도 track"], k=5, orgs=["korail"], sources=["alio"])
+    ] == ["alio:1"]
+
+
+async def test_vector_fetch_widens_until_the_filtered_source_is_found(repo):
+    """상위 벡터 목록을 다른 자료원이 메워도 필터 자료원을 찾을 때까지 더 받는다 (상한까지)."""
+    from rra.adapters.persistence import sqlite_repo as mod
+
+    own = [
+        Document(doc_id=f"own:{i}", source="own", doc_type="rnd_project", title=f"궤도 {i}")
+        for i in range(40)
+    ]
+    paper = Document(
+        doc_id="openalex:W9", source="openalex", doc_type="paper", title="rail paper", doi="10.1/z"
+    )
+    chunks = [
+        Chunk(chunk_id=f"own:{i}#0", doc_id=f"own:{i}", ordinal=0, text=f"궤도 틀림 감지 {i}")
+        for i in range(40)
+    ] + [Chunk(chunk_id="openalex:W9#0", doc_id="openalex:W9", ordinal=0, text="zebra unrelated")]
+    await repo.upsert(own + [paper], chunks)
+    calls: list[int] = []
+    inner = repo.backend.search
+
+    def spy(vector, k):
+        calls.append(k)
+        return inner(vector, k)
+
+    repo.backend.search = spy
+    repo.min_similarity = -1.0  # 무관한 논문(코사인 ≈ 0)도 벡터 목록에 남겨 순위 41 로 둔다
+    hits = await repo.hybrid_search(["궤도 틀림 감지"], k=1, sources=["openalex"])
+    assert [c.doc_id for c in hits] == ["openalex:W9"]
+    # 벡터: 1×4(fetch)×4(필터) = 16 → 모자라 64 로 다시. FTS 는 자료원 필터로 바로 찾는다.
+    assert calls == [16, 64]
+    assert mod.VEC_FETCH_CAP == 4096
+
+
 async def test_k_and_query_count_are_clamped(loaded):
     assert len(await loaded.hybrid_search(["궤도 track"], k=10**9)) == 2
     assert await loaded.hybrid_search([], k=5) == []

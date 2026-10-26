@@ -90,6 +90,27 @@ def test_openalex_source_reads_allowlist_and_policy(tmp_path):
     assert (src.per_page, src.default_query, src.lookback_days) == (50, "tram", 3)
     assert src.query_max_chars == 42
     assert src.mailto is None
+    assert src.queries == [] and src.per_query_limit == 200 and src.require_abstract is True
+
+
+def test_openalex_queries_and_mailto_from_env_or_yaml(tmp_path):
+    from rra.composition import build_openalex_source
+
+    (tmp_path / "security.yaml").write_text(
+        "allowed_domains: [api.openalex.org]\n", encoding="utf-8"
+    )
+    (tmp_path / "sources.yaml").write_text(
+        "openalex:\n  mailto: yaml@example.org\n  backfill_years: 5\n  per_query_limit: 50\n"
+        "  require_abstract: false\n  queries:\n    - {field: 궤도, query: track geometry}\n"
+        "    - {query: ''}\n",
+        encoding="utf-8",
+    )
+    src = build_openalex_source(settings_for(tmp_path))
+    assert src.mailto == "yaml@example.org" and src.backfill_years == 5
+    assert src.per_query_limit == 50 and src.require_abstract is False
+    assert src.queries == [{"field": "궤도", "query": "track geometry"}]  # 빈 질의는 버린다
+    env = build_openalex_source(settings_for(tmp_path, openalex_mailto="env@example.org"))
+    assert env.mailto == "env@example.org"  # 환경변수가 yaml 을 이긴다
 
 
 def test_missing_security_yaml_means_nothing_is_allowed(tmp_path):

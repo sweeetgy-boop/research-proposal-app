@@ -281,7 +281,12 @@ def build_openalex_source(settings: Settings | None = None, *, transport=None):
         default_query=str(cfg.get("default_query", "railway")),
         lookback_days=int(cfg.get("lookback_days", 7)),
         query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
-        mailto=cfg.get("mailto") or None,
+        mailto=(settings.openalex_mailto or "").strip() or cfg.get("mailto") or None,
+        queries=list(cfg.get("queries") or []),
+        backfill_years=int(cfg.get("backfill_years", 10)),
+        per_query_limit=int(cfg.get("per_query_limit", 200)),
+        require_abstract=bool(cfg.get("require_abstract", True)),
+        api_key=settings.openalex_api_key,
     )
 
 

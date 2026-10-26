@@ -31,10 +31,13 @@ class InMemoryDocumentRepository:
         doc = self.docs.get(doc_id)
         return doc is None or doc.is_valid_on(date.today())
 
-    async def hybrid_search(self, queries, *, k=20, orgs=None):
+    async def hybrid_search(self, queries, *, k=20, orgs=None, sources=None):
         if not [q for q in queries if isinstance(q, str) and q.strip()]:
             return []
-        return [c for c in self.chunks if self._valid(c.doc_id)][: max(0, k)]
+        hits = [c for c in self.chunks if self._valid(c.doc_id)]
+        if sources:
+            hits = [c for c in hits if c.doc_id.split(":", 1)[0] in set(sources)]
+        return hits[: max(0, k)]
 
     async def find_similar(self, text, *, k=10):
         query = set(_TOKEN.findall((text or "").lower()))

@@ -2,6 +2,10 @@
 
 - 네트워크는 GuardedClient(보안 C)로만 쓴다.
 - normalize() 는 순수 함수: 응답 dict → Document. 결과 텍스트는 비신뢰(A)로 남는다.
+- 질의 목록(config/sources.yaml openalex.queries, 분야별 영문 질의): search(None) 은 목록을 돌며
+  질의마다 per_query_limit 까지 받고 같은 work 는 한 번만 둔다. 분야는 raw.field 로 남는다.
+  기간은 증분이면 lookback_days, 전체 수집(full_window, CLI --full)이면 backfill_years.
+  require_abstract 면 has_abstract 필터. 목록이 비면 예전처럼 default_query 하나.
 """
 
 from __future__ import annotations
@@ -11,11 +15,14 @@ from collections.abc import Callable
 from datetime import date, timedelta
 from typing import Any
 
+from pydantic import SecretStr
+
 from rra.adapters.sources._base import FetchError, GuardedClient
 from rra.domain.models import Document
 
 BASE_URL = "https://api.openalex.org"
 MAX_PER_PAGE = 200
+MAX_BASIC_RESULTS = 10_000  # page 페이징 상한 (OpenAlex)
 SELECT = (
     "id,doi,display_name,publication_date,language,authorships,"
     "abstract_inverted_index,primary_location,type"
@@ -47,6 +54,11 @@ class OpenAlexSource:
         query_max_chars: int = 500,
         mailto: str | None = None,
         today: Callable[[], date] = date.today,
+        queries: list[dict[str, str]] | None = None,
+        backfill_years: int = 10,
+        per_query_limit: int = 200,
+        require_abstract: bool = True,
+        api_key: SecretStr | None = None,
     ):
         self.client = client
         self.base_url = base_url.rstrip("/")
@@ -56,6 +68,16 @@ class OpenAlexSource:
         self.query_max_chars = query_max_chars
         self.mailto = mailto
         self._today = today
+        self.queries = [
+            {"field": str(q.get("field") or ""), "query": str(q.get("query") or "")}
+            for q in (queries or [])
+            if isinstance(q, dict) and str(q.get("query") or "").strip()
+        ]
+        self.backfill_years = max(1, int(backfill_years))
+        self.per_query_limit = max(1, int(per_query_limit))
+        self.require_abstract = bool(require_abstract)
+        self.full_window = False  # True 면 lookback_days 대신 backfill_years (CLI --full)
+        self.api_key = api_key  # 선택. 있으면 요청 파라미터로만 (보안 D). 없으면 익명 page 페이징
 
     def __repr__(self) -> str:
         return f"OpenAlexSource(base_url={self.base_url!r})"
@@ -63,36 +85,69 @@ class OpenAlexSource:
     async def aclose(self) -> None:
         await self.client.aclose()
 
+    def window_filter(self) -> str:
+        """증분(lookback_days) 또는 전체(backfill_years) 기간 + 초록 조건."""
+        days = self.backfill_years * 365 if self.full_window else self.lookback_days
+        since = self._today() - timedelta(days=days)
+        parts = [f"from_publication_date:{since.isoformat()}"]
+        if self.require_abstract:
+            parts.append("has_abstract:true")
+        return ",".join(parts)
+
     async def search(self, query: str | None, limit: int) -> list[dict[str, Any]]:
-        """원본 응답 반환. query=None 이면 default_query + 최근 lookback_days 증분."""
+        """원본 응답. query 가 있으면 그 질의 하나(기간 없음), None 이면 질의 목록×기간 조건."""
         if limit <= 0:
             return []
-        params: dict[str, Any] = {
-            "select": SELECT,
-            "per-page": min(self.per_page, limit),
-            "cursor": "*",
-        }
-        if query is None:
-            since = self._today() - timedelta(days=self.lookback_days)
-            params["filter"] = f"from_publication_date:{since.isoformat()}"
-            query = self.default_query
+        if query is not None:
+            return await self._search_one(query, limit, filter_expr=None)
+        if not self.queries:
+            return await self._search_one(
+                self.default_query, limit, filter_expr=self.window_filter()
+            )
+        out: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for q in self.queries:
+            if len(out) >= limit:
+                break
+            page = await self._search_one(
+                q["query"],
+                min(self.per_query_limit, limit - len(out)),
+                filter_expr=self.window_filter(),
+            )
+            for raw in page:
+                key = str(raw.get("id") or "")
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append({**raw, "_field": q["field"]})
+        return out[:limit]
+
+    async def _search_one(
+        self, query: str, limit: int, *, filter_expr: str | None
+    ) -> list[dict[str, Any]]:
+        # page 페이징(최대 MAX_BASIC_RESULTS 건). cursor 페이징은 2026-10 부터 API 키 필요(401).
+        per_page = min(self.per_page, limit)
+        params: dict[str, Any] = {"select": SELECT, "per-page": per_page, "page": 1}
+        if filter_expr:
+            params["filter"] = filter_expr
         text = _clean_text(query)[: self.query_max_chars]
         if text:
             params["search"] = text
         if self.mailto:
             params["mailto"] = self.mailto
-
+        if self.api_key:
+            params["api_key"] = self.api_key.get_secret_value()
         out: list[dict[str, Any]] = []
-        while len(out) < limit:
-            data = await self.client.get_json(f"{self.base_url}/works", params)
+        page_no = 1
+        while len(out) < limit and page_no * per_page <= MAX_BASIC_RESULTS:
+            data = await self.client.get_json(f"{self.base_url}/works", {**params, "page": page_no})
             results = data.get("results") if isinstance(data, dict) else None
             if not isinstance(results, list):
                 raise FetchError("OpenAlex 응답에 results 배열이 없습니다.")
             out.extend(r for r in results if isinstance(r, dict))
-            cursor = (data.get("meta") or {}).get("next_cursor")
-            if not results or not isinstance(cursor, str) or not cursor:
+            if len(results) < per_page:
                 break
-            params = {**params, "cursor": cursor}
+            page_no += 1
         return out[:limit]
 
     def normalize(self, raw: dict[str, Any]) -> Document:
@@ -119,7 +174,11 @@ def normalize_work(raw: dict[str, Any]) -> Document:
         url=_landing_url(raw.get("primary_location"))
         or (f"https://doi.org/{doi}" if doi else None),
         doi=doi,
-        raw={"openalex_id": native, "type": raw.get("type")},
+        raw={
+            "openalex_id": native,
+            "type": raw.get("type"),
+            "field": _clean_text(raw.get("_field"))[:40] or None,  # 질의 목록의 분야 (적재 통계용)
+        },
     )
 
 

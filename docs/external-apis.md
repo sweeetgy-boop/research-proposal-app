@@ -7,7 +7,7 @@
 
 | 자료원 | source 이름 | 용도(기획서) | 신청처 | 필요 정보 (.env) | 비용·한도 | 어댑터 | 상태 |
 |---|---|---|---|---|---|---|---|
-| OpenAlex | `openalex` | 해외 논문 근거 (기능 3·4) | 없음 (키 불필요, `mailto` 선택) | — | 무료, polite pool | `adapters/sources/openalex.py` | 적재 중 (20건) |
+| OpenAlex | `openalex` | 해외 논문 근거 (기능 3·4) | 없음 (키 불필요). 선택: `RRA_OPENALEX_MAILTO`(polite pool), `RRA_OPENALEX_API_KEY`(무료, openalex.org/settings/api — cursor 페이징용, 없어도 page 페이징) | — | 무료, 초당 10회 | `adapters/sources/openalex.py` — 분야별 질의 13개(`sources.yaml openalex.queries`), 10년·초록 조건 | 적재 (architecture §4.13) |
 | 알리오 공시 원문 | `alio` | 사내·국내 철도기관 유사과제 (기능 1·2·4) | 수동 다운로드 → `data/inbox/alio` | — | 무료 | `alio/filedrop.py` | 원문 파일 대기 |
 | 알리오 공개 요약 (.txt) | `alio_summary` | 원문 비공개 보고서 | 상세 페이지 복사 → `data/inbox/alio_summary` | — | 무료 | `alio/summary.py` | 1건 |
 | 사내 과제 현황·공시 요약문 | `own_projects`·`own_docs` | 사내 유사과제·차별화 (기능 1·2) | 사내 파일 (P2) | — | — | `adapters/sources/own/` | 적재 완료 (1,119 + 120건). 공개 자료(public) — 공시용이 없는 일반 요약문 5건만 internal. 티어는 모두 own(철도연구원/공사 구분) |

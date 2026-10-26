@@ -26,6 +26,7 @@ import os
 import sqlite3
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -71,17 +72,44 @@ _FTS_SEARCH = (
     "JOIN documents d ON d.doc_id = c.doc_id "
     "WHERE chunks_fts MATCH ? AND {valid} ORDER BY bm25(chunks_fts), c.id LIMIT ?"
 ).replace("{valid}", _VALID)
-_FTS_SEARCH_ORGS = (
+# {orgs}·{sources} 는 placeholders(정수 개수) 로만 채워진다 (_fts_ids).
+_FTS_SEARCH_FILTERED = (
     "SELECT c.chunk_id FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid "
     "JOIN documents d ON d.doc_id = c.doc_id "
-    "WHERE chunks_fts MATCH ? AND {valid} AND EXISTS (SELECT 1 FROM document_orgs o "
-    "WHERE o.doc_id = c.doc_id AND o.org IN ({orgs})) "
+    "WHERE chunks_fts MATCH ? AND {valid}{filters} "
     "ORDER BY bm25(chunks_fts), c.id LIMIT ?"
 ).replace("{valid}", _VALID)
 _ORG_FILTER = (
     " AND EXISTS (SELECT 1 FROM document_orgs o WHERE o.doc_id = c.doc_id AND o.org IN ({orgs}))"
 )
+_SOURCE_FILTER = " AND d.source IN ({sources})"
+# 필터(orgs·sources)가 있으면 벡터 상위 목록을 필터 뒤에 다시 채워야 한다. 한국어 사내 기록이 상위를
+# 메우면(2026-10-26 골든셋 01: 상위 160 중 영어 논문 4) 자료원 하나를 고르려고 훨씬 더 받아야 하므로
+# 부족하면 4배씩 늘려 다시 받는다. 상한은 DoS 방지.
+VEC_FETCH_CAP = 4096
 _SELECT_ALL_CHUNKS = "SELECT id, text FROM chunks ORDER BY id"
+
+
+@dataclass(frozen=True)
+class _Filter:
+    """hybrid_search 의 선택 필터. sql() 은 자리표시자만, 값은 params() 로 바인딩 (보안 E)."""
+
+    orgs: list[str] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)
+
+    def __bool__(self) -> bool:
+        return bool(self.orgs or self.sources)
+
+    def sql(self) -> str:
+        out = ""
+        if self.orgs:
+            out += _ORG_FILTER.replace("{orgs}", _sql.placeholders(len(self.orgs)))
+        if self.sources:
+            out += _SOURCE_FILTER.replace("{sources}", _sql.placeholders(len(self.sources)))
+        return out
+
+    def params(self) -> tuple[str, ...]:
+        return (*self.orgs, *self.sources)
 
 
 class ReindexRequired(RuntimeError):
@@ -295,7 +323,12 @@ class SQLiteDocumentRepository:
         return _mapping.row_to_document(row) if row else None
 
     async def hybrid_search(
-        self, queries: list[str], *, k: int = 20, orgs: list[str] | None = None
+        self,
+        queries: list[str],
+        *,
+        k: int = 20,
+        orgs: list[str] | None = None,
+        sources: list[str] | None = None,
     ) -> list[Chunk]:
         limit = _sql.clamp_k(k, max_k=self.max_k)
         cleaned = _sql.clamp_queries(
@@ -309,7 +342,11 @@ class SQLiteDocumentRepository:
         else:
             vectors = list(await self.embedding.embed_query(cleaned))
         return await asyncio.to_thread(
-            self._hybrid_search_sync, cleaned, vectors, limit, self._clean_orgs(orgs)
+            self._hybrid_search_sync,
+            cleaned,
+            vectors,
+            limit,
+            _Filter(orgs=self._clean_names(orgs), sources=self._clean_names(sources)),
         )
 
     def _hybrid_search_sync(
@@ -317,14 +354,14 @@ class SQLiteDocumentRepository:
         queries: list[str],
         vectors: list[list[float] | None],
         limit: int,
-        org_filter: list[str],
+        flt: _Filter,
     ) -> list[Chunk]:
         fetch = limit * FETCH_MULTIPLIER
         with self._lock:
             rankings: list[list[str]] = []
             for query, vector in zip(queries, vectors, strict=True):
-                rankings.append(self._fts_ids(query, fetch, org_filter))
-                rankings.append(self._vec_ids(vector, fetch, org_filter))
+                rankings.append(self._fts_ids(query, fetch, flt))
+                rankings.append(self._vec_ids(vector, fetch, flt))
             fused = reciprocal_rank_fusion(rankings, k=self.rrf_k)
             chunks = self._load_chunks([chunk_id for chunk_id, _ in fused[:limit]])
             return self._with_similarity(chunks, [v for v in vectors if v is not None])
@@ -386,41 +423,45 @@ class SQLiteDocumentRepository:
             return out
 
     # ── 내부 검색 ────────────────────────────────────────────────
-    def _clean_orgs(self, orgs: list[str] | None) -> list[str]:
-        if not orgs:
+    def _clean_names(self, names: list[str] | None) -> list[str]:
+        if not names:
             return []
-        return list(dict.fromkeys(o for o in orgs if isinstance(o, str) and o))[: self.max_k]
+        return list(dict.fromkeys(n for n in names if isinstance(n, str) and n))[: self.max_k]
 
-    def _fts_ids(self, query: str, fetch: int, orgs: list[str]) -> list[str]:
+    def _fts_ids(self, query: str, fetch: int, flt: _Filter) -> list[str]:
         match = _sql.quote_fts_query(query, max_chars=self.max_query_chars)
         if not match:
             return []
         today = self.today().isoformat()
-        if orgs:
-            sql = _FTS_SEARCH_ORGS.format(orgs=_sql.placeholders(len(orgs)))
-            params: tuple[object, ...] = (match, today, *orgs, fetch)
+        if flt:
+            sql = _FTS_SEARCH_FILTERED.replace("{filters}", flt.sql())
+            params: tuple[object, ...] = (match, today, *flt.params(), fetch)
         else:
             sql, params = _FTS_SEARCH, (match, today, fetch)
         # quote_fts_query 가 문법적으로 안전한 식만 만들므로 예외를 삼키지 않는다.
         return [row["chunk_id"] for row in self.conn.execute(sql, params)]
 
-    def _vec_ids(self, vector: list[float] | None, fetch: int, orgs: list[str]) -> list[str]:
+    def _vec_ids(self, vector: list[float] | None, fetch: int, flt: _Filter) -> list[str]:
         if vector is None or self._vec_dim is None:
             return []
-        hits = [
-            (rowid, score)
-            for rowid, score in self.backend.search(
-                vector, fetch * (FETCH_MULTIPLIER if orgs else 1)
-            )
-            if score > self.min_similarity
-        ]
-        if not hits:
-            return []
-        allowed = self._chunk_ids_for([rowid for rowid, _ in hits], orgs)
-        return [allowed[rowid] for rowid, _ in hits if rowid in allowed][:fetch]
+        want = fetch * (FETCH_MULTIPLIER if flt else 1)
+        while True:
+            hits = [
+                (rowid, score)
+                for rowid, score in self.backend.search(vector, want)
+                if score > self.min_similarity
+            ]
+            if not hits:
+                return []
+            allowed = self._chunk_ids_for([rowid for rowid, _ in hits], flt)
+            out = [allowed[rowid] for rowid, _ in hits if rowid in allowed]
+            # 필터로 모자라고 색인에 더 남아 있으면 더 넓게 다시 받는다 (상한까지).
+            if len(out) >= fetch or not flt or len(hits) < want or want >= VEC_FETCH_CAP:
+                return out[:fetch]
+            want = min(want * FETCH_MULTIPLIER, VEC_FETCH_CAP)
 
-    def _chunk_ids_for(self, rowids: list[int], orgs: list[str]) -> dict[int, str]:
-        """벡터 히트 rowid → chunk_id. 만료 문서·org 필터 밖 청크는 빠진다."""
+    def _chunk_ids_for(self, rowids: list[int], flt: _Filter) -> dict[int, str]:
+        """벡터 히트 rowid → chunk_id. 만료 문서·org/source 필터 밖 청크는 빠진다."""
         out: dict[int, str] = {}
         today = self.today().isoformat()
         for start in range(0, len(rowids), self.max_k):
@@ -429,12 +470,9 @@ class SQLiteDocumentRepository:
             # marks·placeholders 는 정수 개수만 받는다 (_sql.placeholders).
             sql = (
                 f"SELECT c.id, c.chunk_id FROM chunks c JOIN documents d ON d.doc_id = c.doc_id "  # noqa: S608  # nosec B608
-                f"WHERE c.id IN ({marks}) AND {_VALID}"
+                f"WHERE c.id IN ({marks}) AND {_VALID}{flt.sql()}"
             )
-            params: tuple[object, ...] = (*batch, today)
-            if orgs:
-                sql += _ORG_FILTER.replace("{orgs}", _sql.placeholders(len(orgs)))
-                params = (*params, *orgs)
+            params: tuple[object, ...] = (*batch, today, *flt.params())
             for row in self.conn.execute(sql, params):
                 out[row["id"]] = row["chunk_id"]
         return out

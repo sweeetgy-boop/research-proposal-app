@@ -230,9 +230,8 @@ def relevance_floor(settings: Settings) -> RelevanceFloor:
     cfg = read_config("overlap.yaml", settings).get("evidence_floor") or {}
     if not isinstance(cfg, dict):
         raise ValueError("overlap.yaml evidence_floor 는 매핑이어야 합니다.")
-    return RelevanceFloor.model_validate(
-        {k: cfg[k] for k in ("min_similarity", "min_keyword_hits") if k in cfg}
-    )
+    keys = ("min_similarity", "min_keyword_hits", "min_per_source", "search_multiplier")
+    return RelevanceFloor.model_validate({k: cfg[k] for k in keys if k in cfg})
 
 
 # ── 양식 ───────────────────────────────────────────────────

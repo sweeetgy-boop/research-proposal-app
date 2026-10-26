@@ -11,9 +11,12 @@
 - 고유명 대조(input_grounded): 정책·계획명·차수·연도가 허용 출처에 없으면 문장을 폐기한다.
 - 수치 대조(number_checked): 수치가 입력·인용 청크에 없으면 lint 경고만 (finalize, 폐기 없음).
 - overlap_review: 유사과제 판정에서 중복 기준을 넘는 것이 없으면 앱이 확정 문장을 쓴다 (LLM 미사용).
-- 관련도 하한(relevance): 검색 청크 중 유사도·키워드 조건을 넘지 못한 것은 스냅샷에 넣지 않는다
-  (`dropped_chunks` 에 이유만 남김). 남은 청크가 없으면 근거 필수 섹션은 LLM 을 부르지 않고 빈칸
-  (lint 경고 no_relevant_evidence). 유사과제 판정으로 보탠 청크(#overlap)는 하한을 적용하지 않는다.
+- 관련도 하한(relevance): 검색은 k×search_multiplier 로 넓게 받고, 유사도·키워드 조건을 넘지 못한
+  것은 스냅샷에 넣지 않는다. 적재된 자료원 중 통과 청크가 min_per_source 에 못 미친 것은 그 자료원만
+  다시 검색해 보탠 뒤(_top_up_sources) 출처마다 최소 min_per_source 건을 보장해(balance_sources)
+  k 개로 줄인다 (`dropped_chunks` 에 이유만 남김). 남은 청크가 없으면 근거 필수 섹션은 LLM 을
+  부르지 않고 빈칸(lint 경고 no_relevant_evidence). 유사과제 판정으로 보탠 청크(#overlap)는 하한을
+  적용하지 않는다.
 
 상태 저장·재개·동시성은 application/services/run_manager.py 가 맡는다.
 `__call__` 은 세 단계를 한 번에 도는 조합이다 (테스트·일회성 실행용).
@@ -66,7 +69,12 @@ from rra.domain.rules.llm_output import (
     parse_sentences,
 )
 from rra.domain.rules.overlap import OwnUnit, judge, no_overlap_statement, uncollected_sources
-from rra.domain.rules.relevance import RelevanceFloor, filter_chunks
+from rra.domain.rules.relevance import (
+    DropReason,
+    RelevanceFloor,
+    balance_sources,
+    filter_chunks,
+)
 from rra.domain.rules.trust import enforce_section_evidence, wrap_untrusted
 
 OVERLAP_SECTION = "overlap_review"
@@ -134,13 +142,18 @@ class GenerateProposal:
     # ── retrieve ─────────────────────────────────────────
     async def retrieve(self, req: ProposalRequest) -> RetrievalSnapshot:
         query = req.search_text()
-        chunks = list(await self.repo.hybrid_search([query], k=self.k))
+        wide = self.k * (self.relevance.search_multiplier if self.relevance else 1)
+        chunks = list(await self.repo.hybrid_search([query], k=wide))
         dropped: dict[str, str] = {}
         if self.relevance is not None:
-            chunks, removed = filter_chunks(
-                chunks, query, self.relevance, self.keywords or KeywordRule()
-            )
+            keywords = self.keywords or KeywordRule()
+            chunks, removed = filter_chunks(chunks, query, self.relevance, keywords)
             dropped = {c.chunk_id: reason for c, reason in removed}
+            extra, more = await self._top_up_sources(query, chunks)
+            dropped.update({c.chunk_id: reason for c, reason in more})
+            chunks = balance_sources(chunks + extra, self.k, self.relevance.min_per_source)
+        else:
+            chunks = chunks[: self.k]
         if not self.check_overlap:
             snapshot = RetrievalSnapshot.of(query, chunks)
             snapshot.dropped_chunks = dropped
@@ -152,6 +165,44 @@ class GenerateProposal:
         snapshot.uncollected = uncollected_sources(await self.repo.count_by_source())
         snapshot.dropped_chunks = dropped
         return snapshot
+
+    async def _top_up_sources(
+        self, query: str, kept: list[Chunk]
+    ) -> tuple[list[Chunk], list[tuple[Chunk, DropReason]]]:
+        """넓은 검색에서도 min_per_source 에 못 미친 자료원은 그 자료원만으로 다시 검색해 보탠다.
+
+        한국어 질의는 융합 순위 상위를 사내 기록이 메워 영어 논문이 상위 160 안에도 거의 없다
+        (2026-10-26). 자료원 필터 검색 결과도 같은 관련도 하한을 거치며, 넓은 검색 목록 뒤에 붙어
+        balance_sources 가 보장분만 고른다. 적재된 자료원(count_by_source) 만 본다.
+        """
+        floor = self.relevance
+        need = floor.min_per_source if floor is not None else 0
+        if floor is None or need <= 0:
+            return [], []
+        have: dict[str, int] = {}
+        for c in kept:
+            src = c.doc_id.split(":", 1)[0]
+            have[src] = have.get(src, 0) + 1
+        seen = {c.chunk_id for c in kept}
+        extra: list[Chunk] = []
+        removed: list[tuple[Chunk, DropReason]] = []
+        for src in sorted(await self.repo.count_by_source()):
+            if have.get(src, 0) >= need:
+                continue
+            found = await self.repo.hybrid_search(
+                [query], k=need * floor.search_multiplier, sources=[src]
+            )
+            ok, bad = filter_chunks(
+                [c for c in found if c.chunk_id not in seen],
+                query,
+                floor,
+                self.keywords or KeywordRule(),
+            )
+            removed.extend(bad)
+            for c in ok[: need - have.get(src, 0)]:
+                seen.add(c.chunk_id)
+                extra.append(c)
+        return extra, removed
 
     def evidence_skipped(self, snapshot: RetrievalSnapshot) -> dict[str, str]:
         """근거 청크가 없어 빈칸으로 두는 근거 필수 섹션. 유사과제 판정을 했으면 특이사항은 예외."""

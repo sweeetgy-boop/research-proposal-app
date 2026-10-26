@@ -31,7 +31,11 @@ def test_normalize_real_record():
     assert doc.abstract.startswith("This paper presents a view")
     assert doc.trust == "untrusted"
     assert "abstract_inverted_index" not in doc.raw
-    assert doc.raw == {"openalex_id": "W1966732442", "type": PAGE["results"][0]["type"]}
+    assert doc.raw == {
+        "openalex_id": "W1966732442",
+        "type": PAGE["results"][0]["type"],
+        "field": None,
+    }
 
 
 def test_every_record_in_the_page_normalizes():
@@ -101,25 +105,22 @@ def source_with(handler, **kw):
     return OpenAlexSource(client, today=lambda: date(2026, 9, 18), **kw)
 
 
-async def test_search_follows_cursor_until_limit():
+async def test_search_follows_pages_until_limit():
     results = PAGE["results"]
     seen = []
 
     def handler(request):
         seen.append(dict(request.url.params))
-        cursor = request.url.params["cursor"]
-        if cursor == "*":
-            return httpx.Response(200, json=page(results[:2], "c2"))
-        if cursor == "c2":
-            return httpx.Response(200, json=page(results[2:4], "c3"))
-        return httpx.Response(200, json=page(results[4:], None))
+        n = int(request.url.params["page"])
+        return httpx.Response(200, json=page(results[(n - 1) * 2 : n * 2], None))
 
     src = source_with(handler, per_page=2)
     out = await src.search("railway track geometry", 3)
     await src.aclose()
 
     assert [r["id"] for r in out] == [r["id"] for r in results[:3]]
-    assert [p["cursor"] for p in seen] == ["*", "c2"]
+    assert [p["page"] for p in seen] == ["1", "2"]  # cursor 페이징은 API 키가 필요해 쓰지 않는다
+    assert "cursor" not in seen[0] and "api_key" not in seen[0]
     assert seen[0]["search"] == "railway track geometry"
     assert seen[0]["per-page"] == "2"
     assert "abstract_inverted_index" in seen[0]["select"]
@@ -127,7 +128,7 @@ async def test_search_follows_cursor_until_limit():
     assert "mailto" not in seen[0]
 
 
-async def test_search_stops_when_cursor_runs_out():
+async def test_search_stops_when_a_short_page_comes_back():
     def handler(request):
         return httpx.Response(200, json=page(PAGE["results"][:2], None))
 
@@ -147,7 +148,7 @@ async def test_incremental_search_uses_default_query_and_date_filter():
     await src.search(None, 10)
     await src.aclose()
     assert seen[0]["search"] == "railway"
-    assert seen[0]["filter"] == "from_publication_date:2026-09-11"
+    assert seen[0]["filter"] == "from_publication_date:2026-09-11,has_abstract:true"
 
 
 async def test_query_is_clamped():
@@ -179,4 +180,103 @@ async def test_unexpected_shape_is_an_error():
     src = source_with(handler)
     with pytest.raises(FetchError):
         await src.search("rail", 5)
+    await src.aclose()
+
+
+# ── 질의 목록(분야별)·기간 조건·중복 제거·--full ───────────
+def work(i, field=None):
+    return {"id": f"https://openalex.org/W{i}", "display_name": f"paper {i}"}
+
+
+async def test_query_list_runs_each_field_with_window_and_abstract_filter_and_dedups():
+    seen = []
+
+    def handler(request):
+        p = dict(request.url.params)
+        seen.append(p)
+        if "geometry" in p["search"]:
+            body = page([work(1), work(2)], None)
+        else:
+            body = page([work(2), work(3)], None)  # W2 는 두 질의에 겹친다
+        return httpx.Response(200, json=body)
+
+    src = source_with(
+        handler,
+        lookback_days=7,
+        queries=[
+            {"field": "궤도", "query": "railway track geometry"},
+            {"field": "안전", "query": "railway safety"},
+        ],
+        per_query_limit=5,
+    )
+    raws = await src.search(None, 10)
+    await src.aclose()
+    assert [r["id"][-2:] for r in raws] == ["W1", "W2", "W3"]  # 중복 W2 는 한 번
+    assert [r["_field"] for r in raws] == ["궤도", "궤도", "안전"]
+    assert seen[0]["filter"] == "from_publication_date:2026-09-11,has_abstract:true"
+    assert seen[1]["search"] == "railway safety"
+    doc = src.normalize(raws[2])
+    assert doc.raw["field"] == "안전" and doc.doc_id == "openalex:W3"
+
+
+async def test_full_window_uses_backfill_years_and_explicit_query_has_no_filter():
+    seen = []
+
+    def handler(request):
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json=page([], None))
+
+    src = source_with(
+        handler,
+        lookback_days=7,
+        queries=[{"field": "궤도", "query": "track"}],
+        backfill_years=10,
+        require_abstract=False,
+    )
+    src.full_window = True
+    await src.search(None, 10)
+    assert seen[-1]["filter"] == "from_publication_date:2016-09-20"  # 10년 = 3650일
+    await src.search("tram noise", 10)
+    assert "filter" not in seen[-1] and seen[-1]["search"] == "tram noise"
+    await src.aclose()
+
+
+async def test_per_query_limit_and_total_limit_cap_the_corpus():
+    def handler(request):
+        p = dict(request.url.params)
+        n = int(p["search"][-1])
+        return httpx.Response(200, json=page([work(n * 10 + i) for i in range(5)], None))
+
+    src = source_with(
+        handler,
+        queries=[{"field": f"f{i}", "query": f"q{i}"} for i in range(1, 4)],
+        per_query_limit=3,
+    )
+    assert len(await src.search(None, 100)) == 9  # 질의당 3
+    assert len(await src.search(None, 4)) == 4  # 전체 상한
+    await src.aclose()
+
+
+async def test_api_key_goes_only_into_the_query_and_page_cap_is_respected():
+    from pydantic import SecretStr
+
+    seen = []
+
+    def handler(request):
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json=page([work(int(request.url.params["page"]))], None))
+
+    src = source_with(handler, per_page=1, api_key=SecretStr("oa-secret"))
+    out = await src.search("x", 3)
+    assert len(out) == 3 and seen[0]["api_key"] == "oa-secret"
+    assert "oa-secret" not in repr(src)
+    src.per_page = 1
+    from rra.adapters.sources import openalex as mod
+
+    old = mod.MAX_BASIC_RESULTS
+    mod.MAX_BASIC_RESULTS = 2
+    try:
+        assert len(await src.search("x", 10)) == 2  # 10,000건 상한(여기선 2)에서 멈춘다
+    finally:
+        mod.MAX_BASIC_RESULTS = old
     await src.aclose()

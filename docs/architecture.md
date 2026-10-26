@@ -607,6 +607,43 @@ precheck 결과에 차단 또는 기준 근접(유사도 ≥ 티어 임계치 ×
 - 외부 공개는 결정 전 — `docs/deploy-exposure.md` 에 Tailscale serve / Cloudflare Tunnel 비교(접근 범위·제어·데이터 경계·
   비용)와 필요한 설정만. 권장은 소수 동료 시범 운영이면 Tailscale(사내 자료가 제3자 엣지를 거치지 않음). 구현 없음.
 
+### 4.13 OpenAlex 철도 코퍼스 (2026-10-26)
+
+20건뿐이던 OpenAlex 를 분야별 질의 목록으로 확충했다 (`config/sources.yaml openalex.queries`, 13개 영문 질의:
+궤도·궤도검측·차량·신호·전력·유지보수·안전·수송수요·역사·자산관리·탄소중립·화물·운영).
+- 조건: 초록 있는 것만(`has_abstract:true`), 기간은 증분이면 `lookback_days`(7, 야간 적재), 전체면 `backfill_years`(10,
+  `rra ingest --source openalex --full`). 질의당 `per_query_limit`(200) 관련도순, 같은 work 는 한 번만(`_field` 태그 →
+  `raw.field`). 질의 목록이 비면 예전 `default_query` 하나.
+- 페이징: OpenAlex 가 2026-10 부터 cursor 페이징에 API 키를 요구(401)해 `page` 페이징(10,000건 상한)으로 바꿨다.
+  선택 설정 `RRA_OPENALEX_MAILTO`(polite pool, 환경변수가 yaml 을 이김)·`RRA_OPENALEX_API_KEY`(SecretStr, 요청
+  파라미터로만, 오류 URL 에서 제거).
+- 2026-10-28 기준 10년·초록 조건 예상 건수(질의당): 궤도 1,530 / 궤도검측 4,029 / 차량 1,809 / 신호 156 / 전력 585 /
+  유지보수 16,114 / 안전 1,519 / 수송수요 2,409 / 역사 5,011 / 자산관리 16,017 / 탄소중립 4,596 / 화물 6,580 / 운영
+  4,098 → 상한 200×13 = 2,600(중복 제거 전), 목표 1,000~3,000.
+- 야간 적재 plist 는 `--limit 5000`(소스당)으로 올렸다 — 200 이면 own_projects(1,119)·OpenAlex 질의 목록이 잘린다.
+- 전체 적재 결과(2026-10-26, dev DB): 수집 2,472 → 저장 2,468(중복 3), 청크 3,465, 78초. 분야별: 궤도 200·궤도검측 196·
+  차량 197·신호 155·전력 199·유지보수 183·안전 191·수송수요 200·역사 197·자산관리 167·탄소중립 196·화물 200·운영 187
+  (+ 기존 14건, 분야 태그 없음) = 2,482. 발행일 2009-04 ~ 2026-10.
+
+**근거 출처 다양성** (같은 날). 적재 뒤 골든셋 01(궤도)의 상위 20 후보에 영어 논문이 0건이었다 — 한국어 질의는 FTS·
+벡터 모두 짧은 사내 기록(own 1,119·alio)을 앞세워 상위 160 안에도 OpenAlex 가 4건뿐. 세 겹으로 푼다
+(`config/overlap.yaml evidence_floor`, `domain/rules/relevance.py`, `usecases/generate_proposal.retrieve`):
+1. 넓은 검색: `hybrid_search(k × search_multiplier)`(기본 20×4 = 80, 어댑터 상한 100) 뒤 관련도 하한을 적용.
+2. 부족 자료원 재검색(`_top_up_sources`): 적재된 자료원(`count_by_source`) 중 하한 통과가 `min_per_source`(4) 미만이면
+   그 자료원만 `hybrid_search(…, sources=[src])` 로 다시 찾아 같은 하한을 거쳐 보탠다. 포트 `DocumentRepository.hybrid_search`
+   에 `sources` 필터가 추가됐고(orgs 와 같은 방식, FTS 는 `d.source IN (?)`, 벡터는 필터 뒤 모자라면 4배씩 4,096 까지
+   넓혀 재조회), fake 두 곳(tests/fakes·adapters/fake)도 같은 계약.
+3. 보장 선택(`balance_sources`): 하한 통과 목록에서 출처(doc_id 접두어)마다 처음 `min_per_source` 건을 먼저 고르고
+   나머지는 융합 순위대로 k 개. 순위는 유지. `min_per_source: 0` 이면 예전 동작.
+보장분 합이 k 를 넘으면(출처 3 × 8 > 20) 전체 순위로 자르지 않고 출처를 돌아가며 고른다 — 순위로 자르면 뒤에 붙은
+논문이 통째로 빠진다(실측: 8 로 올려도 논문 4 건).
+결과(골든셋, k=20, `min_per_source: 6`): 01 출처 alio 15/own 5/openalex 0 → alio 9/own 6/openalex 6, 02 alio 8/own 9 →
+alio 7/own 7/openalex 6. 하한(0.79) 통과 수는 01 20→20(+overlap 1), 02 17→20. 같은 입력(골든셋 01)으로 7B 초안 3 건:
+`min_per_source` 4 는 논문이 근거 집합에 4 건 있어도 인용 0(사내 한국어 청크만 인용), 6 은 논문 6 건 인용(제목 섹션).
+Argon 점수(필요성·차별성·실현가능성·기대효과)는 이전 run 3/2/2/3 → 4/2/2/3(4) → 3/2/3/3(6) 으로 run 간 편차 안이고,
+차별성 2 의 이유는 세 번 다 "무관한 사내 과제 인용·해외 연구와의 차별성 서술 부족" 이다. 영어 논문 상위 코사인은
+0.84~0.85 로 사내 기록(0.85+)보다 조금 낮을 뿐이라 reranker 가 들어오면 보장 규칙은 줄일 수 있다.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -1115,6 +1152,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (코퍼스) | OpenAlex 철도 분야 질의 목록 13개·초록 필터·증분/전체 기간·질의당 상한·page 페이징·polite pool/API 키 설정(§4.13); CI 워크플로(`.github/workflows/ci.yml`)·CODEOWNERS·PR 템플릿·CONTRIBUTING; 샌드박스 RLIMIT_AS 제거(리눅스 pymupdf import); 근거 출처 다양성(`hybrid_search sources` 필터·`_top_up_sources`·`balance_sources`, §4.13) |
 | 2026-10-26 (A) | 판단 반영: own 티어 = source own 전부(세부 institute/company, `tier_label`), own 출처 경고 제외, generic_terms 14개 추가, visibility 전부 public(공시용 없는 요약만 internal), 차별화 자동 실행은 차단 알림만, REST `RunIn.differentiation_transfer` → manifest |
 | 2026-10-26 (P6) | 운영 준비(§4.12): `com.rra.ingest.plist`, `rra ingest --skip-unavailable`·`build_available_sources`, plist 테스트, `deploy/README.md` 설치 순서, `docs/deploy-exposure.md` |
 | 2026-10-26 (P5) | 검토 고도화(§4.11): `ReviewRound.scores`·`CriterionScore`·`score_comments`, `parse_scores`, review.md 채점·수치 정책, `RenderCheck.unsupported_numbers`(맨 위 표시), 화면·CLI·API 점수 표시, manifest scores |
