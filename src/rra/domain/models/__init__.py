@@ -13,7 +13,7 @@ from .gap import (
 )
 from .proposer import Person, ProposerInfo
 from .request import Budget, ProposalRequest
-from .review import DraftVersion, ReviewComment, ReviewRound, ReviewTransfer
+from .review import CriterionScore, DraftVersion, ReviewComment, ReviewRound, ReviewTransfer
 from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
 from .selection import Confirmation, StrategyCatalog
 
@@ -38,6 +38,7 @@ __all__ = [
     "Tier",
     "Budget",
     "Confirmation",
+    "CriterionScore",
     "DraftVersion",
     "ReviewComment",
     "ReviewRound",

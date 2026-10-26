@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from rra.domain.models import Confirmation, Draft, ProposerInfo
-from rra.domain.rules.lint import LintProblem, LintRules
+from rra.domain.rules.lint import UNSUPPORTED_NUMBER, LintProblem, LintRules
 
 STRATEGY_KEY = "strategy_alignment"
 STRATEGY_EMPTY = (
@@ -46,6 +46,11 @@ class RenderCheck:
     @property
     def count(self) -> int:
         return len(self.unresolved) + len(self.overflow) + len(self.notes)
+
+    @property
+    def unsupported_numbers(self) -> int:
+        """미해결 '근거 없는 수치' 알림 수 — 수치 정책(P5): 막지 않고 맨 위에 건수를 보인다."""
+        return sum(1 for p in self.unresolved if p.code == UNSUPPORTED_NUMBER)
 
 
 def render_check(

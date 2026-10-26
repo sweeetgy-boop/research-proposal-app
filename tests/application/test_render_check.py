@@ -192,3 +192,57 @@ def test_long_title_is_never_a_notice():
         strategy_labels={"D1-1": "예방정비"},
     )
     assert check.overflow == [] and check.count == 0
+
+
+def test_unsupported_number_count_is_shown_first():
+    from rra.entrypoints.views import render_check_lines, render_check_payload
+
+    problems = [
+        {
+            "section": "method",
+            "code": "unsupported_number",
+            "message": "3차년도",
+            "severity": "warning",
+            "sentence": 0,
+        },
+        {
+            "section": "method",
+            "code": "unsupported_number",
+            "message": "10%",
+            "severity": "warning",
+            "sentence": 1,
+        },
+        {
+            "section": "title",
+            "code": "too_long",
+            "message": "x",
+            "severity": "error",
+            "sentence": None,
+        },
+    ]
+    check = render_check(
+        draft(),
+        problems,
+        RULES,
+        confirmation=None,
+        proposer=None,
+        line_limits={},
+        strategy_labels={"D1": "x"},
+    )
+    assert check.unsupported_numbers == 2 and check.count == 4  # 전략 미확정 note 포함
+    payload = render_check_payload(check)
+    assert payload["unsupported_numbers"] == 2
+    lines = render_check_lines(payload)
+    assert lines[1].startswith(" ! 근거 없는 수치 알림 2건")
+    none = render_check(
+        draft(),
+        [],
+        RULES,
+        confirmation=None,
+        proposer=None,
+        line_limits={},
+        strategy_labels={"D1": "x"},
+    )
+    assert none.unsupported_numbers == 0 and not any(
+        "수치 알림" in ln for ln in render_check_lines(render_check_payload(none))
+    )

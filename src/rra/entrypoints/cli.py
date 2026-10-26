@@ -789,6 +789,9 @@ def cmd_runs_review(args: argparse.Namespace) -> int:
             f" {review.round}차: 의견 {len(review.comments)}건 (수정안 사용 가능 {usable}, "
             f"폐기 {discarded}), 보낸 문장 {t.sentences_sent}, 검토 제외 {t.sentences_excluded}"
         )
+        for s in review.scores:
+            flag = " ← 보완 필요" if s.weak else ""
+            print(f"  [채점] {s.criterion} {s.score}/5 — {_safe(s.reason, 100)}{flag}")
         for c in review.comments:
             where = f"s:{c.section}:{c.sentence}" if c.sentence is not None else c.section
             mark = "✔" if c.usable else ("✘" if c.status == "discarded" else "·")

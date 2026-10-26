@@ -38,10 +38,14 @@ from rra.domain.models import (
     StrategyCatalog,
 )
 from rra.domain.models.review import (
+    CRITERIA,
     ISSUE_TYPES,
     MAX_COMMENT_CHARS,
+    MAX_REASON_CHARS,
     MAX_REVISED_CHARS,
+    CriterionScore,
     parse_sentence_id,
+    score_comments,
     sentence_id,
 )
 from rra.domain.models.selection import STRATEGY_SOURCE
@@ -110,6 +114,7 @@ class ReviewDraft:
         raw_items: list[dict] = []
         section_items: list[dict] = []
         resolved_raw: list[str] = []
+        score_items: list[dict] = []
         for item in inputs:
             data = parse_object(
                 await self.llm.complete(item.prompt, system=self.prompts.review(), json_mode=True)
@@ -121,8 +126,20 @@ class ReviewDraft:
             resolved_raw.extend(
                 str(x) for x in _as_list(data.get("resolved")) if isinstance(x, str)
             )
+            if not score_items:  # 분할 호출이면 첫 호출(초안 전체 또는 첫 섹션)의 채점만 쓴다
+                score_items = [x for x in _as_list(data.get("scores")) if isinstance(x, dict)]
         sent_ids = {sid for item in inputs for sid in item.sentence_ids}
         comments = self._comments(ctx, sections, raw_items, section_items, sent_ids)
+        scores = parse_scores(score_items, sent_ids)
+        comments.extend(
+            score_comments(
+                scores,
+                round_no=ctx.round_no,
+                start_no=len(comments),
+                sent_ids=sent_ids,
+                sections_present={s.key for s in sections},
+            )
+        )
         resolved = self._resolved(ctx.previous, resolved_raw)
         transfer = ReviewTransfer(
             provider=self.provider,
@@ -140,6 +157,7 @@ class ReviewDraft:
             resolved_ids=resolved,
             excluded_sentences=sorted(excluded),
             transfer=transfer,
+            scores=scores,
         )
 
     # ── 전송 범위 ─────────────────────────────────────────
@@ -367,6 +385,29 @@ class ReviewDraft:
 
 
 # ── 순수 함수 ──────────────────────────────────────────────
+def parse_scores(items: list[dict], sent_ids: set[str]) -> list[CriterionScore]:
+    """LLM 의 scores 배열 → 기준별 점수 (기준 밖·범위 밖은 버림, 기준당 첫 값, CRITERIA 순서)."""
+    found: dict[str, CriterionScore] = {}
+    for item in items:
+        criterion = str(item.get("criterion", "")).strip()
+        if criterion not in CRITERIA or criterion in found:
+            continue
+        try:
+            score = int(item.get("score"))
+        except (TypeError, ValueError):
+            continue
+        if not 1 <= score <= 5:
+            continue
+        ids = [str(x) for x in _as_list(item.get("sentence_ids")) if isinstance(x, str)]
+        found[criterion] = CriterionScore(
+            criterion=criterion,
+            score=score,
+            reason=_clean_text(item.get("reason"), MAX_REASON_CHARS),
+            sentence_ids=[sid for sid in dict.fromkeys(ids) if sid in sent_ids][:20],
+        )
+    return [found[c] for c in CRITERIA if c in found]
+
+
 def internal_doc_ids(chunks: Iterable[Chunk]) -> set[str]:
     return {c.doc_id for c in chunks if c.visibility == "internal"}
 

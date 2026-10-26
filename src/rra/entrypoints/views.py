@@ -121,6 +121,16 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
         "created_at": review.created_at,
         "excluded_sentences": list(review.excluded_sentences),
         "resolved_ids": list(review.resolved_ids),
+        "scores": [
+            {
+                "criterion": s.criterion,
+                "score": s.score,
+                "weak": s.weak,
+                "reason": clean(s.reason),
+                "sentence_ids": list(s.sentence_ids),
+            }
+            for s in getattr(review, "scores", []) or []
+        ],
         "transfer": {
             "provider": review.transfer.provider,
             "model": review.transfer.model,
@@ -217,6 +227,7 @@ def render_check_payload(
     names = {**SLOT_LABELS, **(titles or {})}
     return {
         "count": check.count,
+        "unsupported_numbers": check.unsupported_numbers,
         "unresolved": [
             {
                 "section": p.section,
@@ -246,6 +257,11 @@ def render_check_lines(payload: dict[str, Any]) -> list[str]:
     if not payload["count"]:
         return []
     lines = [f"렌더 전 점검: 알림 {payload['count']}건 (렌더는 진행합니다)"]
+    if payload.get("unsupported_numbers"):
+        lines.append(
+            f" ! 근거 없는 수치 알림 {payload['unsupported_numbers']}건 — 입력·근거에 없는 수치는 "
+            "양식에서 직접 확인하거나 지우십시오"
+        )
     for p in payload["unresolved"]:
         where = p["section"] + (f" 문장 {p['sentence'] + 1}" if p["sentence"] is not None else "")
         lines.append(f" - [{p['severity']}] {where}: {p['message']}")

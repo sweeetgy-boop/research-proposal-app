@@ -978,6 +978,7 @@ def manifest(
                     "sentences_sent": r.transfer.sentences_sent,
                     "sentences_excluded": r.transfer.sentences_excluded,
                     "comments": len(r.comments),
+                    "scores": {s.criterion: s.score for s in r.scores},
                 }
                 for r in reviews or []
             ],

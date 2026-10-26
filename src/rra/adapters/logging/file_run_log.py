@@ -67,6 +67,7 @@ TRANSFER_KEYS = frozenset(
         "sentences_sent",
         "sentences_excluded",
         "comments",
+        "scores",
     }
 )
 STEP_KEYS = frozenset(
