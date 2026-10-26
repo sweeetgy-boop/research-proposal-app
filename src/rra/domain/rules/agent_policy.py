@@ -20,6 +20,7 @@ from rra.domain.rules.differentiation import needs_differentiation
 Tool = Literal[
     "rra_precheck",
     "rra_differentiate",
+    "rra_recommend",
     "rra_search",
     "rra_generate",
     "rra_get_draft",
@@ -60,6 +61,7 @@ def after_precheck(
     *,
     corpus_size: int,
     acknowledged: bool = False,
+    recommend_auto: bool = True,
 ) -> list[Decision]:
     """precheck 결과를 본 뒤의 판단. 순서대로 화면에 보인다."""
     out: list[Decision] = []
@@ -83,6 +85,7 @@ def after_precheck(
         out.append(on_differentiate())
     elif needs_differentiation(alerts):  # 근접(임계치 90% 이상)만이면 담당자가 요청할 때
         out.append(on_differentiate_on_request())
+    out.append(on_recommend(auto=recommend_auto))  # 차별화 과제 추천 (ADR 0012)
     if not req.policy_basis.strip():
         out.append(Decision("정책 근거 미입력", "정책적 중요도 섹션은 생성하지 않고 빈칸 + 경고"))
     if corpus_size <= 0:
@@ -108,6 +111,26 @@ def on_differentiate_on_request() -> Decision:
         "근접(임계치의 90% 이상) 알림만 있음",
         "담당자가 [차별화 제안 받기]를 누르면 rra_differentiate 호출",
         "rra_differentiate",
+        needs_human=True,
+    )
+
+
+def on_recommend(*, auto: bool = True) -> Decision:
+    """precheck 완료 → 차별화 과제 추천(0~5건). 자동 1회(recommend.auto), 다시 받기는 요청 시."""
+    if auto:
+        return Decision(
+            "precheck 완료",
+            "rra_recommend 자동 호출(1회) → 기존 과제와 차별성을 갖는 과제 0~5건과 이유 표시",
+            "rra_recommend",
+        )
+    return on_recommend_on_request()
+
+
+def on_recommend_on_request() -> Decision:
+    return Decision(
+        "사용자가 [추천 다시 받기] 요청",
+        "rra_recommend 호출 → 추천 카드 갱신 (자동 재실행 없음)",
+        "rra_recommend",
         needs_human=True,
     )
 

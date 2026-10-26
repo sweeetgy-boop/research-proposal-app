@@ -26,6 +26,7 @@ from rra.config_loader import (
     llm_key_present,
     own_unit,
     read_config,
+    recommend_policy,
     relevance_floor,
     render_slots,
     render_template_path,
@@ -798,10 +799,13 @@ def build_api(
         manager = build_run_manager(settings, repo=repo, llm=llm, runner=runner)
     sessions = build_sessions(settings)
     static = static_dir if static_dir is not None else Path(settings.static_dir)
+    precheck = build_precheck(settings, repo=repo)
     return create_app(
         manager=manager,
-        precheck=build_precheck(settings, repo=repo),
+        precheck=precheck,
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
+        recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
+        recommend_auto=recommend_policy(settings)["auto"],
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
@@ -864,6 +868,44 @@ def build_differentiator(settings: Settings | None = None, *, repo=None, llm=Non
     )
 
 
+def build_recommender(settings: Settings | None = None, *, repo=None, llm=None, precheck=None):
+    """차별화 과제 추천 유스케이스(RecommendProjects, ADR 0012).
+
+    recommend 단계 LLM(기본 gemini) 키가 없으면 compose(로컬) 모델로 대신하고 fallback_local=True.
+    근거 검색은 GenerateProposal.retrieve(관련도 하한·자료원별 최소 보장), 자기 중복 검사는
+    precheck.
+    llm 을 주면 그대로 쓴다(테스트용).
+    """
+    from rra.application.usecases.recommend_projects import RecommendProjects
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    stage, fallback = "recommend", False
+    try:
+        available = llm_available(settings, stage=stage)
+    except KeyError:
+        available = False
+    if not available:
+        stage, fallback = "compose", True
+    cfg = llm_config(settings, stage)
+    if llm is None:
+        llm = build_llm(settings, stage=stage)
+    generate = build_generate(settings, repo=repo, llm=llm)  # retrieve 만 쓴다 (LLM 호출 없음)
+    return RecommendProjects(
+        llm,
+        build_prompt_library(settings),
+        repo,
+        precheck=precheck or build_precheck(settings, repo=repo),
+        retrieve=generate.retrieve,
+        include_internal=review_policy(settings)["include_internal"],
+        provider=cfg["provider"],
+        model=cfg["served_model"] or cfg["model"],
+        fallback_local=fallback,
+        self_overlap_mode=recommend_policy(settings)["self_overlap"],
+    )
+
+
 def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
     """Agent(ProposalAssistant) — precheck·RunManager·검색이 같은 repo 를 쓴다.
 
@@ -876,10 +918,13 @@ def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
     manager = build_run_manager(settings, repo=repo, llm=llm)
+    precheck = build_precheck(settings, repo=repo)
     return ProposalAssistant(
-        build_precheck(settings, repo=repo),
+        precheck,
         manager,
         repo,
         user=LOCAL_USER,
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
+        recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
+        recommend_auto=recommend_policy(settings)["auto"],
     )

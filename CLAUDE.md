@@ -99,6 +99,11 @@
   CI: `.github/workflows/ci.yml` backend·web job, 샌드박스는 RLIMIT_DATA 만(RLIMIT_AS 는 리눅스 import 실패).
   근거 출처 다양성: `evidence_floor.min_per_source`(4)·`search_multiplier`(4) — 넓은 검색 → 부족 자료원만
   `hybrid_search(sources=[…])` 재검색(`_top_up_sources`) → `balance_sources`. 포트 `hybrid_search` 에 `sources` 필터.
+- 차별화 과제 추천(2026-10-27, architecture §4.14, ADR 0012): precheck 뒤 자동 1회(`llm.yaml recommend.auto`) 기존 과제와
+  다른 과제 0~5건(`usecases/recommend_projects`, 검증 `domain/rules/recommendation`: doc_id 범위·수치·정책명·중복·자기 중복
+  precheck). 선택 → `apply_recommendation` 미리보기 → 확정 입력으로 생성. run 에 recommendations.json 복사, manifest 는 전송
+  기록+chosen. 진입점 `rra recommend`·REST `/v1/precheck/recommendations(/{id}/apply)`·MCP `rra_recommend`·Streamlit 카드.
+  경과 기록은 `docs/history/`(PR 마다 timeline·metrics·ADR·screens, CONTRIBUTING 규칙).
 - 2026-10-26 판단 반영(A): 엑셀 4개 과제는 부서 무관 own 티어(`OWN_RECORD_SOURCES`, 알림 세부 institute/company,
   `tier_label`), 그 출처는 `unlisted_department` 경고 없음, visibility 는 엑셀·공시용 요약문 public(일반 요약만 internal),
   generic_terms 14개 추가. 차별화 제안 자동 실행은 차단 알림일 때만(근접은 요청 시), REST `RunIn.differentiation_transfer`.

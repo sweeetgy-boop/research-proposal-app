@@ -32,6 +32,8 @@ def build(
     max_body: int = 64 * 1024,
     static_dir=None,
     differentiate=None,
+    recommend=None,
+    recommend_auto=True,
 ):
     from rra.adapters.security import SessionStore
     from rra.entrypoints.api.app import SessionAuth
@@ -47,6 +49,8 @@ def build(
         manager=a.manager,
         precheck=a.precheck,
         differentiate=differentiate,
+        recommend=recommend,
+        recommend_auto=recommend_auto,
         repo=a.repo,
         user=a.user,
         middlewares=mws,

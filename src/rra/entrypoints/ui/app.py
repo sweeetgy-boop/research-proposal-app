@@ -136,6 +136,7 @@ def alerts_panel() -> bool:
             "차단 경보를 확인했으며 그래도 초안 생성을 진행합니다", key="ack_box"
         )
     differentiation_panel()
+    recommendation_panel()
     return acknowledged
 
 
@@ -196,6 +197,92 @@ def differentiation_panel() -> None:
         )
 
 
+# ── 2-다. 차별화 과제 추천 (ADR 0012) ───────────────────────
+def recommendation_panel() -> None:
+    """유사과제 표 아래 추천 카드 0~5장.
+
+    자동 1회(intake), 다시 받기는 요청 시. 선택 → 미리보기 → 확정.
+    """
+    res = ss["rra_intake"]
+    if "rra_rec" not in ss:
+        ss["rra_rec"] = res.recommendations
+    st.markdown("**차별화 과제 추천** — 기존 과제와 차별성을 갖는 과제를 추천합니다 (0~5건).")
+    if res.recommendations is not None and ss.get("rra_rec") is res.recommendations:
+        st.caption("유사과제 확인 뒤 자동으로 추천했습니다.")
+    if st.button("추천 다시 받기", key="rec_btn"):
+        ss["rra_rec"] = worker.call(assistant.recommend(ss["rra_request"], res.alerts, again=True))
+        ss.pop("rra_rec_chosen", None)
+        ss.pop("rra_rec_preview", None)
+    result = ss.get("rra_rec")
+    if result is None:
+        st.caption("과제 추천을 쓸 수 없습니다 (LLM 없음). 원래 아이디어로 진행합니다.")
+        return
+    where = "로컬 모델(대체)" if result.fallback_local else (result.provider or "LLM")
+    st.caption(
+        f"{where} · 전송 public {len(result.public_doc_ids)}건, internal "
+        f"{len(result.internal_doc_ids)}건 · 제외 {len(result.discarded)}건"
+    )
+    st.caption(UNTRUSTED_NOTICE)
+    if result.skipped_reason:
+        st.info(f"추천을 만들지 못했습니다: {result.skipped_reason}. 원래 아이디어로 진행합니다.")
+        return
+    if not result.recommendations:
+        st.info("추천하지 않은 이유: " + plain(result.no_recommendation_reason or ""))
+        st.caption("원래 아이디어로 진행합니다.")
+        return
+    for i, rec in enumerate(result.recommendations):
+        with st.expander(f"추천 {i + 1}. {clean(rec.title, 80)}", expanded=i == 0):
+            st.write("요약: " + plain(rec.summary))
+            st.write("핵심 차별점: " + plain(rec.differentiation))
+            for r in rec.reasons:
+                st.write("→ " + plain(r))
+            if rec.build_on:
+                st.write("이어받을 성과: " + plain(rec.build_on))
+            if rec.risks:
+                st.write("예상 위험·확인할 점: " + plain(rec.risks))
+            st.caption(
+                "비교한 기존 과제: "
+                + (", ".join(rec.compared_with) or "-")
+                + " · 근거: "
+                + (", ".join(rec.evidence) or "-")
+            )
+            if rec.overlap_warning:
+                st.warning(
+                    "이 추천도 기존 과제와 겹칠 수 있습니다 (중복 여부는 담당자가 판단): "
+                    + ", ".join(rec.overlap_warning)
+                )
+    labels = [f"추천 {i + 1}. {clean(r.title, 60)}" for i, r in enumerate(result.recommendations)]
+    pick = st.radio("진행할 방향", options=labels, index=None, key="rec_pick")
+    c1, c2 = st.columns(2)
+    if c1.button("이 방향으로 진행", key="rec_apply", disabled=pick is None):
+        index = labels.index(pick)
+        new_req, preview = assistant.preview_recommendation(
+            ss["rra_request"], result.recommendations[index], index
+        )
+        ss["rra_rec_preview"] = (new_req, preview)
+    if c2.button("원래 아이디어로 진행", key="rec_original"):
+        ss.pop("rra_rec_preview", None)
+        ss.pop("rra_rec_chosen", None)
+        st.success("원래 아이디어로 진행합니다.")
+    if ss.get("rra_rec_preview"):
+        new_req, preview = ss["rra_rec_preview"]
+        st.markdown("**수정 전 미리보기** — 바뀐 칸: " + ", ".join(preview.changed))
+        title = st.text_input(
+            "가제", value=new_req.title_hint, key="rec_title", max_chars=SHORT_MAX
+        )
+        goal = st.text_area("해결 목표", value=new_req.goal, key="rec_goal", max_chars=SLOT_MAX)
+        diff = st.text_area(
+            "차별화 방향", value=new_req.differentiation, key="rec_diff", max_chars=SLOT_MAX
+        )
+        if st.button("이 입력으로 확정", key="rec_confirm"):
+            ss["rra_request"] = ss["rra_request"].model_copy(
+                update={"title_hint": title, "goal": goal, "differentiation": diff}
+            )
+            ss["rra_rec_chosen"] = preview.index
+            ss.pop("rra_rec_preview", None)
+            st.success("확정했습니다. 초안의 과제명·목적·방법·특이사항에 반영됩니다.")
+
+
 # ── 3. [초안 생성] → 진행 → 초안 ─────────────────────────
 def generate_button(acknowledged: bool) -> None:
     res = ss["rra_intake"]
@@ -209,6 +296,8 @@ def generate_button(acknowledged: bool) -> None:
                 res.alerts,
                 acknowledged=acknowledged,
                 differentiation=ss.get("rra_diff"),
+                recommendations=ss.get("rra_rec"),
+                chosen_recommendation=ss.get("rra_rec_chosen"),
             )
         )
     except HumanConfirmationRequired as exc:

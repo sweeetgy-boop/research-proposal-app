@@ -106,8 +106,55 @@ class FakeDifferentiate:
 _DEFAULT = object()
 
 
+class FakeRecommend:
+    """차별화 과제 추천 유스케이스 페이크 — 추천 2건(두 번째는 차단 과제와 비교). LLM 없음."""
+
+    def __init__(self, count: int = 2):
+        self.calls: list = []
+        self.count = count
+
+    async def __call__(self, req, alerts):
+        from rra.domain.models import ProjectRecommendation, RecommendationResult
+
+        self.calls.append((req, alerts))
+        compared = [a.doc_id for a in alerts][:1]
+        recs = [
+            ProjectRecommendation(
+                title="검측 이력 기반 궤도 열화 속도 추정",
+                summary="검측차 이력으로 구간별 열화 속도를 추정함",
+                differentiation="기존 과제는 감지에 그치나 본 과제는 속도를 추정함",
+                reasons=["기존 과제와 목표가 다름"],
+                build_on="기존 과제의 검측 데이터 수집 체계를 이어받음",
+                risks="구간별 데이터 양 확인 필요",
+                compared_with=compared,
+                evidence=compared,
+            ),
+            ProjectRecommendation(
+                title="보수 우선순위 산정 모형",
+                summary="열화 속도와 통과 톤수로 보수 우선순위를 정함",
+                differentiation="기존 과제는 우선순위를 다루지 않음",
+                reasons=["대상이 보수 계획으로 다름"],
+                compared_with=compared,
+                evidence=compared,
+            ),
+        ][: self.count]
+        return RecommendationResult(
+            recommendations=recs,
+            no_recommendation_reason=None if recs else "아이디어가 이미 충분히 다름",
+            provider="gemini",
+            model="argon",
+            public_doc_ids=compared,
+            calls=1,
+        )
+
+
 def make_assistant(
-    *, blocking: bool = False, answers: list[str] | None = None, differentiate=_DEFAULT
+    *,
+    blocking: bool = False,
+    answers: list[str] | None = None,
+    differentiate=_DEFAULT,
+    recommend=_DEFAULT,
+    recommend_auto: bool = True,
 ) -> ProposalAssistant:
     repo = InMemoryRepository()
     repo.seed(DOCS, CHUNKS)
@@ -144,4 +191,6 @@ def make_assistant(
         repo,
         clock=lambda: "2026-01-01T00:00:00+00:00",
         differentiate=FakeDifferentiate() if differentiate is _DEFAULT else differentiate,
+        recommend=FakeRecommend() if recommend is _DEFAULT else recommend,
+        recommend_auto=recommend_auto,
     )

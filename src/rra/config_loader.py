@@ -186,6 +186,16 @@ def review_policy(settings: Settings) -> dict[str, Any]:
     }
 
 
+def recommend_policy(settings: Settings) -> dict[str, Any]:
+    """llm.yaml 의 recommend 정책 (기본: auto=true — precheck 뒤 자동 1회)."""
+    cfg = read_config("llm.yaml", settings)
+    rec = cfg.get("recommend") or {}
+    mode = str(rec.get("self_overlap", "warn"))
+    if mode not in ("warn", "exclude"):
+        raise ValueError(f"llm.yaml recommend.self_overlap 은 warn|exclude 중 하나: {mode!r}")
+    return {"auto": bool(rec.get("auto", True)), "self_overlap": mode}
+
+
 def served_model_aliases(served: str | None) -> frozenset[str]:
     """선언한 모델 이름과 같은 것으로 볼 문자열. 로컬 경로로 띄웠으면 서버는 절대경로를 싣는다."""
     if not served:

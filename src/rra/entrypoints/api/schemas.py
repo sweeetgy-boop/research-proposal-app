@@ -96,13 +96,31 @@ class DifferentiationTransferIn(BaseModel):
     skipped_reason: str | None = Field(default=None, max_length=40)
 
 
+class RecommendationApplyIn(BaseModel):
+    """POST /v1/precheck/recommendations/{id}/apply — 고른 추천 번호. 미리보기만 돌려준다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: int = Field(ge=0, le=4)
+
+
 class RunIn(ProposalRequest):
-    """생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 (manifest 에만 남는다)."""
+    """생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 + (선택) 과제 추천 세션 id·번호.
+
+    recommendation_id 가 있으면 서버가 그 세션의 추천 결과 전체를 run 의 recommendations.json 에
+    복사하고 manifest 에 전송 기록·chosen 을 남긴다. 모르는 id 는 404.
+    """
 
     differentiation_transfer: DifferentiationTransferIn | None = None
+    recommendation_id: str | None = Field(default=None, min_length=8, max_length=64)
+    recommendation_index: int | None = Field(default=None, ge=0, le=4)
 
     def request(self) -> ProposalRequest:
-        return ProposalRequest(**self.model_dump(exclude={"differentiation_transfer"}))
+        return ProposalRequest(
+            **self.model_dump(
+                exclude={"differentiation_transfer", "recommendation_id", "recommendation_index"}
+            )
+        )
 
     def transfer_record(self) -> dict | None:
         if self.differentiation_transfer is None:

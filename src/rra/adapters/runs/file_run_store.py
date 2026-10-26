@@ -23,6 +23,7 @@ import secrets
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from rra.adapters.runs._fs import ensure_dir, read_json, write_json
 from rra.adapters.runs.locks import FileLockClaim, is_locked, try_lock
@@ -159,6 +160,13 @@ class FileRunStore:
 
     def list_versions(self, user: str, run_id: str) -> list[int]:
         return self._numbers(self._run_dir(user, run_id) / "versions", "draft_v")
+
+    def save_recommendations(self, user: str, run_id: str, data: dict[str, Any]) -> None:
+        write_json(self._run_dir(user, run_id) / "recommendations.json", data)
+
+    def load_recommendations(self, user: str, run_id: str) -> dict[str, Any] | None:
+        path = self._run_dir(user, run_id) / "recommendations.json"
+        return read_json(path) if path.is_file() else None
 
     def save_review(self, user: str, run_id: str, review: ReviewRound) -> None:
         n = self._number(review.round, "차수")

@@ -84,10 +84,18 @@ stages:
   review:    {provider: gemini, max_tokens: 6000}     # 검토 = gemini-4-argon (키 없으면 review_skipped)
   # 기능 2 유사과제 활용·차별화 제안 = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
   differentiate: {provider: gemini, max_tokens: 2000}
+  # 차별화 과제 추천(ADR 0012) = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
+  recommend: {provider: gemini, max_tokens: 3000}
 
 # 검토(review) 단계 정책
 review:
   auto: true                 # 초안 완료 뒤 1차 검토 자동 시작
+# 차별화 과제 추천 정책
+recommend:
+  auto: true                 # precheck 가 끝나면 자동 1회. 다시 받기는 사용자 요청 시만
+  # 자기 중복 검사(추천 글로 precheck 재실행) 결과: warn = 카드에 "겹칠 수 있음" 경고(사람이 판단), exclude = 추천에서 제외.
+  # e5 만으로는 같은 분야 글이 전부 0.80 위로 차단되어 exclude 면 추천이 항상 0 (2026-10-27 실측) → reranker 뒤 재검토
+  self_overlap: warn
 external_llm:
   include_internal: true     # 사내(internal) 근거·문장을 외부 검토 LLM 에 보낼지. false 면 "검토 제외"
 

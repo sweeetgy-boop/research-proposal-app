@@ -74,6 +74,9 @@ def cmd_precheck(args: argparse.Namespace) -> int:
     proposal = None
     if any(a.blocking for a in alerts) and not getattr(args, "no_differentiate", False):
         proposal = _auto_differentiate(settings, req, alerts)  # 차단 → 자동 (기능 2)
+    recommendation = None
+    if not getattr(args, "no_recommend", False):
+        recommendation = _auto_recommend(settings, req, alerts)  # precheck 완료 → 자동 1회
 
     if args.json:
         payload: dict = {"alerts": [a.model_dump() for a in alerts]}
@@ -83,11 +86,14 @@ def cmd_precheck(args: argparse.Namespace) -> int:
             payload["differentiation"] = differentiation_payload(
                 proposal, clean=lambda t: _safe(t, 600)
             )
-        print(
-            json.dumps(
-                payload["alerts"] if proposal is None else payload, ensure_ascii=False, indent=2
+        if recommendation is not None:
+            from rra.entrypoints.views import recommendations_payload
+
+            payload["recommendations"] = recommendations_payload(
+                recommendation, clean=lambda t: _safe(t, 600)
             )
-        )
+        bare = proposal is None and recommendation is None
+        print(json.dumps(payload["alerts"] if bare else payload, ensure_ascii=False, indent=2))
     else:
         blocking = sum(1 for a in alerts if a.blocking)
         print(f"[중복 경보] {len(alerts)}건 (차단 {blocking}건)")
@@ -106,7 +112,109 @@ def cmd_precheck(args: argparse.Namespace) -> int:
             print("  유사한 기수행 과제가 없습니다.")
         if proposal is not None:
             _print_differentiation(proposal, auto=True)
+        if recommendation is not None:
+            _print_recommendations(recommendation, auto=True)
     return EXIT_BLOCKED if any(a.blocking for a in alerts) else EXIT_OK
+
+
+def _auto_recommend(settings, req, alerts):
+    """precheck 완료 → 차별화 과제 추천 자동 1회 (recommend.auto). LLM 이 없으면 None."""
+    from rra.composition import LLMUnavailable, build_recommender, recommend_policy
+
+    if not recommend_policy(settings)["auto"]:
+        return None
+
+    async def run():
+        recommend = build_recommender(settings)
+        try:
+            return await recommend(req, alerts)
+        finally:
+            await recommend.llm.aclose()
+
+    try:
+        return asyncio.run(run())
+    except LLMUnavailable as exc:
+        _eprint(f"과제 추천 생략 (LLM 없음): {exc}")
+        return None
+
+
+def _print_recommendations(result, *, auto: bool = False) -> None:
+    from rra.entrypoints.views import recommendations_payload
+
+    payload = recommendations_payload(result, clean=lambda t: _safe(t, 600))
+    where = "로컬 모델(대체)" if result.fallback_local else f"{result.provider}/{result.model}"
+    head = "[차별화 과제 추천 — precheck 완료 후 자동]" if auto else "[차별화 과제 추천]"
+    print(
+        f"\n{head} 추천 {len(result.recommendations)}건, 제외 {len(result.discarded)}건 ({where})"
+    )
+    if result.skipped_reason:
+        print(f"  건너뜀: {result.skipped_reason}")
+    if payload["no_recommendation_reason"]:
+        print(f"  추천하지 않음: {payload['no_recommendation_reason']}")
+    for r in payload["recommendations"]:
+        print(f"\n■ 추천 {r['index'] + 1}: {r['title']}")
+        print(f"  요약: {r['summary']}")
+        print(f"  차별점: {r['differentiation']}")
+        for n, reason in enumerate(r["reasons"], 1):
+            print(f"  이유 {n}: {reason}")
+        if r["build_on"]:
+            print(f"  이어받을 성과: {r['build_on']}")
+        if r["risks"]:
+            print(f"  위험·확인: {r['risks']}")
+        compared = ", ".join(r["compared_with"]) or "-"
+        evidence = ", ".join(r["evidence"]) or "-"
+        print(f"  비교 과제: {compared} · 근거: {evidence}")
+        if r["overlap_warning"]:
+            print(f"  ! 기존 과제와 겹칠 수 있음(사람이 판단): {', '.join(r['overlap_warning'])}")
+    for d in payload["discarded"]:
+        print(f"  (제외) {_safe(d.get('title', ''), 64)}: {_safe(d.get('reason', ''), 40)}")
+    t = payload["transfer"]
+    print(
+        f"전송: public {len(t['public_doc_ids'])}건, internal {len(t['internal_doc_ids'])}건, "
+        f"제외 {len(t['excluded_doc_ids'])}건 — 고른 추천은 generate 의 --title-hint·"
+        "--differentiation 으로 넣는다"
+    )
+
+
+def cmd_recommend(args: argparse.Namespace) -> int:
+    """차별화 과제 추천(ADR 0012) — 기존 과제와 다른 과제 0~5건 (Gemini, 키 없으면 로컬)."""
+    from rra.composition import build_precheck, build_recommender, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.entrypoints.views import recommendations_payload
+
+    try:
+        req = ProposalRequest(**_read_slots(args))
+    except ValidationError as exc:
+        _eprint(validation_message(exc))
+        return EXIT_USAGE
+    settings = load_settings()
+
+    async def run():
+        precheck = build_precheck(settings)
+        recommend = build_recommender(
+            settings, repo=getattr(precheck, "repo", None), precheck=precheck
+        )
+        try:
+            alerts = await precheck(req)
+            return alerts, await recommend(req, alerts)
+        finally:
+            await recommend.llm.aclose()
+
+    alerts, result = asyncio.run(run())
+    if args.json:
+        payload = recommendations_payload(result, clean=lambda t: _safe(t, 600))
+        print(
+            json.dumps(
+                {"alerts": [a.model_dump() for a in alerts], **payload},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return EXIT_OK
+    print(f"[유사과제] 알림 {len(alerts)}건 (차단 {sum(1 for a in alerts if a.blocking)}건)")
+    _print_recommendations(result)
+    return EXIT_OK
 
 
 def _auto_differentiate(settings, req, alerts):
@@ -1114,7 +1222,23 @@ def build_parser() -> argparse.ArgumentParser:
         dest="no_differentiate",
         help="차단 알림이 있어도 차별화 제안(기능 2)을 자동 실행하지 않는다",
     )
+    pre.add_argument(
+        "--no-recommend",
+        action="store_true",
+        dest="no_recommend",
+        help="precheck 뒤 차별화 과제 추천을 자동 실행하지 않는다",
+    )
     pre.set_defaults(handler=cmd_precheck)
+
+    rec = sub.add_parser(
+        "recommend",
+        help="기존 과제와 차별성을 갖는 과제 0~5건 추천 (Gemini, 키 없으면 로컬; 없으면 사유)",
+    )
+    for slot in SLOTS:
+        rec.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    rec.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    rec.add_argument("--json", action="store_true", help="JSON 으로 출력")
+    rec.set_defaults(handler=cmd_recommend)
 
     diff = sub.add_parser(
         "differentiate",
