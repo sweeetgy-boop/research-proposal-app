@@ -15,11 +15,14 @@ from collections.abc import Callable
 from datetime import date, timedelta
 from typing import Any
 
+from pydantic import SecretStr
+
 from rra.adapters.sources._base import FetchError, GuardedClient
 from rra.domain.models import Document
 
 BASE_URL = "https://api.openalex.org"
 MAX_PER_PAGE = 200
+MAX_BASIC_RESULTS = 10_000  # page 페이징 상한 (OpenAlex)
 SELECT = (
     "id,doi,display_name,publication_date,language,authorships,"
     "abstract_inverted_index,primary_location,type"
@@ -55,6 +58,7 @@ class OpenAlexSource:
         backfill_years: int = 10,
         per_query_limit: int = 200,
         require_abstract: bool = True,
+        api_key: SecretStr | None = None,
     ):
         self.client = client
         self.base_url = base_url.rstrip("/")
@@ -73,6 +77,7 @@ class OpenAlexSource:
         self.per_query_limit = max(1, int(per_query_limit))
         self.require_abstract = bool(require_abstract)
         self.full_window = False  # True 면 lookback_days 대신 backfill_years (CLI --full)
+        self.api_key = api_key  # 선택. 있으면 요청 파라미터로만 (보안 D). 없으면 익명 page 페이징
 
     def __repr__(self) -> str:
         return f"OpenAlexSource(base_url={self.base_url!r})"
@@ -90,7 +95,7 @@ class OpenAlexSource:
         return ",".join(parts)
 
     async def search(self, query: str | None, limit: int) -> list[dict[str, Any]]:
-        """원본 응답. query 가 있으면 그 질의 하나(기간 조건 없음), None 이면 질의 목록×기간 조건."""
+        """원본 응답. query 가 있으면 그 질의 하나(기간 없음), None 이면 질의 목록×기간 조건."""
         if limit <= 0:
             return []
         if query is not None:
@@ -120,11 +125,9 @@ class OpenAlexSource:
     async def _search_one(
         self, query: str, limit: int, *, filter_expr: str | None
     ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {
-            "select": SELECT,
-            "per-page": min(self.per_page, limit),
-            "cursor": "*",
-        }
+        # page 페이징(최대 MAX_BASIC_RESULTS 건). cursor 페이징은 2026-10 부터 API 키 필요(401).
+        per_page = min(self.per_page, limit)
+        params: dict[str, Any] = {"select": SELECT, "per-page": per_page, "page": 1}
         if filter_expr:
             params["filter"] = filter_expr
         text = _clean_text(query)[: self.query_max_chars]
@@ -132,17 +135,19 @@ class OpenAlexSource:
             params["search"] = text
         if self.mailto:
             params["mailto"] = self.mailto
+        if self.api_key:
+            params["api_key"] = self.api_key.get_secret_value()
         out: list[dict[str, Any]] = []
-        while len(out) < limit:
-            data = await self.client.get_json(f"{self.base_url}/works", params)
+        page_no = 1
+        while len(out) < limit and page_no * per_page <= MAX_BASIC_RESULTS:
+            data = await self.client.get_json(f"{self.base_url}/works", {**params, "page": page_no})
             results = data.get("results") if isinstance(data, dict) else None
             if not isinstance(results, list):
                 raise FetchError("OpenAlex 응답에 results 배열이 없습니다.")
             out.extend(r for r in results if isinstance(r, dict))
-            cursor = (data.get("meta") or {}).get("next_cursor")
-            if not results or not isinstance(cursor, str) or not cursor:
+            if len(results) < per_page:
                 break
-            params = {**params, "cursor": cursor}
+            page_no += 1
         return out[:limit]
 
     def normalize(self, raw: dict[str, Any]) -> Document:

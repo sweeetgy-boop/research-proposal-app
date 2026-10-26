@@ -286,6 +286,7 @@ def build_openalex_source(settings: Settings | None = None, *, transport=None):
         backfill_years=int(cfg.get("backfill_years", 10)),
         per_query_limit=int(cfg.get("per_query_limit", 200)),
         require_abstract=bool(cfg.get("require_abstract", True)),
+        api_key=settings.openalex_api_key,
     )
 
 

@@ -105,25 +105,22 @@ def source_with(handler, **kw):
     return OpenAlexSource(client, today=lambda: date(2026, 9, 18), **kw)
 
 
-async def test_search_follows_cursor_until_limit():
+async def test_search_follows_pages_until_limit():
     results = PAGE["results"]
     seen = []
 
     def handler(request):
         seen.append(dict(request.url.params))
-        cursor = request.url.params["cursor"]
-        if cursor == "*":
-            return httpx.Response(200, json=page(results[:2], "c2"))
-        if cursor == "c2":
-            return httpx.Response(200, json=page(results[2:4], "c3"))
-        return httpx.Response(200, json=page(results[4:], None))
+        n = int(request.url.params["page"])
+        return httpx.Response(200, json=page(results[(n - 1) * 2 : n * 2], None))
 
     src = source_with(handler, per_page=2)
     out = await src.search("railway track geometry", 3)
     await src.aclose()
 
     assert [r["id"] for r in out] == [r["id"] for r in results[:3]]
-    assert [p["cursor"] for p in seen] == ["*", "c2"]
+    assert [p["page"] for p in seen] == ["1", "2"]  # cursor 페이징은 API 키가 필요해 쓰지 않는다
+    assert "cursor" not in seen[0] and "api_key" not in seen[0]
     assert seen[0]["search"] == "railway track geometry"
     assert seen[0]["per-page"] == "2"
     assert "abstract_inverted_index" in seen[0]["select"]
@@ -131,7 +128,7 @@ async def test_search_follows_cursor_until_limit():
     assert "mailto" not in seen[0]
 
 
-async def test_search_stops_when_cursor_runs_out():
+async def test_search_stops_when_a_short_page_comes_back():
     def handler(request):
         return httpx.Response(200, json=page(PAGE["results"][:2], None))
 
@@ -257,4 +254,29 @@ async def test_per_query_limit_and_total_limit_cap_the_corpus():
     )
     assert len(await src.search(None, 100)) == 9  # 질의당 3
     assert len(await src.search(None, 4)) == 4  # 전체 상한
+    await src.aclose()
+
+
+async def test_api_key_goes_only_into_the_query_and_page_cap_is_respected():
+    from pydantic import SecretStr
+
+    seen = []
+
+    def handler(request):
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json=page([work(int(request.url.params["page"]))], None))
+
+    src = source_with(handler, per_page=1, api_key=SecretStr("oa-secret"))
+    out = await src.search("x", 3)
+    assert len(out) == 3 and seen[0]["api_key"] == "oa-secret"
+    assert "oa-secret" not in repr(src)
+    src.per_page = 1
+    from rra.adapters.sources import openalex as mod
+
+    old = mod.MAX_BASIC_RESULTS
+    mod.MAX_BASIC_RESULTS = 2
+    try:
+        assert len(await src.search("x", 10)) == 2  # 10,000건 상한(여기선 2)에서 멈춘다
+    finally:
+        mod.MAX_BASIC_RESULTS = old
     await src.aclose()
