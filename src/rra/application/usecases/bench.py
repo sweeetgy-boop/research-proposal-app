@@ -44,6 +44,8 @@ class IdeaResult:
     tech_sentences: list[str]
     section_seconds: dict[str, float] = field(default_factory=dict)
     parse_lenient: list[str] = field(default_factory=list)  # 관용 처리로 살린 섹션
+    retries: int = 0  # 형식 교정 재요청 횟수
+    parse_retried_ok: list[str] = field(default_factory=list)  # 재요청으로 살린 섹션
 
 
 @dataclass
@@ -86,6 +88,10 @@ class BenchResult:
         n = sum(len(i.section_seconds) for i in self.ideas)
         return sum(sum(i.section_seconds.values()) for i in self.ideas) / n if n else 0.0
 
+    @property
+    def retries(self) -> int:
+        return sum(i.retries for i in self.ideas)
+
     def totals(self) -> dict[str, int]:
         keys = (
             "dropped",
@@ -94,6 +100,7 @@ class BenchResult:
             "foreign_script",
             "problems",
             "overlap_alerts",
+            "retries",
         )
         return {k: sum(getattr(i, k) for i in self.ideas) for k in keys}
 
@@ -104,6 +111,7 @@ class BenchResult:
             "sections_llm": self.sections_llm,
             "parse_ok": self.parse_ok,
             "parse_ok_strict": self.parse_ok_strict,
+            "retries": self.retries,
             "json_success_rate": round(self.json_success_rate, 4),
             "strict_success_rate": round(self.strict_success_rate, 4),
             "avg_section_seconds": round(self.avg_section_seconds, 2),
@@ -165,9 +173,10 @@ class BenchGenerate:
         t0 = self.clock()
         snapshot = await self.generate.retrieve(req)
         sections = []
-        parse_ok = parse_ok_strict = sections_llm = dropped = ungrounded = 0
+        parse_ok = parse_ok_strict = sections_llm = dropped = ungrounded = retries = 0
         failed: list[str] = []
         lenient: list[str] = []
+        retried_ok: list[str] = []
         timings: dict[str, float] = {}
         for key in self.generate.section_keys:
             s0 = self.clock()
@@ -178,11 +187,15 @@ class BenchGenerate:
             ungrounded += len(composed.ungrounded)
             if composed.parse is not None:
                 sections_llm += 1
+                retries += composed.retries
+                first = composed.first_parse or composed.parse
+                if first.strict_ok:
+                    parse_ok_strict += 1  # (a) 첫 응답이 지시 모양 그대로
                 if composed.parse.ok:
-                    parse_ok += 1
-                    if composed.parse.strict_ok:
-                        parse_ok_strict += 1
-                    else:
+                    parse_ok += 1  # (b) 관용·재요청 포함 최종 성공
+                    if composed.retries and not first.ok:
+                        retried_ok.append(key)
+                    elif composed.parse.lenient:
                         lenient.append(key)
                 else:
                     failed.append(f"{key}:{composed.parse.status}")
@@ -198,6 +211,8 @@ class BenchGenerate:
             parse_ok_strict=parse_ok_strict,
             parse_failed=failed,
             parse_lenient=lenient,
+            retries=retries,
+            parse_retried_ok=retried_ok,
             dropped=dropped,
             ungrounded=ungrounded,
             unsupported_numbers=sum(1 for p in problems if p.code == UNSUPPORTED_NUMBER),

@@ -66,6 +66,7 @@ class StepRecord(BaseModel):
     prompt_hash: str | None = None
     parse: str | None = None  # section 만: ok | fence | json | schema (rules/llm_output.py)
     raw_chars: int | None = None  # section 만: LLM 원본 응답 길이 (원문은 저장하지 않음)
+    retries: int = 0  # section 만: 형식 교정 재요청 횟수
 
 
 class RunState(BaseModel):

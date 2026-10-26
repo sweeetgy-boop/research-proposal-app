@@ -39,7 +39,9 @@ model_profiles:
     system_role: true
     stop: []
     context_length: 32768
-  midm:                        # KT Mi:dm 2.0 Base Instruct (11.5B, MIT, Llama 구조, 문맥 32K) → ~/models 4bit
+  midm:                        # KT Mi:dm 2.0 Base Instruct (11.5B, MIT, Llama 구조, 문맥 32K).
+                               # 벤치 탈락(2026-10-26): JSON 형식 성공률 3.5%, 2.6× 느림 — docs/llm-bench-2026-10-26.md.
+                               # 변환본은 지웠다. 다시 쓰려면 ~/models/midm-2.0-base-4bit 로 재변환.
     served_model: ~/models/midm-2.0-base-4bit
     model: default_model
     json_mode: prompt

@@ -22,7 +22,8 @@ ANSWERS = [
     '{"choices": ["applied"], "sentences": []}',
     '[{"text": "근거 있음 文", "evidence": ["openalex:W1#0"]}, '
     '{"text": "근거 없음", "evidence": []}]',
-    "이건 JSON 이 아님",  # method 파싱 실패
+    "이건 JSON 이 아님",  # method 파싱 실패 → 교정 재요청
+    "두 번째도 JSON 아님",  # 재요청도 실패 → 기존 처리
 ]
 
 
@@ -65,7 +66,8 @@ async def test_bench_collects_metrics_per_idea_and_totals():
     result = await bench([("idea1", req)])
     idea = result.ideas[0]
     assert idea.sections_llm == 4 and idea.parse_ok == 3 and idea.parse_failed == ["method:json"]
-    assert idea.parse_ok_strict == 3 and idea.parse_lenient == []
+    assert idea.parse_ok_strict == 3 and idea.parse_lenient == [] and idea.retries == 1
+    assert idea.parse_retried_ok == [] and result.retries == 1 and result.totals()["retries"] == 1
     assert (
         idea.dropped == 1 and idea.foreign_script == 1 and idea.tech_sentences == ["근거 있음 文"]
     )
@@ -84,5 +86,6 @@ async def test_bench_collects_metrics_per_idea_and_totals():
     )
     assert "| 지표 | fake | other |" in md and "| 프롬프트 폴백 횟수 | 2 | 0 |" in md
     assert "75.0% (3/4)" in md and "근거 있음 文" in md and "method:json" in md
-    assert "(a) 지시 모양 그대로" in md and "(b) 관용 처리·폴백 포함" in md
+    assert "(a) 첫 응답이 지시 모양" in md and "(b) 관용 처리·재요청·폴백 포함" in md
+    assert "| 형식 교정 재요청 횟수 | 1 | 1 |" in md
     assert "기준 모델: qwen" in md

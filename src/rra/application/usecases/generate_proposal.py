@@ -47,13 +47,28 @@ from rra.domain.models.selection import (
 )
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.keywords import KeywordRule
-from rra.domain.rules.lint import LintProblem, LintRules, has_errors, lint, skipped_sections
-from rra.domain.rules.llm_output import ParseResult, parse_choice_section, parse_sentences
+from rra.domain.rules.lint import (
+    ChoiceSpec,
+    LintProblem,
+    LintRules,
+    has_errors,
+    lint,
+    skipped_sections,
+)
+from rra.domain.rules.llm_output import (
+    ParseResult,
+    correction_hint,
+    parse_choice_section,
+    parse_sentences,
+)
 from rra.domain.rules.overlap import OwnUnit, judge, no_overlap_statement, uncollected_sources
 from rra.domain.rules.trust import enforce_section_evidence, wrap_untrusted
 
 OVERLAP_SECTION = "overlap_review"
 _OVERLAP_TEXT_CHARS = 1500
+CHOICE_EXAMPLE = (
+    '{"choices": ["예시-id"], "sentences": [{"text": "예시 문장임.", "evidence": ["doc:예시#0"]}]}'
+)
 
 ComposeMode = Literal["llm", "skipped", "app"]
 
@@ -72,9 +87,11 @@ class ComposedSection:
     prompt_hash: str | None
     parse: ParseResult | None  # 파싱 사유·원본 길이. LLM 미사용이면 None
     mode: ComposeMode = "llm"  # skipped: 입력·목록이 비어 빈칸 / app: 앱 확정 문장
-    ungrounded: list[str] = field(
-        default_factory=list
-    )  # dropped 중 고유명 대조(정책명 등)로 폐기된 것
+    # dropped 중 고유명 대조(정책명 등)로 폐기된 것
+    ungrounded: list[str] = field(default_factory=list)
+    retries: int = 0  # 형식 교정 재요청 횟수 (0 또는 1)
+    # 첫 응답의 파싱 결과 (벤치 (a) 지표용). 재요청이 없었으면 parse 와 같다
+    first_parse: ParseResult | None = None
 
 
 @dataclass
@@ -161,10 +178,19 @@ class GenerateProposal:
         spec = self.rules.choices.get(key)
         prompt = self._prompt(key, instruction, req, snapshot, options.get(key) if spec else None)
         raw = await self.llm.complete(prompt, system=system, json_mode=True)
-        if spec is not None:
-            parsed = parse_choice_section(raw, options.get(key, {}), min_n=spec.min, max_n=spec.max)
-        else:
-            parsed = parse_sentences(raw)
+        first = parsed = self._parse(key, raw, spec, options)
+        retries = 0
+        if not parsed.ok:  # 스키마·JSON 오류 1회 재요청 — 오류 요약을 붙여 같은 섹션을 다시 묻는다
+            retries = 1
+            hint = correction_hint(parsed, choice_section=spec is not None)
+            raw2 = await self.llm.complete(
+                f"{prompt}\n\n[형식 교정 — 직전 응답은 형식 오류였음]\n{hint}",
+                system=system,
+                json_mode=True,
+            )
+            second = self._parse(key, raw2, spec, options)
+            if second.ok or (second.status == "choices_only" and not parsed.choices):
+                parsed = second  # 두 번째도 실패하면 첫 결과로 기존처럼 처리한다
 
         section, dropped = enforce_section_evidence(
             Section(key=key, sentences=parsed.sentences, choices=parsed.choices),
@@ -176,8 +202,21 @@ class GenerateProposal:
         dropped.extend(lost)
         digest = hashlib.sha256(f"{system}\x1f{instruction}".encode()).hexdigest()[:16]
         return ComposedSection(
-            section=section, dropped=dropped, prompt_hash=digest, parse=parsed, ungrounded=lost
+            section=section,
+            dropped=dropped,
+            prompt_hash=digest,
+            parse=parsed,
+            ungrounded=lost,
+            retries=retries,
+            first_parse=first,
         )
+
+    def _parse(
+        self, key: str, raw: str, spec: ChoiceSpec | None, options: dict[str, dict[str, str]]
+    ) -> ParseResult:
+        if spec is not None:
+            return parse_choice_section(raw, options.get(key, {}), min_n=spec.min, max_n=spec.max)
+        return parse_sentences(raw)
 
     def _prompt(
         self,
@@ -195,6 +234,12 @@ class GenerateProposal:
         if options is not None:
             listed = "\n".join(f"- {oid}: {label}" for oid, label in options.items())
             parts.append(f"[선택지 — 이 id 중에서만 고른다]\n{listed}")
+            # 정답 모양 예시 1개. 값은 가상(선택지에 없는 id, 형식만 보이는 근거 id)이라 그대로 쓰면
+            # 선택지 대조·근거 대조에서 걸려 폐기된다.
+            parts.append(
+                "[출력 모양 예시 — 모양만 참고. 값은 가상이며 그대로 쓰면 폐기됨]\n"
+                + CHOICE_EXAMPLE
+            )
         if key == OVERLAP_SECTION and snapshot.overlap_checked:
             rows = "\n".join(
                 f"- id={a.doc_id} 구분={a.tier} 유사도={a.similarity:.2f} "

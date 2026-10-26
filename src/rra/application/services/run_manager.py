@@ -315,6 +315,7 @@ class RunManager:
                         prompt_hash=composed.prompt_hash,
                         parse=parse.status if parse is not None else composed.mode,
                         raw_chars=parse.raw_chars if parse is not None else None,
+                        retries=composed.retries,
                     )
                     current = None
 
@@ -930,6 +931,7 @@ def manifest(
                 "prompt_hash": s.prompt_hash,
                 "parse": s.parse,
                 "raw_chars": s.raw_chars,
+                "retries": s.retries,
             }
             for s in state.steps
         ],

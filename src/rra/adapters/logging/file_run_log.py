@@ -66,6 +66,7 @@ STEP_KEYS = frozenset(
         "prompt_hash",
         "parse",
         "raw_chars",
+        "retries",
     }
 )
 PROBLEM_KEYS = frozenset({"section", "code", "severity"})

@@ -148,6 +148,26 @@ def parse_sentences(raw: str) -> ParseResult:
     return ParseResult("ok", n, sentences, stripped=stripped, lenient=lenient)
 
 
+def correction_hint(result: ParseResult, *, choice_section: bool) -> str:
+    """스키마·JSON 오류 1회 재요청에 붙이는 짧은 교정 문구 (오류 내용 요약, 모델 공통)."""
+    if result.status == "fence":
+        return "코드블록(```)·설명·머리말 없이 JSON 하나만 출력할 것."
+    if result.status == "json":
+        return "JSON 문법 오류였음. 완결된 JSON 하나만, 따옴표·쉼표·괄호를 닫아 출력할 것."
+    if choice_section:
+        return (
+            '출력은 객체 하나: {"choices": ["선택지 id"], '
+            '"sentences": [{"text": "문장", "evidence": []}]}. '
+            "sentences 는 text(문자열)·evidence(문자열 배열)를 가진 객체 배열이어야 함. "
+            "choices 는 [선택지] 의 id 문자열 배열이어야 함."
+        )
+    return (
+        '출력은 객체 배열: [{"text": "문장", "evidence": ["구획 id"]}]. '
+        '객체 하나나 {"choices": …} 포장이 아니라 배열이어야 하고, 각 원소는 text(문자열)·'
+        "evidence(문자열 배열)만 가진다."
+    )
+
+
 def parse_object(raw: str) -> dict[str, Any] | None:
     """JSON 객체 하나만 수용 (검토 응답). 펜스 하나는 벗긴다. 그 외는 None — 폐기."""
     status, data, _ = _load(raw)

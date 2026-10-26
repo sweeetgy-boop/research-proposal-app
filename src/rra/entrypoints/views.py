@@ -58,6 +58,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
                 "dropped": s.dropped,
                 "parse": s.parse,
                 "raw_chars": s.raw_chars,
+                "retries": s.retries,
             }
             for s in state.steps
         ],
@@ -329,8 +330,9 @@ def bench_markdown(results: list[Any], *, date: str, baseline: str | None = None
     metrics = [
         ("모델(served_model)", lambda r: r["model"] or "-"),
         ("프로필", lambda r: r["profile"] or "-"),
-        ("JSON (a) 지시 모양 그대로 응답 비율", strict),
-        ("JSON (b) 관용 처리·폴백 포함 최종 성공률 — 규칙 ② 기준", pct),
+        ("JSON (a) 첫 응답이 지시 모양 그대로인 비율", strict),
+        ("JSON (b) 관용 처리·재요청·폴백 포함 최종 성공률 — 규칙 ② 기준", pct),
+        ("형식 교정 재요청 횟수", lambda r: str(r.get("retries", 0))),
         ("프롬프트 폴백 횟수", lambda r: str(r["fallbacks"])),
         ("근거 대조 폐기 문장 수", lambda r: str(r["totals"]["dropped"])),
         ("수치 알림 수", lambda r: str(r["totals"]["unsupported_numbers"])),
