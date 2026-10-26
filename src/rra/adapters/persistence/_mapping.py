@@ -117,4 +117,5 @@ def row_to_chunk(row: Any) -> Chunk:
         heading=row["heading"],
         text=row["text"],
         basis=row["basis"],
+        visibility=row["visibility"] if "visibility" in row.keys() else None,
     )

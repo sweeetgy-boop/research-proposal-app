@@ -50,4 +50,5 @@ class Chunk(BaseModel):
     heading: str | None = None
     text: str
     basis: TextBasis | None = None  # None: basis 도입 전 스냅샷
+    visibility: Visibility | None = None  # None: 도입 전 스냅샷 (public 으로 본다)
     trust: Literal["untrusted"] = "untrusted"

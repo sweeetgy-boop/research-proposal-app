@@ -7,6 +7,8 @@
                         sections/<key>.json  근거 검증을 통과한 섹션 체크포인트
                         draft.json           완성 초안
                         confirmed.json       사용자가 확정한 선택값 (선택지 id 만)
+                        versions/draft_vN.json  초안 버전 (v1=로컬 초안, 편집·되돌리기마다 +1)
+                        reviews/review_rN.json  검토 차수 결과 (의견·수정안·전송 범위)
                         manifest.json        해시·id 만 (FileRunLog)
                         .lock                run 락 (살아있는 실행 표시)
 
@@ -28,8 +30,10 @@ from rra.application.ports import RunBusy, RunNotFound
 from rra.domain.models import (
     Confirmation,
     Draft,
+    DraftVersion,
     ProposalRequest,
     RetrievalSnapshot,
+    ReviewRound,
     RunState,
     Section,
     StepRecord,
@@ -135,6 +139,50 @@ class FileRunStore:
     def load_confirmation(self, user: str, run_id: str) -> Confirmation | None:
         path = self._run_dir(user, run_id) / "confirmed.json"
         return Confirmation.model_validate(read_json(path)) if path.is_file() else None
+
+    # ── [5] 버전·검토 ────────────────────────────────────
+    @staticmethod
+    def _number(value: int, what: str) -> int:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1 or value > 10_000:
+            raise ValueError(f"{what} 번호가 올바르지 않습니다.")
+        return value
+
+    def save_version(self, user: str, run_id: str, version: DraftVersion) -> None:
+        n = self._number(version.version, "버전")
+        path = ensure_dir(self._run_dir(user, run_id) / "versions")
+        write_json(path / f"draft_v{n}.json", version.model_dump(mode="json"))
+
+    def load_version(self, user: str, run_id: str, version: int) -> DraftVersion | None:
+        n = self._number(version, "버전")
+        path = self._run_dir(user, run_id) / "versions" / f"draft_v{n}.json"
+        return DraftVersion.model_validate(read_json(path)) if path.is_file() else None
+
+    def list_versions(self, user: str, run_id: str) -> list[int]:
+        return self._numbers(self._run_dir(user, run_id) / "versions", "draft_v")
+
+    def save_review(self, user: str, run_id: str, review: ReviewRound) -> None:
+        n = self._number(review.round, "차수")
+        path = ensure_dir(self._run_dir(user, run_id) / "reviews")
+        write_json(path / f"review_r{n}.json", review.model_dump(mode="json"))
+
+    def load_review(self, user: str, run_id: str, round_no: int) -> ReviewRound | None:
+        n = self._number(round_no, "차수")
+        path = self._run_dir(user, run_id) / "reviews" / f"review_r{n}.json"
+        return ReviewRound.model_validate(read_json(path)) if path.is_file() else None
+
+    def list_reviews(self, user: str, run_id: str) -> list[int]:
+        return self._numbers(self._run_dir(user, run_id) / "reviews", "review_r")
+
+    @staticmethod
+    def _numbers(directory: Path, prefix: str) -> list[int]:
+        if not directory.is_dir():
+            return []
+        found = []
+        for f in directory.glob(f"{prefix}*.json"):
+            tail = f.stem[len(prefix) :]
+            if tail.isdigit():
+                found.append(int(tail))
+        return sorted(found)
 
     def list_runs(self, user: str, limit: int = 50) -> list[RunState]:
         base = self._user_dir(user)

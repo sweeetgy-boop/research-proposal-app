@@ -257,6 +257,8 @@ class InMemoryRunStore:
         self.sections: dict[tuple[str, str], dict[str, Any]] = {}
         self.drafts: dict[tuple[str, str], Any] = {}
         self.confirmations: dict[tuple[str, str], Any] = {}
+        self.versions: dict[tuple[str, str], dict[int, Any]] = {}
+        self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
         self.claimed: set[tuple[str, str]] = set()
         self._seq = 0
 
@@ -312,6 +314,24 @@ class InMemoryRunStore:
 
     def load_confirmation(self, user, run_id):
         return self.confirmations.get((user, run_id))
+
+    def save_version(self, user, run_id, version):
+        self.versions.setdefault(self._key(user, run_id), {})[version.version] = version
+
+    def load_version(self, user, run_id, version):
+        return self.versions.get(self._key(user, run_id), {}).get(version)
+
+    def list_versions(self, user, run_id):
+        return sorted(self.versions.get(self._key(user, run_id), {}))
+
+    def save_review(self, user, run_id, review):
+        self.reviews.setdefault(self._key(user, run_id), {})[review.round] = review
+
+    def load_review(self, user, run_id, round_no):
+        return self.reviews.get(self._key(user, run_id), {}).get(round_no)
+
+    def list_reviews(self, user, run_id):
+        return sorted(self.reviews.get(self._key(user, run_id), {}))
 
     def list_runs(self, user, limit=50):
         runs = [s for (u, _), s in self.states.items() if u == user]

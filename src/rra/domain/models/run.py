@@ -11,12 +11,28 @@ from pydantic import BaseModel, Field
 from .document import Chunk
 from .gap import OverlapAlert
 
-RunStatus = Literal["queued", "running", "interrupted", "failed", "invalid", "done"]
+# done 이후: reviewing(n) → reviewed(n) → editing → reviewing(n+1) … → finalized
+# (domain/rules/review_flow.py)
+RunStatus = Literal[
+    "queued",
+    "running",
+    "interrupted",
+    "failed",
+    "invalid",
+    "done",
+    "reviewing",
+    "reviewed",
+    "editing",
+    "finalized",
+]
 StepStatus = Literal["pending", "done", "error"]
 
-ACTIVE: frozenset[str] = frozenset({"queued", "running"})
+ACTIVE: frozenset[str] = frozenset({"queued", "running", "reviewing"})
 RESUMABLE: frozenset[str] = frozenset({"interrupted"})
-FINISHED: frozenset[str] = frozenset({"done", "invalid", "failed"})
+# 생성이 끝난 상태 (확정·검토·편집 가능). 검토 중(reviewing)은 생성은 끝났지만 쓰기 작업 중이다
+FINISHED: frozenset[str] = frozenset(
+    {"done", "invalid", "failed", "reviewing", "reviewed", "editing", "finalized"}
+)
 
 RETRIEVE = "retrieve"
 FINALIZE = "finalize"
@@ -63,6 +79,13 @@ class RunState(BaseModel):
     template: str | None = None  # 생성 때의 양식 id. None 이면 양식 개정 전 run (재개 불가)
     created_at: str
     updated_at: str
+    # [5] 검토·버전. draft_version 0 = 아직 버전 파일이 없는 예전 run (조회 때 v1 로 본다)
+    draft_version: int = 0
+    review_rounds: int = 0  # 완료(done)된 검토 차수. 건너뜀은 세지 않는다
+    review_skipped: bool = False  # 검토 LLM 을 쓸 수 없어 건너뛴 적이 있다
+    review_error: str | None = None  # 마지막 검토 실패 클래스명 (메시지 금지)
+    review_model: str | None = None  # 검토에 쓴 provider/model (manifest 용)
+    finalized_at: str | None = None
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

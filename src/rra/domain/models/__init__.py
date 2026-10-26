@@ -4,6 +4,7 @@ from .draft import Draft, Section, Sentence, SentenceOrigin
 from .gap import GapRow, GapTable, OverlapAlert, Tier
 from .proposer import Person, ProposerInfo
 from .request import Budget, ProposalRequest
+from .review import DraftVersion, ReviewComment, ReviewRound, ReviewTransfer
 from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
 from .selection import Confirmation, StrategyCatalog
 
@@ -24,6 +25,10 @@ __all__ = [
     "Tier",
     "Budget",
     "Confirmation",
+    "DraftVersion",
+    "ReviewComment",
+    "ReviewRound",
+    "ReviewTransfer",
     "Person",
     "ProposalRequest",
     "ProposerInfo",

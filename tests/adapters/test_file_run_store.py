@@ -316,3 +316,44 @@ def test_run_log_rejects_manifest_with_unexpected_or_long_fields(store, req):
     with pytest.raises(ValueError, match="긴 문자열"):
         check_manifest({"run_id": "x" * 201})
     assert not (store.root / "local" / st.run_id / "manifest.json").exists()
+
+
+# ── [5] 초안 버전·검토 차수 파일 ──────────────────────────────
+def test_versions_and_reviews_round_trip_and_never_overwrite_other_numbers(store, req):
+    from rra.domain.models import DraftVersion, ReviewComment, ReviewRound, ReviewTransfer
+
+    state = store.create("local", req, STEPS, "2026-10-26T00:00:00+00:00")
+    rid = state.run_id
+    assert store.list_versions("local", rid) == [] and store.list_reviews("local", rid) == []
+    assert (
+        store.load_version("local", rid, 1) is None and store.load_review("local", rid, 1) is None
+    )
+    sec = Section(key="background", sentences=[Sentence(text="문장", evidence=["alio:1#0"])])
+    store.save_version("local", rid, DraftVersion(version=1, sections=[sec], origin="local"))
+    store.save_version(
+        "local",
+        rid,
+        DraftVersion(version=2, sections=[sec], origin="edit", based_on_review=1, note="수정"),
+    )
+    review = ReviewRound(
+        round=1,
+        draft_version=1,
+        comments=[ReviewComment(id="r1-1", section="background", sentence=0, comment="의견")],
+        transfer=ReviewTransfer(provider="gemini", public_doc_ids=["alio:1"], sentences_sent=1),
+        created_at="2026-10-26T00:00:01+00:00",
+    )
+    store.save_review("local", rid, review)
+    assert store.list_versions("local", rid) == [1, 2] and store.list_reviews("local", rid) == [1]
+    assert store.load_version("local", rid, 2).note == "수정"
+    assert store.load_version("local", rid, 1).sections[0].sentences[0].evidence == ["alio:1#0"]
+    assert store.load_review("local", rid, 1) == review
+    run_dir = store.root / "local" / rid
+    assert (run_dir / "versions" / "draft_v1.json").is_file()
+    assert (run_dir / "reviews" / "review_r1.json").is_file()
+    assert mode(run_dir / "reviews" / "review_r1.json") == 0o600
+    with pytest.raises(ValueError, match="번호"):
+        store.load_version("local", rid, 0)
+    with pytest.raises(ValueError, match="번호"):
+        store.load_review("local", rid, 10_001)
+    with pytest.raises(RunNotFound):
+        store.list_versions("local", "20260101000000-deadbeef")

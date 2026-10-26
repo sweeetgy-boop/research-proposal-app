@@ -5,8 +5,10 @@ from typing import Protocol, runtime_checkable
 from rra.domain.models import (
     Confirmation,
     Draft,
+    DraftVersion,
     ProposalRequest,
     RetrievalSnapshot,
+    ReviewRound,
     RunState,
     Section,
 )
@@ -52,6 +54,19 @@ class RunStorePort(Protocol):
         ...
 
     def load_confirmation(self, user: str, run_id: str) -> Confirmation | None: ...
+
+    # [5] 초안 버전(draft_vN)·검토 차수(review_rN). 모두 보존, 덮어쓰지 않는다.
+    def save_version(self, user: str, run_id: str, version: DraftVersion) -> None: ...
+
+    def load_version(self, user: str, run_id: str, version: int) -> DraftVersion | None: ...
+
+    def list_versions(self, user: str, run_id: str) -> list[int]: ...
+
+    def save_review(self, user: str, run_id: str, review: ReviewRound) -> None: ...
+
+    def load_review(self, user: str, run_id: str, round_no: int) -> ReviewRound | None: ...
+
+    def list_reviews(self, user: str, run_id: str) -> list[int]: ...
 
     def list_runs(self, user: str, limit: int = 50) -> list[RunState]: ...
 
