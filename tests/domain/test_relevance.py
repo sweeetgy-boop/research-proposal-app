@@ -136,7 +136,7 @@ def test_balance_sources_guarantees_each_source_then_fills_by_rank():
     assert balance_sources(ranked, 8, 0) == ranked[:8]  # 끔
     assert balance_sources(ranked[:5], 8, 3) == ranked[:5]  # k 보다 적으면 그대로
     assert balance_sources(ranked, 0, 3) == []
-    assert RelevanceFloor().min_per_source == 4 and RelevanceFloor().search_multiplier == 4
+    assert RelevanceFloor().min_per_source == 6 and RelevanceFloor().search_multiplier == 4
 
 
 def test_balance_sources_overflow_is_round_robin_not_rank_cut():

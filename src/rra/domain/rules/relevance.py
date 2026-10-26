@@ -38,8 +38,9 @@ class RelevanceFloor(BaseModel):
     # 출처 다양성(2026-10-26, OpenAlex 2,468건 적재 뒤): 한국어 질의는 FTS·벡터 모두 사내 기록(짧은
     # 제목, 0.85)을 앞세워 상위 20 에 영어 논문이 하나도 남지 않았다. 검색은 k×search_multiplier 로
     # 넓게 받고, 하한 통과 청크를 출처(doc_id 접두어)마다 최소 min_per_source 건 보장한 뒤 나머지는
-    # 융합 순위대로 채운다. 0 이면 끔.
-    min_per_source: int = Field(default=4, ge=0)
+    # 융합 순위대로 채운다. 0 이면 끔. 6 = 7B 가 논문을 실제로 인용하기 시작한 값(4 면 인용 0,
+    # 골든셋 01, 2026-10-26).
+    min_per_source: int = Field(default=6, ge=0)
     search_multiplier: int = Field(default=4, ge=1)
 
 
