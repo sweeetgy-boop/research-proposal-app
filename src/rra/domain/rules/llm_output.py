@@ -113,7 +113,13 @@ def _load(raw: str) -> tuple[ParseStatus, object, int]:
 
 
 def _sentences(data: object) -> list[Sentence] | None:
-    """LLM 문장 목록. origin 은 모델이 뭐라 하든 llm 으로 고정한다 (app 사칭 차단)."""
+    """LLM 문장 목록. origin 은 모델이 뭐라 하든 llm 으로 고정한다 (app 사칭 차단).
+
+    모양 관용(모델 공통): 선택형 모양 `{"sentences": [...]}` 포장이면 문장 목록만 받는다.
+    문장 객체 하나(배열 아님)는 여전히 schema 오류다. 키·값 검증은 그대로 pydantic 이 한다.
+    """
+    if isinstance(data, dict) and isinstance(data.get("sentences"), list):
+        data = data["sentences"]
     if not isinstance(data, list):
         return None
     try:
