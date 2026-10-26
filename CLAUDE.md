@@ -68,7 +68,8 @@
 - 대기: `config/templates/korail_strategy.yaml` 전략체계 목록 채우기 (비어 있으면 2-가-(3) 빈칸).
 - HWPX 렌더(Step 8, `adapters/rendering/hwpx.py`): `config/templates/proposal_korail.hwpx` 가 있으면 템플릿 모드(자리표시자는
   한 run 안에), 없으면 생성 모드. 체크 칸은 confirmed 로만, ProposerInfo 는 render 인자로만(저장 금지). 보안 F 는
-  sanitize→escape→defusedxml 재파싱. 진입점: `rra runs render`, UI 5번 패널, MCP `rra_render`, REST `/v1/runs/{id}/file`.
+  sanitize→escape→defusedxml 재파싱. 진입점(양식 파일은 finalize 로만): `rra runs finalize`, UI [최종 마무리 및
+  다운로드], MCP `rra_finalize`, REST `POST /v1/runs/{id}/finalize`.
 - 실물 양식 연결(2026-10-26): 원본 `data/templates/proposal_form_original.hwpx` → `tools/build_form_template.py` →
   `config/templates/proposal_korail.hwpx`(둘 다 미커밋, .gitignore). 자리표시자는 slots.yaml 영문 키(`{{title}}`,
   `{{task_type:basic}}`, `{{utilization:software}}` …). 체크 칸은 양식 괄호 안 `( ○ )`/`(   )`(slots.yaml marks),
@@ -87,5 +88,5 @@
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.
 - 도구 로직은 `entrypoints/mcp/tools.py`(읽기)·`run_tools.py`(쓰기, mcp SDK import 없음), 등록만 `server.py`.
-  쓰기 도구(generate·get_draft·confirm·render)는 `--enable-generate` 일 때만 등록. tools.py 는 RunManager 를 import 할 수 없다(계약 "read-only MCP tools never reach the run manager"). 계약은 모두 8건.
+  쓰기 도구(generate·get_draft·confirm·review·get_review·edit·finalize·reopen)는 `--enable-generate` 일 때만 등록. tools.py 는 RunManager 를 import 할 수 없다(계약 "read-only MCP tools never reach the run manager"). 계약은 모두 8건.
 - 도구 결과는 항상 비신뢰: `domain/rules/trust.untrusted_block()` / `UNTRUSTED_NOTICE` 를 거쳐 나간다.
