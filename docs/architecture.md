@@ -430,6 +430,32 @@ UI 는 받기 버튼 위, REST `GET /v1/runs/{id}/render-check`. 알림이 있�
 (`RRA_API_HOST/PORT`), 외부 공개는 HTTPS 역프록시(Tailscale·Cloudflare) 뒤에서만 — `deploy/README.md`.
 `deploy/launchd/com.rra.api.plist` 는 실경로로 채웠고 비밀은 `.env` 경유. MCP streamable-http 는 미구현.
 
+### 4.5 저장소(DB) 결정 (2026-10-26)
+
+**SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
+busy_timeout 5s, 파일 0600)가 운영·백업·보안 면에서 가장 단순하다. 스키마는
+`adapters/persistence/migrations/NNN_*.sql`(user_version + `schema_version` 표), 문서에는 `valid_until`(만료,
+검색·precheck 제외)·`visibility`(public|internal, 외부 LLM 전송 범위) 열. 색인 메타 `embedding_model` 이
+설정과 다르면 기동 경고 → `rra reindex`. 일일 백업 `rra db backup`(VACUUM INTO, 7벌).
+
+**PostgreSQL/Supabase 전환 조건** (하나라도 해당하면 2차 어댑터 `adapters/persistence/pg_repo.py` 를 만든다. 포트는
+그대로, 계약 테스트 `tests/contracts/test_document_repository.py` 를 통과해야 한다):
+- 동시 사용자가 5명을 넘거나 API 서버를 2대 이상 두어야 할 때 (SQLite 단일 쓰기자 한계).
+- 문서가 100만 청크를 넘어 브루트포스·sqlite-vec 검색이 1초를 넘을 때 (pgvector HNSW).
+- 사내 여러 PC 가 같은 색인을 써야 할 때 (파일 공유로는 WAL 잠금이 깨진다).
+
+**원격 단계의 데이터 경계.** 원격 DB 로 가더라도 **공개 자료(public)만 원격**에 두고, 사내 과제 목록·공시용 요약
+(internal, own)은 로컬 SQLite 에 남긴다. 검색은 두 저장소를 RRF 로 합친다(`domain/rules/fusion`). 개인정보(제안자
+정보)는 어느 저장소에도 넣지 않는다.
+
+**한국어 검색 확장.** FTS5 unicode61 은 조사·어미를 분리하지 못해 접두 검색(`quote_fts_query`)과 벡터 검색으로
+보완한다. 전환 시 PostgreSQL 은 `pg_bigm`(바이그램) 또는 형태소 분석(mecab-ko) 기반 tsvector, SQLite 유지 시
+trigram 토크나이저(`tokenize='trigram'`) 또는 사전 토크나이즈 열 추가를 검토한다.
+
+**계약 테스트.** `DocumentRepository` 의 어댑터 무관 계약(멱등 upsert·왕복·만료 제외·k 상한·점수 범위)은
+`tests/contracts/` 에 있고 SQLite 두 백엔드와 `tests/fakes.InMemoryRepository` 가 같은 테스트를 돈다.
+fake 가 계약을 지키므로 유스케이스 테스트의 fake 결과를 믿을 수 있다.
+
 ### 4.1 제안서 양식 매핑 — 별지 제2호서식 (개정 2024.02.19.)
 
 「한국철도공사 연구개발 규정 시행세칙 별지 제2호서식 연구과제 제안서」 기준. 규칙은

@@ -126,11 +126,33 @@ class InMemoryRepository:
 
     async def hybrid_search(self, queries, *, k=20, orgs=None):
         self.calls.append(("hybrid_search", {"queries": queries, "k": k, "orgs": orgs}))
-        return [c for c in self.chunks if self._valid(c.doc_id)][:k]
+        if not [q for q in queries if isinstance(q, str) and q.strip()]:
+            return []  # 저장소 계약: 빈 질의는 빈 결과
+        return [c for c in self.chunks if self._valid(c.doc_id)][: max(0, k)]
 
     async def find_similar(self, text, *, k=10):
         self.calls.append(("find_similar", {"text": text, "k": k}))
-        return [(d, s) for d, s in self.similar if d.is_valid_on(self.today())][:k]
+        if self.similar:  # 테스트가 직접 지정한 결과
+            return [(d, s) for d, s in self.similar if d.is_valid_on(self.today())][:k]
+        return self._similar_by_tokens(text)[: max(0, k)]
+
+    _TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
+
+    def _similar_by_tokens(self, text):
+        """지정된 결과가 없을 때: 청크 토큰 겹침(자카드)로 문서 점수. 계약 테스트용 결정적 순위."""
+        query = set(self._TOKEN.findall((text or "").lower()))
+        if not query:
+            return []
+        best: dict[str, float] = {}
+        for c in self.chunks:
+            if not self._valid(c.doc_id):
+                continue
+            tokens = set(self._TOKEN.findall(c.text.lower()))
+            score = len(query & tokens) / len(query | tokens) if tokens else 0.0
+            if score > 0 and score > best.get(c.doc_id, 0.0):
+                best[c.doc_id] = score
+        ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
+        return [(self.docs[d], s) for d, s in ranked if d in self.docs]
 
     def today(self):
         from datetime import date
