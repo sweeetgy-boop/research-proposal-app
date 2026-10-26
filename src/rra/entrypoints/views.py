@@ -93,6 +93,69 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
     }
 
 
+# 한 줄 칸 slot → 양식 칸 이름 (render_check 출력용). 섹션 키는 rules.yaml titles 로 푼다.
+SLOT_LABELS = {
+    "title": "1-가 연구과제명",
+    "budget.account": "1-나 예산과목",
+    "budget.amount_thousand_krw": "1-나 금액",
+    "strategy_alignment:task": "2-가-(3) 전략과제",
+    "department": "제안부서",
+    "proposed_on": "제안일자",
+    "proposer.rank": "제안자 직급",
+    "proposer.name": "제안자 성명",
+    "proposer.phone": "제안자 연락처",
+    "head.rank": "부서장 직급",
+    "head.name": "부서장 성명",
+    "head.phone": "부서장 연락처",
+}
+
+
+def render_check_payload(
+    check: Any, *, titles: dict[str, str] | None = None, clean: Callable[[str], str] = _same
+) -> dict[str, Any]:
+    """RenderCheck → dict (CLI·UI·REST 공용). 렌더를 막지 않는 알림 목록이다."""
+    names = {**SLOT_LABELS, **(titles or {})}
+    return {
+        "count": check.count,
+        "unresolved": [
+            {
+                "section": p.section,
+                "code": p.code,
+                "severity": p.severity,
+                "message": clean(p.message),
+                "sentence": p.sentence,
+            }
+            for p in check.unresolved
+        ],
+        "overflow": [
+            {
+                "slot": o.slot,
+                "label": names.get(o.slot, o.slot),
+                "chars": o.chars,
+                "limit": o.limit,
+                "kind": o.kind,
+            }
+            for o in check.overflow
+        ],
+        "notes": list(check.notes),
+    }
+
+
+def render_check_lines(payload: dict[str, Any]) -> list[str]:
+    """render_check_payload → 사람이 읽는 줄 (CLI stdout·UI 캡션). 비면 빈 목록."""
+    if not payload["count"]:
+        return []
+    lines = [f"렌더 전 점검: 알림 {payload['count']}건 (렌더는 진행합니다)"]
+    for p in payload["unresolved"]:
+        where = p["section"] + (f" 문장 {p['sentence'] + 1}" if p["sentence"] is not None else "")
+        lines.append(f" - [{p['severity']}] {where}: {p['message']}")
+    for o in payload["overflow"]:
+        kind = "한 줄 칸" if o["kind"] == "line" else "본문 상한"
+        lines.append(f" - 칸 길이 초과({kind}): {o['label']} {o['chars']}자 > {o['limit']}자")
+    lines.extend(f" - {n}" for n in payload["notes"])
+    return lines
+
+
 def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
     """유사과제 경보 목록 → 출력용 dict (MCP·REST 공용). 제목은 수집 문서에서 온 비신뢰 텍스트."""
     return {

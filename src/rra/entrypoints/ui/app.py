@@ -31,7 +31,7 @@ from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.ui import service
 from rra.entrypoints.ui.auth import require_token
 from rra.entrypoints.ui.labels import BASIS, PROBLEM, SOURCE, STATUS, clean, plain, section_title
-from rra.entrypoints.views import draft_payload
+from rra.entrypoints.views import draft_payload, render_check_lines, render_check_payload
 
 FIELDS = {
     "current_state": ("현재 상황·문제", True),
@@ -228,6 +228,9 @@ def render_panel(view, run_id: str) -> None:
         proposed_on, (p_rank, p_name, p_phone), (h_rank, h_name, h_phone)
     )
     try:
+        check = worker.call(
+            assistant.manager.render_check(assistant.user, run_id, proposer=proposer)
+        )
         data = worker.call(assistant.manager.render(assistant.user, run_id, proposer=proposer))
     except RenderRejected as exc:
         st.caption(f"아직 만들 수 없습니다: {plain(exc)}")
@@ -235,6 +238,13 @@ def render_panel(view, run_id: str) -> None:
     except RenderUnavailable as exc:
         st.caption(plain(exc))
         return
+    lines = render_check_lines(
+        render_check_payload(check, titles=assistant.rules.titles, clean=clean)
+    )
+    if lines:  # 렌더 전 점검 — 받기 버튼 위에. 알림이 있어도 받을 수 있다
+        st.warning(lines[0])
+        for line in lines[1:]:
+            st.caption(line)
     st.download_button(
         "제안서 받기(hwpx)",
         data=data,

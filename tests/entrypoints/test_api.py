@@ -164,6 +164,15 @@ async def test_full_flow_precheck_runs_draft_confirm_file(client):
     r = await client.post(f"/v1/runs/{run_id}/confirm", json={"bogus": 1}, headers=AUTH)
     assert r.status_code == 422
 
+    r = await client.get(f"/v1/runs/{run_id}/render-check", headers=AUTH)
+    check = r.json()
+    assert r.status_code == 200 and check["run_id"] == run_id and check["count"] >= 2
+    assert any(p["code"] == "unsupported_number" for p in check["unresolved"])  # 미해결 lint 경고
+    assert any("2-가-(3)" in n for n in check["notes"]) and check["overflow"] == []
+    assert (
+        await client.get("/v1/runs/20260101000000-deadbeef/render-check", headers=AUTH)
+    ).status_code == 404
+
     r = await client.get(f"/v1/runs/{run_id}/file", headers=AUTH)
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/hwp+zip")
     assert r.headers["content-disposition"] == f'attachment; filename="proposal-{run_id}.hwpx"'

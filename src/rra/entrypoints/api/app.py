@@ -34,7 +34,13 @@ from rra.domain.models.request import validation_message
 from rra.domain.models.run import is_valid_run_id
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.schemas import ConfirmIn, ProposerIn
-from rra.entrypoints.views import alerts_payload, chunks_payload, draft_payload, run_state_payload
+from rra.entrypoints.views import (
+    alerts_payload,
+    chunks_payload,
+    draft_payload,
+    render_check_payload,
+    run_state_payload,
+)
 
 API_VERSION = "v1"
 DEFAULT_K = 5
@@ -177,6 +183,17 @@ def create_app(
             media_type=HWPX_MEDIA_TYPE,
             headers={"content-disposition": f'attachment; filename="proposal-{run_id}.hwpx"'},
         )
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/render-check")
+    async def render_check_route(run_id: str) -> dict[str, Any]:
+        """렌더 전 점검 — 미해결 lint 알림·칸 길이 초과·전략 빈칸. 렌더를 막지 않는다.
+        제안자 칸 길이는 여기서 재지 않는다 (GET 에는 개인정보를 싣지 않는다)."""
+        try:
+            check = await manager.render_check(user, _run_id(run_id))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        titles = getattr(getattr(manager.generate, "rules", None), "titles", None) or {}
+        return {"run_id": run_id, **render_check_payload(check, titles=titles, clean=_clean)}
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/file")
     async def file_route(run_id: str) -> Response:

@@ -509,6 +509,7 @@ def cmd_runs_render(args: argparse.Namespace) -> int:
     from rra.composition import LOCAL_USER, build_run_manager, load_settings
     from rra.domain.models import ProposerInfo
     from rra.domain.models.proposer import Person
+    from rra.entrypoints.views import render_check_lines, render_check_payload
 
     proposer = ProposerInfo(
         proposed_on=args.proposed_on or "",
@@ -522,18 +523,23 @@ def cmd_runs_render(args: argparse.Namespace) -> int:
         ),
     )
 
-    async def run() -> bytes:
+    async def run() -> tuple[list[str], bytes]:
         mgr = build_run_manager(load_settings())
         try:
-            return await mgr.render(LOCAL_USER, args.run_id, proposer=proposer)
+            check = await mgr.render_check(LOCAL_USER, args.run_id, proposer=proposer)
+            payload = render_check_payload(check, titles=mgr.generate.rules.titles)
+            lines = render_check_lines(payload)
+            return lines, await mgr.render(LOCAL_USER, args.run_id, proposer=proposer)
         finally:
             await mgr.generate.llm.aclose()
 
     try:
-        data = asyncio.run(run())
+        lines, data = asyncio.run(run())
     except (RenderRejected, RenderUnavailable) as exc:
         _eprint(f"렌더 거부: {exc}")
         return EXIT_USAGE
+    for line in lines:  # 렌더 전 점검 — 알림이 있어도 저장은 한다
+        print(line)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)

@@ -587,7 +587,15 @@ def form_env(monkeypatch, docs, chunks):
             choices={"task_type": ChoiceSpec(options="task_types")},
         )
         gen = GenerateProposal(env["llm"], repo, FakePromptLibrary(), rules, FORM_KEYS)
-        return RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner(), renderer=renderer)
+        return RunManager(
+            gen,
+            store,
+            FakeSlot(),
+            FakeRunLog(),
+            FakeTaskRunner(),
+            renderer=renderer,
+            line_limits={"title": 1},  # 렌더 전 점검: 연구과제명 한 줄 칸 초과 알림
+        )
 
     env["use"] = lambda responses: env.__setitem__("llm", ClosingLLM(responses))
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)
@@ -636,7 +644,12 @@ def test_runs_render_writes_owner_only_file_and_keeps_proposer_out_of_runs(
             "2026-10-23",
         ]
     )
-    assert code == cli.EXIT_OK and "저장:" in capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert code == cli.EXIT_OK and "저장:" in printed
+    # 렌더 전 점검이 먼저 찍히고, 알림이 있어도 저장은 된다
+    assert "렌더 전 점검: 알림 1건 (렌더는 진행합니다)" in printed
+    assert "칸 길이 초과(한 줄 칸): 1-가 연구과제명 2자 > 1자" in printed
+    assert printed.index("렌더 전 점검") < printed.index("저장:")
     assert out.is_file() and os.stat(out).st_mode & 0o777 == 0o600
     body = json.loads(out.read_bytes())
     assert body["proposer"]["proposer"]["name"] == "홍길동" and body["confirmed"]["task_type"] == [

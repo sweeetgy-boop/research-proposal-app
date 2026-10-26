@@ -462,6 +462,7 @@ def build_run_manager(
         max_queued=int(input_limits(settings).get("max_queued_runs", 3)),
         model=model,
         renderer=renderer or build_renderer(settings),
+        line_limits=render_slots(settings).get("line_limits") or {},
     )
 
 

@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -39,6 +39,7 @@ from rra.application.ports import (
 )
 from rra.application.ports.renderer import RenderRejected
 from rra.application.usecases.generate_proposal import GenerateProposal
+from rra.application.usecases.render_check import RenderCheck, render_check
 from rra.domain.models import (
     Confirmation,
     Draft,
@@ -135,8 +136,10 @@ class RunManager:
         model: str | None = None,
         clock: Callable[[], str] = _utcnow,
         renderer: RendererPort | None = None,
+        line_limits: Mapping[str, int] | None = None,
     ):
         self.generate = generate
+        self.line_limits: dict[str, int] = dict(line_limits or {})  # slots.yaml 한 줄 칸 상한
         self.store = store
         self.slot = slot
         self.run_log = run_log
@@ -384,6 +387,30 @@ class RunManager:
         )
 
     # ── 양식 렌더 (Step 8) ───────────────────────────────
+    async def render_check(
+        self, user: str, run_id: str, *, proposer: ProposerInfo | None = None
+    ) -> RenderCheck:
+        """렌더 전 점검 — 미해결 lint 알림, 칸 길이 초과, 전략 빈칸. 렌더를 막지 않는다.
+
+        proposer 는 길이만 재고 저장하지 않는다 (렌더와 같은 규칙).
+        """
+        view = await self.get_draft(user, run_id)
+        draft = Draft(
+            run_id=run_id,
+            request=self.store.load_request(user, run_id),
+            sections=view.sections,
+            template=view.state.template,
+        )
+        return render_check(
+            draft,
+            view.state.problems,
+            self.generate.rules,
+            confirmation=view.confirmation,
+            proposer=proposer,
+            line_limits=self.line_limits,
+            strategy_labels=view.choice_options.get("strategy_alignment", {}),
+        )
+
     async def render(
         self, user: str, run_id: str, *, proposer: ProposerInfo | None = None
     ) -> bytes:
