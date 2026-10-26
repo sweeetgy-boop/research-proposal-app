@@ -5,17 +5,24 @@
   자리표시자({{…}})만 치환한다. 섹션 XML 의 문자열만 바꾸므로 템플릿 구조는 그대로다.
   자리표시자는 한 run(<hp:t>) 안에 있어야 한다 — 글자 속성이 중간에 바뀌어 run 이 갈라지면
   치환되지 않고 TemplateSlotUnfilled 로 거부한다 (양식 파일에서 자리표시자를 한 글자체로 다시 입력).
+  slots.yaml `paragraphs` 에 적힌 섹션은 자리표시자가 든 단락(<hp:p>)을 통째로 복제해 문장마다
+  "○ " 머리표가 붙은 단락 하나씩으로 넣는다 (서식 paraPr·charPr 은 원본 단락 그대로).
+  나머지 슬롯(연구과제명·예산·전략방향·전략과제·제안자 칸)은 같은 run 안에서 인라인 치환만 한다.
 - 생성 모드: 템플릿이 없으면 양식 구조(1 과제 개요 / 2 가·나·다 / 3 기대효과 / 4 활용계획 /
-  5 특이사항)를 표로 직접 만든다.
+  5 특이사항)를 표로 직접 만든다. 체크 표시는 ■/□.
 
 보안 F:
 - 치환 텍스트는 sanitize(XML 1.0 금지 문자 제거) 뒤 xml.sax.saxutils.escape 를 거쳐 XML 문자열에
-  들어간다 (템플릿 모드). 생성 모드는 python-hwpx 가 XML 노드로 넣어 직렬화하므로 escape 가
-  라이브러리 안에서 일어난다.
+  들어간다 (템플릿 모드). 순서는 escape → 단락 생성 → defusedxml 재파싱. 생성 모드는 python-hwpx 가
+  XML 노드로 넣어 직렬화하므로 escape 가 라이브러리 안에서 일어난다.
 - 결과 zip 의 모든 섹션 XML 을 defusedxml 로 다시 파싱해 well-formed 가 아니면 출력을 거부한다.
 - 체크 칸은 confirmed(Confirmation)로만 채운다. 과제유형·활용계획이 확정되지 않았으면 거부한다.
+  표시 문자는 slots.yaml marks (실물 양식은 괄호 안 "○" / " ").
 - 제안자 정보(ProposerInfo)는 render() 인자로만 받는다. 이 모듈은 파일을 쓰지 않는다 (bytes 반환).
+  제안일자가 비면 렌더 시점 날짜를 "2026. 10. 26." 형식으로 넣는다 (clock 인자로 바꿀 수 있다).
 - slots.yaml 에 없는 자리표시자·선택지 id 를 요구하면 UnknownSlot.
+- 양식 본문에는 근거 문서 id·출처를 넣지 않는다 (문장 text 만). task_type 의 설명 문장도
+  넣지 않는다.
 """
 
 from __future__ import annotations
@@ -23,8 +30,9 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
@@ -35,12 +43,15 @@ from rra.domain.models.selection import TASK_TYPES, UTILIZATION
 
 FORM_TITLE = "연구과제 제안서"
 FORM_NOTE = "한국철도공사 연구개발 규정 시행세칙 별지 제2호서식 (개정 2024.02.19.)"
-CHECKED, UNCHECKED = "■", "□"
+CHECKED, UNCHECKED = "■", "□"  # 생성 모드의 체크 표시. 템플릿 모드는 slots.yaml marks
+DEFAULT_BULLET = "○ "
 _PLACEHOLDER = re.compile(r"\{\{[^{}]{1,40}\}\}")
 # XML 1.0 에서 허용되지 않는 문자 (탭·개행·CR 은 허용)
 _FORBIDDEN = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff￾￿]")
+_DATE = re.compile(r"^\s*(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\s*[.일]?\s*$")
 MAX_SLOT_CHARS = 20_000
 MAX_SECTION_XML_BYTES = 50 * 1024 * 1024
+_P_OPEN, _P_CLOSE = "<hp:p ", "</hp:p>"
 
 
 class UnknownSlot(RenderRejected):
@@ -65,6 +76,29 @@ def sanitize(value: object, *, limit: int = MAX_SLOT_CHARS) -> str:
     return text[:limit]
 
 
+def format_proposed_on(value: str, today: Callable[[], date] = date.today) -> str:
+    """제안일자 칸 표기 "2026. 10. 26.".
+
+    비면 렌더 시점의 날짜. "2026-10-26"·"2026.10.26"·"2026년 10월 26일" 꼴은 같은 표기로 맞추고,
+    그 밖의 문자열은 그대로 둔다 (자르지 않는다 — 길이는 render_check 가 알린다).
+    """
+    text = (value or "").strip()
+    if not text:
+        d = today()
+        return f"{d.year}. {d.month:02d}. {d.day:02d}."
+    m = _DATE.match(text)
+    if m:
+        y, mo, d = (int(g) for g in m.groups())
+        return f"{y}. {mo:02d}. {d:02d}."
+    return text
+
+
+def format_budget_amount(amount_thousand_krw: int | None) -> str:
+    """1-나 금액 칸. 입력(Budget.amount_thousand_krw)이 이미 천원 단위이므로 환산 없이
+    천 단위 쉼표만 찍는다 (양식 칸 뒤의 "천원" 단위 글자는 템플릿에 있다). 비면 빈칸."""
+    return f"{amount_thousand_krw:,}" if amount_thousand_krw is not None else ""
+
+
 # ── slots.yaml ────────────────────────────────────────────
 @dataclass(frozen=True)
 class SlotMap:
@@ -74,6 +108,11 @@ class SlotMap:
     choice: dict[str, dict[str, str]] = field(default_factory=dict)  # 섹션 → 선택지 id → {{…}}
     input: dict[str, str] = field(default_factory=dict)  # request 경로(budget.account) → {{…}}
     render_only: dict[str, str] = field(default_factory=dict)  # proposer 경로 → {{…}}
+    paragraphs: frozenset[str] = frozenset()  # 문장마다 단락으로 넣는 text 섹션 키
+    bullet: str = DEFAULT_BULLET  # 그 단락의 머리표
+    checked: str = CHECKED  # 템플릿 모드 체크 표시
+    unchecked: str = UNCHECKED
+    line_limits: dict[str, int] = field(default_factory=dict)  # 한 줄 칸 글자 수 (render_check)
 
     @classmethod
     def from_config(cls, data: Mapping[str, Any]) -> SlotMap:
@@ -85,8 +124,25 @@ class SlotMap:
             str(key): {str(i): _placeholder(p) for i, p in (opts or {}).items()}
             for key, opts in (data.get("choice") or {}).items()
         }
+        text = flat("text")
+        paragraphs = frozenset(str(k) for k in (data.get("paragraphs") or []))
+        unknown = paragraphs - set(text)
+        if unknown:
+            raise ValueError(f"slots.yaml paragraphs 에 text 슬롯이 아닌 키: {sorted(unknown)}")
+        marks = data.get("marks") or {}
+        checked = _mark(marks.get("checked", CHECKED))
+        unchecked = _mark(marks.get("unchecked", UNCHECKED))
+        limits = {str(k): int(v) for k, v in (data.get("line_limits") or {}).items()}
         return cls(
-            text=flat("text"), choice=choice, input=flat("input"), render_only=flat("render_only")
+            text=text,
+            choice=choice,
+            input=flat("input"),
+            render_only=flat("render_only"),
+            paragraphs=paragraphs,
+            bullet=sanitize(data.get("paragraph_bullet", DEFAULT_BULLET)),
+            checked=checked,
+            unchecked=unchecked,
+            line_limits=limits,
         )
 
     def placeholders(self) -> frozenset[str]:
@@ -103,6 +159,13 @@ def _placeholder(value: Any) -> str:
     return text
 
 
+def _mark(value: Any) -> str:
+    text = sanitize(value)
+    if len(text) > 4 or "{{" in text:
+        raise ValueError(f"slots.yaml marks 는 4자 이하 문자열이어야 합니다: {text!r}")
+    return text
+
+
 # ── 값 조립 (순수 함수) ───────────────────────────────────
 def slot_values(
     draft: Draft,
@@ -113,8 +176,13 @@ def slot_values(
     strategy: StrategyCatalog,
     required_choices: tuple[str, ...] = ("task_type", "utilization"),
     extra: Mapping[str, str] | None = None,
+    today: Callable[[], date] = date.today,
 ) -> dict[str, str]:
-    """{{자리표시자}} → 치환 문자열. 체크 칸은 확정값으로만, 개인정보는 proposer 인자로만."""
+    """{{자리표시자}} → 치환 문자열. 체크 칸은 확정값으로만, 개인정보는 proposer 인자로만.
+
+    여러 문장 섹션은 문장을 개행으로 이어 둔다 — 템플릿 모드가 개행 단위로 단락을 만든다.
+    근거 id·출처는 넣지 않는다.
+    """
     confirmed = dict(confirmation.choices) if confirmation else {}
     missing = [k for k in required_choices if k in slots.choice and not confirmed.get(k)]
     if missing:
@@ -138,15 +206,13 @@ def slot_values(
         if unknown:
             raise UnknownSlot(f"{key}: slots.yaml 에 없는 선택지 {unknown}")
         for option_id, ph in options.items():
-            values[ph] = CHECKED if option_id in picked else UNCHECKED
+            values[ph] = slots.checked if option_id in picked else slots.unchecked
 
     budget = req.budget
     inputs = {
         "budget.account": budget.account if budget else "",
         "budget.amount_thousand_krw": (
-            f"{budget.amount_thousand_krw:,}"
-            if budget and budget.amount_thousand_krw is not None
-            else ""
+            format_budget_amount(budget.amount_thousand_krw) if budget else ""
         ),
         "department": req.department,
     }
@@ -157,7 +223,7 @@ def slot_values(
 
     person = proposer or ProposerInfo()
     render_only = {
-        "proposed_on": person.proposed_on,
+        "proposed_on": format_proposed_on(person.proposed_on, today),
         "proposer.rank": person.proposer.rank,
         "proposer.name": person.proposer.name,
         "proposer.phone": person.proposer.phone,
@@ -211,12 +277,14 @@ class HwpxRenderer:
         strategy: StrategyCatalog | None = None,
         template_path: Path | None = None,
         required_choices: tuple[str, ...] = ("task_type", "utilization"),
+        clock: Callable[[], date] = date.today,
     ):
         self.slots = slots
         self.titles = dict(titles or {})
         self.strategy = strategy or StrategyCatalog()
         self.template_path = Path(template_path) if template_path else None
         self.required_choices = required_choices
+        self.clock = clock
 
     def __repr__(self) -> str:
         mode = "template" if self.template_path else "generate"
@@ -242,6 +310,7 @@ class HwpxRenderer:
             strategy=self.strategy,
             required_choices=self.required_choices,
             extra=extra,
+            today=self.clock,
         )
         if self.mode == "template":
             data = self._fill_template(self.template_path.read_bytes(), values)  # type: ignore[union-attr]
@@ -256,11 +325,15 @@ class HwpxRenderer:
 
         pkg = HwpxPackage.open(template)
         before = sorted(pkg.files())
+        paragraph_slots = {self.slots.text[k] for k in self.slots.paragraphs}
         leftover: set[str] = set()
         for path in pkg.section_paths():
             xml = pkg.get_text(path)
             for ph, value in values.items():
-                xml = xml.replace(ph, escape(value))  # 보안 F: 값은 escape 를 거쳐서만 들어간다
+                if ph in paragraph_slots:
+                    xml = expand_paragraphs(xml, ph, value, bullet=self.slots.bullet)
+                else:
+                    xml = xml.replace(ph, escape(value))  # 보안 F: 값은 escape 를 거쳐서만
             leftover |= set(_PLACEHOLDER.findall(xml)) & self.slots.placeholders()
             pkg.set_part(path, xml)
         if leftover:
@@ -399,6 +472,37 @@ class _Lookup:
 
     def choice(self, key: str, option: str) -> str:
         return self.values.get(self.slots.choice.get(key, {}).get(option, ""), "")
+
+
+# ── 문장별 단락 (템플릿 모드) ─────────────────────────────
+def expand_paragraphs(
+    xml: str, placeholder: str, value: str, *, bullet: str = DEFAULT_BULLET
+) -> str:
+    """자리표시자가 든 <hp:p> 를 문장(개행 구분)마다 하나씩 복제한다.
+
+    복제 단락은 원본의 paraPr·charPr·linesegarray 를 그대로 가지고, 텍스트만 escape 한 문장으로
+    바뀐다 (escape → 단락 생성 순서). 값이 비면 자리표시자만 지운 빈 단락 하나를 남긴다.
+    자리표시자 단락이 표(<hp:tbl>)를 품거나 단락 경계를 찾을 수 없으면 거부한다 — 구조를 추측해
+    바꾸지 않는다.
+    """
+    lines = [ln.strip() for ln in value.split("\n") if ln.strip()]
+    pos = 0  # 넣은 값 안에 자리표시자 글자가 있어도 다시 찾지 않는다 (무한 반복 방지)
+    while (idx := xml.find(placeholder, pos)) >= 0:
+        start = xml.rfind(_P_OPEN, 0, idx)
+        end = xml.find(_P_CLOSE, idx)
+        if start < 0 or end < 0:
+            raise RenderedXmlInvalid(f"{placeholder} 단락 경계를 찾을 수 없습니다.")
+        end += len(_P_CLOSE)
+        para = xml[start:end]
+        if para.count(_P_OPEN) != 1 or "<hp:tbl" in para:
+            raise RenderedXmlInvalid(f"{placeholder} 단락 구조가 예상과 다릅니다 (표·중첩 단락).")
+        if lines:
+            copies = "".join(para.replace(placeholder, escape(bullet + ln)) for ln in lines)
+        else:
+            copies = para.replace(placeholder, "")
+        xml = xml[:start] + copies + xml[end:]
+        pos = start + len(copies)
+    return xml
 
 
 # ── 검증 (보안 F) ─────────────────────────────────────────

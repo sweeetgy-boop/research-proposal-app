@@ -7,6 +7,9 @@ from rra.adapters.rendering.hwpx import (
     SlotMap,
     TemplateSlotUnfilled,
     UnknownSlot,
+    expand_paragraphs,
+    format_budget_amount,
+    format_proposed_on,
     sanitize,
     slot_values,
 )
@@ -18,6 +21,9 @@ __all__ = [
     "SlotMap",
     "TemplateSlotUnfilled",
     "UnknownSlot",
+    "expand_paragraphs",
+    "format_budget_amount",
+    "format_proposed_on",
     "sanitize",
     "slot_values",
 ]
