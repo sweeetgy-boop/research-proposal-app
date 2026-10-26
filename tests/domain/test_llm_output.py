@@ -252,6 +252,9 @@ def test_sentence_shape_leniency_wrapper_and_single_object():
 
     wrapped = parse_sentences('{"choices": ["x"], "sentences": [{"text": "a", "evidence": []}]}')
     assert wrapped.ok and [s.text for s in wrapped.sentences] == ["a"] and wrapped.choices == []
+    assert wrapped.lenient and not wrapped.strict_ok  # (a) 에는 세지 않는다
+    strict = parse_sentences('[{"text": "a", "evidence": []}]')
+    assert strict.strict_ok and not strict.lenient
     assert parse_sentences('{"text": "제목 하나", "evidence": []}').status == "schema"  # 배열 아님
     assert parse_sentences('{"sentences": "아님"}').status == "schema"
     assert parse_sentences('{"other": 1}').status == "schema"

@@ -321,10 +321,16 @@ def bench_markdown(results: list[Any], *, date: str, baseline: str | None = None
     def pct(r):
         return f"{r['json_success_rate'] * 100:.1f}% ({r['parse_ok']}/{r['sections_llm']})"
 
+    def strict(r):
+        n = r.get("parse_ok_strict", r["parse_ok"])
+        rate = r.get("strict_success_rate", r["json_success_rate"])
+        return f"{rate * 100:.1f}% ({n}/{r['sections_llm']})"
+
     metrics = [
         ("모델(served_model)", lambda r: r["model"] or "-"),
         ("프로필", lambda r: r["profile"] or "-"),
-        ("JSON 형식 성공률 (ok/LLM 섹션)", pct),
+        ("JSON (a) 지시 모양 그대로 응답 비율", strict),
+        ("JSON (b) 관용 처리·폴백 포함 최종 성공률 — 규칙 ② 기준", pct),
         ("프롬프트 폴백 횟수", lambda r: str(r["fallbacks"])),
         ("근거 대조 폐기 문장 수", lambda r: str(r["totals"]["dropped"])),
         ("수치 알림 수", lambda r: str(r["totals"]["unsupported_numbers"])),

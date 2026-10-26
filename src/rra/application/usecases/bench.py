@@ -32,7 +32,8 @@ class IdeaResult:
     title: str
     seconds: float
     sections_llm: int
-    parse_ok: int
+    parse_ok: int  # (b) 관용 처리·폴백 포함 최종 성공
+    parse_ok_strict: int  # (a) 지시한 모양 그대로 응답한 섹션
     parse_failed: list[str]  # "섹션:사유"
     dropped: int
     ungrounded: int
@@ -42,6 +43,7 @@ class IdeaResult:
     overlap_alerts: int
     tech_sentences: list[str]
     section_seconds: dict[str, float] = field(default_factory=dict)
+    parse_lenient: list[str] = field(default_factory=list)  # 관용 처리로 살린 섹션
 
 
 @dataclass
@@ -66,6 +68,14 @@ class BenchResult:
     @property
     def parse_ok(self) -> int:
         return sum(i.parse_ok for i in self.ideas)
+
+    @property
+    def parse_ok_strict(self) -> int:
+        return sum(i.parse_ok_strict for i in self.ideas)
+
+    @property
+    def strict_success_rate(self) -> float:
+        return self.parse_ok_strict / self.sections_llm if self.sections_llm else 0.0
 
     @property
     def json_success_rate(self) -> float:
@@ -93,7 +103,9 @@ class BenchResult:
             "ideas": [asdict(i) for i in self.ideas],
             "sections_llm": self.sections_llm,
             "parse_ok": self.parse_ok,
+            "parse_ok_strict": self.parse_ok_strict,
             "json_success_rate": round(self.json_success_rate, 4),
+            "strict_success_rate": round(self.strict_success_rate, 4),
             "avg_section_seconds": round(self.avg_section_seconds, 2),
             "totals": self.totals(),
         }
@@ -153,8 +165,9 @@ class BenchGenerate:
         t0 = self.clock()
         snapshot = await self.generate.retrieve(req)
         sections = []
-        parse_ok = sections_llm = dropped = ungrounded = 0
+        parse_ok = parse_ok_strict = sections_llm = dropped = ungrounded = 0
         failed: list[str] = []
+        lenient: list[str] = []
         timings: dict[str, float] = {}
         for key in self.generate.section_keys:
             s0 = self.clock()
@@ -167,6 +180,10 @@ class BenchGenerate:
                 sections_llm += 1
                 if composed.parse.ok:
                     parse_ok += 1
+                    if composed.parse.strict_ok:
+                        parse_ok_strict += 1
+                    else:
+                        lenient.append(key)
                 else:
                     failed.append(f"{key}:{composed.parse.status}")
         draft, problems = self.generate.finalize(f"bench-{name}", req, snapshot, sections)
@@ -178,7 +195,9 @@ class BenchGenerate:
             seconds=round(self.clock() - t0, 1),
             sections_llm=sections_llm,
             parse_ok=parse_ok,
+            parse_ok_strict=parse_ok_strict,
             parse_failed=failed,
+            parse_lenient=lenient,
             dropped=dropped,
             ungrounded=ungrounded,
             unsupported_numbers=sum(1 for p in problems if p.code == UNSUPPORTED_NUMBER),
