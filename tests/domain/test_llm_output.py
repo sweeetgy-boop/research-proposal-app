@@ -218,3 +218,16 @@ def test_bad_sentences_without_valid_choices_stay_schema(choices):
     raw = json.dumps({"choices": choices, "sentences": ["문자열"]}, ensure_ascii=False)
     r = parse_choice_section(raw, ALLOWED, min_n=1, max_n=1)
     assert r.status == "schema" and r.choices == [] and r.sentences == []
+
+
+def test_doc_id_source_fragments_in_parentheses_are_stripped():
+    """7B 가 본문에 섞는 (文档ID: alio:…#1) / (doc_id: …) 조각. 일반 괄호(예: 15%)는 그대로."""
+    from rra.domain.rules.llm_output import strip_doc_fragments
+
+    text = (
+        "사례 조사(文档ID: alio:sum-8f69f1e778ff7e36#1)와 스웨덴 연구 "
+        "(doc_id: openalex:W2908009528#0)는 비율(예: 15%)을 "
+        "(출처: ntis:1700012345, openalex:W1#0) 보고함"
+    )
+    cleaned, n = strip_doc_fragments(text)
+    assert cleaned == "사례 조사와 스웨덴 연구는 비율(예: 15%)을 보고함" and n == 3

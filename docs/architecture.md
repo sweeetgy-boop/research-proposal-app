@@ -401,6 +401,22 @@ UI 5번 패널 "제안서 받기(hwpx)", MCP `rra_render`(base64, 쓰기 서버�
 `ProposerInfo` 는 호출 인자로만 — 저장소·manifest·로그에 없음을 테스트로 고정. 템플릿 fixture 는
 `tests/tools/make_hwpx_template.py` 가 만든 `tests/fixtures/hwpx/proposal_template_min.hwpx`.
 
+**실물 양식 연결 (2026-10-26).** 원본 `data/templates/proposal_form_original.hwpx`(별지 제2호서식, 개정 2024.02.19.,
+PDF 와 개정일·항목 순서 일치) 를 `tools/build_form_template.py` 가 `config/templates/proposal_korail.hwpx` 로 변환한다
+(둘 다 커밋하지 않음). 양식은 표 2개(활용계획 가~차 2×1, 제안자 6×5) + 자유 단락이고 체크 칸은 □ 가 아니라 `(   )` 다.
+매핑: 1-가 `{{title}}` 인라인 · 1-나 `{{budget.account}}`/`{{budget.amount}}`(천원, 쉼표) 밑줄 run · 1-다 `( {{task_type:id}} )`
+· 2-가-(1)(2), 2-나, 2-다, 3-가·나·다, 5 는 제목 아래 본문 단락(제목 단락 paraPr·charPr 복제) · 2-가-(3) `{{strategy_alignment:direction}}`
+`{{strategy_alignment:task}}` 인라인 + 아래 단락 `{{strategy_alignment}}` · 4 `(   {{utilization:id}}   )` 와 "실용화 계획" 라벨 아래
+`{{utilization}}` · 제안자 표 `{{proposed_on}}`(비면 렌더 날짜 "2026. 10. 26."), `{{department}}`, `☏ {{proposer.phone}}`,
+`{{proposer.rank}}`, `{{proposer.name}}  (인)`, 부서장 동일. 스크립트는 앵커 문구가 정확히 1회 있을 때만 바꾸고(`FormChanged`),
+slots.yaml 자리표시자 전수(36개)·각 1회·`<hp:t>` 안 배치·defusedxml 재파싱을 통과해야 저장한다.
+렌더러: `slots.yaml paragraphs` 섹션은 `expand_paragraphs` 가 자리표시자 단락을 문장마다 `○ ` 단락으로 복제(escape → 단락 생성 →
+재파싱), 한 줄 칸은 인라인 치환. 체크 표시는 `marks`(○ / 공백), 생성 모드는 ■/□ 유지. 근거 id·출처·task_type 설명 문장은
+양식에 넣지 않는다. **렌더 전 점검** `usecases/render_check.render_check` → `RunManager.render_check`: 저장된 lint 문제(모두
+미해결), 본문 `max_chars`·한 줄 칸 `slots.yaml line_limits` 초과(자르지 않음), 전략 목록 빈칸/미확정 알림. CLI 는 저장 전에 출력,
+UI 는 받기 버튼 위, REST `GET /v1/runs/{id}/render-check`. 알림이 있어도 렌더는 허용. 실물 파일이 있을 때만 도는 테스트
+`tests/adapters/test_form_template.py`(skipif).
+
 **Step 9 run_log·보존** (`adapters/logging/file_run_log.py`): manifest 는 `RunManager.manifest()` 가 만들고 어댑터가
 키 허용목록(`check_manifest`: run·step·problem 키, 문자열 200자 상한)으로 원문·개인정보 유입을 한 번 더 막는다. 제출(queued)·
 섹션 완료마다·종료 시점에 기록. `usecases/purge_runs.PurgeRuns(store, retention_days, clock)` 가 `updated_at` 이

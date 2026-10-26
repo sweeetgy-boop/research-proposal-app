@@ -69,7 +69,13 @@
 - HWPX 렌더(Step 8, `adapters/rendering/hwpx.py`): `config/templates/proposal_korail.hwpx` 가 있으면 템플릿 모드(자리표시자는
   한 run 안에), 없으면 생성 모드. 체크 칸은 confirmed 로만, ProposerInfo 는 render 인자로만(저장 금지). 보안 F 는
   sanitize→escape→defusedxml 재파싱. 진입점: `rra runs render`, UI 5번 패널, MCP `rra_render`, REST `/v1/runs/{id}/file`.
-- 대기(사람 입력): 실물 양식 hwpx, 자체과제 내역 파일(data/inbox/own/), 연구과제 공고문(data/inbox/notice/).
+- 실물 양식 연결(2026-10-26): 원본 `data/templates/proposal_form_original.hwpx` → `tools/build_form_template.py` →
+  `config/templates/proposal_korail.hwpx`(둘 다 미커밋, .gitignore). 자리표시자는 slots.yaml 영문 키(`{{title}}`,
+  `{{task_type:basic}}`, `{{utilization:software}}` …). 체크 칸은 양식 괄호 안 `( ○ )`/`(   )`(slots.yaml marks),
+  여러 문장 섹션은 문장마다 `○ ` 단락 복제(`expand_paragraphs`), 한 줄 칸은 인라인. 제안일자 비면 렌더 날짜.
+  렌더 전 점검 `usecases/render_check.py`(미해결 lint·max_chars·line_limits 초과·전략 빈칸) — CLI 출력, UI 버튼 위,
+  REST `GET /v1/runs/{id}/render-check`. 알림은 렌더를 막지 않는다. 양식이 바뀌면 스크립트가 앵커 불일치로 멈춘다.
+- 대기(사람 입력): 자체과제 내역 파일(data/inbox/own/), 연구과제 공고문(data/inbox/notice/).
 - 후속: critique_draft·예산표·차별성 매트릭스(Step 9), MCP streamable-http·Tailscale 공개(Step 10), reranker.
 
 ## MCP

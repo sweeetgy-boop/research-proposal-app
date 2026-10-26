@@ -40,6 +40,7 @@ from xml.sax.saxutils import escape
 from rra.application.ports.renderer import RenderRejected
 from rra.domain.models import Confirmation, Draft, ProposerInfo, StrategyCatalog
 from rra.domain.models.selection import TASK_TYPES, UTILIZATION
+from rra.domain.rules.llm_output import strip_doc_fragments
 
 FORM_TITLE = "연구과제 제안서"
 FORM_NOTE = "한국철도공사 연구개발 규정 시행세칙 별지 제2호서식 (개정 2024.02.19.)"
@@ -52,6 +53,9 @@ _DATE = re.compile(r"^\s*(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\s
 MAX_SLOT_CHARS = 20_000
 MAX_SECTION_XML_BYTES = 50 * 1024 * 1024
 _P_OPEN, _P_CLOSE = "<hp:p ", "</hp:p>"
+# 한/글이 저장한 줄 배치 캐시. 글자가 바뀐 단락에 남겨 두면 한/글이 그대로 써서 글자가 겹친다
+# (python-hwpx 저장 검증이 거부). 캐시가 없는 단락은 한/글이 다시 배치한다.
+_LINESEG = re.compile(r"<hp:linesegarray>.*?</hp:linesegarray>", re.S)
 
 
 class UnknownSlot(RenderRejected):
@@ -91,6 +95,12 @@ def format_proposed_on(value: str, today: Callable[[], date] = date.today) -> st
         y, mo, d = (int(g) for g in m.groups())
         return f"{y}. {mo:02d}. {d:02d}."
     return text
+
+
+def _scrub(sentence: str) -> str:
+    """문장 속 자료 태그·(文档ID: …) 조각 제거 + 공백 정리. 문장 자체는 자르지 않는다."""
+    cleaned, _ = strip_doc_fragments(sentence)
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 
 def format_budget_amount(amount_thousand_krw: int | None) -> str:
@@ -193,7 +203,8 @@ def slot_values(
     for key, ph in slots.text.items():
         section = draft.section(key)
         sep = "\n" if key in slots.paragraphs else " "  # 한 줄 칸(연구과제명)은 띄어쓰기로 잇는다
-        text = sep.join(s.text for s in section.sentences) if section else ""
+        # 양식 본문에 근거 id·출처 조각을 넣지 않는다 — 저장된 문장에 남아 있어도 여기서 지운다
+        text = sep.join(_scrub(s.text) for s in section.sentences) if section else ""
         if key == "overlap_review" and req.remarks:
             text = f"{text}\n{req.remarks}".strip()
         values[ph] = sanitize(text)
@@ -334,7 +345,7 @@ class HwpxRenderer:
                 if ph in paragraph_slots:
                     xml = expand_paragraphs(xml, ph, value, bullet=self.slots.bullet)
                 else:
-                    xml = xml.replace(ph, escape(value))  # 보안 F: 값은 escape 를 거쳐서만
+                    xml = replace_inline(xml, ph, escape(value))  # 보안 F: escape 를 거쳐서만
             leftover |= set(_PLACEHOLDER.findall(xml)) & self.slots.placeholders()
             pkg.set_part(path, xml)
         if leftover:
@@ -475,28 +486,49 @@ class _Lookup:
         return self.values.get(self.slots.choice.get(key, {}).get(option, ""), "")
 
 
-# ── 문장별 단락 (템플릿 모드) ─────────────────────────────
+# ── 템플릿 치환 (템플릿 모드) ─────────────────────────────
+def _paragraph_bounds(xml: str, inner_idx: int, placeholder: str) -> tuple[int, int]:
+    start = xml.rfind(_P_OPEN, 0, inner_idx)
+    end = xml.find(_P_CLOSE, inner_idx)
+    if start < 0 or end < 0:
+        raise RenderedXmlInvalid(f"{placeholder} 단락 경계를 찾을 수 없습니다.")
+    end += len(_P_CLOSE)
+    para = xml[start:end]
+    if para.count(_P_OPEN) != 1 or "<hp:tbl" in para:
+        raise RenderedXmlInvalid(f"{placeholder} 단락 구조가 예상과 다릅니다 (표·중첩 단락).")
+    return start, end
+
+
+def replace_inline(xml: str, placeholder: str, escaped: str) -> str:
+    """한 줄 칸: 자리표시자를 같은 run 안에서 바꾸고, 그 단락의 줄 배치 캐시를 지운다.
+
+    escaped 는 이미 escape 를 거친 문자열. 값 안에 자리표시자 글자가 있어도 한 번만 처리한다.
+    """
+    pos = 0
+    while (idx := xml.find(placeholder, pos)) >= 0:
+        start, end = _paragraph_bounds(xml, idx, placeholder)
+        para = _LINESEG.sub("", xml[start:end]).replace(placeholder, escaped)
+        xml = xml[:start] + para + xml[end:]
+        pos = start + len(para)
+    return xml
+
+
 def expand_paragraphs(
     xml: str, placeholder: str, value: str, *, bullet: str = DEFAULT_BULLET
 ) -> str:
     """자리표시자가 든 <hp:p> 를 문장(개행 구분)마다 하나씩 복제한다.
 
-    복제 단락은 원본의 paraPr·charPr·linesegarray 를 그대로 가지고, 텍스트만 escape 한 문장으로
-    바뀐다 (escape → 단락 생성 순서). 값이 비면 자리표시자만 지운 빈 단락 하나를 남긴다.
+    복제 단락은 원본의 paraPr·charPr 을 그대로 가지고, 텍스트만 escape 한 문장으로 바뀐다
+    (escape → 단락 생성 순서). 줄 배치 캐시(linesegarray)는 지운다 — 한/글이 다시 배치한다.
+    값이 비면 자리표시자만 지운 빈 단락 하나를 남긴다.
     자리표시자 단락이 표(<hp:tbl>)를 품거나 단락 경계를 찾을 수 없으면 거부한다 — 구조를 추측해
     바꾸지 않는다.
     """
     lines = [ln.strip() for ln in value.split("\n") if ln.strip()]
     pos = 0  # 넣은 값 안에 자리표시자 글자가 있어도 다시 찾지 않는다 (무한 반복 방지)
     while (idx := xml.find(placeholder, pos)) >= 0:
-        start = xml.rfind(_P_OPEN, 0, idx)
-        end = xml.find(_P_CLOSE, idx)
-        if start < 0 or end < 0:
-            raise RenderedXmlInvalid(f"{placeholder} 단락 경계를 찾을 수 없습니다.")
-        end += len(_P_CLOSE)
-        para = xml[start:end]
-        if para.count(_P_OPEN) != 1 or "<hp:tbl" in para:
-            raise RenderedXmlInvalid(f"{placeholder} 단락 구조가 예상과 다릅니다 (표·중첩 단락).")
+        start, end = _paragraph_bounds(xml, idx, placeholder)
+        para = _LINESEG.sub("", xml[start:end])  # 새 글자·새 위치 — 줄 배치 캐시는 버린다
         if lines:
             copies = "".join(para.replace(placeholder, escape(bullet + ln)) for ln in lines)
         else:

@@ -47,6 +47,9 @@ _TAG_FRAGMENT = re.compile(
     rf'\s?\(?\\?<doc id="{_FRAG_ID}"(?: basis="{_BASIS}")?>\)?'  # <doc id="…" basis="…">
     rf'|\s?\(basis="{_BASIS}" id="{_FRAG_ID}"\)'  # (basis="…" id="…")
     rf'|\s?\(id="{_FRAG_ID}" basis="{_BASIS}"\)'  # (id="…" basis="…")
+    # (文档ID: alio:sum-…#1) / (doc_id: openalex:W…#0) / (출처: ntis:…) — 7B 가 본문에 섞는 조각
+    rf"|\s?\((?:文档ID|doc_?id|문서\s?ID|출처|근거|id)\s*[:：]\s*[A-Za-z]+:{_FRAG_ID}"
+    rf"(?:\s*,\s*[A-Za-z]+:{_FRAG_ID})*\s*\)"
     rf"|\s?\\?</doc>"
 )
 

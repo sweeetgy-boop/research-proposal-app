@@ -440,7 +440,8 @@ def test_expand_paragraphs_clones_format_and_escapes_before_building():
     xml = f"{head}{para}</hs:sec>"
     out = expand_paragraphs(xml, "{{method}}", "첫 문장\n<hp:t>주입</hp:t> & 둘\n\n  셋  ")
     DET.fromstring(out.replace("hs:", "").replace("hp:", ""))  # well-formed
-    assert out.count('paraPrIDRef="42"') == 3 and out.count("<hp:linesegarray>") == 3
+    assert out.count('paraPrIDRef="42"') == 3
+    assert "<hp:linesegarray>" not in out  # 글자가 바뀐 단락의 줄 배치 캐시는 버린다 (겹침 방지)
     assert "<hp:t>○ 첫 문장</hp:t>" in out and "<hp:t>○ 셋</hp:t>" in out
     assert "<hp:t>○ &lt;hp:t&gt;주입&lt;/hp:t&gt; &amp; 둘</hp:t>" in out  # escape 뒤 단락 생성
     assert "<hp:t>주입</hp:t>" not in out and "{{" not in out
@@ -460,9 +461,42 @@ def test_expand_paragraphs_clones_format_and_escapes_before_building():
         )
 
 
+def test_replace_inline_keeps_run_and_drops_layout_cache_of_that_paragraph_only():
+    from rra.adapters.rendering.hwpx import replace_inline
+
+    keep = '<hp:p id="0"><hp:run><hp:t>1. 연구개요</hp:t></hp:run><hp:linesegarray/></hp:p>'
+    para = (
+        '<hp:p id="1" paraPrIDRef="42"><hp:run charPrIDRef="25"><hp:t> 가. 연구과제명 : {{title}}'
+        '</hp:t></hp:run><hp:linesegarray><hp:lineseg textpos="0"/></hp:linesegarray></hp:p>'
+    )
+    out = replace_inline(f"<hs:sec>{keep}{para}</hs:sec>", "{{title}}", "궤도 &amp; 연구 {{title}}")
+    assert keep in out  # 다른 단락은 그대로
+    assert "<hp:t> 가. 연구과제명 : 궤도 &amp; 연구 {{title}}</hp:t>" in out
+    assert out.count("<hp:lineseg ") == 0 and out.count("{{title}}") == 1
+
+
 def test_template_mode_single_line_slots_stay_inline(slots, strategy):
     r = HwpxRenderer(slots, strategy=strategy, template_path=TEMPLATE)
     xml = section_xml(r.render(full_draft(), confirmation=CONFIRMED, proposer=PROPOSER))
     # 연구과제명·전략방향·전략과제는 머리표 없이 라벨 run 안에 그대로
     assert "○ 궤도" not in xml and "<hp:t>안전</hp:t>" in xml and "<hp:t>예방정비</hp:t>" in xml
     assert "<hp:t>150,000</hp:t>" in xml and "<hp:t>선임연구원</hp:t>" in xml
+
+
+def test_slot_values_scrub_doc_id_fragments_from_form_text(slots, strategy):
+    """양식 본문에는 근거 문서 id·출처를 넣지 않는다 — 저장된 문장에 조각이 남아 있어도 지운다."""
+    secs = [
+        Section(
+            key="tech_importance",
+            sentences=[
+                Sentence(text="선행연구(文档ID: alio:sum-8f69f1e778ff7e36#1)는  한계가 있다."),
+                Sentence(text='후속 <doc id="openalex:W1" basis="summary"> 연구는 다르다.'),
+                Sentence(text="끝 (doc_id: openalex:W1#0) 문장."),
+            ],
+        )
+    ]
+    values = slot_values(
+        draft(secs), slots, confirmation=CONFIRMED, proposer=None, strategy=strategy
+    )
+    assert values["{{tech_importance}}"] == "선행연구는 한계가 있다.\n후속 연구는 다르다.\n끝 문장."
+    assert "alio:" not in values["{{tech_importance}}"] and "openalex" not in str(values)
