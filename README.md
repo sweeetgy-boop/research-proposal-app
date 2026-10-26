@@ -52,8 +52,11 @@ rra api [--port 8000]      # REST, 127.0.0.1, RRA_API_TOKEN 필요 (deploy/READM
 rra mcp [--enable-generate]  # MCP stdio — 읽기 2개 / 쓰기 포함 6개 (docs/mcp.md)
 ```
 
-LLM 은 `mlx_lm.server --host 127.0.0.1 --port 8080` (OpenAI 호환, `config/llm.yaml`). 테스트는 LLM·임베딩 없이
-`tests/fakes.py` 로 돈다. 실응답 fixture 는 `tests/fixtures/`, 녹화 도구는 `tests/tools/`.
+LLM 은 `mlx_lm.server --host 127.0.0.1 --port 8080` (OpenAI 호환, `config/llm.yaml`, launchd `deploy/launchd/com.rra.mlx.plist`).
+로컬 작성 모델은 `llm.yaml model_profiles`(qwen·midm·ax_light: served_model·json_mode·system_role·stop)로 고르고
+`RRA_LLM_PROFILE` 로 바꿀 수 있다. 2026-10-26 비교(`rra llm-bench`, `docs/llm-bench-2026-10-26.md`)에서 Mi:dm 2.0 Base·
+A.X 4.0 Light 는 JSON 형식 성공률 기준(95%)에 못 미쳐 **Qwen2.5-7B-Instruct-4bit 를 유지**한다. 테스트는 LLM·임베딩 없이
+`tests/fakes.py` 로 돈다. 실응답 fixture 는 `tests/fixtures/`, 녹화 도구는 `tests/tools/`, 골든셋은 `tests/golden/`.
 
 ## 현재 상태 (2026-10-26)
 

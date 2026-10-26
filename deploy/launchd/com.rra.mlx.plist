@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  로컬 작성 LLM 서버 (mlx_lm.server) — launchd 사용자 에이전트. 보안 H: 127.0.0.1 만.
+  모델은 config/llm.yaml model_profiles 의 served_model 과 같아야 한다 (2026-10-26 비교 결과 Qwen 유지,
+  docs/llm-bench-2026-10-26.md). 다른 프로필로 바꾸면 --model 과 llm.yaml providers.mlx.model_profile 을 함께 바꾼다.
+  설치: cp deploy/launchd/com.rra.mlx.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.mlx.plist
+  mlx-lm 은 `uv tool install mlx-lm` (실행 파일 ~/.local/bin/mlx_lm.server).
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rra.mlx</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/chan/.local/bin/mlx_lm.server</string>
+    <string>--model</string>
+    <string>mlx-community/Qwen2.5-7B-Instruct-4bit</string>
+    <string>--host</string>
+    <string>127.0.0.1</string>
+    <string>--port</string>
+    <string>8080</string>
+    <string>--prompt-cache-size</string>
+    <string>1</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chan/projects/research-proposal-app</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/chan/.local/bin:/usr/bin:/bin</string>
+    <key>HF_HUB_OFFLINE</key>
+    <string>1</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/chan/Library/Logs/rra-mlx.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chan/Library/Logs/rra-mlx.err.log</string>
+</dict>
+</plist>

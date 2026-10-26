@@ -975,6 +975,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (L) | 로컬 작성 모델 비교 — `llm.yaml model_profiles`(qwen·midm·ax_light), `rra llm-bench`·`tests/golden/`, Mi:dm 2.0 Base(MIT, 32K)·A.X 4.0 Light(Apache 2.0, 16K) 4bit 변환·벤치 결과 JSON 성공률 3.5%·75.9% 로 규칙 ② 탈락 → Qwen2.5-7B 유지(`docs/llm-bench-2026-10-26.md`), `deploy/launchd/com.rra.mlx.plist` |
 | 2026-10-26 | 실물 양식 템플릿 연결(§4.4), [1] 출처 조각 정리·foreign_script·연구과제명 무제한, [2] DB 정비(§4.5: migration 003·004, 만료 제외, embedding_model 메타, `rra reindex`·`rra db backup`), [3] 저장소 계약 테스트, [4] Gemini 4 Argon provider, [5] 작성→검토→수정→재검토→마무리 흐름(§4.6, 버전·검토 파일, finalize 로만 렌더), [6] 프론트엔드용 REST(§9.2: 세션·CSRF·SSE·problem+json·정적 SPA·가짜 모드·openapi.json), [7] Streamlit [최종 마무리 및 다운로드] 단일 흐름 |
 | 2026-09-08 | v4 — MCP·REST API 제공 구조(§9) 추가 |
 | 2026-10-13 | 7B 전환 보정, 유사과제 차단 키워드 조건, Streamlit 화면·규칙 기반 Agent(§4.2) |
