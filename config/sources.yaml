@@ -15,6 +15,12 @@ own_unit:
     - 기술연구처
     - 연구계획처      # 사내 과제 현황 엑셀(제안 현황·2021~2026 수행현황)의 부서 칸
     - 차량기술센터    # 2006~2024 과제목록 자체연구 시트의 과거 부서명
+# 사내 자료 (P2). 과제 현황 엑셀은 처리 뒤에도 옮기지 않는다(갱신 파일을 다시 넣으면 덮어쓴다).
+# 공시완료 폴더는 연도 폴더(2024/…) 또는 과제 폴더를 그대로 복사한다. 처리된 과제 폴더는 _done/ 으로.
+own:
+  projects_inbox: data/inbox/own        # 연구과제 제안 현황·연구과제 현황·2006~2024 과제목록·수행현황 (xls·xlsx)
+  docs_inbox: data/inbox/own_docs       # 공시완료/<연도>/<과제 폴더>/…요약문(공시용).hwp|hwpx|pdf
+  default_org: korail                   # 요약문 본문에 기관명이 없을 때 붙일 기관 태그
 alio:
   inbox_dir: data/inbox/alio   # 수동 다운로드 파일 투입 위치 (_done/·_quarantine/ 자동 생성)
   catalog_dir: data/catalog    # 공공데이터포털 CSV. 가장 최근 파일을 쓴다

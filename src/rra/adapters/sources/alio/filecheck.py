@@ -13,14 +13,18 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
+OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"  # OLE2 Compound File (HWP 5.0, xls)
+ZIP_MAGIC = b"PK\x03\x04"
 MAGIC: dict[str, bytes] = {
     "pdf": b"%PDF-",
-    "hwpx": b"PK\x03\x04",
-    "hwp": b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",  # OLE2 Compound File (HWP 5.0)
+    "hwpx": ZIP_MAGIC,
+    "hwp": OLE_MAGIC,
+    "xlsx": ZIP_MAGIC,
+    "xls": OLE_MAGIC,
 }
 TEXT_FORMATS = frozenset({"csv", "txt"})  # 매직바이트 없음 — 텍스트인지만 본다
-PARSEABLE = frozenset({"pdf", "hwpx", "csv", "txt"})  # hwp 는 식별만 (Step 5b)
-_BINARY_MAGICS = tuple(MAGIC.values())
+PARSEABLE = frozenset({"pdf", "hwpx", "hwp", "csv", "txt", "xlsx", "xls"})
+_BINARY_MAGICS = tuple(set(MAGIC.values()))
 _TEXT_SNIFF = 64 * 1024
 
 
@@ -93,8 +97,8 @@ def open_validated(path: Path, *, max_bytes: int, allowed: frozenset[str]) -> Va
             raise TooLarge("size")
         head = os.pread(fd, _TEXT_SNIFF if ext in TEXT_FORMATS else 8, 0)
         check_magic(ext, head)
-        if ext == "hwp":
-            raise UnsupportedFormat("hwp")
+        if ext not in PARSEABLE:
+            raise UnsupportedFormat(ext)
         digest = _sha256(fd)
         os.lseek(fd, 0, os.SEEK_SET)
         return ValidatedFile(fd=fd, fmt=ext, sha256=digest, size=st.st_size)

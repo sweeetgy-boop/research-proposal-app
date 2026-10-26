@@ -41,6 +41,7 @@
 
 | 영역 | 내용 | 근거 |
 |---|---|---|
+| 사내 자료 적재 (P2) | `own_projects`(엑셀 4개 → 과제 1,119건, status·과제명 병합·이름 열 제외)·`own_docs`(공시완료 107개 폴더 → 요약문 129파일, 공시용 > 일반, hwpx > hwp > pdf, 묶음 분리). 샌드박스 hwp·xlsx·xls 파서. `OverlapAlert.status` | `adapters/sources/own/`, `alio/extract/hwp.py`·`spreadsheet.py`, `config/sources.yaml own`; `tests/adapters/own/`, `tests/adapters/alio/test_extract.py`; architecture §4.8 |
 | 생성 근거 관련도 하한 (P1) | 검색 청크가 근거로 남으려면 코사인 ≥ 0.79, 한글 청크는 질의 키워드 ≥ 1. 통과 0 이면 근거 필수 섹션 빈칸 + `no_relevant_evidence`. 골든셋 측정 fixture 로 임계치 고정 | `domain/rules/relevance.py`, `config/overlap.yaml evidence_floor`, `tests/fixtures/relevance_golden.json`; `tests/domain/test_relevance.py`, `tests/application/test_generate_proposal.py`, `tests/adapters/test_sqlite_repo.py`; architecture §4.7, 이슈 #2 |
 | 계층·검증 | 헥사고날 4계층, import-linter 계약 8건, 포트 전부 runtime_checkable·비동기 저장소/임베딩, TaskRunner 포트 | `pyproject.toml`, `composition.py`·`config_loader.py`; `tests/test_composition.py`·`test_config_loader.py`, `tests/adapters/test_port_conformance.py`; 0ecbe46, 6b31f35~0bcac95 |
 | 보안 A~J | 근거 id 대조·JSON 전용 파싱, subprocess 파싱 격리·zip 상한·defusedxml, 허용 도메인·리다이렉트 재검사·사설 IP 거부, SecretStr, SQL 바인딩·FTS5 토큰 인용, HWPX escape·재파싱, 127.0.0.1·토큰·동시성 1, 로그 허용목록 | `adapters/sources/_base.py`·`_sandbox.py`, `adapters/security/`, `adapters/llm/_endpoint.py`; `tests/adapters/test_base_security.py`·`test_guarded_client.py`·`test_sandbox.py`·`test_llm_endpoint.py`, `tests/entrypoints/test_api.py` |
@@ -58,7 +59,6 @@
 
 | 항목 | 내용 | 단계 |
 |---|---|---|
-| 사내 자료 적재 | `data/inbox/own/` 엑셀 4개 + 공시용 요약문 적재. 미채택·중단 판정, internal 가시성, 이름 열 제거 | P2 |
 | 기능 2 차별화 제안 | precheck 차단·근접 과제별 overlap_summary·build_on·differentiation·evidence. `differentiate` 단계(Gemini, 키 없으면 로컬), 사용자 선택을 초안 프롬프트에 주입. CLI·REST·MCP·Streamlit·`openapi.json` | P3 |
 | 외부 자료원 | KIPRIS 어댑터(`source_type=patent`), NTIS record_tag 진단, ScienceON MAC 안내, `external-apis.md`. NTIS 연구보고서는 가능 여부만 | P4 |
 | 검토 고도화 | Argon 검토에 필요성·차별성·실현가능성·기대효과 1~5점 채점, 2점 이하는 섹션 문장 의견으로 연결. 수치 알림 건수를 render_check 맨 위에. 차별성 매트릭스·예산표는 양식 밖(화면·API 표, HWPX 는 설계만) | P5 |
@@ -69,7 +69,7 @@
 | 항목 | 상태 |
 |---|---|
 | ScienceON·NTIS API 키 → 실응답 녹화 → FIELDS 매핑·record_tag 확정 | 대기 (skip 2건) |
-| 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건) |
+| 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건). 공시용 요약문은 P2 에서 own_docs 로 적재됨 |
 | `config/templates/korail_strategy.yaml` 전략체계 목록 | 비어 있음 → 2-가-(3) 빈칸 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
 | 웹 프론트엔드 `web/dist` | 동료가 별도 진행. API 변경 시 `openapi.json` 갱신·PR 에 "프론트엔드 영향" 기재 |
@@ -88,7 +88,7 @@ reranker·유사과제 임계치 재조정(표본 축적 후), 공고문 반영,
 |---|---|---|---|---|
 | P0 | `chore/status-sync` | 이 문서, Gemini 모델 목록 `models/` 접두어, `own_unit.departments`(연구계획처·차량기술센터) | 완료 2026-10-26 | #3 |
 | P1 | `fix/retrieval-relevance-floor` | 검색 관련도 하한 (이슈 #2): 03 궤도 인용 0건, 01 관련 논문 16건 유지 (`llm-bench-2026-10-26.md` P1 절) | 완료 2026-10-26 | #4 |
-| P2 | `feat/own-ingest` | 사내 자료 적재 | 대기 | — |
+| P2 | `feat/own-ingest` | 사내 자료 적재: 엑셀 1,119건·공시 요약문 121건, precheck 예시 3건 (PR 본문) | 완료 2026-10-26 | #5 |
 | P3 | `feat/differentiation` | 기능 2 차별화 제안 | 대기 | — |
 | P4 | `feat/external-apis` | KIPRIS·NTIS·ScienceON 점검 | 대기 | — |
 | P5 | `feat/review-scoring` | Argon 검토 채점·수치 정책 | 대기 | — |

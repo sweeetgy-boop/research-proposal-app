@@ -24,8 +24,11 @@ EXIT_INPUT = 87
 PARSERS = {
     "pdf": "rra.adapters.sources.alio.extract.pdf",
     "hwpx": "rra.adapters.sources.alio.extract.hwpx",
+    "hwp": "rra.adapters.sources.alio.extract.hwp",
     "csv": "rra.adapters.sources.alio.extract.csv_catalog",
     "txt": "rra.adapters.sources.alio.extract.text",
+    "xlsx": "rra.adapters.sources.alio.extract.spreadsheet:extract_xlsx",
+    "xls": "rra.adapters.sources.alio.extract.spreadsheet:extract_xls",
 }
 TEST_PARSERS = {
     "_test_echo",
@@ -95,7 +98,8 @@ def main(argv: list[str]) -> int:
         return EXIT_INPUT
     try:
         if fmt in PARSERS:
-            result = importlib.import_module(PARSERS[fmt]).extract(data, limits)
+            module_name, _, func = PARSERS[fmt].partition(":")
+            result = getattr(importlib.import_module(module_name), func or "extract")(data, limits)
         elif fmt in TEST_PARSERS and limits.get("test_mode"):
             result = _run_test_parser(fmt, data, limits)
         else:

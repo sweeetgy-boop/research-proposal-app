@@ -21,7 +21,7 @@ async def test_intake_runs_precheck_and_announces_conditions():
     assert res.decisions[0].needs_human and "정책 근거 미입력" in [
         d.condition for d in res.decisions
     ]
-    assert res.uncollected == ["scienceon", "kipris_kr", "kipris_intl", "ntis"]
+    assert res.uncollected == ["scienceon", "kipris_kr", "kipris_intl", "ntis", "own"]
     assert [t.tool for t in a.trace] == ["rra_precheck", None, None]
     assert "차단 1건" in a.trace[0].summary
 

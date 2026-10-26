@@ -69,12 +69,6 @@ async def test_limit_and_hidden_and_underscore_entries_skipped(inbox, limits):
     ("name", "body", "runner", "error"),
     [
         (f"{HIDDEN_NAME}.pdf", b"PK\x03\x04", ok_runner(), "MagicMismatch"),
-        (
-            f"{HIDDEN_NAME}.hwp",
-            b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",
-            ok_runner(),
-            "UnsupportedFormat",
-        ),
         (f"{HIDDEN_NAME}.exe", b"MZ", ok_runner(), "BadExtension"),
         (f"{HIDDEN_NAME}.pdf", b"%PDF-", failing_runner(ParseTimeout("t")), "ParseTimeout"),
         (f"{HIDDEN_NAME}.pdf", b"%PDF-", failing_runner(ParseCrashed("c")), "ParseCrashed"),
@@ -169,3 +163,12 @@ def test_normalize_title_fallbacks():
 def test_normalize_rejects_empty_text():
     with pytest.raises(ValueError):
         normalize_report({"sha256": "0" * 64, "catalog": None, "extract": {"text": " "}})
+
+
+async def test_hwp_file_is_parsed_like_pdf(inbox, limits):
+    (inbox / "2024-118.hwp").write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1rest")
+    runner = ok_runner("HWP 제목\n본문")
+    src = AlioSource(inbox, limits=limits, catalog=FakeCatalog([entry("2024-118")]), runner=runner)
+    [raw] = await src.search(None, 10)
+    assert raw["fmt"] == "hwp" and runner.calls == ["hwp"]
+    assert src.normalize(raw).raw["fmt"] == "hwp"

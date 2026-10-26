@@ -16,7 +16,7 @@ from rra.adapters.sources.alio.filecheck import (
 
 from .conftest import make_hwpx
 
-ALL = frozenset({"pdf", "hwpx", "hwp", "csv"})
+ALL = frozenset({"pdf", "hwpx", "hwp", "csv", "xls", "xlsx"})
 MB = 1024 * 1024
 
 
@@ -48,8 +48,9 @@ def test_hwpx_ok(tmp_path):
         ("r.pdf", b"PK\x03\x04rest", MagicMismatch),  # 확장자 위장 (zip 인데 .pdf)
         ("r.hwpx", b"%PDF-1.4", MagicMismatch),
         ("r.pdf", b"", EmptyFile),
-        ("r.hwp", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1rest", UnsupportedFormat),
         ("r.hwp", b"%PDF-", MagicMismatch),
+        ("r.xlsx", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1rest", MagicMismatch),  # xls 를 xlsx 로
+        ("r.xls", b"PK\x03\x04", MagicMismatch),
         ("c.csv", b"PK\x03\x04", MagicMismatch),  # xlsx 를 csv 로 위장
         ("c.csv", b"a,b\x00c", MagicMismatch),
     ],
@@ -100,3 +101,25 @@ def test_error_messages_do_not_contain_path(tmp_path):
     with pytest.raises(MagicMismatch) as info:
         check(p)
     assert "비밀" not in str(info.value) and str(tmp_path) not in str(info.value)
+
+
+def test_hwp_xls_xlsx_are_identified_and_parseable(tmp_path):
+    for name, head in (
+        ("r.hwp", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1rest"),
+        ("r.xls", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1rest"),
+        ("r.xlsx", b"PK\x03\x04rest"),
+    ):
+        p = tmp_path / name
+        p.write_bytes(head)
+        with open_validated(p, max_bytes=1024, allowed=frozenset({"hwp", "xls", "xlsx"})) as vf:
+            assert vf.fmt == name.split(".")[1]
+
+
+def test_unsupported_format_is_rejected_even_with_right_magic(tmp_path, monkeypatch):
+    from rra.adapters.sources.alio import filecheck
+
+    monkeypatch.setattr(filecheck, "PARSEABLE", frozenset({"pdf"}))
+    p = tmp_path / "r.hwp"
+    p.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1rest")
+    with pytest.raises(UnsupportedFormat):
+        open_validated(p, max_bytes=1024, allowed=frozenset({"hwp"}))

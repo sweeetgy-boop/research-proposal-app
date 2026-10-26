@@ -17,6 +17,8 @@ class OverlapAlert(BaseModel):
     blocking: bool  # 임계치 초과(+ 키워드 조건) → 제안 진행 전 확인 필요
     basis: TextBasis | None = None  # summary 면 공개 요약만으로 판정한 것
     keywords: list[str] = Field(default_factory=list)  # 질의와 문서가 공유한 키워드 (일반어 제외)
+    # 사내 과제 기록의 상태 (completed·ongoing·stopped·rejected·proposed). 수집 문서 raw.status 에서
+    status: str | None = None
 
 
 class GapRow(BaseModel):

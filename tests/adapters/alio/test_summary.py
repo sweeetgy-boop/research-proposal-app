@@ -356,3 +356,21 @@ async def test_end_to_end_catalog_match_by_filename_and_warning_for_unmatched(in
     [w] = report.warnings
     assert w.code == "assumed_org" and w.detail == "korail" and w.doc_id.startswith("alio:sum-")
     assert repo.docs[w.doc_id].orgs == ["korail"]
+
+
+def test_department_label_must_look_like_an_org_unit():
+    from rra.adapters.sources.alio.summary import _department
+
+    assert _department({"department": "경영연구처"}) == "경영연구처"
+    assert _department({"department": "철도연구원 기술연구처"}) == "철도연구원 기술연구처"
+    assert _department({"department": "7개월", "pi": "경영연구처 홍길동"}) == "경영연구처"
+    assert _department({"department": "과제책임"}) is None
+
+
+def test_summary_doc_id_ignores_published_date():
+    from rra.adapters.sources.alio.summary import summary_doc_id
+
+    same = summary_doc_id(None, {"title": "자산개발 연구", "published": "2026-03-01"}, "korail")
+    assert same == summary_doc_id(None, {"title": "자산개발 연구"}, "korail")
+    assert same != summary_doc_id(None, {"title": "자산개발 연구"}, "krri")
+    assert same != summary_doc_id(None, {"title": "다른 연구"}, "korail")
