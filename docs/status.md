@@ -4,7 +4,7 @@
 개발된 것과 남은 것을 적는다. 항목마다 근거(파일·테스트·커밋)를 붙인다. 설계는 `architecture.md`,
 단계 계획은 맨 아래 "진행 계획" 표. 각 단계가 끝날 때 이 문서의 해당 행을 갱신한다.
 
-규모(main 43ff8d8 + PR #1 기준): 커밋 58, `src/rra` 파일 134, 테스트 67파일(2026-10-26 `pytest -q` 1,027 통과·10 skip), import-linter 계약 8.
+규모(main 8050d25, 2026-10-26 PR #1~#9·#15 병합 뒤): 커밋 91, `src/rra` 파일 146, 테스트 76파일(`pytest -q` 1,163 통과·12 skip — skip 은 실응답 fixture·실물 양식), import-linter 계약 8 kept, ruff 통과.
 
 ## 1. 기획서 기준표
 
@@ -73,7 +73,7 @@
 | `config/templates/korail_strategy.yaml` 전략체계 목록 | 비어 있음 → 2-가-(3) 빈칸 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
 | 웹 프론트엔드 `web/dist` | 동료가 별도 진행. API 변경 시 `openapi.json` 갱신·PR 에 "프론트엔드 영향" 기재 |
-| 운영 공개 방식(Tailscale/Cloudflare) 결정 | `docs/deploy-exposure.md` 비교 완료 — 권장 Tailscale. 결정 대기 |
+| 운영 공개 방식(Tailscale/Cloudflare) 결정 | 보류(#14 댓글): 시범(팀 3명) Tailscale / 확대(사내·산학연) Cloudflare Access 검토, 공사 정보보안 규정 확인 후 결정 |
 
 ### 3.3 나중 (P7, 이슈만)
 
@@ -94,3 +94,37 @@
 | P5 | `feat/review-scoring` | 심사 기준 4개 채점·2점 이하 의견 연결·수치 정책(알림 유지 + 검토 지적 + render_check 맨 위)·양식 밖 산출물 결정 | 완료 2026-10-26 | #8 |
 | P6 | `chore/ops` | `com.rra.ingest.plist`·`--skip-unavailable`, plist·백업 7벌 테스트, `deploy/README` 설치 순서, `deploy-exposure.md` 비교 | 완료 2026-10-26 | #9 |
 | P7 | — | 이슈 등록: 골든셋 피드백 루프 #10, 용어사전 반자동 확장 #11, reranker·임계치 재조정 #12, 공고문 반영 #13, 공개 방식 결정 #14 | 완료 2026-10-26 | 이슈 |
+| A | `fix/post-p7-decisions` | 판단 반영: own 티어 전부·세부 구분, visibility 정정, generic_terms, 차별화 자동 실행 규칙, REST 전송 기록 | 완료 2026-10-26 | #15 |
+
+## 5. 병합 결과·실제 확인 (2026-10-26)
+
+**병합** (순서대로, 매번 main 에서 `pytest -q && lint-imports && ruff check` 통과): #1 → #3 → #4 → #5 → #6 → #7 → #8 → #9 → #15.
+GitHub 가 #4 이후를 충돌로 표시해 각 브랜치에 main 을 먼저 합쳐(충돌 없음) 푸시한 뒤 병합했다.
+
+**검사** (main 8050d25): pytest 1,163 passed·12 skipped / import-linter 8 kept, 0 broken / ruff All checks passed.
+
+**자료원별 적재 (dev DB)**
+
+| source | public | internal | 비고 |
+|---|---|---|---|
+| own (엑셀 4개 과제 기록) | 1,119 | 0 | 전부 own 티어, 공개 자료 |
+| alio (공시용 요약문 + 알리오 페이지 요약) | 115 | 5 | internal 5 = 공시용 없이 일반 요약문만 있는 과제 |
+| openalex | 20 | 0 | |
+| scienceon·ntis·kipris | 0 | 0 | 키 대기 |
+
+**실제 확인**
+- Argon 검토(`rra runs review 20261026072125-17d5e269 --wait`, 2차, 36초): 채점 필요성 3·차별성 2·실현가능성 2·기대효과 3.
+  의견 22건 = 근거 불일치 7·일관성 4·서식요건 3·수치 3·중복·차별화 3·논리 2. 수정안 사용 가능 13, 폐기 0.
+  2점 기준은 tech_importance 문장 3건·method 문장 2건에 의견으로 연결됐다. 이 run 은 P1 이전 생성분이라 무관한
+  자산개발 요약을 인용했고 검토가 그것을 정확히 지적했다(근거 불일치 7건).
+- 차단 입력(자산개발 아이디어) precheck: 알림 10건·차단 2건, own:institute(사내 철도연구원)·own:company(사내 공사) 구분
+  표시, 차단 알림으로 차별화 제안 자동 실행 → 3건(폐기 0, Gemini). 전송 public 5·internal 0.
+- 공개 방식(#14): 보류 댓글 남김.
+
+**main 보호 규칙** — 켜도 되는 상태. 열린 PR 없음, 작업은 전부 브랜치 → PR 흐름. 단 저장소 협업자가 본인뿐이면
+"승인 1" 은 본인 PR 을 본인이 승인할 수 없어 막힌다(관리자 우회 허용 또는 승인 0). CI 워크플로가 없어
+"상태 검사 필수" 는 아직 걸 수 없다(검사는 로컬 명령).
+
+**남은 사람 입력**: API 키(KIPRIS Plus·NTIS 소속기관 등록 뒤 과제검색/연구보고서·ScienceON client_id/키/기기별 MAC),
+`config/templates/korail_strategy.yaml` 전략체계 목록, 연구과제 공고문(`data/inbox/notice/`), Mac mini 에 launchd 4종 실제
+등록(`deploy/README.md` 설치 순서), 공개 방식 결정(#14).
