@@ -22,6 +22,7 @@ from rra.application.services import (
     RenderUnavailable,
     RunNotResumable,
 )
+from rra.application.services.run_manager import FinalizeRejected
 from rra.domain.models import Budget, ProposalRequest
 from rra.domain.models.request import SHORT_MAX, SLOT_MAX, validation_message
 from rra.domain.models.run import ACTIVE
@@ -31,7 +32,12 @@ from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.ui import service
 from rra.entrypoints.ui.auth import require_token
 from rra.entrypoints.ui.labels import BASIS, PROBLEM, SOURCE, STATUS, clean, plain, section_title
-from rra.entrypoints.views import draft_payload, render_check_lines, render_check_payload
+from rra.entrypoints.views import (
+    draft_payload,
+    render_check_lines,
+    render_check_payload,
+    review_payload,
+)
 
 FIELDS = {
     "current_state": ("현재 상황·문제", True),
@@ -194,61 +200,98 @@ def draft_panel(view, run_id: str) -> None:
             for c in payload["citations"]:
                 st.caption(f"{c['id']} — {plain(c['title'] or '(제목 없음)', 120)}")
     confirm_panel(payload, view, run_id)
-    request = ss["rra_request"] or worker.call(
-        assistant.manager.load_request(assistant.user, run_id)
-    )
-    st.download_button(
-        "결과 JSON 다운로드",
-        data=service.download_bytes(view, request),
-        file_name=f"{run_id}.json",
-        mime="application/json",
-        key="download_btn",
-    )
-    render_panel(view, run_id)
+    review_panel(view)
+    finalize_panel(view, run_id)
 
 
-# ── 5. 제안서 받기 (hwpx) ─────────────────────────────────
-def render_panel(view, run_id: str) -> None:
-    """확정 뒤 양식 파일. 제안자·부서장 정보는 이 화면 입력값으로만 쓰고 저장하지 않는다."""
-    st.subheader("5. 제안서 받기 (hwpx)")
-    if view.state.status != "done" or view.legacy:
-        st.caption("완료(done)된 현행 양식 run 만 양식 파일로 만들 수 있습니다.")
+# ── 5. 검토 결과 (읽기 전용) ──────────────────────────────
+def review_panel(view) -> None:
+    """Argon 검토 결과는 읽기 전용 탭으로만 보여 준다 (편집·재검토는 CLI·API 에서)."""
+    summary = view.state
+    if summary.review_skipped and summary.review_rounds == 0:
+        st.caption("검토: 검토 LLM 이 없어 건너뜀(review_skipped) — 바로 마무리할 수 있습니다.")
         return
-    with st.expander("양식 하단 정보 (선택 — 파일에만 들어가고 저장되지 않습니다)"):
+    if view.review is None:
+        if summary.status == "reviewing":
+            st.caption("검토 진행 중…")
+        return
+    with st.expander(f"검토 결과 ({view.review.round}차, 읽기 전용)", expanded=False):
+        payload = review_payload(view.review, clean=clean)
+        t = payload["transfer"]
+        st.caption(
+            f"보낸 문장 {t['sentences_sent']} · 검토 제외 {t['sentences_excluded']} · "
+            f"공개 자료 {len(t['public_doc_ids'])} · 사내 자료 {len(t['internal_doc_ids'])}"
+        )
+        for c in payload["comments"]:
+            where = c["sentence_id"] or c["section"]
+            mark = "수정안" if c["usable"] else ("폐기" if c["status"] == "discarded" else "의견")
+            st.markdown(
+                f"**{c['id']}** [{c['issue_type']}] {where} — {mark}: {plain(c['comment'])}"
+            )
+            if c["revised_text"]:
+                st.caption(f"→ {plain(c['revised_text'])}")
+
+
+# ── 6. 최종 마무리 및 다운로드 ────────────────────────────
+def finalize_panel(view, run_id: str) -> None:
+    """선택형 확정(확정값 없으면 제안값)·제안자 정보·렌더 전 점검·다운로드를 한 화면에서.
+
+    내부적으로 finalize 를 호출한다 — 양식 파일은 이 경로로만 만들어진다. 제안자 정보는 저장하지
+    않는다.
+    """
+    st.subheader("5. 최종 마무리 및 다운로드")
+    if view.legacy or view.state.status not in ("done", "reviewed", "editing", "finalized"):
+        st.caption("완료된 현행 양식 run 만 마무리할 수 있습니다 (검토 중에는 불가).")
+        return
+    with st.expander("양식 하단 정보 (파일에만 들어가고 저장되지 않습니다)", expanded=False):
         c = st.columns(4)
-        proposed_on = c[0].text_input("제안일자", key=f"r_on_{run_id}", max_chars=20)
-        p_rank = c[1].text_input("제안자 직급", key=f"r_prank_{run_id}", max_chars=100)
-        p_name = c[2].text_input("제안자 성명", key=f"r_pname_{run_id}", max_chars=100)
-        p_phone = c[3].text_input("제안자 연락처", key=f"r_pphone_{run_id}", max_chars=100)
+        proposed_on = c[0].text_input("제안일자 (비면 오늘)", key=f"r_on_{run_id}", max_chars=20)
+        department = c[1].text_input("제안부서", key=f"r_dept_{run_id}", max_chars=100)
+        p_rank = c[2].text_input("제안자 직급", key=f"r_prank_{run_id}", max_chars=100)
+        p_name = c[3].text_input("제안자 성명", key=f"r_pname_{run_id}", max_chars=100)
         h = st.columns(4)
+        p_phone = h[0].text_input("제안자 연락처", key=f"r_pphone_{run_id}", max_chars=100)
         h_rank = h[1].text_input("부서장 직급", key=f"r_hrank_{run_id}", max_chars=100)
         h_name = h[2].text_input("부서장 성명", key=f"r_hname_{run_id}", max_chars=100)
         h_phone = h[3].text_input("부서장 연락처", key=f"r_hphone_{run_id}", max_chars=100)
     proposer = service.proposer_info(
-        proposed_on, (p_rank, p_name, p_phone), (h_rank, h_name, h_phone)
+        proposed_on, (p_rank, p_name, p_phone), (h_rank, h_name, h_phone), department=department
     )
-    try:
-        check = worker.call(
-            assistant.manager.render_check(assistant.user, run_id, proposer=proposer)
-        )
-        data = worker.call(assistant.manager.render(assistant.user, run_id, proposer=proposer))
-    except RenderRejected as exc:
-        st.caption(f"아직 만들 수 없습니다: {plain(exc)}")
+    if st.button("최종 마무리 및 다운로드", key="finalize_btn"):
+        try:
+            result = worker.call(
+                assistant.manager.finalize(assistant.user, run_id, proposer=proposer)
+            )
+        except (RenderRejected, FinalizeRejected, ConfirmRejected) as exc:
+            st.error(f"마무리할 수 없습니다: {plain(exc)}")
+            return
+        except RenderUnavailable as exc:
+            st.error(plain(exc))
+            return
+        ss["rra_finalized"] = {
+            "run_id": run_id,
+            "version": result.version,
+            "data": result.data,
+            "lines": render_check_lines(
+                render_check_payload(result.check, titles=assistant.rules.titles, clean=clean)
+            ),
+            "confirmed": result.confirmation.choices,
+        }
+    done = ss.get("rra_finalized")
+    if not done or done["run_id"] != run_id:
         return
-    except RenderUnavailable as exc:
-        st.caption(plain(exc))
-        return
-    lines = render_check_lines(
-        render_check_payload(check, titles=assistant.rules.titles, clean=clean)
+    st.success(
+        f"마무리 완료 (v{done['version']}) — 확정: "
+        + ", ".join(f"{k}={'/'.join(v)}" for k, v in done["confirmed"].items())
     )
-    if lines:  # 렌더 전 점검 — 받기 버튼 위에. 알림이 있어도 받을 수 있다
-        st.warning(lines[0])
-        for line in lines[1:]:
+    if done["lines"]:  # 렌더 전 점검 — 알림이 있어도 받을 수 있다
+        st.warning(done["lines"][0])
+        for line in done["lines"][1:]:
             st.caption(line)
     st.download_button(
         "제안서 받기(hwpx)",
-        data=data,
-        file_name=f"proposal-{run_id}.hwpx",
+        data=done["data"],
+        file_name=f"proposal-{run_id}-v{done['version']}.hwpx",
         mime="application/hwp+zip",
         key="download_hwpx_btn",
     )

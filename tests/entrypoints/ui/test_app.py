@@ -136,15 +136,27 @@ def test_clean_flow_generates_confirms_and_downloads(app):
     }
     assert any("확정됨" in c.value for c in at.caption)
     assert "확정값을 저장했습니다." in [s.value for s in at.success]
-    assert at.download_button[0].label == "결과 JSON 다운로드"
-    assert at.download_button[1].label == "제안서 받기(hwpx)"  # 확정 뒤 양식 파일
+    assert not at.download_button  # 마무리 전에는 내려받기 버튼이 없다 (JSON 내려받기도 없다)
+    assert any("review_skipped" in c.value for c in at.caption)  # 검토 LLM 없음 → 건너뜀 안내
+    store = worker.assistant.manager.store
+    assert worker.wait(run_id).status == "done"  # 화면을 봐도 마무리되지 않는다
+    at.text_input(key=f"r_pname_{run_id}").input("홍길동")
+    at.text_input(key=f"r_dept_{run_id}").input("철도연구원 기술연구처")
+    at.button(key="finalize_btn").click().run()
+    assert any("마무리 완료 (v1)" in s.value for s in at.success)
+    assert at.download_button[0].label == "제안서 받기(hwpx)"  # 마무리 뒤 양식 파일
     assert any("렌더 전 점검: 알림" in w.value for w in at.warning)  # 받기 버튼 위 점검 결과
     captions = [c.value for c in at.caption]
     assert any("2-가-(3) 전략방향·전략과제" in c for c in captions)
     assert any("[warning] method" in c and "수치" in c for c in captions)
     call = worker.assistant.manager.renderer.calls[-1]  # FakeRenderer 가 받은 인자
-    assert call["run_id"] == run_id and call["proposer"].proposer.name == ""  # 입력 없으면 빈칸
-    assert "proposer" not in json.dumps(store.states[("local", run_id)].model_dump())
+    assert call["run_id"] == run_id and call["proposer"].proposer.name == "홍길동"
+    assert call["proposer"].department == "철도연구원 기술연구처"
+    assert worker.wait(run_id).status == "finalized"
+    assert "홍길동" not in json.dumps(store.states[("local", run_id)].model_dump())
+    assert "홍길동" not in json.dumps(
+        {k: str(v) for k, v in vars(store).items()}, ensure_ascii=False
+    )
     view = worker.call(worker.assistant.poll(run_id))
     payload = service.download_payload(view, at.session_state["rra_request"])
     assert payload["confirmed"]["choices"]["utilization"] == ["software", "manual"]

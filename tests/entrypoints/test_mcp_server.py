@@ -106,7 +106,16 @@ async def test_tool_call_reports_input_errors_to_the_caller(server):
 
 
 # ── 쓰기 도구 (--enable-generate) ────────────────────────
-WRITE_TOOLS = {"rra_generate", "rra_get_draft", "rra_confirm", "rra_render"}
+WRITE_TOOLS = {
+    "rra_generate",
+    "rra_get_draft",
+    "rra_confirm",
+    "rra_review",
+    "rra_get_review",
+    "rra_edit",
+    "rra_finalize",
+    "rra_reopen",
+}
 SLOTS = {"current_state": "수작업", "root_cause": "센서 부재", "limitation": "주기", "goal": "자동"}
 
 
@@ -294,7 +303,7 @@ async def test_generate_accepts_form_fields_then_confirm(form_server):
         await server.call_tool("rra_confirm", {"run_id": "../x", "task_type": "basic"})
 
 
-async def test_render_tool_returns_base64_and_keeps_proposer_out_of_storage(form_server):
+async def test_finalize_tool_returns_base64_and_keeps_proposer_out_of_storage(form_server):
     import base64
     import json as _json
 
@@ -303,25 +312,64 @@ async def test_render_tool_returns_base64_and_keeps_proposer_out_of_storage(form
     server, mgr, store = form_server
     rid = (await server.call_tool("rra_generate", SLOTS)).structured_content["run_id"]
     await mgr.wait("local", rid)
-    await server.call_tool("rra_confirm", {"run_id": rid, "task_type": "basic"})
-    out = (
+    skipped = (await server.call_tool("rra_review", {"run_id": rid})).structured_content
+    assert skipped["review_skipped"] is True and skipped["status"] == "done"  # 검토 LLM 없음
+    with pytest.raises(ToolError, match="검토 결과가 없습니다|없습니다"):
+        await server.call_tool("rra_get_review", {"run_id": rid, "round_no": 7})
+    edited = (
         await server.call_tool(
-            "rra_render", {"run_id": rid, "proposer_name": "홍길동", "proposer_phone": "010-1"}
+            "rra_edit",
+            {
+                "run_id": rid,
+                "edits": {
+                    "sentences": [
+                        {
+                            "sentence_id": "s:task_type:0",
+                            "action": "manual",
+                            "text": "직접 고친 사유",
+                        }
+                    ]
+                },
+            },
         )
     ).structured_content
-    assert out["filename"] == f"proposal-{rid}.hwpx" and out["size"] > 0
+    assert edited["version"] == 2 and edited["status"] == "editing"
+    assert edited["sections"][0]["sentences"][0]["origin"] == "proposer"
+    out = (
+        await server.call_tool(
+            "rra_finalize",
+            {
+                "run_id": rid,
+                "task_type": "basic",
+                "proposer_name": "홍길동",
+                "proposer_phone": "010-1",
+                "department": "기술연구처",
+            },
+        )
+    ).structured_content
+    assert out["filename"] == f"proposal-{rid}-v2.hwpx" and out["size"] > 0
+    assert out["status"] == "finalized" and out["confirmed"]["task_type"] == ["basic"]
+    assert out["confirmed"]["utilization"] == ["software"]  # 제안값이 기본
+    assert "count" in out["check"]
     body = _json.loads(base64.b64decode(out["content_base64"]))
     assert body["proposer"]["proposer"]["name"] == "홍길동"
-    assert body["confirmed"] == {"task_type": ["basic"]}
+    assert body["proposer"]["department"] == "기술연구처"
     # 제안자 정보는 run 저장소·manifest 어디에도 없다
     dumped = _json.dumps(
         {k: str(v) for k, v in vars(store).items()}, ensure_ascii=False, default=str
     ) + _json.dumps(mgr.run_log.records, ensure_ascii=False, default=str)
-    assert "홍길동" not in dumped and "010-1" not in dumped
+    assert "홍길동" not in dumped and "010-1" not in dumped and "기술연구처" not in dumped
+    reopened = (await server.call_tool("rra_reopen", {"run_id": rid})).structured_content
+    assert reopened["status"] == "editing"
     with pytest.raises(ToolError, match="run_id 형식"):
-        await server.call_tool("rra_render", {"run_id": "../x"})
+        await server.call_tool("rra_finalize", {"run_id": "../x"})
     with pytest.raises(ToolError, match="해당 run|run 이 없습니다"):
-        await server.call_tool("rra_render", {"run_id": "20260101000000-deadbeef"})
+        await server.call_tool("rra_finalize", {"run_id": "20260101000000-deadbeef"})
+    with pytest.raises(ToolError, match="finalized"):
+        await server.call_tool("rra_reopen", {"run_id": rid})
+    tools = {t.name: t for t in await server.list_tools()}
+    assert tools["rra_finalize"].annotations.read_only_hint is False
+    assert tools["rra_get_review"].annotations.read_only_hint is True
 
 
 async def test_confirm_tool_is_not_read_only(form_server):

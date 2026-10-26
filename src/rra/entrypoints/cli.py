@@ -538,17 +538,13 @@ def cmd_runs_purge(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def cmd_runs_render(args: argparse.Namespace) -> int:
-    """완료된 run → HWPX 파일. 제안자 정보는 플래그로만 받고 run 폴더·로그에 남기지 않는다."""
-    from rra.application.ports.renderer import RenderRejected
-    from rra.application.services import RenderUnavailable
-    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+def _proposer_from_args(args: argparse.Namespace):
     from rra.domain.models import ProposerInfo
     from rra.domain.models.proposer import Person
-    from rra.entrypoints.views import render_check_lines, render_check_payload
 
-    proposer = ProposerInfo(
+    return ProposerInfo(
         proposed_on=args.proposed_on or "",
+        department=getattr(args, "department", None) or "",
         proposer=Person(
             name=args.proposer_name or "",
             rank=args.proposer_rank or "",
@@ -559,29 +555,214 @@ def cmd_runs_render(args: argparse.Namespace) -> int:
         ),
     )
 
-    async def run() -> tuple[list[str], bytes]:
-        mgr = build_run_manager(load_settings())
-        try:
-            check = await mgr.render_check(LOCAL_USER, args.run_id, proposer=proposer)
-            payload = render_check_payload(check, titles=mgr.generate.rules.titles)
-            lines = render_check_lines(payload)
-            return lines, await mgr.render(LOCAL_USER, args.run_id, proposer=proposer)
-        finally:
-            await mgr.generate.llm.aclose()
 
-    try:
-        lines, data = asyncio.run(run())
-    except (RenderRejected, RenderUnavailable) as exc:
-        _eprint(f"렌더 거부: {exc}")
-        return EXIT_USAGE
-    for line in lines:  # 렌더 전 점검 — 알림이 있어도 저장은 한다
-        print(line)
-    out = Path(args.out)
+def _write_owner_only(out: Path, data: bytes) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "wb") as f:
         f.write(data)
-    print(f"저장: {out} ({len(data):,} bytes)")
+
+
+def cmd_runs_finalize(args: argparse.Namespace) -> int:
+    """최종 마무리: 선택형 확정(인자 없으면 제안값) + 제안자 정보 + 렌더 전 점검 → finalized → HWPX.
+
+    제안자 정보·제안부서·제안일자는 플래그로만 받고 run 폴더·로그에 남기지 않는다.
+    """
+    from rra.application.ports.renderer import RenderRejected
+    from rra.application.services import ConfirmRejected, RenderUnavailable
+    from rra.application.services.run_manager import FinalizeRejected
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.entrypoints.views import render_check_lines, render_check_payload
+
+    proposer = _proposer_from_args(args)
+    choices: dict[str, list[str]] = {}
+    if args.task_type:
+        choices["task_type"] = [args.task_type]
+    if args.utilization:
+        choices["utilization"] = _csv(args.utilization)
+    if args.strategy:
+        choices["strategy_alignment"] = _csv(args.strategy)
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            result = await mgr.finalize(
+                LOCAL_USER, args.run_id, choices=choices or None, proposer=proposer
+            )
+            payload = render_check_payload(result.check, titles=mgr.generate.rules.titles)
+            return result, render_check_lines(payload)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        result, lines = asyncio.run(run())
+    except (RenderRejected, RenderUnavailable, FinalizeRejected, ConfirmRejected) as exc:
+        _eprint(f"마무리 거부: {exc}")
+        return EXIT_USAGE
+    for line in lines:  # 렌더 전 점검 — 알림이 있어도 저장은 한다
+        print(line)
+    out = Path(args.out)
+    _write_owner_only(out, result.data)
+    confirmed = ", ".join(f"{k}={'/'.join(v)}" for k, v in result.confirmation.choices.items())
+    print(f"상태: finalized (v{result.version}) 확정: {confirmed}")
+    print(f"저장: {out} ({len(result.data):,} bytes)")
+    return EXIT_OK
+
+
+def cmd_runs_review(args: argparse.Namespace) -> int:
+    """검토(n차) 시작. 검토 LLM 이 없으면 건너뛰고 review_skipped 기록. --wait 는 끝까지 대기."""
+    from rra.application.ports import RunBusy
+    from rra.application.services import QueueFull
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.domain.rules.review_flow import InvalidTransition
+    from rra.entrypoints.views import review_payload
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            state = await mgr.review(LOCAL_USER, args.run_id)
+            if args.wait and state.status == "reviewing":
+                state = await mgr.wait(LOCAL_USER, args.run_id)
+            review = await mgr.get_review(LOCAL_USER, args.run_id)
+            return state, review
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        state, review = asyncio.run(run())
+    except (QueueFull, RunBusy, InvalidTransition) as exc:
+        _eprint(f"검토 거부: {exc}")
+        return EXIT_USAGE
+    if args.json:
+        print(
+            json.dumps(
+                review_payload(review) if review else {"status": state.status},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return EXIT_OK
+    if state.review_skipped and state.review_rounds == 0:
+        print(f"[run {state.run_id}] 검토 LLM 없음 — 건너뜀 기록(review_skipped). 마무리 가능.")
+        return EXIT_OK
+    print(f"[run {state.run_id}] 상태 {state.status}, 검토 {state.review_rounds}차 완료")
+    if review and review.status == "done":
+        usable = sum(1 for c in review.comments if c.usable)
+        discarded = sum(1 for c in review.comments if c.status == "discarded")
+        t = review.transfer
+        print(
+            f" {review.round}차: 의견 {len(review.comments)}건 (수정안 사용 가능 {usable}, "
+            f"폐기 {discarded}), 보낸 문장 {t.sentences_sent}, 검토 제외 {t.sentences_excluded}"
+        )
+        for c in review.comments:
+            where = f"s:{c.section}:{c.sentence}" if c.sentence is not None else c.section
+            mark = "✔" if c.usable else ("✘" if c.status == "discarded" else "·")
+            print(f"  {mark} {c.id} [{c.issue_type}] {where}: {_safe(c.comment, 120)}")
+    return EXIT_OK
+
+
+def cmd_runs_edit(args: argparse.Namespace) -> int:
+    """편집 반영 (--from <json>: {sentences:[…], sections:[…], note}) → 새 버전."""
+    from pydantic import ValidationError
+
+    from rra.application.services.run_manager import EditRejected
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.domain.models.request import validation_message
+    from rra.domain.models.review import EditRequest
+
+    try:
+        edits = EditRequest.model_validate(
+            json.loads(Path(args.from_file).read_text(encoding="utf-8"))
+        )
+    except (OSError, ValueError) as exc:
+        _eprint(f"편집 파일을 읽을 수 없습니다: {type(exc).__name__}")
+        return EXIT_USAGE
+    except ValidationError as exc:
+        _eprint(f"편집 형식 오류: {validation_message(exc)}")
+        return EXIT_USAGE
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.apply_edits(LOCAL_USER, args.run_id, edits)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        version = asyncio.run(run())
+    except EditRejected as exc:
+        _eprint(f"편집 거부: {exc}")
+        return EXIT_USAGE
+    print(f"[run {args.run_id}] v{version.version} 저장 ({version.origin}) — 상태 editing")
+    return EXIT_OK
+
+
+def cmd_runs_versions(args: argparse.Namespace) -> int:
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.entrypoints.views import versions_payload
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.versions(LOCAL_USER, args.run_id)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    rows = versions_payload(asyncio.run(run()))
+    if args.json:
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    for r in rows:
+        extra = f" ← v{r['reverted_from']}" if r["reverted_from"] else ""
+        print(
+            f" v{r['version']:<3} {r['origin']:<7} {r['created_at'] or '-'}  "
+            f"문장 {r['sentences']}{extra}  {_safe(r['note'], 60)}"
+        )
+    return EXIT_OK
+
+
+def cmd_runs_revert(args: argparse.Namespace) -> int:
+    from rra.application.services.run_manager import EditRejected
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+
+    target = args.to.lower().lstrip("v")
+    if not target.isdigit():
+        _eprint("--to 는 v3 처럼 버전 번호입니다.")
+        return EXIT_USAGE
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.revert(LOCAL_USER, args.run_id, int(target))
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        version = asyncio.run(run())
+    except EditRejected as exc:
+        _eprint(f"되돌리기 거부: {exc}")
+        return EXIT_USAGE
+    print(f"[run {args.run_id}] v{version.reverted_from} → v{version.version} 저장 — 상태 editing")
+    return EXIT_OK
+
+
+def cmd_runs_reopen(args: argparse.Namespace) -> int:
+    from rra.application.services.run_manager import EditRejected
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.reopen(LOCAL_USER, args.run_id)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        state = asyncio.run(run())
+    except EditRejected as exc:
+        _eprint(f"다시 열기 거부: {exc}")
+        return EXIT_USAGE
+    print(f"[run {state.run_id}] 상태 {state.status}")
     return EXIT_OK
 
 
@@ -766,16 +947,42 @@ def build_parser() -> argparse.ArgumentParser:
     rc.add_argument("--strategy", help="전략과제 id, 쉼표로 구분 (1~2개)")
     rc.add_argument("--json", action="store_true")
     rc.set_defaults(handler=cmd_runs_confirm)
-    rr = runs_sub.add_parser("render", help="완료된 run 을 별지 제2호서식 HWPX 로 저장")
+    rr = runs_sub.add_parser(
+        "finalize", help="최종 마무리 → 별지 제2호서식 HWPX (검토 1회 이상 또는 건너뜀 뒤)"
+    )
     rr.add_argument("run_id")
     rr.add_argument("--out", required=True, help="저장할 .hwpx 경로")
-    rr.add_argument("--proposed-on", help="제안일자 (양식 하단, 저장되지 않음)")
+    rr.add_argument("--task-type", choices=["basic", "applied", "development"], help="과제유형")
+    rr.add_argument("--utilization", help="활용계획 id (쉼표)")
+    rr.add_argument("--strategy", help="전략과제 id (쉼표, 1~2개)")
+    rr.add_argument("--department", help="제안부서 (양식 하단에만, 저장되지 않음)")
+    rr.add_argument("--proposed-on", help="제안일자 (비면 오늘, 저장되지 않음)")
     for who, label in (("proposer", "제안자"), ("head", "제안부서장")):
         for field_name, desc in (("rank", "직급"), ("name", "성명"), ("phone", "연락처")):
             rr.add_argument(
                 f"--{who}-{field_name}", help=f"{label} {desc} (양식 하단에만, 저장되지 않음)"
             )
-    rr.set_defaults(handler=cmd_runs_render)
+    rr.set_defaults(handler=cmd_runs_finalize)
+    rv = runs_sub.add_parser("review", help="검토(Argon) n차 시작 — 키 없으면 건너뜀 기록")
+    rv.add_argument("run_id")
+    rv.add_argument("--wait", action="store_true", help="검토가 끝날 때까지 기다린다")
+    rv.add_argument("--json", action="store_true")
+    rv.set_defaults(handler=cmd_runs_review)
+    re_ = runs_sub.add_parser("edit", help="편집 반영 → 새 초안 버전")
+    re_.add_argument("run_id")
+    re_.add_argument("--from", dest="from_file", required=True, help="편집 JSON 파일")
+    re_.set_defaults(handler=cmd_runs_edit)
+    rvs = runs_sub.add_parser("versions", help="초안 버전 목록")
+    rvs.add_argument("run_id")
+    rvs.add_argument("--json", action="store_true")
+    rvs.set_defaults(handler=cmd_runs_versions)
+    rrv = runs_sub.add_parser("revert", help="이전 버전으로 되돌리기 (새 버전으로 저장)")
+    rrv.add_argument("run_id")
+    rrv.add_argument("--to", required=True, help="예: v2")
+    rrv.set_defaults(handler=cmd_runs_revert)
+    ro = runs_sub.add_parser("reopen", help="마무리된 run 다시 열기 → editing")
+    ro.add_argument("run_id")
+    ro.set_defaults(handler=cmd_runs_reopen)
     rp = runs_sub.add_parser("purge", help="보존 기간(security.yaml retention_days) 지난 run 삭제")
     rp.add_argument("--dry-run", action="store_true", help="지울 대상만 보여 주고 삭제하지 않는다")
     rp.add_argument("--json", action="store_true")

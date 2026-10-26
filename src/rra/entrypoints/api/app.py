@@ -28,6 +28,7 @@ from rra.application.services import (
     RenderUnavailable,
     RunNotResumable,
 )
+from rra.application.services.run_manager import FinalizeRejected
 from rra.domain.models import ProposalRequest, ProposerInfo
 from rra.domain.models.proposer import Person
 from rra.domain.models.request import validation_message
@@ -170,18 +171,22 @@ def create_app(
         return {"run_id": run_id, "confirmed": confirmation.choices}
 
     async def _render(run_id: str, proposer: ProposerInfo | None) -> Response:
+        """양식 파일은 finalize 로만 만든다 — 선택형은 제안값 기본, 상태는 finalized 로."""
         try:
-            data = await manager.render(user, _run_id(run_id), proposer=proposer)
+            result = await manager.finalize(user, _run_id(run_id), proposer=proposer)
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
-        except RenderRejected as exc:
+        except (RenderRejected, FinalizeRejected, ConfirmRejected) as exc:
             raise HTTPException(409, str(exc)) from exc
         except RenderUnavailable as exc:
             raise HTTPException(503, str(exc)) from exc
         return Response(
-            content=data,
+            content=result.data,
             media_type=HWPX_MEDIA_TYPE,
-            headers={"content-disposition": f'attachment; filename="proposal-{run_id}.hwpx"'},
+            headers={
+                "content-disposition": f'attachment; filename="proposal-{run_id}.hwpx"',
+                "x-rra-version": str(result.version),
+            },
         )
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/render-check")

@@ -613,6 +613,18 @@ class RunManager:
                 out.append(v)
         return out
 
+    async def get_review(
+        self, user: str, run_id: str, round_no: int | None = None
+    ) -> ReviewRound | None:
+        """검토 결과 — round_no 가 없으면 최신 차수. 없으면 None."""
+        await self.status(user, run_id)
+        rounds = self.store.list_reviews(user, run_id)
+        if not rounds:
+            return None
+        if round_no is None:
+            round_no = rounds[-1]
+        return self.store.load_review(user, run_id, round_no) if round_no >= 1 else None
+
     async def get_version(self, user: str, run_id: str, version: int) -> DraftVersion:
         await self.status(user, run_id)
         found = self.store.load_version(user, run_id, version) if version >= 1 else None
@@ -815,7 +827,8 @@ class RunManager:
     async def render(
         self, user: str, run_id: str, *, proposer: ProposerInfo | None = None
     ) -> bytes:
-        """완료(done)된 run 을 양식 파일로. 체크 칸은 확정값으로만, 제안자 정보는 인자로만.
+        """이미 마무리(finalized)된 run 의 양식 파일을 다시 만든다. 그 밖의 상태는 거부 —
+        양식 파일은 finalize 로만 만든다 (domain/rules/review_flow.can_render).
 
         제안자 정보는 저장하지 않는다 (run 폴더·manifest·로그 어디에도).
         """
@@ -824,8 +837,10 @@ class RunManager:
         view = await self.get_draft(user, run_id)
         if view.legacy:
             raise RenderRejected(LEGACY_HINT.format(run_id=run_id))
-        if view.state.status != "done":
-            raise RenderRejected(f"{view.state.status} 상태의 run 은 렌더할 수 없습니다 (done 만).")
+        if not review_flow.can_render(view.state.status):
+            raise RenderRejected(
+                f"{view.state.status} 상태의 run 은 렌더할 수 없습니다 — 양식 파일은 finalize 로만."
+            )
         draft = Draft(
             run_id=run_id,
             request=self.store.load_request(user, run_id),

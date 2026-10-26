@@ -1,4 +1,5 @@
-"""MCP 쓰기 도구 본체 — rra_generate · rra_get_draft · rra_confirm. mcp SDK 를 import 하지 않는다.
+"""MCP 쓰기 도구 본체 — rra_generate · rra_get_draft · rra_confirm · rra_review · rra_get_review ·
+rra_edit · rra_finalize · rra_reopen. mcp SDK 를 import 하지 않는다.
 
 권한 경계 (G-MCP):
 - RunManager 를 받는 유일한 MCP 객체다. 읽기 도구(tools.py)는 이 모듈·RunManager 를
@@ -24,12 +25,20 @@ from rra.application.services import (
     RunManager,
     RunNotResumable,
 )
+from rra.application.services.run_manager import EditRejected, FinalizeRejected
 from rra.domain.models import Budget, ProposalRequest, ProposerInfo
 from rra.domain.models.proposer import Person
+from rra.domain.models.review import EditRequest
 from rra.domain.models.run import is_valid_run_id
+from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.trust import UNTRUSTED_NOTICE, escape_untrusted
 from rra.entrypoints.mcp.tools import ToolInputError
-from rra.entrypoints.views import draft_payload
+from rra.entrypoints.views import (
+    draft_payload,
+    render_check_payload,
+    review_payload,
+    version_payload,
+)
 
 POLL_HINT = "생성은 수 분 걸린다. rra_get_draft(run_id) 로 진행 상황과 부분 초안을 확인한다."
 
@@ -124,11 +133,60 @@ class RraRunTools:
             raise ToolInputError(str(exc)) from exc
         return {"run_id": run_id, "confirmed": confirmation.choices}
 
-    async def render(
+    # ── [5] 검토 → 편집 → 마무리 → 다시 열기 ───────────────
+    async def review(self, run_id: str) -> dict[str, Any]:
+        """검토(n차)를 시작한다. 검토 LLM 이 없으면 건너뛰고 review_skipped 를 기록한다."""
+        rid = _run_id(run_id)
+        try:
+            state = await self._manager.review(self._user, rid)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        except (QueueFull, RunBusy, InvalidTransition) as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {
+            "run_id": rid,
+            "status": state.status,
+            "review_rounds": state.review_rounds,
+            "review_skipped": state.review_skipped,
+            "hint": "검토는 수 분 걸린다. rra_get_review(run_id) 로 결과를 확인한다.",
+        }
+
+    async def get_review(self, run_id: str, round_no: int | None = None) -> dict[str, Any]:
+        rid = _run_id(run_id)
+        try:
+            review = await self._manager.get_review(self._user, rid, round_no)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        if review is None:
+            raise ToolInputError("검토 결과가 없습니다.")
+        return {"notice": UNTRUSTED_NOTICE, **review_payload(review, clean=escape_untrusted)}
+
+    async def edit(self, run_id: str, edits: dict[str, Any]) -> dict[str, Any]:
+        """제안자 편집 반영 → 새 버전. edits = {sentences: [...], sections: [...], note: ""}."""
+        rid = _run_id(run_id)
+        request = EditRequest.model_validate(edits)  # 형식 오류는 ValidationError
+        try:
+            version = await self._manager.apply_edits(self._user, rid, request)
+            state = await self._manager.status(self._user, rid)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        except EditRejected as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {
+            "run_id": rid,
+            "status": state.status,
+            **version_payload(version, clean=escape_untrusted),
+        }
+
+    async def finalize(
         self,
         run_id: str,
         *,
+        task_type: str | None = None,
+        utilization: list[str] | None = None,
+        strategy: list[str] | None = None,
         proposed_on: str = "",
+        department: str = "",
         proposer_rank: str = "",
         proposer_name: str = "",
         proposer_phone: str = "",
@@ -136,23 +194,50 @@ class RraRunTools:
         head_name: str = "",
         head_phone: str = "",
     ) -> dict[str, Any]:
-        """완료된 run → HWPX(base64). 제안자 정보는 이 호출 인자로만 받고 저장하지 않는다."""
+        """최종 마무리 → HWPX(base64). 선택값은 넘긴 것만 덮어쓰고 나머지는 제안값. 제안자 정보는
+        이 호출 인자로만 받고 저장하지 않는다. 양식 파일은 이 도구로만 만든다."""
         rid = _run_id(run_id)
+        choices: dict[str, list[str]] = {}
+        if task_type:
+            choices["task_type"] = [task_type]
+        if utilization:
+            choices["utilization"] = list(utilization)
+        if strategy:
+            choices["strategy_alignment"] = list(strategy)
         proposer = ProposerInfo(
             proposed_on=proposed_on,
+            department=department,
             proposer=Person(name=proposer_name, rank=proposer_rank, phone=proposer_phone),
             head=Person(name=head_name, rank=head_rank, phone=head_phone),
         )
         try:
-            data = await self._manager.render(self._user, rid, proposer=proposer)
+            result = await self._manager.finalize(
+                self._user, rid, choices=choices or None, proposer=proposer
+            )
         except RunNotFound as exc:
             raise ToolInputError("해당 run 이 없습니다.") from exc
-        except (RenderRejected, RenderUnavailable) as exc:
+        except (FinalizeRejected, ConfirmRejected, RenderRejected, RenderUnavailable) as exc:
             raise ToolInputError(str(exc)) from exc
         return {
             "run_id": rid,
-            "filename": f"proposal-{rid}.hwpx",
+            "status": result.state.status,
+            "version": result.version,
+            "confirmed": result.confirmation.choices,
+            "check": render_check_payload(
+                result.check, titles=self._manager.generate.rules.titles, clean=escape_untrusted
+            ),
+            "filename": f"proposal-{rid}-v{result.version}.hwpx",
             "media_type": "application/hwp+zip",
-            "size": len(data),
-            "content_base64": base64.b64encode(data).decode("ascii"),
+            "size": len(result.data),
+            "content_base64": base64.b64encode(result.data).decode("ascii"),
         }
+
+    async def reopen(self, run_id: str) -> dict[str, Any]:
+        rid = _run_id(run_id)
+        try:
+            state = await self._manager.reopen(self._user, rid)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        except EditRejected as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {"run_id": rid, "status": state.status}

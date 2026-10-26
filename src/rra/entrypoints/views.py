@@ -90,7 +90,106 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
             }
             for p in state.problems
         ],
+        # [5] 검토·버전 요약 (의견 본문은 review_payload 로)
+        "version": getattr(view, "version", 1),
+        "versions": list(getattr(view, "versions", []) or []),
+        "review": review_summary(state, getattr(view, "review", None)),
     }
+
+
+def review_summary(state: Any, latest: Any) -> dict[str, Any]:
+    return {
+        "rounds": state.review_rounds,
+        "skipped": state.review_skipped,
+        "error": state.review_error,
+        "model": state.review_model,
+        "latest_round": latest.round if latest else None,
+        "latest_status": latest.status if latest else None,
+        "open_comments": len(latest.open_comments) if latest else 0,
+        "finalized_at": state.finalized_at,
+    }
+
+
+def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """ReviewRound → dict. 의견·수정안은 외부 LLM 출력(비신뢰 텍스트) — clean 을 거친다."""
+    return {
+        "round": review.round,
+        "draft_version": review.draft_version,
+        "status": review.status,
+        "skipped_reason": review.skipped_reason,
+        "created_at": review.created_at,
+        "excluded_sentences": list(review.excluded_sentences),
+        "resolved_ids": list(review.resolved_ids),
+        "transfer": {
+            "provider": review.transfer.provider,
+            "model": review.transfer.model,
+            "public_doc_ids": list(review.transfer.public_doc_ids),
+            "internal_doc_ids": list(review.transfer.internal_doc_ids),
+            "sentences_sent": review.transfer.sentences_sent,
+            "sentences_excluded": review.transfer.sentences_excluded,
+            "calls": review.transfer.calls,
+        },
+        "comments": [
+            {
+                "id": c.id,
+                "section": c.section,
+                "sentence": c.sentence,
+                "sentence_id": f"s:{c.section}:{c.sentence}" if c.sentence is not None else None,
+                "issue_type": c.issue_type,
+                "comment": clean(c.comment),
+                "revised_text": clean(c.revised_text) if c.revised_text else None,
+                "evidence": list(c.evidence),
+                "status": c.status,
+                "usable": c.usable,
+                "discard_reason": c.discard_reason,
+            }
+            for c in review.comments
+        ],
+    }
+
+
+def version_payload(version: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    return {
+        "version": version.version,
+        "origin": version.origin,
+        "created_at": version.created_at,
+        "based_on_review": version.based_on_review,
+        "reverted_from": version.reverted_from,
+        "note": version.note,
+        "sections": [
+            {
+                "key": sec.key,
+                "sentences": [
+                    {
+                        "sentence_id": f"s:{sec.key}:{i}",
+                        "text": clean(sent.text),
+                        "evidence": list(sent.evidence),
+                        "origin": sent.origin,
+                        "source": _source(sent),
+                    }
+                    for i, sent in enumerate(sec.sentences)
+                ],
+                "choices": list(sec.choices),
+            }
+            for sec in version.sections
+        ],
+    }
+
+
+def versions_payload(versions: list[Any]) -> list[dict[str, Any]]:
+    """버전 목록 — 본문 없이 메타만."""
+    return [
+        {
+            "version": v.version,
+            "origin": v.origin,
+            "created_at": v.created_at,
+            "based_on_review": v.based_on_review,
+            "reverted_from": v.reverted_from,
+            "note": v.note,
+            "sentences": sum(len(s.sentences) for s in v.sections),
+        }
+        for v in versions
+    ]
 
 
 # 한 줄 칸 slot → 양식 칸 이름 (render_check 출력용). 섹션 키는 rules.yaml titles 로 푼다.

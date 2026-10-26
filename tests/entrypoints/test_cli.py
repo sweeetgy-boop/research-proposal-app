@@ -618,7 +618,7 @@ def test_generate_shows_proposed_choice_then_confirm(form_env, capsys):
     assert task["confirmed"] == [{"id": "development", "label": "개발연구"}]
 
 
-def test_runs_render_writes_owner_only_file_and_keeps_proposer_out_of_runs(
+def test_runs_finalize_writes_owner_only_file_and_keeps_proposer_out_of_runs(
     form_env, tmp_path, capsys
 ):
     import os
@@ -632,7 +632,7 @@ def test_runs_render_writes_owner_only_file_and_keeps_proposer_out_of_runs(
     code = cli.main(
         [
             "runs",
-            "render",
+            "finalize",
             run_id,
             "--out",
             str(out),
@@ -642,10 +642,13 @@ def test_runs_render_writes_owner_only_file_and_keeps_proposer_out_of_runs(
             "010-9",
             "--proposed-on",
             "2026-10-23",
+            "--department",
+            "기술연구처",
         ]
     )
     printed = capsys.readouterr().out
     assert code == cli.EXIT_OK and "저장:" in printed
+    assert "상태: finalized (v1) 확정: task_type=applied" in printed
     # 렌더 전 점검이 먼저 찍히고, 알림이 있어도 저장은 된다
     assert "렌더 전 점검: 알림 1건 (렌더는 진행합니다)" in printed
     assert "칸 길이 초과(한 줄 칸): 제안자 성명 3자 > 2자" in printed
@@ -659,9 +662,16 @@ def test_runs_render_writes_owner_only_file_and_keeps_proposer_out_of_runs(
     dumped = json.dumps({k: str(v) for k, v in vars(store).items()}, ensure_ascii=False)
     assert "홍길동" not in dumped and "010-9" not in dumped  # run 폴더(저장소)에 없다
     assert form_env["renderer"].calls[-1]["proposer"].proposer.name == "홍길동"
+    assert form_env["renderer"].calls[-1]["proposer"].department == "기술연구처"
+    assert cli.main(["runs", "versions", run_id]) == cli.EXIT_OK
+    assert " v1   local" in capsys.readouterr().out
+    assert cli.main(["runs", "reopen", run_id]) == cli.EXIT_OK
+    assert "상태 editing" in capsys.readouterr().out
+    assert cli.main(["runs", "review", run_id]) == cli.EXIT_OK  # 검토 LLM 없음 → 건너뜀
+    assert "건너뜀 기록(review_skipped)" in capsys.readouterr().out
 
 
-def test_runs_render_refusal_is_a_usage_error(form_env, tmp_path, capsys):
+def test_runs_finalize_refusal_is_a_usage_error(form_env, tmp_path, capsys):
     from rra.application.ports.renderer import RenderRejected
 
     class Refusing:
@@ -673,8 +683,8 @@ def test_runs_render_refusal_is_a_usage_error(form_env, tmp_path, capsys):
     cli.main(["generate", *GEN_ARGS])
     run_id = capsys.readouterr().out.split("[run ", 1)[1].split("]", 1)[0]
     out = tmp_path / "p.hwpx"
-    assert cli.main(["runs", "render", run_id, "--out", str(out)]) == cli.EXIT_USAGE
-    assert "렌더 거부: 확정되지 않은" in capsys.readouterr().err and not out.exists()
+    assert cli.main(["runs", "finalize", run_id, "--out", str(out)]) == cli.EXIT_USAGE
+    assert "마무리 거부: 확정되지 않은" in capsys.readouterr().err and not out.exists()
 
 
 def test_confirm_rejects_values_outside_the_rules(form_env, capsys):

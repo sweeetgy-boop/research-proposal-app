@@ -69,11 +69,16 @@ def download_payload(view, request) -> dict[str, Any]:
 
 
 def proposer_info(
-    proposed_on: str, proposer: tuple[str, str, str], head: tuple[str, str, str]
+    proposed_on: str,
+    proposer: tuple[str, str, str],
+    head: tuple[str, str, str],
+    *,
+    department: str = "",
 ) -> ProposerInfo:
     """화면 입력 → ProposerInfo (직급, 성명, 연락처 순). 세션 밖으로 저장되지 않는다."""
     return ProposerInfo(
         proposed_on=(proposed_on or "").strip(),
+        department=(department or "").strip(),
         proposer=Person(rank=proposer[0] or "", name=proposer[1] or "", phone=proposer[2] or ""),
         head=Person(rank=head[0] or "", name=head[1] or "", phone=head[2] or ""),
     )
