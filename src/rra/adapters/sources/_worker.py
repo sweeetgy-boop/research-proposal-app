@@ -51,7 +51,8 @@ def _setrlimit(which: int, soft: int, hard: int | None = None) -> None:
 def apply_limits(limits: dict[str, Any]) -> None:
     mem = int(limits["mem_mb"]) * 1024 * 1024
     cpu = math.ceil(float(limits["timeout_sec"])) + 1
-    _setrlimit(resource.RLIMIT_AS, mem)
+    # RLIMIT_AS 는 쓰지 않는다 — 가상 주소 공간은 공유 라이브러리 매핑(pymupdf·sqlite 등)까지 세어 리눅스(CI)에서
+    # 1~2GB 로도 import 가 실패한다. 힙 상한은 RLIMIT_DATA, 실제 상주 메모리는 부모의 RSS 감시가 막는다(_sandbox).
     _setrlimit(resource.RLIMIT_DATA, mem)
     _setrlimit(resource.RLIMIT_CPU, cpu, cpu + 5)
     _setrlimit(resource.RLIMIT_FSIZE, 0)  # 파일 쓰기 금지 (stdout 파이프는 해당 없음)
