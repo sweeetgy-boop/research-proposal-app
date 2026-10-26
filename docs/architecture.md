@@ -583,6 +583,17 @@ precheck 결과에 차단 또는 기준 근접(유사도 ≥ 티어 임계치 ×
   덧붙이는 방식만 설계로 남긴다 — `renderer.render(..., attachments=[...])` 인자와 `slots.yaml attachments` 블록,
   양식 본문은 바꾸지 않고 새 구역(section)을 추가. 구현은 보류.
 
+### 4.12 운영 준비 (2026-10-26, P6)
+
+- launchd 4종(`deploy/launchd/`): mlx(상시)·api(상시)·backup(03:30, `--keep 7`)·**ingest(02:30, 신규)**. 야간 적재는
+  `rra ingest --source openalex,alio,alio_summary,own_projects,own_docs,scienceon,ntis,kipris --skip-unavailable` —
+  `composition.build_available_sources` 가 키 없는 자료원(MissingCredential)을 건너뛰고(변수 이름만 stderr), 한 자료원이
+  실패해도 `IngestSources` 가 소스별로 격리해 나머지를 계속한다. 백업보다 먼저 돌아 그날 사본에 들어간다.
+- `tests/deploy/test_launchd_plists.py`: plist 4종 파싱·라벨·127.0.0.1 바인딩·비밀 없음·일정·`--keep 7` 과 실제 회전(7벌).
+- `deploy/README.md`: Mac mini 처음 설치 순서(uv·mlx-lm·모델 내려받기·.env 600·launchctl load 4종·점검 명령·REST 요약).
+- 외부 공개는 결정 전 — `docs/deploy-exposure.md` 에 Tailscale serve / Cloudflare Tunnel 비교(접근 범위·제어·데이터 경계·
+  비용)와 필요한 설정만. 권장은 소수 동료 시범 운영이면 Tailscale(사내 자료가 제3자 엣지를 거치지 않음). 구현 없음.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -1091,6 +1102,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (P6) | 운영 준비(§4.12): `com.rra.ingest.plist`, `rra ingest --skip-unavailable`·`build_available_sources`, plist 테스트, `deploy/README.md` 설치 순서, `docs/deploy-exposure.md` |
 | 2026-10-26 (P5) | 검토 고도화(§4.11): `ReviewRound.scores`·`CriterionScore`·`score_comments`, `parse_scores`, review.md 채점·수치 정책, `RenderCheck.unsupported_numbers`(맨 위 표시), 화면·CLI·API 점수 표시, manifest scores |
 | 2026-10-26 (P4) | 외부 자료원 전수 점검(§4.10, `docs/external-apis.md`): KIPRIS 어댑터(`adapters/sources/kipris/`, `sources.yaml kipris`, `RRA_KIPRIS_KEY`), `rra sources check` kipris·record_tag 진단, 녹화 도구 kipris, `.env.example` 정리 |
 | 2026-10-26 (P3) | 기획서 기능 2 유사과제 활용·차별화 제안(§4.9): `domain/rules/differentiation.py`, `usecases/differentiate.py`, `ProposalRequest.differentiation`, `llm.yaml stages.differentiate`, `prompts/differentiate.md`, agent_policy 행, CLI·REST·MCP·Streamlit 진입점, manifest `differentiation` |

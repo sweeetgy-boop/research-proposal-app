@@ -313,9 +313,16 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     settings = load_settings()
     names = [n.strip() for n in args.source.split(",") if n.strip()]
+    skipped: list[tuple[str, str]] = []
 
     async def run():
-        sources = build_sources(names, settings)
+        if getattr(args, "skip_unavailable", False):
+            from rra.composition import build_available_sources
+
+            sources, missing = build_available_sources(names, settings)
+            skipped.extend(missing)
+        else:
+            sources = build_sources(names, settings)
         try:
             ingest = build_ingest(settings, sources=sources, limit=args.limit)
             return await ingest(args.query)
@@ -324,6 +331,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
                 await source.aclose()
 
     report = asyncio.run(run())
+    for name, reason in skipped:  # 키 없는 소스 — 이름과 변수 이름만 (값 없음)
+        _eprint(f"[{_safe(name)}] 건너뜀: {_safe(reason, 160)}")
+    names = [n for n in names if n not in {name for name, _ in skipped}]
     if args.json:
         print(json.dumps(asdict(report), ensure_ascii=False, indent=2))
     else:
@@ -1075,9 +1085,16 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument(
         "--source",
         default="openalex",
-        help="쉼표로 구분 (openalex, alio, alio_summary, scienceon, ntis)",
+        help="쉼표로 구분 (openalex, alio, alio_summary, own_projects, own_docs, scienceon, ntis, "
+        "kipris)",
     )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
+    ingest.add_argument(
+        "--skip-unavailable",
+        action="store_true",
+        dest="skip_unavailable",
+        help="키가 없는 소스는 건너뛰고 나머지를 적재 (야간 적재용)",
+    )
     ingest.add_argument("--limit", type=int, default=200, help="소스당 최대 건수")
     ingest.add_argument("--json", action="store_true", help="JSON 으로 출력")
     ingest.set_defaults(handler=cmd_ingest)

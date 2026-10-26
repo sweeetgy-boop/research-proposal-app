@@ -990,3 +990,36 @@ def test_generate_accepts_differentiation_flag():
     from rra.domain.models import ProposalRequest
 
     assert ProposalRequest(**fields).differentiation == "열화 추정으로 확장"
+
+
+# ── 야간 적재: --skip-unavailable ───────────────────────────
+def test_ingest_skip_unavailable_builds_only_keyed_sources(monkeypatch, capsys):
+    from rra.application.usecases.ingest_sources import IngestReport
+
+    class Src:
+        def __init__(self, name):
+            self.source = name
+            self.closed = False
+
+        async def aclose(self):
+            self.closed = True
+
+    built = [Src("openalex")]
+    seen = {}
+
+    def available(names, settings=None):
+        seen["names"] = names
+        return built, [("ntis", "ntis 수집에 필요한 키가 .env 에 없습니다: RRA_NTIS_KEY")]
+
+    class Ingest:
+        async def __call__(self, query):
+            return IngestReport(fetched={"openalex": 3}, normalized={"openalex": 3}, stored=3)
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_available_sources", available)
+    monkeypatch.setattr("rra.composition.build_ingest", lambda *a, **k: Ingest())
+    rc = cli.main(["ingest", "--source", "openalex,ntis", "--skip-unavailable"])
+    assert rc == cli.EXIT_OK and seen["names"] == ["openalex", "ntis"] and built[0].closed
+    out, err = capsys.readouterr()
+    assert "[openalex] 수집 3건" in out and "[ntis] 건너뜀" in err and "RRA_NTIS_KEY" in err
+    assert "ntis" not in out  # 건너뛴 소스는 결과 표에 없다

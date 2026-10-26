@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  rra 야간 적재 — launchd 사용자 에이전트 (매일 02:30).
+  OpenAlex(키 불필요)·알리오 inbox·사내 inbox·키가 있는 자료원(ScienceON·NTIS·KIPRIS)을 순서대로 적재한다.
+  skip-unavailable 옵션: .env 에 키가 없는 자료원은 건너뛰고(변수 이름만 로그), 한 자료원이 실패해도 다른 자료원은 계속한다
+  (IngestSources 가 소스별로 격리). 비밀은 여기 적지 않는다 — WorkingDirectory 의 .env(권한 600)를 settings 가 읽는다.
+  설치: cp deploy/launchd/com.rra.ingest.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.ingest.plist
+  해제: launchctl unload -w ~/Library/LaunchAgents/com.rra.ingest.plist
+  백업(03:30, com.rra.backup.plist)보다 먼저 돌아 적재 결과가 그날 사본에 들어간다.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rra.ingest</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin/rra</string>
+    <string>ingest</string>
+    <string>--source</string>
+    <string>openalex,alio,alio_summary,own_projects,own_docs,scienceon,ntis,kipris</string>
+    <string>--skip-unavailable</string>
+    <string>--limit</string>
+    <string>200</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chan/projects/research-proposal-app</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin:/usr/bin:/bin</string>
+    <key>RRA_CONFIG_DIR</key>
+    <string>/Users/chan/projects/research-proposal-app/config</string>
+    <key>RRA_DB_PATH</key>
+    <string>/Users/chan/projects/research-proposal-app/data/rra.sqlite</string>
+    <key>HF_HUB_OFFLINE</key>
+    <string>1</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>2</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/chan/Library/Logs/rra-ingest.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chan/Library/Logs/rra-ingest.err.log</string>
+</dict>
+</plist>

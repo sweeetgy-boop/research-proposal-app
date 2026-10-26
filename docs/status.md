@@ -34,7 +34,7 @@
 | ⑧ | 생성 이력 저장·중단 시 재개 | 완료 | 기능 6. 보존기간 삭제 `rra runs purge`; `tests/application/test_purge_runs.py` |
 | ⑨ | Streamlit 화면·접속 통제 | 완료 | 기능 7, `entrypoints/ui/auth.py`(RRA_API_TOKEN 게이트) |
 | ⑩ | HWPX 서식 자동 출력 | 완료 | `adapters/rendering/hwpx.py`(템플릿·생성 모드), `tools/build_form_template.py`, `usecases/render_check.py`; `tests/adapters/test_hwpx_renderer.py`·`test_form_template.py`, `tests/application/test_render_check.py`; aa4be7c, aa7b977~6fea01f |
-| ⑪ | 운영 서버(Mac mini) 배포·시연 | 부분 | `deploy/launchd/com.rra.{api,mlx,backup}.plist`, `deploy/README.md`(2b169f8, 98243c0). 야간 적재 plist·설치 절차·공개 방식은 P6. 타 제안자 시연은 미실시 |
+| ⑪ | 운영 서버(Mac mini) 배포·시연 | 부분 | `deploy/launchd/com.rra.{api,mlx,backup,ingest}.plist`, `deploy/README.md` 설치 순서(P6), `tests/deploy/`. 공개 방식은 `deploy-exposure.md` 비교 뒤 결정 대기. Mac mini 실제 등록·타 제안자 시연은 미실시 |
 | ⑫ | 소요예산 입력 반영 | 완료 | `ProposalRequest.budget` 은 LLM 에 보내지 않고 1-나 칸에만 기록(`slots.yaml`, 예산 표기 헬퍼); `tests/adapters/test_form_template.py`; aa7b977 |
 
 ## 2. 기획서 밖에서 개발된 것
@@ -47,6 +47,7 @@
 | 계층·검증 | 헥사고날 4계층, import-linter 계약 8건, 포트 전부 runtime_checkable·비동기 저장소/임베딩, TaskRunner 포트 | `pyproject.toml`, `composition.py`·`config_loader.py`; `tests/test_composition.py`·`test_config_loader.py`, `tests/adapters/test_port_conformance.py`; 0ecbe46, 6b31f35~0bcac95 |
 | 보안 A~J | 근거 id 대조·JSON 전용 파싱, subprocess 파싱 격리·zip 상한·defusedxml, 허용 도메인·리다이렉트 재검사·사설 IP 거부, SecretStr, SQL 바인딩·FTS5 토큰 인용, HWPX escape·재파싱, 127.0.0.1·토큰·동시성 1, 로그 허용목록 | `adapters/sources/_base.py`·`_sandbox.py`, `adapters/security/`, `adapters/llm/_endpoint.py`; `tests/adapters/test_base_security.py`·`test_guarded_client.py`·`test_sandbox.py`·`test_llm_endpoint.py`, `tests/entrypoints/test_api.py` |
 | DB 정비 | migration 001~004(schema_version·valid_until·visibility·ingested_at), 만료 문서 검색 제외, `rra reindex`, `rra db backup`(VACUUM INTO·보관 회전), 일일 백업 plist | `adapters/persistence/migrations/`, `usecases/maintain_db.py`; `tests/application/test_maintain_db.py`; 42c2eaf |
+| 운영 준비 (P6) | 야간 적재 plist(키 없는 자료원 건너뜀·소스별 격리), plist 4종·백업 7벌 테스트, 설치 순서 문서, 공개 방식 비교 | `deploy/launchd/com.rra.ingest.plist`, `composition.build_available_sources`, `deploy/README.md`, `docs/deploy-exposure.md`; `tests/deploy/test_launchd_plists.py`; architecture §4.12 |
 | 검토 채점 (P5) | Argon 검토에 필요성·차별성·실현가능성·기대효과 1~5점 + 근거 문장. 2점 이하 → 문장·섹션 의견. 수치는 알림 유지 + 검토 지적 의무 + 마무리 점검 맨 위 건수 | `domain/models/review.py`(CriterionScore·score_comments), `usecases/review_draft.parse_scores`, `prompts/review.md`, `usecases/render_check.py`; `tests/domain/test_review_scores.py`, `tests/application/test_review_draft.py`·`test_render_check.py`; architecture §4.11 |
 | 검토·수정·마무리 흐름 | 작성 → Argon(Gemini) 검토 → 제안자 수정 → 재검토 → finalize → reopen. 버전(versions·revert)·검토 라운드 파일·manifest 검토 요약. 양식 파일은 finalize 로만 | `domain/rules/review_flow.py`, `usecases/review_draft.py`, `run_manager.py`; `tests/domain/test_review_flow.py`, `tests/application/test_review_draft.py`·`test_review_manager.py`; 4b22913~71d860c |
 | 외부 LLM provider | `llm.yaml providers`(mlx·gemini·openai)·단계별 provider(review=gemini)·`RRA_GEMINI_API_KEY`·allowed_domains·reasoning_effort·401/403 비재시도. **`.env` 에 키가 있고 `rra llm-check --provider gemini` 왕복 성공(Argon 연결됨)** | `config_loader.py`, `adapters/llm/openai_compat.py`; `tests/adapters/test_openai_compat.py`, `tests/adapters/test_gemini_live.py`(키 있을 때만); 9cb311f. 모델 목록의 `models/` 접두어 비교는 P0 에서 수정 |
@@ -61,7 +62,6 @@
 
 | 항목 | 내용 | 단계 |
 |---|---|---|
-| 운영 준비 | `com.rra.ingest.plist`(야간 적재), 백업 7벌 회전 테스트, `deploy/README` 설치 순서, Tailscale/Cloudflare 비교 문서 | P6 |
 
 ### 3.2 사람 입력 대기
 
@@ -72,12 +72,12 @@
 | `config/templates/korail_strategy.yaml` 전략체계 목록 | 비어 있음 → 2-가-(3) 빈칸 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
 | 웹 프론트엔드 `web/dist` | 동료가 별도 진행. API 변경 시 `openapi.json` 갱신·PR 에 "프론트엔드 영향" 기재 |
-| 운영 공개 방식(Tailscale/Cloudflare) 결정 | P6 비교 문서 뒤 |
+| 운영 공개 방식(Tailscale/Cloudflare) 결정 | `docs/deploy-exposure.md` 비교 완료 — 권장 Tailscale. 결정 대기 |
 
 ### 3.3 나중 (P7, 이슈만)
 
-골든셋 피드백 루프(채택·반려 결과 → 골든셋 갱신), 용어사전 반자동 확장(rail_terms 후보 → 사람 승인),
-reranker·유사과제 임계치 재조정(표본 축적 후), 공고문 반영, 운영 공개 방식 결정.
+골든셋 피드백 루프(#10), 용어사전 반자동 확장(#11), reranker·유사과제 임계치 재조정(#12, 표본 축적 후),
+공고문 반영(#13, 파일 준비 후), 운영 공개 방식 결정(#14, `deploy-exposure.md`).
 
 ## 4. 진행 계획 (2026-10-26 지시)
 
@@ -91,5 +91,5 @@ reranker·유사과제 임계치 재조정(표본 축적 후), 공고문 반영,
 | P3 | `feat/differentiation` | 기능 2 차별화 제안: 실례 2건(미채택 재제안 2건·완료 근접 4건, 폐기 0) | 완료 2026-10-26 | #6 |
 | P4 | `feat/external-apis` | 전수 점검 표(`external-apis.md`), KIPRIS 어댑터, record_tag 진단, ScienceON MAC 안내 | 완료 2026-10-26 | #7 |
 | P5 | `feat/review-scoring` | 심사 기준 4개 채점·2점 이하 의견 연결·수치 정책(알림 유지 + 검토 지적 + render_check 맨 위)·양식 밖 산출물 결정 | 완료 2026-10-26 | #8 |
-| P6 | `chore/ops` | 야간 적재 plist·설치 문서·공개 방식 비교 | 대기 | — |
-| P7 | — | 이슈 등록만 | 대기 | — |
+| P6 | `chore/ops` | `com.rra.ingest.plist`·`--skip-unavailable`, plist·백업 7벌 테스트, `deploy/README` 설치 순서, `deploy-exposure.md` 비교 | 완료 2026-10-26 | #9 |
+| P7 | — | 이슈 등록: 골든셋 피드백 루프 #10, 용어사전 반자동 확장 #11, reranker·임계치 재조정 #12, 공고문 반영 #13, 공개 방식 결정 #14 | 완료 2026-10-26 | 이슈 |

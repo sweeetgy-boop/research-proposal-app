@@ -1,62 +1,110 @@
-# 배포 (M6 Mac mini) — launchd + 127.0.0.1 바인딩 + 역프록시
+# 배포 (M6 Mac mini 32GB) — launchd 4종 + 127.0.0.1 바인딩 + 역프록시
 
-## 전제 (보안 G·H)
+처음 설치하는 사람 기준의 순서다. 모든 서비스는 사용자 launchd 에이전트(`~/Library/LaunchAgents`)로 돌고,
+비밀은 `.env`(권한 600)에만 둔다. 외부 공개 방식(Tailscale/Cloudflare)은 아직 결정 전 — `docs/deploy-exposure.md`.
+
+## 0. 전제 (보안 G·H)
 
 - `rra api` 와 `mlx_lm.server` 는 **127.0.0.1 에만 바인딩**한다. 포트를 외부에 직접 열지 않는다.
-- 외부(동료 PC)에서 쓰려면 **HTTPS 를 종단하는 역프록시 뒤**에서만 공개한다.
-  권장: Tailscale(`tailscale serve https / http://127.0.0.1:8000`) 또는 Cloudflare Tunnel.
-  역프록시가 TLS·접근 제어(Tailscale ACL / Cloudflare Access)를 맡고, 앱은 그 뒤에서도
-  **자체 토큰(`RRA_API_TOKEN`)을 그대로 요구**한다 (이중 인증).
-- 바인딩 주소는 `RRA_API_HOST`/`--host` 로 바꿀 수 있지만 기본은 127.0.0.1 이고, 다른 주소를 주면
-  CLI 가 경고를 찍는다. `0.0.0.0` 은 역프록시 없이 쓰지 않는다.
-- 비밀은 `.env`(권한 600)에만. plist 에 토큰을 적지 않는다 (`WorkingDirectory` 의 `.env` 를 읽는다).
-- 파일 업로드 엔드포인트는 없다. 알리오 filedrop 은 로컬 폴더(`data/inbox/`)로만.
+- 외부(동료 PC)에서 쓰려면 HTTPS 를 종단하는 역프록시(Tailscale serve 또는 Cloudflare Tunnel) 뒤에서만.
+  앱은 그 뒤에서도 자체 토큰(`RRA_API_TOKEN`)을 그대로 요구한다(이중 인증).
+- plist 에는 토큰·키를 적지 않는다. `WorkingDirectory` 의 `.env` 를 settings 가 읽는다.
+- 파일 업로드 엔드포인트는 없다. 알리오·사내 자료는 로컬 폴더(`data/inbox/…`)로만.
 
-## REST API (`com.rra.api.plist`)
+## 1. 설치 순서 (Mac mini, 처음 한 번)
 
 ```bash
-cp deploy/launchd/com.rra.api.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.rra.api.plist
-curl -s http://127.0.0.1:8000/healthz                     # {"status":"ok"} — 인증 없이, 내부 정보 없음
-curl -s -H "X-RRA-Token: $RRA_API_TOKEN" \
-     -H 'content-type: application/json' \
-     -d '{"current_state":"…","root_cause":"…","limitation":"…","goal":"…"}' \
-     http://127.0.0.1:8000/v1/precheck
+# 1) 도구
+xcode-select --install                                  # git 등
+curl -LsSf https://astral.sh/uv/install.sh | sh          # uv (~/.local/bin)
+uv tool install mlx-lm                                   # mlx_lm.server (~/.local/bin/mlx_lm.server)
+
+# 2) 저장소·가상환경 (경로는 plist 와 같아야 한다: /Users/<계정>/projects/research-proposal-app)
+mkdir -p ~/projects && cd ~/projects
+git clone <저장소 URL> research-proposal-app && cd research-proposal-app
+uv venv --python 3.12 && uv pip install -e ".[dev,adapters]"   # adapters = 임베딩(sentence-transformers·torch)
+
+# 3) 모델 내려받기 (HF 캐시). 이후 서비스는 HF_HUB_OFFLINE=1 로 돈다
+.venv/bin/python -c "from huggingface_hub import snapshot_download as d; d('mlx-community/Qwen2.5-7B-Instruct-4bit'); d('intfloat/multilingual-e5-base')"
+
+# 4) .env — 권한 600 이 아니면 기동을 거부한다
+cp .env.example .env && chmod 600 .env
+#    RRA_API_TOKEN=<긴 무작위 문자열>  (openssl rand -hex 32)
+#    RRA_GEMINI_API_KEY=…            (검토·차별화 제안. 없으면 검토 건너뜀·차별화는 로컬 모델)
+#    RRA_SCIENCEON_*·RRA_NTIS_KEY·RRA_KIPRIS_KEY (있는 것만. docs/external-apis.md)
+
+# 5) 자료 반입 (선택): 개발기 DB 사본과 inbox 폴더를 복사
+#    data/rra.sqlite, data/inbox/own/*.xls(x), data/inbox/own_docs/<연도>/…, config/templates/proposal_korail.hwpx(실물 양식)
+
+# 6) 검사
+.venv/bin/pytest -q && .venv/bin/lint-imports && .venv/bin/ruff check src tests
 ```
 
-plist 의 경로는 이 저장소 위치(`/Users/chan/projects/research-proposal-app`)로 채워져 있다.
-다른 위치에 두면 `ProgramArguments`·`WorkingDirectory`·`EnvironmentVariables`·로그 경로를 함께 바꾼다.
+plist 의 경로는 `/Users/chan/projects/research-proposal-app` 로 채워져 있다. 계정·위치가 다르면 네 파일의
+`ProgramArguments`·`WorkingDirectory`·`EnvironmentVariables`·로그 경로를 함께 바꾼다
+(`sed -i '' 's#/Users/chan#/Users/<계정>#g' deploy/launchd/*.plist`).
+
+## 2. launchd 등록 (3 + 1종)
+
+| 파일 | 역할 | 일정 | 바인딩 |
+|---|---|---|---|
+| `com.rra.mlx.plist` | 로컬 작성 LLM (`mlx_lm.server`, Qwen2.5-7B-Instruct-4bit) | 상시 (KeepAlive) | 127.0.0.1:8080 |
+| `com.rra.api.plist` | REST API (`rra api`) | 상시 (KeepAlive) | 127.0.0.1:8000 |
+| `com.rra.backup.plist` | DB 사본 (`rra db backup --keep 7`, VACUUM INTO, 600) | 매일 03:30 | — |
+| `com.rra.ingest.plist` | 야간 적재 (`rra ingest --skip-unavailable`: OpenAlex·inbox·키 있는 자료원) | 매일 02:30 | — |
+
+```bash
+cp deploy/launchd/com.rra.{mlx,api,backup,ingest}.plist ~/Library/LaunchAgents/
+for s in mlx api backup ingest; do launchctl load -w ~/Library/LaunchAgents/com.rra.$s.plist; done
+launchctl list | grep com.rra            # 4개가 보이면 등록됨 (PID 가 있으면 실행 중)
+```
+
+순서: mlx → api (api 는 mlx 없이도 뜨지만 생성은 실패한다). 해제는 `launchctl unload -w …`.
+Streamlit 화면(`rra ui`, 127.0.0.1:8501)은 시연 때만 손으로 띄운다.
+
+## 3. 점검 명령
+
+```bash
+curl -s http://127.0.0.1:8080/v1/models | head -c 200      # mlx 서버 — Qwen 이 목록에 있어야 한다
+.venv/bin/rra llm-check --stage compose                      # 로컬 모델 왕복 + served_model 확인
+.venv/bin/rra llm-check --provider gemini                    # Argon 왕복 (키 있을 때)
+curl -s http://127.0.0.1:8000/healthz                        # {"status":"ok"} — 인증 없이
+curl -s -H "X-RRA-Token: $RRA_API_TOKEN" -H 'content-type: application/json' \
+     -d '{"current_state":"…","root_cause":"…","limitation":"…","goal":"…"}' \
+     http://127.0.0.1:8000/v1/precheck                      # 유사과제 알림
+.venv/bin/rra sources check                                  # ScienceON·NTIS·KIPRIS 키 유무(값 없음)·왕복·record_tag 진단
+.venv/bin/rra ingest --source openalex --skip-unavailable --limit 20   # 적재 1회 수동 실행
+.venv/bin/rra db backup --out data/backups --keep 7          # 사본 1회 수동 실행 → data/backups 에 7벌까지
+.venv/bin/rra runs purge --dry-run                            # 만료 run (security.yaml retention_days, 180일)
+tail -n 50 ~/Library/Logs/rra-{mlx,api,backup,ingest}.err.log
+```
+
+## 4. REST API 요약 (`rra api`)
+
+인증: 모든 `/v1/*` 에 `X-RRA-Token: <토큰>` 또는 `Authorization: Bearer <토큰>`(401), 세션 쿠키 + CSRF 는 프론트엔드용.
+본문 상한 `security.yaml input_limits.api_max_body_bytes`(기본 64KB, 초과 413). 오류는 problem+json.
+응답 헤더: `Content-Security-Policy: default-src 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+`X-Content-Type-Options: nosniff`, `Cache-Control: no-store`. CORS 없음.
 
 | 엔드포인트 | 설명 |
 |---|---|
-| `POST /v1/precheck` | 제안 입력 → 유사과제 경보 (`notice`, `blocking`, `alerts[]`) |
-| `GET /v1/search?q=&k=&orgs=` | 하이브리드 검색. 청크마다 `trust: untrusted` |
-| `POST /v1/runs` → 202 | 생성 큐 등록 `{run_id, status, progress, …}` (대기열 초과 429) |
-| `GET /v1/runs/{id}` | 상태·step (초안 본문 없음) |
-| `POST /v1/runs/{id}/resume` → 202 | 중단된 run 재개 |
-| `GET /v1/runs/{id}/draft` | 문장별 근거가 붙은 초안 |
-| `POST /v1/runs/{id}/confirm` | `{task_type?, utilization?[], strategy?[]}` 확정 |
-| `GET /v1/runs/{id}/file` | HWPX (하단 제안자 칸 빈칸) |
-| `POST /v1/runs/{id}/file` | 본문 `{proposed_on, proposer{rank,name,phone}, head{…}}` 로 제안자 정보를 넣은 HWPX — 파일에만 들어가고 서버에 저장되지 않는다 |
+| `POST /v1/precheck` · `POST /v1/precheck/differentiate` | 유사과제 알림 · 차별화 제안 (기능 1·2) |
+| `GET/POST /v1/search` | 하이브리드 검색 (청크 `trust: untrusted`, `similarity`) |
+| `GET /v1/sources/status` | 자료원별 적재 건수·최근 적재일 |
+| `POST /v1/runs` → 202, `GET /v1/runs`, `GET /v1/runs/{id}`, `GET …/events`(SSE), `POST …/resume` | 생성·조회·재개 |
+| `GET …/draft`, `GET …/versions`, `POST …/revert`, `POST …/edits`, `POST …/confirm` | 초안·버전·편집·확정 |
+| `POST/GET …/review` | Argon 검토 (점수·의견·전송 범위) |
+| `GET …/render-check`, `POST …/finalize`, `POST …/reopen` | 렌더 전 점검 · 최종 마무리(HWPX) · 다시 열기 |
 
-인증: 모든 `/v1/*` 에 `X-RRA-Token: <토큰>` 또는 `Authorization: Bearer <토큰>`. 없으면 401.
-본문 상한: `config/security.yaml` `input_limits.api_max_body_bytes`(기본 64KB), 초과 413.
-응답 헤더: `Content-Security-Policy: default-src 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
-`X-Content-Type-Options: nosniff`, `Cache-Control: no-store`. CORS 헤더는 없다(동일 출처만).
+전체 스키마: `docs/openapi.json` (`rra api schema`).
 
-## LLM 서버 (보안 H)
+## 5. 보존·백업·재색인 (보안 I)
 
-`mlx_lm.server --host 127.0.0.1 --port 8080 --model <safetensors 모델>` 을 같은 방식의 launchd 에이전트로
-띄운다(`com.rra.mlx.plist` 는 운영 모델이 확정되면 추가). 인증이 없으므로 외부 노출 금지.
+- `rra runs purge` 는 만료 run 을 지운다(주 1회 launchd 로 돌려도 된다 — 아직 plist 없음).
+- `rra db backup --out data/backups --keep 7` 은 `rra-YYYYMMDD-HHMMSS.sqlite` 사본을 만들고 7벌만 남긴다
+  (`tests/deploy/test_launchd_plists.py` 가 plist 의 `--keep 7` 과 회전을 함께 검사한다).
+- 임베딩 모델을 바꾸면 기동 때 `db.embedding_model_mismatch` 경고 → `rra reindex`.
 
-## 보존 (보안 I)
+## 6. 외부 공개
 
-`rra runs purge --dry-run` 으로 만료 run(`security.yaml retention_days`, 기본 180일)을 확인하고
-`rra runs purge` 로 지운다. launchd `StartCalendarInterval` 로 주 1회 돌려도 된다.
-
-## DB 백업·재색인
-
-`rra db backup --out data/backups --keep 7` 은 `VACUUM INTO` 로 일관된 사본(`rra-YYYYMMDD-HHMMSS.sqlite`,
-권한 600)을 만들고 같은 폴더에 7벌만 남긴다. 일일 실행은 `deploy/launchd/com.rra.backup.plist`(03:30).
-임베딩 모델을 바꾸면 기동 때 `db.embedding_model_mismatch` 경고가 나고, `rra reindex` 가 모든 청크를
-현재 모델로 다시 색인한다 (문서·FTS 는 그대로).
+결정 전. 두 방식(Tailscale serve / Cloudflare Tunnel)의 비교와 필요한 설정은 `docs/deploy-exposure.md`.
