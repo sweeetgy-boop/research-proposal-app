@@ -8,6 +8,8 @@
 본문 라벨 해석·정규화는 알리오 공개 요약 경로(`alio.summary`)를 그대로 쓴다 — 공시용 요약문은
 알리오 상세 페이지 요약의 원본 파일이라 같은 doc_id 로 합쳐진다(본문이 긴 쪽이 남는다).
 연구자 이름은 저장하지 않는다(authors 비움, 연구책임자는 부서만).
+공시용 요약문은 공개 자료(visibility public). 공시용이 없어 일반 요약문을 쓴 과제만 internal
+(2026-10-26 결정).
 
 처리가 끝난 과제 폴더는 `_done/` 으로 옮긴다. 파일 하나가 실패해도 폴더의 다른 파일은 계속한다.
 """
@@ -168,6 +170,8 @@ class OwnDocsSource:
             "fmt": vf.fmt,
             "lines": result.text.splitlines(),
             "variant": variant,
+            "disclosed": "공시"
+            in nfc(path.name),  # 공시용 요약문이면 public, 일반 요약문만 있으면 internal
             "folder_title": folder_title(folder.name),
             "_dir": str(folder),
             "_file": str(path),
@@ -224,14 +228,22 @@ def normalize_own_summary(
     except MissingRequiredField:
         doc = _plain_document(sha, lines, folder, variant, default_org)
     pi = doc.raw.get("pi")
+    disclosed = bool(raw.get("disclosed", True))
     extra = {
         "fmt": raw.get("fmt"),
         "origin": "own_docs",
         "folder_title": folder or None,
         "variant": variant or None,
+        "disclosed": disclosed,
         "pi": strip_person(pi) if isinstance(pi, str) else None,
     }
-    return doc.model_copy(update={"authors": [], "raw": {**doc.raw, **extra}})
+    return doc.model_copy(
+        update={
+            "authors": [],
+            "visibility": "public" if disclosed else "internal",
+            "raw": {**doc.raw, **extra},
+        }
+    )
 
 
 def _plain_document(

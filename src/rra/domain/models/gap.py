@@ -6,7 +6,11 @@ from pydantic import BaseModel, Field
 
 from .document import TextBasis
 
-Tier = Literal["own", "domestic_rail", "external"]  # 철도연구원 / 코레일타부서·공단 / KRRI·외부
+Tier = Literal[
+    "own", "domestic_rail", "external"
+]  # 사내(철도연구원·공사 과제 기록) / 공단 등 / KRRI·외부
+# own 티어의 세부 구분 — institute: 철도연구원 부서, company: 그 외 공사 부서(사내 과제 기록 출처)
+OwnDetail = Literal["institute", "company"]
 
 
 class OverlapAlert(BaseModel):
@@ -19,6 +23,9 @@ class OverlapAlert(BaseModel):
     keywords: list[str] = Field(default_factory=list)  # 질의와 문서가 공유한 키워드 (일반어 제외)
     # 사내 과제 기록의 상태 (completed·ongoing·stopped·rejected·proposed). 수집 문서 raw.status 에서
     status: str | None = None
+    own_detail: OwnDetail | None = (
+        None  # tier=own 일 때: 철도연구원 부서(institute) / 그 외 공사 부서(company)
+    )
 
 
 MAX_DIRECTIONS = 3

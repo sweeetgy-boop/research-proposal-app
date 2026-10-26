@@ -2,14 +2,15 @@
 
 시트 종류는 머리글로 판별한다 (열 이름은 2026-10-23 확인한 실물 기준, `KINDS`):
 - proposal   연구과제 제안 현황: 구분·연구분류·연구과제 접수명·부서·제출일자·진행단계·위원회 결과.
-             진행단계 "미채택" → status rejected, 그 밖은 proposed. visibility internal
+             진행단계 "미채택" → status rejected, 그 밖은 proposed
 - status     연구과제 현황: 구분·연구분류·연구과제명·시작/종료·책임연구원 부서·연구비·진행상태.
-             14번째 열 이후(공정 세부)는 버린다. visibility internal
+             14번째 열 이후(공정 세부)는 버린다
 - history    2006~2024 과제목록(국가연구·자체연구 시트): 연구과제명·연구분류·부서명·기간·총연구비.
-             status completed. visibility public
+             status completed
 - performance 자체 및 국가과제 수행현황: 과제명·담당부서·추진구분·시작일·종료일·수행비용·비고.
-             비고 "중단" → stopped, 종료일 지남 → completed, 아니면 ongoing. visibility public
-이름 열(제안자·책임연구원·담당자)은 읽지 않는다.
+             비고 "중단" → stopped, 종료일 지남 → completed, 아니면 ongoing
+이름 열(제안자·책임연구원·담당자)은 읽지 않는다. 네 파일의 과제 기록은 모두 공개 자료(visibility
+public, 2026-10-26 결정)이며 티어는 부서와 관계없이 own 이다(overlap.OWN_RECORD_SOURCES).
 
 같은 과제명이 여러 파일에 있으면 수행 기록(status > performance > history) > 제안 기록 순으로 하나만
 남기고, 제안 기록의 진행단계·위원회 결과는 `raw.proposal` 로 붙인다 (`merge_records`).
@@ -48,7 +49,8 @@ KIND_STATUS = "status"
 KIND_HISTORY = "history"
 KIND_PERFORMANCE = "performance"
 PRIORITY = {KIND_STATUS: 0, KIND_PERFORMANCE: 1, KIND_HISTORY: 2, KIND_PROPOSAL: 3}
-INTERNAL_KINDS = frozenset({KIND_PROPOSAL, KIND_STATUS})
+# 2026-10-26 결정: 엑셀 4개에서 온 과제 기록은 모두 공개 자료(public). internal 로 둘 종류 없음
+INTERNAL_KINDS: frozenset[str] = frozenset()
 KIND_LABEL = {
     KIND_PROPOSAL: "연구과제 제안 현황",
     KIND_STATUS: "연구과제 현황",

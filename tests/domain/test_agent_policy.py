@@ -37,12 +37,14 @@ def test_differentiate_row_only_for_blocking_or_near_threshold_alerts():
         "rra_generate"
     ]
     near = OverlapAlert(doc_id="x:2", title="t", tier="external", similarity=0.81, blocking=False)
-    tools = [d.tool for d in policy.after_precheck([near], WITH_BASIS, corpus_size=5)]
-    assert tools == ["rra_generate", "rra_differentiate"]  # 0.90 × 0.9 = 0.81
+    near_rows = policy.after_precheck([near], WITH_BASIS, corpus_size=5)
+    assert [d.tool for d in near_rows] == ["rra_generate", "rra_differentiate"]  # 0.90 × 0.9 = 0.81
+    assert near_rows[1].needs_human and "누르면" in near_rows[1].action  # 근접만 → 담당자 요청 시
     blocked = policy.after_precheck([alert(True)], WITH_BASIS, corpus_size=5)
     assert [d.tool for d in blocked] == [None, "rra_differentiate"] and blocked[0].needs_human
+    assert not blocked[1].needs_human and "자동" in blocked[1].action  # 차단 → 자동
     d = policy.on_differentiate()
-    assert d.tool == "rra_differentiate" and "90%" in d.condition and not d.needs_human
+    assert d.tool == "rra_differentiate" and "차단" in d.condition and not d.needs_human
 
 
 def test_missing_policy_basis_is_announced():

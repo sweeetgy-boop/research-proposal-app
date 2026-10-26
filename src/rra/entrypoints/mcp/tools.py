@@ -79,6 +79,7 @@ class RraTools:
                     "doc_id": a.doc_id,
                     "title": escape_untrusted(a.title),
                     "tier": a.tier,
+                    "own_detail": a.own_detail,  # own: institute(철도연구원) / company(공사 부서)
                     "similarity": round(a.similarity, 4),
                     "blocking": a.blocking,
                     "basis": a.basis,  # summary: 원문 비공개, 공개 요약만으로 판정

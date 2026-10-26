@@ -96,6 +96,7 @@
     "/v1/precheck": {
       "post": {
         "summary": "Precheck Route",
+        "description": "유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙인다.",
         "operationId": "precheck_route_v1_precheck_post",
         "requestBody": {
           "content": {
@@ -292,7 +293,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProposalRequest"
+                "$ref": "#/components/schemas/RunIn"
               }
             }
           }
@@ -1053,6 +1054,100 @@
         "type": "object",
         "title": "ConfirmIn"
       },
+      "DifferentiationTransferIn": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "fallback_local": {
+            "type": "boolean",
+            "title": "Fallback Local",
+            "default": false
+          },
+          "public_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Public Doc Ids"
+          },
+          "internal_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Internal Doc Ids"
+          },
+          "excluded_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Excluded Doc Ids"
+          },
+          "calls": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Calls",
+            "default": 0
+          },
+          "items": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Items",
+            "default": 0
+          },
+          "discarded": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Discarded",
+            "default": 0
+          },
+          "skipped_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DifferentiationTransferIn",
+        "description": "POST /v1/precheck/differentiate 응답의 transfer 를 되돌려 보내면 run manifest 에 남는다.\ndoc_id 와 개수만 — 본문은 받지 않는다 (보안 I)."
+      },
       "EditRequest": {
         "properties": {
           "sentences": {
@@ -1285,6 +1380,101 @@
           "to"
         ],
         "title": "RevertIn"
+      },
+      "RunIn": {
+        "properties": {
+          "current_state": {
+            "type": "string",
+            "title": "Current State",
+            "description": "현재 상황·문제"
+          },
+          "root_cause": {
+            "type": "string",
+            "title": "Root Cause",
+            "description": "발생 원인"
+          },
+          "limitation": {
+            "type": "string",
+            "title": "Limitation",
+            "description": "현행 대응의 한계"
+          },
+          "goal": {
+            "type": "string",
+            "title": "Goal",
+            "description": "해결 목표"
+          },
+          "constraints": {
+            "type": "string",
+            "title": "Constraints",
+            "description": "예산·기간·현장 제약",
+            "default": ""
+          },
+          "title_hint": {
+            "type": "string",
+            "title": "Title Hint",
+            "description": "가제 (있으면 과제명을 이것으로 다듬는다)",
+            "default": ""
+          },
+          "policy_basis": {
+            "type": "string",
+            "title": "Policy Basis",
+            "description": "정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지",
+            "default": ""
+          },
+          "beneficiaries": {
+            "type": "string",
+            "title": "Beneficiaries",
+            "description": "활용 주체 부서 (차량처·시설처 등)",
+            "default": ""
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks",
+            "description": "특이사항에 덧붙일 내용",
+            "default": ""
+          },
+          "differentiation": {
+            "type": "string",
+            "title": "Differentiation",
+            "description": "제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
+            "default": ""
+          },
+          "department": {
+            "type": "string",
+            "title": "Department",
+            "description": "제안부서 (양식 칸에만 쓴다)",
+            "default": ""
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Budget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "differentiation_transfer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DifferentiationTransferIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_state",
+          "root_cause",
+          "limitation",
+          "goal"
+        ],
+        "title": "RunIn",
+        "description": "생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 (manifest 에만 남는다)."
       },
       "SearchIn": {
         "properties": {

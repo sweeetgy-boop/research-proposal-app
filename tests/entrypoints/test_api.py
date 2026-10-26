@@ -546,3 +546,43 @@ async def test_differentiate_route_returns_alerts_and_sanitized_items():
 async def test_differentiate_route_is_503_without_llm(client):
     r = await client.post("/v1/precheck/differentiate", json=SLOTS, headers=AUTH)
     assert r.status_code == 503 and "LLM" in r.json()["detail"]
+
+
+async def test_precheck_route_attaches_differentiation_when_blocking_and_run_records_transfer():
+    fake = _FakeDifferentiate()
+    app, assistant = build(make_assistant(blocking=True), differentiate=fake)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8000"
+    ) as c:
+        r = await c.post("/v1/precheck", json=SLOTS, headers=AUTH)
+        body = r.json()
+        assert body["blocking"] and body["differentiation"]["items"][0]["doc_id"] == "alio:1"
+        assert body["alerts"][0]["tier_label"] == "사내(철도연구원)"
+        transfer = body["differentiation"]["transfer"]
+        payload = {
+            **SLOTS,
+            "differentiation": body["differentiation"]["items"][0]["differentiation"][0],
+            "differentiation_transfer": {
+                **transfer,
+                "provider": "gemini",
+                "model": "argon",
+                "items": 1,
+            },
+        }
+        r = await c.post("/v1/runs", json=payload, headers=AUTH)
+        assert r.status_code == 202, r.text
+        run_id = r.json()["run_id"]
+        await assistant.manager.wait(assistant.user, run_id)
+        manifests = [m for rid, m in assistant.manager.run_log.records if rid == run_id]
+        assert manifests[-1]["differentiation"]["internal_doc_ids"] == ["alio:1"]
+        assert manifests[-1]["differentiation"]["chosen"] is True
+        from rra.adapters.logging import check_manifest
+
+        check_manifest(manifests[-1])
+        bad = {**SLOTS, "differentiation_transfer": {"provider": "x", "secret": "no"}}
+        assert (await c.post("/v1/runs", json=bad, headers=AUTH)).status_code == 422
+
+
+async def test_precheck_route_without_blocking_has_no_differentiation(client):
+    r = await client.post("/v1/precheck", json=SLOTS, headers=AUTH)
+    assert r.status_code == 200 and "differentiation" not in r.json()

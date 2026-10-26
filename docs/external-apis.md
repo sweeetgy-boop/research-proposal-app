@@ -10,7 +10,7 @@
 | OpenAlex | `openalex` | 해외 논문 근거 (기능 3·4) | 없음 (키 불필요, `mailto` 선택) | — | 무료, polite pool | `adapters/sources/openalex.py` | 적재 중 (20건) |
 | 알리오 공시 원문 | `alio` | 사내·국내 철도기관 유사과제 (기능 1·2·4) | 수동 다운로드 → `data/inbox/alio` | — | 무료 | `alio/filedrop.py` | 원문 파일 대기 |
 | 알리오 공개 요약 (.txt) | `alio_summary` | 원문 비공개 보고서 | 상세 페이지 복사 → `data/inbox/alio_summary` | — | 무료 | `alio/summary.py` | 1건 |
-| 사내 과제 현황·공시 요약문 | `own_projects`·`own_docs` | 사내 유사과제·차별화 (기능 1·2) | 사내 파일 (P2) | — | — | `adapters/sources/own/` | 적재 완료 (1,119 + 121건) |
+| 사내 과제 현황·공시 요약문 | `own_projects`·`own_docs` | 사내 유사과제·차별화 (기능 1·2) | 사내 파일 (P2) | — | — | `adapters/sources/own/` | 적재 완료 (1,119 + 120건). 공개 자료(public) — 공시용이 없는 일반 요약문 5건만 internal. 티어는 모두 own(철도연구원/공사 구분) |
 | NTIS 과제검색 | `ntis` | 국가R&D 중복 (기능 1·2·3) | ntis.go.kr OpenAPI [활용신청] — **소속기관 등록 필요**(내정보 > 소속기관 등록), 콜센터 042-865-1115 | `RRA_NTIS_KEY` (rndopen apprvKey) | 무료 | `ntis/client.py` | 코드 완료, 키·`record_tag` 대기 |
 | NTIS 연구보고서 검색 | (없음) | 국가R&D 보고서 근거 | ntis.go.kr OpenAPI 목록 "국가R&D 연구보고서 검색 서비스(전체용)" (2021-07-01 등록) — 과제검색과 별도 활용신청 | NTIS 키 (서비스별 권한) | 무료 | 미구현 | 가능 여부 확인됨 — 키 확보 뒤 구현 |
 | ScienceON | `scienceon` | 국내 논문·보고서 근거 (기능 3·4) | KISTI ScienceON API 활용신청 → client_id + 32자 인증키, **호출 기기 MAC 등록** | `RRA_SCIENCEON_CLIENT_ID`·`_KEY`·`_MAC` | 무료, 429 이력 → 초당 1회·run 예산 40 | `scienceon/` | 코드 완료, 키 대기 |

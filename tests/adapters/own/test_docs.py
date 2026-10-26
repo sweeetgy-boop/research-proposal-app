@@ -155,3 +155,16 @@ async def test_ingest_stores_summaries_and_warns_assumed_org(tmp_path):
     assert project_dirs(inbox) == []  # upsert 뒤 acknowledge
     [doc] = list(repo.docs.values())
     assert doc.visibility == "public" and doc.text_basis == "summary"
+
+
+async def test_plain_summary_without_disclosure_copy_is_internal(tmp_path):
+    inbox = tmp_path / "own_docs"
+    p = inbox / "2023/23.01.01 홍길동_공시 없는 과제/붙임1 요약문.hwp"
+    p.parent.mkdir(parents=True)
+    p.write_bytes(HWP_MAGIC)
+    src = OwnDocsSource(inbox, limits=limits(), institutions=INSTITUTIONS, runner=runner())
+    [raw] = await src.search(None, 10)
+    assert raw["disclosed"] is False
+    doc = src.normalize(raw)
+    assert doc.visibility == "internal" and doc.raw["disclosed"] is False
+    assert normalize_own_summary({**raw, "disclosed": True}).visibility == "public"

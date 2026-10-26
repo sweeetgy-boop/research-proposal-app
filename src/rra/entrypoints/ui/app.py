@@ -38,10 +38,10 @@ from rra.entrypoints.ui.labels import (
     SOURCE,
     STATUS,
     STATUS_PROJECT,
-    TIER,
     clean,
     plain,
     section_title,
+    tier_text,
 )
 from rra.entrypoints.views import (
     draft_payload,
@@ -110,7 +110,7 @@ def intake_form() -> None:
     ss["rra_request"] = req
     ss["rra_intake"] = worker.call(assistant.intake(req))
     ss["rra_run_id"] = None
-    ss["rra_diff"] = None
+    ss["rra_diff"] = ss["rra_intake"].differentiation  # 차단 알림이면 자동 제안, 아니면 None
 
 
 # ── 2. 유사과제 표 + Agent 판단 ───────────────────────────
@@ -147,7 +147,10 @@ def differentiation_panel() -> None:
     st.markdown(
         "**유사과제 활용·차별화 제안** — 겹친 과제 결과를 이어받아 확장하는 방향을 제안합니다."
     )
-    if st.button("차별화 제안 받기", key="diff_btn"):
+    auto = res.differentiation is not None
+    if auto and ss.get("rra_diff") is res.differentiation:
+        st.caption("차단 알림이 있어 자동으로 제안했습니다.")
+    if st.button("차별화 제안 다시 받기" if auto else "차별화 제안 받기", key="diff_btn"):
         ss["rra_diff"] = worker.call(assistant.differentiate(ss["rra_request"], res.alerts))
     proposal = ss.get("rra_diff")
     if proposal is None:
@@ -165,7 +168,7 @@ def differentiation_panel() -> None:
     for item in proposal.items:
         status = f" · {STATUS_PROJECT.get(item.status or '', item.status)}" if item.status else ""
         with st.expander(
-            f"{clean(item.title, 80)} ({TIER.get(item.tier, item.tier)}{status})", expanded=True
+            f"{clean(item.title, 80)} ({tier_text(item.tier)}{status})", expanded=True
         ):
             st.write("겹치는 점: " + plain(item.overlap_summary))
             if item.build_on:

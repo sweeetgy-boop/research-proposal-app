@@ -13,7 +13,7 @@ import streamlit as st
 from rra import composition
 from rra.domain.models import OverlapAlert, ProposerInfo
 from rra.domain.models.proposer import Person
-from rra.entrypoints.ui.labels import BASIS, TIER, clean
+from rra.entrypoints.ui.labels import BASIS, clean, tier_text
 from rra.entrypoints.ui.worker import Worker
 from rra.entrypoints.views import draft_payload
 
@@ -49,7 +49,7 @@ def alert_rows(alerts: list[OverlapAlert]) -> list[dict[str, Any]]:
     return [
         {
             "차단": "예" if a.blocking else "",
-            "구분": TIER.get(a.tier, a.tier),
+            "구분": tier_text(a.tier, a.own_detail),
             "유사도": round(a.similarity, 2),
             "겹친 키워드": ", ".join(a.keywords) or "-",
             "근거": BASIS.get(a.basis or "", a.basis or "-"),

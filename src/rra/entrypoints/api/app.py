@@ -47,6 +47,7 @@ from rra.entrypoints.api.schemas import (
     ConfirmIn,
     FinalizeIn,
     RevertIn,
+    RunIn,
     SearchIn,
     SessionIn,
 )
@@ -227,8 +228,13 @@ def create_app(
 
     @app.post(f"/{API_VERSION}/precheck")
     async def precheck_route(req: ProposalRequest) -> dict[str, Any]:
+        """유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙인다."""
         alerts = await precheck(req)
-        return {"notice": UNTRUSTED_NOTICE, **alerts_payload(alerts, clean=_clean)}
+        out = {"notice": UNTRUSTED_NOTICE, **alerts_payload(alerts, clean=_clean)}
+        if out["blocking"] and differentiate is not None:
+            proposal = await differentiate(req, alerts)
+            out["differentiation"] = differentiation_payload(proposal, clean=_clean)
+        return out
 
     @app.post(f"/{API_VERSION}/precheck/differentiate")
     async def differentiate_route(req: ProposalRequest) -> dict[str, Any]:
@@ -267,9 +273,10 @@ def create_app(
 
     # ── run ─────────────────────────────────────────────
     @app.post(f"/{API_VERSION}/runs", status_code=202)
-    async def submit_route(req: ProposalRequest) -> dict[str, Any]:
+    async def submit_route(body: RunIn) -> dict[str, Any]:
+        req = body.request()
         try:
-            state = await manager.submit(user, req)
+            state = await manager.submit(user, req, differentiation=body.transfer_record())
         except QueueFull as exc:
             raise HTTPException(429, str(exc)) from exc
         except RunBusy as exc:

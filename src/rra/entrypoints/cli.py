@@ -69,10 +69,25 @@ def cmd_precheck(args: argparse.Namespace) -> int:
     except ValidationError as exc:
         _eprint(validation_message(exc))
         return EXIT_USAGE
-    alerts = asyncio.run(build_precheck(load_settings())(req))
+    settings = load_settings()
+    alerts = asyncio.run(build_precheck(settings)(req))
+    proposal = None
+    if any(a.blocking for a in alerts) and not getattr(args, "no_differentiate", False):
+        proposal = _auto_differentiate(settings, req, alerts)  # 차단 → 자동 (기능 2)
 
     if args.json:
-        print(json.dumps([a.model_dump() for a in alerts], ensure_ascii=False, indent=2))
+        payload: dict = {"alerts": [a.model_dump() for a in alerts]}
+        if proposal is not None:
+            from rra.entrypoints.views import differentiation_payload
+
+            payload["differentiation"] = differentiation_payload(
+                proposal, clean=lambda t: _safe(t, 600)
+            )
+        print(
+            json.dumps(
+                payload["alerts"] if proposal is None else payload, ensure_ascii=False, indent=2
+            )
+        )
     else:
         blocking = sum(1 for a in alerts if a.blocking)
         print(f"[중복 경보] {len(alerts)}건 (차단 {blocking}건)")
@@ -82,13 +97,67 @@ def cmd_precheck(args: argparse.Namespace) -> int:
             # 키워드는 제안자 입력에서 온 토큰(문서에도 등장한 것)이라 비신뢰 텍스트가 아니다
             words = f"  [키워드: {', '.join(a.keywords)}]" if a.keywords else "  [키워드 없음]"
             status = f"  [상태: {_STATUS_TEXT.get(a.status, a.status)}]" if a.status else ""
+            tier = a.tier if a.tier != "own" else f"own:{a.own_detail or 'institute'}"
             print(
-                f" {mark} {a.similarity:.2f}  {a.tier:<14} {basis} {a.doc_id:<20} {_safe(a.title)}"
+                f" {mark} {a.similarity:.2f}  {tier:<14} {basis} {a.doc_id:<20} {_safe(a.title)}"
                 f"{words}{status}"
             )
         if not alerts:
             print("  유사한 기수행 과제가 없습니다.")
+        if proposal is not None:
+            _print_differentiation(proposal, auto=True)
     return EXIT_BLOCKED if any(a.blocking for a in alerts) else EXIT_OK
+
+
+def _auto_differentiate(settings, req, alerts):
+    """차단 알림 → 차별화 제안 자동 실행. LLM 이 없으면 None (precheck 는 계속)."""
+    from rra.composition import LLMUnavailable, build_differentiator, build_precheck
+
+    async def run():
+        differentiate = build_differentiator(
+            settings, repo=getattr(build_precheck(settings), "repo", None)
+        )
+        try:
+            return await differentiate(req, alerts)
+        finally:
+            await differentiate.llm.aclose()
+
+    try:
+        return asyncio.run(run())
+    except LLMUnavailable as exc:
+        _eprint(f"차별화 제안 생략 (LLM 없음): {exc}")
+        return None
+
+
+def _print_differentiation(proposal, *, auto: bool = False) -> None:
+    from rra.entrypoints.views import differentiation_payload
+
+    payload = differentiation_payload(proposal, clean=lambda t: _safe(t, 600))
+    where = (
+        "로컬 모델(대체)" if proposal.fallback_local else f"{proposal.provider}/{proposal.model}"
+    )
+    head = "[차별화 제안 — 차단 알림으로 자동 실행]" if auto else "[차별화 제안]"
+    print(f"\n{head} 제안 {len(proposal.items)}건, 폐기 {len(proposal.discarded)}건 ({where})")
+    if proposal.skipped_reason:
+        print(f"  건너뜀: {proposal.skipped_reason}")
+    for item in payload["items"]:
+        status = (
+            f" [상태: {_STATUS_TEXT.get(item['status'], item['status'])}]" if item["status"] else ""
+        )
+        tier = item["tier"] if item["tier"] != "own" else "own"
+        print(f"\n■ {item['doc_id']} ({tier}){status} {item['title']}")
+        print(f"  겹치는 점: {item['overlap_summary']}")
+        if item["build_on"]:
+            print(f"  이어받을 점: {item['build_on']}")
+        for n, d in enumerate(item["differentiation"], 1):
+            print(f"  방향 {n}: {d}")
+    for d in payload["discarded"]:
+        print(f"  (폐기) {_safe(d.get('doc_id', ''), 64)}: {_safe(d.get('reason', ''), 40)}")
+    t = payload["transfer"]
+    print(
+        f"전송: public {len(t['public_doc_ids'])}건, internal {len(t['internal_doc_ids'])}건, "
+        f"제외 {len(t['excluded_doc_ids'])}건 — 고른 방향은 generate --differentiation 으로 넣는다"
+    )
 
 
 def cmd_differentiate(args: argparse.Namespace) -> int:
@@ -1029,6 +1098,12 @@ def build_parser() -> argparse.ArgumentParser:
         pre.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
     pre.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
     pre.add_argument("--json", action="store_true", help="JSON 으로 출력")
+    pre.add_argument(
+        "--no-differentiate",
+        action="store_true",
+        dest="no_differentiate",
+        help="차단 알림이 있어도 차별화 제안(기능 2)을 자동 실행하지 않는다",
+    )
     pre.set_defaults(handler=cmd_precheck)
 
     diff = sub.add_parser(
