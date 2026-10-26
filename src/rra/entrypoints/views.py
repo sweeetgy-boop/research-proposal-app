@@ -276,6 +276,38 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
     }
 
 
+def differentiation_payload(
+    proposal: Any, *, clean: Callable[[str], str] = _same
+) -> dict[str, Any]:
+    """DifferentiationProposal → dict (CLI·MCP·REST 공용). 항목 본문은 LLM 출력(비신뢰) → clean."""
+    return {
+        "skipped_reason": proposal.skipped_reason,
+        "provider": proposal.provider,
+        "model": proposal.model,
+        "fallback_local": proposal.fallback_local,
+        "transfer": {
+            "public_doc_ids": list(proposal.public_doc_ids),
+            "internal_doc_ids": list(proposal.internal_doc_ids),
+            "excluded_doc_ids": list(proposal.excluded_doc_ids),
+            "calls": proposal.calls,
+        },
+        "items": [
+            {
+                "doc_id": i.doc_id,
+                "title": clean(i.title),
+                "tier": i.tier,
+                "status": i.status,
+                "overlap_summary": clean(i.overlap_summary),
+                "build_on": clean(i.build_on),
+                "differentiation": [clean(d) for d in i.differentiation],
+                "evidence": list(i.evidence),
+            }
+            for i in proposal.items
+        ],
+        "discarded": [dict(d) for d in proposal.discarded],
+    }
+
+
 def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
     """RunState → 상태 조회 응답 (초안 본문 없음)."""
     done, total = state.progress

@@ -66,6 +66,7 @@ __all__ = [
     "build_own_projects_source",
     "build_api",
     "build_assistant",
+    "build_differentiator",
     "build_embedding",
     "build_generate",
     "build_ingest",
@@ -745,6 +746,7 @@ def build_api(
     return create_app(
         manager=manager,
         precheck=build_precheck(settings, repo=repo),
+        differentiate=build_differentiator(settings, repo=repo, llm=llm),
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
@@ -778,6 +780,35 @@ def build_purge_runs(settings: Settings | None = None, *, clock=None):
     return PurgeRuns(FileRunStore(Path(settings.runs_dir)), retention_days(settings), **kwargs)
 
 
+def build_differentiator(settings: Settings | None = None, *, repo=None, llm=None):
+    """기능 2 유스케이스(Differentiate). differentiate 단계 LLM(기본 gemini) 키가 없으면
+    compose(로컬) 모델로 대신하고 fallback_local=True. llm 을 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.differentiate import Differentiate
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    stage, fallback = "differentiate", False
+    try:
+        available = llm_available(settings, stage=stage)
+    except KeyError:
+        available = False
+    if not available:
+        stage, fallback = "compose", True
+    cfg = llm_config(settings, stage)
+    if llm is None:
+        llm = build_llm(settings, stage=stage)
+    return Differentiate(
+        llm,
+        build_prompt_library(settings),
+        repo,
+        include_internal=review_policy(settings)["include_internal"],
+        provider=cfg["provider"],
+        model=cfg["served_model"] or cfg["model"],
+        fallback_local=fallback,
+    )
+
+
 def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
     """Agent(ProposalAssistant) — precheck·RunManager·검색이 같은 repo 를 쓴다.
 
@@ -790,4 +821,10 @@ def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
     manager = build_run_manager(settings, repo=repo, llm=llm)
-    return ProposalAssistant(build_precheck(settings, repo=repo), manager, repo, user=LOCAL_USER)
+    return ProposalAssistant(
+        build_precheck(settings, repo=repo),
+        manager,
+        repo,
+        user=LOCAL_USER,
+        differentiate=build_differentiator(settings, repo=repo, llm=llm),
+    )

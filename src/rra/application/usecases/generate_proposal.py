@@ -71,6 +71,8 @@ from rra.domain.rules.trust import enforce_section_evidence, wrap_untrusted
 
 OVERLAP_SECTION = "overlap_review"
 _OVERLAP_TEXT_CHARS = 1500
+# 제안자가 정한 차별화 방향(기능 2)을 지시문으로 넣는 섹션 — 목적·방법·특이사항
+DIFFERENTIATION_SECTIONS = frozenset({"objective", "method", OVERLAP_SECTION})
 CHOICE_EXAMPLE = (
     '{"choices": ["예시-id"], "sentences": [{"text": "예시 문장임.", "evidence": ["doc:예시#0"]}]}'
 )
@@ -262,6 +264,11 @@ class GenerateProposal:
             parts.append(
                 "[출력 모양 예시 — 모양만 참고. 값은 가상이며 그대로 쓰면 폐기됨]\n"
                 + CHOICE_EXAMPLE
+            )
+        if key in DIFFERENTIATION_SECTIONS and req.differentiation:
+            parts.append(
+                "[제안자가 정한 차별화 방향 — 유사과제와의 차이를 이 방향으로 서술한다]\n"
+                + req.differentiation
             )
         if key == OVERLAP_SECTION and snapshot.overlap_checked:
             rows = "\n".join(

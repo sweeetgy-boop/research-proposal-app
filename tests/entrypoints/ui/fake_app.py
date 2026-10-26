@@ -67,8 +67,47 @@ ANSWERS = [
 ]
 
 
+class FakeDifferentiate:
+    """기능 2 유스케이스 페이크 — 차단·근접 후보마다 방향 2개를 돌려준다. LLM 없음."""
+
+    def __init__(self):
+        self.calls: list = []
+
+    async def __call__(self, req, alerts):
+        from rra.domain.models import DifferentiationItem, DifferentiationProposal
+        from rra.domain.rules.differentiation import candidates
+
+        self.calls.append((req, alerts))
+        items = [
+            DifferentiationItem(
+                doc_id=a.doc_id,
+                title=a.title,
+                tier=a.tier,
+                status=a.status,
+                overlap_summary="대상(궤도 상태)과 방법(자동 감지)이 겹침",
+                build_on="그 과제의 검측 데이터 수집 체계를 이어받음",
+                differentiation=[
+                    "열화 속도 추정으로 범위를 확장함",
+                    "보수 우선순위 산정으로 목표를 좁힘",
+                ],
+                evidence=[a.doc_id],
+            )
+            for a in candidates(alerts)
+        ]
+        return DifferentiationProposal(
+            items=items,
+            provider="gemini",
+            model="argon",
+            internal_doc_ids=[i.doc_id for i in items],
+            calls=1,
+        )
+
+
+_DEFAULT = object()
+
+
 def make_assistant(
-    *, blocking: bool = False, answers: list[str] | None = None
+    *, blocking: bool = False, answers: list[str] | None = None, differentiate=_DEFAULT
 ) -> ProposalAssistant:
     repo = InMemoryRepository()
     repo.seed(DOCS, CHUNKS)
@@ -100,5 +139,9 @@ def make_assistant(
         renderer=FakeRenderer(),
     )
     return ProposalAssistant(
-        PrecheckOverlap(repo, own=own), mgr, repo, clock=lambda: "2026-01-01T00:00:00+00:00"
+        PrecheckOverlap(repo, own=own),
+        mgr,
+        repo,
+        clock=lambda: "2026-01-01T00:00:00+00:00",
+        differentiate=FakeDifferentiate() if differentiate is _DEFAULT else differentiate,
     )

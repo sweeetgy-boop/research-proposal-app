@@ -24,10 +24,25 @@ def test_blocking_alert_requires_human_before_generate():
 
 
 def test_no_alert_or_acknowledged_generates():
-    [d] = policy.after_precheck([alert(False)], WITH_BASIS, corpus_size=5)
+    [d, near] = policy.after_precheck([alert(False)], WITH_BASIS, corpus_size=5)
     assert d.tool == "rra_generate" and not d.needs_human
-    [d2] = policy.after_precheck([alert(True)], WITH_BASIS, corpus_size=5, acknowledged=True)
+    assert near.tool == "rra_differentiate"  # 0.9 는 own 임계치(0.80)의 90% 이상 → 근접
+    [d2, _] = policy.after_precheck([alert(True)], WITH_BASIS, corpus_size=5, acknowledged=True)
     assert d2.tool == "rra_generate"
+
+
+def test_differentiate_row_only_for_blocking_or_near_threshold_alerts():
+    far = OverlapAlert(doc_id="x:1", title="t", tier="external", similarity=0.5, blocking=False)
+    assert [d.tool for d in policy.after_precheck([far], WITH_BASIS, corpus_size=5)] == [
+        "rra_generate"
+    ]
+    near = OverlapAlert(doc_id="x:2", title="t", tier="external", similarity=0.81, blocking=False)
+    tools = [d.tool for d in policy.after_precheck([near], WITH_BASIS, corpus_size=5)]
+    assert tools == ["rra_generate", "rra_differentiate"]  # 0.90 × 0.9 = 0.81
+    blocked = policy.after_precheck([alert(True)], WITH_BASIS, corpus_size=5)
+    assert [d.tool for d in blocked] == [None, "rra_differentiate"] and blocked[0].needs_human
+    d = policy.on_differentiate()
+    assert d.tool == "rra_differentiate" and "90%" in d.condition and not d.needs_human
 
 
 def test_missing_policy_basis_is_announced():

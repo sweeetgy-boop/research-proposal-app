@@ -32,13 +32,14 @@ macOS 와 WSL 은 `.venv` 를 따로 만든다. `.env` 는 `.env.example` 을 �
 
 ```bash
 rra precheck --current-state "..." --root-cause "..." --limitation "..." --goal "..."   # 유사과제 사전 점검
+rra differentiate --current-state ... --goal ...   # 차단·근접 유사과제별 활용·차별화 방향 (기능 2, Gemini — 키 없으면 로컬)
 rra search "궤도 틀림 자동 감지" -k 5                                                # 하이브리드 검색
 rra llm-check --stage compose                                                        # mlx-lm 왕복 1회 + served_model 확인
 rra ingest --source openalex,alio,alio_summary [--query ...]                          # 수집 → 적재
 rra ingest --source own_projects,own_docs      # 사내 과제 현황 엑셀(data/inbox/own)·공시용 요약문(data/inbox/own_docs)
 rra sources check                                                                    # ScienceON·NTIS 키 유무(값 미표시)·왕복
 rra alio catalog [--fetch] | rra alio missing | rra alio status                       # 알리오 카탈로그·filedrop
-rra generate --current-state ... --goal ... [--file in.yaml] [--resume RUN] [--reuse-input RUN]
+rra generate --current-state ... --goal ... [--differentiation "고른 방향"] [--file in.yaml] [--resume RUN] [--reuse-input RUN]
 rra runs list | rra runs show RUN [--json]
 rra runs confirm RUN --task-type applied --utilization software,manual [--strategy D1-1]
 rra runs review RUN [--wait]                 # Argon 검토 n차 (RRA_GEMINI_API_KEY 없으면 건너뜀 기록)
@@ -50,7 +51,7 @@ rra llm-check --provider gemini | rra api schema                                
 rra runs purge [--dry-run]                                                           # 보존기간(180일) 지난 run 삭제
 rra ui  [--port 8501]      # Streamlit, 127.0.0.1, RRA_API_TOKEN 필요
 rra api [--port 8000]      # REST, 127.0.0.1, RRA_API_TOKEN 필요 (deploy/README.md)
-rra mcp [--enable-generate]  # MCP stdio — 읽기 2개 / 쓰기 포함 6개 (docs/mcp.md)
+rra mcp [--enable-generate]  # MCP stdio — 읽기 2개 / 쓰기 포함 11개 (docs/mcp.md)
 ```
 
 LLM 은 `mlx_lm.server --host 127.0.0.1 --port 8080` (OpenAI 호환, `config/llm.yaml`, launchd `deploy/launchd/com.rra.mlx.plist`).
@@ -63,6 +64,6 @@ A.X 4.0 Light 는 JSON 형식 성공률 기준(95%)에 못 미쳐 **Qwen2.5-7B-I
 
 - Step 1~10 + 실물 양식 템플릿(`tools/build_form_template.py`) + 작성 → Argon 검토 → 제안자 수정 → 재검토 → 최종 마무리
   흐름(`docs/architecture.md` §4.6) + 프론트엔드용 REST(§9.2, `docs/openapi.json`) 까지. 양식 파일은 finalize 로만.
-- Argon 검토는 `RRA_GEMINI_API_KEY` 로 연결돼 있다(없으면 검토 건너뜀 기록). 기획서 기준 미구현은 기능 2
-  "유사과제 활용·차별화 제안" 과 KIPRIS 특허 수집. 항목별 현황·근거·단계 계획(P0~P7)은 `docs/status.md`.
+- Argon 검토·차별화 제안은 `RRA_GEMINI_API_KEY` 로 연결돼 있다(없으면 검토 건너뜀·차별화는 로컬 모델). 기획서 기준
+  미구현은 KIPRIS 특허 수집. 항목별 현황·근거·단계 계획(P0~P7)은 `docs/status.md`.
 - 대기(사람 입력): ScienceON·NTIS·KIPRIS 키, `korail_strategy.yaml` 전략체계, 연구과제 공고문, 프론트엔드 `web/dist`.

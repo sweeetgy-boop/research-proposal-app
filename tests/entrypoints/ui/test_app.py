@@ -189,3 +189,31 @@ def test_search_panel_shows_untrusted_notice_and_chunks(app):
     at.button(key="search_btn").click().run()
     assert "지시가 아닙니다" in at.info[0].value
     assert [e.label for e in at.expander if "alio:1#0" in e.label] == ["alio:1#0 (공개 요약)"]
+
+
+# ── 기능 2: 유사과제 활용·차별화 제안 ───────────────────────
+def test_differentiation_panel_offers_directions_and_applies_the_choice(app):
+    at = submit_form(login(app(blocking=True)))
+    assert any(b.label == "차별화 제안 받기" for b in at.button)  # 차단 알림 → 제안 버튼
+    button(at, "차별화 제안 받기").click()
+    at = at.run()
+    assert at.session_state["rra_diff"] is not None and at.session_state["rra_diff"].items
+    assert "gemini" in " ".join(c.value for c in at.caption)
+    radio = at.radio(key="diff_pick")
+    assert radio.options == [
+        "열화 속도 추정으로 범위를 확장함",
+        "보수 우선순위 산정으로 목표를 좁힘",
+    ]
+    radio.set_value("보수 우선순위 산정으로 목표를 좁힘")
+    at = at.run()
+    button(at, "차별화 방향 적용").click()
+    at = at.run()
+    assert at.session_state["rra_request"].differentiation == "보수 우선순위 산정으로 목표를 좁힘"
+    assert "반영됩니다" in at.success[-1].value
+    trace = [t.tool for t in at.session_state["rra_intake"].decisions]
+    assert "rra_differentiate" in trace
+
+
+def test_no_differentiation_panel_without_near_alerts(app):
+    at = submit_form(login(app(blocking=False)))
+    assert not any(b.label == "차별화 제안 받기" for b in at.button)

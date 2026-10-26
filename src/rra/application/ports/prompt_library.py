@@ -22,3 +22,7 @@ class PromptLibraryPort(Protocol):
     def review(self) -> str:
         """검토(Argon) 시스템 프롬프트 — 새 사실 추가 금지·근거 안에서만·한국어·JSON 객체."""
         ...
+
+    def differentiate(self) -> str:
+        """유사과제 활용·차별화 제안 시스템 프롬프트 — 자료·입력 안에서만, JSON 객체."""
+        ...

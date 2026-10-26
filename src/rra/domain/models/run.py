@@ -88,6 +88,8 @@ class RunState(BaseModel):
     review_model: str | None = None  # 검토에 쓴 provider/model (manifest 용)
     review_from: str | None = None  # 검토 시작 전 상태 (실패하면 여기로 돌아간다)
     finalized_at: str | None = None
+    # 기능 2 차별화 제안의 외부 전송 기록 — DifferentiationProposal.transfer() (본문 없음)
+    differentiation: dict[str, Any] | None = None
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

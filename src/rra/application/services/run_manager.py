@@ -197,9 +197,18 @@ class RunManager:
 
     # ── 제출·재개 ─────────────────────────────────────────
     async def submit(
-        self, user: str, req: ProposalRequest, *, on_step: StepCallback | None = None
+        self,
+        user: str,
+        req: ProposalRequest,
+        *,
+        on_step: StepCallback | None = None,
+        differentiation: dict[str, Any] | None = None,
     ) -> RunState:
-        """queued 로 저장하고 백그라운드 실행을 시작한 뒤 즉시 돌려준다."""
+        """queued 로 저장하고 백그라운드 실행을 시작한 뒤 즉시 돌려준다.
+
+        differentiation: 기능 2 차별화 제안의 전송 기록(DifferentiationProposal.transfer()).
+        manifest 에만 남는다.
+        """
         active = [s for s in self.list_runs(user) if s.status in ACTIVE]
         if len(active) >= self.max_queued:
             raise QueueFull(
@@ -208,6 +217,7 @@ class RunManager:
         state = self.store.create(user, req, plan_steps(self.generate.section_keys), self._clock())
         state.model = self.model
         state.template = self.generate.template
+        state.differentiation = dict(differentiation) if differentiation else None
         self.store.save_state(state)
         claim = self.store.claim(user, state.run_id)  # 백그라운드 시작 전에 잡아 공백을 없앤다
         self._start(state, claim, on_step)
@@ -973,6 +983,7 @@ def manifest(
             ],
         },
         "finalized_at": state.finalized_at,
+        "differentiation": dict(state.differentiation) if state.differentiation else None,
     }
 
 

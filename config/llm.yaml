@@ -82,6 +82,8 @@ stages:
   compose:   {max_tokens: 2000}                       # 작성 = mlx(model_profiles 의 로컬 모델)
   critique:  {max_tokens: 800}
   review:    {provider: gemini, max_tokens: 6000}     # 검토 = gemini-4-argon (키 없으면 review_skipped)
+  # 기능 2 유사과제 활용·차별화 제안 = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
+  differentiate: {provider: gemini, max_tokens: 2000}
 
 # 검토(review) 단계 정책
 review:

@@ -911,3 +911,82 @@ def test_api_schema_exports_openapi_without_token_or_db(monkeypatch, tmp_path, c
         assert p in paths, p
     assert "/v1/runs/{run_id}/file" not in paths
     assert not (tmp_path / "x.sqlite").exists()
+
+
+# ── 기능 2: rra differentiate ────────────────────────────
+class StubDifferentiate:
+    def __init__(self, proposal):
+        self.proposal = proposal
+        self.calls = []
+        self.llm = self
+
+    async def __call__(self, req, alerts):
+        self.calls.append((req, alerts))
+        return self.proposal
+
+    async def aclose(self):
+        self.closed = True
+
+
+def _proposal(**kw):
+    from rra.domain.models import DifferentiationItem, DifferentiationProposal
+
+    return DifferentiationProposal(
+        items=[
+            DifferentiationItem(
+                doc_id="alio:1",
+                title="궤도 상태 자동\x00 감지",
+                tier="own",
+                status="rejected",
+                overlap_summary="대상이 겹침",
+                build_on="결과를 이어받음",
+                differentiation=["범위를 확장함", "목표를 좁힘"],
+                evidence=["alio:1"],
+            )
+        ],
+        discarded=[{"doc_id": "alio:2", "reason": "ungrounded"}],
+        provider="gemini",
+        model="argon",
+        internal_doc_ids=["alio:1"],
+        calls=1,
+        **kw,
+    )
+
+
+@pytest.fixture
+def diff_stub(stub, monkeypatch):
+    stub.alerts = [alert(blocking=True)]
+    holder = StubDifferentiate(_proposal())
+    monkeypatch.setattr("rra.composition.build_differentiator", lambda *a, **k: holder)
+    return holder
+
+
+def test_differentiate_prints_items_status_and_transfer(diff_stub, capsys):
+    assert cli.main(["differentiate", *SLOT_ARGS]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "제안 1건, 폐기 1건 (gemini/argon)" in out and "[상태: 미채택" in out
+    assert "방향 1: 범위를 확장함" in out and "방향 2: 목표를 좁힘" in out
+    assert "(폐기) alio:2: ungrounded" in out and "internal 1건" in out
+    assert "\x00" not in out and diff_stub.closed is True
+    assert diff_stub.calls[0][1][0].blocking is True  # precheck 결과를 넘긴다
+
+
+def test_differentiate_json_and_fallback_label(diff_stub, capsys):
+    diff_stub.proposal = _proposal(fallback_local=True)
+    assert cli.main(["differentiate", *SLOT_ARGS, "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["fallback_local"] is True and payload["alerts"][0]["blocking"] is True
+    assert payload["items"][0]["differentiation"] == ["범위를 확장함", "목표를 좁힘"]
+    cli.main(["differentiate", *SLOT_ARGS])
+    assert "로컬 모델(대체)" in capsys.readouterr().out
+
+
+def test_generate_accepts_differentiation_flag():
+    args = cli.build_parser().parse_args(
+        ["generate", *SLOT_ARGS, "--differentiation", "열화 추정으로 확장"]
+    )
+    fields = cli._read_request_fields(args)
+    assert fields["differentiation"] == "열화 추정으로 확장"
+    from rra.domain.models import ProposalRequest
+
+    assert ProposalRequest(**fields).differentiation == "열화 추정으로 확장"

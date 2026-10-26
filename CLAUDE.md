@@ -90,12 +90,16 @@
   종류 판별, 이름 열 제외, status rejected/stopped/…, 과제명 병합)·`own_docs`(data/inbox/own_docs 공시완료 폴더, 공시용 >
   일반 요약, hwpx > hwp > pdf, 묶음 꼬리말 분리, alio.summary 정규화 공용, 이름 제거). 샌드박스 파서 hwp(olefile)·xlsx·xls.
   `OverlapAlert.status` 는 `Document.raw.status`. 실물 파일 테스트는 skipif.
-- 기획서 필수 기능 2 "유사과제 활용·차별화 제안" 은 미구현(P3). `rra llm-check` 기본 프롬프트의 `[]` 응답은 의도된 연결 확인 출력.
+- 기획서 기능 2 유사과제 활용·차별화 제안(P3, architecture §4.9): `domain/rules/differentiation.py`(후보 = 차단 또는
+  임계치×0.9, LLM 항목 검증·폐기), `usecases/differentiate.py`(Gemini `stages.differentiate`, 키 없으면 compose 로컬 대체,
+  전송 범위는 검토와 동일, `transfer()` → manifest `differentiation`), `ProposalRequest.differentiation` 은 목적·방법·
+  특이사항 프롬프트에 `[제안자가 정한 차별화 방향]` 으로 들어간다. 진입점: `rra differentiate`, `POST /v1/precheck/differentiate`,
+  MCP `rra_differentiate`(쓰기 서버), Streamlit [차별화 제안 받기]. `rra llm-check` 기본 프롬프트의 `[]` 응답은 의도된 출력.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.
 - 도구 로직은 `entrypoints/mcp/tools.py`(읽기)·`run_tools.py`(쓰기, mcp SDK import 없음), 등록만 `server.py`.
-  쓰기 도구(generate·get_draft·confirm·review·get_review·edit·finalize·reopen)는 `--enable-generate` 일 때만 등록. tools.py 는 RunManager 를 import 할 수 없다(계약 "read-only MCP tools never reach the run manager"). 계약은 모두 8건.
+  쓰기 도구(differentiate·generate·get_draft·confirm·review·get_review·edit·finalize·reopen)는 `--enable-generate` 일 때만 등록. tools.py 는 RunManager 를 import 할 수 없다(계약 "read-only MCP tools never reach the run manager"). 계약은 모두 8건.
 - 도구 결과는 항상 비신뢰: `domain/rules/trust.untrusted_block()` / `UNTRUSTED_NOTICE` 를 거쳐 나간다.

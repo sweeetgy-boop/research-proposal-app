@@ -483,3 +483,29 @@ def test_own_sources_are_wired_from_sources_yaml(tmp_path):
     assert docs.labels["title"] == ["과제명칭"] and docs.labels["purpose"] == ["연구목적"]
     assert docs.institutions[0]["tag"] == "korail" and docs.default_org == "korail"
     assert projects.limits.max_input_mb == docs.limits.max_input_mb
+
+
+def test_differentiator_uses_gemini_with_key_and_falls_back_to_local_without(gemini_dir):
+    from pydantic import SecretStr
+
+    from rra.composition import build_differentiator
+
+    (gemini_dir / "llm.yaml").write_text(
+        (gemini_dir / "llm.yaml").read_text(encoding="utf-8")
+        + "  differentiate: {provider: gemini, max_tokens: 2000}\n",
+        encoding="utf-8",
+    )
+    without = build_differentiator(settings_for(gemini_dir), repo=object(), llm=object())
+    assert without.fallback_local is True and without.provider == "mlx"
+    with_key = build_differentiator(
+        settings_for(gemini_dir, gemini_api_key=SecretStr("k")), repo=object(), llm=object()
+    )
+    assert with_key.fallback_local is False and with_key.provider == "gemini"
+    assert with_key.include_internal is True
+
+
+def test_differentiator_without_stage_in_llm_yaml_falls_back_to_compose(config_dir):
+    from rra.composition import build_differentiator
+
+    d = build_differentiator(settings_for(config_dir), repo=object(), llm=object())
+    assert d.fallback_local is True

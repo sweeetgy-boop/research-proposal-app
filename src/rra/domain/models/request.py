@@ -80,6 +80,10 @@ class ProposalRequest(BaseModel):
     )
     beneficiaries: str = Field(default="", description="활용 주체 부서 (차량처·시설처 등)")
     remarks: str = Field(default="", description="특이사항에 덧붙일 내용")
+    differentiation: str = Field(
+        default="",
+        description="제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
+    )
     department: str = Field(default="", description="제안부서 (양식 칸에만 쓴다)")
     budget: Budget | None = None
 
@@ -105,6 +109,7 @@ class ProposalRequest(BaseModel):
         "policy_basis",
         "beneficiaries",
         "remarks",
+        "differentiation",
     )
     @classmethod
     def _limit(cls, v: str) -> str:
