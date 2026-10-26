@@ -228,7 +228,7 @@ def lint(
                 )
         if sec.key in rules.number_checked:
             for i, s in enumerate(sec.sentences):
-                if s.origin != "llm":
+                if s.origin in ("app", "input"):  # 앱 확정 문장·입력 그대로는 검사하지 않는다
                     continue
                 cited = _cited_texts(s, chunk_texts or {})
                 bad = unsupported_numbers(s.text, [*request_texts, *cited])

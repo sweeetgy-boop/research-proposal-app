@@ -21,14 +21,13 @@ from rra.domain.rules.review_flow import (
 
 TABLE = [
     ("done", "start_review", "reviewing"),
-    ("done", "skip_review", "reviewed"),
     ("done", "edit", "editing"),
+    ("done", "finalize", "finalized"),  # review_skipped 일 때만 — can_finalize 가 지킨다
     ("reviewing", "finish_review", "reviewed"),
     ("reviewed", "edit", "editing"),
     ("reviewed", "start_review", "reviewing"),
     ("reviewed", "finalize", "finalized"),
     ("editing", "start_review", "reviewing"),
-    ("editing", "skip_review", "reviewed"),
     ("editing", "edit", "editing"),
     ("editing", "finalize", "finalized"),
     ("finalized", "reopen", "editing"),
@@ -45,7 +44,6 @@ def test_transition_table(status, event, expected):
 @pytest.mark.parametrize(
     ("status", "event"),
     [
-        ("done", "finalize"),  # 검토 전 마무리 금지
         ("done", "finish_review"),
         ("reviewing", "edit"),  # 검토 중 편집 금지
         ("reviewing", "finalize"),  # 검토 중 마무리 금지
@@ -84,6 +82,9 @@ def test_finalize_and_render_guards():
     assert can_finalize("reviewed", review_rounds=1, review_skipped=False)
     assert can_finalize("editing", review_rounds=3, review_skipped=False)
     assert can_finalize("reviewed", review_rounds=0, review_skipped=True)  # 건너뜀도 허용
+    assert can_finalize(
+        "done", review_rounds=0, review_skipped=True
+    )  # 검토 LLM 없음 → done 에서 바로
     assert can_finalize("finalized", review_rounds=1, review_skipped=False)
     assert not can_finalize("reviewing", review_rounds=2, review_skipped=False)  # 검토 중
     assert not can_finalize("done", review_rounds=0, review_skipped=False)  # 검토 전

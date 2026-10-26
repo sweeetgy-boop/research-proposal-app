@@ -106,3 +106,31 @@ class DraftVersion(BaseModel):
 
     def section(self, key: str) -> Section | None:
         return next((s for s in self.sections if s.key == key), None)
+
+
+# ── 제안자 편집 요청 (5-5) ────────────────────────────────
+EditAction = Literal["use_revision", "keep", "manual"]
+
+
+class SentenceEdit(BaseModel):
+    """문장별 선택. use_revision 은 5-4 검증을 통과한 수정안(comment_id)만, manual 은 직접 수정."""
+
+    sentence_id: str  # "s:<섹션>:<인덱스>"
+    action: EditAction = "keep"
+    comment_id: str | None = (
+        None  # use_revision 일 때 채택한 의견 id (없으면 그 문장의 최신 수정안)
+    )
+    text: str | None = Field(default=None, max_length=MAX_REVISED_CHARS)  # manual 일 때
+
+
+class SectionEdit(BaseModel):
+    """섹션 전체 편집 — 문장 목록을 통째로 바꾼다 (전부 "제안자 수정")."""
+
+    section: str
+    texts: list[str] = Field(default_factory=list)
+
+
+class EditRequest(BaseModel):
+    sentences: list[SentenceEdit] = Field(default_factory=list)
+    sections: list[SectionEdit] = Field(default_factory=list)
+    note: str = Field(default="", max_length=200)

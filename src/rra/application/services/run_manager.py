@@ -40,16 +40,22 @@ from rra.application.ports import (
 from rra.application.ports.renderer import RenderRejected
 from rra.application.usecases.generate_proposal import GenerateProposal
 from rra.application.usecases.render_check import RenderCheck, render_check
+from rra.application.usecases.review_draft import ReviewContext, ReviewDraft
 from rra.domain.models import (
     Confirmation,
     Draft,
+    DraftVersion,
     ProposalRequest,
     ProposerInfo,
     RetrievalSnapshot,
+    ReviewComment,
+    ReviewRound,
     RunState,
     Section,
+    Sentence,
     StepRecord,
 )
+from rra.domain.models.review import EditRequest, parse_sentence_id, sentence_id
 from rra.domain.models.run import (
     ACTIVE,
     FINALIZE,
@@ -60,8 +66,10 @@ from rra.domain.models.run import (
     plan_steps,
     section_step,
 )
-from rra.domain.rules.lint import has_errors
+from rra.domain.rules import review_flow
+from rra.domain.rules.lint import has_errors, lint
 from rra.domain.rules.llm_output import clean_sentence
+from rra.domain.rules.review_flow import InvalidTransition
 
 logger = logging.getLogger("rra.runs")
 
@@ -95,6 +103,23 @@ class ConfirmRejected(ValueError):
     """선택값 확정 요청이 규칙(선택지 목록·개수·run 상태)에 맞지 않는다."""
 
 
+class EditRejected(ValueError):
+    """편집·되돌리기 요청이 규칙(상태·문장 id·수정안 검증 통과 여부)에 맞지 않는다."""
+
+
+class FinalizeRejected(ValueError):
+    """최종 마무리 조건(검토 1회 이상 또는 건너뜀, 검토 중 아님)에 맞지 않는다."""
+
+
+@dataclass(frozen=True)
+class FinalizeResult:
+    data: bytes  # HWPX
+    confirmation: Confirmation
+    check: RenderCheck
+    version: int
+    state: RunState
+
+
 LEGACY_HINT = (
     "이전 양식으로 만든 run 입니다 — rra generate --reuse-input {run_id} 로 새로 생성하십시오."
 )
@@ -118,6 +143,10 @@ class DraftView:
     confirmation: Confirmation | None = None
     # 선택형 섹션 → {선택지 id: 표시 이름}. legacy 면 비어 있다
     choice_options: dict[str, dict[str, str]] = field(default_factory=dict)
+    version: int = 1  # 보고 있는 초안 버전
+    versions: list[int] = field(default_factory=list)
+    review: ReviewRound | None = None  # 최신 검토 차수 (없으면 None)
+    reviews: list[int] = field(default_factory=list)
 
 
 def _utcnow() -> str:
@@ -149,8 +178,13 @@ class RunManager:
         clock: Callable[[], str] = _utcnow,
         renderer: RendererPort | None = None,
         line_limits: Mapping[str, int] | None = None,
+        reviewer: ReviewDraft | None = None,
+        review_auto: bool = True,
     ):
         self.generate = generate
+        self.reviewer = reviewer  # None 이면 검토를 건너뛴다 (review_skipped)
+        self.review_auto = review_auto
+        self._review_tasks: dict[str, str] = {}  # run_id → 실행 중 검토 작업 key (차수별 고유)
         self.line_limits: dict[str, int] = dict(line_limits or {})  # slots.yaml 한 줄 칸 상한
         self.store = store
         self.slot = slot
@@ -197,9 +231,12 @@ class RunManager:
         return state
 
     async def wait(self, user: str, run_id: str) -> RunState:
-        """같은 프로세스에서 시작한 run 이 끝날 때까지 기다린다 (CLI 용)."""
+        """같은 프로세스에서 시작한 run(생성·자동 검토)이 끝날 때까지 기다린다 (CLI 용)."""
         if self.runner.is_running(run_id):
-            return await self.runner.wait(run_id)
+            await self.runner.wait(run_id)
+        key = self._review_tasks.get(run_id)
+        if key and self.runner.is_running(key):
+            await self.runner.wait(key)
         return await self.status(user, run_id)
 
     def cancel(self, user: str, run_id: str) -> bool:
@@ -218,6 +255,7 @@ class RunManager:
     ) -> RunState:
         state = self.store.load_state(user, run_id)
         current: StepRecord | None = None
+        auto_review = False
         try:
             async with self.slot.acquire():
                 state.status = "running"
@@ -286,6 +324,18 @@ class RunManager:
                 self.store.save_draft(user, run_id, draft)
                 state.problems = [p.model_dump() for p in problems]
                 state.status = "invalid" if has_errors(problems) else "done"
+                if state.status == "done":  # draft_v1 = 로컬 초안
+                    self.store.save_version(
+                        user,
+                        run_id,
+                        DraftVersion(
+                            version=1, origin="local", sections=ordered, created_at=self._clock()
+                        ),
+                    )
+                    state.draft_version = 1
+                    if self.review_auto and self.reviewer is None:
+                        self._skip_review(user, run_id, state)  # review_skipped, 상태는 done
+                    auto_review = self.review_auto and self.reviewer is not None
                 self._finish(state, current, on_step)
                 current = None
                 return state
@@ -300,6 +350,13 @@ class RunManager:
             state.updated_at = self._clock()
             self._save(state)
             claim.release()
+            if auto_review:  # 초안 완료 뒤 1차 검토 자동 시작 (review.auto). 락을 놓은 뒤에
+                try:
+                    await self.review(user, run_id)
+                except (QueueFull, RunBusy, InvalidTransition) as exc:
+                    logger.warning(
+                        "run.auto_review_skipped run=%s reason=%s", run_id, type(exc).__name__
+                    )
 
     def _begin(self, state: RunState, name: str) -> StepRecord:
         step = state.step(name)
@@ -338,12 +395,18 @@ class RunManager:
         self._record(state)
 
     def _record(self, state: RunState) -> None:
+        reviews = [
+            r
+            for n in self.store.list_reviews(state.user, state.run_id)
+            if (r := self.store.load_review(state.user, state.run_id, n)) is not None
+        ]
         self.run_log.record(
             state.run_id,
             manifest(
                 state,
                 self.store.load_snapshot(state.user, state.run_id),
                 self.store.load_confirmation(state.user, state.run_id),
+                reviews,
             ),
         )
 
@@ -390,6 +453,7 @@ class RunManager:
         sections = [_cleaned(stored[k]) for k in state.section_keys if k in stored]
         snapshot = self.store.load_snapshot(user, run_id)
         legacy = self.is_legacy(state)
+        reviews = self.store.list_reviews(user, run_id)
         return DraftView(
             state=state,
             sections=sections,
@@ -397,7 +461,331 @@ class RunManager:
             legacy=legacy,
             confirmation=self.store.load_confirmation(user, run_id),
             choice_options={} if legacy else self.generate.choice_options(),
+            version=max(state.draft_version, 1),
+            versions=self.store.list_versions(user, run_id),
+            review=self.store.load_review(user, run_id, reviews[-1]) if reviews else None,
+            reviews=reviews,
         )
+
+    # ── [5] 검토 ─────────────────────────────────────────
+    async def review(self, user: str, run_id: str) -> RunState:
+        """검토(n차)를 시작한다. 검토 LLM 이 없으면 건너뛰고 review_skipped 를 기록한다.
+
+        동시성 1·대기열 3(QueueFull)은 생성과 같은 슬롯·상한을 쓴다. 백그라운드로 돌고 상태만
+        돌려준다.
+        """
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise InvalidTransition(LEGACY_HINT.format(run_id=run_id))
+        if self.reviewer is None:  # 검토 LLM 없음 → 건너뜀 기록, 상태는 그대로 (finalize 가능)
+            if not review_flow.can_review(state.status):
+                raise InvalidTransition(review_flow.hint(state.status, "start_review"))
+            self._skip_review(user, run_id, state)
+            self._save(state)
+            return state
+        nxt = review_flow.transition(state.status, "start_review")  # 불가면 InvalidTransition
+        active = [s for s in self.list_runs(user) if s.status in ACTIVE]
+        if len(active) >= self.max_queued:
+            raise QueueFull(
+                f"대기·실행 중인 작업이 {len(active)}건입니다 (상한 {self.max_queued})."
+            )
+        claim = self.store.claim(user, run_id)
+        state.review_from = state.status
+        state.status = nxt
+        state.review_error = None
+        self._save(state)
+        key = _review_key(run_id, len(self.store.list_reviews(user, run_id)) + 1)
+        self._review_tasks[run_id] = key
+        self.runner.submit(key, self._execute_review(user, run_id, claim))
+        return state
+
+    def _skip_review(self, user: str, run_id: str, state: RunState) -> None:
+        state.review_skipped = True
+        self.store.save_review(
+            user,
+            run_id,
+            ReviewRound(
+                round=len(self.store.list_reviews(user, run_id)) + 1,
+                draft_version=max(state.draft_version, 1),
+                status="skipped",
+                skipped_reason="no_review_llm",
+                created_at=self._clock(),
+            ),
+        )
+
+    async def _execute_review(self, user: str, run_id: str, claim: RunClaim) -> RunState:
+        state = self.store.load_state(user, run_id)
+        reviewer = self.reviewer
+        if reviewer is None:  # review() 가 막지만 방어
+            raise RuntimeError("reviewer missing")
+        try:
+            async with self.slot.acquire():
+                version = self._current_version(user, run_id, state)
+                snapshot = self.store.load_snapshot(user, run_id)
+                if snapshot is None:
+                    raise RuntimeError("retrieval snapshot missing")
+                rounds = self.store.list_reviews(user, run_id)
+                previous = self.store.load_review(user, run_id, rounds[-1]) if rounds else None
+                changed = self._changed_since(user, run_id, version, previous)
+                result = await reviewer(
+                    ReviewContext(
+                        run_id=run_id,
+                        round_no=len(rounds) + 1,
+                        version=version,
+                        snapshot=snapshot,
+                        request=self.store.load_request(user, run_id),
+                        previous=previous if previous and previous.status == "done" else None,
+                        changed=changed,
+                        confirmation=self.store.load_confirmation(user, run_id),
+                    )
+                )
+                result = result.model_copy(update={"created_at": self._clock()})
+                self.store.save_review(user, run_id, result)
+                self._mark_resolved(user, run_id, previous, result.resolved_ids)
+                state.review_rounds += 1
+                state.review_model = (
+                    f"{reviewer.provider}/{reviewer.model}"
+                    if reviewer.provider or reviewer.model
+                    else None
+                )
+                state.status = review_flow.transition(state.status, "finish_review")
+                state.review_from = None
+                return state
+        except Exception as exc:  # 검토 실패 — 검토 전 상태로 돌아간다 (초안은 그대로)
+            state.status = review_flow.transition(
+                "reviewing", "fail_review", previous=state.review_from
+            )
+            state.review_error = type(exc).__name__
+            state.review_from = None
+            logger.warning("run.review_failed run=%s error=%s", run_id, type(exc).__name__)
+            return state
+        finally:
+            self._save(state)
+            claim.release()
+
+    def _current_version(self, user: str, run_id: str, state: RunState) -> DraftVersion:
+        n = state.draft_version
+        found = self.store.load_version(user, run_id, n) if n >= 1 else None
+        if found is not None:
+            return found
+        stored = self.store.load_sections(user, run_id)  # 버전 파일이 없는 예전 run → v1 로 만든다
+        sections = [_cleaned(stored[k]) for k in state.section_keys if k in stored]
+        version = DraftVersion(
+            version=1, origin="local", sections=sections, created_at=self._clock()
+        )
+        self.store.save_version(user, run_id, version)
+        state.draft_version = 1
+        return version
+
+    def _changed_since(
+        self, user: str, run_id: str, version: DraftVersion, previous: ReviewRound | None
+    ) -> frozenset[str]:
+        if previous is None:
+            return frozenset()
+        old = self.store.load_version(user, run_id, previous.draft_version)
+        if old is None:
+            return frozenset()
+        return frozenset(changed_sentence_ids(old, version))
+
+    def _mark_resolved(
+        self, user: str, run_id: str, previous: ReviewRound | None, resolved: list[str]
+    ) -> None:
+        if previous is None or not resolved:
+            return
+        updated = previous.model_copy(
+            update={
+                "comments": [
+                    c.model_copy(update={"status": "resolved"}) if c.id in resolved else c
+                    for c in previous.comments
+                ]
+            }
+        )
+        self.store.save_review(user, run_id, updated)
+
+    # ── [5] 버전·편집·되돌리기 ───────────────────────────
+    async def versions(self, user: str, run_id: str) -> list[DraftVersion]:
+        state = await self.status(user, run_id)
+        self._current_version(user, run_id, state)
+        out = []
+        for n in self.store.list_versions(user, run_id):
+            v = self.store.load_version(user, run_id, n)
+            if v is not None:
+                out.append(v)
+        return out
+
+    async def get_version(self, user: str, run_id: str, version: int) -> DraftVersion:
+        await self.status(user, run_id)
+        found = self.store.load_version(user, run_id, version) if version >= 1 else None
+        if found is None:
+            raise EditRejected(f"버전 v{version} 이 없습니다.")
+        return found
+
+    async def apply_edits(self, user: str, run_id: str, edits: EditRequest) -> DraftVersion:
+        """제안자 편집 반영 → 새 버전. 수정안 사용은 5-4 통과분만, 직접 수정은 "제안자 수정".
+
+        lint 는 돌려 알림(state.problems)만 남긴다 — 제안자 수정 문장은 버리지 않는다.
+        """
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise EditRejected(LEGACY_HINT.format(run_id=run_id))
+        try:
+            nxt = review_flow.transition(state.status, "edit")
+        except InvalidTransition as exc:
+            raise EditRejected(str(exc)) from exc
+        if not edits.sentences and not edits.sections:
+            raise EditRejected("반영할 편집이 없습니다.")
+        current = self._current_version(user, run_id, state)
+        rounds = self.store.list_reviews(user, run_id)
+        latest = self.store.load_review(user, run_id, rounds[-1]) if rounds else None
+        sections, used = apply_edit_request(current.sections, edits, latest)
+        new_version = DraftVersion(
+            version=current.version + 1,
+            origin="edit",
+            sections=sections,
+            created_at=self._clock(),
+            based_on_review=latest.round if latest else None,
+            note=edits.note,
+        )
+        self._store_version(user, run_id, state, new_version, nxt)
+        if latest is not None and used:
+            self.store.save_review(
+                user,
+                run_id,
+                latest.model_copy(
+                    update={
+                        "comments": [
+                            c.model_copy(update={"status": "resolved"}) if c.id in used else c
+                            for c in latest.comments
+                        ]
+                    }
+                ),
+            )
+        return new_version
+
+    async def revert(self, user: str, run_id: str, to: int) -> DraftVersion:
+        """이전 버전 내용으로 새 버전을 만든다 (기록은 지우지 않는다)."""
+        state = await self.status(user, run_id)
+        try:
+            nxt = review_flow.transition(state.status, "edit")
+        except InvalidTransition as exc:
+            raise EditRejected(str(exc)) from exc
+        current = self._current_version(user, run_id, state)
+        target = self.store.load_version(user, run_id, to) if to >= 1 else None
+        if target is None:
+            raise EditRejected(f"버전 v{to} 이 없습니다.")
+        new_version = DraftVersion(
+            version=current.version + 1,
+            origin="revert",
+            sections=target.sections,
+            created_at=self._clock(),
+            reverted_from=to,
+            note=f"v{to} 로 되돌림",
+        )
+        self._store_version(user, run_id, state, new_version, nxt)
+        return new_version
+
+    def _store_version(
+        self, user: str, run_id: str, state: RunState, version: DraftVersion, status: str
+    ) -> None:
+        self.store.save_version(user, run_id, version)
+        for section in version.sections:
+            self.store.save_section(user, run_id, section)
+        req = self.store.load_request(user, run_id)
+        snapshot = self.store.load_snapshot(user, run_id)
+        draft = Draft(
+            run_id=run_id,
+            request=req,
+            sections=version.sections,
+            retrieved_ids=snapshot.retrieved_ids if snapshot else set(),
+            template=state.template,
+        )
+        chunk_texts = {c.chunk_id: c.text for c in snapshot.chunks} if snapshot else {}
+        problems = lint(
+            draft,
+            self.generate.rules,
+            choice_options=self.generate.choice_options(),
+            chunk_texts=chunk_texts,
+        )
+        state.problems = [
+            p.model_dump() for p in problems
+        ]  # 알림만 — 상태를 invalid 로 바꾸지 않는다
+        state.draft_version = version.version
+        state.status = status
+        self._save(state)
+
+    # ── [5] 최종 마무리·다시 열기 ───────────────────────
+    async def finalize(
+        self,
+        user: str,
+        run_id: str,
+        *,
+        choices: Mapping[str, list[str]] | None = None,
+        proposer: ProposerInfo | None = None,
+    ) -> FinalizeResult:
+        """선택형 확정(제안값이 기본) + 제안자 정보 + render_check → finalized → HWPX.
+
+        제안자 정보·제안부서·제안일자는 렌더 인자로만 쓰고 저장하지 않는다. 다시 마무리하면 새 파일.
+        """
+        if self.renderer is None:
+            raise RenderUnavailable("렌더러가 설정되지 않았습니다 (uv pip install -e '.[render]').")
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise FinalizeRejected(LEGACY_HINT.format(run_id=run_id))
+        if not review_flow.can_finalize(
+            state.status, review_rounds=state.review_rounds, review_skipped=state.review_skipped
+        ):
+            raise FinalizeRejected(
+                f"{state.status} 상태에서는 마무리할 수 없습니다 — 검토 1회 이상(또는 건너뜀) 뒤, "
+                "검토 중이 아닐 때만."
+            )
+        view = await self.get_draft(user, run_id)
+        confirmation = await self._confirm_for_finalize(user, run_id, view, choices)
+        check = await self.render_check(user, run_id, proposer=proposer)
+        draft = Draft(
+            run_id=run_id,
+            request=self.store.load_request(user, run_id),
+            sections=view.sections,
+            template=state.template,
+        )
+        data = self.renderer.render(draft, confirmation=confirmation, proposer=proposer)
+        state = await self.status(user, run_id)
+        state.status = review_flow.transition(state.status, "finalize")
+        state.finalized_at = self._clock()
+        self._save(state)
+        return FinalizeResult(
+            data=data, confirmation=confirmation, check=check, version=view.version, state=state
+        )
+
+    async def _confirm_for_finalize(
+        self,
+        user: str,
+        run_id: str,
+        view: DraftView,
+        choices: Mapping[str, list[str]] | None,
+    ) -> Confirmation:
+        """주어진 선택값을 확정하고, 비어 있는 선택형 항목은 LLM 제안값으로 채운다."""
+        merged = dict(view.confirmation.choices if view.confirmation else {})
+        for key, values in (choices or {}).items():
+            merged[key] = list(values)
+        for sec in view.sections:
+            spec = self.generate.rules.choices.get(sec.key)
+            if spec is None or merged.get(sec.key):
+                continue
+            proposed = [c for c in sec.choices if c in view.choice_options.get(sec.key, {})]
+            if proposed and max(spec.min, 1) <= len(proposed) <= spec.max:
+                merged[sec.key] = proposed[: spec.max]
+        if not merged:
+            raise ConfirmRejected("확정할 선택값이 없습니다 (과제유형·활용계획을 고르십시오).")
+        return await self.confirm(user, run_id, merged)
+
+    async def reopen(self, user: str, run_id: str) -> RunState:
+        state = await self.status(user, run_id)
+        try:
+            state.status = review_flow.transition(state.status, "reopen")
+        except InvalidTransition as exc:
+            raise EditRejected(str(exc)) from exc
+        self._save(state)
+        return state
 
     # ── 양식 렌더 (Step 8) ───────────────────────────────
     async def render_check(
@@ -499,8 +887,12 @@ def manifest(
     state: RunState,
     snapshot: RetrievalSnapshot | None,
     confirmation: Confirmation | None = None,
+    reviews: list[ReviewRound] | None = None,
 ) -> dict[str, Any]:
-    """보안 I: 해시·id·개수·클래스명만. 입력·문장·lint 메시지(문장 앞부분 포함)는 제외."""
+    """보안 I: 해시·id·개수·클래스명만. 입력·문장·lint 메시지(문장 앞부분 포함)·의견 원문은 제외.
+
+    검토는 차수별 provider·model, 외부 전송 doc_id(public/internal 구분), 보낸 문장 수만 남긴다.
+    """
     return {
         "run_id": state.run_id,
         "status": state.status,
@@ -535,4 +927,117 @@ def manifest(
             for p in state.problems
         ],
         "confirmed": sorted(confirmation.choices) if confirmation else [],
+        "draft_version": state.draft_version,
+        "review": {
+            "rounds": state.review_rounds,
+            "skipped": state.review_skipped,
+            "model": state.review_model,
+            "error": state.review_error,
+            "transfers": [
+                {
+                    "round": r.round,
+                    "status": r.status,
+                    "provider": r.transfer.provider,
+                    "model": r.transfer.model,
+                    "public_doc_ids": list(r.transfer.public_doc_ids),
+                    "internal_doc_ids": list(r.transfer.internal_doc_ids),
+                    "sentences_sent": r.transfer.sentences_sent,
+                    "sentences_excluded": r.transfer.sentences_excluded,
+                    "comments": len(r.comments),
+                }
+                for r in reviews or []
+            ],
+        },
+        "finalized_at": state.finalized_at,
     }
+
+
+# ── [5] 순수 함수 ─────────────────────────────────────────
+def _review_key(run_id: str, round_no: int) -> str:
+    return f"{run_id}:review:{round_no}"
+
+
+def changed_sentence_ids(old: DraftVersion, new: DraftVersion) -> set[str]:
+    """두 버전 사이에 텍스트가 바뀐(추가·삭제 포함) 문장 id."""
+    out: set[str] = set()
+    for sec in new.sections:
+        before = old.section(sec.key)
+        old_texts = [s.text for s in before.sentences] if before else []
+        for i, s in enumerate(sec.sentences):
+            if i >= len(old_texts) or old_texts[i] != s.text:
+                out.add(sentence_id(sec.key, i))
+        for i in range(len(sec.sentences), len(old_texts)):
+            out.add(sentence_id(sec.key, i))
+    return out
+
+
+def apply_edit_request(
+    sections: list[Section], edits: EditRequest, review: ReviewRound | None
+) -> tuple[list[Section], set[str]]:
+    """편집 요청을 섹션 목록에 적용한 새 목록과, 채택된 의견 id.
+
+    - use_revision: 최신 차수의 검증 통과(usable) 수정안만. 근거는 수정안의 evidence(비면 원문).
+    - manual: 텍스트만 바꾸고 원래 근거 id 유지, origin="proposer" ("제안자 수정"). 버리지 않는다.
+    - 섹션 전체 편집: 문장 목록을 통째로 교체, 같은 자리의 원래 근거는 유지.
+    """
+    by_key = {s.key: s for s in sections}
+    used: set[str] = set()
+    for edit in edits.sentences:
+        parsed = parse_sentence_id(edit.sentence_id)
+        if parsed is None:
+            raise EditRejected(f"문장 id 형식이 올바르지 않습니다: {edit.sentence_id}")
+        key, idx = parsed
+        sec = by_key.get(key)
+        if sec is None or idx >= len(sec.sentences):
+            raise EditRejected(f"그런 문장이 없습니다: {edit.sentence_id}")
+        original = sec.sentences[idx]
+        if edit.action == "keep":
+            continue
+        if edit.action == "manual":
+            text = clean_sentence(edit.text or "")
+            if not text:
+                raise EditRejected(f"{edit.sentence_id}: 직접 수정 문장이 비어 있습니다.")
+            new_sentence = Sentence(text=text, evidence=list(original.evidence), origin="proposer")
+        else:  # use_revision
+            comment = _pick_revision(review, key, idx, edit.comment_id)
+            if comment is None:
+                raise EditRejected(
+                    f"{edit.sentence_id}: 사용할 수 있는 수정안이 없습니다 (검증 통과분만)."
+                )
+            new_sentence = Sentence(
+                text=comment.revised_text or original.text,
+                evidence=list(comment.evidence or original.evidence),
+                origin="reviewed",
+            )
+            used.add(comment.id)
+        sentences = list(sec.sentences)
+        sentences[idx] = new_sentence
+        by_key[key] = sec.model_copy(update={"sentences": sentences})
+    for edit in edits.sections:
+        sec = by_key.get(edit.section)
+        if sec is None:
+            raise EditRejected(f"그런 섹션이 없습니다: {edit.section}")
+        texts = [clean_sentence(t) for t in edit.texts if clean_sentence(t)]
+        sentences = [
+            Sentence(
+                text=t,
+                evidence=list(sec.sentences[i].evidence) if i < len(sec.sentences) else [],
+                origin="proposer",
+            )
+            for i, t in enumerate(texts)
+        ]
+        by_key[edit.section] = sec.model_copy(update={"sentences": sentences})
+    return [by_key[s.key] for s in sections], used
+
+
+def _pick_revision(
+    review: ReviewRound | None, key: str, idx: int, comment_id: str | None
+) -> ReviewComment | None:
+    if review is None:
+        return None
+    for c in review.comments:
+        if comment_id is not None and c.id != comment_id:
+            continue
+        if c.section == key and c.sentence == idx and c.usable:
+            return c
+    return None

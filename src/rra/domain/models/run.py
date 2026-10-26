@@ -85,6 +85,7 @@ class RunState(BaseModel):
     review_skipped: bool = False  # 검토 LLM 을 쓸 수 없어 건너뛴 적이 있다
     review_error: str | None = None  # 마지막 검토 실패 클래스명 (메시지 금지)
     review_model: str | None = None  # 검토에 쓴 provider/model (manifest 용)
+    review_from: str | None = None  # 검토 시작 전 상태 (실패하면 여기로 돌아간다)
     finalized_at: str | None = None
 
     def step(self, name: str) -> StepRecord:

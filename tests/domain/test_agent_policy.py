@@ -47,3 +47,18 @@ def test_empty_corpus_is_announced():
 def test_query_and_confirm_tools():
     assert policy.on_query().tool == "rra_search"
     assert policy.on_confirm().tool == "rra_confirm"
+
+
+def test_review_edit_finalize_rows():
+    from rra.domain.rules import agent_policy as policy
+
+    auto = policy.after_draft_done(review_available=True)
+    assert auto.tool == "rra_review" and "1차" in auto.action and not auto.needs_human
+    manual = policy.after_draft_done(review_available=True, auto=False)
+    assert manual.tool == "rra_review" and manual.needs_human
+    skipped = policy.after_draft_done(review_available=False)
+    assert skipped.tool is None and "review_skipped" in skipped.action
+    again = policy.on_edit(rereview=True, round_no=2)
+    assert again.tool == "rra_review" and "3차" in again.action
+    assert policy.on_edit(rereview=False, round_no=1).tool == "rra_edit"
+    assert policy.on_finalize().tool == "rra_finalize" and policy.on_reopen().tool == "rra_reopen"

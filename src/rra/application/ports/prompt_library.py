@@ -18,3 +18,7 @@ class PromptLibraryPort(Protocol):
     def section(self, key: str) -> str:
         """섹션별 작성 지시. 미정의 키는 예외."""
         ...
+
+    def review(self) -> str:
+        """검토(Argon) 시스템 프롬프트 — 새 사실 추가 금지·근거 안에서만·한국어·JSON 객체."""
+        ...

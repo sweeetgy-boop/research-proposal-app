@@ -220,19 +220,20 @@ def slot_values(
             values[ph] = slots.checked if option_id in picked else slots.unchecked
 
     budget = req.budget
+    person = proposer or ProposerInfo()
     inputs = {
         "budget.account": budget.account if budget else "",
         "budget.amount_thousand_krw": (
             format_budget_amount(budget.amount_thousand_krw) if budget else ""
         ),
-        "department": req.department,
+        # 마무리 때 입력한 제안부서가 있으면 그것, 없으면 request 의 값
+        "department": person.department or req.department,
     }
     for path, ph in slots.input.items():
         if path not in inputs:
             raise UnknownSlot(f"input 슬롯을 채울 수 없습니다: {path}")
         values[ph] = sanitize(inputs[path])
 
-    person = proposer or ProposerInfo()
     render_only = {
         "proposed_on": format_proposed_on(person.proposed_on, today),
         "proposer.rank": person.proposer.rank,

@@ -29,7 +29,7 @@ import json
 import re
 from collections.abc import Collection
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
@@ -132,6 +132,12 @@ def parse_sentences(raw: str) -> ParseResult:
     if sentences is None:
         return ParseResult("schema", n, stripped=stripped)
     return ParseResult("ok", n, sentences, stripped=stripped)
+
+
+def parse_object(raw: str) -> dict[str, Any] | None:
+    """JSON 객체 하나만 수용 (검토 응답). 펜스 하나는 벗긴다. 그 외는 None — 폐기."""
+    status, data, _ = _load(raw)
+    return data if status == "ok" and isinstance(data, dict) else None
 
 
 def parse_choice_section(

@@ -28,6 +28,7 @@ class ProposerInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     proposed_on: str = Field(default="", max_length=20, description="제안일자")
+    department: str = Field(default="", max_length=100, description="제안부서 (비면 request 값)")
     proposer: Person = Field(default_factory=Person, description="제안자")
     head: Person = Field(default_factory=Person, description="제안부서장")
 

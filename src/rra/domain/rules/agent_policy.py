@@ -16,7 +16,17 @@ from typing import Literal
 
 from rra.domain.models import OverlapAlert, ProposalRequest
 
-Tool = Literal["rra_precheck", "rra_search", "rra_generate", "rra_get_draft", "rra_confirm"]
+Tool = Literal[
+    "rra_precheck",
+    "rra_search",
+    "rra_generate",
+    "rra_get_draft",
+    "rra_confirm",
+    "rra_review",
+    "rra_edit",
+    "rra_finalize",
+    "rra_reopen",
+]
 
 
 @dataclass(frozen=True)
@@ -87,3 +97,44 @@ def on_query() -> Decision:
 
 def on_confirm() -> Decision:
     return Decision("담당자의 선택형 항목 확정", "rra_confirm 호출 → 확정값 저장", "rra_confirm")
+
+
+# ── [5] 작성 → 검토 → 수정 → 재검토 → 마무리 ────────────────
+def after_draft_done(*, review_available: bool, auto: bool = True) -> Decision:
+    """초안 완료 뒤. 검토 LLM 을 쓸 수 있으면 1차 검토(rra_review), 없으면 건너뜀 기록."""
+    if not review_available:
+        return Decision(
+            "초안 완료 + review 사용 불가(키 없음 등)",
+            "검토를 건너뛰고 review_skipped 기록 → 바로 마무리 가능",
+        )
+    if auto:
+        return Decision("초안 완료 + review 사용 가능", "rra_review 호출 (1차, 자동)", "rra_review")
+    return Decision(
+        "초안 완료 + review 사용 가능 (자동 검토 꺼짐)",
+        "담당자가 검토 시작을 선택하면 rra_review 호출",
+        "rra_review",
+        needs_human=True,
+    )
+
+
+def on_edit(*, rereview: bool, round_no: int) -> Decision:
+    """편집 반영 뒤. 재검토를 요청했으면 rra_review(n+1), 아니면 마무리 대기."""
+    if rereview:
+        return Decision(
+            "편집 반영 + 재검토 요청",
+            f"rra_review 호출 ({round_no + 1}차 — 바뀐 문장·남은 의견 위주)",
+            "rra_review",
+        )
+    return Decision("편집 반영", "rra_edit 호출 → 새 버전 저장, 재검토는 담당자가 선택", "rra_edit")
+
+
+def on_finalize() -> Decision:
+    return Decision(
+        "담당자의 최종 마무리 (검토 1회 이상 또는 건너뜀, 검토 중 아님)",
+        "rra_finalize 호출 → 선택형 확정·제안자 정보·render_check → HWPX",
+        "rra_finalize",
+    )
+
+
+def on_reopen() -> Decision:
+    return Decision("마무리된 제안서 다시 열기", "rra_reopen 호출 → editing", "rra_reopen")

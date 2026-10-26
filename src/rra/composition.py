@@ -30,6 +30,7 @@ from rra.config_loader import (
     render_template_path,
     require_credentials,
     retention_days,
+    review_policy,
     security_config,
     served_model_aliases,
     source_config,
@@ -177,6 +178,29 @@ def build_llm(
         json_mode=cfg["json_mode"],
         timeout=httpx.Timeout(**cfg["timeout"]),
         retry=RetryPolicy(**cfg["retry"]),
+    )
+
+
+def build_reviewer(settings: Settings | None = None, *, llm=None):
+    """검토 유스케이스(ReviewDraft). review 단계 LLM(gemini) 키가 없으면 None → 검토 건너뜀."""
+    from rra.application.usecases.review_draft import ReviewDraft
+
+    settings = settings or load_settings()
+    if llm is None:
+        if not llm_available(settings, stage="review"):
+            return None
+        llm = build_llm(settings, stage="review")
+    cfg = llm_config(settings, "review")
+    policy = review_policy(settings)
+    return ReviewDraft(
+        llm,
+        build_prompt_library(settings),
+        lint_rules(settings),
+        strategy=strategy_catalog(settings),
+        include_internal=policy["include_internal"],
+        prompt_max_chars=cfg["prompt_max_chars"],
+        provider=cfg["provider"],
+        model=cfg["served_model"] or cfg["model"],
     )
 
 
@@ -470,9 +494,17 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
 
 
 def build_run_manager(
-    settings: Settings | None = None, *, repo=None, llm=None, runner=None, renderer=None
+    settings: Settings | None = None,
+    *,
+    repo=None,
+    llm=None,
+    runner=None,
+    renderer=None,
+    reviewer=None,
+    review_llm=None,
 ):
-    """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, 실행기, HWPX 렌더러.
+    """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, 실행기, HWPX 렌더러,
+    검토 유스케이스(review 단계 키가 있을 때만; 없으면 None → review_skipped).
 
     repo·llm 은 바로 만든다. 임베딩 모델은 어댑터가 첫 호출 때 올리므로 상태 조회만 할 때는
     로드되지 않는다 (SentenceTransformerEmbedding.loaded).
@@ -500,6 +532,8 @@ def build_run_manager(
         model=model,
         renderer=renderer or build_renderer(settings),
         line_limits=render_slots(settings).get("line_limits") or {},
+        reviewer=reviewer if reviewer is not None else build_reviewer(settings, llm=review_llm),
+        review_auto=review_policy(settings)["auto"],
     )
 
 

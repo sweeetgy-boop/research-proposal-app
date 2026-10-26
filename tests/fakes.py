@@ -42,6 +42,9 @@ class FakePromptLibrary:
         self.asked.append(key)
         return f"[{key}] 섹션 작성 지시"
 
+    def review(self) -> str:
+        return "REVIEW: 새 사실 추가 금지, 근거 안에서만, 한국어, JSON 객체 하나"
+
 
 class FakeEmbedding:
     dim = 4

@@ -11,6 +11,7 @@ from importlib import resources
 from pathlib import Path
 
 PROMPT_PACKAGE = "rra.adapters.llm.prompts"
+REVIEW_NAME = "review"
 SYSTEM_NAME = "system"
 JSON_FALLBACK_NAME = "json_fallback"
 SECTION_PREFIX = "section_"
@@ -51,6 +52,9 @@ class FilePromptLibrary:
 
     def section(self, key: str) -> str:
         return self._read(f"{SECTION_PREFIX}{key}")
+
+    def review(self) -> str:
+        return self._read(REVIEW_NAME)
 
     # ── 부가 ───────────────────────────────────────────────
     def json_fallback(self) -> str:

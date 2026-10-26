@@ -1,8 +1,10 @@
 """RunLogPort 구현 — runs/<user>/<run_id>/manifest.json (보안 I).
 
 - 기록하는 것: run id·상태·모델명·양식 id·시각, 쿼리 해시, 사용 doc_id(retrieved), 섹션(step)별
-  상태·개수·프롬프트 해시·예외 클래스명, lint 문제의 섹션·코드·심각도, 확정한 선택형 키.
-- 기록하지 않는 것: 제안 입력 원문, 초안 문장, lint 메시지, 제안자·부서장 정보, 오류 메시지 본문.
+  상태·개수·프롬프트 해시·예외 클래스명, lint 문제의 섹션·코드·심각도, 확정한 선택형 키,
+  [5] 초안 버전·검토 요약(차수별 provider/model, 외부 전송 doc_id public/internal, 보낸 문장 수).
+- 기록하지 않는 것: 제안 입력 원문, 초안 문장, lint 메시지, 제안자·부서장 정보, 오류 메시지 본문,
+  검토 의견·수정안 원문.
   내용은 RunManager.manifest() 가 만들고, 이 어댑터는 키 허용목록(check_manifest)으로 한 번 더
   막는다.
 - 파일 권한 600 (디렉터리 700) — _fs.write_json 이 원자적으로 쓴다.
@@ -32,6 +34,23 @@ MANIFEST_KEYS = frozenset(
         "steps",
         "problems",
         "confirmed",
+        "draft_version",
+        "review",
+        "finalized_at",
+    }
+)
+REVIEW_KEYS = frozenset({"rounds", "skipped", "model", "error", "transfers"})
+TRANSFER_KEYS = frozenset(
+    {
+        "round",
+        "status",
+        "provider",
+        "model",
+        "public_doc_ids",
+        "internal_doc_ids",
+        "sentences_sent",
+        "sentences_excluded",
+        "comments",
     }
 )
 STEP_KEYS = frozenset(
@@ -66,6 +85,14 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
         extra = set(problem) - PROBLEM_KEYS
         if extra:
             raise ValueError(f"manifest problem 에 허용되지 않은 키: {sorted(extra)}")
+    review = manifest.get("review") or {}
+    extra = set(review) - REVIEW_KEYS
+    if extra:
+        raise ValueError(f"manifest review 에 허용되지 않은 키: {sorted(extra)}")
+    for transfer in review.get("transfers") or []:
+        extra = set(transfer) - TRANSFER_KEYS
+        if extra:
+            raise ValueError(f"manifest review.transfers 에 허용되지 않은 키: {sorted(extra)}")
     for value in _strings(manifest):
         if len(value) > MAX_TEXT_CHARS:
             raise ValueError("manifest 에 긴 문자열이 있습니다 — 원문이 섞였을 수 있습니다.")
