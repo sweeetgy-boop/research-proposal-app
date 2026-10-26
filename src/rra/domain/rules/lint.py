@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from rra.domain.models import Draft, ProposalRequest, Sentence
+from rra.domain.models import Draft, ProposalRequest, RetrievalSnapshot, Sentence
 from rra.domain.models.selection import OPTION_SOURCES, STRATEGY_SOURCE
 from rra.domain.rules.foreign_script import foreign_script_chars
 from rra.domain.rules.numbers import unsupported_numbers
@@ -20,6 +20,7 @@ CATALOG_EMPTY = "catalog_empty"  # 선택지 목록이 비었다 → LLM 생략,
 NO_CHOICE = "no_choice"  # 선택형 섹션인데 LLM 이 유효한 선택지를 내지 못했다 → 사용자가 고른다
 UNSUPPORTED_NUMBER = "unsupported_number"  # 입력·인용 근거에 없는 수치 → 담당자 확인
 FOREIGN_SCRIPT = "foreign_script"  # 한국어 본문에 한자·가나 혼입 → 문장은 두고 알림만
+NO_RELEVANT_EVIDENCE = "no_relevant_evidence"  # 관련도 하한 넘는 근거 없음 → LLM 생략, 빈칸
 
 
 class ChoiceSpec(BaseModel):
@@ -123,6 +124,20 @@ def skipped_sections(
     return out
 
 
+def evidence_skipped_sections(
+    rules: LintRules, snapshot: RetrievalSnapshot, exempt: Iterable[str] = ()
+) -> dict[str, str]:
+    """근거 필수 섹션인데 스냅샷에 (관련도 하한을 넘은) 청크가 하나도 없으면 빈칸 → 경고 코드.
+
+    exempt: 자료 없이도 쓸 수 있는 섹션 (유사과제 판정으로 앱이 쓰는 특이사항 등).
+    생성(usecase)과 lint 가 같은 판정을 쓴다. 스냅샷만 보므로 재개해도 결과가 같다.
+    """
+    if snapshot.chunks:
+        return {}
+    skip = set(exempt)
+    return {k: NO_RELEVANT_EVIDENCE for k in rules.evidence_required if k not in skip}
+
+
 def _filled(value: object) -> bool:
     return bool(value.strip()) if isinstance(value, str) else value is not None
 
@@ -130,6 +145,7 @@ def _filled(value: object) -> bool:
 _SKIP_MESSAGE = {
     INPUT_MISSING: "근거가 될 제안자 입력이 없어 비워 둠 (직접 작성 필요)",
     CATALOG_EMPTY: "선택지 목록(config)이 비어 있어 비워 둠",
+    NO_RELEVANT_EVIDENCE: "관련도 하한을 넘는 수집 자료가 없어 비워 둠 (자료 적재 또는 직접 작성)",
 }
 
 
@@ -158,11 +174,13 @@ def lint(
     *,
     choice_options: Mapping[str, Mapping[str, str]] | None = None,
     chunk_texts: Mapping[str, str] | None = None,
+    evidence_skipped: Mapping[str, str] | None = None,
 ) -> list[LintProblem]:
-    """chunk_texts: 이번 run 스냅샷의 chunk_id → 본문. 수치 검사(number_checked)에만 쓴다."""
+    """chunk_texts: 이번 run 스냅샷의 chunk_id → 본문. 수치 검사(number_checked)에만 쓴다.
+    evidence_skipped: `evidence_skipped_sections` 결과 — 근거가 없어 빈칸으로 둔 섹션 (경고만)."""
     problems: list[LintProblem] = []
     request_texts = _request_texts(draft.request)
-    skipped = skipped_sections(draft.request, rules, choice_options)
+    skipped = {**skipped_sections(draft.request, rules, choice_options), **(evidence_skipped or {})}
     for key, code in skipped.items():
         problems.append(
             LintProblem(section=key, code=code, message=_SKIP_MESSAGE[code], severity="warning")

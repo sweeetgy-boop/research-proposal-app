@@ -51,4 +51,6 @@ class Chunk(BaseModel):
     text: str
     basis: TextBasis | None = None  # None: basis 도입 전 스냅샷
     visibility: Visibility | None = None  # None: 도입 전 스냅샷 (public 으로 본다)
+    # 검색 결과에서만: 질의와의 코사인 [0,1]. 벡터 색인이 없거나 적재용 청크면 None
+    similarity: float | None = Field(default=None, ge=0.0, le=1.0)
     trust: Literal["untrusted"] = "untrusted"

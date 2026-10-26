@@ -326,7 +326,30 @@ class SQLiteDocumentRepository:
                 rankings.append(self._fts_ids(query, fetch, org_filter))
                 rankings.append(self._vec_ids(vector, fetch, org_filter))
             fused = reciprocal_rank_fusion(rankings, k=self.rrf_k)
-            return self._load_chunks([chunk_id for chunk_id, _ in fused[:limit]])
+            chunks = self._load_chunks([chunk_id for chunk_id, _ in fused[:limit]])
+            return self._with_similarity(chunks, [v for v in vectors if v is not None])
+
+    def _with_similarity(self, chunks: list[Chunk], vectors: list[list[float]]) -> list[Chunk]:
+        """질의 벡터와의 코사인(여러 질의면 최댓값)을 Chunk.similarity 에. 색인이 없으면 None."""
+        if not chunks or not vectors or self._vec_dim is None:
+            return chunks
+        marks = _sql.placeholders(len(chunks))
+        rows = self.conn.execute(
+            f"SELECT id, chunk_id FROM chunks WHERE chunk_id IN ({marks})",  # noqa: S608  # nosec B608
+            tuple(c.chunk_id for c in chunks),
+        ).fetchall()
+        rowid_of = {row["chunk_id"]: row["id"] for row in rows}
+        stored = self.backend.vectors(list(rowid_of.values()))
+        queries = [_vec.normalize(v) for v in vectors]
+        out: list[Chunk] = []
+        for c in chunks:
+            vec = stored.get(rowid_of.get(c.chunk_id, -1))
+            if vec is None:
+                out.append(c)
+                continue
+            score = max(_vec.cosine(q, vec) for q in queries)
+            out.append(c.model_copy(update={"similarity": round(score, 6)}))
+        return out
 
     async def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]:
         limit = _sql.clamp_k(k, max_k=self.max_k)

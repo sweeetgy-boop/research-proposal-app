@@ -131,6 +131,7 @@ class InMemoryRepository:
         self.calls.append(("hybrid_search", {"queries": queries, "k": k, "orgs": orgs}))
         if not [q for q in queries if isinstance(q, str) and q.strip()]:
             return []  # 저장소 계약: 빈 질의는 빈 결과
+        # similarity 는 심어 둔 값 그대로 (None = 벡터 색인 없음). 관련도 하한 테스트가 값을 넣는다
         return [c for c in self.chunks if self._valid(c.doc_id)][: max(0, k)]
 
     async def find_similar(self, text, *, k=10):

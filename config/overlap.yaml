@@ -4,6 +4,15 @@
 #
 # 차단 = 유사도가 티어 임계치 이상 AND 질의 키워드(일반어 제외)가 문서에 min_hits 개 이상 등장.
 # 유사도만 넘고 키워드가 없으면 경보 목록에는 남지만 차단하지 않는다.
+#
+# 생성 근거 검색의 관련도 하한 (이슈 #2, domain/rules/relevance.py). 검색 청크가 근거로 남으려면
+#   유사도 ≥ min_similarity, 그리고 한글 청크면 질의 키워드(아래 generic_terms 제외) ≥ min_keyword_hits.
+# 영어 논문 청크는 한국어 질의와 토큰이 겹칠 수 없어 키워드 조건을 보지 않는다.
+# 2026-10-26 골든셋 측정(tests/fixtures/relevance_golden.json): 01 궤도의 관련 논문 최저 0.793,
+# 03 도서관(무관)의 최고 0.783, 무관 한글 요약 0.78~0.81(키워드 0건). 표본이 쌓이면 조정한다.
+evidence_floor:
+  min_similarity: 0.79
+  min_keyword_hits: 1
 keywords:
   min_hits: 2
   # 철도 과제 문서에 흔해 겹쳐도 근거가 안 되는 말. domain/rules/keywords.DEFAULT_GENERIC_TERMS 에 더해진다.

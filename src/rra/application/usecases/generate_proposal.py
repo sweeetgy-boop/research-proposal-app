@@ -11,6 +11,9 @@
 - 고유명 대조(input_grounded): 정책·계획명·차수·연도가 허용 출처에 없으면 문장을 폐기한다.
 - 수치 대조(number_checked): 수치가 입력·인용 청크에 없으면 lint 경고만 (finalize, 폐기 없음).
 - overlap_review: 유사과제 판정에서 중복 기준을 넘는 것이 없으면 앱이 확정 문장을 쓴다 (LLM 미사용).
+- 관련도 하한(relevance): 검색 청크 중 유사도·키워드 조건을 넘지 못한 것은 스냅샷에 넣지 않는다
+  (`dropped_chunks` 에 이유만 남김). 남은 청크가 없으면 근거 필수 섹션은 LLM 을 부르지 않고 빈칸
+  (lint 경고 no_relevant_evidence). 유사과제 판정으로 보탠 청크(#overlap)는 하한을 적용하지 않는다.
 
 상태 저장·재개·동시성은 application/services/run_manager.py 가 맡는다.
 `__call__` 은 세 단계를 한 번에 도는 조합이다 (테스트·일회성 실행용).
@@ -51,6 +54,7 @@ from rra.domain.rules.lint import (
     ChoiceSpec,
     LintProblem,
     LintRules,
+    evidence_skipped_sections,
     has_errors,
     lint,
     skipped_sections,
@@ -62,6 +66,7 @@ from rra.domain.rules.llm_output import (
     parse_sentences,
 )
 from rra.domain.rules.overlap import OwnUnit, judge, no_overlap_statement, uncollected_sources
+from rra.domain.rules.relevance import RelevanceFloor, filter_chunks
 from rra.domain.rules.trust import enforce_section_evidence, wrap_untrusted
 
 OVERLAP_SECTION = "overlap_review"
@@ -108,6 +113,8 @@ class GenerateProposal:
     check_overlap: bool = False
     overlap_k: int = 10
     keywords: KeywordRule | None = None  # 차단에 키워드 조건을 더한다 (None 이면 유사도만)
+    # 생성 근거의 관련도 하한 (이슈 #2). None 이면 검색 결과를 그대로 근거로 쓴다
+    relevance: RelevanceFloor | None = None
 
     @property
     def template(self) -> str | None:
@@ -126,14 +133,28 @@ class GenerateProposal:
     async def retrieve(self, req: ProposalRequest) -> RetrievalSnapshot:
         query = req.search_text()
         chunks = list(await self.repo.hybrid_search([query], k=self.k))
+        dropped: dict[str, str] = {}
+        if self.relevance is not None:
+            chunks, removed = filter_chunks(
+                chunks, query, self.relevance, self.keywords or KeywordRule()
+            )
+            dropped = {c.chunk_id: reason for c, reason in removed}
         if not self.check_overlap:
-            return RetrievalSnapshot.of(query, chunks)
+            snapshot = RetrievalSnapshot.of(query, chunks)
+            snapshot.dropped_chunks = dropped
+            return snapshot
         hits = await self.repo.find_similar(query, k=self.overlap_k)
         alerts = judge(hits, own=self.own, query=query, keywords=self.keywords)
         extra = self._overlap_chunks(hits, alerts, chunks)
         snapshot = RetrievalSnapshot.of(query, chunks + extra, alerts)
         snapshot.uncollected = uncollected_sources(await self.repo.count_by_source())
+        snapshot.dropped_chunks = dropped
         return snapshot
+
+    def evidence_skipped(self, snapshot: RetrievalSnapshot) -> dict[str, str]:
+        """근거 청크가 없어 빈칸으로 두는 근거 필수 섹션. 유사과제 판정을 했으면 특이사항은 예외."""
+        exempt = {OVERLAP_SECTION} if snapshot.overlap_checked else set()
+        return evidence_skipped_sections(self.rules, snapshot, exempt)
 
     @staticmethod
     def _overlap_chunks(
@@ -164,7 +185,9 @@ class GenerateProposal:
         self, key: str, req: ProposalRequest, snapshot: RetrievalSnapshot
     ) -> ComposedSection:
         options = self.choice_options()
-        if key in skipped_sections(req, self.rules, options):
+        if key in skipped_sections(req, self.rules, options) or key in self.evidence_skipped(
+            snapshot
+        ):
             return ComposedSection(Section(key=key, sentences=[]), [], None, None, "skipped")
         if key == OVERLAP_SECTION and snapshot.overlap_checked:
             if not any(a.blocking for a in snapshot.overlap):
@@ -298,7 +321,11 @@ class GenerateProposal:
         )
         chunk_texts = {c.chunk_id: c.text for c in snapshot.chunks}
         problems = lint(
-            draft, self.rules, choice_options=self.choice_options(), chunk_texts=chunk_texts
+            draft,
+            self.rules,
+            choice_options=self.choice_options(),
+            chunk_texts=chunk_texts,
+            evidence_skipped=self.evidence_skipped(snapshot),
         )
         return draft, problems
 

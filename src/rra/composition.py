@@ -26,6 +26,7 @@ from rra.config_loader import (
     llm_key_present,
     own_unit,
     read_config,
+    relevance_floor,
     render_slots,
     render_template_path,
     require_credentials,
@@ -49,6 +50,7 @@ __all__ = [
     "credential_status",
     "institutions",
     "keyword_rule",
+    "relevance_floor",
     "lint_rules",
     "llm_config",
     "load_settings",
@@ -513,6 +515,7 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
         own=own_unit(settings),
         check_overlap=True,
         keywords=keyword_rule(settings),
+        relevance=relevance_floor(settings),
     )
 
 

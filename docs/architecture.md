@@ -467,6 +467,32 @@ evidence 범위(기존 근거 id) → foreign_script → 근거 필수/금지 �
 lint 는 알림만. `revert` 는 이전 버전 내용으로 새 버전. Agent 정책 행: `after_draft_done`(review 가능 → rra_review),
 `on_edit`(재검토 요청 → rra_review n+1), `on_finalize`, `on_reopen`.
 
+### 4.7 생성 근거의 관련도 하한 (2026-10-26, 이슈 #2)
+
+`hybrid_search` 는 질의와 무관해도 k=20 을 채운다. multilingual-e5 코사인은 분포가 압축돼 무관한 한국어 요약도
+0.78~0.81, 무관한 영어 논문도 0.74~0.78 이 나오므로, 그대로 넘기면 7B 모델이 억지로 인용한다(골든셋 03 도서관
+아이디어에 궤도 논문을 "(공개 요약에 따르면)" 으로 인용 — `llm-bench-2026-10-26.md` 2차).
+
+- 규칙 `domain/rules/relevance.py` (`RelevanceFloor`, 설정 `config/overlap.yaml evidence_floor`):
+  청크가 근거로 남으려면 ① 질의 코사인 `Chunk.similarity` ≥ `min_similarity`(0.79), ② 한글 청크면 질의 키워드
+  (일반어 제외, `keywords.py`) ≥ `min_keyword_hits`(1). 영어 논문 청크는 한국어 질의와 토큰이 겹칠 수 없어 ② 를 보지
+  않는다. similarity 가 None(벡터 색인 전)이면 ① 을 보지 않는다.
+- `Chunk.similarity` 는 저장소가 검색 결과에만 채운다(SQLite: 선택된 청크의 저장 벡터와 질의 벡터 코사인, 질의가
+  여러 개면 최댓값, `VectorBackend.vectors()`). 적재용 청크·InMemory fake 는 None.
+- `GenerateProposal.retrieve` 가 하한을 적용해 스냅샷에는 통과 청크만 넣고, 뺀 청크는 `RetrievalSnapshot.dropped_chunks`
+  (id → similarity|keywords) 에 남긴다. 유사과제 판정이 보탠 `#overlap` 청크는 하한을 적용하지 않는다. 폐기된 청크는
+  `retrieved_ids` 에 없으므로 인용돼도 근거 대조에서 떨어진다.
+- 통과 청크가 하나도 없으면 근거 필수 섹션(`rules.yaml evidence_required`)은 LLM 을 부르지 않고 빈칸 + lint 경고
+  `no_relevant_evidence`(`lint.evidence_skipped_sections`, 오류 아님). 특이사항(overlap_review)은 유사과제 판정을 했으면
+  앱이 확정 문장을 쓰므로 예외.
+- 임계치는 골든셋 측정(`tests/fixtures/relevance_golden.json`, 2026-10-26, DB 21건)으로 정했다: 01 궤도의 관련 영어
+  논문 최저 0.793, 03 도서관의 최고 0.783(영어)·0.801(한글, 키워드 0). `tests/domain/test_relevance.py` 가 이 값으로
+  01 전부 유지·03 전부 제외를 고정하고, `tests/test_config_loader.py` 가 overlap.yaml 값이 도메인 기본값과 같은지 본다.
+  알려진 한계: 02 자산개발 질의에도 궤도 논문 2건이 0.790·0.795 로 하한을 간신히 넘는다(영어 청크는 키워드 조건 없음).
+  표본이 쌓이면 조정하고 reranker 는 후속.
+- 벤치(`rra llm-bench`) 지표에 근거 청크 수·하한 탈락 수·인용된 근거 id 수·빈칸 섹션 수를 더했다. 재실행(`runs/…/
+  retrieve` step)의 `dropped` 는 하한 탈락 청크 수다. REST/MCP 검색 결과 청크에 `similarity` 키가 추가됐다(없으면 null).
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -975,6 +1001,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (P1) | 생성 근거 관련도 하한(§4.7, 이슈 #2): `domain/rules/relevance.py`·`Chunk.similarity`·`RetrievalSnapshot.dropped_chunks`·lint `no_relevant_evidence`·`overlap.yaml evidence_floor`·골든셋 측정 fixture·벤치 지표 |
 | 2026-10-26 (L) | 로컬 작성 모델 비교 — `llm.yaml model_profiles`(qwen·midm·ax_light), `rra llm-bench`·`tests/golden/`, Mi:dm 2.0 Base(MIT, 32K)·A.X 4.0 Light(Apache 2.0, 16K) 4bit 변환·벤치 결과 JSON 성공률 3.5%·75.9% 로 규칙 ② 탈락 → Qwen2.5-7B 유지(`docs/llm-bench-2026-10-26.md`), `deploy/launchd/com.rra.mlx.plist` |
 | 2026-10-26 | 실물 양식 템플릿 연결(§4.4), [1] 출처 조각 정리·foreign_script·연구과제명 무제한, [2] DB 정비(§4.5: migration 003·004, 만료 제외, embedding_model 메타, `rra reindex`·`rra db backup`), [3] 저장소 계약 테스트, [4] Gemini 4 Argon provider, [5] 작성→검토→수정→재검토→마무리 흐름(§4.6, 버전·검토 파일, finalize 로만 렌더), [6] 프론트엔드용 REST(§9.2: 세션·CSRF·SSE·problem+json·정적 SPA·가짜 모드·openapi.json), [7] Streamlit [최종 마무리 및 다운로드] 단일 흐름 |
 | 2026-09-08 | v4 — MCP·REST API 제공 구조(§9) 추가 |

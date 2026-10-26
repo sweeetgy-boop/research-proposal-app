@@ -271,7 +271,13 @@ class RunManager:
                     current = self._begin(state, RETRIEVE)
                     snapshot = await self.generate.retrieve(req)
                     self.store.save_snapshot(user, run_id, snapshot)
-                    self._finish(state, current, on_step, evidence=sorted(snapshot.retrieved_ids))
+                    self._finish(
+                        state,
+                        current,
+                        on_step,
+                        evidence=sorted(snapshot.retrieved_ids),
+                        dropped=len(snapshot.dropped_chunks),  # 관련도 하한 탈락 청크 수
+                    )
                     current = None
                 self._ensure_done(state, RETRIEVE)
 
@@ -718,6 +724,7 @@ class RunManager:
             self.generate.rules,
             choice_options=self.generate.choice_options(),
             chunk_texts=chunk_texts,
+            evidence_skipped=self.generate.evidence_skipped(snapshot) if snapshot else None,
         )
         state.problems = [
             p.model_dump() for p in problems

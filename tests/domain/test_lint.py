@@ -225,3 +225,30 @@ def test_foreign_script_sentences_get_a_warning_but_are_kept():
     assert (
         "文档" in hits[0].message and len(draft.section("method").sentences) == 3
     )  # 버리지 않는다
+
+
+# ── 관련도 하한 — 근거 청크가 없으면 근거 필수 섹션은 빈칸 + 경고 ─────────────
+def test_evidence_skipped_sections_only_when_snapshot_has_no_chunks(req):
+    from rra.domain.models import Chunk, RetrievalSnapshot
+    from rra.domain.rules.lint import evidence_skipped_sections
+
+    rules = LintRules(required_sections=["tech", "overlap"], evidence_required=["tech", "overlap"])
+    empty = RetrievalSnapshot.of("q", [])
+    assert evidence_skipped_sections(rules, empty) == {
+        "tech": "no_relevant_evidence",
+        "overlap": "no_relevant_evidence",
+    }
+    assert evidence_skipped_sections(rules, empty, exempt={"overlap"}) == {
+        "tech": "no_relevant_evidence"
+    }
+    one = RetrievalSnapshot.of("q", [Chunk(chunk_id="a:1#0", doc_id="a:1", ordinal=0, text="t")])
+    assert evidence_skipped_sections(rules, one) == {}
+
+
+def test_lint_reports_no_relevant_evidence_as_a_warning_not_missing(req):
+    rules = LintRules(required_sections=["tech"], evidence_required=["tech"])
+    d = Draft(run_id="r", request=req, sections=[Section(key="tech", sentences=[])])
+    assert [p.code for p in lint(d, rules)] == ["missing"]
+    problems = lint(d, rules, evidence_skipped={"tech": "no_relevant_evidence"})
+    assert [(p.code, p.severity) for p in problems] == [("no_relevant_evidence", "warning")]
+    assert "관련도 하한" in problems[0].message

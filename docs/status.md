@@ -41,6 +41,7 @@
 
 | 영역 | 내용 | 근거 |
 |---|---|---|
+| 생성 근거 관련도 하한 (P1) | 검색 청크가 근거로 남으려면 코사인 ≥ 0.79, 한글 청크는 질의 키워드 ≥ 1. 통과 0 이면 근거 필수 섹션 빈칸 + `no_relevant_evidence`. 골든셋 측정 fixture 로 임계치 고정 | `domain/rules/relevance.py`, `config/overlap.yaml evidence_floor`, `tests/fixtures/relevance_golden.json`; `tests/domain/test_relevance.py`, `tests/application/test_generate_proposal.py`, `tests/adapters/test_sqlite_repo.py`; architecture §4.7, 이슈 #2 |
 | 계층·검증 | 헥사고날 4계층, import-linter 계약 8건, 포트 전부 runtime_checkable·비동기 저장소/임베딩, TaskRunner 포트 | `pyproject.toml`, `composition.py`·`config_loader.py`; `tests/test_composition.py`·`test_config_loader.py`, `tests/adapters/test_port_conformance.py`; 0ecbe46, 6b31f35~0bcac95 |
 | 보안 A~J | 근거 id 대조·JSON 전용 파싱, subprocess 파싱 격리·zip 상한·defusedxml, 허용 도메인·리다이렉트 재검사·사설 IP 거부, SecretStr, SQL 바인딩·FTS5 토큰 인용, HWPX escape·재파싱, 127.0.0.1·토큰·동시성 1, 로그 허용목록 | `adapters/sources/_base.py`·`_sandbox.py`, `adapters/security/`, `adapters/llm/_endpoint.py`; `tests/adapters/test_base_security.py`·`test_guarded_client.py`·`test_sandbox.py`·`test_llm_endpoint.py`, `tests/entrypoints/test_api.py` |
 | DB 정비 | migration 001~004(schema_version·valid_until·visibility·ingested_at), 만료 문서 검색 제외, `rra reindex`, `rra db backup`(VACUUM INTO·보관 회전), 일일 백업 plist | `adapters/persistence/migrations/`, `usecases/maintain_db.py`; `tests/application/test_maintain_db.py`; 42c2eaf |
@@ -57,7 +58,6 @@
 
 | 항목 | 내용 | 단계 |
 |---|---|---|
-| 검색 관련도 하한 | 벡터 유사도 하한 + 공유 키워드 조건을 넘지 못한 청크는 근거로 넘기지 않는다. 골든셋 01·03 으로 임계치 고정 (이슈 #2) | P1 |
 | 사내 자료 적재 | `data/inbox/own/` 엑셀 4개 + 공시용 요약문 적재. 미채택·중단 판정, internal 가시성, 이름 열 제거 | P2 |
 | 기능 2 차별화 제안 | precheck 차단·근접 과제별 overlap_summary·build_on·differentiation·evidence. `differentiate` 단계(Gemini, 키 없으면 로컬), 사용자 선택을 초안 프롬프트에 주입. CLI·REST·MCP·Streamlit·`openapi.json` | P3 |
 | 외부 자료원 | KIPRIS 어댑터(`source_type=patent`), NTIS record_tag 진단, ScienceON MAC 안내, `external-apis.md`. NTIS 연구보고서는 가능 여부만 | P4 |
@@ -87,7 +87,7 @@ reranker·유사과제 임계치 재조정(표본 축적 후), 공고문 반영,
 | 단계 | 브랜치 | 내용 | 상태 | PR |
 |---|---|---|---|---|
 | P0 | `chore/status-sync` | 이 문서, Gemini 모델 목록 `models/` 접두어, `own_unit.departments`(연구계획처·차량기술센터) | 완료 2026-10-26 | #3 |
-| P1 | `fix/retrieval-relevance-floor` | 검색 관련도 하한 (이슈 #2) | 대기 | — |
+| P1 | `fix/retrieval-relevance-floor` | 검색 관련도 하한 (이슈 #2): 03 궤도 인용 0건, 01 관련 논문 16건 유지 (`llm-bench-2026-10-26.md` P1 절) | 완료 2026-10-26 | — |
 | P2 | `feat/own-ingest` | 사내 자료 적재 | 대기 | — |
 | P3 | `feat/differentiation` | 기능 2 차별화 제안 | 대기 | — |
 | P4 | `feat/external-apis` | KIPRIS·NTIS·ScienceON 점검 | 대기 | — |

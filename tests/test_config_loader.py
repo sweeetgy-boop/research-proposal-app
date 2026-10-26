@@ -325,3 +325,27 @@ def test_shipped_llm_yaml_has_qwen_midm_ax_profiles_and_defaults_to_qwen(monkeyp
     cfg = llm_config(s, "compose")
     assert cfg["profile"] in {"qwen", "midm", "ax_light"} and cfg["provider"] == "mlx"
     assert cfg["json_mode"] == "prompt" and isinstance(cfg["stop"], list)
+
+
+def test_relevance_floor_from_overlap_yaml_and_defaults(tmp_path):
+    from rra.config_loader import relevance_floor
+    from rra.domain.rules.relevance import RelevanceFloor
+
+    assert relevance_floor(settings_for(tmp_path)) == RelevanceFloor()  # 파일 없음 → 기본값
+    (tmp_path / "overlap.yaml").write_text(
+        "evidence_floor:\n  min_similarity: 0.85\n  min_keyword_hits: 2\n", encoding="utf-8"
+    )
+    assert relevance_floor(settings_for(tmp_path)) == RelevanceFloor(
+        min_similarity=0.85, min_keyword_hits=2
+    )
+    (tmp_path / "overlap.yaml").write_text("evidence_floor: [1]\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        relevance_floor(settings_for(tmp_path))
+
+
+def test_project_overlap_yaml_floor_equals_the_golden_measurement():
+    """config/overlap.yaml 값이 바뀌면 tests/domain/test_relevance 의 골든셋 판정도 다시 본다."""
+    from rra.config_loader import relevance_floor
+    from rra.domain.rules.relevance import RelevanceFloor
+
+    assert relevance_floor(project_settings()) == RelevanceFloor()
