@@ -114,7 +114,7 @@ def test_clean_flow_generates_confirms_and_downloads(app):
 
     at.button(key="generate_btn").click().run()
     run_id = at.session_state["rra_run_id"]
-    assert run_id and worker.wait(run_id).status == "done"
+    assert run_id and worker.wait(run_id).status == "drafted"
 
     at.run()  # 폴링 fragment 가 끝났을 때의 전체 재실행에 해당
     texts = " ".join(m.value for m in at.markdown)
@@ -139,7 +139,7 @@ def test_clean_flow_generates_confirms_and_downloads(app):
     assert not at.download_button  # 마무리 전에는 내려받기 버튼이 없다 (JSON 내려받기도 없다)
     assert any("review_skipped" in c.value for c in at.caption)  # 검토 LLM 없음 → 건너뜀 안내
     store = worker.assistant.manager.store
-    assert worker.wait(run_id).status == "done"  # 화면을 봐도 마무리되지 않는다
+    assert worker.wait(run_id).status == "drafted"  # 화면을 봐도 마무리되지 않는다
     at.text_input(key=f"r_pname_{run_id}").input("홍길동")
     at.text_input(key=f"r_dept_{run_id}").input("철도연구원 기술연구처")
     at.button(key="finalize_btn").click().run()
@@ -175,7 +175,7 @@ def test_blocking_alert_gates_generation_until_acknowledged(app):
     assert not at.button(key="generate_btn").disabled
     at.button(key="generate_btn").click().run()
     run_id = at.session_state["rra_run_id"]
-    assert run_id and service.get_worker().wait(run_id).status == "done"
+    assert run_id and service.get_worker().wait(run_id).status == "drafted"
     generated = [t for t in service.get_worker().assistant.trace if t.tool == "rra_generate"]
     assert generated and "차단 경보 확인 후" in generated[-1].summary
 
@@ -187,7 +187,7 @@ def test_search_panel_shows_untrusted_notice_and_chunks(app):
     at.run()
     at.text_input(key="search_q").input("궤도")
     at.button(key="search_btn").click().run()
-    assert "지시가 아닙니다" in at.info[0].value
+    assert any("지시가 아닙니다" in i.value for i in at.info)
     assert [e.label for e in at.expander if "alio:1#0" in e.label] == ["alio:1#0 (공개 요약)"]
 
 

@@ -623,7 +623,13 @@ def cmd_alio_status(args: argparse.Namespace) -> int:
 # ── generate · runs ───────────────────────────────────────
 # 검토 LLM 이 있으면 초안 뒤 1차 검토가 자동으로 붙어 reviewing/reviewed 로 끝난다 — 생성은 성공.
 _STATUS_EXIT = {
-    "done": EXIT_OK,
+    "drafted": EXIT_OK,
+    "draft_reviewing": EXIT_OK,
+    "editing": EXIT_OK,
+    "final_reviewing": EXIT_OK,
+    "final_reviewed": EXIT_OK,
+    "finalized": EXIT_OK,
+    "done": EXIT_OK,  # 옛 이름
     "reviewing": EXIT_OK,
     "reviewed": EXIT_OK,
     "invalid": EXIT_INVALID,
@@ -1006,9 +1012,10 @@ def cmd_runs_edit(args: argparse.Namespace) -> int:
     from rra.domain.models.review import EditRequest
 
     try:
-        edits = EditRequest.model_validate(
-            json.loads(Path(args.from_file).read_text(encoding="utf-8"))
-        )
+        raw = json.loads(Path(args.from_file).read_text(encoding="utf-8"))
+        if getattr(args, "memo", None):
+            raw["note"] = args.memo
+        edits = EditRequest.model_validate(raw)
     except (OSError, ValueError) as exc:
         _eprint(f"편집 파일을 읽을 수 없습니다: {type(exc).__name__}")
         return EXIT_USAGE
@@ -1028,7 +1035,181 @@ def cmd_runs_edit(args: argparse.Namespace) -> int:
     except EditRejected as exc:
         _eprint(f"편집 거부: {exc}")
         return EXIT_USAGE
-    print(f"[run {args.run_id}] v{version.version} 저장 ({version.origin}) — 상태 editing")
+    print(
+        f"[run {args.run_id}] v{version.version} 저장 ({version.origin}, 바뀐 섹션 "
+        f"{', '.join(version.changed_sections) or '-'}, 알림 {version.alerts}, "
+        f"메모 {version.open_annotations}) — 상태 editing"
+    )
+    return EXIT_OK
+
+
+def cmd_runs_diff(args: argparse.Namespace) -> int:
+    """두 버전의 섹션·문장 단위 차이."""
+    from rra.application.services.run_manager import EditRejected
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.entrypoints.views import diff_payload
+
+    a, b = (x.lower().lstrip("v") for x in (args.from_v, args.to_v))
+    if not (a.isdigit() and b.isdigit()):
+        _eprint("--from/--to 는 v1 처럼 버전 번호입니다.")
+        return EXIT_USAGE
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            va = await mgr.get_version(LOCAL_USER, args.run_id, int(a))
+            vb = await mgr.get_version(LOCAL_USER, args.run_id, int(b))
+            return va, vb, await mgr.diff(LOCAL_USER, args.run_id, int(a), int(b))
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        va, vb, rows = asyncio.run(run())
+    except EditRejected as exc:
+        _eprint(f"비교 거부: {exc}")
+        return EXIT_USAGE
+    payload = diff_payload(va, vb, rows, clean=lambda t: _safe(t, 300))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    print(
+        f"[run {args.run_id}] v{payload['from']} → v{payload['to']}: "
+        f"바뀐 섹션 {len(payload['sections'])}"
+    )
+    for d in payload["sections"]:
+        print(f"■ {d['section']} (문장 {d['sentences'][0]} → {d['sentences'][1]})")
+        for x in d["removed"]:
+            print(f"  - {x['text']}")
+        for x in d["added"]:
+            print(f"  + {x['text']}")
+        for x in d["moved"]:
+            print(f"  ~ {x['to']}")
+    return EXIT_OK
+
+
+def cmd_runs_final_review(args: argparse.Namespace) -> int:
+    """⑤ Argon 최종 검토 — 최신 저장 버전으로 1회 (다시 받기도 같은 명령, 횟수 기록).
+    --apply-passed 는 끝난 뒤 검증 통과 수정안을 전부 반영해 새 버전을 만든다."""
+    from rra.application.ports import RunBusy
+    from rra.application.services import QueueFull
+    from rra.application.services.run_manager import EditRejected
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.domain.models.review import EditRequest, SentenceEdit
+    from rra.domain.rules.review_flow import InvalidTransition
+    from rra.entrypoints.views import review_payload
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            state = await mgr.final_review(LOCAL_USER, args.run_id)
+            if (args.wait or args.apply_passed) and state.status == "final_reviewing":
+                state = await mgr.wait(LOCAL_USER, args.run_id)
+            review = await mgr.get_review(LOCAL_USER, args.run_id, kind="final")
+            applied = None
+            if args.apply_passed and review is not None and review.status == "done":
+                usable = [c for c in review.comments if c.usable and c.sentence is not None]
+                if usable:
+                    applied = await mgr.apply_edits(
+                        LOCAL_USER,
+                        args.run_id,
+                        EditRequest(
+                            sentences=[
+                                SentenceEdit(
+                                    sentence_id=f"s:{c.section}:{c.sentence}",
+                                    action="use_revision",
+                                    comment_id=c.id,
+                                )
+                                for c in usable
+                            ],
+                            note="최종 검토 수정안 반영",
+                        ),
+                    )
+            return state, review, applied
+        finally:
+            await mgr.generate.llm.aclose()
+
+    try:
+        state, review, applied = asyncio.run(run())
+    except (QueueFull, RunBusy, InvalidTransition, EditRejected) as exc:
+        _eprint(f"최종 검토 거부: {exc}")
+        return EXIT_USAGE
+    if args.json:
+        print(
+            json.dumps(
+                review_payload(review) if review else {"status": state.status},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return EXIT_OK
+    print(
+        f"[run {state.run_id}] 상태 {state.status}, 최종 검토 {state.final_reviews}회"
+        + (f", 최종 검토 이후 수정 {state.stale_edits}건" if state.stale else "")
+    )
+    if review and review.status == "done":
+        for s in review.scores:
+            delta = review.score_delta.get(s.criterion)
+            change = f" ({delta:+d} vs 1차)" if delta is not None else ""
+            print(f"  [채점] {s.criterion} {s.score}/5{change} — {_safe(s.reason, 100)}")
+        usable = sum(1 for c in review.comments if c.usable)
+        print(f"  의견 {len(review.comments)}건 (수정안 사용 가능 {usable})")
+        for c in review.comments:
+            where = f"s:{c.section}:{c.sentence}" if c.sentence is not None else c.section
+            mark = "✔" if c.usable else ("✘" if c.status == "discarded" else "·")
+            print(f"  {mark} {c.id} [{c.issue_type}] {where}: {_safe(c.comment, 120)}")
+    if applied is not None:
+        print(f"  → 통과 수정안 반영: v{applied.version} 저장 (최종 검토 반영)")
+    return EXIT_OK
+
+
+def cmd_runs_outline(args: argparse.Namespace) -> int:
+    """③ 섹션 설계도(Q2). pipeline.outline 이 꺼져 있으면 없음."""
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            await mgr.status(LOCAL_USER, args.run_id)
+            loader = getattr(mgr, "load_outline", None)
+            return await loader(LOCAL_USER, args.run_id) if loader is not None else None
+        finally:
+            await mgr.generate.llm.aclose()
+
+    outline = asyncio.run(run())
+    if not outline:
+        print("설계도가 없습니다 (config/pipeline.yaml outline 이 꺼져 있거나 아직 전).")
+        return EXIT_OK
+    print(json.dumps(outline, ensure_ascii=False, indent=2))
+    return EXIT_OK
+
+
+def cmd_clarify(args: argparse.Namespace) -> int:
+    """③ 시작 전 입력 보강 질문(Q1, 최대 3개). pipeline.clarify 가 꺼져 있으면 질문 0개."""
+    from rra.composition import load_settings, pipeline_config
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+
+    try:
+        req = ProposalRequest(**_read_slots(args))
+    except ValidationError as exc:
+        _eprint(validation_message(exc))
+        return EXIT_USAGE
+    settings = load_settings()
+    questions: list[str] = []
+    if pipeline_config(settings).clarify:
+        from rra.composition import build_clarifier
+
+        clarify = build_clarifier(settings)
+        questions = asyncio.run(clarify(req)) if clarify is not None else []
+    if args.json:
+        print(json.dumps({"questions": questions, "skip_allowed": True}, ensure_ascii=False))
+        return EXIT_OK
+    if not questions:
+        print("보강 질문 없음 — 입력이 충분합니다. 바로 생성할 수 있습니다.")
+        return EXIT_OK
+    for i, q in enumerate(questions, 1):
+        print(f"{i}. {_safe(q, 300)}")
+    print("답은 generate --constraints / --remarks 등 입력에 보충하거나 건너뛸 수 있습니다.")
     return EXIT_OK
 
 
@@ -1050,8 +1231,9 @@ def cmd_runs_versions(args: argparse.Namespace) -> int:
     for r in rows:
         extra = f" ← v{r['reverted_from']}" if r["reverted_from"] else ""
         print(
-            f" v{r['version']:<3} {r['origin']:<7} {r['created_at'] or '-'}  "
-            f"문장 {r['sentences']}{extra}  {_safe(r['note'], 60)}"
+            f" v{r['version']:<3} {r['origin_label']:<8} {r['created_at'] or '-'}  "
+            f"문장 {r['sentences']} 알림 {r['alerts']} 메모 {r['open_annotations']}{extra}  "
+            f"[{', '.join(r['changed_sections']) or '-'}] {_safe(r['note'], 60)}"
         )
     return EXIT_OK
 
@@ -1230,6 +1412,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pre.set_defaults(handler=cmd_precheck)
 
+    cla = sub.add_parser("clarify", help="③ 시작 전 입력 보강 질문 (최대 3개, pipeline.clarify)")
+    for slot in SLOTS:
+        cla.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    cla.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    cla.add_argument("--json", action="store_true", help="JSON 으로 출력")
+    cla.set_defaults(handler=cmd_clarify)
+
     rec = sub.add_parser(
         "recommend",
         help="기존 과제와 차별성을 갖는 과제 0~5건 추천 (Gemini, 키 없으면 로컬; 없으면 사유)",
@@ -1396,15 +1585,41 @@ def build_parser() -> argparse.ArgumentParser:
                 f"--{who}-{field_name}", help=f"{label} {desc} (양식 하단에만, 저장되지 않음)"
             )
     rr.set_defaults(handler=cmd_runs_finalize)
-    rv = runs_sub.add_parser("review", help="검토(Argon) n차 시작 — 키 없으면 건너뜀 기록")
+    rv = runs_sub.add_parser(
+        "review", help="③ Argon 1차 검토(draft_review) 시작 — 보통 자동, 키 없으면 건너뜀 기록"
+    )
     rv.add_argument("run_id")
     rv.add_argument("--wait", action="store_true", help="검토가 끝날 때까지 기다린다")
     rv.add_argument("--json", action="store_true")
     rv.set_defaults(handler=cmd_runs_review)
-    re_ = runs_sub.add_parser("edit", help="편집 반영 → 새 초안 버전")
+    re_ = runs_sub.add_parser("edit", help="④ 편집 반영·저장 → 새 초안 버전 (외부 LLM 없음)")
     re_.add_argument("run_id")
     re_.add_argument("--from", dest="from_file", required=True, help="편집 JSON 파일")
+    re_.add_argument("--memo", help="저장 메모 (200자 이내)")
     re_.set_defaults(handler=cmd_runs_edit)
+    rd = runs_sub.add_parser("diff", help="두 버전의 섹션·문장 단위 차이")
+    rd.add_argument("run_id")
+    rd.add_argument("--from", dest="from_v", required=True, help="예: v1")
+    rd.add_argument("--to", dest="to_v", required=True, help="예: v3")
+    rd.add_argument("--json", action="store_true")
+    rd.set_defaults(handler=cmd_runs_diff)
+    rst = runs_sub.add_parser("restore", help="이전 버전 내용으로 새 버전을 만든다 (= revert)")
+    rst.add_argument("run_id")
+    rst.add_argument("--to", required=True, help="예: v2")
+    rst.set_defaults(handler=cmd_runs_revert)
+    rfr = runs_sub.add_parser(
+        "final-review", help="⑤ Argon 최종 검토 — 최신 저장 버전으로 1회 (다시 받기는 같은 명령)"
+    )
+    rfr.add_argument("run_id")
+    rfr.add_argument("--wait", action="store_true", help="검토가 끝날 때까지 기다린다")
+    rfr.add_argument(
+        "--apply-passed", action="store_true", help="끝난 뒤 검증 통과 수정안을 전부 반영(새 버전)"
+    )
+    rfr.add_argument("--json", action="store_true")
+    rfr.set_defaults(handler=cmd_runs_final_review)
+    rol = runs_sub.add_parser("outline", help="③ 섹션 설계도 (pipeline.outline)")
+    rol.add_argument("run_id")
+    rol.set_defaults(handler=cmd_runs_outline)
     rvs = runs_sub.add_parser("versions", help="초안 버전 목록")
     rvs.add_argument("run_id")
     rvs.add_argument("--json", action="store_true")

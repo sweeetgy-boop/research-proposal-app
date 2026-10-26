@@ -11,6 +11,7 @@ from .gap import (
     OverlapAlert,
     Tier,
 )
+from .pipeline import PipelineConfig
 from .proposer import Person, ProposerInfo
 from .recommendation import (
     MAX_RECOMMENDATIONS,
@@ -19,7 +20,14 @@ from .recommendation import (
     RecommendationResult,
 )
 from .request import Budget, ProposalRequest
-from .review import CriterionScore, DraftVersion, ReviewComment, ReviewRound, ReviewTransfer
+from .review import (
+    Annotation,
+    CriterionScore,
+    DraftVersion,
+    ReviewComment,
+    ReviewRound,
+    ReviewTransfer,
+)
 from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
 from .selection import Confirmation, StrategyCatalog
 
@@ -44,6 +52,8 @@ __all__ = [
     "Tier",
     "Budget",
     "Confirmation",
+    "Annotation",
+    "PipelineConfig",
     "CriterionScore",
     "DraftVersion",
     "ReviewComment",

@@ -490,7 +490,9 @@ def test_generate_prints_progress_and_draft_with_evidence(run_env, capsys):
     run_env["use"]([_sentence("문제 문장"), _sentence("선행\x1b[31m 문장", ["alio:1#0"])])
     assert cli.main(["generate", *GEN_ARGS]) == cli.EXIT_OK
     captured = capsys.readouterr()
-    assert "[2/4] section:problem 완료 (문장 1, 폐기 0, 응답 35자)" in captured.err
+    assert (
+        "[2/5] section:problem 완료 (문장 1, 폐기 0, 응답 35자)" in captured.err
+    )  # + draft_review
     assert "- 문제 문장  [제안자 입력]" in captured.out
     assert "[alio:1#0]" in captured.out and "\x1b" not in captured.out
     assert "궤도 상태 자동 감지 연구" in captured.out  # 근거 문서 제목
@@ -514,7 +516,7 @@ def test_generate_with_auto_review_exits_ok(run_env, capsys):
     run_env["use"]([_sentence("문제"), _sentence("선행", ["alio:1#0"])])
     assert cli.main(["generate", *GEN_ARGS, "--json"]) == cli.EXIT_OK
     payload = json.loads(capsys.readouterr().out)
-    assert payload["status"] in ("reviewed", "reviewing")
+    assert payload["status"] in ("drafted", "draft_reviewing")
 
 
 def test_generate_lint_failure_exit_code(run_env, capsys):
@@ -535,11 +537,12 @@ def test_generate_interrupted_then_resume(run_env, capsys):
     run_env["use"]([_sentence("선행", ["alio:1#0"])])
     assert cli.main(["generate", "--resume", payload["run_id"], "--json"]) == cli.EXIT_OK
     resumed = json.loads(capsys.readouterr().out)
-    assert resumed["status"] == "done"
+    assert resumed["status"] == "drafted"
     assert resumed["sections"][1]["sentences"][0] == {
         "text": "선행",
         "evidence": ["alio:1#0"],
         "source": "retrieved",
+        "origin": "llm",
     }
 
 
@@ -549,7 +552,7 @@ def test_runs_list_and_show(run_env, capsys):
     run_id = json.loads(capsys.readouterr().out)["run_id"]
 
     assert cli.main(["runs", "list"]) == cli.EXIT_OK
-    assert f"{run_id}  done" in capsys.readouterr().out
+    assert f"{run_id}  drafted" in capsys.readouterr().out
     assert cli.main(["runs", "show", run_id, "--json"]) == cli.EXIT_OK
     assert json.loads(capsys.readouterr().out)["citations"][0]["doc_id"] == "alio:1"
 
@@ -694,7 +697,7 @@ def test_runs_finalize_writes_owner_only_file_and_keeps_proposer_out_of_runs(
     assert form_env["renderer"].calls[-1]["proposer"].proposer.name == "홍길동"
     assert form_env["renderer"].calls[-1]["proposer"].department == "기술연구처"
     assert cli.main(["runs", "versions", run_id]) == cli.EXIT_OK
-    assert " v1   local" in capsys.readouterr().out
+    assert " v1   로컬 생성" in capsys.readouterr().out
     assert cli.main(["runs", "reopen", run_id]) == cli.EXIT_OK
     assert "상태 editing" in capsys.readouterr().out
     assert cli.main(["runs", "review", run_id]) == cli.EXIT_OK  # 검토 LLM 없음 → 건너뜀

@@ -89,7 +89,12 @@ def test_review_edit_finalize_rows():
     assert manual.tool == "rra_review" and manual.needs_human
     skipped = policy.after_draft_done(review_available=False)
     assert skipped.tool is None and "review_skipped" in skipped.action
-    again = policy.on_edit(rereview=True, round_no=2)
-    assert again.tool == "rra_review" and "3차" in again.action
+    again = policy.on_edit(rereview=True, round_no=2)  # 최종 검토 이후 수정 → 다시 받기(선택)
+    assert again.tool == "rra_review" and "final_review" in again.action and again.needs_human
+    final = policy.on_final_review()
+    assert final.tool == "rra_review" and final.needs_human and "최종 검토" in final.condition
+    assert policy.on_clarify(questions=0).tool == "rra_generate"
+    ask = policy.on_clarify(questions=2)
+    assert ask.tool == "rra_clarify" and ask.needs_human
     assert policy.on_edit(rereview=False, round_no=1).tool == "rra_edit"
     assert policy.on_finalize().tool == "rra_finalize" and policy.on_reopen().tool == "rra_reopen"

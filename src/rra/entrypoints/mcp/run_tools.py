@@ -34,12 +34,14 @@ from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.trust import UNTRUSTED_NOTICE, escape_untrusted
 from rra.entrypoints.mcp.tools import ToolInputError
 from rra.entrypoints.views import (
+    diff_payload,
     differentiation_payload,
     draft_payload,
     recommendations_payload,
     render_check_payload,
     review_payload,
     version_payload,
+    versions_payload,
 )
 
 POLL_HINT = "생성은 수 분 걸린다. rra_get_draft(run_id) 로 진행 상황과 부분 초안을 확인한다."
@@ -61,12 +63,14 @@ class RraRunTools:
         precheck=None,
         differentiate=None,
         recommend=None,
+        clarify=None,
     ):
         self._manager = manager
         self._user = user
         self._precheck = precheck
         self._differentiate = differentiate
         self._recommend = recommend
+        self._clarify = clarify
 
     async def recommend(
         self,
@@ -215,8 +219,99 @@ class RraRunTools:
         return {"run_id": run_id, "confirmed": confirmation.choices}
 
     # ── [5] 검토 → 편집 → 마무리 → 다시 열기 ───────────────
+    async def final_review(self, run_id: str) -> dict[str, Any]:
+        """⑤ Argon 최종 검토 — 최신 저장 버전으로 1회(다시 받기도 여기, 횟수 기록).
+
+        임시 편집이 있으면 거부한다.
+        """
+        rid = _run_id(run_id)
+        try:
+            state = await self._manager.final_review(self._user, rid)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        except (QueueFull, RunBusy, InvalidTransition) as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {
+            "run_id": rid,
+            "status": state.status,
+            "final_reviews": state.final_reviews,
+            "hint": "최종 검토는 수 분 걸린다. rra_get_final_review(run_id) 로 결과를 확인한다.",
+        }
+
+    async def get_final_review(self, run_id: str, round_no: int | None = None) -> dict[str, Any]:
+        rid = _run_id(run_id)
+        try:
+            review = await self._manager.get_review(self._user, rid, round_no, kind="final")
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        if review is None:
+            raise ToolInputError("최종 검토 결과가 없습니다.")
+        return {"notice": UNTRUSTED_NOTICE, **review_payload(review, clean=escape_untrusted)}
+
+    async def versions(self, run_id: str) -> dict[str, Any]:
+        rid = _run_id(run_id)
+        try:
+            rows = await self._manager.versions(self._user, rid)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        return {"run_id": rid, "versions": versions_payload(rows)}
+
+    async def diff(self, run_id: str, from_version: int, to_version: int) -> dict[str, Any]:
+        rid = _run_id(run_id)
+        try:
+            a = await self._manager.get_version(self._user, rid, from_version)
+            b = await self._manager.get_version(self._user, rid, to_version)
+            rows = await self._manager.diff(self._user, rid, from_version, to_version)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        except EditRejected as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {
+            "run_id": rid,
+            "notice": UNTRUSTED_NOTICE,
+            **diff_payload(a, b, rows, clean=escape_untrusted),
+        }
+
+    async def restore(self, run_id: str, to_version: int) -> dict[str, Any]:
+        """복원 — 그 버전 내용으로 새 버전."""
+        rid = _run_id(run_id)
+        try:
+            version = await self._manager.revert(self._user, rid, to_version)
+            state = await self._manager.status(self._user, rid)
+        except RunNotFound as exc:
+            raise ToolInputError("해당 run 이 없습니다.") from exc
+        except EditRejected as exc:
+            raise ToolInputError(str(exc)) from exc
+        return {
+            "run_id": rid,
+            "status": state.status,
+            **version_payload(version, clean=escape_untrusted),
+        }
+
+    async def clarify(
+        self,
+        current_state: str,
+        root_cause: str,
+        limitation: str,
+        goal: str,
+        constraints: str = "",
+        title_hint: str = "",
+    ) -> dict[str, Any]:
+        """③ 시작 전 입력 보강 질문(Q1). pipeline.clarify 가 꺼져 있으면 질문 0개."""
+        req = ProposalRequest(
+            current_state=current_state,
+            root_cause=root_cause,
+            limitation=limitation,
+            goal=goal,
+            constraints=constraints,
+            title_hint=title_hint,
+        )
+        questions = await self._clarify(req) if self._clarify is not None else []
+        return {"questions": questions, "skip_allowed": True}
+
     async def review(self, run_id: str) -> dict[str, Any]:
-        """검토(n차)를 시작한다. 검토 LLM 이 없으면 건너뛰고 review_skipped 를 기록한다."""
+        """③ Argon 1차 검토(draft_review)를 시작한다 — 보통 초안 완료 뒤 자동. 검토 LLM 이 없으면
+        건너뛰고 review_skipped 를 기록한다. 최종 검토는 rra_final_review."""
         rid = _run_id(run_id)
         try:
             state = await self._manager.review(self._user, rid)

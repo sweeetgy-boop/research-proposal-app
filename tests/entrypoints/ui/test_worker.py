@@ -18,7 +18,7 @@ def test_calls_run_on_the_worker_thread_and_background_run_completes():
         state = worker.call(a.proceed(REQ, res.alerts, acknowledged=False))
         assert state.status == "queued"
         final = worker.wait(state.run_id)
-        assert final.status == "done"
-        assert worker.call(a.poll(state.run_id)).state.progress == (7, 7)
+        assert final.status == "drafted"
+        assert worker.call(a.poll(state.run_id)).state.progress == (8, 8)  # + draft_review(건너뜀)
     finally:
         worker.close()

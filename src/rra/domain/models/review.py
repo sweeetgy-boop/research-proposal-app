@@ -46,8 +46,21 @@ CRITERION_ISSUE: dict[str, str] = {
     "기대효과": "일관성",
 }
 MAX_REASON_CHARS = 300
-VersionOrigin = Literal["local", "edit", "revert"]
+# 버전을 만든 경로: local = 로컬 생성(v1), argon = Argon 1차 검토 자동 반영(v2 "Argon 보완"),
+# edit = 제안자 편집(저장), final_review = 최종 검토 반영, revert = 복원
+VersionOrigin = Literal["local", "argon", "edit", "final_review", "revert"]
+ORIGIN_LABEL: dict[str, str] = {
+    "local": "로컬 생성",
+    "argon": "Argon 보완",
+    "edit": "제안자 편집",
+    "final_review": "최종 검토 반영",
+    "revert": "복원",
+}
 ReviewStatus = Literal["done", "skipped", "error"]
+ReviewKind = Literal["draft", "final"]  # 1차(초안 생성의 일부, 자동) / 최종(요청 시 1회)
+# 수정안 없는 의견 / 폐기된 수정안의 의견 / 섹션 의견
+AnnotationKind = Literal["opinion", "discarded", "section"]
+MAX_MEMO_CHARS = 200
 MAX_COMMENT_CHARS = 2000
 MAX_REVISED_CHARS = 4000
 
@@ -152,7 +165,8 @@ class ReviewTransfer(BaseModel):
 
 
 class ReviewRound(BaseModel):
-    round: int = Field(ge=1)
+    round: int = Field(ge=1)  # 1 = 1차(draft) 검토, 2.. = 최종 검토 (final_round = round - 1)
+    kind: ReviewKind = "draft"
     draft_version: int = Field(ge=1)  # 검토한 초안 버전
     status: ReviewStatus = "done"
     skipped_reason: str | None = None  # "no_review_llm" 등 코드
@@ -164,6 +178,15 @@ class ReviewRound(BaseModel):
         default_factory=list
     )  # 심사 기준 채점 (P5). 이전 차수 파일은 빈 목록
     created_at: str | None = None
+    # 1차 검토: 자동 반영 결과 — 반영된 의견 id, 폐기된 의견 id (v2 가 만들어졌으면 applied_version)
+    applied_ids: list[str] = Field(default_factory=list)
+    applied_version: int | None = None
+    # 최종 검토: 1차 대비 점수 변화 {기준: ±n}
+    score_delta: dict[str, int] = Field(default_factory=dict)
+
+    @property
+    def final_round(self) -> int | None:
+        return self.round - 1 if self.kind == "final" else None
 
     def comment(self, comment_id: str) -> ReviewComment | None:
         return next((c for c in self.comments if c.id == comment_id), None)
@@ -173,6 +196,18 @@ class ReviewRound(BaseModel):
         return [c for c in self.comments if c.status == "open"]
 
 
+class Annotation(BaseModel):
+    """버전에 붙는 문장 메모 — 수정안 없는 의견·폐기 수정안의 의견·섹션 의견. 처리됨으로 접는다."""
+
+    id: str  # 의견 id (r1-3) 또는 "a<번호>"
+    section: str
+    sentence: int | None = None  # None 이면 섹션 메모
+    kind: AnnotationKind = "opinion"
+    text: str = Field(default="", max_length=MAX_COMMENT_CHARS)  # 의견 본문 (비신뢰 텍스트)
+    reason: str | None = None  # 폐기 사유 코드
+    status: Literal["open", "done"] = "open"
+
+
 class DraftVersion(BaseModel):
     version: int = Field(ge=1)
     origin: VersionOrigin = "local"
@@ -180,35 +215,55 @@ class DraftVersion(BaseModel):
     created_at: str | None = None
     based_on_review: int | None = None  # 이 버전을 만들 때 참고한 검토 차수
     reverted_from: int | None = None  # origin=revert 일 때 복원한 버전
-    note: str = ""
+    note: str = Field(default="", max_length=MAX_MEMO_CHARS)  # 저장 메모 (선택)
+    changed_sections: list[str] = Field(default_factory=list)  # 이전 버전과 달라진 섹션
+    alerts: int = 0  # 저장 시점의 lint 알림 수
+    annotations: list[Annotation] = Field(default_factory=list)  # 문장 메모 (Argon 의견)
+
+    @property
+    def sentence_count(self) -> int:
+        return sum(len(s.sentences) for s in self.sections)
+
+    @property
+    def open_annotations(self) -> int:
+        return sum(1 for a in self.annotations if a.status == "open")
 
     def section(self, key: str) -> Section | None:
         return next((s for s in self.sections if s.key == key), None)
 
 
-# ── 제안자 편집 요청 (5-5) ────────────────────────────────
-EditAction = Literal["use_revision", "keep", "manual"]
+# ── 제안자 편집 요청 (④ 직접 수정·보완) ─────────────────────
+EditAction = Literal["use_revision", "keep", "manual", "delete", "insert_after"]
 
 
 class SentenceEdit(BaseModel):
-    """문장별 선택. use_revision 은 5-4 검증을 통과한 수정안(comment_id)만, manual 은 직접 수정."""
+    """문장별 선택.
+
+    use_revision 은 검증을 통과한 수정안(comment_id)만, manual 은 직접 수정(원래 근거 유지,
+    origin=proposer_edit), delete 는 삭제, insert_after 는 그 문장 뒤에 새 문장(proposer_input).
+    """
 
     sentence_id: str  # "s:<섹션>:<인덱스>"
     action: EditAction = "keep"
     comment_id: str | None = (
         None  # use_revision 일 때 채택한 의견 id (없으면 그 문장의 최신 수정안)
     )
-    text: str | None = Field(default=None, max_length=MAX_REVISED_CHARS)  # manual 일 때
+    text: str | None = Field(default=None, max_length=MAX_REVISED_CHARS)  # manual·insert_after
 
 
 class SectionEdit(BaseModel):
-    """섹션 전체 편집 — 문장 목록을 통째로 바꾼다 (전부 "제안자 수정")."""
+    """섹션 전체 편집 — 문장 목록(texts) 또는 통문(text, 문장으로 나눈다)으로 바꾼다.
+    같은 문장은 근거·출처를 이어받고, 새 문장은 proposer_input(근거 없음)."""
 
     section: str
     texts: list[str] = Field(default_factory=list)
+    text: str | None = Field(default=None, max_length=20_000)
+    order: list[str] | None = None  # 순서만 바꿀 때: 기존 문장 id 목록
 
 
 class EditRequest(BaseModel):
     sentences: list[SentenceEdit] = Field(default_factory=list)
     sections: list[SectionEdit] = Field(default_factory=list)
-    note: str = Field(default="", max_length=200)
+    note: str = Field(default="", max_length=MAX_MEMO_CHARS)  # 저장 메모
+    base_version: int | None = Field(default=None, ge=1)  # 동시 편집 보호 — 다르면 거부(409)
+    done_annotations: list[str] = Field(default_factory=list)  # "처리됨" 으로 접을 메모 id

@@ -72,7 +72,7 @@ async def test_happy_path_records_every_step(repo, req):
     assert state.status == "queued"
     final = await mgr.wait(USER, state.run_id)
 
-    assert final.status == "done" and final.progress == (6, 6)
+    assert final.status == "drafted" and final.progress == (7, 7)  # + draft_review(건너뜀)
     assert seen == ["retrieve", *(f"section:{k}" for k in KEYS), "finalize"]
     prior = final.step("section:prior_work")
     assert (prior.sentences, prior.evidence, len(prior.prompt_hash)) == (1, ["alio:1#0"], 16)
@@ -97,7 +97,7 @@ async def test_failure_mid_run_then_resume_only_redoes_missing_sections(repo, re
     await mgr.resume(USER, interrupted.run_id)
     done = await mgr.wait(USER, interrupted.run_id)
 
-    assert done.status == "done"
+    assert done.status == "drafted"
     assert len(llm.calls) - calls_before == 2  # prior_work·objective 만 다시 호출
     assert len(repo.calls) == searches_before  # 검색은 다시 하지 않는다 (스냅샷 재사용)
     draft = store.drafts[(USER, done.run_id)]
@@ -177,7 +177,7 @@ async def test_concurrent_submits_run_one_at_a_time(repo, req):
     a = await mgr.submit(USER, req)
     b = await mgr.submit(USER, req)
     ra, rb = await asyncio.gather(mgr.wait(USER, a.run_id), mgr.wait(USER, b.run_id))
-    assert ra.status == rb.status == "done"
+    assert ra.status == rb.status == "drafted"
     assert slot.max_active == 1
 
 
@@ -199,7 +199,7 @@ async def test_dead_process_is_reported_as_interrupted_and_resumable(repo, req):
 
     assert (await mgr.status(USER, st.run_id)).status == "interrupted"
     await mgr.resume(USER, st.run_id)
-    assert (await mgr.wait(USER, st.run_id)).status == "done"
+    assert (await mgr.wait(USER, st.run_id)).status == "drafted"
 
 
 async def test_live_run_elsewhere_is_not_resumable(repo, req):
@@ -318,7 +318,7 @@ def choice(ids, text="사유"):
 async def test_confirm_validates_against_options_and_counts(repo, req):
     mgr, store = build_form(repo, FakeLLM([choice(["applied"]), choice(["software"])]))
     final = await run_to_end(mgr, req)
-    assert final.status == "done" and final.template == "v2"
+    assert final.status == "drafted" and final.template == "v2"
 
     view = await mgr.get_draft(USER, final.run_id)
     assert view.sections[0].choices == ["applied"] and view.confirmation is None
@@ -385,7 +385,7 @@ async def test_legacy_run_is_readable_but_not_resumable_or_confirmable(repo, req
     old_req = await mgr.load_request(USER, st.run_id)
     mgr.generate.llm = FakeLLM([choice(["applied"]), choice(["software"])])
     fresh = await run_to_end(mgr, old_req)
-    assert fresh.status == "done" and fresh.run_id != st.run_id
+    assert fresh.status == "drafted" and fresh.run_id != st.run_id
     assert not mgr.is_legacy(fresh)
 
 
@@ -401,7 +401,7 @@ async def test_warnings_alone_leave_the_run_done(repo, req):
         gen, InMemoryRunStore(), FakeSlot(), FakeRunLog(), FakeTaskRunner(), clock=lambda: "t"
     )
     final = await run_to_end(mgr, req)
-    assert final.status == "done"
+    assert final.status == "drafted"
     assert final.step("section:policy_importance").parse == "skipped"
     assert final.problems[0]["severity"] == "warning"
     assert len(llm.calls) == 1
@@ -413,7 +413,7 @@ async def test_run_log_is_recorded_at_start_each_section_and_end(repo, req):
     mgr, _ = build(repo, FakeLLM(ANSWERS), log=log)
     st = await run_to_end(mgr, req)
     statuses = [m["status"] for _, m in log.records]
-    assert statuses[0] == "queued" and statuses[-1] == "done"
+    assert statuses[0] == "queued" and statuses[-1] == "drafted"
     assert all(rid == st.run_id for rid, _ in log.records)
     # retrieve + 섹션 N + finalize 마다 한 번씩 (running 상태) 기록된다
     assert statuses.count("running") >= len(KEYS) + 1

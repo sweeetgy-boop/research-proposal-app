@@ -35,11 +35,31 @@ STATUS_PROJECT = {  # 사내 과제 기록의 상태 (OverlapAlert.status)
 }
 STATUS = {
     "queued": "대기",
-    "running": "생성 중",
+    "running": "생성 중 (로컬 작성)",
     "interrupted": "중단됨 (재개 가능)",
     "failed": "실패",
     "invalid": "완료 (규칙 위반 있음)",
-    "done": "완료",
+    "draft_reviewing": "Argon 1차 검토 중",
+    "drafted": "초안 완료",
+    "editing": "수정 중",
+    "final_reviewing": "Argon 최종 검토 중",
+    "final_reviewed": "최종 검토 완료",
+    "finalized": "마무리됨",
+    # 옛 이름 (저장된 run)
+    "done": "초안 완료",
+    "reviewing": "검토 중",
+    "reviewed": "초안 완료",
+}
+ORIGIN = {
+    "llm": "로컬 작성",
+    "app": "앱 확정",
+    "input": "제안자 입력",
+    "argon": "Argon 보완",
+    "argon_addition": "Argon 추가",
+    "reviewed": "최종 검토 반영",
+    "proposer_edit": "제안자 수정",
+    "proposer_input": "제안자 추가",
+    "proposer": "제안자 수정",
 }
 SOURCE = {
     "app": "앱 확정 문장",

@@ -186,6 +186,21 @@ def review_policy(settings: Settings) -> dict[str, Any]:
     }
 
 
+def pipeline_config(settings: Settings):
+    """config/pipeline.yaml → PipelineConfig (파일이 없으면 기본값). 모르는 키는 오류."""
+    from rra.domain.models import PipelineConfig
+
+    try:
+        cfg = read_config("pipeline.yaml", settings)
+    except FileNotFoundError:
+        return PipelineConfig()
+    known = set(PipelineConfig.model_fields)
+    unknown = set(cfg or {}) - known
+    if unknown:
+        raise ValueError(f"config/pipeline.yaml 에 모르는 키: {sorted(unknown)}")
+    return PipelineConfig(**(cfg or {}))
+
+
 def recommend_policy(settings: Settings) -> dict[str, Any]:
     """llm.yaml 의 recommend 정책 (기본: auto=true — precheck 뒤 자동 1회)."""
     cfg = read_config("llm.yaml", settings)

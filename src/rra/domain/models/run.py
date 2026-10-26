@@ -11,31 +11,53 @@ from pydantic import BaseModel, Field
 from .document import Chunk
 from .gap import OverlapAlert
 
-# done 이후: reviewing(n) → reviewed(n) → editing → reviewing(n+1) … → finalized
-# (domain/rules/review_flow.py)
+# running(생성) → v1 → draft_reviewing(Argon 1차) → drafted(v2) → editing → final_reviewing
+# → final_reviewed → finalized (domain/rules/review_flow.py, ADR 0011).
+# 옛 이름 done·reviewing·reviewed 는 읽을 때 변환한다.
 RunStatus = Literal[
     "queued",
     "running",
     "interrupted",
     "failed",
     "invalid",
+    "draft_reviewing",
+    "drafted",
+    "editing",
+    "final_reviewing",
+    "final_reviewed",
+    "finalized",
+    # 옛 run 파일에만 남아 있는 이름 (normalize 로 변환)
     "done",
     "reviewing",
     "reviewed",
-    "editing",
-    "finalized",
 ]
-StepStatus = Literal["pending", "done", "error"]
+StepStatus = Literal["pending", "done", "error", "skipped"]
 
-ACTIVE: frozenset[str] = frozenset({"queued", "running", "reviewing"})
+ACTIVE: frozenset[str] = frozenset(
+    {"queued", "running", "draft_reviewing", "final_reviewing", "reviewing"}
+)
 RESUMABLE: frozenset[str] = frozenset({"interrupted"})
-# 생성이 끝난 상태 (확정·검토·편집 가능). 검토 중(reviewing)은 생성은 끝났지만 쓰기 작업 중이다
+# 생성이 끝난 상태 (확정·검토·편집 가능). 검토 중은 생성은 끝났지만 쓰기 작업 중이다
 FINISHED: frozenset[str] = frozenset(
-    {"done", "invalid", "failed", "reviewing", "reviewed", "editing", "finalized"}
+    {
+        "invalid",
+        "failed",
+        "draft_reviewing",
+        "drafted",
+        "editing",
+        "final_reviewing",
+        "final_reviewed",
+        "finalized",
+        "done",
+        "reviewing",
+        "reviewed",
+    }
 )
 
 RETRIEVE = "retrieve"
-FINALIZE = "finalize"
+OUTLINE = "outline"  # 섹션 설계도 (pipeline.outline — [Q] Q2)
+FINALIZE = "finalize"  # 규칙 검사·자동 정리 → v1 저장
+DRAFT_REVIEW = "draft_review"  # Argon 1차 검토 → 검증 통과분 자동 반영 → v2
 SECTION_PREFIX = "section:"
 
 _RUN_ID = re.compile(r"^\d{14}-[0-9a-f]{8}$")
@@ -50,8 +72,18 @@ def section_step(key: str) -> str:
     return f"{SECTION_PREFIX}{key}"
 
 
-def plan_steps(section_keys: list[str]) -> list[str]:
-    return [RETRIEVE, *(section_step(k) for k in section_keys), FINALIZE]
+def plan_steps(
+    section_keys: list[str], *, outline: bool = False, draft_review: bool = True
+) -> list[str]:
+    """③ 파이프라인 단계 — 켜고 끄는 단계(pipeline.yaml)만 계획에 들어간다."""
+    steps = [RETRIEVE]
+    if outline:
+        steps.append(OUTLINE)
+    steps.extend(section_step(k) for k in section_keys)
+    steps.append(FINALIZE)
+    if draft_review:
+        steps.append(DRAFT_REVIEW)
+    return steps
 
 
 class StepRecord(BaseModel):
@@ -88,6 +120,12 @@ class RunState(BaseModel):
     review_model: str | None = None  # 검토에 쓴 provider/model (manifest 용)
     review_from: str | None = None  # 검토 시작 전 상태 (실패하면 여기로 돌아간다)
     finalized_at: str | None = None
+    # ③ 1차 검토(draft_review)를 건너뛴 이유 (no_review_llm | failed). None 이면 돌았거나 아직
+    draft_review_skipped: str | None = None
+    # ⑤ 최종 검토 — 완료 횟수(다시 받기 포함), 마지막으로 검토한 버전, 그 뒤 바뀐 문장 수(stale)
+    final_reviews: int = 0
+    final_reviewed_version: int | None = None
+    stale_edits: int = 0
     # 기능 2 차별화 제안의 외부 전송 기록 — DifferentiationProposal.transfer() (본문 없음)
     differentiation: dict[str, Any] | None = None
     # 차별화 과제 추천 전송 기록(RecommendationResult.transfer()) + 고른 추천 index. manifest 에만
@@ -107,7 +145,12 @@ class RunState(BaseModel):
 
     @property
     def progress(self) -> tuple[int, int]:
-        return sum(1 for s in self.steps if s.status == "done"), len(self.steps)
+        return sum(1 for s in self.steps if s.status in ("done", "skipped")), len(self.steps)
+
+    @property
+    def stale(self) -> bool:
+        """최종 검토 이후 저장된 수정이 있다 (다시 받기는 선택)."""
+        return self.final_reviewed_version is not None and self.stale_edits > 0
 
 
 class RetrievalSnapshot(BaseModel):

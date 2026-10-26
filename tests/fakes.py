@@ -281,6 +281,7 @@ class InMemoryRunStore:
         self.versions: dict[tuple[str, str], dict[int, Any]] = {}
         self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
         self.recommendations: dict[tuple[str, str], dict[str, Any]] = {}
+        self.working: dict[tuple[str, str], dict[str, Any]] = {}
         self.claimed: set[tuple[str, str]] = set()
         self._seq = 0
 
@@ -345,6 +346,15 @@ class InMemoryRunStore:
 
     def list_versions(self, user, run_id):
         return sorted(self.versions.get(self._key(user, run_id), {}))
+
+    def save_working(self, user, run_id, data):
+        self.working[self._key(user, run_id)] = dict(data)
+
+    def load_working(self, user, run_id):
+        return self.working.get(self._key(user, run_id))
+
+    def clear_working(self, user, run_id):
+        self.working.pop(self._key(user, run_id), None)
 
     def save_recommendations(self, user, run_id, data):
         self.recommendations[self._key(user, run_id)] = dict(data)

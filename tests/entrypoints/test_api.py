@@ -179,14 +179,14 @@ async def test_full_flow_precheck_runs_sse_review_edits_finalize(client):
     run_id = r.json()["run_id"]
     assert r.json()["status"] == "queued"
     events = await _read_sse(client, run_id)  # SSE 로 완료까지
-    assert events[-1][0] == "end" and events[-1][1]["status"] == "done"
+    assert events[-1][0] == "end" and events[-1][1]["status"] == "drafted"
     assert all(e[1]["run_id"] == run_id for e in events[:-1])
     assert (
-        events[-2][1]["status"] == "done"
+        events[-2][1]["status"] == "drafted"
         and events[-2][1]["progress"][0] == events[-2][1]["progress"][1]
     )
     r = await client.get(f"/v1/runs/{run_id}", headers=AUTH)  # 끊겨도 GET 으로 복구
-    assert r.status_code == 200 and r.json()["status"] == "done" and r.json()["legacy"] is False
+    assert r.status_code == 200 and r.json()["status"] == "drafted" and r.json()["legacy"] is False
     assert "sections" not in r.json()  # 상태 조회에는 초안 본문이 없다
     r = await client.get("/v1/runs", headers=AUTH)
     assert [x["run_id"] for x in r.json()["runs"]] == [run_id]
@@ -200,41 +200,104 @@ async def test_full_flow_precheck_runs_sse_review_edits_finalize(client):
     task = next(s for s in draft["sections"] if s["key"] == "task_type")["choices"]
     assert task["proposed"][0]["id"] == "applied" and task["confirmed"] is None
 
+    assert (
+        draft["flow"]["draft_review_skipped"] == "no_review_llm" and draft["flow"]["stale"] is False
+    )
+    named = [e[0] for e in events]
+    assert "draft_written" in named and "draft_ready" in named and "pipeline_step" in named
     r = await client.post(f"/v1/runs/{run_id}/review", headers=AUTH)  # 1차: 검토 LLM 없음 → 건너뜀
-    assert r.status_code == 202 and r.json()["status"] == "done"
+    assert r.status_code == 202 and r.json()["status"] == "drafted"
+    r = await client.get(f"/v1/runs/{run_id}/draft-review", headers=AUTH)
+    assert r.status_code == 200 and r.json()["status"] == "skipped" and r.json()["kind"] == "draft"
     r = await client.get(f"/v1/runs/{run_id}/review", headers=AUTH)
     assert r.status_code == 200 and r.json()["status"] == "skipped"
     assert (
         await client.get(f"/v1/runs/{run_id}/review", params={"round": 9}, headers=AUTH)
     ).status_code == 404
+    assert (await client.get(f"/v1/runs/{run_id}/final-review", headers=AUTH)).status_code == 404
 
+    # ④ 임시 저장(버전 아님) → 저장(새 버전) → 임시 사본 삭제
+    r = await client.get(f"/v1/runs/{run_id}/draft/working", headers=AUTH)
+    assert r.status_code == 404
+    r = await client.put(
+        f"/v1/runs/{run_id}/draft/working",
+        json={"sections": [{"key": "method", "text": "임시로 고친 문장."}]},
+        headers=AUTH,
+    )
+    assert r.status_code == 200 and r.json()["saved"] is True
+    r = await client.get(f"/v1/runs/{run_id}/draft/working", headers=AUTH)
+    assert r.status_code == 200 and r.json()["working"]["sections"][0]["key"] == "method"
+    assert (await client.get(f"/v1/runs/{run_id}/draft", headers=AUTH)).json()["flow"][
+        "has_working"
+    ]
     r = await client.post(
-        f"/v1/runs/{run_id}/edits",
+        f"/v1/runs/{run_id}/versions",
         json={
             "sentences": [
                 {"sentence_id": "s:method:0", "action": "manual", "text": "직접 고친 방법 문장."}
             ],
             "note": "1차 수정",
+            "base_version": 1,
         },
         headers=AUTH,
     )
     assert r.status_code == 200 and r.json()["version"] == 2 and r.json()["status"] == "editing"
+    assert r.json()["origin"] == "edit" and r.json()["origin_label"] == "제안자 편집"
+    assert r.json()["changed_sections"] == ["method"] and r.json()["note"] == "1차 수정"
     method = next(s for s in r.json()["sections"] if s["key"] == "method")
     assert (
-        method["sentences"][0]["origin"] == "proposer"
+        method["sentences"][0]["origin"] == "proposer_edit"
         and method["sentences"][0]["text"] == "직접 고친 방법 문장."
     )
+    assert (await client.get(f"/v1/runs/{run_id}/draft/working", headers=AUTH)).status_code == 404
+    # 동시 편집 보호: 기준 버전이 다르면 409
+    r = await client.post(
+        f"/v1/runs/{run_id}/versions",
+        json={
+            "sentences": [{"sentence_id": "s:method:0", "action": "manual", "text": "또 고침."}],
+            "base_version": 1,
+        },
+        headers=AUTH,
+    )
+    assert r.status_code == 409 and "v1" in r.json()["detail"]
+    # 같은 내용 저장 → 새 버전 없음 (호환 경로 /edits)
+    r = await client.post(
+        f"/v1/runs/{run_id}/edits",
+        json={"sentences": [{"sentence_id": "s:method:0", "action": "keep"}]},
+        headers=AUTH,
+    )
+    assert r.status_code == 200 and r.json()["version"] == 2
     r = await client.get(f"/v1/runs/{run_id}/versions", headers=AUTH)
     assert [v["version"] for v in r.json()["versions"]] == [1, 2]
+    assert r.json()["versions"][1]["origin_label"] == "제안자 편집"
+    r = await client.get(
+        f"/v1/runs/{run_id}/versions/diff", params={"from": 1, "to": 2}, headers=AUTH
+    )
+    assert r.status_code == 200 and [d["section"] for d in r.json()["sections"]] == ["method"]
+    assert r.json()["sections"][0]["added"][0]["text"] == "직접 고친 방법 문장."
+    assert (
+        await client.get(
+            f"/v1/runs/{run_id}/versions/diff", params={"from": 1, "to": 9}, headers=AUTH
+        )
+    ).status_code == 404
     r = await client.get(f"/v1/runs/{run_id}/draft", params={"version": 1}, headers=AUTH)
     assert r.status_code == 200 and r.json()["version"] == 1 and r.json()["origin"] == "local"
     assert (
         await client.get(f"/v1/runs/{run_id}/draft", params={"version": 9}, headers=AUTH)
     ).status_code == 404
-    r = await client.post(f"/v1/runs/{run_id}/review", headers=AUTH)  # 2차 재검토 (건너뜀)
-    assert r.status_code == 202
-    r = await client.post(f"/v1/runs/{run_id}/revert", json={"to": 1}, headers=AUTH)
+    r = await client.put(f"/v1/runs/{run_id}/draft/working", json={"sections": []}, headers=AUTH)
+    assert r.status_code == 200
+    r = await client.post(f"/v1/runs/{run_id}/final-review", headers=AUTH)  # 임시 편집 있음 → 409
+    assert r.status_code == 409 and "임시" in r.json()["detail"]
+    r = await client.request("DELETE", f"/v1/runs/{run_id}/draft/working", headers=AUTH)
+    assert r.status_code == 204
+    r = await client.post(f"/v1/runs/{run_id}/final-review", headers=AUTH)  # 검토 LLM 없음 → 409
+    assert r.status_code == 409 and "검토 LLM" in r.json()["detail"]
+    r = await client.post(f"/v1/runs/{run_id}/versions/1/restore", headers=AUTH)
     assert r.status_code == 200 and r.json()["version"] == 3 and r.json()["reverted_from"] == 1
+    assert r.json()["origin"] == "revert"
+    r = await client.post(f"/v1/runs/{run_id}/revert", json={"to": 2}, headers=AUTH)  # 호환 경로
+    assert r.status_code == 200 and r.json()["version"] == 4 and r.json()["reverted_from"] == 2
 
     r = await client.post(
         f"/v1/runs/{run_id}/confirm",
@@ -268,8 +331,8 @@ async def test_full_flow_precheck_runs_sse_review_edits_finalize(client):
         headers=AUTH,
     )
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/hwp+zip")
-    assert r.headers["content-disposition"] == f'attachment; filename="proposal-{run_id}-v3.hwpx"'
-    assert r.headers["x-rra-status"] == "finalized" and r.headers["x-rra-version"] == "3"
+    assert r.headers["content-disposition"] == f'attachment; filename="proposal-{run_id}-v4.hwpx"'
+    assert r.headers["x-rra-status"] == "finalized" and r.headers["x-rra-version"] == "4"
     assert _check_header(r)["count"] >= 1
     rendered = json.loads(r.content)
     assert rendered["confirmed"] == {"task_type": ["basic"], "utilization": ["manual"]}
@@ -287,9 +350,9 @@ async def test_full_flow_precheck_runs_sse_review_edits_finalize(client):
     r = await client.post(f"/v1/runs/{run_id}/reopen", headers=AUTH)
     assert r.status_code == 409 and r.headers["content-type"].startswith("application/problem+json")
     assert r.json()["title"] == "상태 충돌" and "finalized" in r.json()["detail"]
-    # 다시 마무리 → 새 파일 (본문 없이도 된다: 제안값·기존 확정값)
-    r = await client.post(f"/v1/runs/{run_id}/finalize", headers=AUTH)
-    assert r.status_code == 200 and r.headers["x-rra-version"] == "3"
+    # 다시 마무리 → 새 파일 (본문 없이도 된다: 제안값·기존 확정값). 버전을 골라 마무리할 수도 있다
+    r = await client.post(f"/v1/runs/{run_id}/finalize", json={"version": 2}, headers=AUTH)
+    assert r.status_code == 200 and r.headers["x-rra-version"] == "2"
     assert (
         await client.get(f"/v1/runs/{run_id}/file", headers=AUTH)
     ).status_code == 404  # 옛 경로 없음
@@ -448,43 +511,58 @@ async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_mod
         r = await c.post("/v1/runs", json=SLOTS, headers=AUTH)
         run_id = r.json()["run_id"]
         events = await _read_sse(c, run_id)
-        assert events[-1][1]["status"] in ("done", "reviewed", "reviewing")
+        assert events[-1][1]["status"] in ("drafted", "draft_reviewing")
         # 자동 1차 검토(가짜 Argon)까지 기다린다
         for _ in range(200):
             status = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["status"]
-            if status == "reviewed":
+            if (
+                status == "drafted"
+                and (await c.get(f"/v1/runs/{run_id}/review", headers=AUTH)).status_code == 200
+            ):
                 break
             await asyncio.sleep(0.01)
-        assert status == "reviewed"
-        review = (await c.get(f"/v1/runs/{run_id}/review", headers=AUTH)).json()
-        assert review["round"] == 1 and review["transfer"]["provider"] == "gemini"
-        usable = [x for x in review["comments"] if x["usable"]]
-        assert usable and usable[0]["sentence_id"] == "s:method:0"
+        assert status == "drafted"
+        review = (await c.get(f"/v1/runs/{run_id}/draft-review", headers=AUTH)).json()
+        assert review["round"] == 1 and review["kind"] == "draft"
+        assert review["transfer"]["provider"] == "gemini"
+        # ③ 검증 통과 수정안은 v2 에 자동 반영 (Argon 보완) — 의견은 resolved
+        assert review["applied_ids"] and review["applied_version"] == 2
         assert review["transfer"]["internal_doc_ids"] == [
             "alio:fake-1"
         ]  # include_internal 기본 true
+        draft = (await c.get(f"/v1/runs/{run_id}/draft", headers=AUTH)).json()
+        assert draft["version"] == 2 and draft["versions"] == [1, 2]
+        method = next(s for s in draft["sections"] if s["key"] == "method")
+        assert method["sentences"][0]["origin"] == "argon"
+        v2 = (await c.get(f"/v1/runs/{run_id}/draft", params={"version": 2}, headers=AUTH)).json()
+        assert v2["origin"] == "argon" and v2["origin_label"] == "Argon 보완"
+        assert any(a["kind"] == "section" for a in v2["annotations"])  # 섹션 의견은 메모로
+        # ④ 저장 → ⑤ 최종 검토(가짜 Argon) → final_reviewed
         r = await c.post(
-            f"/v1/runs/{run_id}/edits",
+            f"/v1/runs/{run_id}/versions",
             json={
                 "sentences": [
-                    {
-                        "sentence_id": "s:method:0",
-                        "action": "use_revision",
-                        "comment_id": usable[0]["id"],
-                    }
-                ]
+                    {"sentence_id": "s:method:0", "action": "manual", "text": "제안자가 고친 문장."}
+                ],
+                "note": "검토 전 수정",
             },
             headers=AUTH,
         )
-        assert r.status_code == 200 and r.json()["version"] == 2
-        r = await c.post(f"/v1/runs/{run_id}/review", headers=AUTH)  # 2차
-        assert r.status_code == 202 and r.json()["status"] == "reviewing"
+        assert r.status_code == 200 and r.json()["version"] == 3
+        r = await c.post(f"/v1/runs/{run_id}/final-review", headers=AUTH)
+        assert r.status_code == 202 and r.json()["status"] == "final_reviewing"
         for _ in range(200):
             status = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["status"]
-            if status == "reviewed":
+            if status == "final_reviewed":
                 break
             await asyncio.sleep(0.01)
-        assert status == "reviewed"
+        assert status == "final_reviewed"
+        final = (await c.get(f"/v1/runs/{run_id}/final-review", headers=AUTH)).json()
+        assert (
+            final["kind"] == "final" and final["final_round"] == 1 and final["draft_version"] == 3
+        )
+        flow = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["flow"]
+        assert flow["final_reviews"] == 1 and flow["final_reviewed_version"] == 3
         r = await c.post(
             f"/v1/runs/{run_id}/finalize",
             json={
