@@ -607,6 +607,21 @@ precheck 결과에 차단 또는 기준 근접(유사도 ≥ 티어 임계치 ×
 - 외부 공개는 결정 전 — `docs/deploy-exposure.md` 에 Tailscale serve / Cloudflare Tunnel 비교(접근 범위·제어·데이터 경계·
   비용)와 필요한 설정만. 권장은 소수 동료 시범 운영이면 Tailscale(사내 자료가 제3자 엣지를 거치지 않음). 구현 없음.
 
+### 4.13 OpenAlex 철도 코퍼스 (2026-10-26)
+
+20건뿐이던 OpenAlex 를 분야별 질의 목록으로 확충했다 (`config/sources.yaml openalex.queries`, 13개 영문 질의:
+궤도·궤도검측·차량·신호·전력·유지보수·안전·수송수요·역사·자산관리·탄소중립·화물·운영).
+- 조건: 초록 있는 것만(`has_abstract:true`), 기간은 증분이면 `lookback_days`(7, 야간 적재), 전체면 `backfill_years`(10,
+  `rra ingest --source openalex --full`). 질의당 `per_query_limit`(200) 관련도순, 같은 work 는 한 번만(`_field` 태그 →
+  `raw.field`). 질의 목록이 비면 예전 `default_query` 하나.
+- 페이징: OpenAlex 가 2026-10 부터 cursor 페이징에 API 키를 요구(401)해 `page` 페이징(10,000건 상한)으로 바꿨다.
+  선택 설정 `RRA_OPENALEX_MAILTO`(polite pool, 환경변수가 yaml 을 이김)·`RRA_OPENALEX_API_KEY`(SecretStr, 요청
+  파라미터로만, 오류 URL 에서 제거).
+- 2026-10-28 기준 10년·초록 조건 예상 건수(질의당): 궤도 1,530 / 궤도검측 4,029 / 차량 1,809 / 신호 156 / 전력 585 /
+  유지보수 16,114 / 안전 1,519 / 수송수요 2,409 / 역사 5,011 / 자산관리 16,017 / 탄소중립 4,596 / 화물 6,580 / 운영
+  4,098 → 상한 200×13 = 2,600(중복 제거 전), 목표 1,000~3,000.
+- 야간 적재 plist 는 `--limit 5000`(소스당)으로 올렸다 — 200 이면 own_projects(1,119)·OpenAlex 질의 목록이 잘린다.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -1115,6 +1130,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (코퍼스) | OpenAlex 철도 분야 질의 목록 13개·초록 필터·증분/전체 기간·질의당 상한·page 페이징·polite pool/API 키 설정(§4.13); CI 워크플로(`.github/workflows/ci.yml`)·CODEOWNERS·PR 템플릿·CONTRIBUTING; 샌드박스 RLIMIT_AS 제거(리눅스 pymupdf import) |
 | 2026-10-26 (A) | 판단 반영: own 티어 = source own 전부(세부 institute/company, `tier_label`), own 출처 경고 제외, generic_terms 14개 추가, visibility 전부 public(공시용 없는 요약만 internal), 차별화 자동 실행은 차단 알림만, REST `RunIn.differentiation_transfer` → manifest |
 | 2026-10-26 (P6) | 운영 준비(§4.12): `com.rra.ingest.plist`, `rra ingest --skip-unavailable`·`build_available_sources`, plist 테스트, `deploy/README.md` 설치 순서, `docs/deploy-exposure.md` |
 | 2026-10-26 (P5) | 검토 고도화(§4.11): `ReviewRound.scores`·`CriterionScore`·`score_comments`, `parse_scores`, review.md 채점·수치 정책, `RenderCheck.unsupported_numbers`(맨 위 표시), 화면·CLI·API 점수 표시, manifest scores |

@@ -94,6 +94,9 @@
 - 외부 자료원(P4, architecture §4.10, docs/external-apis.md): KIPRIS 어댑터 `adapters/sources/kipris/`(KIPRIS Plus
   freeSearchInfo, accessKey, 레코드 PatentUtilityInfo, 발명자 제외·출원인 기관만), `RRA_KIPRIS_KEY`, `rra sources check` 에
   kipris + record_tag 진단. NTIS 연구보고서는 가능 여부만 확인(키 뒤 구현).
+- OpenAlex 코퍼스(architecture §4.13): `sources.yaml openalex.queries` 13개 분야 질의, 초록 필터, 증분(lookback_days)/전체(`--full`,
+  backfill_years), 질의당 상한 200, page 페이징(cursor 는 API 키 필요), `RRA_OPENALEX_MAILTO`·`RRA_OPENALEX_API_KEY` 선택.
+  CI: `.github/workflows/ci.yml` backend·web job, 샌드박스는 RLIMIT_DATA 만(RLIMIT_AS 는 리눅스 import 실패).
 - 2026-10-26 판단 반영(A): 엑셀 4개 과제는 부서 무관 own 티어(`OWN_RECORD_SOURCES`, 알림 세부 institute/company,
   `tier_label`), 그 출처는 `unlisted_department` 경고 없음, visibility 는 엑셀·공시용 요약문 public(일반 요약만 internal),
   generic_terms 14개 추가. 차별화 제안 자동 실행은 차단 알림일 때만(근접은 요청 시), REST `RunIn.differentiation_transfer`.
