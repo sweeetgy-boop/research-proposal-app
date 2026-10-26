@@ -86,7 +86,7 @@ reranker·유사과제 임계치 재조정(표본 축적 후), 공고문 반영,
 
 | 단계 | 브랜치 | 내용 | 상태 | PR |
 |---|---|---|---|---|
-| P0 | `chore/status-sync` | 이 문서, Gemini 모델 목록 `models/` 접두어, `own_unit.departments`(연구계획처·차량기술센터) | 완료 2026-10-26 | — |
+| P0 | `chore/status-sync` | 이 문서, Gemini 모델 목록 `models/` 접두어, `own_unit.departments`(연구계획처·차량기술센터) | 완료 2026-10-26 | #3 |
 | P1 | `fix/retrieval-relevance-floor` | 검색 관련도 하한 (이슈 #2) | 대기 | — |
 | P2 | `feat/own-ingest` | 사내 자료 적재 | 대기 | — |
 | P3 | `feat/differentiation` | 기능 2 차별화 제안 | 대기 | — |
