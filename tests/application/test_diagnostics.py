@@ -16,6 +16,19 @@ def test_served_model_listed_is_exact():
     assert not served_model_listed({""}, [""])
 
 
+def test_models_prefix_is_ignored_on_both_sides():
+    # Gemini OpenAI 호환 목록은 "models/gemini-…" — llm.yaml 의 "gemini-4-argon" 과 같은 모델
+    assert served_model_listed({"gemini-4-argon"}, ["models/gemini-4-argon", "models/other"])
+    assert served_model_listed({"models/gemini-4-argon"}, ["gemini-4-argon"])
+    assert not served_model_listed({"gemini-4-argon"}, ["models/gemini-4-argon-mini"])
+    assert not served_model_listed({"models/"}, ["models/"])  # 접두어만 있는 이름은 빈 이름
+
+
+async def test_gemini_listing_with_prefix_does_not_warn():
+    llm = ListingLLM(["models/gemini-4-argon", "models/gemini-4-flash"])
+    assert await check_served_model(llm, "gemini-4-argon") is None
+
+
 async def test_served_model_listed_means_no_warning():
     llm = ListingLLM(["mlx-community/Qwen2.5-3B-Instruct-4bit", "other/model"])
     assert await check_served_model(llm, "mlx-community/Qwen2.5-3B-Instruct-4bit") is None

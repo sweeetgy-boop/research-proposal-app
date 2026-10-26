@@ -10,9 +10,11 @@ institutions:
 own_unit:
   org: korail
   departments:
-    - 철도연구원      # 부서 칸에 연구원 이름 자체가 오는 경우 (NTIS 수행부서 등)
+    - 철도연구원      # 부서 칸에 연구원 이름 자체가 오는 경우 (NTIS 수행부서 등). "철도연구원 ○○처" 도 토큰으로 잡힌다
     - 경영연구처
     - 기술연구처
+    - 연구계획처      # 사내 과제 현황 엑셀(제안 현황·2021~2026 수행현황)의 부서 칸
+    - 차량기술센터    # 2006~2024 과제목록 자체연구 시트의 과거 부서명
 alio:
   inbox_dir: data/inbox/alio   # 수동 다운로드 파일 투입 위치 (_done/·_quarantine/ 자동 생성)
   catalog_dir: data/catalog    # 공공데이터포털 CSV. 가장 최근 파일을 쓴다

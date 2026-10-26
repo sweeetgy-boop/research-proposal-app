@@ -16,9 +16,23 @@ MAX_ERROR_CHARS = 300
 
 
 # ── served_model (manifest 표시용 모델명) ─────────────────
+MODEL_ID_PREFIX = "models/"  # Gemini OpenAI 호환 /v1/models 는 id 를 "models/gemini-…" 로 준다
+
+
+def _model_id(name: str) -> str:
+    """비교용 이름: 공백 제거, "models/" 접두어 1개 제거. 대소문자는 그대로 (정확 일치)."""
+    name = name.strip()
+    return name.removeprefix(MODEL_ID_PREFIX) if name.startswith(MODEL_ID_PREFIX) else name
+
+
 def served_model_listed(candidates: Iterable[str], listed: Iterable[str]) -> bool:
-    """/v1/models 목록에 선언한 모델 이름이 있는지. 오타·엉뚱한 이름만 거른다 (정확 일치)."""
-    return bool({c.strip() for c in candidates if c.strip()} & {m.strip() for m in listed})
+    """/v1/models 목록에 선언한 모델 이름이 있는지. 오타·엉뚱한 이름만 거른다 (정확 일치).
+
+    양쪽 모두 "models/" 접두어를 떼고 비교한다 — llm.yaml 의 served_model "gemini-4-argon" 과
+    Gemini 목록의 "models/gemini-4-argon" 은 같은 모델이다.
+    """
+    wanted = {name for c in candidates if (name := _model_id(c))}
+    return bool(wanted & {name for m in listed if (name := _model_id(m))})
 
 
 async def check_served_model(
