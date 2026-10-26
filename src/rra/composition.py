@@ -62,6 +62,7 @@ __all__ = [
     "build_alio_catalog_fetcher",
     "build_alio_source",
     "build_alio_summary_source",
+    "build_kipris_source",
     "build_own_docs_source",
     "build_own_projects_source",
     "build_api",
@@ -405,6 +406,29 @@ def build_ntis_source(settings: Settings | None = None, *, transport=None, resol
     )
 
 
+def build_kipris_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """KiprisPatentSource (KIPRIS Plus 자유검색). RRA_KIPRIS_KEY 없으면 MissingCredential."""
+    from rra.adapters.sources.kipris import KiprisPatentSource
+
+    settings = settings or load_settings()
+    require_credentials(settings, "kipris")
+    cfg = source_config(settings, "kipris")
+    return KiprisPatentSource(
+        _guarded(settings, cfg, transport=transport, resolver=resolver),
+        access_key=settings.kipris_key,
+        base_url=str(cfg.get("base_url", "https://plus.kipris.or.kr")),
+        search_path=str(
+            cfg.get("search_path") or "/openapi/rest/patUtiModInfoSearchSevice/freeSearchInfo"
+        ),
+        queries=list(cfg.get("queries") or ["철도"]),
+        institutions=institutions(settings),
+        docs_count=int(cfg.get("docs_count", 50)),
+        record_tag=str(cfg.get("record_tag") or "PatentUtilityInfo"),
+        include_utility=bool(cfg.get("include_utility", True)),
+        key_param=str(cfg.get("key_param") or "accessKey"),
+    )
+
+
 def build_own_projects_source(settings: Settings | None = None):
     """OwnProjectsSource — 사내 과제 현황 엑셀 (data/inbox/own). 샌드박스 xls·xlsx 파서."""
     from rra.adapters.sources.own import OwnProjectsSource
@@ -440,6 +464,7 @@ _SOURCE_BUILDERS = {
     "own_docs": build_own_docs_source,
     "scienceon": build_scienceon_source,
     "ntis": build_ntis_source,
+    "kipris": build_kipris_source,
 }
 SOURCE_NAMES = tuple(_SOURCE_BUILDERS)
 
@@ -465,7 +490,11 @@ def build_sources_check(
 
     settings = settings or load_settings()
     allowed = set(allowed_domains(settings))
-    builders = {"scienceon": build_scienceon_source, "ntis": build_ntis_source}
+    builders = {
+        "scienceon": build_scienceon_source,
+        "ntis": build_ntis_source,
+        "kipris": build_kipris_source,
+    }
     targets = []
     for name in names:
         if name not in builders:

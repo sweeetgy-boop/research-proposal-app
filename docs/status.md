@@ -27,7 +27,7 @@
 | ① | 과제 아이디어 입력 | 완료 | `domain/models/request.py`(필수 4 + 선택, validator 한 곳); `tests/domain/test_request.py`; b20deb6 |
 | ② | 유사과제 중복성 검토·사전 알림 | 완료 | 기능 1 과 같음 |
 | ③ | 유사과제 활용·차별화 제안 | 완료 (P3) | 기능 2 와 같음 |
-| ④ | 국내외 논문·특허·R&D 사전 적재·갱신 | 부분 | OpenAlex(f19b974)·알리오 catalog/filedrop/공개 요약(d305174, c3ac454)·ScienceON·NTIS 과제검색(428ed2c) 코드 완료. ScienceON·NTIS 는 키·실응답 fixture 대기(skip 2). KIPRIS 특허 어댑터 없음(`SourceType`·overlap 라벨·허용 도메인만 있음) → P4. 야간 적재 launchd 없음 → P6 |
+| ④ | 국내외 논문·특허·R&D 사전 적재·갱신 | 부분 | OpenAlex(f19b974)·알리오 catalog/filedrop/공개 요약(d305174, c3ac454)·ScienceON·NTIS 과제검색(428ed2c)·KIPRIS 특허(P4, `adapters/sources/kipris/`) 코드 완료. ScienceON·NTIS·KIPRIS 는 키·실응답 fixture 대기(skip 3). 야간 적재 launchd 없음 → P6 |
 | ⑤ | RAG 근거 검색·자료 질의 | 완료 | 기능 3, `rra search`, MCP `rra_search`, UI 사이드바 질의 |
 | ⑥ | 섹션별 초안 생성·출처 표시·수치 검사 | 완료 | 기능 4, `numbers.py`(지어낸 수치 알림), `foreign_script.py`; `tests/domain/test_numbers.py`; 463139e |
 | ⑦ | 과제유형·활용계획·경영전략 제안·확정 | 완료 (전략 목록 대기) | 기능 5 |
@@ -42,6 +42,7 @@
 | 영역 | 내용 | 근거 |
 |---|---|---|
 | 사내 자료 적재 (P2) | `own_projects`(엑셀 4개 → 과제 1,119건, status·과제명 병합·이름 열 제외)·`own_docs`(공시완료 107개 폴더 → 요약문 129파일, 공시용 > 일반, hwpx > hwp > pdf, 묶음 분리). 샌드박스 hwp·xlsx·xls 파서. `OverlapAlert.status` | `adapters/sources/own/`, `alio/extract/hwp.py`·`spreadsheet.py`, `config/sources.yaml own`; `tests/adapters/own/`, `tests/adapters/alio/test_extract.py`; architecture §4.8 |
+| 외부 자료원 점검 (P4) | `external-apis.md` 전수 표(신청처·필요 정보·한도·검증 명령), KIPRIS Plus 어댑터(발명자 제외·출원인 기관만), `rra sources check` kipris·record_tag 진단, ScienceON MAC 안내, NTIS 연구보고서 가능 여부 | `adapters/sources/kipris/`, `config/sources.yaml kipris`; `tests/adapters/test_kipris.py`, `tests/test_composition.py`; architecture §4.10 |
 | 생성 근거 관련도 하한 (P1) | 검색 청크가 근거로 남으려면 코사인 ≥ 0.79, 한글 청크는 질의 키워드 ≥ 1. 통과 0 이면 근거 필수 섹션 빈칸 + `no_relevant_evidence`. 골든셋 측정 fixture 로 임계치 고정 | `domain/rules/relevance.py`, `config/overlap.yaml evidence_floor`, `tests/fixtures/relevance_golden.json`; `tests/domain/test_relevance.py`, `tests/application/test_generate_proposal.py`, `tests/adapters/test_sqlite_repo.py`; architecture §4.7, 이슈 #2 |
 | 계층·검증 | 헥사고날 4계층, import-linter 계약 8건, 포트 전부 runtime_checkable·비동기 저장소/임베딩, TaskRunner 포트 | `pyproject.toml`, `composition.py`·`config_loader.py`; `tests/test_composition.py`·`test_config_loader.py`, `tests/adapters/test_port_conformance.py`; 0ecbe46, 6b31f35~0bcac95 |
 | 보안 A~J | 근거 id 대조·JSON 전용 파싱, subprocess 파싱 격리·zip 상한·defusedxml, 허용 도메인·리다이렉트 재검사·사설 IP 거부, SecretStr, SQL 바인딩·FTS5 토큰 인용, HWPX escape·재파싱, 127.0.0.1·토큰·동시성 1, 로그 허용목록 | `adapters/sources/_base.py`·`_sandbox.py`, `adapters/security/`, `adapters/llm/_endpoint.py`; `tests/adapters/test_base_security.py`·`test_guarded_client.py`·`test_sandbox.py`·`test_llm_endpoint.py`, `tests/entrypoints/test_api.py` |
@@ -59,7 +60,6 @@
 
 | 항목 | 내용 | 단계 |
 |---|---|---|
-| 외부 자료원 | KIPRIS 어댑터(`source_type=patent`), NTIS record_tag 진단, ScienceON MAC 안내, `external-apis.md`. NTIS 연구보고서는 가능 여부만 | P4 |
 | 검토 고도화 | Argon 검토에 필요성·차별성·실현가능성·기대효과 1~5점 채점, 2점 이하는 섹션 문장 의견으로 연결. 수치 알림 건수를 render_check 맨 위에. 차별성 매트릭스·예산표는 양식 밖(화면·API 표, HWPX 는 설계만) | P5 |
 | 운영 준비 | `com.rra.ingest.plist`(야간 적재), 백업 7벌 회전 테스트, `deploy/README` 설치 순서, Tailscale/Cloudflare 비교 문서 | P6 |
 
@@ -67,7 +67,7 @@
 
 | 항목 | 상태 |
 |---|---|
-| ScienceON·NTIS API 키 → 실응답 녹화 → FIELDS 매핑·record_tag 확정 | 대기 (skip 2건) |
+| ScienceON·NTIS·KIPRIS API 키 → 실응답 녹화 → FIELDS 매핑·record_tag 확정 (`external-apis.md` 신청처) | 대기 (skip 3건) |
 | 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건). 공시용 요약문은 P2 에서 own_docs 로 적재됨 |
 | `config/templates/korail_strategy.yaml` 전략체계 목록 | 비어 있음 → 2-가-(3) 빈칸 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
@@ -89,7 +89,7 @@ reranker·유사과제 임계치 재조정(표본 축적 후), 공고문 반영,
 | P1 | `fix/retrieval-relevance-floor` | 검색 관련도 하한 (이슈 #2): 03 궤도 인용 0건, 01 관련 논문 16건 유지 (`llm-bench-2026-10-26.md` P1 절) | 완료 2026-10-26 | #4 |
 | P2 | `feat/own-ingest` | 사내 자료 적재: 엑셀 1,119건·공시 요약문 121건, precheck 예시 3건 (PR 본문) | 완료 2026-10-26 | #5 |
 | P3 | `feat/differentiation` | 기능 2 차별화 제안: 실례 2건(미채택 재제안 2건·완료 근접 4건, 폐기 0) | 완료 2026-10-26 | #6 |
-| P4 | `feat/external-apis` | KIPRIS·NTIS·ScienceON 점검 | 대기 | — |
+| P4 | `feat/external-apis` | 전수 점검 표(`external-apis.md`), KIPRIS 어댑터, record_tag 진단, ScienceON MAC 안내 | 완료 2026-10-26 | — |
 | P5 | `feat/review-scoring` | Argon 검토 채점·수치 정책 | 대기 | — |
 | P6 | `chore/ops` | 야간 적재 plist·설치 문서·공개 방식 비교 | 대기 | — |
 | P7 | — | 이슈 등록만 | 대기 | — |

@@ -279,6 +279,7 @@ CREDENTIALS: dict[str, dict[str, str]] = {
         "RRA_SCIENCEON_MAC": "scienceon_mac",
     },
     "ntis": {"RRA_NTIS_KEY": "ntis_key"},
+    "kipris": {"RRA_KIPRIS_KEY": "kipris_key"},
 }
 KEYED_SOURCES = tuple(CREDENTIALS)
 

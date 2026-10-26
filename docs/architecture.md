@@ -551,6 +551,18 @@ precheck 결과에 차단 또는 기준 근접(유사도 ≥ 티어 임계치 ×
   구체화·재제안", 타부서 제안은 대상 특화로 차별화); 완료 과제에 가까운 아이디어 → 제안 4건, 폐기 0. 자료에 있는 수치만
   쓰였고 지어낸 수치는 없었다.
 
+### 4.10 외부 자료원 전수 점검·KIPRIS (2026-10-26, P4)
+
+`docs/external-apis.md` 에 자료원별 신청처·필요 정보·한도·검증 명령을 표로 정리했다. 코드:
+- KIPRIS 어댑터 `adapters/sources/kipris/` (소스 이름 `kipris`, 문서 source `kipris_kr`, doc_type `patent`). KIPRIS Plus
+  REST 자유검색(`freeSearchInfo`, 키 `accessKey`)을 기본으로 — 공공데이터포털 경로는 같은 데이터·키 체계이고 월 상한이
+  낮다. 경로·키 파라미터·레코드 태그(`PatentUtilityInfo`)는 `sources.yaml kipris` 에서 바꾼다. 발명자 이름은 읽지 않고
+  출원인은 기관명만 남긴다(`normalize.is_organization`). `RRA_KIPRIS_KEY` 없으면 MissingCredential. probe·녹화 도구·
+  skipif 실응답 테스트는 NTIS 와 같은 구조. precheck 라벨(`SOURCE_LABELS kipris_kr`)과 특이사항 자료원 집계는 doc_id
+  접두어로 이미 잡힌다.
+- `rra sources check` 가 kipris 를 포함하고, NTIS·KIPRIS 의 `record_tag` 를 probe 후보와 대조해 다음 할 일을 안내한다.
+- NTIS 연구보고서 검색은 OpenAPI 목록에 있음을 확인(과제검색과 별도 활용신청). 키 확보 뒤 구현.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -1059,6 +1071,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (P4) | 외부 자료원 전수 점검(§4.10, `docs/external-apis.md`): KIPRIS 어댑터(`adapters/sources/kipris/`, `sources.yaml kipris`, `RRA_KIPRIS_KEY`), `rra sources check` kipris·record_tag 진단, 녹화 도구 kipris, `.env.example` 정리 |
 | 2026-10-26 (P3) | 기획서 기능 2 유사과제 활용·차별화 제안(§4.9): `domain/rules/differentiation.py`, `usecases/differentiate.py`, `ProposalRequest.differentiation`, `llm.yaml stages.differentiate`, `prompts/differentiate.md`, agent_policy 행, CLI·REST·MCP·Streamlit 진입점, manifest `differentiation` |
 | 2026-10-26 (P2) | 사내 자료 적재(§4.8): `adapters/sources/own/`(own_projects 엑셀·own_docs 공시 요약문), 샌드박스 hwp·xlsx·xls 파서, `SourceType own`, `OverlapAlert.status`, `sources.yaml own` |
 | 2026-10-26 (P1) | 생성 근거 관련도 하한(§4.7, 이슈 #2): `domain/rules/relevance.py`·`Chunk.similarity`·`RetrievalSnapshot.dropped_chunks`·lint `no_relevant_evidence`·`overlap.yaml evidence_floor`·골든셋 측정 fixture·벤치 지표 |
