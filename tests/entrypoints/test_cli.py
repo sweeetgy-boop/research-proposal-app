@@ -877,3 +877,38 @@ def test_llm_check_provider_gemini_without_key_is_a_usage_error(monkeypatch, cap
     assert "provider=gemini" in out and "api_key=RRA_GEMINI_API_KEY 없음" in out
     assert "reasoning_effort=low json_mode=auto" in out
     assert "LLM 사용 불가" in err and "RRA_GEMINI_API_KEY" in err
+
+
+def test_api_schema_exports_openapi_without_token_or_db(monkeypatch, tmp_path, capsys):
+    from rra.settings import Settings
+
+    monkeypatch.setattr(
+        "rra.composition.load_settings",
+        lambda: Settings(_env_file=None, runs_dir=tmp_path / "runs", db_path=tmp_path / "x.sqlite"),
+    )
+    out = tmp_path / "docs" / "openapi.json"
+    assert cli.main(["api", "schema", "--out", str(out)]) == cli.EXIT_OK
+    assert "저장:" in capsys.readouterr().out
+    schema = json.loads(out.read_text(encoding="utf-8"))
+    paths = set(schema["paths"])
+    for p in (
+        "/v1/session",
+        "/v1/sources/status",
+        "/v1/precheck",
+        "/v1/search",
+        "/v1/runs",
+        "/v1/runs/{run_id}",
+        "/v1/runs/{run_id}/events",
+        "/v1/runs/{run_id}/draft",
+        "/v1/runs/{run_id}/versions",
+        "/v1/runs/{run_id}/revert",
+        "/v1/runs/{run_id}/review",
+        "/v1/runs/{run_id}/edits",
+        "/v1/runs/{run_id}/render-check",
+        "/v1/runs/{run_id}/finalize",
+        "/v1/runs/{run_id}/reopen",
+        "/healthz",
+    ):
+        assert p in paths, p
+    assert "/v1/runs/{run_id}/file" not in paths
+    assert not (tmp_path / "x.sqlite").exists()

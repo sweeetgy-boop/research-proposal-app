@@ -502,6 +502,8 @@ def build_run_manager(
     renderer=None,
     reviewer=None,
     review_llm=None,
+    store=None,
+    run_log=None,
 ):
     """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, 실행기, HWPX 렌더러,
     검토 유스케이스(review 단계 키가 있을 때만; 없으면 None → review_skipped).
@@ -524,9 +526,9 @@ def build_run_manager(
         llm = build_llm(settings, stage="compose")
     return RunManager(
         build_generate(settings, repo=repo, llm=llm),
-        FileRunStore(root),
+        store or FileRunStore(root),
         FlockSlot(root / ".generate.lock"),
-        FileRunLog(root),
+        run_log or FileRunLog(root),
         runner or AsyncioTaskRunner(),
         max_queued=int(input_limits(settings).get("max_queued_runs", 3)),
         model=model,
@@ -542,7 +544,16 @@ class ApiTokenMissing(RuntimeError):
     """RRA_API_TOKEN 이 없다 — 인증 없는 API 는 띄우지 않는다."""
 
 
-def api_middlewares(settings: Settings, token: str) -> list[tuple[type, dict[str, Any]]]:
+def build_sessions(settings: Settings | None = None):
+    """세션 쿠키 저장소 (프론트엔드 로그인). 미들웨어와 /v1/session 라우트가 같은 것을 쓴다."""
+    from rra.adapters.security import SessionStore
+
+    return SessionStore()
+
+
+def api_middlewares(
+    settings: Settings, token: str, *, sessions=None
+) -> list[tuple[type, dict[str, Any]]]:
     """등록 순서(안쪽부터): 인증 → 본문 상한 → 헤더.
 
     FastAPI.add_middleware 는 마지막에 넣은 것이 바깥이 된다.
@@ -558,14 +569,96 @@ def api_middlewares(settings: Settings, token: str) -> list[tuple[type, dict[str
     outer_to_inner = [
         (SecurityHeadersMiddleware, {}),
         (BodyLimitMiddleware, {"max_bytes": int(limits.get("api_max_body_bytes", 64 * 1024))}),
-        (TokenAuthMiddleware, {"token": token}),
+        (TokenAuthMiddleware, {"token": token, "sessions": sessions}),
     ]
     return list(reversed(outer_to_inner))
 
 
-def build_api(settings: Settings | None = None, *, repo=None, llm=None, runner=None):
-    """FastAPI 앱. 토큰이 없으면 ApiTokenMissing (G: 인증 필수)."""
+FAKE_MODE_WARNING = (
+    "="
+    * 72
+    + "\n!!  RRA_FAKE_LLM=1 — 가짜 모드. 가짜 LLM(작성·검토)·메모리 저장소. 결과는 더미이며\n"
+    "!!  어떤 자료도 검색·저장하지 않는다. e2e 테스트·스키마 추출 전용. 운영 기동 금지.\n"
+    + "="
+    * 72
+)
+
+
+def build_fake_parts(settings: Settings):
+    """가짜 모드(RRA_FAKE_LLM=1) 부품 — 가짜 LLM·메모리 저장소·시드 문서. adapters/fake."""
+    from rra.adapters.fake import (
+        InMemoryDocumentRepository,
+        InMemoryRunStore,
+        NoopRunLog,
+        ScriptedComposeLLM,
+        ScriptedReviewLLM,
+    )
+    from rra.domain.models import Chunk, Document
+
+    repo = InMemoryDocumentRepository()
+    repo.seed(
+        [
+            Document(
+                doc_id="alio:fake-1",
+                source="alio",
+                doc_type="internal_report",
+                title="궤도 상태 자동 감지 연구 (가짜)",
+                body="궤도 틀림을 자동으로 감지하는 사내 연구 요약",
+                orgs=["korail"],
+                department="철도연구원",
+                text_basis="summary",
+                visibility="internal",
+            ),
+            Document(
+                doc_id="openalex:fake-1",
+                source="openalex",
+                doc_type="paper",
+                title="Track geometry degradation (fake)",
+                abstract="Track geometry degradation rate from inspection history",
+                orgs=["external"],
+                text_basis="abstract",
+            ),
+        ],
+        [
+            Chunk(
+                chunk_id="alio:fake-1#0",
+                doc_id="alio:fake-1",
+                ordinal=0,
+                text="궤도 틀림을 자동으로 감지하는 사내 연구 요약",
+                basis="summary",
+                visibility="internal",
+            ),
+            Chunk(
+                chunk_id="openalex:fake-1#0",
+                doc_id="openalex:fake-1",
+                ordinal=0,
+                text="Track geometry degradation rate from inspection history",
+                basis="abstract",
+            ),
+        ],
+        when="2026-10-26",
+    )
+    return {
+        "repo": repo,
+        "llm": ScriptedComposeLLM(),
+        "review_llm": ScriptedReviewLLM(),
+        "store": InMemoryRunStore(),
+        "run_log": NoopRunLog(),
+    }
+
+
+def build_api(
+    settings: Settings | None = None,
+    *,
+    repo=None,
+    llm=None,
+    runner=None,
+    static_dir: Path | None = None,
+    sse_poll_sec: float = 1.0,
+):
+    """FastAPI 앱. 토큰이 없으면 ApiTokenMissing (G: 인증 필수). RRA_FAKE_LLM=1 이면 가짜 부품."""
     from rra.entrypoints.api import create_app
+    from rra.entrypoints.api.app import SessionAuth
 
     settings = settings or load_settings()
     token = settings.api_token.get_secret_value().strip() if settings.api_token else ""
@@ -573,18 +666,49 @@ def build_api(settings: Settings | None = None, *, repo=None, llm=None, runner=N
         raise ApiTokenMissing(
             "RRA_API_TOKEN 이 없습니다 — .env 에 넣고 다시 실행하십시오 (보안 G)."
         )
-    if repo is None:
-        repo = build_repository(build_embedding(settings), settings)
-    manager = build_run_manager(settings, repo=repo, llm=llm, runner=runner)
+    fake = build_fake_parts(settings) if settings.fake_llm else None
+    if fake is not None:
+        repo = repo or fake["repo"]
+        llm = llm or fake["llm"]
+        manager = build_run_manager(
+            settings,
+            repo=repo,
+            llm=llm,
+            runner=runner,
+            review_llm=fake["review_llm"],
+            store=fake["store"],
+            run_log=fake["run_log"],
+        )
+    else:
+        if repo is None:
+            repo = build_repository(build_embedding(settings), settings)
+        manager = build_run_manager(settings, repo=repo, llm=llm, runner=runner)
+    sessions = build_sessions(settings)
+    static = static_dir if static_dir is not None else Path(settings.static_dir)
     return create_app(
         manager=manager,
         precheck=build_precheck(settings, repo=repo),
         repo=repo,
         user=LOCAL_USER,
-        middlewares=api_middlewares(settings, token),
+        middlewares=api_middlewares(settings, token, sessions=sessions),
         query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
         on_shutdown=manager.generate.llm.aclose,
+        session_auth=SessionAuth(token, sessions),
+        static_dir=static,
+        sse_poll_sec=sse_poll_sec,
+        fake_mode=fake is not None,
     )
+
+
+def build_api_schema(settings: Settings | None = None) -> dict[str, Any]:
+    """OpenAPI 스키마 (프론트 타입 생성용). 가짜 부품으로 앱을 만들어 토큰·DB 없이 추출한다."""
+    from pydantic import SecretStr
+
+    settings = settings or load_settings()
+    schema_settings = settings.model_copy(
+        update={"fake_llm": True, "api_token": SecretStr("schema-only-not-a-token")}
+    )
+    return build_api(schema_settings).openapi()
 
 
 def build_purge_runs(settings: Settings | None = None, *, clock=None):

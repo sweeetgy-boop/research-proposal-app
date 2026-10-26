@@ -28,7 +28,7 @@ import threading
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rra.adapters.persistence import _mapping, _sql, _vec
 from rra.adapters.persistence.migrations import runner
@@ -56,7 +56,12 @@ _INSERT_DOCUMENT = (
     + _sql.placeholders(len(_mapping.DOCUMENT_COLUMNS))
     + ") ON CONFLICT(doc_id) DO UPDATE SET "  # nosec B608
     + ",".join(f"{c}=excluded.{c}" for c in _mapping.DOCUMENT_COLUMNS if c != "doc_id")
+    + ", ingested_at=strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"
 )
+_TOUCH_INGESTED = (
+    "UPDATE documents SET ingested_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE doc_id = ?"
+)
+_SOURCE_STATUS = "SELECT source, COUNT(*), MAX(ingested_at) FROM documents GROUP BY source"
 _INSERT_CHUNK = "INSERT INTO chunks (chunk_id, doc_id, ordinal, heading, text) VALUES (?,?,?,?,?)"
 _SELECT_DOCUMENT = "SELECT * FROM documents WHERE doc_id = ?"
 # FTS5 는 MATCH·bm25() 에서 별칭이 아니라 테이블 이름을 요구한다.
@@ -233,6 +238,7 @@ class SQLiteDocumentRepository:
             with self.conn:  # 단일 트랜잭션
                 for doc in docs:
                     self.conn.execute(_INSERT_DOCUMENT, _mapping.document_to_row(doc))
+                    self.conn.execute(_TOUCH_INGESTED, (doc.doc_id,))
                     self.conn.execute("DELETE FROM document_orgs WHERE doc_id = ?", (doc.doc_id,))
                     self.conn.executemany(
                         "INSERT INTO document_orgs(doc_id, org) VALUES (?, ?)",
@@ -268,6 +274,17 @@ class SQLiteDocumentRepository:
         with self._lock:
             rows = self.conn.execute("SELECT source, COUNT(*) FROM documents GROUP BY source")
             return {str(source): int(n) for source, n in rows}
+
+    async def source_status(self) -> dict[str, dict[str, Any]]:
+        return await asyncio.to_thread(self._source_status_sync)
+
+    def _source_status_sync(self) -> dict[str, dict[str, Any]]:
+        with self._lock:
+            rows = self.conn.execute(_SOURCE_STATUS).fetchall()
+        return {
+            str(source): {"count": int(n), "last_ingested": str(last)[:10] if last else None}
+            for source, n, last in rows
+        }
 
     async def get_document(self, doc_id: str) -> Document | None:
         return await asyncio.to_thread(self._get_document_sync, doc_id)

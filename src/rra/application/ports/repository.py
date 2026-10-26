@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from rra.domain.models import Chunk, Document
 
@@ -22,4 +22,8 @@ class DocumentRepository(Protocol):
 
     async def count_by_source(self) -> dict[str, int]:
         """자료원별 적재 문서 수. 한 건도 없는 자료원은 키가 없다."""
+        ...
+
+    async def source_status(self) -> dict[str, dict[str, Any]]:
+        """자료원별 {"count": n, "last_ingested": ISO 날짜 | None}. 없는 자료원은 키가 없다."""
         ...

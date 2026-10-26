@@ -115,6 +115,9 @@ async def test_upsert_is_idempotent_and_count_by_source_lists_only_present(loade
     await loaded.upsert(docs(), chunks())
     assert await loaded.count_by_source() == {"alio": 1, "openalex": 1, "ntis": 1}
     assert "kipris_kr" not in await loaded.count_by_source()
+    status = await loaded.source_status()
+    assert set(status) == {"alio", "openalex", "ntis"} and status["alio"]["count"] == 1
+    assert "last_ingested" in status["alio"]
 
 
 async def test_hybrid_search_returns_bounded_chunks_of_loaded_valid_documents(loaded):

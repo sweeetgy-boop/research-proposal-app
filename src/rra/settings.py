@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     deploy_mode: str = "local"
+    # e2e·스키마 추출용 가짜 모드 (RRA_FAKE_LLM=1): 가짜 LLM(작성·검토)·메모리 저장소. 운영 금지
+    fake_llm: bool = False
+    static_dir: Path = Path("web/dist")  # 프론트엔드 빌드 산출물. 없으면 "/" 는 404
 
 
 def _check_env_permissions(path: Path = Path(".env")) -> None:

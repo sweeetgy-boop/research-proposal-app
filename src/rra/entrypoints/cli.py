@@ -800,11 +800,25 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 
 
 # ── ui ────────────────────────────────────────────────────
+def cmd_api_schema(args: argparse.Namespace) -> int:
+    """OpenAPI 스키마를 파일로 (프론트 타입 생성용). 토큰·DB 없이 가짜 부품으로 만든다."""
+    from rra.composition import build_api_schema, load_settings
+
+    schema = build_api_schema(load_settings())
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"저장: {out} (경로 {len(schema.get('paths', {}))}개)")
+    return EXIT_OK
+
+
 def cmd_api(args: argparse.Namespace) -> int:
     """REST API (uvicorn). 기본 127.0.0.1:8000. 토큰 없으면 기동 거부 (G)."""
+    if getattr(args, "api_cmd", None) == "schema":
+        return cmd_api_schema(args)
     import uvicorn
 
-    from rra.composition import ApiTokenMissing, build_api, load_settings
+    from rra.composition import FAKE_MODE_WARNING, ApiTokenMissing, build_api, load_settings
 
     settings = load_settings()
     host = args.host or settings.api_host
@@ -814,6 +828,8 @@ def cmd_api(args: argparse.Namespace) -> int:
     except ApiTokenMissing as exc:
         _eprint(str(exc))
         return EXIT_USAGE
+    if settings.fake_llm:
+        _eprint(FAKE_MODE_WARNING)
     if host not in ("127.0.0.1", "::1", "localhost"):
         _eprint(
             f"경고: {host} 에 바인딩합니다 — HTTPS 역프록시 뒤에서만 공개하십시오. deploy/README.md"
@@ -925,6 +941,10 @@ def build_parser() -> argparse.ArgumentParser:
     api.add_argument("--port", type=int, default=None, help="기본 RRA_API_PORT 또는 8000")
     api.add_argument("--host", default=None, help="기본 RRA_API_HOST 또는 127.0.0.1")
     api.set_defaults(handler=cmd_api)
+    api_sub = api.add_subparsers(dest="api_cmd")
+    sch = api_sub.add_parser("schema", help="OpenAPI 스키마를 docs/openapi.json 으로 내보낸다")
+    sch.add_argument("--out", default="docs/openapi.json")
+    sch.set_defaults(handler=cmd_api_schema)
 
     ui = sub.add_parser("ui", help="Streamlit 화면 (127.0.0.1 전용, RRA_API_TOKEN 필요)")
     ui.add_argument("--port", type=int, default=8501)

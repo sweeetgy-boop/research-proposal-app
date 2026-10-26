@@ -88,9 +88,9 @@ async def loaded(repo):
 
 # ── 스키마·마이그레이션 ──────────────────────────────────────────
 def test_migration_is_applied_and_idempotent(repo):
-    assert runner.current_version(repo.conn) == 3 and repo.schema_version == 3
-    assert runner.migrate(repo.conn) == 3
-    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3]  # schema_version 표
+    assert runner.current_version(repo.conn) == 4 and repo.schema_version == 4
+    assert runner.migrate(repo.conn) == 4
+    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3, 4]  # schema_version 표
 
 
 async def test_reopening_reuses_the_pinned_backend(tmp_path, loaded):
@@ -255,7 +255,7 @@ def test_migration_002_backfills_existing_rows(tmp_path):
         [("alio:1", "alio", "internal_report", "a"), ("ntis:1", "ntis", "rnd_project", "b")],
     )
     conn.commit()
-    assert runner.migrate(conn) == 3  # 002 백필 뒤 003 까지 적용
+    assert runner.migrate(conn) == 4  # 002 백필 뒤 003·004 까지 적용
     rows = dict(conn.execute("SELECT doc_id, text_basis FROM documents"))
     assert rows == {"alio:1": "full_text", "ntis:1": "abstract"}
 
@@ -304,8 +304,8 @@ async def test_old_schema_is_migrated_and_still_searchable(tmp_path):
     path = tmp_path / "data" / "rra.sqlite"
     _old_schema_db(path, make_docs())
     repo = SQLiteDocumentRepository(path, DeterministicEmbedding(), prefer_extension=False)
-    assert repo.schema_version == 3
-    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3]
+    assert repo.schema_version == 4
+    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3, 4]
     doc = await repo.get_document("alio:1")
     assert doc.visibility == "public" and doc.valid_until is None  # 기본값
     hits = await repo.hybrid_search(["궤도 틀림"], k=5)  # 벡터 색인 전 — FTS 만으로 검색
@@ -387,7 +387,14 @@ async def test_backup_is_a_consistent_copy_with_owner_only_mode(tmp_path, loaded
         assert os.stat(out).st_mode & 0o777 == 0o600
     copy = sqlite3.connect(out)
     assert copy.execute("SELECT count(*) FROM documents").fetchone()[0] == 2
-    assert copy.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert copy.execute("PRAGMA user_version").fetchone()[0] == 4
     copy.close()
     with pytest.raises(sqlite3.OperationalError):  # 덮어쓰지 않는다
         await loaded.backup(out)
+
+
+async def test_source_status_counts_and_last_ingested_date(loaded):
+    status = await loaded.source_status()
+    assert set(status) == {"alio", "openalex"}
+    assert status["alio"]["count"] == 1 and len(status["alio"]["last_ingested"]) == 10  # YYYY-MM-DD
+    assert status["alio"]["last_ingested"][:2] == "20"

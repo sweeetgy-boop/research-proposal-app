@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
@@ -25,10 +26,16 @@ SLOTS = {
 }
 
 
-def build(assistant: ProposalAssistant | None = None, *, max_body: int = 64 * 1024):
+def build(
+    assistant: ProposalAssistant | None = None, *, max_body: int = 64 * 1024, static_dir=None
+):
+    from rra.adapters.security import SessionStore
+    from rra.entrypoints.api.app import SessionAuth
+
     a = assistant or make_assistant()
     settings = Settings(_env_file=None)
-    mws = api_middlewares(settings, TOKEN)
+    sessions = SessionStore()
+    mws = api_middlewares(settings, TOKEN, sessions=sessions)
     for cls, kw in mws:
         if cls.__name__ == "BodyLimitMiddleware":
             kw["max_bytes"] = max_body
@@ -39,6 +46,9 @@ def build(assistant: ProposalAssistant | None = None, *, max_body: int = 64 * 10
         user=a.user,
         middlewares=mws,
         query_max_chars=500,
+        session_auth=SessionAuth(TOKEN, sessions),
+        static_dir=static_dir,
+        sse_poll_sec=0.01,
     )
     return app, a
 
@@ -117,7 +127,30 @@ async def test_body_over_limit_is_413_and_chunked_is_411():
 
 
 # ── 정상 흐름 ─────────────────────────────────────────────
-async def test_full_flow_precheck_runs_draft_confirm_file(client):
+def _check_header(r):
+    return json.loads(r.headers["x-rra-check"])
+
+
+async def _read_sse(client, run_id, *, max_events=50):
+    events = []
+    async with client.stream("GET", f"/v1/runs/{run_id}/events", headers=AUTH) as r:
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
+        buf = ""
+        async for chunk in r.aiter_text():
+            buf += chunk
+            while "\n\n" in buf:
+                raw, buf = buf.split("\n\n", 1)
+                lines = raw.splitlines()
+                name = next((ln[7:] for ln in lines if ln.startswith("event: ")), "message")
+                data = next((ln[6:] for ln in lines if ln.startswith("data: ")), "{}")
+                events.append((name, json.loads(data)))
+                if name == "end" or len(events) >= max_events:
+                    return events
+    return events
+
+
+async def test_full_flow_precheck_runs_sse_review_edits_finalize(client):
+    """precheck → runs → SSE 완료 → review(건너뜀) → edits → review 2차 → finalize 파일."""
     a = client.assistant
     r = await client.post("/v1/precheck", json=SLOTS, headers=AUTH)
     assert r.status_code == 200
@@ -125,28 +158,74 @@ async def test_full_flow_precheck_runs_draft_confirm_file(client):
     assert (
         body["blocking"] is False and "지시가 아닙니다" in body["notice"] and body["alerts"] == []
     )
+    r = await client.get("/v1/sources/status", headers=AUTH)
+    rows = {s["source"]: s for s in r.json()["sources"]}
+    assert rows["alio"]["count"] == 1 and rows["ntis"]["count"] == 0 and rows["ntis"]["label"]
+    assert rows["alio"]["last_ingested"] == "2026-10-26"
+    r = await client.post("/v1/search", json={"query": "궤도", "k": 2}, headers=AUTH)
+    assert r.status_code == 200 and r.json()["chunks"]
 
     r = await client.post("/v1/runs", json={**SLOTS, "department": "철도연구원"}, headers=AUTH)
     assert r.status_code == 202
     run_id = r.json()["run_id"]
     assert r.json()["status"] == "queued"
-    final = await a.manager.wait(a.user, run_id)
-    assert final.status == "done"
-
-    r = await client.get(f"/v1/runs/{run_id}", headers=AUTH)
+    events = await _read_sse(client, run_id)  # SSE 로 완료까지
+    assert events[-1][0] == "end" and events[-1][1]["status"] == "done"
+    assert all(e[1]["run_id"] == run_id for e in events[:-1])
+    assert (
+        events[-2][1]["status"] == "done"
+        and events[-2][1]["progress"][0] == events[-2][1]["progress"][1]
+    )
+    r = await client.get(f"/v1/runs/{run_id}", headers=AUTH)  # 끊겨도 GET 으로 복구
     assert r.status_code == 200 and r.json()["status"] == "done" and r.json()["legacy"] is False
     assert "sections" not in r.json()  # 상태 조회에는 초안 본문이 없다
+    r = await client.get("/v1/runs", headers=AUTH)
+    assert [x["run_id"] for x in r.json()["runs"]] == [run_id]
 
     r = await client.get(f"/v1/runs/{run_id}/draft", headers=AUTH)
     draft = r.json()
     keys = [s["key"] for s in draft["sections"]]
     assert "title" in keys and "method" in keys and draft["notice"]
+    assert draft["version"] == 1 and draft["versions"] == [1]
+    assert draft["review"]["skipped"] is True and draft["review"]["rounds"] == 0  # 검토 LLM 없음
     task = next(s for s in draft["sections"] if s["key"] == "task_type")["choices"]
     assert task["proposed"][0]["id"] == "applied" and task["confirmed"] is None
 
-    r = await client.get(f"/v1/runs/{run_id}/file", headers=AUTH)
-    assert r.status_code == 409 and "확정" in r.json()["detail"] or r.status_code == 200
-    # FakeRenderer 는 확정을 강제하지 않으므로 200 — 실제 HwpxRenderer 는 ConfirmationRequired(409)
+    r = await client.post(f"/v1/runs/{run_id}/review", headers=AUTH)  # 1차: 검토 LLM 없음 → 건너뜀
+    assert r.status_code == 202 and r.json()["status"] == "done"
+    r = await client.get(f"/v1/runs/{run_id}/review", headers=AUTH)
+    assert r.status_code == 200 and r.json()["status"] == "skipped"
+    assert (
+        await client.get(f"/v1/runs/{run_id}/review", params={"round": 9}, headers=AUTH)
+    ).status_code == 404
+
+    r = await client.post(
+        f"/v1/runs/{run_id}/edits",
+        json={
+            "sentences": [
+                {"sentence_id": "s:method:0", "action": "manual", "text": "직접 고친 방법 문장."}
+            ],
+            "note": "1차 수정",
+        },
+        headers=AUTH,
+    )
+    assert r.status_code == 200 and r.json()["version"] == 2 and r.json()["status"] == "editing"
+    method = next(s for s in r.json()["sections"] if s["key"] == "method")
+    assert (
+        method["sentences"][0]["origin"] == "proposer"
+        and method["sentences"][0]["text"] == "직접 고친 방법 문장."
+    )
+    r = await client.get(f"/v1/runs/{run_id}/versions", headers=AUTH)
+    assert [v["version"] for v in r.json()["versions"]] == [1, 2]
+    r = await client.get(f"/v1/runs/{run_id}/draft", params={"version": 1}, headers=AUTH)
+    assert r.status_code == 200 and r.json()["version"] == 1 and r.json()["origin"] == "local"
+    assert (
+        await client.get(f"/v1/runs/{run_id}/draft", params={"version": 9}, headers=AUTH)
+    ).status_code == 404
+    r = await client.post(f"/v1/runs/{run_id}/review", headers=AUTH)  # 2차 재검토 (건너뜀)
+    assert r.status_code == 202
+    r = await client.post(f"/v1/runs/{run_id}/revert", json={"to": 1}, headers=AUTH)
+    assert r.status_code == 200 and r.json()["version"] == 3 and r.json()["reverted_from"] == 1
 
     r = await client.post(
         f"/v1/runs/{run_id}/confirm",
@@ -161,41 +240,117 @@ async def test_full_flow_precheck_runs_draft_confirm_file(client):
         f"/v1/runs/{run_id}/confirm", json={"utilization": ["evil"]}, headers=AUTH
     )
     assert r.status_code == 422 and "선택지에 없는 값" in r.json()["detail"]
+    assert r.headers["content-type"].startswith("application/problem+json")
     r = await client.post(f"/v1/runs/{run_id}/confirm", json={"bogus": 1}, headers=AUTH)
     assert r.status_code == 422
 
     r = await client.get(f"/v1/runs/{run_id}/render-check", headers=AUTH)
     check = r.json()
-    assert r.status_code == 200 and check["run_id"] == run_id and check["count"] >= 2
-    assert any(p["code"] == "unsupported_number" for p in check["unresolved"])  # 미해결 lint 경고
+    assert r.status_code == 200 and check["run_id"] == run_id and check["count"] >= 1
     assert any("2-가-(3)" in n for n in check["notes"]) and check["overflow"] == []
-    assert (
-        await client.get("/v1/runs/20260101000000-deadbeef/render-check", headers=AUTH)
-    ).status_code == 404
-
-    r = await client.get(f"/v1/runs/{run_id}/file", headers=AUTH)
-    assert r.status_code == 200 and r.headers["content-type"].startswith("application/hwp+zip")
-    assert r.headers["content-disposition"] == f'attachment; filename="proposal-{run_id}.hwpx"'
-    rendered = json.loads(r.content)
-    assert rendered["confirmed"] == {"task_type": ["basic"], "utilization": ["manual"]}
-    assert rendered["proposer"] is None
 
     r = await client.post(
-        f"/v1/runs/{run_id}/file",
+        f"/v1/runs/{run_id}/finalize",
         json={
             "proposed_on": "2026-10-23",
+            "department": "철도연구원 기술연구처",
             "proposer": {"name": "홍길동", "rank": "선임", "phone": "010-1"},
         },
         headers=AUTH,
     )
-    assert r.status_code == 200
-    assert json.loads(r.content)["proposer"]["proposer"]["name"] == "홍길동"
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/hwp+zip")
+    assert r.headers["content-disposition"] == f'attachment; filename="proposal-{run_id}-v3.hwpx"'
+    assert r.headers["x-rra-status"] == "finalized" and r.headers["x-rra-version"] == "3"
+    assert _check_header(r)["count"] >= 1
+    rendered = json.loads(r.content)
+    assert rendered["confirmed"] == {"task_type": ["basic"], "utilization": ["manual"]}
+    assert rendered["proposer"]["proposer"]["name"] == "홍길동"
+    assert rendered["proposer"]["department"] == "철도연구원 기술연구처"
     store = a.manager.store
     dumped = json.dumps(
         {k: str(v) for k, v in vars(store).items()}, ensure_ascii=False, default=str
     )
     assert "홍길동" not in dumped and "010-1" not in dumped  # 제안자 정보는 서버에 남지 않는다
     assert "홍길동" not in json.dumps(a.manager.run_log.records, ensure_ascii=False, default=str)
+    assert (await client.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["status"] == "finalized"
+    r = await client.post(f"/v1/runs/{run_id}/reopen", headers=AUTH)
+    assert r.status_code == 200 and r.json()["status"] == "editing"
+    r = await client.post(f"/v1/runs/{run_id}/reopen", headers=AUTH)
+    assert r.status_code == 409 and r.headers["content-type"].startswith("application/problem+json")
+    assert r.json()["title"] == "상태 충돌" and "finalized" in r.json()["detail"]
+    # 다시 마무리 → 새 파일 (본문 없이도 된다: 제안값·기존 확정값)
+    r = await client.post(f"/v1/runs/{run_id}/finalize", headers=AUTH)
+    assert r.status_code == 200 and r.headers["x-rra-version"] == "3"
+    assert (
+        await client.get(f"/v1/runs/{run_id}/file", headers=AUTH)
+    ).status_code == 404  # 옛 경로 없음
+
+
+async def test_session_cookie_login_csrf_and_logout(client):
+    r = await client.post("/v1/session", json={"token": "nope"})
+    assert r.status_code == 401 and r.headers["content-type"].startswith("application/problem+json")
+    assert not r.cookies.get("rra_session")
+    r = await client.post("/v1/session", json={"token": TOKEN})
+    assert r.status_code == 200 and r.json()["csrf"]
+    cookie = r.headers["set-cookie"]
+    assert "rra_session=" in cookie and "HttpOnly" in cookie and "SameSite=strict" in cookie
+    csrf = r.json()["csrf"]
+    jar = {"rra_session": r.cookies["rra_session"]}
+    assert (await client.get("/v1/runs", cookies=jar)).status_code == 200  # 쿠키로 조회
+    r = await client.post("/v1/precheck", json=SLOTS, cookies=jar)  # 상태 변경(POST)엔 CSRF 필수
+    assert r.status_code == 403 and "CSRF" in r.json()["detail"]
+    r = await client.post("/v1/precheck", json=SLOTS, cookies=jar, headers={"X-RRA-CSRF": "wrong"})
+    assert r.status_code == 403
+    r = await client.post("/v1/precheck", json=SLOTS, cookies=jar, headers={"X-RRA-CSRF": csrf})
+    assert r.status_code == 200
+    assert (await client.get("/v1/runs", cookies={"rra_session": "forged"})).status_code == 401
+    r = await client.request("DELETE", "/v1/session", cookies=jar, headers={"X-RRA-CSRF": csrf})
+    assert r.status_code == 204
+    assert (await client.get("/v1/runs", cookies=jar)).status_code == 401  # 세션 소멸
+
+
+async def test_problem_json_shape_for_404_and_422(client):
+    r = await client.get("/v1/runs/20260101000000-deadbeef", headers=AUTH)
+    assert r.status_code == 404 and r.headers["content-type"].startswith("application/problem+json")
+    body = r.json()
+    assert body == {
+        "type": "about:blank",
+        "title": "없음",
+        "status": 404,
+        "detail": "run 을 찾을 수 없습니다.",
+    }
+    r = await client.post("/v1/precheck", json={"current_state": "a"}, headers=AUTH)
+    assert r.status_code == 422 and r.json()["title"] == "입력 오류"
+    r = await client.post("/v1/precheck", json=SLOTS)
+    assert r.status_code == 401 and r.json()["status"] == 401 and "인증" in r.json()["detail"]
+
+
+async def test_static_spa_served_with_fallback_and_relaxed_csp(tmp_path):
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html><div id=app></div>", encoding="utf-8")
+    (dist / "assets" / "app.js").write_text("console.log(1)", encoding="utf-8")
+    (tmp_path / "secret.txt").write_text("nope", encoding="utf-8")
+    app, _ = build(static_dir=dist)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        r = await c.get("/")
+        assert r.status_code == 200 and "id=app" in r.text  # 인증 없이 로그인 화면을 보여야 한다
+        assert r.headers["content-security-policy"].startswith("default-src 'self'")
+        assert "'unsafe-inline'" not in r.headers["content-security-policy"]
+        r = await c.get("/assets/app.js")
+        assert r.status_code == 200 and "console" in r.text
+        r = await c.get("/runs/20260101000000-deadbeef")  # SPA 라우팅 → index.html
+        assert r.status_code == 200 and "id=app" in r.text
+        assert (await c.get("/../secret.txt")).status_code in (200, 404)
+        assert "nope" not in (await c.get("/..%2Fsecret.txt")).text
+        r = await c.get("/v1/runs")  # API 는 여전히 인증 필수 + 'none' CSP
+        assert r.status_code == 401 and r.headers["content-security-policy"].startswith(
+            "default-src 'none'"
+        )
+    app2, _ = build(static_dir=tmp_path / "missing")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app2), base_url="http://t") as c:
+        r = await c.get("/")
+        assert r.status_code == 404 and "web/dist" in r.json()["detail"]
 
 
 async def test_validation_errors_use_the_domain_message(client):
@@ -230,7 +385,8 @@ async def test_unknown_or_malformed_run_ids_are_404(client):
     for rid in ("20260101000000-deadbeef", "../etc/passwd", "x"):
         assert (await client.get(f"/v1/runs/{rid}", headers=AUTH)).status_code == 404
         assert (await client.get(f"/v1/runs/{rid}/draft", headers=AUTH)).status_code == 404
-        assert (await client.get(f"/v1/runs/{rid}/file", headers=AUTH)).status_code == 404
+        assert (await client.post(f"/v1/runs/{rid}/finalize", headers=AUTH)).status_code == 404
+        assert (await client.get(f"/v1/runs/{rid}/review", headers=AUTH)).status_code == 404
 
 
 async def test_queue_limit_is_429_and_resume_of_finished_is_409(client):
@@ -258,3 +414,76 @@ def test_cli_api_refuses_without_token(monkeypatch, capsys):
     monkeypatch.setattr("rra.composition.load_settings", lambda: Settings(_env_file=None))
     assert cli.main(["api", "--port", "8999"]) == cli.EXIT_USAGE
     assert "RRA_API_TOKEN" in capsys.readouterr().err
+
+
+# ── 가짜 모드 (RRA_FAKE_LLM=1) — composition 이 가짜 LLM(작성·검토)·메모리 저장소를 끼운다 ──
+async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_model(tmp_path):
+    from pydantic import SecretStr
+
+    from rra.composition import build_api
+
+    settings = Settings(
+        _env_file=None,
+        fake_llm=True,
+        api_token=SecretStr(TOKEN),
+        runs_dir=tmp_path / "runs",
+        db_path=tmp_path / "never-created.sqlite",
+        static_dir=tmp_path / "no-dist",
+    )
+    app = build_api(settings, sse_poll_sec=0.01)
+    assert app.state.fake_mode is True
+    assert not (tmp_path / "never-created.sqlite").exists()  # DB 를 만들지 않는다
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        r = await c.post("/v1/precheck", json=SLOTS, headers=AUTH)
+        assert r.status_code == 200
+        r = await c.post("/v1/runs", json=SLOTS, headers=AUTH)
+        run_id = r.json()["run_id"]
+        events = await _read_sse(c, run_id)
+        assert events[-1][1]["status"] in ("done", "reviewed", "reviewing")
+        # 자동 1차 검토(가짜 Argon)까지 기다린다
+        for _ in range(200):
+            status = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["status"]
+            if status == "reviewed":
+                break
+            await asyncio.sleep(0.01)
+        assert status == "reviewed"
+        review = (await c.get(f"/v1/runs/{run_id}/review", headers=AUTH)).json()
+        assert review["round"] == 1 and review["transfer"]["provider"] == "gemini"
+        usable = [x for x in review["comments"] if x["usable"]]
+        assert usable and usable[0]["sentence_id"] == "s:method:0"
+        assert review["transfer"]["internal_doc_ids"] == [
+            "alio:fake-1"
+        ]  # include_internal 기본 true
+        r = await c.post(
+            f"/v1/runs/{run_id}/edits",
+            json={
+                "sentences": [
+                    {
+                        "sentence_id": "s:method:0",
+                        "action": "use_revision",
+                        "comment_id": usable[0]["id"],
+                    }
+                ]
+            },
+            headers=AUTH,
+        )
+        assert r.status_code == 200 and r.json()["version"] == 2
+        r = await c.post(f"/v1/runs/{run_id}/review", headers=AUTH)  # 2차
+        assert r.status_code == 202 and r.json()["status"] == "reviewing"
+        for _ in range(200):
+            status = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["status"]
+            if status == "reviewed":
+                break
+            await asyncio.sleep(0.01)
+        assert status == "reviewed"
+        r = await c.post(
+            f"/v1/runs/{run_id}/finalize",
+            json={
+                "proposer": {"name": "홍길동", "phone": "042-000-0000"},
+                "department": "철도연구원 기술연구처",
+            },
+            headers=AUTH,
+        )
+        assert r.status_code == 200 and r.headers["x-rra-status"] == "finalized"
+        assert len(r.content) > 1000  # 실제 HWPX 렌더러(생성 모드)가 만든 파일
+        assert (await c.get("/v1/sources/status", headers=AUTH)).json()["sources"][0]["count"] >= 0

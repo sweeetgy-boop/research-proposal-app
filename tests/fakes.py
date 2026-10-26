@@ -176,6 +176,10 @@ class InMemoryRepository:
             out[d.source] = out.get(d.source, 0) + 1
         return out
 
+    async def source_status(self):
+        counts = await self.count_by_source()
+        return {s: {"count": n, "last_ingested": "2026-10-26"} for s, n in counts.items()}
+
 
 class FakeRenderer:
     """RendererPort fake — JSON 바이트. 받은 proposer 를 기록해 '저장되지 않았는지' 검사에 쓴다."""
