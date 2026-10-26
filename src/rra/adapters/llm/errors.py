@@ -15,5 +15,9 @@ class LLMResponseInvalid(LLMError):
     """응답이 OpenAI 호환 스키마가 아님."""
 
 
+class LLMAuthError(LLMError):
+    """401/403 — 재시도하지 않는다. 메시지에 키·응답 본문을 넣지 않는다."""
+
+
 class InsecureLLMEndpoint(ValueError):
     """H. 허용되지 않은 LLM 엔드포인트 — 기동 거부."""

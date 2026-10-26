@@ -400,3 +400,60 @@ def test_served_model_check_is_wired_from_llm_yaml(config_dir):
     assert asyncio.run(check) is None
     warned = asyncio.run(build_served_model_check(settings, ListingLLM(["x/y"])))
     assert "목록에 없습니다" in warned
+
+
+# ── [4] Gemini 연결 (2026-10-26) ─────────────────────────────────
+GEMINI_YAML = """
+provider: mlx
+providers:
+  mlx:    {base_url: http://127.0.0.1:8080/v1, model: default_model, json_mode: prompt}
+  gemini:
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+    model: gemini-4-argon
+    json_mode: auto
+    reasoning_effort: low
+stages:
+  compose: {max_tokens: 2000}
+  review:  {provider: gemini, max_tokens: 6000}
+"""
+SECURITY_YAML = "allowed_domains: [generativelanguage.googleapis.com]\n"
+
+
+@pytest.fixture
+def gemini_dir(tmp_path):
+    (tmp_path / "llm.yaml").write_text(GEMINI_YAML, encoding="utf-8")
+    (tmp_path / "security.yaml").write_text(SECURITY_YAML, encoding="utf-8")
+    return tmp_path
+
+
+def test_review_stage_without_gemini_key_is_unavailable_and_names_the_variable(gemini_dir):
+    from rra.composition import LLMUnavailable, llm_available
+
+    s = settings_for(gemini_dir)
+    assert llm_available(s, stage="compose") and not llm_available(s, stage="review")
+    with pytest.raises(LLMUnavailable, match="RRA_GEMINI_API_KEY") as exc:
+        build_llm(s, stage="review")
+    assert "gemini" in str(exc.value)
+
+
+def test_review_stage_with_key_binds_gemini_and_bearer(gemini_dir):
+    from rra.composition import llm_available
+
+    s = settings_for(gemini_dir, gemini_api_key="gk-test-not-real")
+    assert llm_available(s, stage="review")
+    llm = build_llm(s, stage="review")
+    assert llm.provider == "gemini" and llm.model == "gemini-4-argon"
+    assert llm.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    assert llm.reasoning_effort == "low" and llm.json_mode == "auto"
+    assert llm._headers["Authorization"] == "Bearer gk-test-not-real"
+    assert "gk-test-not-real" not in repr(llm)
+    forced = build_llm(s, stage="compose", provider="gemini")  # llm-check --provider gemini
+    assert forced.provider == "gemini"
+
+
+def test_gemini_host_outside_allowed_domains_refuses_startup(gemini_dir):
+    (gemini_dir / "security.yaml").write_text(
+        "allowed_domains: [api.openalex.org]\n", encoding="utf-8"
+    )
+    with pytest.raises(InsecureLLMEndpoint, match="allowed_domains"):
+        build_llm(settings_for(gemini_dir, gemini_api_key="gk-test-not-real"), stage="review")

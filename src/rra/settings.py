@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     llm_provider: str = "mlx"
     llm_base_url: str = "http://127.0.0.1:8080/v1"
     llm_api_key: SecretStr = Field(default=SecretStr("none"))
+    gemini_api_key: SecretStr | None = None  # provider=gemini (검토 단계). 없으면 검토 건너뜀
 
     # ScienceON: client_id + 32자 인증키 + ScienceON 에 등록한 MAC 주소 → 토큰 발급.
     # MAC 은 기기마다 다르다(개발 MacBook·배포 Mac mini 각각 등록, .env 도 기기별로).

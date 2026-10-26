@@ -305,3 +305,73 @@ def test_served_model_listed_is_exact():
     assert served_model_listed({"a/b"}, [" a/b "])
     assert not served_model_listed({"a/B"}, ["a/b"])
     assert not served_model_listed({""}, [""])
+
+
+# ── [4] Gemini: 허용 호스트·reasoning_effort·401 비재시도 ────────────────
+GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+
+def test_remote_provider_host_must_be_in_allowed_hosts():
+    rec = Recorder(ok())
+    with pytest.raises(InsecureLLMEndpoint, match="allowed_domains"):
+        build(
+            rec, base_url=GEMINI, provider="gemini", api_key=FAKE_KEY, allowed_hosts=["api.x.com"]
+        )
+    llm = build(
+        rec,
+        base_url=GEMINI,
+        provider="gemini",
+        api_key=FAKE_KEY,
+        allowed_hosts=["generativelanguage.googleapis.com"],
+    )
+    assert llm.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    local = build(rec, allowed_hosts=["api.x.com"])  # 로컬 provider 는 허용목록과 무관
+    assert local.base_url == BASE
+
+
+async def test_reasoning_effort_is_sent_and_none_is_rejected():
+    rec = Recorder(ok())
+    llm = build(
+        rec,
+        base_url=GEMINI,
+        provider="gemini",
+        api_key=FAKE_KEY,
+        reasoning_effort="low",
+        model="gemini-4-argon",
+    )
+    await llm.complete("p", json_mode=True)
+    payload = rec.payloads[0]
+    assert payload["reasoning_effort"] == "low" and "thinking_level" not in payload
+    assert payload["response_format"] == {"type": "json_object"}  # auto → native 먼저
+    plain = build(Recorder(ok()))
+    await plain.complete("p")
+    assert "reasoning_effort" not in Recorder.payloads.fget(plain._client._transport.handler)[0]
+    with pytest.raises(ValueError, match="none 금지"):
+        build(Recorder(ok()), reasoning_effort="none")
+
+
+async def test_401_and_403_are_not_retried_and_hide_body_and_key():
+    from rra.adapters.llm.errors import LLMAuthError
+
+    for status in (401, 403):
+        rec = Recorder(httpx.Response(status, text=f"bad key {FAKE_KEY} secret body"))
+        llm = build(
+            rec,
+            base_url=GEMINI,
+            provider="gemini",
+            api_key=FAKE_KEY,
+            allowed_hosts=["generativelanguage.googleapis.com"],
+        )
+        with pytest.raises(LLMAuthError) as exc:
+            await llm.complete("p")
+        assert len(rec.requests) == 1  # 재시도 없음
+        assert str(status) in str(exc.value) and "API 키" in str(exc.value)
+        assert FAKE_KEY not in str(exc.value) and "secret body" not in str(exc.value)
+        assert isinstance(exc.value, LLMError)
+
+
+async def test_429_and_5xx_are_retried_with_backoff():
+    rec = Recorder(httpx.Response(429, text="rate"), httpx.Response(503, text="down"), ok("[1]"))
+    llm = build(rec)
+    assert await llm.complete("p") == "[1]"
+    assert len(rec.requests) == 3

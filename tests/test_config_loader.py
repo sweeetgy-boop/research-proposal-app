@@ -181,3 +181,90 @@ def test_credential_status_never_returns_values():
     status = credential_status(project_settings(ntis_key="NTIS-SECRET"), "ntis")
     assert status == {"RRA_NTIS_KEY": True} and "NTIS-SECRET" not in repr(status)
     assert credential_status(project_settings(), "openalex") == {}  # 키 없는 소스
+
+
+# ── [4] provider 표·단계별 provider·Gemini (2026-10-26) ─────────────────
+PROVIDER_YAML = """
+provider: mlx
+providers:
+  mlx:
+    base_url: http://127.0.0.1:8080/v1
+    model: default_model
+    served_model: mlx-community/Q
+    json_mode: prompt
+  gemini:
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+    model: gemini-4-argon
+    served_model: gemini-4-argon
+    json_mode: auto
+    reasoning_effort: low
+json_mode: auto
+stages:
+  compose: {max_tokens: 2000}
+  review:  {provider: gemini, max_tokens: 6000}
+review: {auto: false}
+external_llm: {include_internal: false}
+"""
+
+
+@pytest.fixture
+def provider_dir(tmp_path):
+    (tmp_path / "llm.yaml").write_text(PROVIDER_YAML, encoding="utf-8")
+    return tmp_path
+
+
+def test_stage_provider_resolves_table_entry(provider_dir):
+    from rra.config_loader import llm_key_present, review_policy
+
+    s = settings_for(provider_dir)
+    compose = llm_config(s, "compose")
+    assert compose["provider"] == "mlx" and compose["model"] == "default_model"
+    assert compose["json_mode"] == "prompt" and compose["api_key_field"] is None
+    assert compose["reasoning_effort"] is None and llm_key_present(s, compose)  # 키 불필요
+    review = llm_config(s, "review")
+    assert review["provider"] == "gemini" and review["model"] == "gemini-4-argon"
+    assert review["base_url"].startswith("https://generativelanguage.googleapis.com/")
+    assert review["json_mode"] == "auto" and review["reasoning_effort"] == "low"
+    assert review["api_key_field"] == "gemini_api_key" and not llm_key_present(s, review)
+    with_key = settings_for(provider_dir, gemini_api_key="k")
+    assert llm_key_present(with_key, llm_config(with_key, "review"))
+    assert review_policy(s) == {"auto": False, "include_internal": False}
+
+
+def test_provider_argument_overrides_stage_and_env_base_url_only_touches_default(
+    provider_dir, monkeypatch
+):
+    s = settings_for(provider_dir)
+    forced = llm_config(s, "compose", provider="gemini")
+    assert forced["provider"] == "gemini" and forced["model"] == "gemini-4-argon"
+    monkeypatch.setenv("RRA_LLM_BASE_URL", "http://localhost:9999/v1")
+    s2 = settings_for(provider_dir)
+    assert llm_config(s2, "compose")["base_url"] == "http://localhost:9999/v1"  # 기본 provider 만
+    assert llm_config(s2, "review")["base_url"].startswith("https://generativelanguage")
+
+
+def test_reasoning_effort_none_and_thinking_level_are_rejected(provider_dir):
+    bad = PROVIDER_YAML.replace("reasoning_effort: low", "reasoning_effort: none")
+    (provider_dir / "llm.yaml").write_text(bad, encoding="utf-8")
+    with pytest.raises(ValueError, match="none 금지"):
+        llm_config(settings_for(provider_dir), "review")
+    both = PROVIDER_YAML.replace(
+        "reasoning_effort: low", "reasoning_effort: low\n    thinking_level: 2"
+    )
+    (provider_dir / "llm.yaml").write_text(both, encoding="utf-8")
+    with pytest.raises(ValueError, match="thinking_level"):
+        llm_config(settings_for(provider_dir), "review")
+
+
+def test_shipped_llm_yaml_routes_review_to_gemini_and_compose_to_mlx():
+    from rra.config_loader import allowed_domains, review_policy
+
+    s = project_settings()
+    compose, review = llm_config(s, "compose"), llm_config(s, "review")
+    assert compose["provider"] == "mlx" and compose["base_url"] == "http://127.0.0.1:8080/v1"
+    assert compose["served_model"] == "mlx-community/Qwen2.5-7B-Instruct-4bit"
+    assert review["provider"] == "gemini" and review["model"] == "gemini-4-argon"
+    assert review["served_model"] == "gemini-4-argon" and review["reasoning_effort"] == "low"
+    assert review["json_mode"] == "auto"
+    assert "generativelanguage.googleapis.com" in allowed_domains(s)
+    assert review_policy(s) == {"auto": True, "include_internal": True}

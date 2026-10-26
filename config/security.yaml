@@ -6,6 +6,7 @@ allowed_domains:
   - plus.kipris.or.kr
   - www.ntis.go.kr
   - www.data.go.kr
+  - generativelanguage.googleapis.com   # Gemini OpenAI 호환 엔드포인트 (검토 LLM)
 
 # B. 파일 상한
 file_limits:

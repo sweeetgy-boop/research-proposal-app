@@ -20,7 +20,7 @@ from typing import Any, Literal
 import httpx
 
 from rra.adapters.llm import _endpoint, _payload
-from rra.adapters.llm.errors import LLMError, LLMResponseInvalid, LLMTimeout
+from rra.adapters.llm.errors import LLMAuthError, LLMError, LLMResponseInvalid, LLMTimeout
 
 JsonMode = Literal["auto", "native", "prompt"]
 
@@ -31,6 +31,8 @@ DEFAULT_TEMPERATURE = 0.2
 MAX_LISTED_MODELS = 500
 MAX_MODEL_ID_CHARS = 300
 RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
+AUTH_STATUS = frozenset({401, 403})
+REASONING_EFFORTS = frozenset({"low", "medium", "high"})  # none 금지
 
 JSON_FALLBACK_INSTRUCTION = (
     "출력은 JSON 하나만 내보내십시오. 코드블록·설명·머리말·꼬리말을 붙이지 마십시오."
@@ -69,11 +71,19 @@ class OpenAICompatLLM:
         retry: RetryPolicy | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        allowed_hosts: list[str] | None = None,
+        reasoning_effort: str | None = None,
     ):
         if json_mode not in ("auto", "native", "prompt"):
             raise ValueError(f"json_mode 는 auto|native|prompt 중 하나입니다: {json_mode}")
+        if reasoning_effort is not None and reasoning_effort not in REASONING_EFFORTS:
+            raise ValueError(
+                f"reasoning_effort 는 low|medium|high 중 하나입니다 (none 금지): {reasoning_effort}"
+            )
         self.provider = provider
-        self.base_url = _endpoint.guard_base_url(provider, base_url)  # H: 위반 시 기동 거부
+        # H: 로컬 provider 는 루프백만. C: 원격은 allowed_hosts 에 있어야 한다. 위반 시 기동 거부
+        self.base_url = _endpoint.guard_base_url(provider, base_url, allowed_hosts)
+        self.reasoning_effort = reasoning_effort
         self.model = model
         self.max_tokens = max(1, min(max_tokens, max_tokens_cap))
         self.max_tokens_cap = max_tokens_cap
@@ -145,6 +155,7 @@ class OpenAICompatLLM:
                 max_tokens=limit,
                 temperature=self.temperature,
                 native_json=True,
+                reasoning_effort=self.reasoning_effort,
             )
             try:
                 data = await self._request(payload)
@@ -161,6 +172,7 @@ class OpenAICompatLLM:
             max_tokens=limit,
             temperature=self.temperature,
             native_json=False,
+            reasoning_effort=self.reasoning_effort,
         )
         return _payload.extract_content(await self._request(payload))
 
@@ -198,6 +210,11 @@ class OpenAICompatLLM:
                         return resp.json()
                     except ValueError as exc:
                         raise LLMResponseInvalid("응답이 JSON 이 아닙니다.") from exc
+                if resp.status_code in AUTH_STATUS:  # 401/403: 재시도 없음, 본문·키 노출 없음
+                    raise LLMAuthError(
+                        f"LLM 인증 실패 (HTTP {resp.status_code}, provider={self.provider}) — "
+                        "API 키(.env)를 확인하세요. 재시도하지 않았습니다."
+                    )
                 body = self._redact(resp.text)
                 if native and _payload.is_response_format_error(resp.status_code, resp.text):
                     if self.json_mode == "native":

@@ -23,6 +23,7 @@ from rra.config_loader import (
     keyword_rule,
     lint_rules,
     llm_config,
+    llm_key_present,
     own_unit,
     read_config,
     render_slots,
@@ -129,22 +130,46 @@ def build_prompt_library(settings: Settings | None = None):
     return FilePromptLibrary(override if override.is_dir() else None)
 
 
-def build_llm(settings: Settings | None = None, *, stage: str = DEFAULT_STAGE):
+class LLMUnavailable(RuntimeError):
+    """이 단계의 LLM 을 만들 수 없다 (키 없음 등). 메시지에 변수 이름만, 값 없음."""
+
+
+def llm_available(settings: Settings, *, stage: str = DEFAULT_STAGE) -> bool:
+    """단계의 provider 키가 있는지(없으면 검토 건너뜀 등). 네트워크 접속은 하지 않는다."""
+    try:
+        return llm_key_present(settings, llm_config(settings, stage))
+    except (KeyError, ValueError):
+        return False
+
+
+def build_llm(
+    settings: Settings | None = None, *, stage: str = DEFAULT_STAGE, provider: str | None = None
+):
     """LLMPort 구현체. 단계별 model·max_tokens 에 바인딩된 인스턴스를 돌려준다.
 
     보안 H: provider 가 로컬인데 base_url 이 루프백이 아니면 여기서 예외가 나며 기동하지 않는다.
+    보안 C: 원격 provider(gemini·openai)는 base_url 호스트가 allowed_domains 에 있어야 한다.
+    보안 D: 키는 provider 별 Settings 필드(SecretStr)에서만. 없으면 LLMUnavailable (변수 이름만).
     """
     import httpx
 
     from rra.adapters.llm import OpenAICompatLLM, RetryPolicy
 
     settings = settings or load_settings()
-    cfg = llm_config(settings, stage)
+    cfg = llm_config(settings, stage, provider=provider)
+    if not llm_key_present(settings, cfg):
+        env = f"RRA_{cfg['api_key_field'].upper()}"
+        raise LLMUnavailable(f"provider={cfg['provider']} 의 키가 .env 에 없습니다: {env}")
+    key = (
+        getattr(settings, cfg["api_key_field"]).get_secret_value() if cfg["api_key_field"] else None
+    )
     return OpenAICompatLLM(
         cfg["base_url"],
         cfg["model"],
         provider=cfg["provider"],
-        api_key=settings.llm_api_key.get_secret_value(),
+        api_key=key,
+        allowed_hosts=allowed_domains(settings),
+        reasoning_effort=cfg["reasoning_effort"],
         max_tokens=cfg["max_tokens"],
         max_tokens_cap=cfg["max_tokens_cap"],
         prompt_max_chars=cfg["prompt_max_chars"],
@@ -155,11 +180,13 @@ def build_llm(settings: Settings | None = None, *, stage: str = DEFAULT_STAGE):
     )
 
 
-def build_served_model_check(settings: Settings, llm, *, stage: str = DEFAULT_STAGE):
+def build_served_model_check(
+    settings: Settings, llm, *, stage: str = DEFAULT_STAGE, provider: str | None = None
+):
     """llm-check 진단 코루틴. served_model(llm.yaml) 이 서버 목록에 있는지 — 경고 문구 또는 None."""
     from rra.application.usecases.diagnostics import check_served_model
 
-    served = llm_config(settings, stage).get("served_model")
+    served = llm_config(settings, stage, provider=provider).get("served_model")
     return check_served_model(llm, served, served_model_aliases(served))
 
 

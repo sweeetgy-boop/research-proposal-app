@@ -64,8 +64,22 @@ def source_config(settings: Settings, name: str) -> dict[str, Any]:
 
 
 # ── LLM ────────────────────────────────────────────────────
-def llm_config(settings: Settings, stage: str = DEFAULT_STAGE) -> dict[str, Any]:
-    """llm.yaml + 환경변수를 합쳐 단계별 LLM 설정을 만든다. 순수 딕셔너리 계산."""
+# provider → .env 키 필드 (settings). mlx 는 키가 없다.
+LLM_KEY_FIELDS: dict[str, str] = {"openai": "llm_api_key", "gemini": "gemini_api_key"}
+REASONING_EFFORTS = ("low", "medium", "high")
+
+
+def llm_config(
+    settings: Settings, stage: str = DEFAULT_STAGE, *, provider: str | None = None
+) -> dict[str, Any]:
+    """llm.yaml + 환경변수를 합쳐 단계별 LLM 설정을 만든다. 순수 딕셔너리 계산.
+
+    provider 해석 순서: 인자 provider → stages[stage].provider → 환경변수 RRA_LLM_PROVIDER →
+    yaml provider. 접속 정보(base_url·model·served_model·json_mode·reasoning_effort)는
+    providers[provider] 에서, 없으면 예전 방식의 최상위 키에서. RRA_LLM_BASE_URL 은 기본 provider 를
+    쓸 때만 base_url 을 덮는다.
+    키 값은 돌려주지 않는다 — 어떤 settings 필드를 쓸지(api_key_field)만.
+    """
     cfg = read_config("llm.yaml", settings)
     stages = cfg.get("stages") or {}
     if stage not in stages:
@@ -74,16 +88,36 @@ def llm_config(settings: Settings, stage: str = DEFAULT_STAGE) -> dict[str, Any]
     limits = cfg.get("limits") or {}
     timeout = cfg.get("timeout") or {}
     retries = cfg.get("retries") or {}
+    default_provider = str(env_first(settings, "llm_provider", cfg.get("provider")) or "mlx")
+    chosen = str(provider or stage_cfg.get("provider") or default_provider)
+    table = (cfg.get("providers") or {}).get(chosen) or {}
+    base_url = table.get("base_url") or cfg.get("base_url")
+    if chosen == default_provider and not stage_cfg.get("provider") and provider is None:
+        base_url = env_first(settings, "llm_base_url", base_url)
+    effort = table.get("reasoning_effort")
+    if effort is not None and str(effort) not in REASONING_EFFORTS:
+        raise ValueError(
+            f"providers.{chosen}.reasoning_effort 는 {'|'.join(REASONING_EFFORTS)} 중 하나입니다 "
+            f"(none 금지): {effort!r}"
+        )
+    if "thinking_level" in table:
+        raise ValueError(
+            "thinking_level 은 reasoning_effort 와 함께 보낼 수 없습니다 — 설정에서 지우세요."
+        )
     return {
-        "provider": env_first(settings, "llm_provider", cfg.get("provider")),
-        "base_url": env_first(settings, "llm_base_url", cfg.get("base_url")),
-        "model": stage_cfg.get("model") or "local",
-        "served_model": str(cfg.get("served_model") or "").strip() or None,
+        "stage": stage,
+        "provider": chosen,
+        "base_url": str(base_url),
+        "model": stage_cfg.get("model") or table.get("model") or cfg.get("model") or "local",
+        "served_model": str(table.get("served_model") or cfg.get("served_model") or "").strip()
+        or None,
+        "api_key_field": LLM_KEY_FIELDS.get(chosen),
+        "reasoning_effort": str(effort) if effort is not None else None,
         "max_tokens": int(stage_cfg.get("max_tokens", 1024)),
         "max_tokens_cap": int(limits.get("max_tokens_cap", 4096)),
         "prompt_max_chars": int(limits.get("prompt_max_chars", 60_000)),
-        "temperature": float(cfg.get("temperature", 0.2)),
-        "json_mode": str(cfg.get("json_mode", "auto")),
+        "temperature": float(stage_cfg.get("temperature", cfg.get("temperature", 0.2))),
+        "json_mode": str(table.get("json_mode") or cfg.get("json_mode", "auto")),
         "timeout": {
             "connect": float(timeout.get("connect", 5)),
             "read": float(timeout.get("read", 180)),
@@ -95,6 +129,28 @@ def llm_config(settings: Settings, stage: str = DEFAULT_STAGE) -> dict[str, Any]
             "backoff_sec": float(retries.get("backoff_sec", 0.5)),
             "max_backoff_sec": float(retries.get("max_backoff_sec", 8)),
         },
+    }
+
+
+def llm_key_present(settings: Settings, cfg: dict[str, Any]) -> bool:
+    """이 provider 의 키가 .env 에 있는지 (값은 돌려주지 않는다). 키가 없는 provider 는 True."""
+    field = cfg.get("api_key_field")
+    if not field:
+        return True
+    secret = getattr(settings, field, None)
+    return bool(
+        secret is not None and secret.get_secret_value().strip().lower() not in ("", "none")
+    )
+
+
+def review_policy(settings: Settings) -> dict[str, Any]:
+    """llm.yaml 의 review·external_llm 정책 (기본: auto=true, include_internal=true)."""
+    cfg = read_config("llm.yaml", settings)
+    review = cfg.get("review") or {}
+    external = cfg.get("external_llm") or {}
+    return {
+        "auto": bool(review.get("auto", True)),
+        "include_internal": bool(external.get("include_internal", True)),
     }
 
 

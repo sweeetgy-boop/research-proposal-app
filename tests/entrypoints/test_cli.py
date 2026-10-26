@@ -855,3 +855,15 @@ def test_reindex_and_db_backup_commands(monkeypatch, capsys, tmp_path):
     out = capsys.readouterr().out
     assert "백업: " in out and "rra-" in out and "보관 1벌, 삭제 0벌" in out
     assert len(list((tmp_path / "bk").glob("rra-*.sqlite"))) == 1
+
+
+def test_llm_check_provider_gemini_without_key_is_a_usage_error(monkeypatch, capsys):
+    from rra.settings import Settings
+
+    monkeypatch.delenv("RRA_GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr("rra.composition.load_settings", lambda: Settings(_env_file=None))
+    assert cli.main(["llm-check", "--provider", "gemini"]) == cli.EXIT_USAGE
+    out, err = capsys.readouterr()
+    assert "provider=gemini" in out and "api_key=RRA_GEMINI_API_KEY 없음" in out
+    assert "reasoning_effort=low json_mode=auto" in out
+    assert "LLM 사용 불가" in err and "RRA_GEMINI_API_KEY" in err

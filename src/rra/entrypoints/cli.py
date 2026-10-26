@@ -128,23 +128,33 @@ def cmd_db_backup(args: argparse.Namespace) -> int:
 # ── llm-check ─────────────────────────────────────────────
 def cmd_llm_check(args: argparse.Namespace) -> int:
     from rra.composition import (
+        LLMUnavailable,
         build_llm,
         build_prompt_library,
         build_served_model_check,
         llm_config,
+        llm_key_present,
         load_settings,
     )
 
     settings = load_settings()
-    cfg = llm_config(settings, args.stage)
+    cfg = llm_config(settings, args.stage, provider=args.provider)
     print(f"provider={cfg['provider']} base_url={cfg['base_url']} stage={args.stage}")
     if cfg.get("served_model"):
         print(f"served_model={_safe(cfg['served_model'], 200)} (manifest 에 기록)")
+    if cfg.get("api_key_field"):  # 키 유무만 (값 미표시, 보안 D)
+        present = "있음" if llm_key_present(settings, cfg) else "없음"
+        print(f"api_key=RRA_{cfg['api_key_field'].upper()} {present}")
+    if cfg.get("reasoning_effort"):
+        print(f"reasoning_effort={cfg['reasoning_effort']} json_mode={cfg['json_mode']}")
 
     async def run() -> str:
-        llm = build_llm(settings, stage=args.stage)
+        llm = build_llm(settings, stage=args.stage, provider=args.provider)
         try:
-            if warning := await build_served_model_check(settings, llm, stage=args.stage):
+            check = build_served_model_check(
+                settings, llm, stage=args.stage, provider=args.provider
+            )
+            if warning := await check:
                 _eprint(f"경고: {_safe(warning, 500)}")
             system = build_prompt_library(settings).system() if args.system else None
             return await llm.complete(args.prompt, system=system, json_mode=args.json_mode)
@@ -152,7 +162,11 @@ def cmd_llm_check(args: argparse.Namespace) -> int:
             await llm.aclose()
 
     started = time.monotonic()
-    output = asyncio.run(run())
+    try:
+        output = asyncio.run(run())
+    except LLMUnavailable as exc:
+        _eprint(f"LLM 사용 불가: {exc}")
+        return EXIT_USAGE
     print(f"model={cfg['model']} {time.monotonic() - started:.1f}s")
     print(_safe(output, limit=2000))
     return EXIT_OK
@@ -663,6 +677,9 @@ def build_parser() -> argparse.ArgumentParser:
     bk.set_defaults(handler=cmd_db_backup)
     check = sub.add_parser("llm-check", help="LLM 서버 왕복 1회 확인")
     check.add_argument("--stage", default="compose")
+    check.add_argument(
+        "--provider", default=None, help="단계 설정을 무시하고 이 provider 로 (mlx|gemini|openai)"
+    )
     check.add_argument("--prompt", default=DEFAULT_LLM_CHECK_PROMPT)
     check.add_argument("--system", action="store_true", help="실제 시스템 프롬프트를 함께 보냄")
     check.add_argument("--json-mode", action="store_true", dest="json_mode")

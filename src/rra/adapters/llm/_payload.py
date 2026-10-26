@@ -34,6 +34,7 @@ def build_payload(
     max_tokens: int,
     temperature: float,
     native_json: bool = False,
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "model": model,
@@ -44,6 +45,8 @@ def build_payload(
     }
     if native_json:
         payload["response_format"] = dict(JSON_OBJECT_FORMAT)
+    if reasoning_effort:  # gemini 등. thinking_level 은 절대 함께 보내지 않는다 (키 자체가 없다)
+        payload["reasoning_effort"] = reasoning_effort
     return payload
 
 

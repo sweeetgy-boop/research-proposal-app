@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from urllib.parse import urlsplit, urlunsplit
 
 from rra.adapters.llm.errors import InsecureLLMEndpoint
@@ -21,8 +22,11 @@ def is_local_host(host: str) -> bool:
     return host.lower() in LOCAL_HOSTS
 
 
-def guard_base_url(provider: str, base_url: str) -> str:
-    """검증 후 정규화된 base_url 을 돌려준다. 위반이면 InsecureLLMEndpoint."""
+def guard_base_url(provider: str, base_url: str, allowed_hosts: Iterable[str] | None = None) -> str:
+    """검증 후 정규화된 base_url 을 돌려준다. 위반이면 InsecureLLMEndpoint.
+
+    allowed_hosts 를 주면(보안 C) 원격 provider 의 호스트가 그 목록에 있어야 한다. 로컬은 무관.
+    """
     parts = urlsplit(base_url.strip())
     if parts.scheme not in ("http", "https"):
         raise InsecureLLMEndpoint(f"지원하지 않는 스킴입니다: {parts.scheme or '(없음)'}")
@@ -41,6 +45,13 @@ def guard_base_url(provider: str, base_url: str) -> str:
             )
     elif not local and parts.scheme != "https":
         raise InsecureLLMEndpoint(f"원격 provider={provider} 는 https 만 허용합니다.")
+    elif not local and allowed_hosts is not None:
+        allowed = {h.strip().lower() for h in allowed_hosts if isinstance(h, str) and h.strip()}
+        if host.lower() not in allowed:
+            raise InsecureLLMEndpoint(
+                f"provider={provider} 의 호스트 {host} 가 security.yaml allowed_domains 에 "
+                "없습니다 (보안 C) — 목록에 추가해야 기동합니다."
+            )
 
     netloc = host if parts.port is None else f"{host}:{parts.port}"
     return urlunsplit((parts.scheme, netloc, parts.path.rstrip("/"), "", ""))
