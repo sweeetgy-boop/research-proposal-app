@@ -1,0 +1,34 @@
+flowchart LR
+  subgraph entrypoints[entrypoints — 호출만]
+    CLI[rra CLI]
+    API[REST API FastAPI]
+    MCP[MCP 서버]
+    UI[Streamlit / 웹 SPA]
+  end
+  subgraph application[application — 유스케이스·서비스]
+    PRE[precheck_overlap]
+    GEN[generate_proposal]
+    REV[review_draft]
+    DIF[differentiate]
+    RM[RunManager]
+    PORTS[(ports: DocumentRepository · LLMPort · RunStorePort · RendererPort · TaskRunner)]
+  end
+  subgraph domain[domain — 순수 규칙·모델]
+    MODELS[ProposalRequest · Draft · ReviewRound · DraftVersion]
+    RULES[overlap · keywords · relevance · grounding · numbers · llm_output · review_flow · agent_policy]
+  end
+  subgraph adapters[adapters — 외부 라이브러리는 여기만]
+    SQL[(SQLite FTS5 + sqlite-vec)]
+    EMB[sentence-transformers e5]
+    LLM[mlx-lm Qwen 7B · Gemini Argon]
+    SRC[sources: OpenAlex · 알리오 · own · KIPRIS · NTIS · ScienceON]
+    HWPX[HWPX 렌더러]
+    RUNS[runs 파일 저장소 · run_log]
+  end
+  COMP[composition.py build_*]
+  entrypoints --> application
+  application --> domain
+  application -. 포트 .-> PORTS
+  adapters -- 구현 --> PORTS
+  COMP --> entrypoints
+  COMP --> adapters

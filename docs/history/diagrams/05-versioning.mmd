@@ -1,0 +1,11 @@
+stateDiagram-v2
+  [*] --> generating
+  generating --> draft_reviewing: v1 저장
+  draft_reviewing --> drafted: v2 (Argon 보완) / 키 없으면 v1
+  drafted --> editing: 편집 시작
+  editing --> editing: 저장 vN (제안자 편집) · 복원 (새 버전)
+  editing --> final_reviewing: 최종 검토 요청 (최신 저장 버전)
+  final_reviewing --> final_reviewed: review_final_r1
+  final_reviewed --> editing: 편집 → stale (최종 검토 이후 수정 n건)
+  final_reviewed --> finalized: 최종 마무리 (HWPX)
+  finalized --> editing: reopen

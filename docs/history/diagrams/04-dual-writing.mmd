@@ -1,0 +1,15 @@
+flowchart LR
+  subgraph local[사내 장비 Mac mini · 127.0.0.1]
+    Qwen[로컬 작성 모델<br/>Qwen2.5-7B-Instruct-4bit, mlx-lm]
+    DB[(SQLite<br/>own · alio · openalex)]
+    APP[RRA 앱]
+  end
+  subgraph ext[외부]
+    Argon[Gemini 4 Argon<br/>검토 · 차별화 · 과제 추천]
+  end
+  DB --> APP
+  APP -->|근거 + 입력| Qwen
+  Qwen -->|JSON 문장 + evidence| APP
+  APP -->|public 문장·근거만<br/>include_internal 규칙| Argon
+  Argon -->|점수·의견·수정안| APP
+  APP -->|manifest: provider · doc_id · 문장 수| LOG[(run manifest)]

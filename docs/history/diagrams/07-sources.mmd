@@ -1,0 +1,20 @@
+flowchart LR
+  subgraph ready[적재됨]
+    OWN[own · 엑셀 4개 1,119]
+    OWND[own_docs · 공시 요약 hwpx/hwp/pdf]
+    ALIO[alio · catalog · filedrop]
+    OA[OpenAlex · 13개 분야 질의 2,482<br/>야간 증분 7일]
+  end
+  subgraph waiting[키 대기]
+    KIP[KIPRIS 특허]
+    NTIS[NTIS 과제검색]
+    SCI[ScienceON]
+  end
+  SB[샌드박스 파서<br/>subprocess · zip 상한 · defusedxml] --> DB
+  OWND --> SB
+  ALIO --> SB
+  OWN --> DB[(SQLite FTS5 + 벡터<br/>valid_until · visibility)]
+  OA --> GC[GuardedClient<br/>허용 도메인만] --> DB
+  KIP --> GC
+  NTIS --> GC
+  SCI --> GC

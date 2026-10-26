@@ -17,3 +17,9 @@
 
 ## 스크린샷 (화면 변경 시)
 <!-- Streamlit 또는 web 화면이 바뀌면 전/후 캡처. -->
+
+## 경과 기록 (docs/history — 합치기 전 확인)
+- [ ] `docs/history/timeline.md` 에 항목 추가 (날짜·무엇·왜·PR 번호·핵심 수치)
+- [ ] 수치가 바뀌었으면 `docs/history/metrics.csv` 에 행 추가
+- [ ] 주요 결정이면 `docs/history/decisions/` 에 ADR 추가
+- [ ] 화면이 바뀌었으면 `docs/history/screens/` 에 날짜 붙은 캡처
