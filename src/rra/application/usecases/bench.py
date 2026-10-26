@@ -5,6 +5,8 @@
 - 근거 대조 폐기 문장 수, 수치 알림 수(unsupported_number), 외국 문자 알림 수(foreign_script),
   정책명 규칙 위반 수(grounding 폐기)
 - 섹션당 평균 시간·전체 시간, 최대 메모리(서버 RSS, 어댑터가 샘플링)
+- 관련도 하한(이슈 #2): 근거로 남은 청크 수·하한 탈락 청크 수·인용된 근거 id 수·
+  근거가 없어 빈칸이 된 섹션(no_relevant_evidence)
 - 최대 문맥 길이와 실제 최대 프롬프트 토큰(usage.prompt_tokens)
 기술적 중요도 문장은 모델별 비교용으로 3건 담는다.
 
@@ -21,7 +23,7 @@ from typing import Any
 
 from rra.application.usecases.generate_proposal import GenerateProposal
 from rra.domain.models import ProposalRequest
-from rra.domain.rules.lint import FOREIGN_SCRIPT, UNSUPPORTED_NUMBER
+from rra.domain.rules.lint import FOREIGN_SCRIPT, NO_RELEVANT_EVIDENCE, UNSUPPORTED_NUMBER
 
 TECH_SECTION = "tech_importance"
 
@@ -46,6 +48,10 @@ class IdeaResult:
     parse_lenient: list[str] = field(default_factory=list)  # 관용 처리로 살린 섹션
     retries: int = 0  # 형식 교정 재요청 횟수
     parse_retried_ok: list[str] = field(default_factory=list)  # 재요청으로 살린 섹션
+    evidence_chunks: int = 0  # 관련도 하한을 넘어 근거로 남은 청크 수 (유사과제 보탬 포함)
+    dropped_chunks: int = 0  # 관련도 하한 탈락 청크 수
+    empty_sections: list[str] = field(default_factory=list)  # 근거 없어 빈칸 (no_relevant_evidence)
+    cited_chunks: int = 0  # 초안 문장이 실제 인용한 서로 다른 근거 id 수
 
 
 @dataclass
@@ -101,8 +107,13 @@ class BenchResult:
             "problems",
             "overlap_alerts",
             "retries",
+            "evidence_chunks",
+            "dropped_chunks",
+            "cited_chunks",
         )
-        return {k: sum(getattr(i, k) for i in self.ideas) for k in keys}
+        out = {k: sum(getattr(i, k) for i in self.ideas) for k in keys}
+        out["empty_sections"] = sum(len(i.empty_sections) for i in self.ideas)
+        return out
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -202,6 +213,7 @@ class BenchGenerate:
         draft, problems = self.generate.finalize(f"bench-{name}", req, snapshot, sections)
         tech = draft.section(TECH_SECTION)
         title = draft.section("title")
+        cited = {e for s in draft.sections for st in s.sentences for e in st.evidence}
         return IdeaResult(
             name=name,
             title=title.text if title else "",
@@ -221,4 +233,8 @@ class BenchGenerate:
             overlap_alerts=len(snapshot.overlap),
             tech_sentences=[s.text for s in tech.sentences[:3]] if tech else [],
             section_seconds=timings,
+            evidence_chunks=len(snapshot.chunks),
+            dropped_chunks=len(snapshot.dropped_chunks),
+            empty_sections=[p.section for p in problems if p.code == NO_RELEVANT_EVIDENCE],
+            cited_chunks=len(cited),
         )

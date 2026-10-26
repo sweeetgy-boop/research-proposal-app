@@ -50,6 +50,7 @@ class VectorBackend(Protocol):
     def add(self, rows: list[tuple[int, list[float]]]) -> None: ...
     def delete(self, chunk_rowids: list[int]) -> None: ...
     def search(self, vector: list[float], k: int) -> list[tuple[int, float]]: ...
+    def vectors(self, chunk_rowids: list[int]) -> dict[int, list[float]]: ...
 
 
 class BruteForceBackend:
@@ -87,6 +88,9 @@ class BruteForceBackend:
         ]
         scored.sort(key=lambda rs: (-rs[1], rs[0]))
         return scored[:k]
+
+    def vectors(self, chunk_rowids: list[int]) -> dict[int, list[float]]:
+        return _vectors_by_rowid(self.conn, "chunk_embeddings", "vec", chunk_rowids)
 
 
 class SqliteVecBackend:
@@ -144,6 +148,24 @@ class SqliteVecBackend:
             (pack(normalize(vector)), k),
         ).fetchall()
         return [(row[0], max(0.0, min(1.0, 1.0 - row[1]))) for row in rows]
+
+    def vectors(self, chunk_rowids: list[int]) -> dict[int, list[float]]:
+        return _vectors_by_rowid(self.conn, "chunk_vec", "embedding", chunk_rowids)
+
+
+def _vectors_by_rowid(
+    conn: sqlite3.Connection, table: str, column: str, chunk_rowids: list[int]
+) -> dict[int, list[float]]:
+    """저장된 (정규화) 벡터를 rowid 별로. table·column 은 이 모듈의 상수만 온다."""
+    out: dict[int, list[float]] = {}
+    ids = [int(r) for r in chunk_rowids]
+    for start in range(0, len(ids), 500):
+        batch = ids[start : start + 500]
+        marks = ",".join("?" * len(batch))
+        sql = f"SELECT chunk_rowid, {column} FROM {table} WHERE chunk_rowid IN ({marks})"  # noqa: S608  # nosec B608
+        for row in conn.execute(sql, tuple(batch)):
+            out[int(row[0])] = unpack(row[1])
+    return out
 
 
 def select_backend(conn: sqlite3.Connection, *, prefer_extension: bool = True) -> VectorBackend:

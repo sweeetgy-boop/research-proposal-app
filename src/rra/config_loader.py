@@ -15,6 +15,7 @@ from rra.domain.models import StrategyCatalog
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.lint import LintRules
 from rra.domain.rules.overlap import OwnUnit
+from rra.domain.rules.relevance import RelevanceFloor
 from rra.settings import Settings
 
 DEFAULT_STAGE = "compose"
@@ -222,6 +223,16 @@ def keyword_rule(settings: Settings) -> KeywordRule:
     if not isinstance(extra, list):
         raise ValueError("overlap.yaml keywords.generic_terms 는 목록이어야 합니다.")
     return rule.with_extra_generic([str(t) for t in extra])
+
+
+def relevance_floor(settings: Settings) -> RelevanceFloor:
+    """생성 근거의 관련도 하한 (config/overlap.yaml `evidence_floor`). 없으면 도메인 기본값."""
+    cfg = read_config("overlap.yaml", settings).get("evidence_floor") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError("overlap.yaml evidence_floor 는 매핑이어야 합니다.")
+    return RelevanceFloor.model_validate(
+        {k: cfg[k] for k in ("min_similarity", "min_keyword_hits") if k in cfg}
+    )
 
 
 # ── 양식 ───────────────────────────────────────────────────

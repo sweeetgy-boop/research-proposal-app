@@ -142,3 +142,8 @@ async def test_find_similar_ranks_identical_text_first_and_skips_expired(loaded)
     expired = await loaded.find_similar("만료된 과제 공고 본문", k=5)
     assert "ntis:old" not in [d.doc_id for d, _ in expired]
     assert await loaded.find_similar("", k=5) == []
+
+
+async def test_hybrid_search_similarity_is_absent_or_a_unit_cosine(loaded):
+    hits = await loaded.hybrid_search(["궤도의 틀림을 자동으로 감지한다"], k=10)
+    assert all(c.similarity is None or 0.0 <= c.similarity <= 1.0 for c in hits)

@@ -15,6 +15,7 @@ PROBLEM = {
     "input_missing": "근거 입력 없음 — 빈칸",
     "catalog_empty": "선택지 목록 비어 있음 — 빈칸",
     "no_choice": "제안된 선택지 없음 — 직접 선택",
+    "no_relevant_evidence": "관련도 하한을 넘는 근거 없음 — 빈칸",
 }
 STATUS = {
     "queued": "대기",

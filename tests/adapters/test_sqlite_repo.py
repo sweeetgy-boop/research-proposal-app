@@ -398,3 +398,29 @@ async def test_source_status_counts_and_last_ingested_date(loaded):
     assert set(status) == {"alio", "openalex"}
     assert status["alio"]["count"] == 1 and len(status["alio"]["last_ingested"]) == 10  # YYYY-MM-DD
     assert status["alio"]["last_ingested"][:2] == "20"
+
+
+# ── 검색 결과의 질의 코사인 (Chunk.similarity) ─────────────────────────────
+async def test_hybrid_search_fills_query_similarity_on_both_backends(loaded):
+    hits = await loaded.hybrid_search(["궤도의 틀림을 자동으로 감지한다"], k=5)
+    assert hits and all(c.similarity is not None and 0.0 <= c.similarity <= 1.0 for c in hits)
+    assert {c.chunk_id: c.similarity for c in hits}["alio:1#0"] > 0.99  # 본문과 같은 글
+    multi = await loaded.hybrid_search(
+        ["궤도의 틀림을 자동으로 감지한다", "IMU based track geometry monitoring"], k=5
+    )
+    by_id = {c.chunk_id: c.similarity for c in multi}
+    assert by_id["alio:1#0"] > 0.99 and by_id["openalex:W1#0"] > 0.99  # 질의별 최댓값
+    assert all(c.similarity is not None for c in multi)
+
+
+async def test_similarity_is_none_before_any_vector_index(repo):
+    assert await repo.hybrid_search(["궤도"], k=5) == []  # 색인 전: 빈 결과이지 오류가 아니다
+
+
+async def test_backend_vectors_returns_stored_normalized_vectors(loaded):
+    rowids = [row[0] for row in loaded.conn.execute("SELECT id FROM chunks ORDER BY id")]
+    got = loaded.backend.vectors([*rowids, 999_999])
+    assert set(got) == set(rowids)
+    for vec in got.values():
+        assert len(vec) == loaded._vec_dim
+        assert abs(sum(v * v for v in vec) - 1.0) < 1e-4  # 정규화 저장

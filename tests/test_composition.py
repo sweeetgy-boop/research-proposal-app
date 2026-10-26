@@ -227,6 +227,15 @@ def test_alio_catalog_fetcher_requires_url(tmp_path):
 # ── generate · RunManager ─────────────────────────────────
 
 
+def test_generate_is_wired_with_the_relevance_floor():
+    from rra.composition import build_generate, relevance_floor
+    from rra.domain.rules.relevance import RelevanceFloor
+
+    settings = project_settings()
+    gen = build_generate(settings, repo=object(), llm=object())
+    assert gen.relevance == relevance_floor(settings) == RelevanceFloor()
+
+
 def test_strategy_catalog_template_is_empty_until_filled():
     from rra.composition import build_generate, strategy_catalog
 

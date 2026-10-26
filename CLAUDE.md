@@ -56,6 +56,9 @@
 - 양식 개정 반영 — 별지 제2호서식(2024.02.19.) 섹션 12개·선택형 확정(`rra runs confirm`/`rra_confirm`)·
   정책적 중요도 입력 근거 규칙·유사과제 앱 판정·legacy run 조회 전용 (docs/architecture.md §4.1).
 - 유사과제 차단 = 유사도 AND 공유 키워드(`domain/rules/keywords.py`, `config/overlap.yaml`; architecture §4.1).
+- 생성 근거 관련도 하한(P1, 이슈 #2, architecture §4.7): `domain/rules/relevance.py` — 코사인 ≥ 0.79, 한글 청크는
+  질의 키워드 ≥ 1(영어 청크는 키워드 조건 없음). `Chunk.similarity` 는 저장소가 검색 결과에만 채운다. 통과 청크 0 이면
+  근거 필수 섹션은 빈칸 + `no_relevant_evidence` 경고. 임계치는 `tests/fixtures/relevance_golden.json` 측정값으로 고정.
   e5 유사도만으로는 무관한 한국어 문서도 own 0.80 을 넘는다. 임계치는 표본이 쌓인 뒤 조정. reranker 는 후속.
 - 7B(Qwen2.5-7B-Instruct-4bit) 전환 반영 — 본문 속 자료 태그 조각 제거(`llm_output.strip_doc_fragments`),
   지어낸 수치 lint 경고(`numbers.py`, `rules.yaml number_checked`), grounding 관형형 예외. 실응답 fixture tests/fixtures/llm.

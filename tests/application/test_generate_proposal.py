@@ -158,3 +158,61 @@ async def test_choice_section_prompt_has_a_shape_example_with_fake_values(req, r
     assert composed.section.sentences == [] or all(
         s.evidence == [] for s in composed.section.sentences
     )  # 가짜 근거 id 는 근거 대조에서 걸린다
+
+
+# ── 관련도 하한 (이슈 #2) ──────────────────────────────────
+def _scored(repo, scores):
+    repo.chunks = [c.model_copy(update={"similarity": scores[c.chunk_id]}) for c in repo.chunks]
+
+
+async def test_relevance_floor_drops_low_similarity_chunks_from_the_snapshot(req, repo, rules):
+    from rra.domain.rules.relevance import RelevanceFloor
+
+    _scored(repo, {"alio:1#0": 0.90, "openalex:W1#0": 0.70})
+    gen = make(FakeLLM(), repo, rules)
+    gen.relevance = RelevanceFloor(min_similarity=0.79, min_keyword_hits=0)
+    snap = await gen.retrieve(req)
+    assert [c.chunk_id for c in snap.chunks] == ["alio:1#0"]
+    assert snap.dropped_chunks == {"openalex:W1#0": "similarity"}
+    assert "openalex:W1#0" not in snap.retrieved_ids  # 폐기된 청크는 근거로 인용할 수 없다
+
+
+async def test_without_a_floor_the_snapshot_is_unchanged(req, repo, rules):
+    _scored(repo, {"alio:1#0": 0.1, "openalex:W1#0": 0.1})
+    snap = await make(FakeLLM(), repo, rules).retrieve(req)
+    assert len(snap.chunks) == 2 and snap.dropped_chunks == {}
+
+
+async def test_no_relevant_evidence_skips_llm_for_required_sections_and_warns(req, repo, rules):
+    from rra.domain.rules.relevance import RelevanceFloor
+
+    _scored(repo, {"alio:1#0": 0.5, "openalex:W1#0": 0.5})
+    llm = FakeLLM([_llm_json("문제 서술", [])])
+    gen = make(llm, repo, rules)
+    gen.relevance = RelevanceFloor()
+    snap = await gen.retrieve(req)
+    assert snap.chunks == [] and len(snap.dropped_chunks) == 2
+    composed = await gen.compose_section("prior_work", req, snap)
+    assert composed.mode == "skipped" and composed.section.sentences == []
+    problem = await gen.compose_section("problem", req, snap)  # 근거 선택 섹션은 그대로 생성
+    assert problem.mode == "llm" and len(llm.calls) == 1
+    draft, problems = gen.finalize("r", req, snap, [problem.section, composed.section])
+    assert [(p.section, p.code, p.severity) for p in problems] == [
+        ("prior_work", "no_relevant_evidence", "warning")
+    ]
+
+
+async def test_overlap_review_is_exempt_when_overlap_was_checked(req, repo, rules, own):
+    from rra.domain.rules.relevance import RelevanceFloor
+
+    _scored(repo, {"alio:1#0": 0.5, "openalex:W1#0": 0.5})
+    rules = LintRules(required_sections=["overlap_review"], evidence_required=["overlap_review"])
+    gen = GenerateProposal(
+        FakeLLM(), repo, FakePromptLibrary(), rules, ["overlap_review"], own=own, check_overlap=True
+    )
+    gen.relevance = RelevanceFloor()
+    snap = await gen.retrieve(req)
+    assert snap.chunks == [] and snap.overlap_checked
+    assert gen.evidence_skipped(snap) == {}
+    composed = await gen.compose_section("overlap_review", req, snap)
+    assert composed.mode == "app" and composed.section.sentences  # 앱 확정 문장

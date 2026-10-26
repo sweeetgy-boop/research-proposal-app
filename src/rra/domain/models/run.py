@@ -118,6 +118,8 @@ class RetrievalSnapshot(BaseModel):
     overlap_checked: bool = False  # False 면 유사과제 판정을 하지 않은 것 ("없음"과 구분)
     # retrieve 시점에 한 건도 적재되지 않았던 자료원. None = 확인하지 않음 (이전 스냅샷)
     uncollected: list[str] | None = None
+    # 관련도 하한(domain/rules/relevance.py)에 걸려 근거에서 뺀 청크 id → 이유. 이전 스냅샷은 빈 값
+    dropped_chunks: dict[str, str] = Field(default_factory=dict)
 
     @classmethod
     def of(

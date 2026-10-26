@@ -1,0 +1,563 @@
+{
+ "measured": "2026-10-26",
+ "embedding": "intfloat/multilingual-e5-base",
+ "note": "golden 요청의 search_text 로 hybrid_search(k=20) 한 청크. similarity 는 어댑터가 채운 질의 코사인, keyword_hits 는 keywords.keyword_overlap 수. relevant 는 사람이 매긴 값(01 궤도=openalex 논문, 02 자산개발=alio 요약, 03 도서관=없음).",
+ "ideas": {
+  "01_track_irregularity": {
+   "query_keywords": [
+    "운행",
+    "차량",
+    "탑재",
+    "센서",
+    "이용한",
+    "궤도",
+    "틀림",
+    "상시",
+    "감지",
+    "경부선",
+    "일반철",
+    "고저",
+    "방향",
+    "수평",
+    "궤도검측차",
+    "분기별",
+    "측정하고",
+    "사이",
+    "점검원",
+    "도보",
+    "확인한다",
+    "노반",
+    "상태",
+    "통과",
+    "톤수",
+    "구간마다",
+    "달라",
+    "진행",
+    "속도",
+    "다른데",
+    "주기",
+    "일정해",
+    "급격히",
+    "진행하",
+    "놓친다",
+    "임계치",
+    "넘은",
+    "뒤에",
+    "보수하므",
+    "재발",
+    "반복",
+    "보수하고",
+    "기간",
+    "변화",
+    "영업",
+    "탑재한",
+    "가속",
+    "징후",
+    "감지하고",
+    "추정해",
+    "보수",
+    "우선순위",
+    "정한다"
+   ],
+   "chunks": [
+    {
+     "chunk_id": "openalex:W1966732442#0",
+     "similarity": 0.835125,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2908009528#0",
+     "similarity": 0.825344,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2061444205#0",
+     "similarity": 0.817015,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2791853619#0",
+     "similarity": 0.814067,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W1966732442#1",
+     "similarity": 0.813221,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2955746189#0",
+     "similarity": 0.811914,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2037033201#0",
+     "similarity": 0.810211,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#1",
+     "similarity": 0.80518,
+     "hangul": true,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2118179191#0",
+     "similarity": 0.803397,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2314999026#0",
+     "similarity": 0.803342,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2981927360#0",
+     "similarity": 0.800155,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2026649936#0",
+     "similarity": 0.798353,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2099834279#0",
+     "similarity": 0.798143,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W4311165328#0",
+     "similarity": 0.798112,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2000253057#0",
+     "similarity": 0.796636,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#3",
+     "similarity": 0.795829,
+     "hangul": true,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#2",
+     "similarity": 0.795351,
+     "hangul": true,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2314999026#1",
+     "similarity": 0.793762,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2856514980#0",
+     "similarity": 0.793009,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": true
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#0",
+     "similarity": 0.784594,
+     "hangul": true,
+     "keyword_hits": 0,
+     "relevant": false
+    }
+   ]
+  },
+  "02_asset_development": {
+   "query_keywords": [
+    "유휴",
+    "부지",
+    "역사",
+    "공간",
+    "활용한",
+    "자산개발",
+    "다각화",
+    "수익",
+    "역세권",
+    "임대",
+    "광고",
+    "치우쳐",
+    "있고",
+    "상층부",
+    "개별",
+    "흩어져",
+    "자산",
+    "부서별",
+    "관리되어",
+    "전체",
+    "포트폴리오",
+    "관점",
+    "우선순위",
+    "사업별",
+    "타당성",
+    "하고",
+    "철도회사",
+    "유형별",
+    "비교하지",
+    "않는다",
+    "비교해",
+    "제안한다"
+   ],
+   "chunks": [
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#1",
+     "similarity": 0.878454,
+     "hangul": true,
+     "keyword_hits": 5,
+     "relevant": true
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#3",
+     "similarity": 0.865921,
+     "hangul": true,
+     "keyword_hits": 4,
+     "relevant": true
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#2",
+     "similarity": 0.868989,
+     "hangul": true,
+     "keyword_hits": 2,
+     "relevant": true
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#0",
+     "similarity": 0.850757,
+     "hangul": true,
+     "keyword_hits": 2,
+     "relevant": true
+    },
+    {
+     "chunk_id": "openalex:W2955746189#0",
+     "similarity": 0.795254,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W1966732442#0",
+     "similarity": 0.790387,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2856514980#0",
+     "similarity": 0.78749,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2061444205#0",
+     "similarity": 0.787222,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W4281990482#0",
+     "similarity": 0.783628,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2026649936#0",
+     "similarity": 0.779533,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2314999026#1",
+     "similarity": 0.778977,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2908009528#1",
+     "similarity": 0.778803,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2981927360#0",
+     "similarity": 0.775569,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2314999026#0",
+     "similarity": 0.774704,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2118179191#0",
+     "similarity": 0.774425,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2791853619#0",
+     "similarity": 0.773881,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2037033201#0",
+     "similarity": 0.770856,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2908009528#0",
+     "similarity": 0.770743,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2099834279#0",
+     "similarity": 0.762155,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W4311165328#0",
+     "similarity": 0.758533,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    }
+   ]
+  },
+  "03_unrelated_library": {
+   "query_keywords": [
+    "공공도서관",
+    "좌석",
+    "예약",
+    "무단",
+    "점유",
+    "감지",
+    "시립도서관",
+    "열람실",
+    "장시간",
+    "비워",
+    "두는",
+    "이용자",
+    "많아",
+    "실제",
+    "이용률",
+    "낮다",
+    "여부",
+    "직원",
+    "순회하",
+    "눈으",
+    "확인한다",
+    "순회",
+    "간격",
+    "길어",
+    "시간씩",
+    "방치되고",
+    "민원",
+    "반복된다",
+    "센서",
+    "연동해",
+    "자동",
+    "감지하고",
+    "해제한다"
+   ],
+   "chunks": [
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#2",
+     "similarity": 0.800729,
+     "hangul": true,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#3",
+     "similarity": 0.794342,
+     "hangul": true,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#0",
+     "similarity": 0.791572,
+     "hangul": true,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "alio:sum-8f69f1e778ff7e36#1",
+     "similarity": 0.787594,
+     "hangul": true,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W1966732442#0",
+     "similarity": 0.783441,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2955746189#0",
+     "similarity": 0.773827,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2791853619#0",
+     "similarity": 0.770544,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2314999026#1",
+     "similarity": 0.764958,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2314999026#0",
+     "similarity": 0.764262,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W1966732442#1",
+     "similarity": 0.762157,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2000253057#0",
+     "similarity": 0.758657,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2118179191#0",
+     "similarity": 0.75611,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W4281990482#0",
+     "similarity": 0.753882,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2908009528#0",
+     "similarity": 0.753817,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2061444205#0",
+     "similarity": 0.753319,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2037033201#0",
+     "similarity": 0.752954,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2981927360#0",
+     "similarity": 0.751547,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W4297491336#0",
+     "similarity": 0.749629,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2856514980#0",
+     "similarity": 0.744204,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    },
+    {
+     "chunk_id": "openalex:W2099834279#0",
+     "similarity": 0.741762,
+     "hangul": false,
+     "keyword_hits": 0,
+     "relevant": false
+    }
+   ]
+  }
+ }
+}

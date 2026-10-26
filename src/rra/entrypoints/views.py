@@ -300,6 +300,7 @@ def chunks_payload(
             "doc_id": c.doc_id,
             "ordinal": c.ordinal,
             "basis": c.basis,
+            "similarity": c.similarity,  # 질의 코사인 (벡터 색인 없으면 None)
             "text": clean(c.text),
             "trust": "untrusted",
         }
@@ -339,6 +340,10 @@ def bench_markdown(results: list[Any], *, date: str, baseline: str | None = None
         ("외국 문자 알림 수", lambda r: str(r["totals"]["foreign_script"])),
         ("정책명 규칙 위반(grounding 폐기) 수", lambda r: str(r["totals"]["ungrounded"])),
         ("lint 문제 합계", lambda r: str(r["totals"]["problems"])),
+        ("관련도 하한 통과 근거 청크 수", lambda r: str(r["totals"].get("evidence_chunks", "-"))),
+        ("관련도 하한 탈락 청크 수", lambda r: str(r["totals"].get("dropped_chunks", "-"))),
+        ("인용된 근거 id 수", lambda r: str(r["totals"].get("cited_chunks", "-"))),
+        ("근거 없어 빈칸이 된 섹션 수", lambda r: str(r["totals"].get("empty_sections", "-"))),
         ("섹션당 평균 시간(초)", lambda r: f"{r['avg_section_seconds']:.1f}"),
         ("전체 시간(초)", lambda r: f"{r['total_seconds']:.1f}"),
         (
@@ -361,9 +366,10 @@ def bench_markdown(results: list[Any], *, date: str, baseline: str | None = None
         lines.append(f"### {idea['name']}")
         lines.append("")
         lines.append(
-            "| 모델 | 제목 | 시간(초) | JSON ok | 폐기 | 수치 | 외국 문자 | 유사과제 알림 |"
+            "| 모델 | 제목 | 시간(초) | JSON ok | 폐기 | 수치 | 외국 문자 | 유사과제 알림 "
+            "| 근거 | 탈락 | 인용 | 빈칸 |"
         )
-        lines.append("|---|---|---|---|---|---|---|---|")
+        lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
         for r in rows:
             if i < len(r["ideas"]):
                 x = r["ideas"][i]
@@ -376,6 +382,10 @@ def bench_markdown(results: list[Any], *, date: str, baseline: str | None = None
                     str(x["unsupported_numbers"]),
                     str(x["foreign_script"]),
                     str(x["overlap_alerts"]),
+                    str(x.get("evidence_chunks", "-")),
+                    str(x.get("dropped_chunks", "-")),
+                    str(x.get("cited_chunks", "-")),
+                    ",".join(x.get("empty_sections") or []) or "0",
                 ]
                 lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
