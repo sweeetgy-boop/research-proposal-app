@@ -85,7 +85,11 @@
   [5] 검토 흐름(domain/rules/review_flow, usecases/review_draft, RunManager review/apply_edits/versions/revert/finalize/
   reopen, runs/…/versions·reviews 파일, 양식 파일은 finalize 로만), [6] REST 세션·CSRF·SSE·problem+json·정적 SPA·
   RRA_FAKE_LLM 가짜 모드(adapters/fake)·`rra api schema`, [7] Streamlit [최종 마무리 및 다운로드]. 설계 architecture §4.5·§4.6·§9.2.
-- Gemini 키는 .env 에 있고 Argon 왕복 확인됨. 대기(사람 입력): 사내 과제 목록·공시용 요약문 적재([8] → P2), 연구과제 공고문(data/inbox/notice/).
+- Gemini 키는 .env 에 있고 Argon 왕복 확인됨. 대기(사람 입력): 연구과제 공고문(data/inbox/notice/).
+- 사내 자료 적재(P2, architecture §4.8): `adapters/sources/own/` — `own_projects`(data/inbox/own 엑셀 4개, 시트 머리글로
+  종류 판별, 이름 열 제외, status rejected/stopped/…, 과제명 병합)·`own_docs`(data/inbox/own_docs 공시완료 폴더, 공시용 >
+  일반 요약, hwpx > hwp > pdf, 묶음 꼬리말 분리, alio.summary 정규화 공용, 이름 제거). 샌드박스 파서 hwp(olefile)·xlsx·xls.
+  `OverlapAlert.status` 는 `Document.raw.status`. 실물 파일 테스트는 skipif.
 - 기획서 필수 기능 2 "유사과제 활용·차별화 제안" 은 미구현(P3). `rra llm-check` 기본 프롬프트의 `[]` 응답은 의도된 연결 확인 출력.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).

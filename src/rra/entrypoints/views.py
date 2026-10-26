@@ -269,6 +269,7 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
                 "blocking": a.blocking,
                 "basis": a.basis,
                 "keywords": list(a.keywords),
+                "status": a.status,
             }
             for a in alerts
         ],

@@ -466,3 +466,20 @@ def test_gemini_host_outside_allowed_domains_refuses_startup(gemini_dir):
     )
     with pytest.raises(InsecureLLMEndpoint, match="allowed_domains"):
         build_llm(settings_for(gemini_dir, gemini_api_key="gk-test-not-real"), stage="review")
+
+
+def test_own_sources_are_wired_from_sources_yaml(tmp_path):
+    from rra.composition import build_sources
+
+    (tmp_path / "sources.yaml").write_text(
+        "own:\n  projects_inbox: inbox/own\n  docs_inbox: inbox/docs\n  default_org: korail\n"
+        "alio:\n  summary:\n    labels: {title: [과제명칭]}\n"
+        "institutions:\n  - {code: C0268, name: 한국철도공사, tag: korail}\n",
+        encoding="utf-8",
+    )
+    projects, docs = build_sources(["own_projects", "own_docs"], settings_for(tmp_path))
+    assert projects.source == "own_projects" and projects.inbox == Path("inbox/own")
+    assert docs.source == "own_docs" and docs.inbox == Path("inbox/docs")
+    assert docs.labels["title"] == ["과제명칭"] and docs.labels["purpose"] == ["연구목적"]
+    assert docs.institutions[0]["tag"] == "korail" and docs.default_org == "korail"
+    assert projects.limits.max_input_mb == docs.limits.max_input_mb

@@ -84,6 +84,7 @@ def judge(
         shared = keyword_overlap(query or "", document_text(doc), keywords) if keywords else []
         over = sim >= th[t]
         blocking = over and (keywords is None or enough(shared, keywords))
+        status = doc.raw.get("status")
         alerts.append(
             OverlapAlert(
                 doc_id=doc.doc_id,
@@ -93,6 +94,7 @@ def judge(
                 blocking=blocking,
                 basis=doc.text_basis,
                 keywords=shared,
+                status=status if isinstance(status, str) and status else None,
             )
         )
     return sorted(alerts, key=lambda a: (-int(a.blocking), -a.similarity))
@@ -102,6 +104,7 @@ _TIER_LABEL: dict[Tier, str] = {"own": "사내", "domestic_rail": "국내 철도
 
 # 자료원 → 검토 범위 문장에 쓰는 이름. 순서 = 문장에 나열하는 순서
 SOURCE_LABELS: dict[str, str] = {
+    "own": "사내 과제 현황",
     "alio": "알리오 공시 연구보고서",
     "ntis": "NTIS 국가R&D 과제",
     "scienceon": "ScienceON 국내 논문·보고서",

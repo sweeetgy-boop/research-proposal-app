@@ -62,6 +62,8 @@ __all__ = [
     "build_alio_catalog_fetcher",
     "build_alio_source",
     "build_alio_summary_source",
+    "build_own_docs_source",
+    "build_own_projects_source",
     "build_api",
     "build_assistant",
     "build_embedding",
@@ -402,10 +404,39 @@ def build_ntis_source(settings: Settings | None = None, *, transport=None, resol
     )
 
 
+def build_own_projects_source(settings: Settings | None = None):
+    """OwnProjectsSource — 사내 과제 현황 엑셀 (data/inbox/own). 샌드박스 xls·xlsx 파서."""
+    from rra.adapters.sources.own import OwnProjectsSource
+
+    settings = settings or load_settings()
+    cfg = source_config(settings, "own")
+    return OwnProjectsSource(
+        Path(cfg.get("projects_inbox", "data/inbox/own")), limits=sandbox_limits(settings)
+    )
+
+
+def build_own_docs_source(settings: Settings | None = None):
+    """OwnDocsSource — 공시완료 폴더의 공시용 요약문 (data/inbox/own_docs). 라벨은 alio 공용."""
+    from rra.adapters.sources.own import OwnDocsSource
+
+    settings = settings or load_settings()
+    cfg = source_config(settings, "own")
+    summary_cfg = source_config(settings, "alio").get("summary") or {}
+    return OwnDocsSource(
+        Path(cfg.get("docs_inbox", "data/inbox/own_docs")),
+        limits=sandbox_limits(settings),
+        institutions=institutions(settings),
+        labels=summary_cfg.get("labels") or None,
+        default_org=cfg.get("default_org") or "korail",
+    )
+
+
 _SOURCE_BUILDERS = {
     "openalex": build_openalex_source,
     "alio": build_alio_source,
     "alio_summary": build_alio_summary_source,
+    "own_projects": build_own_projects_source,
+    "own_docs": build_own_docs_source,
     "scienceon": build_scienceon_source,
     "ntis": build_ntis_source,
 }

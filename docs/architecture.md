@@ -493,6 +493,33 @@ lint 는 알림만. `revert` 는 이전 버전 내용으로 새 버전. Agent �
 - 벤치(`rra llm-bench`) 지표에 근거 청크 수·하한 탈락 수·인용된 근거 id 수·빈칸 섹션 수를 더했다. 재실행(`runs/…/
   retrieve` step)의 `dropped` 는 하한 탈락 청크 수다. REST/MCP 검색 결과 청크에 `similarity` 키가 추가됐다(없으면 null).
 
+### 4.8 사내 자료 적재 (2026-10-26, P2)
+
+사내 과제 기록 두 갈래를 자료원으로 더했다 (`adapters/sources/own/`, 소스 이름 `own_projects`·`own_docs`,
+설정 `config/sources.yaml own`). 둘 다 샌드박스 파서를 거친다 (보안 B) — 새 파서 `extract/hwp.py`(HWP 5.0 OLE:
+서명·암호화·배포용 거부, raw-deflate 해제 상한, PARA_TEXT 레코드만)·`extract/spreadsheet.py`(xlsx 는 zip 검사 뒤
+openpyxl read_only, xls 는 xlrd; 행·열·셀 상한). `filecheck` 가 hwp·xls(OLE 매직)·xlsx(zip 매직)를 식별한다.
+
+- **own_projects** (`data/inbox/own/*.xls|xlsx`): 연구과제 제안 현황·연구과제 현황·2006~2024 과제목록·자체 및 국가과제
+  수행현황. 시트 종류는 머리글로 판별하고(`excel.KINDS`), 이름 열(제안자·책임연구원·담당자)은 읽지 않는다.
+  status: 제안 현황 진행단계 "미채택" → `rejected`(그 밖은 `proposed`), 연구과제 현황 진행상태 → `completed`/`ongoing`,
+  과제목록 → `completed`, 수행현황 비고 "중단" → `stopped`(종료일 지남 → `completed`, 아니면 `ongoing`).
+  같은 과제명은 수행 기록(status > performance > history) > 제안 기록 순으로 하나만 남기고 제안 기록은 `raw.proposal` 로
+  붙인다. Document: source `own`, doc_type `rnd_project`(과제명 해시 doc_id), text_basis `abstract`, orgs korail,
+  visibility — 제안 현황·연구과제 현황은 `internal`, 과제목록·수행현황은 `public`. 목록 파일은 처리 뒤 옮기지 않는다.
+  `raw.status` 는 `OverlapAlert.status` 로 올라가 precheck·화면·P3 차별화 제안이 쓴다 (미채택 → 보완 재제안 관점).
+- **own_docs** (`data/inbox/own_docs/`, 공시완료 폴더를 연도/과제 폴더째 복사): 과제 폴더마다 요약 파일을 고른다 —
+  공시용 > 일반 요약, hwpx > hwp > pdf, 묶음 폴더(수송수요 예측 5건 등)는 파일 꼬리말(고속·준고속·…)로 과제를 나눈다
+  (`_names.select_summary_files`; macOS NFD 파일명은 NFC 로 맞춘다). 본문은 알리오 공개 요약 경로의 라벨 해석·정규화
+  (`alio.summary`)를 그대로 쓴다 — 공시용 요약문이 알리오 상세 페이지 요약의 원본이라 같은 doc_id(`alio:sum-…`)로
+  합쳐지고 본문이 긴 쪽이 남는다. 연구자 이름은 저장하지 않는다(authors 비움, 연구책임자는 부서만). 처리된 과제
+  폴더는 `_done/<연도>/…` 로 옮긴다.
+- `summary_doc_id` 는 발간일을 보지 않는다(기관 + 제목). 알리오 페이지 복사본(.txt)과 공시용 요약문 파일이 같은 id 로
+  합쳐지기 위해서다. HWP 파서는 UTF-16 서로게이트 쌍을 한 글자로 합친다(짝 없는 것은 버림 — JSON 직렬화 보장).
+- 2026-10-26 적재: 엑셀 4개 1,377행 → 과제 1,119건(미채택 62·중단 4·진행중 73), 공시 요약 107개 폴더 → 129파일 선별
+  → 문서 121건(묶음 안 중복 사본 제외). `rra ingest --source own_projects,own_docs`. 실물 파일 테스트는 skipif
+  (`tests/adapters/own`, `test_extract`). 제안 현황의 타부서 제안은 org korail + 부서 미등록이라 domestic_rail 티어다.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -1001,6 +1028,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (P2) | 사내 자료 적재(§4.8): `adapters/sources/own/`(own_projects 엑셀·own_docs 공시 요약문), 샌드박스 hwp·xlsx·xls 파서, `SourceType own`, `OverlapAlert.status`, `sources.yaml own` |
 | 2026-10-26 (P1) | 생성 근거 관련도 하한(§4.7, 이슈 #2): `domain/rules/relevance.py`·`Chunk.similarity`·`RetrievalSnapshot.dropped_chunks`·lint `no_relevant_evidence`·`overlap.yaml evidence_floor`·골든셋 측정 fixture·벤치 지표 |
 | 2026-10-26 (L) | 로컬 작성 모델 비교 — `llm.yaml model_profiles`(qwen·midm·ax_light), `rra llm-bench`·`tests/golden/`, Mi:dm 2.0 Base(MIT, 32K)·A.X 4.0 Light(Apache 2.0, 16K) 4bit 변환·벤치 결과 JSON 성공률 3.5%·75.9% 로 규칙 ② 탈락 → Qwen2.5-7B 유지(`docs/llm-bench-2026-10-26.md`), `deploy/launchd/com.rra.mlx.plist` |
 | 2026-10-26 | 실물 양식 템플릿 연결(§4.4), [1] 출처 조각 정리·foreign_script·연구과제명 무제한, [2] DB 정비(§4.5: migration 003·004, 만료 제외, embedding_model 메타, `rra reindex`·`rra db backup`), [3] 저장소 계약 테스트, [4] Gemini 4 Argon provider, [5] 작성→검토→수정→재검토→마무리 흐름(§4.6, 버전·검토 파일, finalize 로만 렌더), [6] 프론트엔드용 REST(§9.2: 세션·CSRF·SSE·problem+json·정적 SPA·가짜 모드·openapi.json), [7] Streamlit [최종 마무리 및 다운로드] 단일 흐름 |

@@ -32,6 +32,7 @@ def test_uncollected_follows_source_types():
         "kipris_kr",
         "kipris_intl",
         "ntis",
+        "own",
     ]
 
 

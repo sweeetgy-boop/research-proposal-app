@@ -232,8 +232,9 @@ def _department(fields: Mapping[str, str]) -> str | None:
     ("홍길동 외 2인" 같은 값을 부서로 오인하지 않게).
     """
     limit = MAX_FIELD_CHARS["department"]
-    if dept := _clean(fields.get("department"), limit):
-        return dept
+    dept = _clean(fields.get("department"), limit)
+    if dept and _UNIT_SUFFIX.search(dept.split()[-1]):
+        return dept  # "7개월"·"과제책임" 처럼 조직 단위가 아닌 값은 부서로 보지 않는다
     pi = _clean(fields.get("pi"))
     if m := _PAREN.search(pi):
         return _clean(m.group(1), limit)
@@ -250,11 +251,11 @@ def missing_required(fields: Mapping[str, str], *, has_catalog_title: bool) -> b
 
 
 def summary_doc_id(entry: CatalogEntry | None, fields: Mapping[str, str], org: str) -> str:
+    """카탈로그 매칭이 없으면 기관 + 제목으로 정한다. 발간일은 보지 않는다 — 알리오 페이지 복사본
+    (.txt)과 공시용 요약문 파일(own_docs)은 같은 보고서라 같은 id 로 합쳐진다 (긴 본문이 남는다)."""
     if entry:
         return f"alio:{entry.catalog_id}"  # 원문 filedrop 과 같은 id → 원문이 들어오면 대체
-    basis = "\x1f".join(
-        (org, _clean(fields.get("title")), _clean(fields.get("published")))
-    ).encode()
+    basis = "\x1f".join((org, _clean(fields.get("title")), "")).encode()
     return "alio:sum-" + hashlib.sha256(basis).hexdigest()[:16]
 
 

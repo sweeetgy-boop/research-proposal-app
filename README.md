@@ -22,7 +22,7 @@ macOS 와 WSL 은 `.venv` 를 따로 만든다. `.env` 는 `.env.example` 을 �
 |---|---|---|
 | domain | `src/rra/domain/` | 모델(ProposalRequest·Draft·RunState…)·규칙(근거 검증·lint·유사과제 판정·Agent 정책). pydantic·표준 라이브러리만 |
 | application | `src/rra/application/` | 포트(`typing.Protocol`, 전부 비동기 저장소·임베딩·TaskRunner·Renderer…)·유즈케이스(ingest·precheck·generate·list_missing·diagnostics·purge_runs)·서비스(RunManager·ProposalAssistant) |
-| adapters | `src/rra/adapters/` | SQLite FTS5+sqlite-vec, sentence-transformers, OpenAI 호환 LLM, 자료원(OpenAlex·알리오·ScienceON·NTIS), runs 파일 저장소·락·asyncio 실행기, logging(manifest), rendering(HWPX), security(ASGI 미들웨어) |
+| adapters | `src/rra/adapters/` | SQLite FTS5+sqlite-vec, sentence-transformers, OpenAI 호환 LLM, 자료원(OpenAlex·알리오·ScienceON·NTIS·사내 엑셀/공시 요약문), runs 파일 저장소·락·asyncio 실행기, logging(manifest), rendering(HWPX), security(ASGI 미들웨어) |
 | entrypoints | `src/rra/entrypoints/` | `cli.py`, `mcp/`, `ui/`(Streamlit), `api/`(FastAPI). 유즈케이스 호출만 |
 | 조립 | `src/rra/composition.py`, `src/rra/config_loader.py` | `build_*` 만 / yaml·환경변수 병합 |
 
@@ -35,6 +35,7 @@ rra precheck --current-state "..." --root-cause "..." --limitation "..." --goal 
 rra search "궤도 틀림 자동 감지" -k 5                                                # 하이브리드 검색
 rra llm-check --stage compose                                                        # mlx-lm 왕복 1회 + served_model 확인
 rra ingest --source openalex,alio,alio_summary [--query ...]                          # 수집 → 적재
+rra ingest --source own_projects,own_docs      # 사내 과제 현황 엑셀(data/inbox/own)·공시용 요약문(data/inbox/own_docs)
 rra sources check                                                                    # ScienceON·NTIS 키 유무(값 미표시)·왕복
 rra alio catalog [--fetch] | rra alio missing | rra alio status                       # 알리오 카탈로그·filedrop
 rra generate --current-state ... --goal ... [--file in.yaml] [--resume RUN] [--reuse-input RUN]
