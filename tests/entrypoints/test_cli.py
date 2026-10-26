@@ -47,6 +47,8 @@ def stub(monkeypatch):
         raise LLMUnavailable("provider=gemini 의 키가 .env 에 없습니다: RRA_GEMINI_API_KEY")
 
     monkeypatch.setattr("rra.composition.build_differentiator", no_llm)  # 자동 차별화는 생략
+    monkeypatch.setattr("rra.composition.build_recommender", no_llm)  # 자동 과제 추천도 생략
+    monkeypatch.setattr("rra.composition.recommend_policy", lambda *a, **k: {"auto": True})
     return holder
 
 

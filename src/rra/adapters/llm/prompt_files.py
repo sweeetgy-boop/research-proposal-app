@@ -13,6 +13,7 @@ from pathlib import Path
 PROMPT_PACKAGE = "rra.adapters.llm.prompts"
 REVIEW_NAME = "review"
 DIFFERENTIATE_NAME = "differentiate"
+RECOMMEND_NAME = "recommend"
 SYSTEM_NAME = "system"
 JSON_FALLBACK_NAME = "json_fallback"
 SECTION_PREFIX = "section_"
@@ -59,6 +60,9 @@ class FilePromptLibrary:
 
     def differentiate(self) -> str:
         return self._read(DIFFERENTIATE_NAME)
+
+    def recommend(self) -> str:
+        return self._read(RECOMMEND_NAME)
 
     # ── 부가 ───────────────────────────────────────────────
     def json_fallback(self) -> str:

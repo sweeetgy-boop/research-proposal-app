@@ -644,6 +644,36 @@ Argon 점수(필요성·차별성·실현가능성·기대효과)는 이전 run 
 차별성 2 의 이유는 세 번 다 "무관한 사내 과제 인용·해외 연구와의 차별성 서술 부족" 이다. 영어 논문 상위 코사인은
 0.84~0.85 로 사내 기록(0.85+)보다 조금 낮을 뿐이라 reranker 가 들어오면 보장 규칙은 줄일 수 있다.
 
+### 4.14 차별화 과제 추천 (2026-10-27, ADR 0012)
+
+유사과제 확인 직후, 제안자 아이디어와 기존 과제를 비교해 **기존 과제와 차별성을 갖는 과제 0~5건**을 이유와 함께
+추천한다. 추천할 만한 것이 없으면 추천하지 않고 사유만 보여 준다. 흐름 ②(유사과제 확인·과제 추천)의 두 번째 절반.
+- 유스케이스 `application/usecases/recommend_projects.py`(RecommendProjects): 입력 = 제안 입력 + precheck 알림(최대 10,
+  차단 먼저) + 관련도 하한·자료원별 최소 보장을 거친 검색 근거(`GenerateProposal.retrieve`, 최대 12 청크). 유사과제는
+  `<doc … blocking>`, 근거는 `<chunk id doc>` 구획으로 넣고 JSON 객체 하나(`recommendations`, `no_recommendation_reason`)만
+  파싱한다. 프롬프트 `adapters/llm/prompts/recommend.md`, 단계 `llm.yaml stages.recommend`(Gemini, 키 없으면 compose 로
+  대체·fallback_local), `recommend.auto`(precheck 뒤 자동 1회, 다시 받기는 요청 시).
+- 검증 `domain/rules/recommendation.py`: compared_with 는 알림 doc_id 안, evidence 는 알림+근거 doc_id 안, 지어낸 수치
+  (`numbers.unsupported_numbers`)·정책명(`grounding.ungrounded`)·한자·가나 → 폐기(사유 기록). 거의 같은 추천(가제+요약+
+  차별점 토큰 자카드 ≥ 0.8)은 하나만, 최대 5. **자기 중복 검사**: 추천의 가제·요약·차별점으로 precheck 를 다시 돌려 blocking
+  이면 뺀다(로컬, LLM 호출 없음). 남은 추천이 0 이면 사유 = 모델 사유 + "검증에서 제외됨 n건".
+- 모델 `domain/models/recommendation.py`: `ProjectRecommendation`(title·summary·differentiation·reasons 1~3·build_on·risks·
+  compared_with·evidence), `RecommendationResult`(+ 전송 범위, `transfer()`), `RecommendationPreview`.
+- 선택 반영 `apply_recommendation`: 가제 ← 추천 가제, 목표 ← 원래 목표 + "(추천 과제 보완) 요약", 차별화 방향 ← 차별점.
+  "수정 전 미리보기"(바뀐 칸)를 돌려주고 사용자가 고쳐 확정한 입력으로 초안을 만든다. 고른 방향은 기존처럼
+  `ProposalRequest.differentiation` 으로 목적·방법·특이사항 프롬프트에 들어간다. "원래 아이디어로 진행" 가능.
+- 저장: 결과 전체는 precheck 세션 단위(REST 는 `RecommendationSessions` id, 화면은 session_state)로 두고 초안 생성 때
+  run 에 복사(`RunStorePort.save_recommendations` → `runs/<user>/<run_id>/recommendations.json`). manifest 에는 전송 기록
+  (`RECOMMENDATION_KEYS`: provider·model·doc_id·건수) + `chosen`(고른 index) 만.
+- agent_policy: "precheck 완료 → rra_recommend(자동 1회)", "사용자 다시 받기 → rra_recommend(needs_human)". Tool 목록에
+  `rra_recommend`.
+- 진입점: CLI `rra recommend`·`rra precheck`(자동, `--no-recommend`), REST `POST /v1/precheck`(자동 첨부, `recommendations.id`)·
+  `POST /v1/precheck/recommendations`·`POST /v1/precheck/recommendations/{id}/apply`(미리보기)·`POST /v1/runs`
+  (`recommendation_id`·`recommendation_index`), MCP 쓰기 서버 `rra_recommend`, Streamlit 유사과제 표 아래 추천 카드(선택 →
+  미리보기 → 확정 / 원래 아이디어로 진행 / 다시 받기). 기존 차별화 제안(기능 2)은 그대로 두고 카드의 "비교한 기존 과제"
+  근거로 함께 보인다.
+- 실측(골든셋, Gemini 4 Argon, 2026-10-27): docs/overnight-2026-10-27.md [R] 절과 ADR 0012.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -1152,6 +1182,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-27 (R) | 차별화 과제 추천(§4.14, ADR 0012): `usecases/recommend_projects`, `domain/rules/recommendation`, `prompts/recommend.md`, `llm.yaml stages.recommend`·`recommend.auto`, `RunStorePort.save_recommendations`(recommendations.json), manifest `recommendations`, agent_policy `rra_recommend`, CLI `rra recommend`, REST `/v1/precheck/recommendations(/{id}/apply)`·`RunIn.recommendation_id`, MCP `rra_recommend`, Streamlit 추천 카드; `docs/history/`(연표·수치·ADR·구조도·그래프·캡처, #20) |
 | 2026-10-26 (코퍼스) | OpenAlex 철도 분야 질의 목록 13개·초록 필터·증분/전체 기간·질의당 상한·page 페이징·polite pool/API 키 설정(§4.13); CI 워크플로(`.github/workflows/ci.yml`)·CODEOWNERS·PR 템플릿·CONTRIBUTING; 샌드박스 RLIMIT_AS 제거(리눅스 pymupdf import); 근거 출처 다양성(`hybrid_search sources` 필터·`_top_up_sources`·`balance_sources`, §4.13) |
 | 2026-10-26 (A) | 판단 반영: own 티어 = source own 전부(세부 institute/company, `tier_label`), own 출처 경고 제외, generic_terms 14개 추가, visibility 전부 public(공시용 없는 요약만 internal), 차별화 자동 실행은 차단 알림만, REST `RunIn.differentiation_transfer` → manifest |
 | 2026-10-26 (P6) | 운영 준비(§4.12): `com.rra.ingest.plist`, `rra ingest --skip-unavailable`·`build_available_sources`, plist 테스트, `deploy/README.md` 설치 순서, `docs/deploy-exposure.md` |

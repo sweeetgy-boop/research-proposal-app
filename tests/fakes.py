@@ -17,6 +17,7 @@ class FakeLLM:
     def __init__(self, responses: list[str] | None = None, *, fail_at: set[int] | None = None):
         self.responses = list(responses or [])
         self.calls: list[str] = []
+        self.systems: list[str | None] = []
         self.fail_at = set(fail_at or ())
         self._n = 0
 
@@ -25,6 +26,7 @@ class FakeLLM:
         if n in self.fail_at:
             raise TimeoutError("http://127.0.0.1:8080/v1 응답 없음 — 제안 내용 포함 가능")
         self.calls.append(prompt)
+        self.systems.append(system)
         return self.responses.pop(0) if self.responses else "[]"
 
 
@@ -47,6 +49,9 @@ class FakePromptLibrary:
 
     def differentiate(self) -> str:
         return "DIFFERENTIATE: 겹친 과제 자료와 제안 입력 안에서만, 한국어, JSON 객체 하나"
+
+    def recommend(self) -> str:
+        return "RECOMMEND: 추천 0~5건 또는 사유, 자료·입력 안에서만, 한국어, JSON 객체 하나"
 
 
 class FakeEmbedding:
@@ -275,6 +280,7 @@ class InMemoryRunStore:
         self.confirmations: dict[tuple[str, str], Any] = {}
         self.versions: dict[tuple[str, str], dict[int, Any]] = {}
         self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
+        self.recommendations: dict[tuple[str, str], dict[str, Any]] = {}
         self.claimed: set[tuple[str, str]] = set()
         self._seq = 0
 
@@ -339,6 +345,12 @@ class InMemoryRunStore:
 
     def list_versions(self, user, run_id):
         return sorted(self.versions.get(self._key(user, run_id), {}))
+
+    def save_recommendations(self, user, run_id, data):
+        self.recommendations[self._key(user, run_id)] = dict(data)
+
+    def load_recommendations(self, user, run_id):
+        return self.recommendations.get(self._key(user, run_id))
 
     def save_review(self, user, run_id, review):
         self.reviews.setdefault(self._key(user, run_id), {})[review.round] = review

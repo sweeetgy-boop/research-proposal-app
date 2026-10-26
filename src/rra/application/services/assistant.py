@@ -15,17 +15,22 @@ from rra.application.ports import DocumentRepository
 from rra.application.services.run_manager import DraftView, RunManager
 from rra.application.usecases.differentiate import Differentiate
 from rra.application.usecases.precheck_overlap import PrecheckOverlap
+from rra.application.usecases.recommend_projects import RecommendProjects
 from rra.domain.models import (
     Chunk,
     Confirmation,
     DifferentiationProposal,
     OverlapAlert,
+    ProjectRecommendation,
     ProposalRequest,
+    RecommendationPreview,
+    RecommendationResult,
     RunState,
 )
 from rra.domain.models.run import FINISHED
 from rra.domain.rules import agent_policy as policy
 from rra.domain.rules.overlap import uncollected_sources
+from rra.domain.rules.recommendation import apply_recommendation
 
 SEARCH_K_MAX = 10
 
@@ -50,6 +55,8 @@ class IntakeResult:
     corpus_size: int = 0
     # 차단 알림이 있으면 자동으로 만든 차별화 제안 (없으면 None — 근접 알림은 담당자 요청 시)
     differentiation: DifferentiationProposal | None = None
+    # precheck 뒤 자동 1회 만든 차별화 과제 추천 (recommend.auto). 유스케이스가 없거나 끄면 None
+    recommendations: RecommendationResult | None = None
 
 
 def _utcnow() -> str:
@@ -67,9 +74,13 @@ class ProposalAssistant:
         clock=_utcnow,
         max_trace: int = 200,
         differentiate: Differentiate | None = None,
+        recommend: RecommendProjects | None = None,
+        recommend_auto: bool = True,
     ):
         self.precheck, self.manager, self.repo, self.user = precheck, manager, repo, user
         self.differentiate_usecase = differentiate  # None 이면 기능 2 를 쓸 수 없다 (LLM 없음)
+        self.recommend_usecase = recommend  # None 이면 과제 추천을 쓸 수 없다
+        self.recommend_auto = recommend_auto
         self._clock, self._max_trace = clock, max_trace
         self.trace: list[ToolCall] = []
         self._last_status: dict[str, str] = {}
@@ -91,14 +102,50 @@ class ProposalAssistant:
         self._log(
             policy.on_intake(), f"경보 {len(alerts)}건 (차단 {blocking}건), 적재 문서 {corpus}건"
         )
-        decisions = policy.after_precheck(alerts, req, corpus_size=corpus)
+        decisions = policy.after_precheck(
+            alerts, req, corpus_size=corpus, recommend_auto=self.recommend_auto
+        )
         for d in decisions:
             if d.tool is None:
                 self._log(d, d.action)
         proposal = None
         if policy.has_blocking(alerts) and self.differentiate_usecase is not None:
             proposal = await self.differentiate(req, alerts)  # 차단 → 자동, 근접만이면 수동
-        return IntakeResult(alerts, decisions, uncollected_sources(counts), corpus, proposal)
+        recommendations = None
+        if self.recommend_auto and self.recommend_usecase is not None:
+            recommendations = await self.recommend(req, alerts)  # precheck 완료 → 자동 1회
+        return IntakeResult(
+            alerts, decisions, uncollected_sources(counts), corpus, proposal, recommendations
+        )
+
+    # ── precheck 완료 → rra_recommend (차별화 과제 추천, ADR 0012) ──
+    async def recommend(
+        self, req: ProposalRequest, alerts: list[OverlapAlert], *, again: bool = False
+    ) -> RecommendationResult | None:
+        """기존 과제와 차별성을 갖는 과제 0~5건. 유스케이스가 없으면(LLM 없음) None."""
+        decision = policy.on_recommend(auto=not again)
+        if self.recommend_usecase is None:
+            self._log(decision, "과제 추천 LLM 없음 — 건너뜀")
+            return None
+        result = await self.recommend_usecase(req, alerts)
+        where = "로컬 모델" if result.fallback_local else (result.provider or "LLM")
+        if result.skipped_reason:
+            summary = f"건너뜀 ({result.skipped_reason})"
+        elif not result.recommendations:
+            summary = f"추천 없음 — {result.no_recommendation_reason} ({where})"
+        else:
+            summary = (
+                f"추천 {len(result.recommendations)}건, 제외 {len(result.discarded)}건 ({where})"
+            )
+        self._log(decision, summary)
+        return result
+
+    @staticmethod
+    def preview_recommendation(
+        req: ProposalRequest, rec: ProjectRecommendation, index: int
+    ) -> tuple[ProposalRequest, RecommendationPreview]:
+        """추천 하나를 입력에 반영한 미리보기 — 사용자가 고쳐 확정한다 (LLM 없음)."""
+        return apply_recommendation(req, rec, index)
 
     # ── 차단·근접 알림 → rra_differentiate (기능 2) ─────────
     async def differentiate(
@@ -126,6 +173,8 @@ class ProposalAssistant:
         *,
         acknowledged: bool,
         differentiation: DifferentiationProposal | None = None,
+        recommendations: RecommendationResult | None = None,
+        chosen_recommendation: int | None = None,
     ) -> RunState:
         if not policy.may_generate(alerts, acknowledged=acknowledged):
             raise HumanConfirmationRequired("차단 경보를 확인한 뒤에만 초안을 생성합니다.")
@@ -134,7 +183,13 @@ class ProposalAssistant:
         transfer = None
         if differentiation is not None:
             transfer = {**differentiation.transfer(), "chosen": bool(req.differentiation.strip())}
-        state = await self.manager.submit(self.user, req, differentiation=transfer)
+        state = await self.manager.submit(
+            self.user,
+            req,
+            differentiation=transfer,
+            recommendations=recommendations,
+            chosen_recommendation=chosen_recommendation,
+        )
         self._log(
             decision,
             f"run {state.run_id} 대기열 등록" + (" (차단 경보 확인 후)" if acknowledged else ""),

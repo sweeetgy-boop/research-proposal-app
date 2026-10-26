@@ -90,6 +90,8 @@ class RunState(BaseModel):
     finalized_at: str | None = None
     # 기능 2 차별화 제안의 외부 전송 기록 — DifferentiationProposal.transfer() (본문 없음)
     differentiation: dict[str, Any] | None = None
+    # 차별화 과제 추천 전송 기록(RecommendationResult.transfer()) + 고른 추천 index. manifest 에만
+    recommendations: dict[str, Any] | None = None
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

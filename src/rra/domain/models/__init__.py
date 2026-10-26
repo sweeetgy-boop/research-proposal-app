@@ -12,6 +12,12 @@ from .gap import (
     Tier,
 )
 from .proposer import Person, ProposerInfo
+from .recommendation import (
+    MAX_RECOMMENDATIONS,
+    ProjectRecommendation,
+    RecommendationPreview,
+    RecommendationResult,
+)
 from .request import Budget, ProposalRequest
 from .review import CriterionScore, DraftVersion, ReviewComment, ReviewRound, ReviewTransfer
 from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
@@ -44,6 +50,10 @@ __all__ = [
     "ReviewRound",
     "ReviewTransfer",
     "Person",
+    "MAX_RECOMMENDATIONS",
+    "ProjectRecommendation",
+    "RecommendationPreview",
+    "RecommendationResult",
     "ProposalRequest",
     "ProposerInfo",
     "StrategyCatalog",

@@ -108,6 +108,7 @@ async def test_tool_call_reports_input_errors_to_the_caller(server):
 # ── 쓰기 도구 (--enable-generate) ────────────────────────
 WRITE_TOOLS = {
     "rra_differentiate",
+    "rra_recommend",
     "rra_generate",
     "rra_get_draft",
     "rra_confirm",

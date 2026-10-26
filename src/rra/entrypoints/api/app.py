@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -41,11 +42,13 @@ from rra.domain.models.request import validation_message
 from rra.domain.models.review import EditRequest
 from rra.domain.models.run import ACTIVE, is_valid_run_id
 from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
+from rra.domain.rules.recommendation import apply_recommendation
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
     FinalizeIn,
+    RecommendationApplyIn,
     RevertIn,
     RunIn,
     SearchIn,
@@ -56,6 +59,8 @@ from rra.entrypoints.views import (
     chunks_payload,
     differentiation_payload,
     draft_payload,
+    recommendation_preview_payload,
+    recommendations_payload,
     render_check_payload,
     review_payload,
     run_state_payload,
@@ -117,6 +122,28 @@ class SessionAuth:
         return bool(self.token) and secrets.compare_digest(presented.strip(), self.token)
 
 
+class RecommendationSessions:
+    """precheck 세션 단위의 추천 결과 보관 — id(무작위) → (입력, 결과). 메모리에만, 최근 MAX 건.
+
+    초안 생성 때 POST /v1/runs 의 recommendation_id 로 run 에 복사한다 (recommendations.json).
+    """
+
+    MAX = 200
+
+    def __init__(self) -> None:
+        self._items: dict[str, tuple[ProposalRequest, Any]] = {}
+
+    def put(self, req: ProposalRequest, result: Any) -> str:
+        rec_id = secrets.token_hex(12)
+        self._items[rec_id] = (req, result)
+        while len(self._items) > self.MAX:
+            self._items.pop(next(iter(self._items)))
+        return rec_id
+
+    def get(self, rec_id: str) -> tuple[ProposalRequest, Any] | None:
+        return self._items.get(rec_id)
+
+
 def create_app(
     *,
     manager: Any,
@@ -126,6 +153,8 @@ def create_app(
     middlewares: list[tuple[type, dict[str, Any]]],
     query_max_chars: int = 500,
     differentiate: Any | None = None,
+    recommend: Any | None = None,
+    recommend_auto: bool = True,
     on_shutdown: Callable[[], Any] | None = None,
     session_auth: SessionAuth | None = None,
     static_dir: Path | None = None,
@@ -226,15 +255,54 @@ def create_app(
             ]
         }
 
+    recommendation_sessions = RecommendationSessions()
+
+    async def _recommend(req: ProposalRequest, alerts: list[Any]) -> dict[str, Any]:
+        result = await recommend(req, alerts)
+        rec_id = recommendation_sessions.put(req, result)
+        return {"id": rec_id, **recommendations_payload(result, clean=_clean)}
+
     @app.post(f"/{API_VERSION}/precheck")
     async def precheck_route(req: ProposalRequest) -> dict[str, Any]:
-        """유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙인다."""
+        """유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,
+        과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다."""
         alerts = await precheck(req)
         out = {"notice": UNTRUSTED_NOTICE, **alerts_payload(alerts, clean=_clean)}
         if out["blocking"] and differentiate is not None:
             proposal = await differentiate(req, alerts)
             out["differentiation"] = differentiation_payload(proposal, clean=_clean)
+        if recommend is not None and recommend_auto:
+            out["recommendations"] = await _recommend(req, alerts)
         return out
+
+    @app.post(f"/{API_VERSION}/precheck/recommendations")
+    async def recommend_route(req: ProposalRequest) -> dict[str, Any]:
+        """차별화 과제 추천(ADR 0012) — 다시 받기. 결과는 세션 id 로 보관되어 POST /v1/runs 의
+        recommendation_id 로 run 에 복사된다 (외부 LLM 출력, 비신뢰)."""
+        if recommend is None:
+            raise HTTPException(503, "과제 추천을 쓸 수 없습니다 (LLM 없음).")
+        alerts = await precheck(req)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            **alerts_payload(alerts, clean=_clean),
+            "recommendations": await _recommend(req, alerts),
+        }
+
+    @app.post(f"/{API_VERSION}/precheck/recommendations/{{rec_id}}/apply")
+    async def recommend_apply_route(rec_id: str, body: RecommendationApplyIn) -> dict[str, Any]:
+        """고른 추천을 제안자 입력에 채운 '수정 전 미리보기'. 저장하지 않는다 — 사용자가 고쳐 확정한
+        입력을 POST /v1/runs 로 보낸다."""
+        session = recommendation_sessions.get(rec_id)
+        if session is None:
+            raise HTTPException(404, "추천 세션을 찾을 수 없습니다 (만료 또는 모르는 id).")
+        req, result = session
+        if body.index >= len(result.recommendations):
+            raise HTTPException(422, "그 번호의 추천이 없습니다.")
+        after, preview = apply_recommendation(req, result.recommendations[body.index], body.index)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            **recommendation_preview_payload(req, after, preview, clean=_clean),
+        }
 
     @app.post(f"/{API_VERSION}/precheck/differentiate")
     async def differentiate_route(req: ProposalRequest) -> dict[str, Any]:
@@ -275,8 +343,24 @@ def create_app(
     @app.post(f"/{API_VERSION}/runs", status_code=202)
     async def submit_route(body: RunIn) -> dict[str, Any]:
         req = body.request()
+        recommendations = None
+        if body.recommendation_id is not None:
+            session = recommendation_sessions.get(body.recommendation_id)
+            if session is None:
+                raise HTTPException(404, "추천 세션을 찾을 수 없습니다 (만료 또는 모르는 id).")
+            recommendations = session[1]
+            if body.recommendation_index is not None and body.recommendation_index >= len(
+                recommendations.recommendations
+            ):
+                raise HTTPException(422, "그 번호의 추천이 없습니다.")
         try:
-            state = await manager.submit(user, req, differentiation=body.transfer_record())
+            state = await manager.submit(
+                user,
+                req,
+                differentiation=body.transfer_record(),
+                recommendations=recommendations,
+                chosen_recommendation=body.recommendation_index,
+            )
         except QueueFull as exc:
             raise HTTPException(429, str(exc)) from exc
         except RunBusy as exc:

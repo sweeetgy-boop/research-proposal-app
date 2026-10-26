@@ -328,6 +328,56 @@ def differentiation_payload(
     }
 
 
+def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """RecommendationResult → dict (CLI·MCP·REST 공용). 본문은 LLM 출력(비신뢰) → clean."""
+    return {
+        "skipped_reason": result.skipped_reason,
+        "no_recommendation_reason": (
+            clean(result.no_recommendation_reason) if result.no_recommendation_reason else None
+        ),
+        "provider": result.provider,
+        "model": result.model,
+        "fallback_local": result.fallback_local,
+        "transfer": {
+            "public_doc_ids": list(result.public_doc_ids),
+            "internal_doc_ids": list(result.internal_doc_ids),
+            "excluded_doc_ids": list(result.excluded_doc_ids),
+            "calls": result.calls,
+        },
+        "recommendations": [
+            {
+                "index": i,
+                "title": clean(r.title),
+                "summary": clean(r.summary),
+                "differentiation": clean(r.differentiation),
+                "reasons": [clean(x) for x in r.reasons],
+                "build_on": clean(r.build_on),
+                "risks": clean(r.risks),
+                "compared_with": list(r.compared_with),
+                "evidence": list(r.evidence),
+            }
+            for i, r in enumerate(result.recommendations)
+        ],
+        "discarded": [{k: clean(str(v)) for k, v in d.items()} for d in result.discarded],
+    }
+
+
+def recommendation_preview_payload(
+    before: Any, after: Any, preview: Any, *, clean: Callable[[str], str] = _same
+) -> dict[str, Any]:
+    """추천 적용 미리보기 — 바뀐 칸과 전/후 값. 사용자가 고쳐 확정한 입력으로 초안을 만든다."""
+    fields = ("title_hint", "goal", "differentiation")
+    return {
+        "index": preview.index,
+        "changed": list(preview.changed),
+        "before": {k: clean(getattr(before, k)) for k in fields},
+        "after": {k: clean(getattr(after, k)) for k in fields},
+        "request": {
+            k: (clean(v) if isinstance(v, str) else v) for k, v in after.model_dump().items()
+        },
+    }
+
+
 def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
     """RunState → 상태 조회 응답 (초안 본문 없음)."""
     done, total = state.progress

@@ -38,6 +38,7 @@ MANIFEST_KEYS = frozenset(
         "review",
         "finalized_at",
         "differentiation",
+        "recommendations",
     }
 )
 DIFFERENTIATION_KEYS = frozenset(
@@ -50,6 +51,21 @@ DIFFERENTIATION_KEYS = frozenset(
         "excluded_doc_ids",
         "calls",
         "items",
+        "discarded",
+        "skipped_reason",
+        "chosen",
+    }
+)
+RECOMMENDATION_KEYS = frozenset(
+    {
+        "provider",
+        "model",
+        "fallback_local",
+        "public_doc_ids",
+        "internal_doc_ids",
+        "excluded_doc_ids",
+        "calls",
+        "recommendations",
         "discarded",
         "skipped_reason",
         "chosen",
@@ -114,6 +130,9 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
     extra = set(manifest.get("differentiation") or {}) - DIFFERENTIATION_KEYS
     if extra:
         raise ValueError(f"manifest differentiation 에 허용되지 않은 키: {sorted(extra)}")
+    extra = set(manifest.get("recommendations") or {}) - RECOMMENDATION_KEYS
+    if extra:
+        raise ValueError(f"manifest recommendations 에 허용되지 않은 키: {sorted(extra)}")
     for value in _strings(manifest):
         if len(value) > MAX_TEXT_CHARS:
             raise ValueError("manifest 에 긴 문자열이 있습니다 — 원문이 섞였을 수 있습니다.")

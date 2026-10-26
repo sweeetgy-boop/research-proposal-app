@@ -186,6 +186,13 @@ def review_policy(settings: Settings) -> dict[str, Any]:
     }
 
 
+def recommend_policy(settings: Settings) -> dict[str, Any]:
+    """llm.yaml 의 recommend 정책 (기본: auto=true — precheck 뒤 자동 1회)."""
+    cfg = read_config("llm.yaml", settings)
+    rec = cfg.get("recommend") or {}
+    return {"auto": bool(rec.get("auto", True))}
+
+
 def served_model_aliases(served: str | None) -> frozenset[str]:
     """선언한 모델 이름과 같은 것으로 볼 문자열. 로컬 경로로 띄웠으면 서버는 절대경로를 싣는다."""
     if not served:

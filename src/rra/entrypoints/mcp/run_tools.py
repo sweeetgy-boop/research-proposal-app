@@ -36,6 +36,7 @@ from rra.entrypoints.mcp.tools import ToolInputError
 from rra.entrypoints.views import (
     differentiation_payload,
     draft_payload,
+    recommendations_payload,
     render_check_payload,
     review_payload,
     version_payload,
@@ -53,12 +54,53 @@ def _run_id(value: str) -> str:
 
 class RraRunTools:
     def __init__(
-        self, manager: RunManager, user: str = "local", *, precheck=None, differentiate=None
+        self,
+        manager: RunManager,
+        user: str = "local",
+        *,
+        precheck=None,
+        differentiate=None,
+        recommend=None,
     ):
         self._manager = manager
         self._user = user
         self._precheck = precheck
         self._differentiate = differentiate
+        self._recommend = recommend
+
+    async def recommend(
+        self,
+        current_state: str,
+        root_cause: str,
+        limitation: str,
+        goal: str,
+        constraints: str = "",
+        title_hint: str = "",
+    ) -> dict[str, Any]:
+        """차별화 과제 추천(ADR 0012) — precheck 뒤 기존 과제와 차별성을 갖는 과제 0~5건과 이유.
+        추천할 것이 없으면 사유만. 외부 LLM 출력(비신뢰)."""
+        if self._precheck is None or self._recommend is None:
+            raise ToolInputError("과제 추천을 쓸 수 없습니다 (LLM 없음).")
+        req = ProposalRequest(
+            current_state=current_state,
+            root_cause=root_cause,
+            limitation=limitation,
+            goal=goal,
+            constraints=constraints,
+            title_hint=title_hint,
+        )
+        alerts = await self._precheck(req)
+        result = await self._recommend(req, alerts)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            "blocking": any(a.blocking for a in alerts),
+            **recommendations_payload(result, clean=escape_untrusted),
+            "hint": (
+                "고른 추천의 title 을 title_hint 로, differentiation 을 rra_generate 의 "
+                "differentiation 으로 넘기고 goal 을 summary 로 보완하면 반영된다. "
+                "원래 아이디어로 진행해도 된다."
+            ),
+        }
 
     async def differentiate(
         self,

@@ -105,4 +105,5 @@ alio 15/own 5/openalex 0 → alio 9/own 6/openalex 6, 같은 입력 Argon 점수
 
 | 날짜 | 무엇 | 왜 | PR | 핵심 수치 |
 |---|---|---|---|---|
+| 2026-10-27 | 차별화 과제 추천 [R] — 유사과제 확인 직후 기존 과제와 다른 과제 0~5건(검증·자기 중복 검사·미리보기 반영), CLI·REST·MCP·Streamlit, run 복사·manifest | 차단만 알리면 제안자가 방향을 바꿀 재료가 없음(ADR 0012) | #21 | 골든셋 01·02·03 실측은 overnight 기록·ADR 0012 |
 | 2026-10-27 | 개발 경과 기록 `docs/history/`(연표·수치·ADR 14건·교훈·구조도 7장·그래프 5장·Streamlit 화면 캡처 5장), `tools/history_charts.py`, CONTRIBUTING·PR 템플릿에 경과 기록 규칙 | 발표 자료 원천을 저장소 안에 두고 PR 마다 갱신하게 | #20 | 커밋 107, 테스트 1,178, 자료원 3,721건 |

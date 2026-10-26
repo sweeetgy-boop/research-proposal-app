@@ -96,7 +96,7 @@
     "/v1/precheck": {
       "post": {
         "summary": "Precheck Route",
-        "description": "유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙인다.",
+        "description": "유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,\n과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다.",
         "operationId": "precheck_route_v1_precheck_post",
         "requestBody": {
           "content": {
@@ -117,6 +117,99 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Precheck Route V1 Precheck Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/precheck/recommendations": {
+      "post": {
+        "summary": "Recommend Route",
+        "description": "차별화 과제 추천(ADR 0012) — 다시 받기. 결과는 세션 id 로 보관되어 POST /v1/runs 의\nrecommendation_id 로 run 에 복사된다 (외부 LLM 출력, 비신뢰).",
+        "operationId": "recommend_route_v1_precheck_recommendations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Recommend Route V1 Precheck Recommendations Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/precheck/recommendations/{rec_id}/apply": {
+      "post": {
+        "summary": "Recommend Apply Route",
+        "description": "고른 추천을 제안자 입력에 채운 '수정 전 미리보기'. 저장하지 않는다 — 사용자가 고쳐 확정한\n입력을 POST /v1/runs 로 보낸다.",
+        "operationId": "recommend_apply_route_v1_precheck_recommendations__rec_id__apply_post",
+        "parameters": [
+          {
+            "name": "rec_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Rec Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationApplyIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Recommend Apply Route V1 Precheck Recommendations  Rec Id  Apply Post"
                 }
               }
             }
@@ -1365,6 +1458,23 @@
         "title": "ProposalRequest",
         "description": "제안자 입력. G: 길이 상한은 도메인에서 강제.\n\n개인정보(제안자·부서장 성명·직급·연락처)는 여기 두지 않는다 — run 폴더(request.json)에\n저장되기 때문이다. 그 값은 렌더 시점에만 ProposerInfo 로 받는다 (models/proposer.py)."
       },
+      "RecommendationApplyIn": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Index"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "index"
+        ],
+        "title": "RecommendationApplyIn",
+        "description": "POST /v1/precheck/recommendations/{id}/apply — 고른 추천 번호. 미리보기만 돌려준다."
+      },
       "RevertIn": {
         "properties": {
           "to": {
@@ -1464,6 +1574,32 @@
                 "type": "null"
               }
             ]
+          },
+          "recommendation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation Id"
+          },
+          "recommendation_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation Index"
           }
         },
         "type": "object",
@@ -1474,7 +1610,7 @@
           "goal"
         ],
         "title": "RunIn",
-        "description": "생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 (manifest 에만 남는다)."
+        "description": "생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 + (선택) 과제 추천 세션 id·번호.\n\nrecommendation_id 가 있으면 서버가 그 세션의 추천 결과 전체를 run 의 recommendations.json 에\n복사하고 manifest 에 전송 기록·chosen 을 남긴다. 모르는 id 는 404."
       },
       "SearchIn": {
         "properties": {

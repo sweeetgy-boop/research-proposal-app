@@ -47,6 +47,7 @@ from rra.domain.models import (
     DraftVersion,
     ProposalRequest,
     ProposerInfo,
+    RecommendationResult,
     RetrievalSnapshot,
     ReviewComment,
     ReviewRound,
@@ -203,11 +204,15 @@ class RunManager:
         *,
         on_step: StepCallback | None = None,
         differentiation: dict[str, Any] | None = None,
+        recommendations: RecommendationResult | None = None,
+        chosen_recommendation: int | None = None,
     ) -> RunState:
         """queued 로 저장하고 백그라운드 실행을 시작한 뒤 즉시 돌려준다.
 
         differentiation: 기능 2 차별화 제안의 전송 기록(DifferentiationProposal.transfer()).
         manifest 에만 남는다.
+        recommendations: 차별화 과제 추천 결과 — 전체는 run 의 recommendations.json 에 복사하고
+        manifest 에는 전송 기록 + 고른 추천 index(chosen) 만 남긴다.
         """
         active = [s for s in self.list_runs(user) if s.status in ACTIVE]
         if len(active) >= self.max_queued:
@@ -218,6 +223,14 @@ class RunManager:
         state.model = self.model
         state.template = self.generate.template
         state.differentiation = dict(differentiation) if differentiation else None
+        if recommendations is not None:
+            self.store.save_recommendations(
+                user, state.run_id, recommendations.model_dump(mode="json")
+            )
+            state.recommendations = {
+                **recommendations.transfer(),
+                "chosen": chosen_recommendation,
+            }
         self.store.save_state(state)
         claim = self.store.claim(user, state.run_id)  # 백그라운드 시작 전에 잡아 공백을 없앤다
         self._start(state, claim, on_step)
@@ -985,6 +998,7 @@ def manifest(
         },
         "finalized_at": state.finalized_at,
         "differentiation": dict(state.differentiation) if state.differentiation else None,
+        "recommendations": dict(state.recommendations) if state.recommendations else None,
     }
 
 

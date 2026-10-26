@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from rra.domain.models import (
     Confirmation,
@@ -61,6 +61,12 @@ class RunStorePort(Protocol):
     def load_version(self, user: str, run_id: str, version: int) -> DraftVersion | None: ...
 
     def list_versions(self, user: str, run_id: str) -> list[int]: ...
+
+    def save_recommendations(self, user: str, run_id: str, data: dict[str, Any]) -> None:
+        """차별화 과제 추천 결과 전체를 run 에 복사 (recommendations.json)."""
+        ...
+
+    def load_recommendations(self, user: str, run_id: str) -> dict[str, Any] | None: ...
 
     def save_review(self, user: str, run_id: str, review: ReviewRound) -> None: ...
 

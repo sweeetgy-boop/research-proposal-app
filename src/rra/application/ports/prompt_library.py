@@ -26,3 +26,7 @@ class PromptLibraryPort(Protocol):
     def differentiate(self) -> str:
         """유사과제 활용·차별화 제안 시스템 프롬프트 — 자료·입력 안에서만, JSON 객체."""
         ...
+
+    def recommend(self) -> str:
+        """차별화 과제 추천 시스템 프롬프트 — 추천 0~5건 또는 사유, 자료 안에서만, JSON 객체."""
+        ...
