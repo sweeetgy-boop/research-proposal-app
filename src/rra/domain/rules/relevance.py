@@ -35,6 +35,12 @@ class RelevanceFloor(BaseModel):
 
     min_similarity: float = Field(default=0.79, ge=0.0, le=1.0)
     min_keyword_hits: int = Field(default=1, ge=0)
+    # 출처 다양성(2026-10-26, OpenAlex 2,468건 적재 뒤): 한국어 질의는 FTS·벡터 모두 사내 기록(짧은
+    # 제목, 0.85)을 앞세워 상위 20 에 영어 논문이 하나도 남지 않았다. 검색은 k×search_multiplier 로
+    # 넓게 받고, 하한 통과 청크를 출처(doc_id 접두어)마다 최소 min_per_source 건 보장한 뒤 나머지는
+    # 융합 순위대로 채운다. 0 이면 끔.
+    min_per_source: int = Field(default=4, ge=0)
+    search_multiplier: int = Field(default=4, ge=1)
 
 
 def has_hangul(text: str) -> bool:
@@ -66,3 +72,31 @@ def filter_chunks(
         else:
             dropped.append((c, reason))
     return kept, dropped
+
+
+def balance_sources(chunks: list[Chunk], k: int, min_per_source: int) -> list[Chunk]:
+    """순위 목록에서 k 개를 고르되 출처(doc_id 의 ':' 앞)마다 최소 min_per_source 건을 먼저 보장.
+
+    보장분은 출처별 순위 순, 나머지는 전체 순위 순. 출처가 많아 보장분만으로 k 를 넘으면 전체 순위
+    순으로 자른다.
+    """
+    if k <= 0:
+        return []
+    if min_per_source <= 0 or len(chunks) <= k:
+        return chunks[:k]
+    picked: list[Chunk] = []
+    per_source: dict[str, int] = {}
+    for c in chunks:
+        src = c.doc_id.split(":", 1)[0]
+        if per_source.get(src, 0) < min_per_source:
+            per_source[src] = per_source.get(src, 0) + 1
+            picked.append(c)
+    chosen = {c.chunk_id for c in picked}
+    for c in chunks:
+        if len(picked) >= k:
+            break
+        if c.chunk_id not in chosen:
+            chosen.add(c.chunk_id)
+            picked.append(c)
+    order = {c.chunk_id: i for i, c in enumerate(chunks)}
+    return sorted(picked, key=lambda c: order[c.chunk_id])[:k]

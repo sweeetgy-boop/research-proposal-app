@@ -130,12 +130,17 @@ class InMemoryRepository:
     async def upsert(self, docs, chunks):
         self.seed(docs, chunks)
 
-    async def hybrid_search(self, queries, *, k=20, orgs=None):
-        self.calls.append(("hybrid_search", {"queries": queries, "k": k, "orgs": orgs}))
+    async def hybrid_search(self, queries, *, k=20, orgs=None, sources=None):
+        self.calls.append(
+            ("hybrid_search", {"queries": queries, "k": k, "orgs": orgs, "sources": sources})
+        )
         if not [q for q in queries if isinstance(q, str) and q.strip()]:
             return []  # 저장소 계약: 빈 질의는 빈 결과
         # similarity 는 심어 둔 값 그대로 (None = 벡터 색인 없음). 관련도 하한 테스트가 값을 넣는다
-        return [c for c in self.chunks if self._valid(c.doc_id)][: max(0, k)]
+        hits = [c for c in self.chunks if self._valid(c.doc_id)]
+        if sources:  # 자료원 필터 — doc_id 접두어(= Document.source) 로 판정
+            hits = [c for c in hits if c.doc_id.split(":", 1)[0] in set(sources)]
+        return hits[: max(0, k)]
 
     async def find_similar(self, text, *, k=10):
         self.calls.append(("find_similar", {"text": text, "k": k}))

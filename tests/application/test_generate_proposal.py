@@ -216,3 +216,78 @@ async def test_overlap_review_is_exempt_when_overlap_was_checked(req, repo, rule
     assert gen.evidence_skipped(snap) == {}
     composed = await gen.compose_section("overlap_review", req, snap)
     assert composed.mode == "app" and composed.section.sentences  # 앱 확정 문장
+
+
+async def test_retrieve_searches_wide_and_balances_sources(req, repo, rules):
+    from rra.domain.models import Chunk
+    from rra.domain.rules.relevance import RelevanceFloor
+
+    repo.chunks = [
+        Chunk(chunk_id=f"own:{i}#0", doc_id=f"own:{i}", ordinal=0, text="english", similarity=0.9)
+        for i in range(6)
+    ] + [
+        Chunk(
+            chunk_id=f"openalex:W{i}#0",
+            doc_id=f"openalex:W{i}",
+            ordinal=0,
+            text="english",
+            similarity=0.85,
+        )
+        for i in range(6)
+    ]
+    gen = make(FakeLLM(), repo, rules)
+    gen.k = 4
+    gen.relevance = RelevanceFloor(min_keyword_hits=0, min_per_source=2, search_multiplier=3)
+    snap = await gen.retrieve(req)
+    wide = [c for c in repo.calls if c[0] == "hybrid_search"][0]
+    assert wide[1]["k"] == 12 and wide[1]["sources"] is None  # k × search_multiplier
+    assert sorted(c.doc_id.split(":")[0] for c in snap.chunks) == [
+        "openalex",
+        "openalex",
+        "own",
+        "own",
+    ]
+
+
+async def test_retrieve_tops_up_a_source_the_wide_search_crowded_out(req, repo, rules):
+    """넓은 검색(k×n) 안에도 영어 논문이 없으면 그 자료원만으로 다시 검색해 보장분을 채운다."""
+    from rra.domain.models import Chunk, Document
+    from rra.domain.rules.relevance import RelevanceFloor
+
+    def chunk(src, i, sim):
+        return Chunk(
+            chunk_id=f"{src}:{i}#0", doc_id=f"{src}:{i}", ordinal=0, text="english", similarity=sim
+        )
+
+    repo.docs = {
+        f"{src}:{i}": Document(doc_id=f"{src}:{i}", source=src, doc_type="paper", title="t")
+        for src in ("own", "openalex", "alio")
+        for i in range(3)
+    }
+    # 융합 순위: own 20건 → 그 뒤에야 openalex. alio 는 전부 하한 미달(0.5).
+    repo.chunks = (
+        [chunk("own", i, 0.9) for i in range(20)]
+        + [chunk("openalex", i, 0.85) for i in range(3)]
+        + [chunk("alio", i, 0.5) for i in range(3)]
+    )
+    gen = make(FakeLLM(), repo, rules)
+    gen.k = 6
+    gen.relevance = RelevanceFloor(min_keyword_hits=0, min_per_source=2, search_multiplier=2)
+    snap = await gen.retrieve(req)
+    searches = [c[1] for c in repo.calls if c[0] == "hybrid_search"]
+    assert searches[0] == {"queries": [req.search_text()], "k": 12, "orgs": None, "sources": None}
+    # own 은 이미 충분 → 재검색 없음. alio·openalex 만 자료원 필터로 min_per_source×multiplier.
+    assert [(s["sources"], s["k"]) for s in searches[1:]] == [(["alio"], 4), (["openalex"], 4)]
+    by = sorted(c.doc_id.split(":")[0] for c in snap.chunks)
+    assert by == ["openalex", "openalex", "own", "own", "own", "own"]
+    assert [c.chunk_id for c in snap.chunks if c.doc_id.startswith("openalex")] == [
+        "openalex:0#0",
+        "openalex:1#0",
+    ]
+    assert len(snap.chunks) == 6
+    # 자료원 재검색에서 하한에 걸린 청크도 이유가 남는다
+    assert {k: v for k, v in snap.dropped_chunks.items() if k.startswith("alio")} == {
+        "alio:0#0": "similarity",
+        "alio:1#0": "similarity",
+        "alio:2#0": "similarity",
+    }

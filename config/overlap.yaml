@@ -13,6 +13,10 @@
 evidence_floor:
   min_similarity: 0.79
   min_keyword_hits: 1
+  # 출처 다양성 (2026-10-26, OpenAlex 2,468건 적재 뒤): 검색을 k×search_multiplier 로 넓게 받고 하한 통과 청크를
+  # 출처(openalex·alio·own …)마다 최소 min_per_source 건 보장한 뒤 융합 순위대로 k 개. 0 이면 끔.
+  min_per_source: 4
+  search_multiplier: 4
 keywords:
   min_hits: 2
   # 철도 과제 문서에 흔해 겹쳐도 근거가 안 되는 말. domain/rules/keywords.DEFAULT_GENERIC_TERMS 에 더해진다.

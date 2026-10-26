@@ -333,10 +333,11 @@ def test_relevance_floor_from_overlap_yaml_and_defaults(tmp_path):
 
     assert relevance_floor(settings_for(tmp_path)) == RelevanceFloor()  # 파일 없음 → 기본값
     (tmp_path / "overlap.yaml").write_text(
-        "evidence_floor:\n  min_similarity: 0.85\n  min_keyword_hits: 2\n", encoding="utf-8"
+        "evidence_floor:\n  min_similarity: 0.85\n  min_keyword_hits: 2\n  min_per_source: 0\n",
+        encoding="utf-8",
     )
     assert relevance_floor(settings_for(tmp_path)) == RelevanceFloor(
-        min_similarity=0.85, min_keyword_hits=2
+        min_similarity=0.85, min_keyword_hits=2, min_per_source=0
     )
     (tmp_path / "overlap.yaml").write_text("evidence_floor: [1]\n", encoding="utf-8")
     with pytest.raises(ValueError):

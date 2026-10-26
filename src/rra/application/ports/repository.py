@@ -13,8 +13,15 @@ class DocumentRepository(Protocol):
     async def upsert(self, docs: list[Document], chunks: list[Chunk]) -> None: ...
 
     async def hybrid_search(
-        self, queries: list[str], *, k: int = 20, orgs: list[str] | None = None
-    ) -> list[Chunk]: ...
+        self,
+        queries: list[str],
+        *,
+        k: int = 20,
+        orgs: list[str] | None = None,
+        sources: list[str] | None = None,
+    ) -> list[Chunk]:
+        """FTS + 벡터 융합 검색. orgs 는 기관 태그, sources 는 자료원(Document.source) 필터."""
+        ...
 
     async def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]: ...
 
