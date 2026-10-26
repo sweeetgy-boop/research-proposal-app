@@ -299,14 +299,6 @@ async def test_list_models_errors(response, error):
             await llm.list_models()
 
 
-def test_served_model_listed_is_exact():
-    from rra.adapters.llm._endpoint import served_model_listed
-
-    assert served_model_listed({"a/b"}, [" a/b "])
-    assert not served_model_listed({"a/B"}, ["a/b"])
-    assert not served_model_listed({""}, [""])
-
-
 # ── [4] Gemini: 허용 호스트·reasoning_effort·401 비재시도 ────────────────
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai/"
 

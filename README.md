@@ -2,8 +2,8 @@
 
 한국철도공사 철도연구원 양식(별지 제2호서식, 2024.02.19.) 연구과제 제안서 초안을 로컬 LLM 으로 만드는 앱.
 헥사고날 구조(domain → application(ports·usecases) → adapters, 진입점 CLI·MCP·Streamlit·REST 는 같은
-application 을 호출), 보안코딩 A~J 반영. 설계·현황은 `docs/architecture.md`, MCP 는 `docs/mcp.md`,
-배포는 `deploy/README.md`.
+application 을 호출), 보안코딩 A~J 반영. 설계는 `docs/architecture.md`, 개발 현황·남은 일·진행 계획은
+`docs/status.md`, MCP 는 `docs/mcp.md`, 배포는 `deploy/README.md`.
 
 ## 설치
 
@@ -59,5 +59,6 @@ LLM 은 `mlx_lm.server --host 127.0.0.1 --port 8080` (OpenAI 호환, `config/llm
 
 - Step 1~10 + 실물 양식 템플릿(`tools/build_form_template.py`) + 작성 → Argon 검토 → 제안자 수정 → 재검토 → 최종 마무리
   흐름(`docs/architecture.md` §4.6) + 프론트엔드용 REST(§9.2, `docs/openapi.json`) 까지. 양식 파일은 finalize 로만.
-- 대기(사람 입력): Gemini 키(`RRA_GEMINI_API_KEY`, 없으면 검토 건너뜀), ScienceON·NTIS·KIPRIS 키, `korail_strategy.yaml`
-  전략체계, 사내 과제 목록·공시용 요약문 적재(열 매핑 확인 뒤), 연구과제 공고문, 프론트엔드 `web/dist`.
+- Argon 검토는 `RRA_GEMINI_API_KEY` 로 연결돼 있다(없으면 검토 건너뜀 기록). 기획서 기준 미구현은 기능 2
+  "유사과제 활용·차별화 제안" 과 KIPRIS 특허 수집. 항목별 현황·근거·단계 계획(P0~P7)은 `docs/status.md`.
+- 대기(사람 입력): ScienceON·NTIS·KIPRIS 키, `korail_strategy.yaml` 전략체계, 연구과제 공고문, 프론트엔드 `web/dist`.
