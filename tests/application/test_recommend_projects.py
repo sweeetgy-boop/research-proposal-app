@@ -107,17 +107,28 @@ def reply(recs, reason=None):
 
 
 class StubPrecheck:
-    """자기 중복 검사용 — 가제에 'overlap' 이 들어 있으면 차단."""
+    """자기 중복 검사용. 가제에 'overlap' → 원래(0.88)보다 가까운 0.9 로 차단, 'near' → 같은 문서를
+    0.85 로 차단(원래보다 멀어짐 → 통과), 'new' → 원래 차단되지 않던 문서 차단(→ 자기 중복)."""
 
     def __init__(self):
         self.calls: list[ProposalRequest] = []
 
     async def __call__(self, req):
         self.calls.append(req)
-        blocking = "overlap" in req.title_hint
-        return [
-            OverlapAlert(doc_id="own:1", title="t", tier="own", similarity=0.9, blocking=blocking)
-        ]
+        t = req.title_hint
+
+        def hit(doc, sim, blocking=True):
+            return [
+                OverlapAlert(doc_id=doc, title="t", tier="own", similarity=sim, blocking=blocking)
+            ]
+
+        if "overlap" in t:
+            return hit("own:1", 0.9)
+        if "near" in t:
+            return hit("own:1", 0.85)
+        if "new" in t:
+            return hit("alio:9", 0.9)
+        return hit("own:1", 0.7, blocking=False)
 
 
 def make(answers, *, include_internal=True, chunks=None, fallback=False):
@@ -152,9 +163,11 @@ async def test_one_recommendation_validated_and_transfer_recorded():
     assert out.calls == 1 and out.provider == "gemini" and out.model == "argon"
     assert out.public_doc_ids == ["own:1", "openalex:W1"] and out.internal_doc_ids == ["alio:sum-1"]
     assert out.excluded_doc_ids == []
-    # 자기 중복 검사는 추천마다 한 번, 가제·요약·차별점으로
-    assert len(precheck.calls) == 1 and precheck.calls[0].title_hint == r.title
-    assert r.summary in precheck.calls[0].goal and precheck.calls[0].differentiation == ""
+    # 자기 중복 검사는 추천마다 한 번, 추천 글(가제·요약·차별점·위험)만으로 — 원래 4칸은 섞지 않는다
+    probe = precheck.calls[0]
+    assert len(precheck.calls) == 1 and probe.title_hint == r.title
+    assert probe.current_state == r.summary and probe.root_cause == r.differentiation
+    assert REQ.current_state not in probe.search_text() and probe.differentiation == ""
     # 프롬프트: 유사과제 <doc> + 근거 <chunk> + 제안 입력, 시스템 프롬프트는 recommend
     prompt = llm.calls[0]
     assert '<doc id="own:1" tier="own" status="completed"' in prompt and 'blocking="true"' in prompt
@@ -212,6 +225,7 @@ async def test_made_up_ids_and_numbers_are_discarded_with_reasons():
                 [
                     rec("좋은 과제", evidence=["own:1"]),
                     rec("지어낸 id", compared_with=["own:999"]),
+                    rec("논문과 비교", compared_with=["openalex:W1"], summary="논문과 비교해 다름"),
                     rec("지어낸 근거", evidence=["openalex:W777"]),
                     rec("지어낸 수치", summary="비용을 37% 절감함"),
                 ]
@@ -219,7 +233,7 @@ async def test_made_up_ids_and_numbers_are_discarded_with_reasons():
         ]
     )
     out = await uc(REQ, ALERTS)
-    assert [r.title for r in out.recommendations] == ["좋은 과제"]
+    assert [r.title for r in out.recommendations] == ["좋은 과제", "논문과 비교"]
     assert {d["title"]: d["reason"] for d in out.discarded} == {
         "지어낸 id": rule.DISCARD_COMPARED,
         "지어낸 근거": rule.DISCARD_EVIDENCE,
@@ -228,12 +242,34 @@ async def test_made_up_ids_and_numbers_are_discarded_with_reasons():
 
 
 async def test_self_overlapping_recommendation_is_excluded_and_all_excluded_gives_reason():
-    uc, _, precheck = make([reply([rec("overlap 과제"), rec("지어낸 수치", summary="40% 절감")])])
+    uc, _, precheck = make(
+        [
+            reply(
+                [
+                    rec("overlap 과제"),
+                    rec(
+                        "new 과제",
+                        summary="역사 설비 자료로 다른 대상을 봄",
+                        differentiation="대상 설비가 다름",
+                    ),
+                    rec("지어낸 수치", summary="40% 절감"),
+                ]
+            )
+        ]
+    )
     out = await uc(REQ, ALERTS)
     assert out.recommendations == []
-    assert {d["reason"] for d in out.discarded} == {rule.DISCARD_SELF_OVERLAP, rule.DISCARD_NUMBER}
-    assert out.no_recommendation_reason.endswith("검증에서 제외됨 2건")
-    assert len(precheck.calls) == 1  # 검증에서 떨어진 것은 자기 중복 검사를 하지 않는다
+    reasons = [d["reason"] for d in out.discarded]
+    assert reasons.count(rule.DISCARD_SELF_OVERLAP) == 2 and rule.DISCARD_NUMBER in reasons
+    assert out.no_recommendation_reason.endswith("검증에서 제외됨 3건")
+    assert len(precheck.calls) == 2  # 검증에서 떨어진 것은 자기 중복 검사를 하지 않는다
+
+
+async def test_recommendation_that_moved_away_from_the_blocking_project_passes():
+    """같은 문서에 아직 차단되더라도 원래 아이디어(0.88)보다 멀어졌으면(0.85) 자기 중복이 아니다."""
+    uc, _, _ = make([reply([rec("near 과제")])])
+    out = await uc(REQ, ALERTS)
+    assert [r.title for r in out.recommendations] == ["near 과제"] and out.discarded == []
 
 
 async def test_parse_failure_and_empty_inputs_are_skipped():

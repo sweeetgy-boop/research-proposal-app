@@ -1,7 +1,8 @@
 """차별화 과제 추천의 순수 규칙 — LLM 출력 검증·중복 제거·상한·입력 반영 (ADR 0012).
 
-검증(validate_recommendation): compared_with 는 precheck 알림의 doc_id 안에서만, evidence 는
-알림 + 이번 검색 근거(하한 통과 청크)의 doc_id 안에서만. 본문(가제·요약·차별점·이유·이어받을
+검증(validate_recommendation): compared_with·evidence 는 precheck 알림 + 이번 검색 근거
+(하한 통과 청크)의 doc_id 안에서만 — 검색으로 찾은 논문·보고서도 "비교한 기존 과제" 가
+될 수 있다. 본문(가제·요약·차별점·이유·이어받을
 점·위험)은 제안 입력·유사과제 문서·근거 구간에 있는 수치(numbers)와 고유명(grounding)만 쓰고
 한자·가나가 없어야 한다. 하나라도 어긋나면 그 추천은 폐기 사유와 함께 버린다 (보안 A: LLM 출력은
 비신뢰 → 구획 태그 무력화·길이 상한).
@@ -83,10 +84,11 @@ def validate_recommendation(
     build_on = _text(raw.get("build_on"))
     risks = _text(raw.get("risks"))
     alert_ids = list(alert_doc_ids)
-    compared, ok = _ids(raw.get("compared_with"), alert_ids)
+    known = [*alert_ids, *evidence_doc_ids]
+    compared, ok = _ids(raw.get("compared_with"), known)
     if not ok:
         return None, DISCARD_COMPARED
-    evidence, ok = _ids(raw.get("evidence"), [*alert_ids, *evidence_doc_ids])
+    evidence, ok = _ids(raw.get("evidence"), known)
     if not ok:
         return None, DISCARD_EVIDENCE
     texts = [title, summary, differentiation, *reasons, build_on, risks]
@@ -138,6 +140,25 @@ def select_recommendations(
         else:
             kept.append(rec)
     return kept, discarded
+
+
+def self_overlaps(original: Iterable[Any], probe: Iterable[Any], margin: float = 0.0) -> bool:
+    """추천 글만으로 다시 돌린 precheck(probe)가 원래 아이디어보다 기존 과제에 가깝거나 같으면
+    자기 중복.
+
+    multilingual-e5 는 같은 분야의 한국어 글을 모두 own 임계치(0.80) 위로 올리므로 "차단이면
+    제외" 를 절대값으로 쓰면 주제 안의 추천이 전부 떨어진다(2026-10-27 골든셋 01·02 실측). 그래서
+    상대 기준: probe 의 차단 알림마다 (1) 원래 아이디어가 차단되지 않던 문서면 새 중복 → 자기 중복,
+    (2) 같은 문서면 유사도가 원래보다 낮아져야 통과(margin 만큼 더 낮아야 하면 margin > 0). 차단
+    알림이 없으면 통과.
+    """
+    base = {a.doc_id: a.similarity for a in original if a.blocking}
+    for a in probe:
+        if not a.blocking:
+            continue
+        if a.doc_id not in base or a.similarity + margin >= base[a.doc_id]:
+            return True
+    return False
 
 
 def no_recommendation_text(model_reason: str | None, excluded: int) -> str:

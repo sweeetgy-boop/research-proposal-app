@@ -46,8 +46,8 @@ def test_missing_fields_and_out_of_range_ids_are_discarded():
     assert validate({**GOOD, "reasons": []})[1] == rule.DISCARD_EMPTY
     assert validate({**GOOD, "compared_with": ["ntis:zzz"]})[1] == rule.DISCARD_COMPARED
     assert validate({**GOOD, "evidence": ["openalex:W9"]})[1] == rule.DISCARD_EVIDENCE
-    # evidence 는 알림 id 도 허용, compared_with 는 알림 id 만
-    assert validate({**GOOD, "compared_with": ["openalex:W1"]})[1] == rule.DISCARD_COMPARED
+    # compared_with 도 검색 근거 id(논문)를 허용 — 검색으로 찾은 논문도 비교 대상
+    assert validate({**GOOD, "compared_with": ["openalex:W1"]})[1] is None
 
 
 def test_made_up_numbers_policy_names_and_foreign_script_are_discarded():
@@ -110,3 +110,18 @@ def test_apply_recommendation_fills_title_goal_and_direction_as_a_preview():
         new_req, rec, 0
     )  # 두 번 적용해도 보완 문구가 겹치지 않는다
     assert again.goal == new_req.goal and p2.changed == []
+
+
+def test_self_overlap_is_relative_to_the_original_idea():
+    from rra.domain.models import OverlapAlert
+
+    def a(doc, sim, blocking=True):
+        return OverlapAlert(doc_id=doc, title="t", tier="own", similarity=sim, blocking=blocking)
+
+    original = [a("own:1", 0.88), a("own:2", 0.5, blocking=False)]
+    assert not rule.self_overlaps(original, [])  # 차단 없음 → 통과
+    assert not rule.self_overlaps(original, [a("own:1", 0.85)])  # 같은 문서, 더 멀어짐
+    assert rule.self_overlaps(original, [a("own:1", 0.88)])  # 같은 문서, 그대로
+    assert rule.self_overlaps(original, [a("own:1", 0.9)])  # 더 가까워짐
+    assert rule.self_overlaps(original, [a("own:2", 0.9)])  # 원래 차단 아니던 문서 → 새 중복
+    assert rule.self_overlaps(original, [a("own:1", 0.86)], margin=0.03)  # 여유 폭 미달
