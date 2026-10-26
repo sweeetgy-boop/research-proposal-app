@@ -75,7 +75,13 @@
   여러 문장 섹션은 문장마다 `○ ` 단락 복제(`expand_paragraphs`), 한 줄 칸은 인라인. 제안일자 비면 렌더 날짜.
   렌더 전 점검 `usecases/render_check.py`(미해결 lint·max_chars·line_limits 초과·전략 빈칸) — CLI 출력, UI 버튼 위,
   REST `GET /v1/runs/{id}/render-check`. 알림은 렌더를 막지 않는다. 양식이 바뀌면 스크립트가 앵커 불일치로 멈춘다.
-- 대기(사람 입력): 자체과제 내역 파일(data/inbox/own/), 연구과제 공고문(data/inbox/notice/).
+- 2026-10-26 백엔드 일괄: [1] clean_sentence(저장·조회·렌더)·foreign_script lint·연구과제명 무제한, [2] DB migration
+  003·004(schema_version·valid_until·visibility·ingested_at)·만료 제외·`rra reindex`·`rra db backup`, [3] tests/contracts,
+  [4] llm.yaml providers(mlx·gemini)·`RRA_GEMINI_API_KEY`·allowed_domains·reasoning_effort·401 비재시도,
+  [5] 검토 흐름(domain/rules/review_flow, usecases/review_draft, RunManager review/apply_edits/versions/revert/finalize/
+  reopen, runs/…/versions·reviews 파일, 양식 파일은 finalize 로만), [6] REST 세션·CSRF·SSE·problem+json·정적 SPA·
+  RRA_FAKE_LLM 가짜 모드(adapters/fake)·`rra api schema`, [7] Streamlit [최종 마무리 및 다운로드]. 설계 architecture §4.5·§4.6·§9.2.
+- 대기(사람 입력): Gemini 키, 사내 과제 목록·공시용 요약문 적재([8], 열 매핑 확인 필요), 연구과제 공고문(data/inbox/notice/).
 - 후속: critique_draft·예산표·차별성 매트릭스(Step 9), MCP streamable-http·Tailscale 공개(Step 10), reranker.
 
 ## MCP

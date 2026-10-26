@@ -40,7 +40,12 @@ rra alio catalog [--fetch] | rra alio missing | rra alio status                 
 rra generate --current-state ... --goal ... [--file in.yaml] [--resume RUN] [--reuse-input RUN]
 rra runs list | rra runs show RUN [--json]
 rra runs confirm RUN --task-type applied --utilization software,manual [--strategy D1-1]
-rra runs render RUN --out out/proposal.hwpx [--proposer-name ... --proposer-phone ...]  # HWPX (제안자 정보는 파일에만)
+rra runs review RUN [--wait]                 # Argon 검토 n차 (RRA_GEMINI_API_KEY 없으면 건너뜀 기록)
+rra runs edit RUN --from edits.json          # 제안자 편집 반영 → 새 버전 (수정안 사용 | 원문 유지 | 직접 수정)
+rra runs versions RUN | rra runs revert RUN --to v2 | rra runs reopen RUN
+rra runs finalize RUN --out out/proposal.hwpx [--task-type ...] [--department ... --proposer-name ...]  # 유일한 HWPX 경로
+rra reindex | rra db backup --out data/backups --keep 7                              # 임베딩 재색인 / VACUUM INTO 백업
+rra llm-check --provider gemini | rra api schema                                     # Argon 왕복 / docs/openapi.json
 rra runs purge [--dry-run]                                                           # 보존기간(180일) 지난 run 삭제
 rra ui  [--port 8501]      # Streamlit, 127.0.0.1, RRA_API_TOKEN 필요
 rra api [--port 8000]      # REST, 127.0.0.1, RRA_API_TOKEN 필요 (deploy/README.md)
@@ -50,9 +55,9 @@ rra mcp [--enable-generate]  # MCP stdio — 읽기 2개 / 쓰기 포함 6개 (d
 LLM 은 `mlx_lm.server --host 127.0.0.1 --port 8080` (OpenAI 호환, `config/llm.yaml`). 테스트는 LLM·임베딩 없이
 `tests/fakes.py` 로 돈다. 실응답 fixture 는 `tests/fixtures/`, 녹화 도구는 `tests/tools/`.
 
-## 현재 상태 (2026-10-23)
+## 현재 상태 (2026-10-26)
 
-- Step 1~8 완료, Step 9 는 run_log·보존기간 삭제까지(critique·예산표·매트릭스 후속), Step 10 은 REST·보안·launchd 까지
-  (MCP streamable-http·Tailscale 공개 후속). 구조 검토 6항목 반영 — `docs/architecture.md` §4.3·§4.4·§10.
-- 대기(사람 입력): ScienceON·NTIS 키, 알리오 원문 파일·카탈로그 CSV, 실물 양식 `config/templates/proposal_korail.hwpx`,
-  `korail_strategy.yaml` 전략체계, 자체과제 내역 파일·연구과제 공고문(적재 예정).
+- Step 1~10 + 실물 양식 템플릿(`tools/build_form_template.py`) + 작성 → Argon 검토 → 제안자 수정 → 재검토 → 최종 마무리
+  흐름(`docs/architecture.md` §4.6) + 프론트엔드용 REST(§9.2, `docs/openapi.json`) 까지. 양식 파일은 finalize 로만.
+- 대기(사람 입력): Gemini 키(`RRA_GEMINI_API_KEY`, 없으면 검토 건너뜀), ScienceON·NTIS·KIPRIS 키, `korail_strategy.yaml`
+  전략체계, 사내 과제 목록·공시용 요약문 적재(열 매핑 확인 뒤), 연구과제 공고문, 프론트엔드 `web/dist`.

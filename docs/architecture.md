@@ -136,7 +136,8 @@ src/rra/
 │   │   └── prompt_files.py
 │   ├── logging/
 │   │   └── file_run_log.py  # RunLogPort — manifest.json, 키 허용목록 (I)
-│   ├── persistence/
+│   ├── fake/           # RRA_FAKE_LLM=1 가짜 LLM(작성·검토)·메모리 저장소 (e2e·스키마)
+│   ├── persistence/    # migrations/001~004 (schema_version·valid_until·visibility·ingested_at), reindex·backup
 │   │   ├── migrations/
 │   │   │   └── runner.py
 │   │   ├── _mapping.py
@@ -150,7 +151,7 @@ src/rra/
 │   │   ├── asyncio_runner.py  # TaskRunner 구현
 │   │   ├── file_run_store.py  # RunStorePort — runs/<user>/<run_id>/, list_users·delete_run
 │   │   └── locks.py  # flock — run 락·전역 슬롯
-│   ├── security/
+│   ├── security/       # 토큰+세션 쿠키·CSRF, 본문 상한, 보안 헤더(CSP API/SPA), problem+json, sessions.py
 │   │   └── middleware.py  # TokenAuth·BodyLimit·SecurityHeaders ASGI (G)
 │   └── sources/
 │       ├── alio/
@@ -194,7 +195,7 @@ src/rra/
 │   ├── services/
 │   │   ├── assistant.py  # ProposalAssistant (규칙 기반 Agent 실행)
 │   │   └── run_manager.py  # 제출·재개·상태·확정·render — TaskRunner·RendererPort 사용
-│   └── usecases/
+│   └── usecases/       # … + render_check(렌더 전 점검), review_draft(Argon 검토), maintain_db(reindex·backup)
 │       ├── diagnostics.py  # check_served_model·CheckSources (llm-check·sources check)
 │       ├── generate_proposal.py
 │       ├── ingest_sources.py
@@ -429,6 +430,42 @@ UI 는 받기 버튼 위, REST `GET /v1/runs/{id}/render-check`. 알림이 있�
 없음, 문서 UI 없음, 업로드 없음. `build_api` 는 `RRA_API_TOKEN` 없으면 기동 거부. 기본 127.0.0.1:8000
 (`RRA_API_HOST/PORT`), 외부 공개는 HTTPS 역프록시(Tailscale·Cloudflare) 뒤에서만 — `deploy/README.md`.
 `deploy/launchd/com.rra.api.plist` 는 실경로로 채웠고 비밀은 `.env` 경유. MCP streamable-http 는 미구현.
+
+### 4.6 작성 → 검토(Argon) → 제안자 수정 → 재검토 → 최종 마무리 (2026-10-26)
+
+**단계별 모델** (`config/llm.yaml`): `stages.compose` = mlx(Qwen2.5-7B, 작성), `stages.review` = gemini(gemini-4-argon,
+검토). provider 표 `providers.{mlx,gemini,openai}`, 키는 `RRA_GEMINI_API_KEY`(SecretStr)만. 키가 없으면 `build_reviewer` 가
+None → 검토 건너뜀(`review_skipped`). 원격 provider 는 `security.yaml allowed_domains` 호스트만, `reasoning_effort`
+low|medium|high(none 금지, thinking_level 동시 전송 금지), 429·5xx 재시도, 401/403 은 재시도 없이 `LLMAuthError`.
+
+**상태 흐름** (`domain/rules/review_flow.py`, 표 테스트): 
+
+```
+done ──start_review──▶ reviewing(n) ──finish_review──▶ reviewed(n) ──edit──▶ editing ──start_review──▶ reviewing(n+1) …
+reviewing ──fail_review──▶ (검토 전 상태)         reviewed | editing ──finalize──▶ finalized ──reopen──▶ editing
+finalized ──finalize──▶ finalized (새 파일)        검토 LLM 없음: review() 는 상태를 두고 review_skipped 만 기록 → done 에서 finalize
+```
+재검토 횟수 제한 없음. `can_finalize` = 검토 1회 이상(또는 건너뜀)이고 검토 중이 아닐 것. `can_render` = finalized 만 —
+양식 파일은 `finalize` 로만 만들어진다(`rra runs finalize`, MCP `rra_finalize`, REST `POST /runs/{id}/finalize`, UI 버튼).
+`review.auto`(기본 true)면 초안 완료 뒤 1차 검토를 RunManager 가 자동 시작한다(생성 락을 놓은 뒤, 동시성 1·대기열 3 공유).
+
+**검토 유스케이스** (`application/usecases/review_draft.py`): 입력 = 현재 버전·스냅샷 근거·제안자 입력·(n≥2) 이전 의견과
+바뀐 문장. `overlap_review` 는 보내지 않고 선택값은 의견만. `external_llm.include_internal`(기본 true)이면 internal 근거를
+`<doc … visibility="internal">` 로 구획해 보내고, false 면 internal 근거와 그 근거를 인용한 문장을 "검토 제외" 한다.
+사람 이름·연락처는 보내지 않는다. 초안 전체를 한 번에, 길이 상한을 넘으면 섹션 단위. 출력은 JSON 객체만 — 문장별
+`{sentence_id, issue_type, comment, revised_text, evidence}` + 섹션 의견 + 해결된 의견 id. **수정안 검증(5-4)**:
+evidence 범위(기존 근거 id) → foreign_script → 근거 필수/금지 → grounding(정책명) → numbers. 실패하면
+`status=discarded`(원문 유지, comment 유지, 사유 코드).
+
+**데이터 경계.** 저장: `runs/<user>/<run_id>/versions/draft_vN.json`(v1=로컬 초안, 편집·되돌리기마다 +1, 전부 보존),
+`reviews/review_rN.json`(의견·수정안·전송 범위). manifest 에는 차수별 provider/model·외부 전송 doc_id(public/internal)·
+보낸 문장 수만(의견 원문·개인정보 없음, `adapters/logging` 허용목록). 제안자·부서장·제안부서·제안일자는 finalize 호출
+인자로만 — 어디에도 저장되지 않는다(테스트로 고정). 외부 전송 안내 문구는 어떤 진입점에도 없다.
+
+**제안자 편집** (`RunManager.apply_edits`, `EditRequest`): 문장별 `use_revision`(검증 통과 수정안만, origin=reviewed) |
+`keep` | `manual`(origin=proposer "제안자 수정", 원래 근거 id 유지, 버리지 않음), 섹션 전체 편집. 반영마다 새 버전,
+lint 는 알림만. `revert` 는 이전 버전 내용으로 새 버전. Agent 정책 행: `after_draft_done`(review 가능 → rra_review),
+`on_edit`(재검토 요청 → rra_review n+1), `on_finalize`, `on_reopen`.
 
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
@@ -811,24 +848,39 @@ Step 1 코드: `research-report-app-step1.zip`
 
 ### 9.2 REST API (`entrypoints/api/`)
 
-구현 (2026-10-23, `entrypoints/api/app.py`). 모든 응답 직렬화는 `entrypoints/views.py`(CLI·MCP 와 공용).
+구현 (2026-10-23, 프론트엔드용 정비 2026-10-26, `entrypoints/api/app.py`). 모든 응답 직렬화는 `entrypoints/views.py`
+(CLI·MCP 와 공용). 스키마는 `rra api schema` → `docs/openapi.json` (프론트 타입 생성용). 오류는 전부
+`application/problem+json`(`{type,title,status,detail}`, 한국어 detail).
 
 | 메서드 | 경로 | 유스케이스 | 비고 |
 |---|---|---|---|
-| POST | `/v1/precheck` | `PrecheckOverlap` | 본문 = `ProposalRequest`(필수 4슬롯·길이는 도메인이 검증, 422 문구는 CLI 와 동일). `{notice, blocking, alerts[]}` |
-| GET | `/v1/search?q=&k=&orgs=` | `repo.hybrid_search` | k ≤ 20, q ≤ 500자. 청크마다 `trust: untrusted` + notice |
-| POST | `/v1/runs` | `RunManager.submit` | 202 `{run_id, status, progress, steps…}`. 대기열 초과 429, 락 충돌 409 |
-| GET | `/v1/runs/{id}` | `RunManager.status` | 상태·step·legacy (초안 본문 없음). 모르는·형식 틀린 id 는 404 |
-| POST | `/v1/runs/{id}/resume` | `RunManager.resume` | 202. 재개 불가 409 |
-| GET | `/v1/runs/{id}/draft` | `RunManager.get_draft` | `draft_payload` (문장별 evidence·source, choices proposed/confirmed) |
-| POST | `/v1/runs/{id}/confirm` | `RunManager.confirm` | `{task_type?, utilization?[], strategy?[]}`. 거부 422 |
-| GET | `/v1/runs/{id}/file` | `RunManager.render` | HWPX(`application/hwp+zip`), 하단 제안자 칸 빈칸. 미확정·미완료 409 |
-| POST | `/v1/runs/{id}/file` | `RunManager.render` | 본문 `{proposed_on, proposer{rank,name,phone}, head{…}}` — 파일에만 들어가고 서버에 남지 않는다 |
-| GET | `/healthz` | — | `{"status":"ok"}` 만. 무인증, 내부 정보 없음 |
+| POST / DELETE | `/v1/session` | — | 토큰(본문) → `rra_session` 쿠키(httpOnly·SameSite=Strict·https 면 Secure) + `{csrf}`. 로그아웃은 204 |
+| GET | `/v1/sources/status` | `repo.source_status` | 자료원 6개 전부: `{source,label,count,last_ingested}` |
+| POST | `/v1/precheck` | `PrecheckOverlap` | 본문 = `ProposalRequest`. `{notice, blocking, alerts[]}` |
+| POST / GET | `/v1/search` | `repo.hybrid_search` | `{query,k≤20,orgs[]}` 또는 `?q=&k=&orgs=`. 청크마다 `trust: untrusted` |
+| POST | `/v1/runs` | `RunManager.submit` | 202. 대기열 초과 429, 락 충돌 409 |
+| GET | `/v1/runs` | `RunManager.list_runs` | 내 목록(최근 순, 본문 없음) |
+| GET | `/v1/runs/{id}` | `RunManager.status` | 상태·step·legacy. 모르는·형식 틀린 id 는 404 |
+| GET | `/v1/runs/{id}/events` | `RunManager.status` 폴링 | SSE `event: state`(변화마다) → `event: end`. 끊겨도 GET 으로 복구 |
+| POST | `/v1/runs/{id}/resume` | `RunManager.resume` | 202 |
+| GET | `/v1/runs/{id}/draft?version=` | `get_draft` / `get_version` | 현재 초안(`version`·`versions`·`review` 요약 포함) 또는 특정 버전 |
+| GET | `/v1/runs/{id}/versions` | `RunManager.versions` | 버전 메타 목록 |
+| POST | `/v1/runs/{id}/revert` | `RunManager.revert` | `{to}` → 새 버전(origin=revert) |
+| POST | `/v1/runs/{id}/review` | `RunManager.review` | 202. 검토 LLM 없으면 건너뜀 기록(상태 유지). 검토 중·불가 409 |
+| GET | `/v1/runs/{id}/review?round=` | `RunManager.get_review` | 의견·수정안(usable)·폐기 사유·전송 범위 |
+| POST | `/v1/runs/{id}/edits` | `RunManager.apply_edits` | 본문 = `EditRequest`. 새 버전 + status |
+| POST | `/v1/runs/{id}/confirm` | `RunManager.confirm` | 선택형 확정 (finalize 가 대신해도 된다) |
+| GET | `/v1/runs/{id}/render-check` | `RunManager.render_check` | 읽기 전용 점검 |
+| POST | `/v1/runs/{id}/finalize` | `RunManager.finalize` | 본문 `{task_type?,utilization?,strategy?,proposed_on,department,proposer{},head{}}` → HWPX. 헤더 `X-RRA-Version`·`X-RRA-Status`·`X-RRA-Check`(JSON). 제안자 정보는 파일에만 |
+| POST | `/v1/runs/{id}/reopen` | `RunManager.reopen` | finalized → editing |
+| GET | `/healthz` | — | `{"status":"ok"}` 만. 무인증 |
+| GET | `/`, `/{path}` | — | `web/dist` 가 있으면 SPA(index.html fallback), 없으면 404. 무인증(로그인 화면) |
 
-보안(G): 모든 `/v1/*` 에 `X-RRA-Token` 또는 `Authorization: Bearer` 필수(없으면 기동 자체 거부), 본문 상한
-(`input_limits.api_max_body_bytes`, 기본 64KB), 사용자 = 토큰 소유자(`runs/local/`, 다중 사용자는 후속), CORS 미들웨어 없음,
-보안 헤더, 문서 UI 없음, 127.0.0.1:8000 기본 바인딩(`RRA_API_HOST/PORT`), 외부 공개는 HTTPS 역프록시 뒤 (`deploy/README.md`).
+보안(G): `/v1/*` 는 헤더 토큰(`X-RRA-Token`/Bearer) **또는** 세션 쿠키. 쿠키 인증의 POST·PUT·PATCH·DELETE 는
+`X-RRA-CSRF` 필수(403). 본문 상한(`input_limits.api_max_body_bytes`, 64KB), 사용자 = 토큰 소유자(`runs/local/`), CORS 없음
+(같은 출처), CSP 는 API 응답 `default-src 'none'`, SPA 응답 `'self'` 만·인라인 없음, 문서 UI 없음, 127.0.0.1:8000 기본.
+**가짜 모드** `RRA_FAKE_LLM=1`: composition 이 `adapters/fake`(가짜 작성·검토 LLM, 메모리 저장소, 시드 문서 2건)를 끼워
+결정적 결과를 낸다(e2e·스키마 추출 전용, 기동 시 경고). 양식 파일(`/file`)·render 명령은 finalize 로 통합되었다.
 
 ### 9.3 MCP 서버 (`entrypoints/mcp/`)
 
@@ -923,6 +975,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 | 실물 양식 템플릿 연결(§4.4), [1] 출처 조각 정리·foreign_script·연구과제명 무제한, [2] DB 정비(§4.5: migration 003·004, 만료 제외, embedding_model 메타, `rra reindex`·`rra db backup`), [3] 저장소 계약 테스트, [4] Gemini 4 Argon provider, [5] 작성→검토→수정→재검토→마무리 흐름(§4.6, 버전·검토 파일, finalize 로만 렌더), [6] 프론트엔드용 REST(§9.2: 세션·CSRF·SSE·problem+json·정적 SPA·가짜 모드·openapi.json), [7] Streamlit [최종 마무리 및 다운로드] 단일 흐름 |
 | 2026-09-08 | v4 — MCP·REST API 제공 구조(§9) 추가 |
 | 2026-10-13 | 7B 전환 보정, 유사과제 차단 키워드 조건, Streamlit 화면·규칙 기반 Agent(§4.2) |
 | 2026-10-23 | 구조 검토 6항목 반영(§4.3: 필수 슬롯 단일화, `config_loader`·`diagnostics` 분리, `_Lazy` 제거, 포트 비동기화, `TaskRunner`), Step 8 HWPX 렌더러·Step 9 run_log 이동·`runs purge`·Step 10 REST·보안 미들웨어·launchd(§4.4, §9.2). import-linter 계약 6→8. `.gitignore` `runs/`→`/runs/`(그동안 `src/rra/adapters/runs/` 가 커밋되지 않던 문제 수정). 이 문서 §1·§2·§3·§8 를 코드와 맞춤 |
