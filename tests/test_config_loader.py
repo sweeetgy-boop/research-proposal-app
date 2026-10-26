@@ -268,3 +268,60 @@ def test_shipped_llm_yaml_routes_review_to_gemini_and_compose_to_mlx():
     assert review["json_mode"] == "auto"
     assert "generativelanguage.googleapis.com" in allowed_domains(s)
     assert review_policy(s) == {"auto": True, "include_internal": True}
+
+
+# ── [L] model_profiles ────────────────────────────────────
+PROFILE_YAML = """
+provider: mlx
+providers:
+  mlx: {base_url: http://127.0.0.1:8080/v1, model_profile: qwen}
+model_profiles:
+  qwen:
+    served_model: mlx-community/Qwen2.5-7B-Instruct-4bit
+    model: default_model
+    json_mode: prompt
+    system_role: true
+    stop: []
+    context_length: 32768
+  midm:
+    served_model: ~/models/midm-2.0-base-4bit
+    model: default_model
+    json_mode: prompt
+    system_role: false
+    stop: ["<|eot_id|>", "<|end_of_text|>"]
+    context_length: 32768
+stages:
+  compose: {max_tokens: 2000}
+"""
+
+
+def test_model_profile_from_provider_table_and_env_override(tmp_path, monkeypatch):
+    from pathlib import Path as _P
+
+    from rra.config_loader import model_profiles
+
+    (tmp_path / "llm.yaml").write_text(PROFILE_YAML, encoding="utf-8")
+    cfg = llm_config(settings_for(tmp_path), "compose")
+    assert cfg["profile"] == "qwen" and cfg["system_role"] is True and cfg["stop"] == []
+    assert cfg["served_model"] == "mlx-community/Qwen2.5-7B-Instruct-4bit"
+    assert cfg["context_length"] == 32768 and cfg["json_mode"] == "prompt"
+    monkeypatch.setenv("RRA_LLM_PROFILE", "midm")
+    cfg = llm_config(settings_for(tmp_path), "compose")
+    assert cfg["profile"] == "midm" and cfg["system_role"] is False
+    assert cfg["stop"] == ["<|eot_id|>", "<|end_of_text|>"]
+    assert cfg["served_model"] == str(_P("~/models/midm-2.0-base-4bit").expanduser())  # ~ 확장
+    monkeypatch.setenv("RRA_LLM_PROFILE", "nope")
+    with pytest.raises(KeyError, match="model_profiles"):
+        llm_config(settings_for(tmp_path), "compose")
+    assert set(model_profiles(settings_for(tmp_path))) == {"qwen", "midm"}
+
+
+def test_shipped_llm_yaml_has_qwen_midm_ax_profiles_and_defaults_to_qwen(monkeypatch):
+    from rra.config_loader import model_profiles
+
+    monkeypatch.delenv("RRA_LLM_PROFILE", raising=False)
+    s = project_settings()
+    assert {"qwen", "midm", "ax_light"} <= set(model_profiles(s))
+    cfg = llm_config(s, "compose")
+    assert cfg["profile"] in {"qwen", "midm", "ax_light"} and cfg["provider"] == "mlx"
+    assert cfg["json_mode"] == "prompt" and isinstance(cfg["stop"], list)

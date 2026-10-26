@@ -72,6 +72,9 @@ class ComposedSection:
     prompt_hash: str | None
     parse: ParseResult | None  # 파싱 사유·원본 길이. LLM 미사용이면 None
     mode: ComposeMode = "llm"  # skipped: 입력·목록이 비어 빈칸 / app: 앱 확정 문장
+    ungrounded: list[str] = field(
+        default_factory=list
+    )  # dropped 중 고유명 대조(정책명 등)로 폐기된 것
 
 
 @dataclass
@@ -172,7 +175,9 @@ class GenerateProposal:
         section, lost = self._enforce_grounding(key, section, req)
         dropped.extend(lost)
         digest = hashlib.sha256(f"{system}\x1f{instruction}".encode()).hexdigest()[:16]
-        return ComposedSection(section=section, dropped=dropped, prompt_hash=digest, parse=parsed)
+        return ComposedSection(
+            section=section, dropped=dropped, prompt_hash=digest, parse=parsed, ungrounded=lost
+        )
 
     def _prompt(
         self,

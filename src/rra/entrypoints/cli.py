@@ -103,6 +103,61 @@ def cmd_search(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── llm-bench ─────────────────────────────────────────────
+def cmd_llm_bench(args: argparse.Namespace) -> int:
+    """골든셋으로 로컬 모델을 벤치해 JSON 으로 남기거나(--label), JSON 들을 표로 합친다."""
+    from rra.entrypoints.views import bench_markdown
+
+    if args.report:
+        results = [json.loads(Path(p).read_text(encoding="utf-8")) for p in args.report]
+        out = Path(args.out or f"docs/llm-bench-{time.strftime('%Y-%m-%d')}.md")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            bench_markdown(results, date=time.strftime("%Y-%m-%d"), baseline=args.baseline),
+            encoding="utf-8",
+        )
+        print(f"저장: {out} (모델 {len(results)}개)")
+        return EXIT_OK
+    if not args.label:
+        _eprint("--label <이름> (벤치 실행) 또는 --report <json…> (표 작성) 중 하나가 필요합니다.")
+        return EXIT_USAGE
+    import yaml
+
+    from rra.composition import build_bench, load_settings
+    from rra.domain.models import ProposalRequest
+
+    golden = sorted(Path(args.golden).glob("*.yaml"))
+    if not golden:
+        _eprint(f"골든셋이 없습니다: {args.golden}")
+        return EXIT_USAGE
+    ideas = [
+        (p.stem, ProposalRequest(**yaml.safe_load(p.read_text(encoding="utf-8")))) for p in golden
+    ]
+
+    async def run():
+        bench = build_bench(load_settings(), label=args.label)
+        try:
+            return await bench(ideas)
+        finally:
+            await bench.generate.llm.aclose()
+
+    result = asyncio.run(run())
+    out = Path(args.out or f"data/bench/{args.label}.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    totals = result.totals()
+    print(
+        f"[{result.label}] 모델 {result.model} 프로필 {result.profile} — "
+        f"JSON {result.json_success_rate * 100:.1f}% ({result.parse_ok}/{result.sections_llm}), "
+        f"폴백 {result.fallbacks}, 폐기 {totals['dropped']}, 수치 {totals['unsupported_numbers']}, "
+        f"외국문자 {totals['foreign_script']}, 정책명 {totals['ungrounded']}, "
+        f"전체 {result.total_seconds:.0f}s, 섹션 평균 {result.avg_section_seconds:.1f}s, "
+        f"최대 프롬프트 토큰 {result.max_prompt_tokens}, RSS {result.max_rss_mb or '-'}MB"
+    )
+    print(f"저장: {out}")
+    return EXIT_OK
+
+
 # ── DB 유지보수 ───────────────────────────────────────────
 def cmd_reindex(args: argparse.Namespace) -> int:
     """모든 청크를 설정된 임베딩 모델로 다시 색인 (모델·차원이 바뀌었을 때)."""
@@ -864,6 +919,15 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("-k", type=int, default=10)
     search.set_defaults(handler=cmd_search)
 
+    lb = sub.add_parser(
+        "llm-bench", help="골든셋으로 로컬 작성 모델 비교 (JSON 저장 / --report 로 표)"
+    )
+    lb.add_argument("--label", help="이 실행의 이름 (예: qwen, midm)")
+    lb.add_argument("--golden", default="tests/golden", help="아이디어 yaml 폴더")
+    lb.add_argument("--out", help="JSON(실행) 또는 Markdown(--report) 경로")
+    lb.add_argument("--report", nargs="*", help="합칠 결과 JSON 들 → docs/llm-bench-<날짜>.md")
+    lb.add_argument("--baseline", help="--report 에 적을 기준 모델 이름")
+    lb.set_defaults(handler=cmd_llm_bench)
     ri = sub.add_parser("reindex", help="모든 청크를 설정 임베딩 모델로 재색인")
     ri.set_defaults(handler=cmd_reindex)
     db = sub.add_parser("db", help="DB 유지보수")

@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     config_dir: Path = Path("config")
 
     llm_provider: str = "mlx"
+    llm_profile: str | None = (
+        None  # llm.yaml model_profiles 키. 있으면 provider 표의 model_profile 을 덮는다
+    )
     llm_base_url: str = "http://127.0.0.1:8080/v1"
     llm_api_key: SecretStr = Field(default=SecretStr("none"))
     gemini_api_key: SecretStr | None = None  # provider=gemini (검토 단계). 없으면 검토 건너뜀

@@ -73,6 +73,8 @@ class OpenAICompatLLM:
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         allowed_hosts: list[str] | None = None,
         reasoning_effort: str | None = None,
+        system_role: bool = True,
+        stop: list[str] | None = None,
     ):
         if json_mode not in ("auto", "native", "prompt"):
             raise ValueError(f"json_mode 는 auto|native|prompt 중 하나입니다: {json_mode}")
@@ -84,6 +86,13 @@ class OpenAICompatLLM:
         # H: 로컬 provider 는 루프백만. C: 원격은 allowed_hosts 에 있어야 한다. 위반 시 기동 거부
         self.base_url = _endpoint.guard_base_url(provider, base_url, allowed_hosts)
         self.reasoning_effort = reasoning_effort
+        self.system_role = system_role  # model_profiles: False 면 system 을 user 앞에 붙인다
+        self.stop = [s for s in (stop or []) if s]
+        # 벤치·진단용 집계 (본문은 담지 않는다): 호출 수·폴백 횟수·usage 최대 토큰
+        self.calls = 0
+        self.fallbacks = 0
+        self.max_prompt_tokens = 0
+        self.max_completion_tokens = 0
         self.model = model
         self.max_tokens = max(1, min(max_tokens, max_tokens_cap))
         self.max_tokens_cap = max_tokens_cap
@@ -148,33 +157,47 @@ class OpenAICompatLLM:
             )
         limit = max(1, min(max_tokens or self.max_tokens, self.max_tokens_cap))
 
+        self.calls += 1
         if json_mode and self._try_native():
             payload = _payload.build_payload(
                 model=self.model,
-                messages=_payload.build_messages(prompt, system),
+                messages=_payload.build_messages(prompt, system, system_role=self.system_role),
                 max_tokens=limit,
                 temperature=self.temperature,
                 native_json=True,
                 reasoning_effort=self.reasoning_effort,
+                stop=self.stop,
             )
             try:
                 data = await self._request(payload)
             except _ResponseFormatUnsupported:
                 self._native_json_supported = False  # 이후 호출은 처음부터 폴백
+                self.fallbacks += 1
             else:
                 self._native_json_supported = True
+                self._note_usage(data)
                 return _payload.extract_content(data)
 
         system_text = self._with_fallback(system) if json_mode else system
         payload = _payload.build_payload(
             model=self.model,
-            messages=_payload.build_messages(prompt, system_text),
+            messages=_payload.build_messages(prompt, system_text, system_role=self.system_role),
             max_tokens=limit,
             temperature=self.temperature,
             native_json=False,
             reasoning_effort=self.reasoning_effort,
+            stop=self.stop,
         )
-        return _payload.extract_content(await self._request(payload))
+        data = await self._request(payload)
+        self._note_usage(data)
+        return _payload.extract_content(data)
+
+    def _note_usage(self, data: Any) -> None:
+        usage = _payload.extract_usage(data)
+        self.max_prompt_tokens = max(self.max_prompt_tokens, usage.get("prompt_tokens", 0))
+        self.max_completion_tokens = max(
+            self.max_completion_tokens, usage.get("completion_tokens", 0)
+        )
 
     # ── 내부 ───────────────────────────────────────────────
     def _try_native(self) -> bool:

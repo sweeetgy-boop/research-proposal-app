@@ -90,7 +90,9 @@ def llm_config(
     retries = cfg.get("retries") or {}
     default_provider = str(env_first(settings, "llm_provider", cfg.get("provider")) or "mlx")
     chosen = str(provider or stage_cfg.get("provider") or default_provider)
-    table = (cfg.get("providers") or {}).get(chosen) or {}
+    table = dict((cfg.get("providers") or {}).get(chosen) or {})
+    profile_name, profile = _model_profile(settings, cfg, table)
+    table = {**table, **profile}  # 프로필 값이 provider 표의 같은 키를 덮는다
     base_url = table.get("base_url") or cfg.get("base_url")
     if chosen == default_provider and not stage_cfg.get("provider") and provider is None:
         base_url = env_first(settings, "llm_base_url", base_url)
@@ -104,9 +106,15 @@ def llm_config(
         raise ValueError(
             "thinking_level 은 reasoning_effort 와 함께 보낼 수 없습니다 — 설정에서 지우세요."
         )
+    system_role = table.get("system_role", True)
+    stop = [str(x) for x in (table.get("stop") or []) if str(x)]
     return {
         "stage": stage,
         "provider": chosen,
+        "profile": profile_name,
+        "system_role": bool(system_role),
+        "stop": stop,
+        "context_length": int(table["context_length"]) if table.get("context_length") else None,
         "base_url": str(base_url),
         "model": stage_cfg.get("model") or table.get("model") or cfg.get("model") or "local",
         "served_model": str(table.get("served_model") or cfg.get("served_model") or "").strip()
@@ -130,6 +138,29 @@ def llm_config(
             "max_backoff_sec": float(retries.get("max_backoff_sec", 8)),
         },
     }
+
+
+def _model_profile(
+    settings: Settings, cfg: dict[str, Any], table: dict[str, Any]
+) -> tuple[str | None, dict[str, Any]]:
+    """provider 표의 model_profile(또는 RRA_LLM_PROFILE) → model_profiles[name]. 없으면 빈 값."""
+    name = settings.llm_profile or table.get("model_profile")
+    if not name:
+        return None, {}
+    profiles = cfg.get("model_profiles") or {}
+    if name not in profiles:
+        raise KeyError(
+            f"config/llm.yaml 의 model_profiles 에 {name!r} 가 없습니다: {sorted(profiles)}"
+        )
+    profile = dict(profiles[name] or {})
+    if "served_model" in profile and isinstance(profile["served_model"], str):
+        profile["served_model"] = str(Path(profile["served_model"]).expanduser())
+    return str(name), profile
+
+
+def model_profiles(settings: Settings) -> dict[str, dict[str, Any]]:
+    """llm.yaml model_profiles 전체 (벤치 보고용)."""
+    return dict(read_config("llm.yaml", settings).get("model_profiles") or {})
 
 
 def llm_key_present(settings: Settings, cfg: dict[str, Any]) -> bool:

@@ -8,13 +8,9 @@ provider: mlx            # 기본 provider (stages 에서 provider 를 안 적�
 providers:
   mlx:
     base_url: http://127.0.0.1:8080/v1
-    # manifest 에 기록할 실제 모델 이름 (표시용 선언). 요청에는 항상 stages 의 model 을 보낸다.
-    # `mlx_lm.server --model` 에 준 값과 똑같이 적는다. rra llm-check 가 /v1/models 에 있는지 확인(경고만).
-    served_model: mlx-community/Qwen2.5-7B-Instruct-4bit
-    # mlx_lm.server 는 요청의 model 이 "default_model" 이면 기동 시 --model 로 띄운 모델을 쓴다.
-    model: default_model
-    # mlx_lm.server 는 response_format 을 오류 없이 무시하므로 auto 로는 폴백이 일어나지 않는다 → prompt.
-    json_mode: prompt
+    # 로컬 작성 모델은 model_profiles 중 하나로 고른다 (served_model·model·json_mode·system_role·stop 은
+    # 프로필에서 온다). 환경변수 RRA_LLM_PROFILE 이 있으면 그쪽이 이긴다 (벤치·되돌리기용).
+    model_profile: qwen
   gemini:                # Gemini 4 Argon — OpenAI 호환 엔드포인트 (검토 단계)
     base_url: https://generativelanguage.googleapis.com/v1beta/openai/
     model: gemini-4-argon
@@ -28,7 +24,37 @@ providers:
     model: gpt-4o-mini
     json_mode: auto
 
-# 공통 (provider 표에 없는 값의 기본)
+# 로컬 모델 프로필 — 채팅 템플릿 차이(system 역할 유무·stop 토큰·json_mode)는 코드 분기 대신 여기서.
+# served_model: manifest 에 기록할 실제 모델 이름(`mlx_lm.server --model` 에 준 값과 같게). rra llm-check 가
+#   /v1/models 목록에 있는지 확인한다(경고만). 로컬 경로면 절대경로도 같은 것으로 본다.
+# model: 요청에 보내는 이름. mlx_lm.server 는 "default_model" 이면 기동 시 --model 로 띄운 모델을 쓴다.
+# json_mode: mlx_lm.server 는 response_format 을 오류 없이 무시하므로 auto 로는 폴백이 안 일어난다 → prompt.
+# system_role: false 면 시스템 프롬프트를 첫 user 메시지 앞에 붙인다 (system 역할이 없는 템플릿).
+# stop: 서버 템플릿이 끝내지 못할 때 보낼 추가 stop 문자열. context_length: 최대 문맥(토큰, 벤치 보고용).
+model_profiles:
+  qwen:                        # 되돌리기용 — 2026-10 까지의 기본
+    served_model: mlx-community/Qwen2.5-7B-Instruct-4bit
+    model: default_model
+    json_mode: prompt
+    system_role: true
+    stop: []
+    context_length: 32768
+  midm:                        # KT Mi:dm 2.0 Base Instruct (11.5B, MIT, Llama 구조, 문맥 32K) → ~/models 4bit
+    served_model: ~/models/midm-2.0-base-4bit
+    model: default_model
+    json_mode: prompt
+    system_role: true
+    stop: ["<|eot_id|>", "<|end_of_text|>"]
+    context_length: 32768
+  ax_light:                    # SKT A.X 4.0 Light (7B, Apache 2.0, Qwen2 구조, 문맥 16K) → ~/models 4bit
+    served_model: ~/models/ax-4.0-light-4bit
+    model: default_model
+    json_mode: prompt
+    system_role: true
+    stop: ["<|im_end|>"]
+    context_length: 16384
+
+# 공통 (provider 표·프로필에 없는 값의 기본)
 json_mode: auto
 temperature: 0.2
 
@@ -51,7 +77,7 @@ limits:                  # DoS·메모리 보호 상한
 stages:
   expand:    {max_tokens: 512}
   summarize: {max_tokens: 400}
-  compose:   {max_tokens: 2000}                       # 작성 = mlx(Qwen2.5-7B)
+  compose:   {max_tokens: 2000}                       # 작성 = mlx(model_profiles 의 로컬 모델)
   critique:  {max_tokens: 800}
   review:    {provider: gemini, max_tokens: 6000}     # 검토 = gemini-4-argon (키 없으면 review_skipped)
 
