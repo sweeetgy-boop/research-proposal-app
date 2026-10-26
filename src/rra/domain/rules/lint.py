@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from rra.domain.models import Draft, ProposalRequest, Sentence
 from rra.domain.models.selection import OPTION_SOURCES, STRATEGY_SOURCE
+from rra.domain.rules.foreign_script import foreign_script_chars
 from rra.domain.rules.numbers import unsupported_numbers
 
 Severity = Literal["error", "warning"]
@@ -18,6 +19,7 @@ INPUT_MISSING = "input_missing"  # 입력에만 근거하는 섹션인데 입력
 CATALOG_EMPTY = "catalog_empty"  # 선택지 목록이 비었다 → LLM 생략, 빈칸
 NO_CHOICE = "no_choice"  # 선택형 섹션인데 LLM 이 유효한 선택지를 내지 못했다 → 사용자가 고른다
 UNSUPPORTED_NUMBER = "unsupported_number"  # 입력·인용 근거에 없는 수치 → 담당자 확인
+FOREIGN_SCRIPT = "foreign_script"  # 한국어 본문에 한자·가나 혼입 → 문장은 두고 알림만
 
 
 class ChoiceSpec(BaseModel):
@@ -212,6 +214,18 @@ def lint(
                             sentence=i,
                         )
                     )
+        for i, s in enumerate(sec.sentences):
+            foreign = foreign_script_chars(s.text)
+            if foreign:
+                problems.append(
+                    LintProblem(
+                        section=sec.key,
+                        code=FOREIGN_SCRIPT,
+                        message=f"외국 문자 혼입 {''.join(foreign[:8])}: {s.text[:30]}",
+                        severity="warning",
+                        sentence=i,
+                    )
+                )
         if sec.key in rules.number_checked:
             for i, s in enumerate(sec.sentences):
                 if s.origin != "llm":

@@ -9,7 +9,6 @@ import pytest
 from rra.application.usecases.render_check import (
     STRATEGY_EMPTY,
     STRATEGY_UNCONFIRMED,
-    Overflow,
     RenderCheck,
     render_check,
 )
@@ -28,10 +27,11 @@ from rra.domain.rules.lint import ChoiceSpec, LintRules
 RULES = LintRules(
     sections=["title", "method", "strategy_alignment"],
     required_sections=["title", "method"],
-    max_chars={"title": 100, "method": 20},
+    max_chars={"method": 20},
     choices={"strategy_alignment": ChoiceSpec(options="strategy_catalog", max=2)},
 )
 LIMITS = {"title": 10, "budget.account": 5, "proposer.name": 3, "strategy_alignment:task": 6}
+# title 10 은 무시된다 — 연구과제명은 길이 제한 없음
 
 
 def draft(title="짧은 제목", method="방법 문장", budget=None, department=""):
@@ -114,7 +114,7 @@ def test_overflow_lists_section_and_single_line_slots_without_truncating():
     )
     by_slot = {o.slot: o for o in check.overflow}
     assert by_slot["method"].kind == "section" and by_slot["method"].limit == 20
-    assert by_slot["title"] == Overflow("title", 12, 10, "line")  # 100자 본문 상한은 안 넘었다
+    assert "title" not in by_slot  # 연구과제명은 길이 제한 없음 — 설정에 있어도 알림을 내지 않는다
     assert by_slot["budget.account"].chars == 8 and by_slot["proposer.name"].chars == 4
     assert by_slot["strategy_alignment:task"].chars == len("예방정비, 안전투자")
     assert "head.name" not in by_slot and check.notes == []
@@ -174,3 +174,21 @@ async def test_run_manager_render_check_uses_stored_problems_and_keeps_proposer_
     assert [o.slot for o in check.overflow] == ["proposer.name"]
     dumped = json.dumps({k: str(v) for k, v in vars(mgr.store).items()}, ensure_ascii=False)
     assert "홍길동" not in dumped  # 저장소 어디에도 없다
+
+
+def test_long_title_is_never_a_notice():
+    long_title = (
+        "경부선 궤도 검측 이력 기반 궤도 틀림 열화 예측 및 다짐 효과를 반영한 "
+        "보수 우선순위 산정 방법 개발 연구"
+    )
+    assert len(long_title) >= 60
+    check = render_check(
+        draft(title=long_title),
+        [],
+        RULES,
+        confirmation=Confirmation(choices={"strategy_alignment": ["D1-1"]}),
+        proposer=None,
+        line_limits={"title": 30, **LIMITS},
+        strategy_labels={"D1-1": "예방정비"},
+    )
+    assert check.overflow == [] and check.count == 0

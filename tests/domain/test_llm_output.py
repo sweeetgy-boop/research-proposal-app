@@ -231,3 +231,16 @@ def test_doc_id_source_fragments_in_parentheses_are_stripped():
     )
     cleaned, n = strip_doc_fragments(text)
     assert cleaned == "사례 조사와 스웨덴 연구는 비율(예: 15%)을 보고함" and n == 3
+
+
+def test_parse_sentences_cleans_fragments_at_store_time():
+    from rra.domain.rules.llm_output import clean_sentence, parse_sentences
+
+    raw = (
+        '[{"text": "선행연구(文档ID: alio:sum-1#1)는  한계가  있다.", '
+        '"evidence": ["alio:sum-1#1"]}]'
+    )
+    result = parse_sentences(raw)
+    assert result.ok and result.sentences[0].text == "선행연구는 한계가 있다."
+    assert result.sentences[0].evidence == ["alio:sum-1#1"]  # evidence 는 그대로
+    assert clean_sentence("  a   b (doc_id: ntis:1) c ") == "a b c"

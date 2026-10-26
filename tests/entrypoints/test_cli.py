@@ -594,7 +594,7 @@ def form_env(monkeypatch, docs, chunks):
             FakeRunLog(),
             FakeTaskRunner(),
             renderer=renderer,
-            line_limits={"title": 1},  # 렌더 전 점검: 연구과제명 한 줄 칸 초과 알림
+            line_limits={"proposer.name": 2},  # 렌더 전 점검: 한 줄 칸 초과 알림 (제목은 제한 없음)
         )
 
     env["use"] = lambda responses: env.__setitem__("llm", ClosingLLM(responses))
@@ -648,7 +648,7 @@ def test_runs_render_writes_owner_only_file_and_keeps_proposer_out_of_runs(
     assert code == cli.EXIT_OK and "저장:" in printed
     # 렌더 전 점검이 먼저 찍히고, 알림이 있어도 저장은 된다
     assert "렌더 전 점검: 알림 1건 (렌더는 진행합니다)" in printed
-    assert "칸 길이 초과(한 줄 칸): 1-가 연구과제명 2자 > 1자" in printed
+    assert "칸 길이 초과(한 줄 칸): 제안자 성명 3자 > 2자" in printed
     assert printed.index("렌더 전 점검") < printed.index("저장:")
     assert out.is_file() and os.stat(out).st_mode & 0o777 == 0o600
     body = json.loads(out.read_bytes())

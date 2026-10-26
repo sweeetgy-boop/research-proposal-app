@@ -61,6 +61,7 @@ from rra.domain.models.run import (
     section_step,
 )
 from rra.domain.rules.lint import has_errors
+from rra.domain.rules.llm_output import clean_sentence
 
 logger = logging.getLogger("rra.runs")
 
@@ -121,6 +122,17 @@ class DraftView:
 
 def _utcnow() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def _cleaned(section: Section) -> Section:
+    """문장 텍스트만 정리(clean_sentence). 개수·순서·근거·origin 은 그대로(lint 인덱스 유지)."""
+    return section.model_copy(
+        update={
+            "sentences": [
+                s.model_copy(update={"text": clean_sentence(s.text)}) for s in section.sentences
+            ]
+        }
+    )
 
 
 class RunManager:
@@ -373,8 +385,9 @@ class RunManager:
     async def get_draft(self, user: str, run_id: str) -> DraftView:
         state = await self.status(user, run_id)
         stored = self.store.load_sections(user, run_id)
-        # 순서는 run 이 계획한 순서 — 양식이 바뀌어도 예전 run 은 자기 섹션으로 보인다
-        sections = [stored[k] for k in state.section_keys if k in stored]
+        # 순서는 run 이 계획한 순서 — 양식이 바뀌어도 예전 run 은 자기 섹션으로 보인다.
+        # 예전 run 에 남은 출처 조각((文档ID: …) 등)은 읽을 때 정리한다 — 화면·검토 입력 보호.
+        sections = [_cleaned(stored[k]) for k in state.section_keys if k in stored]
         snapshot = self.store.load_snapshot(user, run_id)
         legacy = self.is_legacy(state)
         return DraftView(

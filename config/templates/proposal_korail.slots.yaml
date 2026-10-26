@@ -75,8 +75,7 @@ render_only:
 
 # 한 줄 칸의 글자 수 상한(한글 기준 어림). 넘어도 자르지 않고 렌더 전 알림 목록에 올린다
 # (application/usecases/render_check.py). 본문 단락은 페이지가 늘어나므로 rules.yaml max_chars 만 본다.
-line_limits:
-  title: 30                        # "가. 연구과제명 : " 뒤 12pt, 한 줄 약 36자
+line_limits:                       # 연구과제명(title)은 제한 없음 — 알림도 내지 않는다
   budget.account: 12
   budget.amount_thousand_krw: 12
   strategy_alignment:direction: 30

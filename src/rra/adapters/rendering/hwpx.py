@@ -40,7 +40,7 @@ from xml.sax.saxutils import escape
 from rra.application.ports.renderer import RenderRejected
 from rra.domain.models import Confirmation, Draft, ProposerInfo, StrategyCatalog
 from rra.domain.models.selection import TASK_TYPES, UTILIZATION
-from rra.domain.rules.llm_output import strip_doc_fragments
+from rra.domain.rules.llm_output import clean_sentence
 
 FORM_TITLE = "연구과제 제안서"
 FORM_NOTE = "한국철도공사 연구개발 규정 시행세칙 별지 제2호서식 (개정 2024.02.19.)"
@@ -98,9 +98,8 @@ def format_proposed_on(value: str, today: Callable[[], date] = date.today) -> st
 
 
 def _scrub(sentence: str) -> str:
-    """문장 속 자료 태그·(文档ID: …) 조각 제거 + 공백 정리. 문장 자체는 자르지 않는다."""
-    cleaned, _ = strip_doc_fragments(sentence)
-    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+    """문장 속 자료 태그·(文档ID: …) 조각 제거 + 공백 정리 (domain 규칙). 문장은 자르지 않는다."""
+    return clean_sentence(sentence)
 
 
 def format_budget_amount(amount_thousand_krw: int | None) -> str:

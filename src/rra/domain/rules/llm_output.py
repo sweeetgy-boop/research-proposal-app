@@ -59,6 +59,19 @@ def strip_doc_fragments(body: str) -> tuple[str, int]:
     return _TAG_FRAGMENT.subn("", body)
 
 
+_SPACES = re.compile(r"[ \t]{2,}")
+
+
+def clean_sentence(text: str) -> str:
+    """저장·조회·렌더 공용 문장 정리: 자료 태그·(文档ID: …) 출처 조각 제거 + 겹친 공백 정리.
+
+    문장 자체는 자르지 않는다. 섹션 저장 때(parse) 적용하고, 예전 run 을 읽을 때(get_draft)도
+    같은 정리를 거쳐 화면·검토 입력에 조각이 가지 않게 한다.
+    """
+    cleaned, _ = strip_doc_fragments(text or "")
+    return _SPACES.sub(" ", cleaned).strip()
+
+
 @dataclass(frozen=True)
 class ParseResult:
     status: ParseStatus
@@ -107,7 +120,7 @@ def _sentences(data: object) -> list[Sentence] | None:
         parsed = [Sentence.model_validate(x) for x in data]
     except ValidationError:
         return None
-    return [Sentence(text=s.text, evidence=s.evidence) for s in parsed]
+    return [Sentence(text=clean_sentence(s.text), evidence=s.evidence) for s in parsed]
 
 
 def parse_sentences(raw: str) -> ParseResult:

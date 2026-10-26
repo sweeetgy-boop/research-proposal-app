@@ -380,7 +380,7 @@ def test_verify_rejects_entity_expansion(slots):
 def test_slot_map_reads_marks_paragraphs_and_line_limits(slots):
     assert slots.checked == "○" and slots.unchecked == " " and slots.bullet == "○ "
     assert "method" in slots.paragraphs and "title" not in slots.paragraphs  # 연구과제명은 인라인
-    assert slots.line_limits["title"] > 0 and slots.line_limits["proposer.name"] > 0
+    assert "title" not in slots.line_limits and slots.line_limits["proposer.name"] > 0
     with pytest.raises(ValueError, match="paragraphs"):
         SlotMap.from_config({"text": {"title": "{{title}}"}, "paragraphs": ["nope"]})
     with pytest.raises(ValueError, match="marks"):
@@ -500,3 +500,15 @@ def test_slot_values_scrub_doc_id_fragments_from_form_text(slots, strategy):
     )
     assert values["{{tech_importance}}"] == "선행연구는 한계가 있다.\n후속 연구는 다르다.\n끝 문장."
     assert "alio:" not in values["{{tech_importance}}"] and "openalex" not in str(values)
+
+
+def test_sixty_char_title_renders_inline_without_truncation(slots, strategy):
+    long_title = (
+        "경부선 궤도 검측 이력 기반 궤도 틀림 열화 예측 및 다짐 효과를 반영한 "
+        "보수 우선순위 산정 방법 개발 연구"
+    )
+    assert len(long_title) >= 60
+    d = full_draft()
+    d.sections[0] = Section(key="title", sentences=[Sentence(text=long_title)])
+    r = HwpxRenderer(slots, strategy=strategy, template_path=TEMPLATE)
+    assert long_title in plain_text(r.render(d, confirmation=CONFIRMED))

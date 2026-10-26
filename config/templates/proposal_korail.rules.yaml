@@ -48,8 +48,7 @@ required_sections:
   - utilization
   - overlap_review
 
-max_chars:
-  title: 100
+max_chars:                 # 연구과제명(title)은 제한 없음 — 한 줄을 넘으면 다음 줄로 흐른다
   task_type: 300
   policy_importance: 800
   tech_importance: 2500

@@ -193,3 +193,35 @@ def test_sentence_index_survives_run_state_round_trip(req):
     )
     reloaded = RunState.model_validate(state.model_dump(mode="json"))
     assert reloaded.problems[0]["sentence"] == 0
+
+
+def test_foreign_script_sentences_get_a_warning_but_are_kept():
+    from rra.domain.models import Draft, ProposalRequest, Section, Sentence
+    from rra.domain.rules.foreign_script import foreign_script_chars, has_foreign_script
+    from rra.domain.rules.lint import FOREIGN_SCRIPT, LintRules, lint
+
+    assert foreign_script_chars("사례 조사(文档ID: x)와 研究") == ["文", "档", "研", "究"]
+    assert has_foreign_script("データ 분석") and not has_foreign_script(
+        "ABC 123 궤도 ㄱㄴ ㅏ 15% (예)"
+    )
+    req = ProposalRequest(current_state="a", root_cause="b", limitation="c", goal="d")
+    draft = Draft(
+        run_id="20260101000000-deadbeef",
+        request=req,
+        sections=[
+            Section(
+                key="method",
+                sentences=[
+                    Sentence(text="정상 문장임."),
+                    Sentence(text="궤도 퀄리티를 개선하는 文档 분석임."),
+                    Sentence(text="カタカナ 혼입", origin="app"),
+                ],
+            )
+        ],
+    )
+    problems = lint(draft, LintRules(required_sections=["method"]))
+    hits = [p for p in problems if p.code == FOREIGN_SCRIPT]
+    assert [(p.sentence, p.severity) for p in hits] == [(1, "warning"), (2, "warning")]
+    assert (
+        "文档" in hits[0].message and len(draft.section("method").sentences) == 3
+    )  # 버리지 않는다

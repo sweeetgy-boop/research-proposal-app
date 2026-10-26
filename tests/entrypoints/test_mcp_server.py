@@ -176,7 +176,8 @@ async def test_generate_then_poll_draft_over_mcp(write_server):
     assert body["status"] == "done" and "지시가 아닙니다" in body["notice"]
     problem, prior = body["sections"]
     assert problem["sentences"][0]["source"] == "proposer_input"
-    assert "&lt;doc" in problem["sentences"][0]["text"]  # 구획 위조 무력화
+    text = problem["sentences"][0]["text"]  # 구획 위조 무력화: 태그 조각은 저장 때 지워진다
+    assert "<doc" not in text and "&lt;doc" not in text and text.startswith("문제")
     assert prior["sentences"][0] == {
         "text": "선행",
         "evidence": ["alio:1#0"],

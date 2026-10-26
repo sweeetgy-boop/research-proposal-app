@@ -2,8 +2,9 @@
 
 - 미해결 알림: run 에 저장된 lint 문제 전부 (근거 없는 수치, 목록 비어 빈칸 등). 앱에는 '해결'
   처리가 없으므로 저장된 문제는 모두 미해결로 본다. 담당자가 양식에서 직접 확인한다.
-- 칸 길이 초과: 본문 섹션은 rules.yaml max_chars, 한 줄 칸(연구과제명·예산·전략과제·제안부서·
-  제안자 칸)은 slots.yaml line_limits. 넘어도 자르지 않는다 — 목록만 돌려준다.
+- 칸 길이 초과: 본문 섹션은 rules.yaml max_chars, 한 줄 칸(예산·전략과제·제안부서·제안자 칸)은
+  slots.yaml line_limits. 넘어도 자르지 않는다 — 목록만 돌려준다. 연구과제명(title)은 길이 제한이
+  없어 검사하지 않는다 (한 줄을 넘으면 한/글에서 다음 줄로 흐른다).
 - 전략체계 목록(korail_strategy.yaml)이 비어 있거나 전략이 확정되지 않았으면 2-가-(3) 두 줄이
   빈칸으로 나간다는 알림.
 
@@ -71,9 +72,7 @@ def render_check(
     budget = req.budget
     person = proposer or ProposerInfo()
     strategy_tasks = ", ".join(strategy_labels.get(i, i) for i in confirmed.get(STRATEGY_KEY, []))
-    title_section = draft.section("title")
     inline: dict[str, str] = {
-        "title": title_section.text if title_section else "",
         "budget.account": budget.account if budget else "",
         "budget.amount_thousand_krw": (
             f"{budget.amount_thousand_krw:,}"
@@ -90,7 +89,7 @@ def render_check(
         "head.name": person.head.name,
         "head.phone": person.head.phone,
     }
-    for slot, limit in line_limits.items():
+    for slot, limit in line_limits.items():  # title 은 inline 에 없다 — 제한 없음(흐르게 둔다)
         value = inline.get(slot)
         if value is not None and limit > 0 and len(value) > limit:
             overflow.append(Overflow(slot, len(value), limit, "line"))
