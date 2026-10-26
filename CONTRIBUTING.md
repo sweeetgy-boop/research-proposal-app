@@ -9,6 +9,12 @@
    ```
 3. CI(`.github/workflows/ci.yml`: `backend`, `web`)가 통과하면 합친다(squash 금지, merge commit). 합친 뒤 브랜치는 지운다.
 4. 다음 작업이 앞 PR 에 의존하면 앞 PR 이 합쳐진 뒤 `main` 에서 새 브랜치를 만든다.
+5. **경과 기록(`docs/history/`)** — 합치기 전에 반드시:
+   - `docs/history/timeline.md` 에 항목 하나(날짜, 무엇을, 왜, PR 번호, 핵심 수치).
+   - 수치(테스트 수·자료원 건수·생성 시간·점수 등)가 바뀌었으면 `docs/history/metrics.csv` 에 행 추가
+     (`tools/history_charts.py` 로 그래프 재생성).
+   - 주요 결정(모델·구조·임계치·흐름)은 `docs/history/decisions/NNNN-<slug>.md` 에 ADR(배경·선택지·결정·이유·결과).
+   - 화면이 바뀌었으면 `docs/history/screens/<YYYY-MM-DD>-<화면>.png` 캡처.
 
 ## 동료 PC 준비 (백엔드 없이 프론트엔드만 개발할 때)
 ```bash

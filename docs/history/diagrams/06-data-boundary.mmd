@@ -1,0 +1,15 @@
+flowchart TB
+  subgraph public[public — 외부 검토에 보낼 수 있음]
+    OWN[own 과제 목록 1,119<br/>엑셀 4개 · 공개 자료]
+    ALIO[alio 공시용 요약 115]
+    OA[openalex 논문 2,482]
+  end
+  subgraph internal[internal — 로컬에만]
+    ALIOI[alio 일반 요약 5<br/>공시용 없음]
+  end
+  subgraph never[저장하지 않음]
+    PI[제안자·부서장 성명·연락처<br/>렌더 인자로만]
+    KEY[API 키 · 토큰<br/>.env SecretStr]
+  end
+  public --> REVIEW[Argon 검토 전송<br/>manifest 에 doc_id 기록]
+  internal -. include_internal=false 기본 .-> REVIEW
