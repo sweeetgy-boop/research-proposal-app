@@ -17,13 +17,22 @@ FIX = ROOT / "tests" / "fixtures"
 SOURCES = yaml.safe_load((ROOT / "config" / "sources.yaml").read_text(encoding="utf-8"))
 SCIENCEON = sorted((FIX / "scienceon").glob("*.xml"))
 NTIS = sorted((FIX / "ntis").glob("*.xml"))
+KIPRIS = sorted((FIX / "kipris").glob("*.xml"))
+KIPRIS_TAG = (SOURCES.get("kipris") or {}).get("record_tag") or "PatentUtilityInfo"
 NTIS_TAG = (SOURCES.get("ntis") or {}).get("record_tag") or ""
 
 
 def test_fixtures_hold_no_obvious_secrets():
-    for path in [*SCIENCEON, *NTIS]:
+    for path in [*SCIENCEON, *NTIS, *KIPRIS]:
         text = path.read_text(encoding="utf-8", errors="replace")
-        for marker in ("accounts=", "apprvKey=", "refreshToken=", "token="):
+        for marker in (
+            "accounts=",
+            "apprvKey=",
+            "refreshToken=",
+            "token=",
+            "accessKey=",
+            "ServiceKey=",
+        ):
             assert marker not in text, f"{path.name}: {marker}"
 
 
@@ -52,3 +61,16 @@ def test_ntis_projects_normalize(path):
     docs = [normalize_project(r, institutions) for r in records]
     assert all(d.doc_id.startswith("ntis:") and d.doc_type == "rnd_project" for d in docs)
     assert any(d.abstract for d in docs), "연구목표·내용 필드 매핑을 확인할 것"
+
+
+@pytest.mark.skipif(not KIPRIS, reason="KIPRIS 실응답 미녹화 (tests/fixtures/kipris/README.md)")
+@pytest.mark.parametrize("path", KIPRIS, ids=[p.name for p in KIPRIS])
+def test_kipris_records_normalize(path):
+    from rra.adapters.sources.kipris import normalize_patent
+
+    records = [flatten(r) for r in find_records(parse(path.read_bytes()), KIPRIS_TAG)]
+    assert records, f"{KIPRIS_TAG} 요소가 없다 — sources.yaml kipris.record_tag 를 확인"
+    docs = [normalize_patent(r, SOURCES.get("institutions") or []) for r in records]
+    assert len({d.doc_id for d in docs}) == len(docs)
+    assert all(d.doc_type == "patent" and d.source == "kipris_kr" and d.title for d in docs)
+    assert all(not d.authors for d in docs)  # 발명자·개인 출원인 이름은 저장하지 않는다

@@ -86,6 +86,9 @@
   reopen, runs/…/versions·reviews 파일, 양식 파일은 finalize 로만), [6] REST 세션·CSRF·SSE·problem+json·정적 SPA·
   RRA_FAKE_LLM 가짜 모드(adapters/fake)·`rra api schema`, [7] Streamlit [최종 마무리 및 다운로드]. 설계 architecture §4.5·§4.6·§9.2.
 - Gemini 키는 .env 에 있고 Argon 왕복 확인됨. 대기(사람 입력): 연구과제 공고문(data/inbox/notice/).
+- 외부 자료원(P4, architecture §4.10, docs/external-apis.md): KIPRIS 어댑터 `adapters/sources/kipris/`(KIPRIS Plus
+  freeSearchInfo, accessKey, 레코드 PatentUtilityInfo, 발명자 제외·출원인 기관만), `RRA_KIPRIS_KEY`, `rra sources check` 에
+  kipris + record_tag 진단. NTIS 연구보고서는 가능 여부만 확인(키 뒤 구현).
 - 사내 자료 적재(P2, architecture §4.8): `adapters/sources/own/` — `own_projects`(data/inbox/own 엑셀 4개, 시트 머리글로
   종류 판별, 이름 열 제외, status rejected/stopped/…, 과제명 병합)·`own_docs`(data/inbox/own_docs 공시완료 폴더, 공시용 >
   일반 요약, hwpx > hwp > pdf, 묶음 꼬리말 분리, alio.summary 정규화 공용, 이름 제거). 샌드박스 파서 hwp(olefile)·xlsx·xls.

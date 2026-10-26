@@ -37,7 +37,8 @@ rra search "궤도 틀림 자동 감지" -k 5                                   
 rra llm-check --stage compose                                                        # mlx-lm 왕복 1회 + served_model 확인
 rra ingest --source openalex,alio,alio_summary [--query ...]                          # 수집 → 적재
 rra ingest --source own_projects,own_docs      # 사내 과제 현황 엑셀(data/inbox/own)·공시용 요약문(data/inbox/own_docs)
-rra sources check                                                                    # ScienceON·NTIS 키 유무(값 미표시)·왕복
+rra ingest --source kipris                      # KIPRIS Plus 특허 (RRA_KIPRIS_KEY, docs/external-apis.md)
+rra sources check                                                                    # ScienceON·NTIS·KIPRIS 키 유무(값 미표시)·왕복·record_tag 진단
 rra alio catalog [--fetch] | rra alio missing | rra alio status                       # 알리오 카탈로그·filedrop
 rra generate --current-state ... --goal ... [--differentiation "고른 방향"] [--file in.yaml] [--resume RUN] [--reuse-input RUN]
 rra runs list | rra runs show RUN [--json]
@@ -65,5 +66,5 @@ A.X 4.0 Light 는 JSON 형식 성공률 기준(95%)에 못 미쳐 **Qwen2.5-7B-I
 - Step 1~10 + 실물 양식 템플릿(`tools/build_form_template.py`) + 작성 → Argon 검토 → 제안자 수정 → 재검토 → 최종 마무리
   흐름(`docs/architecture.md` §4.6) + 프론트엔드용 REST(§9.2, `docs/openapi.json`) 까지. 양식 파일은 finalize 로만.
 - Argon 검토·차별화 제안은 `RRA_GEMINI_API_KEY` 로 연결돼 있다(없으면 검토 건너뜀·차별화는 로컬 모델). 기획서 기준
-  미구현은 KIPRIS 특허 수집. 항목별 현황·근거·단계 계획(P0~P7)은 `docs/status.md`.
+  외부 자료원 신청처·검증 명령은 `docs/external-apis.md`. 항목별 현황·근거·단계 계획(P0~P7)은 `docs/status.md`.
 - 대기(사람 입력): ScienceON·NTIS·KIPRIS 키, `korail_strategy.yaml` 전략체계, 연구과제 공고문, 프론트엔드 `web/dist`.

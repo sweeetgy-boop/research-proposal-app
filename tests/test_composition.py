@@ -509,3 +509,27 @@ def test_differentiator_without_stage_in_llm_yaml_falls_back_to_compose(config_d
 
     d = build_differentiator(settings_for(config_dir), repo=object(), llm=object())
     assert d.fallback_local is True
+
+
+def test_kipris_wiring_requires_key_and_reads_sources_yaml():
+    from pydantic import SecretStr
+
+    from rra.composition import MissingCredential, build_sources, credential_status
+
+    assert credential_status(project_settings(), "kipris") == {"RRA_KIPRIS_KEY": False}
+    with pytest.raises(MissingCredential, match="RRA_KIPRIS_KEY"):
+        build_sources(["kipris"], project_settings())
+    [src] = build_sources(["kipris"], project_settings(kipris_key=SecretStr("k")))
+    assert src.source == "kipris" and src.url.startswith("https://plus.kipris.or.kr/openapi/rest/")
+    assert src.record_tag == "PatentUtilityInfo" and src.key_param == "accessKey"
+    assert "plus.kipris.or.kr" in src.client.allowed and src.docs_count == 50
+
+
+async def test_sources_check_covers_kipris():
+    from rra.composition import build_sources_check
+
+    rows = await build_sources_check(project_settings())()
+    by = {r["source"]: r for r in rows}
+    assert set(by) == {"scienceon", "ntis", "kipris"}
+    assert by["kipris"]["host_allowed"] and by["kipris"]["roundtrip"] == "skipped"
+    assert by["kipris"]["credentials"] == {"RRA_KIPRIS_KEY": False}

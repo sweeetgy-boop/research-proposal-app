@@ -24,7 +24,12 @@ from urllib.parse import parse_qs, quote, quote_plus, urlsplit
 
 import httpx
 
-from rra.composition import build_ntis_source, build_scienceon_source, load_settings
+from rra.composition import (
+    build_kipris_source,
+    build_ntis_source,
+    build_scienceon_source,
+    load_settings,
+)
 
 ROOT = Path(__file__).parents[1] / "fixtures"
 MASK = b"REDACTED"
@@ -56,12 +61,26 @@ class RecordingTransport(httpx.AsyncBaseTransport):
 
 def secret_values(settings, exchanges) -> set[str]:
     values = set()
-    for field in ("scienceon_client_id", "scienceon_key", "scienceon_mac", "ntis_key"):
+    for field in (
+        "scienceon_client_id",
+        "scienceon_key",
+        "scienceon_mac",
+        "ntis_key",
+        "kipris_key",
+    ):
         secret = getattr(settings, field)
         if secret is not None and secret.get_secret_value().strip():
             values.add(secret.get_secret_value().strip())
     for ex in exchanges:
-        for name in ("accounts", "token", "refreshToken", "apprvKey", "client_id"):
+        for name in (
+            "accounts",
+            "token",
+            "refreshToken",
+            "apprvKey",
+            "client_id",
+            "accessKey",
+            "ServiceKey",
+        ):
             if ex["query"].get(name):
                 values.add(ex["query"][name])
         if ex["path"].endswith("tokenrequest.do"):
@@ -120,6 +139,12 @@ async def record(
         src.targets = [target] if target else src.targets[:1]
         src.row_count = rows
         await src.search(query, rows)
+    elif source == "kipris":
+        src = build_kipris_source(settings, transport=transport, resolver=resolver)
+        root = await src._fetch_root(query, 1, count=rows)  # noqa: SLF001 - 녹화 전용
+        from rra.adapters.sources._xml import find_records, local
+
+        print("record_tag 후보:", sorted({local(r.tag) for r in find_records(root)}))
     else:
         src = build_ntis_source(settings, transport=transport, resolver=resolver)
         root = await src._fetch_root(query, 1, count=rows)  # noqa: SLF001 - 녹화 전용
@@ -160,7 +185,7 @@ async def record(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser("record_fixture")
-    parser.add_argument("source", choices=["scienceon", "ntis"])
+    parser.add_argument("source", choices=["scienceon", "ntis", "kipris"])
     parser.add_argument("--query", required=True)
     parser.add_argument("--target", help="ScienceON: ARTI | REPORT")
     parser.add_argument("--rows", type=int, default=10)

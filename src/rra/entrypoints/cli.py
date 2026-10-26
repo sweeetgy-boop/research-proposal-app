@@ -919,9 +919,34 @@ def cmd_sources_check(args: argparse.Namespace) -> int:
             print(f"{head} / 왕복: {r['roundtrip']}")
             if r.get("result"):
                 print(f"    {_safe(json.dumps(r['result'], ensure_ascii=False), 300)}")
+                for line in _record_tag_hints(r):
+                    print(f"    → {line}")
             if r.get("error"):
                 print(f"    {_safe(r['error'], 300)}")
     return EXIT_OK if all(r["roundtrip"] == "ok" for r in results) else EXIT_ERROR
+
+
+def _record_tag_hints(r: dict) -> list[str]:
+    """NTIS·KIPRIS 레코드 태그 진단 — probe 후보와 설정값을 대조해 다음 할 일을 알려 준다."""
+    from rra.composition import load_settings, source_config
+
+    result = r.get("result") or {}
+    candidates = result.get("record_tag_candidates") or []
+    if not candidates:
+        return []
+    try:
+        configured = str(source_config(load_settings(), r["source"]).get("record_tag") or "")
+    except Exception:  # 설정을 읽을 수 없으면(테스트 스텁 등) 진단을 생략한다
+        return []
+    safe = [_safe(c, 40) for c in candidates[:5]]
+    if not configured:
+        return [
+            f"record_tag 가 비어 있습니다 — 후보 {safe} 중 레코드 하나를 감싸는 요소를 "
+            f"config/sources.yaml {r['source']}.record_tag 에 적으세요 (수집은 그때부터)."
+        ]
+    if configured not in candidates and result.get("record_tag_matches") is False:
+        return [f"설정된 record_tag {configured!r} 가 응답에 없습니다 — 후보 {safe} 로 바꾸세요."]
+    return [f"record_tag {configured!r} 확인됨."]
 
 
 # ── mcp ───────────────────────────────────────────────────
@@ -1057,7 +1082,7 @@ def build_parser() -> argparse.ArgumentParser:
     src = sub.add_parser("sources", help="키가 필요한 수집 소스 점검")
     src_sub = src.add_subparsers(dest="sources_cmd", required=True)
     chk = src_sub.add_parser("check", help="키 유무(값 미표시)·허용목록·왕복 1회")
-    chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis)")
+    chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis,kipris)")
     chk.add_argument("--json", action="store_true")
     chk.set_defaults(handler=cmd_sources_check)
 
