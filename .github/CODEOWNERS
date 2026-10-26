@@ -1,0 +1,6 @@
+# PR 리뷰 자동 지정. 경로가 뒤에 올수록 우선한다.
+# 백엔드·문서·설정 — 저장소 소유자
+*                 @sweeetgy-boop
+# 프론트엔드 — 동료 (아이디를 알려 주면 아래 TODO 를 바꾼다)
+# TODO: web/ 소유자 동료 GitHub 아이디로 교체
+# web/            @TODO-frontend-owner
