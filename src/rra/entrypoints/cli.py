@@ -513,7 +513,13 @@ def cmd_alio_status(args: argparse.Namespace) -> int:
 
 
 # ── generate · runs ───────────────────────────────────────
-_STATUS_EXIT = {"done": EXIT_OK, "invalid": EXIT_INVALID}
+# 검토 LLM 이 있으면 초안 뒤 1차 검토가 자동으로 붙어 reviewing/reviewed 로 끝난다 — 생성은 성공.
+_STATUS_EXIT = {
+    "done": EXIT_OK,
+    "reviewing": EXIT_OK,
+    "reviewed": EXIT_OK,
+    "invalid": EXIT_INVALID,
+}
 
 
 def _step_line(state, step) -> str:

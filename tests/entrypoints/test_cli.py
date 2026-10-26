@@ -461,7 +461,7 @@ def run_env(monkeypatch, docs, chunks):
     repo = InMemoryRepository()
     repo.seed(docs, chunks)
     store = InMemoryRunStore()
-    env = {"store": store, "llm": None, "closed": 0}
+    env = {"store": store, "llm": None, "closed": 0, "reviewer": None}
 
     class ClosingLLM(FakeLLM):
         async def aclose(self):
@@ -471,7 +471,9 @@ def run_env(monkeypatch, docs, chunks):
         llm = env["llm"]
         rules = LintRules(required_sections=GEN_KEYS, evidence_required=["prior_work"])
         gen = GenerateProposal(llm, repo, FakePromptLibrary(), rules, GEN_KEYS)
-        return RunManager(gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner())
+        return RunManager(
+            gen, store, FakeSlot(), FakeRunLog(), FakeTaskRunner(), reviewer=env["reviewer"]
+        )
 
     def use(responses, **kw):
         env["llm"] = ClosingLLM(responses, **kw)
@@ -491,6 +493,26 @@ def test_generate_prints_progress_and_draft_with_evidence(run_env, capsys):
     assert "[alio:1#0]" in captured.out and "\x1b" not in captured.out
     assert "궤도 상태 자동 감지 연구" in captured.out  # 근거 문서 제목
     assert run_env["closed"] == 1
+
+
+def test_generate_with_auto_review_exits_ok(run_env, capsys):
+    """검토 LLM 이 있으면 run 이 reviewed 로 끝난다 — 생성 성공이므로 종료 코드 0 (2026-10-26)."""
+    from rra.application.usecases.review_draft import ReviewDraft
+    from rra.domain.rules.lint import LintRules
+    from tests.fakes import FakeLLM, FakePromptLibrary
+
+    reply = json.dumps({"sentences": [], "sections": [], "resolved": []})
+    run_env["reviewer"] = ReviewDraft(
+        FakeLLM([reply]),
+        FakePromptLibrary(),
+        LintRules(required_sections=GEN_KEYS, evidence_required=["prior_work"]),
+        provider="gemini",
+        model="argon",
+    )
+    run_env["use"]([_sentence("문제"), _sentence("선행", ["alio:1#0"])])
+    assert cli.main(["generate", *GEN_ARGS, "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] in ("reviewed", "reviewing")
 
 
 def test_generate_lint_failure_exit_code(run_env, capsys):
