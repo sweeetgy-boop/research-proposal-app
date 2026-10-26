@@ -5,6 +5,15 @@ from __future__ import annotations
 import re
 
 TIER = {"own": "사내(철도연구원)", "domestic_rail": "국내 철도기관", "external": "외부"}
+OWN_DETAIL = {"institute": "사내(철도연구원)", "company": "사내(공사)"}
+
+
+def tier_text(tier: str, own_detail: str | None = None) -> str:
+    if tier == "own":
+        return OWN_DETAIL.get(own_detail or "institute", TIER["own"])
+    return TIER.get(tier, tier)
+
+
 BASIS = {"summary": "공개 요약", "abstract": "초록·과제요약", "full_text": "원문"}
 PROBLEM = {
     "missing": "필수 섹션 비어 있음",

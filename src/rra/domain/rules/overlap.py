@@ -12,9 +12,12 @@ from typing import get_args
 from pydantic import BaseModel, ConfigDict
 
 from rra.domain.models import Document, OverlapAlert, SourceType, Tier
+from rra.domain.models.gap import OwnDetail
 from rra.domain.rules.keywords import KeywordRule, enough, keyword_overlap
 
 DEFAULT_THRESHOLDS: dict[Tier, float] = {"own": 0.80, "domestic_rail": 0.85, "external": 0.90}
+# 사내 과제 기록(엑셀 4개) 출처 — 부서와 관계없이 own 티어. 알림은 철도연구원/공사 부서를 구분한다
+OWN_RECORD_SOURCES: frozenset[str] = frozenset({"own"})
 DOMESTIC_RAIL_ORGS = ("korail", "kr")
 _TOKEN_SEP = re.compile(r"[\s,/·()（）]+")
 
@@ -47,18 +50,34 @@ def department_listed(department: str | None, own: OwnUnit) -> bool:
 
 
 def unlisted_department(doc: Document, own: OwnUnit) -> str | None:
-    """own 기관 문서인데 부서가 목록에 없으면 그 부서명 (목록 보완이 필요한지 경고용)."""
+    """own 기관 문서인데 부서가 목록에 없으면 그 부서명 (목록 보완이 필요한지 경고용).
+
+    사내 과제 기록(source own)은 공사 전 부서의 제안·수행 기록이라 경고하지 않는다."""
+    if doc.source in OWN_RECORD_SOURCES:
+        return None
     if own.org in doc.orgs and doc.department and not department_listed(doc.department, own):
         return doc.department
     return None
 
 
 def tier_of(doc: Document, own: OwnUnit | None = None) -> Tier:
+    """사내 과제 기록(source own)은 부서와 관계없이 own. 그 밖은 기관 태그 + own 부서 목록으로."""
+    if doc.source in OWN_RECORD_SOURCES:
+        return "own"
     if own is not None and own.org in doc.orgs and department_listed(doc.department, own):
         return "own"
     if any(o in DOMESTIC_RAIL_ORGS for o in doc.orgs):
         return "domestic_rail"
     return "external"
+
+
+def own_detail_of(doc: Document, own: OwnUnit | None) -> OwnDetail | None:
+    """own 티어의 세부 구분: 철도연구원 부서면 institute, 그 외(공사 부서·부서 없음)면 company."""
+    if tier_of(doc, own) != "own":
+        return None
+    if own is not None and department_listed(doc.department, own):
+        return "institute"
+    return "company" if doc.source in OWN_RECORD_SOURCES else "institute"
 
 
 def document_text(doc: Document) -> str:
@@ -95,12 +114,22 @@ def judge(
                 basis=doc.text_basis,
                 keywords=shared,
                 status=status if isinstance(status, str) and status else None,
+                own_detail=own_detail_of(doc, own),
             )
         )
     return sorted(alerts, key=lambda a: (-int(a.blocking), -a.similarity))
 
 
 _TIER_LABEL: dict[Tier, str] = {"own": "사내", "domestic_rail": "국내 철도기관", "external": "외부"}
+OWN_DETAIL_LABEL: dict[str, str] = {"institute": "사내(철도연구원)", "company": "사내(공사)"}
+
+
+def tier_label(tier: Tier, own_detail: str | None = None) -> str:
+    """알림 표시용 — own 은 철도연구원/공사 부서를 구분한다."""
+    if tier == "own":
+        return OWN_DETAIL_LABEL.get(own_detail or "institute", "사내")
+    return _TIER_LABEL[tier]
+
 
 # 자료원 → 검토 범위 문장에 쓰는 이름. 순서 = 문장에 나열하는 순서
 SOURCE_LABELS: dict[str, str] = {

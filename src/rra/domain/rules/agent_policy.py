@@ -79,8 +79,10 @@ def after_precheck(
                 "rra_generate",
             )
         )
-    if needs_differentiation(alerts):  # 기획서 기능 2 — 차단·근접(임계치 90% 이상) 알림
+    if has_blocking(alerts):  # 기획서 기능 2 — 차단 알림이면 차별화 제안을 자동 실행
         out.append(on_differentiate())
+    elif needs_differentiation(alerts):  # 근접(임계치 90% 이상)만이면 담당자가 요청할 때
+        out.append(on_differentiate_on_request())
     if not req.policy_basis.strip():
         out.append(Decision("정책 근거 미입력", "정책적 중요도 섹션은 생성하지 않고 빈칸 + 경고"))
     if corpus_size <= 0:
@@ -95,9 +97,18 @@ def after_precheck(
 
 def on_differentiate() -> Decision:
     return Decision(
-        "차단·근접(임계치의 90% 이상) 알림 있음",
-        "rra_differentiate 호출 → 겹친 과제별 활용·차별화 방향 제안 (담당자가 고르거나 고침)",
+        "차단 알림 있음",
+        "rra_differentiate 자동 호출 → 겹친 과제별 활용·차별화 방향 제안 (담당자가 고르거나 고침)",
         "rra_differentiate",
+    )
+
+
+def on_differentiate_on_request() -> Decision:
+    return Decision(
+        "근접(임계치의 90% 이상) 알림만 있음",
+        "담당자가 [차별화 제안 받기]를 누르면 rra_differentiate 호출",
+        "rra_differentiate",
+        needs_human=True,
     )
 
 

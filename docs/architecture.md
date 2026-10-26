@@ -506,14 +506,18 @@ openpyxl read_only, xls 는 xlrd; 행·열·셀 상한). `filecheck` 가 hwp·xl
   과제목록 → `completed`, 수행현황 비고 "중단" → `stopped`(종료일 지남 → `completed`, 아니면 `ongoing`).
   같은 과제명은 수행 기록(status > performance > history) > 제안 기록 순으로 하나만 남기고 제안 기록은 `raw.proposal` 로
   붙인다. Document: source `own`, doc_type `rnd_project`(과제명 해시 doc_id), text_basis `abstract`, orgs korail,
-  visibility — 제안 현황·연구과제 현황은 `internal`, 과제목록·수행현황은 `public`. 목록 파일은 처리 뒤 옮기지 않는다.
+  **visibility 는 네 파일 모두 `public`**(2026-10-26 결정 — 공사 과제 기록은 공개 자료). 목록 파일은 처리 뒤 옮기지 않는다.
+  **티어**: source own 은 부서와 관계없이 `own`(`overlap.OWN_RECORD_SOURCES`), 알림은 철도연구원 부서면
+  "사내(철도연구원)"(own_detail=institute), 그 외 공사 부서면 "사내(공사)"(company)로 구분한다(`OverlapAlert.own_detail`,
+  `tier_label`). 이 출처에는 `unlisted_department` 경고를 내지 않는다.
   `raw.status` 는 `OverlapAlert.status` 로 올라가 precheck·화면·P3 차별화 제안이 쓴다 (미채택 → 보완 재제안 관점).
 - **own_docs** (`data/inbox/own_docs/`, 공시완료 폴더를 연도/과제 폴더째 복사): 과제 폴더마다 요약 파일을 고른다 —
   공시용 > 일반 요약, hwpx > hwp > pdf, 묶음 폴더(수송수요 예측 5건 등)는 파일 꼬리말(고속·준고속·…)로 과제를 나눈다
   (`_names.select_summary_files`; macOS NFD 파일명은 NFC 로 맞춘다). 본문은 알리오 공개 요약 경로의 라벨 해석·정규화
   (`alio.summary`)를 그대로 쓴다 — 공시용 요약문이 알리오 상세 페이지 요약의 원본이라 같은 doc_id(`alio:sum-…`)로
   합쳐지고 본문이 긴 쪽이 남는다. 연구자 이름은 저장하지 않는다(authors 비움, 연구책임자는 부서만). 처리된 과제
-  폴더는 `_done/<연도>/…` 로 옮긴다.
+  폴더는 `_done/<연도>/…` 로 옮긴다. **visibility**: 공시용 요약문은 `public`, 공시용이 없어 일반 요약문을 쓴 과제만
+  `internal`(`raw.disclosed`, 2026-10-26 결정). 2026-10-26 dev DB: own 1,119 public / alio 115 public + 5 internal.
 - `summary_doc_id` 는 발간일을 보지 않는다(기관 + 제목). 알리오 페이지 복사본(.txt)과 공시용 요약문 파일이 같은 id 로
   합쳐지기 위해서다. HWP 파서는 UTF-16 서로게이트 쌍을 한 글자로 합친다(짝 없는 것은 버림 — JSON 직렬화 보장).
 - 2026-10-26 적재: 엑셀 4개 1,377행 → 과제 1,119건(미채택 62·중단 4·진행중 73), 공시 요약 107개 폴더 → 129파일 선별
@@ -547,6 +551,15 @@ precheck 결과에 차단 또는 기준 근접(유사도 ≥ 티어 임계치 ×
   `POST /v1/precheck/differentiate`(ProposalRequest → alerts + differentiation; LLM 없으면 503), MCP 쓰기 도구
   `rra_differentiate`(+ `rra_generate(differentiation=)`), Streamlit 유사과제 표 아래 [차별화 제안 받기] → 방향 선택/수정 →
   [차별화 방향 적용]. `docs/openapi.json` 갱신.
+- **자동 실행 규칙(2026-10-26 결정)**: 차단(blocking) 알림이 있을 때만 자동 — `ProposalAssistant.intake` 가
+  `IntakeResult.differentiation` 으로 돌려주고(Streamlit 은 바로 표시, 버튼은 "다시 받기"), `rra precheck` 는 결과 뒤에
+  `[차별화 제안 — 차단 알림으로 자동 실행]`(`--no-differentiate` 로 끔), REST `POST /v1/precheck` 응답에 `differentiation`.
+  근접 알림만이면 담당자 요청 시(`on_differentiate_on_request`, needs_human) — CLI `rra differentiate`, REST
+  `/v1/precheck/differentiate`, MCP `rra_differentiate`, Streamlit 버튼. MCP 읽기 서버의 `rra_precheck` 는 LLM 이 없어
+  자동 실행하지 않는다.
+- **REST 경로의 manifest 기록**: `POST /v1/runs` 본문(`RunIn`)이 선택 필드 `differentiation_transfer`(제안 응답의
+  `transfer` 를 되돌려 보냄, doc_id·개수만, extra 금지)를 받아 `RunManager.submit(differentiation=)` 로 넘긴다 → manifest
+  `differentiation`. 검토 전송 기록은 경로와 무관하게 `ReviewRound.transfer` 로 남는다.
 - 2026-10-26 실례(사내 적재 뒤, Gemini): 미채택 제안과 같은 아이디어 → 제안 2건(미채택 과제는 "데이터 수집 체계 먼저 구축해
   구체화·재제안", 타부서 제안은 대상 특화로 차별화); 완료 과제에 가까운 아이디어 → 제안 4건, 폐기 0. 자료에 있는 수치만
   쓰였고 지어낸 수치는 없었다.
@@ -1102,6 +1115,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (A) | 판단 반영: own 티어 = source own 전부(세부 institute/company, `tier_label`), own 출처 경고 제외, generic_terms 14개 추가, visibility 전부 public(공시용 없는 요약만 internal), 차별화 자동 실행은 차단 알림만, REST `RunIn.differentiation_transfer` → manifest |
 | 2026-10-26 (P6) | 운영 준비(§4.12): `com.rra.ingest.plist`, `rra ingest --skip-unavailable`·`build_available_sources`, plist 테스트, `deploy/README.md` 설치 순서, `docs/deploy-exposure.md` |
 | 2026-10-26 (P5) | 검토 고도화(§4.11): `ReviewRound.scores`·`CriterionScore`·`score_comments`, `parse_scores`, review.md 채점·수치 정책, `RenderCheck.unsupported_numbers`(맨 위 표시), 화면·CLI·API 점수 표시, manifest scores |
 | 2026-10-26 (P4) | 외부 자료원 전수 점검(§4.10, `docs/external-apis.md`): KIPRIS 어댑터(`adapters/sources/kipris/`, `sources.yaml kipris`, `RRA_KIPRIS_KEY`), `rra sources check` kipris·record_tag 진단, 녹화 도구 kipris, `.env.example` 정리 |

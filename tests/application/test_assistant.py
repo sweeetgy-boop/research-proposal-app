@@ -22,8 +22,15 @@ async def test_intake_runs_precheck_and_announces_conditions():
         d.condition for d in res.decisions
     ]
     assert res.uncollected == ["scienceon", "kipris_kr", "kipris_intl", "ntis", "own"]
-    assert [t.tool for t in a.trace] == ["rra_precheck", None, None]
+    assert [t.tool for t in a.trace] == ["rra_precheck", None, None, "rra_differentiate"]
     assert "차단 1건" in a.trace[0].summary
+    assert res.differentiation is not None and res.differentiation.items  # 차단 → 자동 차별화 제안
+
+
+async def test_intake_without_blocking_does_not_run_differentiation_automatically():
+    a = make_assistant(blocking=False)
+    res = await a.intake(REQ)
+    assert res.differentiation is None and all(t.tool != "rra_differentiate" for t in a.trace)
 
 
 async def test_blocking_without_acknowledgement_does_not_generate():

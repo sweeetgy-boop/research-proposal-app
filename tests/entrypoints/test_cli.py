@@ -40,6 +40,13 @@ def stub(monkeypatch):
     holder = StubPrecheck([])
     monkeypatch.setattr("rra.composition.build_precheck", lambda *a, **k: holder)
     monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+
+    def no_llm(*a, **k):
+        from rra.composition import LLMUnavailable
+
+        raise LLMUnavailable("provider=gemini 의 키가 .env 에 없습니다: RRA_GEMINI_API_KEY")
+
+    monkeypatch.setattr("rra.composition.build_differentiator", no_llm)  # 자동 차별화는 생략
     return holder
 
 
@@ -64,7 +71,7 @@ def test_precheck_exit_code_signals_blocking_alert(stub, capsys):
 def test_precheck_marks_summary_basis(stub, capsys):
     stub.alerts = [alert().model_copy(update={"basis": "summary"})]
     cli.main(["precheck", *SLOT_ARGS])
-    assert "own            요약 alio:1" in capsys.readouterr().out
+    assert "own:institute  요약 alio:1" in capsys.readouterr().out
 
 
 def test_precheck_json_output(stub, capsys):
@@ -1023,3 +1030,28 @@ def test_ingest_skip_unavailable_builds_only_keyed_sources(monkeypatch, capsys):
     out, err = capsys.readouterr()
     assert "[openalex] 수집 3건" in out and "[ntis] 건너뜀" in err and "RRA_NTIS_KEY" in err
     assert "ntis" not in out  # 건너뛴 소스는 결과 표에 없다
+
+
+def test_precheck_runs_differentiation_automatically_only_when_blocking(stub, monkeypatch, capsys):
+    stub.alerts = [alert(blocking=True)]
+    holder = StubDifferentiate(_proposal())
+    monkeypatch.setattr("rra.composition.build_differentiator", lambda *a, **k: holder)
+    assert cli.main(["precheck", *SLOT_ARGS]) == cli.EXIT_BLOCKED
+    out, err = capsys.readouterr()
+    assert "[차별화 제안 — 차단 알림으로 자동 실행]" in out and "방향 1: 범위를 확장함" in out
+    assert holder.closed and len(holder.calls) == 1
+    stub.alerts = [alert(blocking=False)]
+    assert cli.main(["precheck", *SLOT_ARGS]) == cli.EXIT_OK
+    assert (
+        "차별화 제안" not in capsys.readouterr().out and len(holder.calls) == 1
+    )  # 비차단 → 자동 없음
+    stub.alerts = [alert(blocking=True)]
+    cli.main(["precheck", *SLOT_ARGS, "--no-differentiate"])
+    assert len(holder.calls) == 1
+
+
+def test_precheck_without_llm_skips_differentiation_but_still_reports(stub, capsys):
+    stub.alerts = [alert(blocking=True)]
+    assert cli.main(["precheck", *SLOT_ARGS]) == cli.EXIT_BLOCKED
+    out, err = capsys.readouterr()
+    assert "차단 1건" in out and "차별화 제안 생략" in err and "RRA_GEMINI_API_KEY" in err

@@ -13,6 +13,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from rra.domain.rules.overlap import tier_label
+
 
 def _same(text: str) -> str:
     return text
@@ -286,6 +288,8 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
                 "basis": a.basis,
                 "keywords": list(a.keywords),
                 "status": a.status,
+                "own_detail": a.own_detail,
+                "tier_label": tier_label(a.tier, a.own_detail),
             }
             for a in alerts
         ],

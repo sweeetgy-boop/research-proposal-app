@@ -194,8 +194,11 @@ def test_search_panel_shows_untrusted_notice_and_chunks(app):
 # ── 기능 2: 유사과제 활용·차별화 제안 ───────────────────────
 def test_differentiation_panel_offers_directions_and_applies_the_choice(app):
     at = submit_form(login(app(blocking=True)))
-    assert any(b.label == "차별화 제안 받기" for b in at.button)  # 차단 알림 → 제안 버튼
-    button(at, "차별화 제안 받기").click()
+    # 차단 알림 → intake 가 자동으로 제안했고, 버튼은 "다시 받기"
+    assert at.session_state["rra_diff"] is not None
+    assert any("자동으로 제안" in c.value for c in at.caption)
+    assert any(b.label == "차별화 제안 다시 받기" for b in at.button)
+    button(at, "차별화 제안 다시 받기").click()
     at = at.run()
     assert at.session_state["rra_diff"] is not None and at.session_state["rra_diff"].items
     assert "gemini" in " ".join(c.value for c in at.caption)

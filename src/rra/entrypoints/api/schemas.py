@@ -76,3 +76,38 @@ class RevertIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     to: int = Field(ge=1, le=10_000)
+
+
+class DifferentiationTransferIn(BaseModel):
+    """POST /v1/precheck/differentiate 응답의 transfer 를 되돌려 보내면 run manifest 에 남는다.
+    doc_id 와 개수만 — 본문은 받지 않는다 (보안 I)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str | None = Field(default=None, max_length=40)
+    model: str | None = Field(default=None, max_length=120)
+    fallback_local: bool = False
+    public_doc_ids: list[str] = Field(default_factory=list, max_length=50)
+    internal_doc_ids: list[str] = Field(default_factory=list, max_length=50)
+    excluded_doc_ids: list[str] = Field(default_factory=list, max_length=50)
+    calls: int = Field(default=0, ge=0, le=100)
+    items: int = Field(default=0, ge=0, le=100)
+    discarded: int = Field(default=0, ge=0, le=100)
+    skipped_reason: str | None = Field(default=None, max_length=40)
+
+
+class RunIn(ProposalRequest):
+    """생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 (manifest 에만 남는다)."""
+
+    differentiation_transfer: DifferentiationTransferIn | None = None
+
+    def request(self) -> ProposalRequest:
+        return ProposalRequest(**self.model_dump(exclude={"differentiation_transfer"}))
+
+    def transfer_record(self) -> dict | None:
+        if self.differentiation_transfer is None:
+            return None
+        return {
+            **self.differentiation_transfer.model_dump(),
+            "chosen": bool(self.differentiation.strip()),
+        }

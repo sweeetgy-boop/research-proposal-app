@@ -48,6 +48,8 @@ class IntakeResult:
     decisions: list[policy.Decision]
     uncollected: list[str] = field(default_factory=list)
     corpus_size: int = 0
+    # 차단 알림이 있으면 자동으로 만든 차별화 제안 (없으면 None — 근접 알림은 담당자 요청 시)
+    differentiation: DifferentiationProposal | None = None
 
 
 def _utcnow() -> str:
@@ -93,7 +95,10 @@ class ProposalAssistant:
         for d in decisions:
             if d.tool is None:
                 self._log(d, d.action)
-        return IntakeResult(alerts, decisions, uncollected_sources(counts), corpus)
+        proposal = None
+        if policy.has_blocking(alerts) and self.differentiate_usecase is not None:
+            proposal = await self.differentiate(req, alerts)  # 차단 → 자동, 근접만이면 수동
+        return IntakeResult(alerts, decisions, uncollected_sources(counts), corpus, proposal)
 
     # ── 차단·근접 알림 → rra_differentiate (기능 2) ─────────
     async def differentiate(

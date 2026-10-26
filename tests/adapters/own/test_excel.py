@@ -17,7 +17,7 @@ from rra.adapters.sources.own.excel import (
     record_document,
 )
 from rra.application.usecases.ingest_sources import IngestSources
-from rra.domain.rules.overlap import OwnUnit, judge
+from rra.domain.rules.overlap import OwnUnit, judge, tier_of
 from tests.fakes import InMemoryRepository
 
 TODAY = date(2026, 10, 26)
@@ -269,7 +269,9 @@ def test_record_document_fields_visibility_and_body():
     merged = {r.title: r for r in merge_records(_all_records())}
     doc = record_document(merged["궤도 틀림 상시 감지"])
     assert doc.source == "own" and doc.doc_type == "rnd_project" and doc.doc_id.startswith("own:")
-    assert doc.visibility == "internal" and doc.orgs == ["korail"]
+    assert doc.visibility == "public" and doc.orgs == [
+        "korail"
+    ]  # 2026-10-26: 엑셀 기록은 전부 공개
     assert doc.department == "철도연구원 기술연구처" and doc.text_basis == "abstract"
     assert doc.project_period == (date(2026, 3, 1), date(2027, 2, 28))
     assert (
@@ -279,7 +281,7 @@ def test_record_document_fields_visibility_and_body():
     assert doc.raw["status"] == "ongoing" and doc.raw["proposal"]["stage"] == "(2차) 타당성 검토중"
     assert "김철수" not in doc.model_dump_json()
     rejected = record_document(merged["AI 기반 역사 조명 최적화"])
-    assert rejected.visibility == "internal" and rejected.raw["status"] == "rejected"
+    assert rejected.visibility == "public" and rejected.raw["status"] == "rejected"
     assert "상태 미채택" in rejected.abstract and rejected.pub_date == date(2025, 8, 19)
     public = record_document(merged["KTX 차량 컴퓨터 제어장치 개발"])
     assert public.visibility == "public" and "총연구비 363,000,000원" in public.abstract
@@ -332,7 +334,7 @@ async def test_source_reads_files_merges_and_ingests(tmp_path):
         [src], repo, own=OwnUnit(org="korail", departments=frozenset({"기술연구처", "경영연구처"}))
     ).__call__()
     assert report.stored == 6 and report.fetched == {"own_projects": 6}
-    assert {w.code for w in report.warnings} == {"unlisted_department"}  # 연구계획처
+    assert report.warnings == []  # 사내 과제 기록은 부서 미등록 경고를 내지 않는다 (own 티어)
     assert (inbox / "1 제안 현황.xls").exists()  # 목록 파일은 옮기지 않는다
     assert await src.search(None, 0) == []
 
@@ -351,3 +353,34 @@ async def test_real_excel_files_parse_in_the_sandbox():
     assert any(r["status"] == "rejected" for r in raws) and any(r["proposal"] for r in raws)
     names = {"제안자", "책임연구원", "담당자"}
     assert not any(k in names for r in raws for k in r)
+
+
+def test_own_records_are_own_tier_regardless_of_department_with_detail():
+    from rra.domain.rules.overlap import own_detail_of, tier_label
+
+    own = OwnUnit(org="korail", departments=frozenset({"기술연구처", "경영연구처", "철도연구원"}))
+    merged = {r.title: r for r in merge_records(_all_records())}
+    institute = record_document(merged["궤도 틀림 상시 감지"])  # 철도연구원 기술연구처
+    company = record_document(
+        merged["승차권 구매 행태 분석"]
+    )  # 경영연구처 → 목록에 있음 → institute
+    outside = record_document(
+        Record(
+            kind="proposal",
+            title="타부서 제안",
+            file="f",
+            sheet="s",
+            department="시설본부 구조물안전처",
+        )
+    )
+    assert tier_of(institute, own) == tier_of(outside, own) == "own"
+    assert (
+        own_detail_of(institute, own) == "institute" and own_detail_of(company, own) == "institute"
+    )
+    assert own_detail_of(outside, own) == "company"
+    assert (
+        tier_label("own", "company") == "사내(공사)"
+        and tier_label("own", "institute") == "사내(철도연구원)"
+    )
+    [alert] = judge([(outside, 0.9)], own=own)
+    assert alert.tier == "own" and alert.own_detail == "company"
