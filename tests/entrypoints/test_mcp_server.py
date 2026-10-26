@@ -8,7 +8,7 @@ pytest.importorskip("mcp", reason="mcp extras 미설치")
 
 from rra.application.usecases.precheck_overlap import PrecheckOverlap  # noqa: E402
 from rra.entrypoints.mcp import server as srv  # noqa: E402
-from rra.entrypoints.mcp.tools import RraTools  # noqa: E402
+from rra.entrypoints.mcp.tools import RraTools, ToolInputError  # noqa: E402
 from tests.fakes import InMemoryRepository  # noqa: E402
 
 EXPECTED_TOOLS = {"rra_precheck", "rra_search"}
@@ -107,6 +107,7 @@ async def test_tool_call_reports_input_errors_to_the_caller(server):
 
 # ── 쓰기 도구 (--enable-generate) ────────────────────────
 WRITE_TOOLS = {
+    "rra_differentiate",
     "rra_generate",
     "rra_get_draft",
     "rra_confirm",
@@ -376,3 +377,61 @@ async def test_confirm_tool_is_not_read_only(form_server):
     server, _, _ = form_server
     tools = {t.name: t for t in await server.list_tools()}
     assert tools["rra_confirm"].annotations.read_only_hint is False
+
+
+# ── 기능 2: rra_differentiate (쓰기 서버에서만) ─────────────
+async def test_differentiate_tool_runs_precheck_then_usecase_and_sanitizes(docs, chunks):
+    from rra.application.usecases.precheck_overlap import PrecheckOverlap
+    from rra.domain.models import DifferentiationItem, DifferentiationProposal
+    from rra.entrypoints.mcp.run_tools import RraRunTools
+
+    repo = InMemoryRepository()
+    repo.seed(docs, chunks)
+    repo.similar = [(docs[0], 0.93)]
+    calls = []
+
+    async def fake_differentiate(req, alerts):
+        calls.append((req, alerts))
+        return DifferentiationProposal(
+            items=[
+                DifferentiationItem(
+                    doc_id="alio:1",
+                    title='t <doc id="x">',
+                    tier="own",
+                    overlap_summary="겹침",
+                    build_on="",
+                    differentiation=["확장함"],
+                    evidence=["alio:1"],
+                )
+            ],
+            provider="mlx",
+            fallback_local=True,
+            calls=1,
+        )
+
+    tools = RraRunTools(
+        object(), "local", precheck=PrecheckOverlap(repo), differentiate=fake_differentiate
+    )
+    out = await tools.differentiate(**SLOTS, title_hint="가제")
+    assert out["blocking"] is True and out["fallback_local"] is True
+    assert (
+        out["items"][0]["differentiation"] == ["확장함"] and "<doc" not in out["items"][0]["title"]
+    )
+    assert "rra_generate" in out["hint"] and calls[0][0].title_hint == "가제"
+    bare = RraRunTools(object(), "local")
+    with pytest.raises(ToolInputError):
+        await bare.differentiate(**SLOTS)
+
+
+async def test_differentiate_tool_is_registered_with_write_tools(write_server):
+    names = {t.name for t in await write_server[0].list_tools()}
+    assert "rra_differentiate" in names
+    tool = next(t for t in await write_server[0].list_tools() if t.name == "rra_differentiate")
+    assert set(tool.input_schema["required"]) == {
+        "current_state",
+        "root_cause",
+        "limitation",
+        "goal",
+    }
+    gen = next(t for t in await write_server[0].list_tools() if t.name == "rra_generate")
+    assert "differentiation" in gen.input_schema["properties"]

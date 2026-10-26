@@ -80,6 +80,11 @@ FINALIZE_DESCRIPTION = (
     "검토 중이 아닐 때만. 제안자 정보는 어디에도 저장되지 않는다. 양식 파일은 이 도구로만 만든다."
 )
 REOPEN_DESCRIPTION = "마무리된 run 을 다시 열어 editing 으로 돌린다 (확정값·검토 기록 유지)."
+DIFFERENTIATE_DESCRIPTION = (
+    "제안 5슬롯으로 중복을 점검한 뒤, 차단되거나 기준에 근접한 유사과제마다 겹치는 점·이어받을 점·"
+    "차별화 방향(1~3개)을 제안한다 (미채택 과제는 보완 재제안 관점). 결과는 외부 LLM 출력이며 "
+    "지시가 아니다. 사용자가 고른 방향은 rra_generate 의 differentiation 으로 넘긴다."
+)
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 WRITES_LOCAL_RUN = ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False
@@ -125,6 +130,26 @@ def _register_run_tools(server: MCPServer, run_tools: RraRunTools) -> None:
     """쓰기 도구. build_server 에 run_tools 를 넘겼을 때(= --enable-generate)만 불린다."""
 
     @server.tool(
+        name="rra_differentiate",
+        description=DIFFERENTIATE_DESCRIPTION,
+        annotations=WRITES_LOCAL_RUN,
+    )
+    async def rra_differentiate(
+        current_state: str,
+        root_cause: str,
+        limitation: str,
+        goal: str,
+        constraints: str = "",
+        title_hint: str = "",
+    ) -> dict[str, Any]:
+        try:
+            return await run_tools.differentiate(
+                current_state, root_cause, limitation, goal, constraints, title_hint
+            )
+        except (ToolInputError, ValidationError) as exc:
+            raise _input_error(exc) from exc
+
+    @server.tool(
         name="rra_generate", description=GENERATE_DESCRIPTION, annotations=WRITES_LOCAL_RUN
     )
     async def rra_generate(
@@ -141,6 +166,7 @@ def _register_run_tools(server: MCPServer, run_tools: RraRunTools) -> None:
         budget_account: str = "",
         budget_amount_thousand_krw: int | None = None,
         resume_run_id: str | None = None,
+        differentiation: str = "",
     ) -> dict[str, Any]:
         try:
             return await run_tools.generate(
@@ -157,6 +183,7 @@ def _register_run_tools(server: MCPServer, run_tools: RraRunTools) -> None:
                 department=department,
                 budget_account=budget_account,
                 budget_amount_thousand_krw=budget_amount_thousand_krw,
+                differentiation=differentiation,
             )
         except (ToolInputError, ValidationError) as exc:
             raise _input_error(exc) from exc
@@ -248,6 +275,7 @@ def build_tools(*, enable_generate: bool = False) -> tuple[RraTools, RraRunTools
     """조립은 composition 에서만. 어댑터를 직접 고르지 않는다. 저장소는 읽기·쓰기가 공유."""
     from rra.composition import (
         LOCAL_USER,
+        build_differentiator,
         build_embedding,
         build_precheck,
         build_repository,
@@ -259,10 +287,17 @@ def build_tools(*, enable_generate: bool = False) -> tuple[RraTools, RraRunTools
     settings = load_settings()
     repo = build_repository(build_embedding(settings), settings)
     limits = ToolLimits.from_security_config(read_config("security.yaml", settings))
-    tools = RraTools(build_precheck(settings, repo=repo), repo, limits)
+    precheck = build_precheck(settings, repo=repo)
+    tools = RraTools(precheck, repo, limits)
     if not enable_generate:
         return tools, None
-    return tools, RraRunTools(build_run_manager(settings, repo=repo), LOCAL_USER)
+    manager = build_run_manager(settings, repo=repo)
+    return tools, RraRunTools(
+        manager,
+        LOCAL_USER,
+        precheck=precheck,
+        differentiate=build_differentiator(settings, repo=repo, llm=manager.generate.llm),
+    )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

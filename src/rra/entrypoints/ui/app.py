@@ -27,11 +27,22 @@ from rra.domain.models import Budget, ProposalRequest
 from rra.domain.models.request import SHORT_MAX, SLOT_MAX, validation_message
 from rra.domain.models.run import ACTIVE
 from rra.domain.rules import agent_policy as policy
+from rra.domain.rules.differentiation import needs_differentiation
 from rra.domain.rules.overlap import SOURCE_LABELS
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.ui import service
 from rra.entrypoints.ui.auth import require_token
-from rra.entrypoints.ui.labels import BASIS, PROBLEM, SOURCE, STATUS, clean, plain, section_title
+from rra.entrypoints.ui.labels import (
+    BASIS,
+    PROBLEM,
+    SOURCE,
+    STATUS,
+    STATUS_PROJECT,
+    TIER,
+    clean,
+    plain,
+    section_title,
+)
 from rra.entrypoints.views import (
     draft_payload,
     render_check_lines,
@@ -66,6 +77,7 @@ ss = st.session_state
 ss.setdefault("rra_request", None)
 ss.setdefault("rra_intake", None)
 ss.setdefault("rra_run_id", None)
+ss.setdefault("rra_diff", None)
 
 
 # ── 1. 입력 → [유사과제 확인] ─────────────────────────────
@@ -98,6 +110,7 @@ def intake_form() -> None:
     ss["rra_request"] = req
     ss["rra_intake"] = worker.call(assistant.intake(req))
     ss["rra_run_id"] = None
+    ss["rra_diff"] = None
 
 
 # ── 2. 유사과제 표 + Agent 판단 ───────────────────────────
@@ -122,7 +135,62 @@ def alerts_panel() -> bool:
         acknowledged = st.checkbox(
             "차단 경보를 확인했으며 그래도 초안 생성을 진행합니다", key="ack_box"
         )
+    differentiation_panel()
     return acknowledged
+
+
+# ── 2-나. 유사과제 활용·차별화 제안 (기능 2) ──────────────
+def differentiation_panel() -> None:
+    res = ss["rra_intake"]
+    if not needs_differentiation(res.alerts):
+        return
+    st.markdown(
+        "**유사과제 활용·차별화 제안** — 겹친 과제 결과를 이어받아 확장하는 방향을 제안합니다."
+    )
+    if st.button("차별화 제안 받기", key="diff_btn"):
+        ss["rra_diff"] = worker.call(assistant.differentiate(ss["rra_request"], res.alerts))
+    proposal = ss.get("rra_diff")
+    if proposal is None:
+        return
+    if proposal.skipped_reason:
+        st.info(f"차별화 제안을 만들지 못했습니다: {proposal.skipped_reason}")
+        return
+    where = "로컬 모델(대체)" if proposal.fallback_local else (proposal.provider or "LLM")
+    st.caption(
+        f"{where} · 전송 public {len(proposal.public_doc_ids)}건, internal "
+        f"{len(proposal.internal_doc_ids)}건 · 폐기 {len(proposal.discarded)}건"
+    )
+    st.caption(UNTRUSTED_NOTICE)
+    options: list[str] = []
+    for item in proposal.items:
+        status = f" · {STATUS_PROJECT.get(item.status or '', item.status)}" if item.status else ""
+        with st.expander(
+            f"{clean(item.title, 80)} ({TIER.get(item.tier, item.tier)}{status})", expanded=True
+        ):
+            st.write("겹치는 점: " + plain(item.overlap_summary))
+            if item.build_on:
+                st.write("이어받을 점: " + plain(item.build_on))
+            for d in item.differentiation:
+                st.write("→ " + plain(d))
+                options.append(d)
+    if not options:
+        return
+    pick = st.radio("차별화 방향 선택", options=options, index=None, key="diff_pick")
+    text = st.text_area(
+        "제안자가 정한 차별화 방향 (고른 방향을 고치거나 직접 적음)",
+        value=pick or "",
+        key="diff_text",
+        max_chars=SLOT_MAX,
+        height=80,
+    )
+    if st.button("차별화 방향 적용", key="diff_apply"):
+        chosen = (text or pick or "").strip()
+        ss["rra_request"] = ss["rra_request"].model_copy(update={"differentiation": chosen})
+        st.success(
+            "초안의 연구목적·연구방법·특이사항에 반영됩니다."
+            if chosen
+            else "차별화 방향을 비웠습니다."
+        )
 
 
 # ── 3. [초안 생성] → 진행 → 초안 ─────────────────────────
@@ -133,7 +201,12 @@ def generate_button(acknowledged: bool) -> None:
         return
     try:
         state = worker.call(
-            assistant.proceed(ss["rra_request"], res.alerts, acknowledged=acknowledged)
+            assistant.proceed(
+                ss["rra_request"],
+                res.alerts,
+                acknowledged=acknowledged,
+                differentiation=ss.get("rra_diff"),
+            )
         )
     except HumanConfirmationRequired as exc:
         st.error(str(exc))

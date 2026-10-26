@@ -34,6 +34,7 @@ from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.trust import UNTRUSTED_NOTICE, escape_untrusted
 from rra.entrypoints.mcp.tools import ToolInputError
 from rra.entrypoints.views import (
+    differentiation_payload,
     draft_payload,
     render_check_payload,
     review_payload,
@@ -51,9 +52,45 @@ def _run_id(value: str) -> str:
 
 
 class RraRunTools:
-    def __init__(self, manager: RunManager, user: str = "local"):
+    def __init__(
+        self, manager: RunManager, user: str = "local", *, precheck=None, differentiate=None
+    ):
         self._manager = manager
         self._user = user
+        self._precheck = precheck
+        self._differentiate = differentiate
+
+    async def differentiate(
+        self,
+        current_state: str,
+        root_cause: str,
+        limitation: str,
+        goal: str,
+        constraints: str = "",
+        title_hint: str = "",
+    ) -> dict[str, Any]:
+        """기능 2 — precheck 뒤 차단·근접 유사과제별 활용·차별화 방향 (외부 LLM 출력, 비신뢰)."""
+        if self._precheck is None or self._differentiate is None:
+            raise ToolInputError("차별화 제안을 쓸 수 없습니다 (LLM 없음).")
+        req = ProposalRequest(
+            current_state=current_state,
+            root_cause=root_cause,
+            limitation=limitation,
+            goal=goal,
+            constraints=constraints,
+            title_hint=title_hint,
+        )
+        alerts = await self._precheck(req)
+        proposal = await self._differentiate(req, alerts)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            "blocking": any(a.blocking for a in alerts),
+            **differentiation_payload(proposal, clean=escape_untrusted),
+            "hint": (
+                "고른 방향(또는 고친 문장)을 rra_generate 의 differentiation 으로 넘기면 "
+                "목적·방법·특이사항에 반영된다."
+            ),
+        }
 
     async def generate(
         self,
@@ -71,6 +108,7 @@ class RraRunTools:
         department: str = "",
         budget_account: str = "",
         budget_amount_thousand_krw: int | None = None,
+        differentiation: str = "",
     ) -> dict[str, Any]:
         try:
             if resume_run_id:
@@ -93,6 +131,7 @@ class RraRunTools:
                     remarks=remarks,
                     department=department,
                     budget=budget,
+                    differentiation=differentiation,
                 )
                 state = await self._manager.submit(self._user, req)
         except (QueueFull, RunBusy, RunNotResumable, RunNotFound) as exc:

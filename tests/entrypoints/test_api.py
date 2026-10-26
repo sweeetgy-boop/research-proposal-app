@@ -27,7 +27,11 @@ SLOTS = {
 
 
 def build(
-    assistant: ProposalAssistant | None = None, *, max_body: int = 64 * 1024, static_dir=None
+    assistant: ProposalAssistant | None = None,
+    *,
+    max_body: int = 64 * 1024,
+    static_dir=None,
+    differentiate=None,
 ):
     from rra.adapters.security import SessionStore
     from rra.entrypoints.api.app import SessionAuth
@@ -42,6 +46,7 @@ def build(
     app = create_app(
         manager=a.manager,
         precheck=a.precheck,
+        differentiate=differentiate,
         repo=a.repo,
         user=a.user,
         middlewares=mws,
@@ -487,3 +492,57 @@ async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_mod
         assert r.status_code == 200 and r.headers["x-rra-status"] == "finalized"
         assert len(r.content) > 1000  # 실제 HWPX 렌더러(생성 모드)가 만든 파일
         assert (await c.get("/v1/sources/status", headers=AUTH)).json()["sources"][0]["count"] >= 0
+
+
+# ── 기능 2: POST /v1/precheck/differentiate ────────────────
+class _FakeDifferentiate:
+    def __init__(self):
+        self.calls = []
+
+    async def __call__(self, req, alerts):
+        from rra.domain.models import DifferentiationItem, DifferentiationProposal
+
+        self.calls.append((req, alerts))
+        return DifferentiationProposal(
+            items=[
+                DifferentiationItem(
+                    doc_id="alio:1",
+                    title='궤도 <doc id="x">',
+                    tier="own",
+                    status="rejected",
+                    overlap_summary="대상이 겹침",
+                    build_on="결과를 이어받음",
+                    differentiation=["범위를 확장함"],
+                    evidence=["alio:1"],
+                )
+            ],
+            provider="gemini",
+            model="argon",
+            internal_doc_ids=["alio:1"],
+            calls=1,
+        )
+
+
+async def test_differentiate_route_returns_alerts_and_sanitized_items():
+    fake = _FakeDifferentiate()
+    app, _ = build(make_assistant(blocking=True), differentiate=fake)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8000"
+    ) as c:
+        r = await c.post("/v1/precheck/differentiate", json=SLOTS, headers=AUTH)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["blocking"] is True and body["alerts"][0]["doc_id"] == "alio:1"
+        d = body["differentiation"]
+        assert d["items"][0]["status"] == "rejected" and d["items"][0]["differentiation"] == [
+            "범위를 확장함"
+        ]
+        assert d["transfer"]["internal_doc_ids"] == ["alio:1"] and d["provider"] == "gemini"
+        assert fake.calls and fake.calls[0][0].goal == SLOTS["goal"]
+        r = await c.post("/v1/precheck/differentiate", json={"goal": "x"}, headers=AUTH)
+        assert r.status_code == 422
+
+
+async def test_differentiate_route_is_503_without_llm(client):
+    r = await client.post("/v1/precheck/differentiate", json=SLOTS, headers=AUTH)
+    assert r.status_code == 503 and "LLM" in r.json()["detail"]

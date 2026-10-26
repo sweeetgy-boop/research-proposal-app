@@ -15,9 +15,11 @@ from dataclasses import dataclass
 from typing import Literal
 
 from rra.domain.models import OverlapAlert, ProposalRequest
+from rra.domain.rules.differentiation import needs_differentiation
 
 Tool = Literal[
     "rra_precheck",
+    "rra_differentiate",
     "rra_search",
     "rra_generate",
     "rra_get_draft",
@@ -77,6 +79,8 @@ def after_precheck(
                 "rra_generate",
             )
         )
+    if needs_differentiation(alerts):  # 기획서 기능 2 — 차단·근접(임계치 90% 이상) 알림
+        out.append(on_differentiate())
     if not req.policy_basis.strip():
         out.append(Decision("정책 근거 미입력", "정책적 중요도 섹션은 생성하지 않고 빈칸 + 경고"))
     if corpus_size <= 0:
@@ -87,6 +91,14 @@ def after_precheck(
             )
         )
     return out
+
+
+def on_differentiate() -> Decision:
+    return Decision(
+        "차단·근접(임계치의 90% 이상) 알림 있음",
+        "rra_differentiate 호출 → 겹친 과제별 활용·차별화 방향 제안 (담당자가 고르거나 고침)",
+        "rra_differentiate",
+    )
 
 
 def on_query() -> Decision:

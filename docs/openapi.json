@@ -133,6 +133,47 @@
         }
       }
     },
+    "/v1/precheck/differentiate": {
+      "post": {
+        "summary": "Differentiate Route",
+        "description": "기능 2 — precheck 뒤 차단·근접 유사과제별 활용·차별화 방향 (외부 LLM 출력, 비신뢰).",
+        "operationId": "differentiate_route_v1_precheck_differentiate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Differentiate Route V1 Precheck Differentiate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/search": {
       "post": {
         "summary": "Search Post",
@@ -1194,6 +1235,12 @@
             "type": "string",
             "title": "Remarks",
             "description": "특이사항에 덧붙일 내용",
+            "default": ""
+          },
+          "differentiation": {
+            "type": "string",
+            "title": "Differentiation",
+            "description": "제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
             "default": ""
           },
           "department": {

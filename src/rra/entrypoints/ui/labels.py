@@ -17,6 +17,13 @@ PROBLEM = {
     "no_choice": "제안된 선택지 없음 — 직접 선택",
     "no_relevant_evidence": "관련도 하한을 넘는 근거 없음 — 빈칸",
 }
+STATUS_PROJECT = {  # 사내 과제 기록의 상태 (OverlapAlert.status)
+    "completed": "완료",
+    "ongoing": "진행중",
+    "stopped": "중단",
+    "rejected": "미채택 — 보완 재제안 검토",
+    "proposed": "제안·검토 중",
+}
 STATUS = {
     "queued": "대기",
     "running": "생성 중",

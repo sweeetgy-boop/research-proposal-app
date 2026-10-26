@@ -13,8 +13,16 @@ from datetime import UTC, datetime
 
 from rra.application.ports import DocumentRepository
 from rra.application.services.run_manager import DraftView, RunManager
+from rra.application.usecases.differentiate import Differentiate
 from rra.application.usecases.precheck_overlap import PrecheckOverlap
-from rra.domain.models import Chunk, Confirmation, OverlapAlert, ProposalRequest, RunState
+from rra.domain.models import (
+    Chunk,
+    Confirmation,
+    DifferentiationProposal,
+    OverlapAlert,
+    ProposalRequest,
+    RunState,
+)
 from rra.domain.models.run import FINISHED
 from rra.domain.rules import agent_policy as policy
 from rra.domain.rules.overlap import uncollected_sources
@@ -56,8 +64,10 @@ class ProposalAssistant:
         user: str = "local",
         clock=_utcnow,
         max_trace: int = 200,
+        differentiate: Differentiate | None = None,
     ):
         self.precheck, self.manager, self.repo, self.user = precheck, manager, repo, user
+        self.differentiate_usecase = differentiate  # None 이면 기능 2 를 쓸 수 없다 (LLM 없음)
         self._clock, self._max_trace = clock, max_trace
         self.trace: list[ToolCall] = []
         self._last_status: dict[str, str] = {}
@@ -85,14 +95,41 @@ class ProposalAssistant:
                 self._log(d, d.action)
         return IntakeResult(alerts, decisions, uncollected_sources(counts), corpus)
 
+    # ── 차단·근접 알림 → rra_differentiate (기능 2) ─────────
+    async def differentiate(
+        self, req: ProposalRequest, alerts: list[OverlapAlert]
+    ) -> DifferentiationProposal | None:
+        """겹친 과제별 활용·차별화 방향. 유스케이스가 없으면(LLM 없음) None."""
+        if self.differentiate_usecase is None:
+            self._log(policy.on_differentiate(), "차별화 제안 LLM 없음 — 건너뜀")
+            return None
+        proposal = await self.differentiate_usecase(req, alerts)
+        where = "로컬 모델" if proposal.fallback_local else (proposal.provider or "LLM")
+        summary = (
+            f"건너뜀 ({proposal.skipped_reason})"
+            if proposal.skipped_reason
+            else f"제안 {len(proposal.items)}건, 폐기 {len(proposal.discarded)}건 ({where})"
+        )
+        self._log(policy.on_differentiate(), summary)
+        return proposal
+
     # ── 경보 없음 / 담당자 진행 선택 → rra_generate ────────
     async def proceed(
-        self, req: ProposalRequest, alerts: list[OverlapAlert], *, acknowledged: bool
+        self,
+        req: ProposalRequest,
+        alerts: list[OverlapAlert],
+        *,
+        acknowledged: bool,
+        differentiation: DifferentiationProposal | None = None,
     ) -> RunState:
         if not policy.may_generate(alerts, acknowledged=acknowledged):
             raise HumanConfirmationRequired("차단 경보를 확인한 뒤에만 초안을 생성합니다.")
-        decision = policy.after_precheck(alerts, req, corpus_size=1, acknowledged=acknowledged)[0]
-        state = await self.manager.submit(self.user, req)
+        decisions = policy.after_precheck(alerts, req, corpus_size=1, acknowledged=acknowledged)
+        decision = next(d for d in decisions if d.tool == "rra_generate")
+        transfer = None
+        if differentiation is not None:
+            transfer = {**differentiation.transfer(), "chosen": bool(req.differentiation.strip())}
+        state = await self.manager.submit(self.user, req, differentiation=transfer)
         self._log(
             decision,
             f"run {state.run_id} 대기열 등록" + (" (차단 경보 확인 후)" if acknowledged else ""),

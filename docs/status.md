@@ -13,7 +13,7 @@
 | No. | 핵심 기능 | 우선순위 | 상태 | 근거 |
 |---|---|---|---|---|
 | 1 | 유사과제 사전 알림 (기관별 기준 + 공유 키워드 2개 이상일 때만 차단, 겹친 키워드·공개 요약 기반 표시) | 필수 | 완료 | `domain/rules/overlap.py`·`keywords.py`, `usecases/precheck_overlap.py`, `config/overlap.yaml`; `tests/domain/test_overlap.py`·`test_keywords.py`, `tests/application/test_precheck.py`; 70dad36 |
-| 2 | 유사과제 활용·차별화 제안 | 필수 | **미구현** | 코드 없음. `agent_policy.py` 에도 차별화 행 없음 → P3 |
+| 2 | 유사과제 활용·차별화 제안 | 필수 | 완료 (P3) | `domain/rules/differentiation.py`, `usecases/differentiate.py`, `prompts/differentiate.md`, `agent_policy.on_differentiate`; `tests/domain/test_differentiation.py`, `tests/application/test_differentiate.py`; CLI·REST·MCP·Streamlit; architecture §4.9 |
 | 3 | 근거 자료 RAG 검색 (FTS5 + 벡터, RRF) | 필수 | 완료 | `adapters/persistence/sqlite_repo.py`, `domain/rules/fusion.py`; `tests/adapters/test_sqlite_repo.py`·`test_fts_query.py`, `tests/contracts/test_document_repository.py`; 4c23b52, 42d071a |
 | 4 | 제안서 초안 생성 (12섹션, 문장마다 근거 id, 검색 밖 id 폐기) | 필수 | 완료 | `usecases/generate_proposal.py`, `domain/rules/grounding.py`·`llm_output.py`·`numbers.py`; `tests/application/test_generate_proposal.py`, `tests/domain/test_grounding.py`·`test_llm_output.py`; ac55782, ba3e600, df70852. 검색 관련도 하한은 이슈 #2 → P1 |
 | 5 | 선택형 항목 제안·확정 (과제유형·활용계획·경영전략) | 필수 | 완료 (전략체계 목록은 빈 파일) | `domain/models/draft.py` choices, `rra runs confirm`, UI 확정 폼; `tests/entrypoints/test_cli.py`·`ui/test_app.py`; ac55782. `config/templates/korail_strategy.yaml` 이 비어 있어 2-가-(3) 은 빈칸 + 경고 |
@@ -26,7 +26,7 @@
 |---|---|---|---|
 | ① | 과제 아이디어 입력 | 완료 | `domain/models/request.py`(필수 4 + 선택, validator 한 곳); `tests/domain/test_request.py`; b20deb6 |
 | ② | 유사과제 중복성 검토·사전 알림 | 완료 | 기능 1 과 같음 |
-| ③ | 유사과제 활용·차별화 제안 | **미구현** | 기능 2 와 같음 → P3 |
+| ③ | 유사과제 활용·차별화 제안 | 완료 (P3) | 기능 2 와 같음 |
 | ④ | 국내외 논문·특허·R&D 사전 적재·갱신 | 부분 | OpenAlex(f19b974)·알리오 catalog/filedrop/공개 요약(d305174, c3ac454)·ScienceON·NTIS 과제검색(428ed2c) 코드 완료. ScienceON·NTIS 는 키·실응답 fixture 대기(skip 2). KIPRIS 특허 어댑터 없음(`SourceType`·overlap 라벨·허용 도메인만 있음) → P4. 야간 적재 launchd 없음 → P6 |
 | ⑤ | RAG 근거 검색·자료 질의 | 완료 | 기능 3, `rra search`, MCP `rra_search`, UI 사이드바 질의 |
 | ⑥ | 섹션별 초안 생성·출처 표시·수치 검사 | 완료 | 기능 4, `numbers.py`(지어낸 수치 알림), `foreign_script.py`; `tests/domain/test_numbers.py`; 463139e |
@@ -59,7 +59,6 @@
 
 | 항목 | 내용 | 단계 |
 |---|---|---|
-| 기능 2 차별화 제안 | precheck 차단·근접 과제별 overlap_summary·build_on·differentiation·evidence. `differentiate` 단계(Gemini, 키 없으면 로컬), 사용자 선택을 초안 프롬프트에 주입. CLI·REST·MCP·Streamlit·`openapi.json` | P3 |
 | 외부 자료원 | KIPRIS 어댑터(`source_type=patent`), NTIS record_tag 진단, ScienceON MAC 안내, `external-apis.md`. NTIS 연구보고서는 가능 여부만 | P4 |
 | 검토 고도화 | Argon 검토에 필요성·차별성·실현가능성·기대효과 1~5점 채점, 2점 이하는 섹션 문장 의견으로 연결. 수치 알림 건수를 render_check 맨 위에. 차별성 매트릭스·예산표는 양식 밖(화면·API 표, HWPX 는 설계만) | P5 |
 | 운영 준비 | `com.rra.ingest.plist`(야간 적재), 백업 7벌 회전 테스트, `deploy/README` 설치 순서, Tailscale/Cloudflare 비교 문서 | P6 |
@@ -89,7 +88,7 @@ reranker·유사과제 임계치 재조정(표본 축적 후), 공고문 반영,
 | P0 | `chore/status-sync` | 이 문서, Gemini 모델 목록 `models/` 접두어, `own_unit.departments`(연구계획처·차량기술센터) | 완료 2026-10-26 | #3 |
 | P1 | `fix/retrieval-relevance-floor` | 검색 관련도 하한 (이슈 #2): 03 궤도 인용 0건, 01 관련 논문 16건 유지 (`llm-bench-2026-10-26.md` P1 절) | 완료 2026-10-26 | #4 |
 | P2 | `feat/own-ingest` | 사내 자료 적재: 엑셀 1,119건·공시 요약문 121건, precheck 예시 3건 (PR 본문) | 완료 2026-10-26 | #5 |
-| P3 | `feat/differentiation` | 기능 2 차별화 제안 | 대기 | — |
+| P3 | `feat/differentiation` | 기능 2 차별화 제안: 실례 2건(미채택 재제안 2건·완료 근접 4건, 폐기 0) | 완료 2026-10-26 | #6 |
 | P4 | `feat/external-apis` | KIPRIS·NTIS·ScienceON 점검 | 대기 | — |
 | P5 | `feat/review-scoring` | Argon 검토 채점·수치 정책 | 대기 | — |
 | P6 | `chore/ops` | 야간 적재 plist·설치 문서·공개 방식 비교 | 대기 | — |

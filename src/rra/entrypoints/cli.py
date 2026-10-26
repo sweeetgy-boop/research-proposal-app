@@ -25,7 +25,14 @@ EXIT_INVALID = 4
 
 SLOTS = ("current_state", "root_cause", "limitation", "goal", "constraints")
 # generate 전용 추가 입력 (모두 선택). 제안자 성명·연락처는 받지 않는다 — 렌더 시점 입력.
-EXTRA_SLOTS = ("title_hint", "policy_basis", "beneficiaries", "remarks", "department")
+EXTRA_SLOTS = (
+    "title_hint",
+    "policy_basis",
+    "beneficiaries",
+    "remarks",
+    "department",
+    "differentiation",
+)
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 DEFAULT_LLM_CHECK_PROMPT = "연결 확인입니다. 정확히 다음만 출력하십시오: []"
 
@@ -82,6 +89,69 @@ def cmd_precheck(args: argparse.Namespace) -> int:
         if not alerts:
             print("  유사한 기수행 과제가 없습니다.")
     return EXIT_BLOCKED if any(a.blocking for a in alerts) else EXIT_OK
+
+
+def cmd_differentiate(args: argparse.Namespace) -> int:
+    """기능 2 — precheck 뒤 차단·근접 유사과제별 활용·차별화 방향 (Gemini, 키 없으면 로컬)."""
+    from rra.composition import build_differentiator, build_precheck, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.entrypoints.views import differentiation_payload
+
+    try:
+        req = ProposalRequest(**_read_slots(args))
+    except ValidationError as exc:
+        _eprint(validation_message(exc))
+        return EXIT_USAGE
+    settings = load_settings()
+
+    async def run():
+        precheck = build_precheck(settings)
+        differentiate = build_differentiator(settings, repo=getattr(precheck, "repo", None))
+        try:
+            alerts = await precheck(req)
+            return alerts, await differentiate(req, alerts)
+        finally:
+            await differentiate.llm.aclose()
+
+    alerts, proposal = asyncio.run(run())
+    payload = differentiation_payload(proposal, clean=lambda t: _safe(t, 600))
+    if args.json:
+        print(
+            json.dumps(
+                {"alerts": [a.model_dump() for a in alerts], **payload},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return EXIT_OK
+    where = (
+        "로컬 모델(대체)" if proposal.fallback_local else f"{proposal.provider}/{proposal.model}"
+    )
+    print(
+        f"[차별화 제안] 알림 {len(alerts)}건 → 제안 {len(proposal.items)}건, "
+        f"폐기 {len(proposal.discarded)}건 ({where})"
+    )
+    if proposal.skipped_reason:
+        print(f"  건너뜀: {proposal.skipped_reason}")
+    for item in payload["items"]:
+        status = (
+            f" [상태: {_STATUS_TEXT.get(item['status'], item['status'])}]" if item["status"] else ""
+        )
+        print(f"\n■ {item['doc_id']} ({item['tier']}){status} {item['title']}")
+        print(f"  겹치는 점: {item['overlap_summary']}")
+        if item["build_on"]:
+            print(f"  이어받을 점: {item['build_on']}")
+        for n, d in enumerate(item["differentiation"], 1):
+            print(f"  방향 {n}: {d}")
+    for d in payload["discarded"]:
+        print(f"  (폐기) {_safe(d.get('doc_id', ''), 64)}: {_safe(d.get('reason', ''), 40)}")
+    t = payload["transfer"]
+    print(
+        f"\n전송: public {len(t['public_doc_ids'])}건, internal {len(t['internal_doc_ids'])}건, "
+        f"제외 {len(t['excluded_doc_ids'])}건 — 고른 방향은 generate --differentiation 으로 넣는다"
+    )
+    return EXIT_OK
 
 
 _STATUS_TEXT = {
@@ -922,6 +992,16 @@ def build_parser() -> argparse.ArgumentParser:
     pre.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
     pre.add_argument("--json", action="store_true", help="JSON 으로 출력")
     pre.set_defaults(handler=cmd_precheck)
+
+    diff = sub.add_parser(
+        "differentiate",
+        help="차단·근접 유사과제별 활용·차별화 방향 제안 (기능 2, Gemini — 키 없으면 로컬)",
+    )
+    for slot in SLOTS:
+        diff.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    diff.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    diff.add_argument("--json", action="store_true", help="JSON 으로 출력")
+    diff.set_defaults(handler=cmd_differentiate)
 
     search = sub.add_parser("search", help="수집 문서 하이브리드 검색")
     search.add_argument("query")

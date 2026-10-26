@@ -520,6 +520,37 @@ openpyxl read_only, xls 는 xlrd; 행·열·셀 상한). `filecheck` 가 hwp·xl
   → 문서 121건(묶음 안 중복 사본 제외). `rra ingest --source own_projects,own_docs`. 실물 파일 테스트는 skipif
   (`tests/adapters/own`, `test_extract`). 제안 현황의 타부서 제안은 org korail + 부서 미등록이라 domestic_rail 티어다.
 
+### 4.9 유사과제 활용·차별화 제안 (2026-10-26, P3 — 기획서 기능 2)
+
+precheck 결과에 차단 또는 기준 근접(유사도 ≥ 티어 임계치 × 0.9, `domain/rules/differentiation.near_threshold`)
+알림이 있으면 겹친 과제별로 "무엇이 겹치는지 · 그 결과를 이어받을 점 · 차별화 방향 1~3개" 를 제안한다. 단순 차단이
+아니라 다시 제안할 길을 여는 기능이고, 중복 여부의 최종 판단은 사람이 한다.
+
+- 규칙(`domain/rules/differentiation.py`): 후보 = 차단 먼저, 그다음 유사도 순 최대 5개. LLM 출력 검증 — 후보 밖 doc_id·
+  evidence, 입력·자료에 없는 고유명·수치(`grounding.ungrounded`), 한자·가나는 항목째 폐기(사유 기록). 구획 태그는
+  무력화, 길이 상한 600자. `Document.raw.status`(P2) 가 `OverlapAlert.status` → 항목 status 로 이어져 `rejected`(미채택)는
+  "보완 재제안" 관점으로 쓰게 한다.
+- 유스케이스(`usecases/differentiate.py`, `Differentiate`): 후보 문서를 `repo.get_document` 로 읽어
+  `<doc id tier status similarity keywords>` 구획으로 넣고 JSON 객체 하나(`{"items": [...]}`)만 받는다. 전송 범위는 검토
+  단계와 같다 — `external_llm.include_internal=false` 면 internal 문서는 보내지 않고 `excluded_doc_ids` 에 남긴다.
+  결과 `DifferentiationProposal` 의 `transfer()`(provider·model·보낸 doc_id public/internal·호출·항목·폐기 수·채택 여부)가
+  `RunState.differentiation` → manifest `differentiation` 키(허용목록 `DIFFERENTIATION_KEYS`)로 남는다. 본문은 남기지 않는다.
+- 모델: `llm.yaml stages.differentiate`(기본 provider gemini, 검토와 같은 Argon). 키가 없으면 조립(`build_differentiator`)이
+  compose(로컬) 모델로 대신하고 `fallback_local=true` 를 결과·화면에 표시한다. 시스템 프롬프트 `prompts/differentiate.md`.
+- 제안자 선택: 고르거나 고친 문장은 `ProposalRequest.differentiation`(새 입력 칸, 2,000자)에 저장되고 초안 생성 때
+  목적(objective)·방법(method)·특이사항(overlap_review) 프롬프트에 `[제안자가 정한 차별화 방향]` 구획으로 들어간다
+  (`generate_proposal.DIFFERENTIATION_SECTIONS`). 제안 입력 JSON 에도 포함된다.
+- Agent: `agent_policy.after_precheck` 에 "차단·근접(임계치의 90% 이상) 알림 있음 → rra_differentiate" 행.
+  `ProposalAssistant.differentiate()` 가 호출하고 활동 기록에 남긴다. `proceed(…, differentiation=proposal)` 이 전송 기록을
+  run 에 넘긴다.
+- 진입점: CLI `rra differentiate`(5슬롯·--file·--json)·`rra generate --differentiation`, REST
+  `POST /v1/precheck/differentiate`(ProposalRequest → alerts + differentiation; LLM 없으면 503), MCP 쓰기 도구
+  `rra_differentiate`(+ `rra_generate(differentiation=)`), Streamlit 유사과제 표 아래 [차별화 제안 받기] → 방향 선택/수정 →
+  [차별화 방향 적용]. `docs/openapi.json` 갱신.
+- 2026-10-26 실례(사내 적재 뒤, Gemini): 미채택 제안과 같은 아이디어 → 제안 2건(미채택 과제는 "데이터 수집 체계 먼저 구축해
+  구체화·재제안", 타부서 제안은 대상 특화로 차별화); 완료 과제에 가까운 아이디어 → 제안 4건, 폐기 0. 자료에 있는 수치만
+  쓰였고 지어낸 수치는 없었다.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
@@ -1028,6 +1059,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-26 (P3) | 기획서 기능 2 유사과제 활용·차별화 제안(§4.9): `domain/rules/differentiation.py`, `usecases/differentiate.py`, `ProposalRequest.differentiation`, `llm.yaml stages.differentiate`, `prompts/differentiate.md`, agent_policy 행, CLI·REST·MCP·Streamlit 진입점, manifest `differentiation` |
 | 2026-10-26 (P2) | 사내 자료 적재(§4.8): `adapters/sources/own/`(own_projects 엑셀·own_docs 공시 요약문), 샌드박스 hwp·xlsx·xls 파서, `SourceType own`, `OverlapAlert.status`, `sources.yaml own` |
 | 2026-10-26 (P1) | 생성 근거 관련도 하한(§4.7, 이슈 #2): `domain/rules/relevance.py`·`Chunk.similarity`·`RetrievalSnapshot.dropped_chunks`·lint `no_relevant_evidence`·`overlap.yaml evidence_floor`·골든셋 측정 fixture·벤치 지표 |
 | 2026-10-26 (L) | 로컬 작성 모델 비교 — `llm.yaml model_profiles`(qwen·midm·ax_light), `rra llm-bench`·`tests/golden/`, Mi:dm 2.0 Base(MIT, 32K)·A.X 4.0 Light(Apache 2.0, 16K) 4bit 변환·벤치 결과 JSON 성공률 3.5%·75.9% 로 규칙 ② 탈락 → Qwen2.5-7B 유지(`docs/llm-bench-2026-10-26.md`), `deploy/launchd/com.rra.mlx.plist` |

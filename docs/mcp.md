@@ -40,9 +40,10 @@ Claude Code에서 `rra_precheck`·`rra_search`를 도구로 쓰기 위한 stdio 
 
 | 도구 | 입력 | 출력 |
 |---|---|---|
-| `rra_generate` | 필수 4슬롯 + 선택(`constraints`·`title_hint`·`policy_basis`·`beneficiaries`·`remarks`·`department`·`budget_account`·`budget_amount_thousand_krw`) 또는 `resume_run_id` | `{run_id, status, progress, hint}` — 즉시 반환, 생성은 백그라운드 |
+| `rra_generate` | 필수 4슬롯 + 선택(`constraints`·`title_hint`·`policy_basis`·`beneficiaries`·`remarks`·`differentiation`·`department`·`budget_account`·`budget_amount_thousand_krw`) 또는 `resume_run_id` | `{run_id, status, progress, hint}` — 즉시 반환, 생성은 백그라운드 |
 | `rra_get_draft` | `run_id` | 상태·step 기록·(부분) 초안·`citations`·lint 문제(`severity`) + 경고 문구 |
 | `rra_confirm` | `run_id`, `task_type?`, `utilization?[]`, `strategy?[]` | 확정된 선택값 — 넘긴 항목만 덮어쓴다 |
+| `rra_differentiate` | 필수 4슬롯 + `constraints?`·`title_hint?` | 중복 점검 뒤 차단·근접 유사과제별 `overlap_summary`·`build_on`·`differentiation[1~3]`·`evidence`·`status`(미채택은 보완 재제안 관점) + 전송 범위. 외부 LLM 출력(비신뢰). 고른 방향은 `rra_generate(differentiation=)` 로 |
 | `rra_render` | `run_id`, 선택: `proposed_on`·`proposer_rank/name/phone`·`head_rank/name/phone` | 완료(done)·확정된 run 의 별지 제2호서식 HWPX(`content_base64`, `filename`, `size`). 제안자 정보는 파일에만 들어가고 저장되지 않는다 |
 
 - 섹션 구성은 별지 제2호서식(docs/architecture.md §4.1). 제안자 성명·연락처는 받지 않는다(렌더 시점 입력).

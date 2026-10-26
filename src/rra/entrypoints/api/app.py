@@ -53,6 +53,7 @@ from rra.entrypoints.api.schemas import (
 from rra.entrypoints.views import (
     alerts_payload,
     chunks_payload,
+    differentiation_payload,
     draft_payload,
     render_check_payload,
     review_payload,
@@ -123,6 +124,7 @@ def create_app(
     user: str,
     middlewares: list[tuple[type, dict[str, Any]]],
     query_max_chars: int = 500,
+    differentiate: Any | None = None,
     on_shutdown: Callable[[], Any] | None = None,
     session_auth: SessionAuth | None = None,
     static_dir: Path | None = None,
@@ -227,6 +229,19 @@ def create_app(
     async def precheck_route(req: ProposalRequest) -> dict[str, Any]:
         alerts = await precheck(req)
         return {"notice": UNTRUSTED_NOTICE, **alerts_payload(alerts, clean=_clean)}
+
+    @app.post(f"/{API_VERSION}/precheck/differentiate")
+    async def differentiate_route(req: ProposalRequest) -> dict[str, Any]:
+        """기능 2 — precheck 뒤 차단·근접 유사과제별 활용·차별화 방향 (외부 LLM 출력, 비신뢰)."""
+        if differentiate is None:
+            raise HTTPException(503, "차별화 제안을 쓸 수 없습니다 (LLM 없음).")
+        alerts = await precheck(req)
+        proposal = await differentiate(req, alerts)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            **alerts_payload(alerts, clean=_clean),
+            "differentiation": differentiation_payload(proposal, clean=_clean),
+        }
 
     async def _search(query: str, k: int, orgs: list[str] | None) -> dict[str, Any]:
         query = query.strip()

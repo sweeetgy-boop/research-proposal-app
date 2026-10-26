@@ -45,6 +45,9 @@ class FakePromptLibrary:
     def review(self) -> str:
         return "REVIEW: 새 사실 추가 금지, 근거 안에서만, 한국어, JSON 객체 하나"
 
+    def differentiate(self) -> str:
+        return "DIFFERENTIATE: 겹친 과제 자료와 제안 입력 안에서만, 한국어, JSON 객체 하나"
+
 
 class FakeEmbedding:
     dim = 4
