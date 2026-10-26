@@ -533,3 +533,14 @@ async def test_sources_check_covers_kipris():
     assert set(by) == {"scienceon", "ntis", "kipris"}
     assert by["kipris"]["host_allowed"] and by["kipris"]["roundtrip"] == "skipped"
     assert by["kipris"]["credentials"] == {"RRA_KIPRIS_KEY": False}
+
+
+def test_available_sources_skip_missing_keys_but_reject_unknown_names():
+    from rra.composition import build_available_sources
+
+    sources, skipped = build_available_sources(["openalex", "ntis", "kipris"], project_settings())
+    assert [s.source for s in sources] == ["openalex"]
+    assert [name for name, _ in skipped] == ["ntis", "kipris"]
+    assert all("RRA_" in reason and "=" not in reason for _, reason in skipped)  # 변수 이름만
+    with pytest.raises(KeyError):
+        build_available_sources(["nope"], project_settings())

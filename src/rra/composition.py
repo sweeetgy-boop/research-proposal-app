@@ -62,6 +62,7 @@ __all__ = [
     "build_alio_catalog_fetcher",
     "build_alio_source",
     "build_alio_summary_source",
+    "build_available_sources",
     "build_kipris_source",
     "build_own_docs_source",
     "build_own_projects_source",
@@ -476,6 +477,26 @@ def build_sources(names: list[str], settings: Settings | None = None) -> list:
         raise KeyError(f"알 수 없는 소스: {unknown} (가능: {list(SOURCE_NAMES)})")
     settings = settings or load_settings()
     return [_SOURCE_BUILDERS[n](settings) for n in names]
+
+
+def build_available_sources(
+    names: list[str], settings: Settings | None = None
+) -> tuple[list, list[tuple[str, str]]]:
+    """이름 목록 → (만들 수 있는 소스, [(건너뛴 이름, 사유)]).
+
+    키가 없는 소스(MissingCredential)는 건너뛴다 — 야간 적재(com.rra.ingest.plist)가 키 유무와
+    무관하게 돌도록. 모르는 이름은 KeyError."""
+    unknown = [n for n in names if n not in _SOURCE_BUILDERS]
+    if unknown:
+        raise KeyError(f"알 수 없는 소스: {unknown} (가능: {list(SOURCE_NAMES)})")
+    settings = settings or load_settings()
+    sources, skipped = [], []
+    for name in names:
+        try:
+            sources.append(_SOURCE_BUILDERS[name](settings))
+        except MissingCredential as exc:
+            skipped.append((name, str(exc)))
+    return sources, skipped
 
 
 def build_sources_check(

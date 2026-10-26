@@ -3,7 +3,7 @@
 <!--
   로컬 작성 LLM 서버 (mlx_lm.server) — launchd 사용자 에이전트. 보안 H: 127.0.0.1 만.
   모델은 config/llm.yaml model_profiles 의 served_model 과 같아야 한다 (2026-10-26 비교 결과 Qwen 유지,
-  docs/llm-bench-2026-10-26.md). 다른 프로필로 바꾸면 --model 과 llm.yaml providers.mlx.model_profile 을 함께 바꾼다.
+  docs/llm-bench-2026-10-26.md). 다른 프로필로 바꾸면 model 인자와 llm.yaml providers.mlx.model_profile 을 함께 바꾼다.
   설치: cp deploy/launchd/com.rra.mlx.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.mlx.plist
   mlx-lm 은 `uv tool install mlx-lm` (실행 파일 ~/.local/bin/mlx_lm.server).
 -->
