@@ -4,7 +4,7 @@
 개발된 것과 남은 것을 적는다. 항목마다 근거(파일·테스트·커밋)를 붙인다. 설계는 `architecture.md`,
 단계 계획은 맨 아래 "진행 계획" 표. 각 단계가 끝날 때 이 문서의 해당 행을 갱신한다.
 
-규모(main 8050d25, 2026-10-26 PR #1~#9·#15 병합 뒤): 커밋 91, `src/rra` 파일 146, 테스트 76파일(`pytest -q` 1,163 통과·12 skip — skip 은 실응답 fixture·실물 양식), import-linter 계약 8 kept, ruff 통과.
+규모(main e10466e, 2026-10-26 PR #1~#9·#15~#18 병합 뒤): 커밋 105, `src/rra` 파일 146, 테스트 76파일(`pytest -q` 1,178 통과·12 skip — skip 은 실응답 fixture·실물 양식), import-linter 계약 8 kept, ruff 통과. CI(`.github/workflows/ci.yml`): backend 통과, web 은 `web/` 이 없어 skip.
 
 ## 1. 기획서 기준표
 
@@ -27,7 +27,7 @@
 | ① | 과제 아이디어 입력 | 완료 | `domain/models/request.py`(필수 4 + 선택, validator 한 곳); `tests/domain/test_request.py`; b20deb6 |
 | ② | 유사과제 중복성 검토·사전 알림 | 완료 | 기능 1 과 같음 |
 | ③ | 유사과제 활용·차별화 제안 | 완료 (P3) | 기능 2 와 같음 |
-| ④ | 국내외 논문·특허·R&D 사전 적재·갱신 | 부분 | OpenAlex(f19b974)·알리오 catalog/filedrop/공개 요약(d305174, c3ac454)·ScienceON·NTIS 과제검색(428ed2c)·KIPRIS 특허(P4, `adapters/sources/kipris/`) 코드 완료. ScienceON·NTIS·KIPRIS 는 키·실응답 fixture 대기(skip 3). 야간 적재 launchd 없음 → P6 |
+| ④ | 국내외 논문·특허·R&D 사전 적재·갱신 | 부분 | OpenAlex 철도 코퍼스 2,482건(13개 분야 질의, #18, architecture §4.13)·알리오 catalog/filedrop/공개 요약(d305174, c3ac454)·ScienceON·NTIS 과제검색(428ed2c)·KIPRIS 특허(P4, `adapters/sources/kipris/`) 코드 완료. ScienceON·NTIS·KIPRIS 는 키·실응답 fixture 대기(skip 3). 야간 적재는 `com.rra.ingest.plist`(P6, `--limit 5000`, 증분 7일) |
 | ⑤ | RAG 근거 검색·자료 질의 | 완료 | 기능 3, `rra search`, MCP `rra_search`, UI 사이드바 질의 |
 | ⑥ | 섹션별 초안 생성·출처 표시·수치 검사 | 완료 | 기능 4, `numbers.py`(지어낸 수치 알림), `foreign_script.py`; `tests/domain/test_numbers.py`; 463139e |
 | ⑦ | 과제유형·활용계획·경영전략 제안·확정 | 완료 (전략 목록 대기) | 기능 5 |
@@ -48,6 +48,8 @@
 | 계층·검증 | 헥사고날 4계층, import-linter 계약 8건, 포트 전부 runtime_checkable·비동기 저장소/임베딩, TaskRunner 포트 | `pyproject.toml`, `composition.py`·`config_loader.py`; `tests/test_composition.py`·`test_config_loader.py`, `tests/adapters/test_port_conformance.py`; 0ecbe46, 6b31f35~0bcac95 |
 | 보안 A~J | 근거 id 대조·JSON 전용 파싱, subprocess 파싱 격리·zip 상한·defusedxml, 허용 도메인·리다이렉트 재검사·사설 IP 거부, SecretStr, SQL 바인딩·FTS5 토큰 인용, HWPX escape·재파싱, 127.0.0.1·토큰·동시성 1, 로그 허용목록 | `adapters/sources/_base.py`·`_sandbox.py`, `adapters/security/`, `adapters/llm/_endpoint.py`; `tests/adapters/test_base_security.py`·`test_guarded_client.py`·`test_sandbox.py`·`test_llm_endpoint.py`, `tests/entrypoints/test_api.py` |
 | DB 정비 | migration 001~004(schema_version·valid_until·visibility·ingested_at), 만료 문서 검색 제외, `rra reindex`, `rra db backup`(VACUUM INTO·보관 회전), 일일 백업 plist | `adapters/persistence/migrations/`, `usecases/maintain_db.py`; `tests/application/test_maintain_db.py`; 42c2eaf |
+| 협업 준비 (2026-10-26, #17) | GitHub Actions CI(backend: uv·pytest·lint-imports·ruff / web: `web/` 있을 때만 npm lint·typecheck·test / detect), CODEOWNERS(`web/` 동료 TODO), PR 템플릿, CONTRIBUTING. 비밀 키 없이 돌고 실물 양식·사내 데이터 테스트는 skip. 샌드박스 RLIMIT_AS 제거(리눅스 pymupdf import 실패) | `.github/workflows/ci.yml`, `.github/CODEOWNERS`, `.github/pull_request_template.md`, `CONTRIBUTING.md`, `adapters/sources/_worker.py` |
+| OpenAlex 코퍼스·근거 출처 다양성 (2026-10-26, #18) | 철도 분야 영문 질의 13개(초록 있음·10년·질의당 200), page 페이징(cursor 는 API 키 필요), `RRA_OPENALEX_MAILTO`·`RRA_OPENALEX_API_KEY` 선택. 적재 뒤 한국어 질의가 사내 기록만 앞세워 논문이 근거 0건 → 넓은 검색(k×4)·부족 자료원 재검색(`hybrid_search sources` 필터)·출처별 최소 6건 보장. `rra generate` 가 자동 검토 뒤 종료 코드 1 이던 것 수정 | `adapters/sources/openalex.py`, `config/sources.yaml`, `domain/rules/relevance.py`, `usecases/generate_proposal.py`, `adapters/persistence/sqlite_repo.py`, `config/overlap.yaml evidence_floor`; `tests/adapters/test_openalex.py`·`test_sqlite_repo.py`, `tests/application/test_generate_proposal.py`; architecture §4.13 |
 | 운영 준비 (P6) | 야간 적재 plist(키 없는 자료원 건너뜀·소스별 격리), plist 4종·백업 7벌 테스트, 설치 순서 문서, 공개 방식 비교 | `deploy/launchd/com.rra.ingest.plist`, `composition.build_available_sources`, `deploy/README.md`, `docs/deploy-exposure.md`; `tests/deploy/test_launchd_plists.py`; architecture §4.12 |
 | 검토 채점 (P5) | Argon 검토에 필요성·차별성·실현가능성·기대효과 1~5점 + 근거 문장. 2점 이하 → 문장·섹션 의견. 수치는 알림 유지 + 검토 지적 의무 + 마무리 점검 맨 위 건수 | `domain/models/review.py`(CriterionScore·score_comments), `usecases/review_draft.parse_scores`, `prompts/review.md`, `usecases/render_check.py`; `tests/domain/test_review_scores.py`, `tests/application/test_review_draft.py`·`test_render_check.py`; architecture §4.11 |
 | 검토·수정·마무리 흐름 | 작성 → Argon(Gemini) 검토 → 제안자 수정 → 재검토 → finalize → reopen. 버전(versions·revert)·검토 라운드 파일·manifest 검토 요약. 양식 파일은 finalize 로만 | `domain/rules/review_flow.py`, `usecases/review_draft.py`, `run_manager.py`; `tests/domain/test_review_flow.py`, `tests/application/test_review_draft.py`·`test_review_manager.py`; 4b22913~71d860c |
@@ -72,7 +74,8 @@
 | 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건). 공시용 요약문은 P2 에서 own_docs 로 적재됨 |
 | `config/templates/korail_strategy.yaml` 전략체계 목록 | 비어 있음 → 2-가-(3) 빈칸 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
-| 웹 프론트엔드 `web/dist` | 동료가 별도 진행. API 변경 시 `openapi.json` 갱신·PR 에 "프론트엔드 영향" 기재 |
+| 웹 프론트엔드 `web/dist` | 동료가 별도 진행. API 변경 시 `openapi.json` 갱신·PR 에 "프론트엔드 영향" 기재. CI `web` job 은 `web/` 이 생기면 자동으로 돈다 |
+| `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
 | 운영 공개 방식(Tailscale/Cloudflare) 결정 | 보류(#14 댓글): 시범(팀 3명) Tailscale / 확대(사내·산학연) Cloudflare Access 검토, 공사 정보보안 규정 확인 후 결정 |
 
 ### 3.3 나중 (P7, 이슈만)
@@ -82,7 +85,9 @@
 
 ## 4. 진행 계획 (2026-10-26 지시)
 
-단계마다 브랜치 → `pytest -q && lint-imports && ruff check src tests` → 커밋 → PR. PR 은 사용자가 확인·병합.
+단계마다 main 에서 브랜치 → `pytest -q && lint-imports && ruff check src tests` → 커밋 → PR. 2026-10-26 [1] 이후 PR 은
+CI(`gh pr checks --watch`) 통과 뒤 자동 병합(`--merge --delete-branch`), 병합 뒤 main 에서 같은 검사를 한 번 더. 동료 PR 은
+자동 병합하지 않는다.
 
 | 단계 | 브랜치 | 내용 | 상태 | PR |
 |---|---|---|---|---|
@@ -95,13 +100,19 @@
 | P6 | `chore/ops` | `com.rra.ingest.plist`·`--skip-unavailable`, plist·백업 7벌 테스트, `deploy/README` 설치 순서, `deploy-exposure.md` 비교 | 완료 2026-10-26 | #9 |
 | P7 | — | 이슈 등록: 골든셋 피드백 루프 #10, 용어사전 반자동 확장 #11, reranker·임계치 재조정 #12, 공고문 반영 #13, 공개 방식 결정 #14 | 완료 2026-10-26 | 이슈 |
 | A | `fix/post-p7-decisions` | 판단 반영: own 티어 전부·세부 구분, visibility 정정, generic_terms, 차별화 자동 실행 규칙, REST 전송 기록 | 완료 2026-10-26 | #15 |
+| D | `docs/status-after-p7` | 이 문서 §5 병합 결과·실제 확인 | 완료 2026-10-26 | #16 |
+| [1] | `chore/collab` | CI 워크플로·CODEOWNERS·PR 템플릿·CONTRIBUTING | 완료 2026-10-26 | #17 |
+| [2] | `feat/openalex-rail-corpus` | OpenAlex 철도 코퍼스 2,482건·근거 출처 다양성·generate 종료 코드 | 완료 2026-10-26 | #18 |
+| [3] | `docs/status-corpus-ci` | 이 문서 갱신([1]·[2] 결과, CI, 보호 규칙) | 완료 2026-10-26 | #19 |
 
 ## 5. 병합 결과·실제 확인 (2026-10-26)
 
-**병합** (순서대로, 매번 main 에서 `pytest -q && lint-imports && ruff check` 통과): #1 → #3 → #4 → #5 → #6 → #7 → #8 → #9 → #15.
-GitHub 가 #4 이후를 충돌로 표시해 각 브랜치에 main 을 먼저 합쳐(충돌 없음) 푸시한 뒤 병합했다.
+**병합** (순서대로, 매번 main 에서 `pytest -q && lint-imports && ruff check` 통과): #1 → #3 → #4 → #5 → #6 → #7 → #8 → #9 → #15
+→ #16 → #17 → #18 → #19. GitHub 가 #4 이후를 충돌로 표시해 각 브랜치에 main 을 먼저 합쳐(충돌 없음) 푸시한 뒤 병합했다.
+#17 부터는 CI(backend·detect 통과, web skip) 확인 뒤 자동 병합.
 
-**검사** (main 8050d25): pytest 1,163 passed·12 skipped / import-linter 8 kept, 0 broken / ruff All checks passed.
+**검사** (main e10466e): pytest 1,178 passed·12 skipped / import-linter 8 kept, 0 broken / ruff All checks passed /
+CI backend pass(1분), detect pass, web skipping. 깨끗한 클론(.env·data 없음, HF 오프라인)에서도 1,157 passed·18 skipped.
 
 **자료원별 적재 (dev DB)**
 
@@ -109,7 +120,7 @@ GitHub 가 #4 이후를 충돌로 표시해 각 브랜치에 main 을 먼저 합
 |---|---|---|---|
 | own (엑셀 4개 과제 기록) | 1,119 | 0 | 전부 own 티어, 공개 자료 |
 | alio (공시용 요약문 + 알리오 페이지 요약) | 115 | 5 | internal 5 = 공시용 없이 일반 요약문만 있는 과제 |
-| openalex | 20 | 0 | |
+| openalex | 2,482 | 0 | 13개 분야 질의(궤도 200·궤도검측 196·차량 197·신호 155·전력 199·유지보수 183·안전 191·수송수요 200·역사 197·자산관리 167·탄소중립 196·화물 200·운영 187) + 기존 14, 2009-04~2026-10, 청크 3,465 |
 | scienceon·ntis·kipris | 0 | 0 | 키 대기 |
 
 **실제 확인**
@@ -120,11 +131,18 @@ GitHub 가 #4 이후를 충돌로 표시해 각 브랜치에 main 을 먼저 합
 - 차단 입력(자산개발 아이디어) precheck: 알림 10건·차단 2건, own:institute(사내 철도연구원)·own:company(사내 공사) 구분
   표시, 차단 알림으로 차별화 제안 자동 실행 → 3건(폐기 0, Gemini). 전송 public 5·internal 0.
 - 공개 방식(#14): 보류 댓글 남김.
+- OpenAlex 적재 뒤 골든셋(k=20, 하한 0.79 통과·출처): 01 궤도 — 적재 전 16(openalex 16) → 적재 직후 20(alio 15/own 5/openalex 0)
+  → 다양성 규칙 뒤 20(+overlap 1)(alio 9/own 6/openalex 6). 02 자산개발 — 6 → 17(alio 8/own 9) → 20(alio 7/own 7/openalex 6).
+  골든셋 01 새 초안 Argon 점수(필요성·차별성·실현가능성·기대효과): 이전 run 17d5e269 3/2/2/3 → min_per_source 4 run 9381fdcd
+  4/2/2/3(논문 인용 0) → min_per_source 6 run eb7290ee 3/2/3/3(논문 인용 6, 채택). 차이는 7B run 간 편차 안이고 차별성 2 의 이유는
+  세 번 모두 "무관한 사내 과제 인용·해외 연구와의 차별성 서술 부족"(e5 가 사내 한국어 청크를 0.85 이상으로 올림 → reranker #12).
 
-**main 보호 규칙** — 켜도 되는 상태. 열린 PR 없음, 작업은 전부 브랜치 → PR 흐름. 단 저장소 협업자가 본인뿐이면
-"승인 1" 은 본인 PR 을 본인이 승인할 수 없어 막힌다(관리자 우회 허용 또는 승인 0). CI 워크플로가 없어
-"상태 검사 필수" 는 아직 걸 수 없다(검사는 로컬 명령).
+**main 보호 규칙** — 켤 수 있는 상태. 권장 설정: "Require a pull request before merging"(승인 0 — 협업자가 본인뿐이면 본인 PR 을
+승인할 수 없다; 동료가 들어오면 1), "Require status checks to pass" 에 검사 이름 **`backend`**·**`detect`** (CI job 이름.
+`web` 은 `web/` 이 없으면 skipping 이라 `web/` 이 생긴 뒤 추가), "Require branches to be up to date" 켬, "Do not allow bypassing"
+은 자동 병합 흐름이 관리자 권한으로 돌지 않으므로 켜도 된다. 보호 규칙이 자동 병합을 거부하면 어떤 규칙인지 보고하고 멈춘다.
 
 **남은 사람 입력**: API 키(KIPRIS Plus·NTIS 소속기관 등록 뒤 과제검색/연구보고서·ScienceON client_id/키/기기별 MAC),
-`config/templates/korail_strategy.yaml` 전략체계 목록, 연구과제 공고문(`data/inbox/notice/`), Mac mini 에 launchd 4종 실제
-등록(`deploy/README.md` 설치 순서), 공개 방식 결정(#14).
+`.env RRA_OPENALEX_MAILTO` 값(polite pool), `config/templates/korail_strategy.yaml` 전략체계 목록, 연구과제 공고문
+(`data/inbox/notice/`), Mac mini 에 launchd 4종 실제 등록(`deploy/README.md` 설치 순서) + 첫 `rra ingest --source openalex --full`,
+main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기면 CODEOWNERS 의 동료 TODO 채우기.
