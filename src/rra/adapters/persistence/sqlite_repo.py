@@ -8,14 +8,25 @@
 - FTS5 MATCH 식은 `_sql.quote_fts_query()` 를 거친 것만 사용한다.
 - k·질의 길이·질의 개수 상한을 강제한다.
 - DB 파일 0o600, 상위 디렉터리 0o700 로 고정한다.
+
+[2] DB 정비 (2026-10-26):
+- 마이그레이션 001~003 (migrations/runner, user_version + schema_version 표).
+- documents.valid_until 이 지난 문서는 검색(FTS·벡터)·precheck(find_similar) 에서 제외한다. 기준일은
+  today() (테스트에서 바꿀 수 있다).
+- meta.embedding_model 에 색인에 쓴 임베딩 모델명을 적고, 설정 모델과 다르면 기동 때 경고 로그 +
+  index_model_mismatch. `rra reindex`(reindex()) 가 모든 청크를 현재 모델로 다시 임베딩한다.
+- backup(out) 은 VACUUM INTO 로 일관된 사본을 만든다 (권한 0600).
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import sqlite3
 import threading
+from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -28,9 +39,14 @@ from rra.domain.rules.fusion import reciprocal_rank_fusion
 if TYPE_CHECKING:  # 포트는 구조적 타입 — 런타임 의존 없음
     from rra.application.ports.embedding import EmbeddingPort
 
+logger = logging.getLogger("rra.persistence")
+
 DB_FILE_MODE = 0o600
 DB_DIR_MODE = 0o700
 FETCH_MULTIPLIER = 4
+REINDEX_BATCH = 64
+# 만료 문서 제외 조건 — 바인딩 하나(기준일 ISO). d 는 documents 별칭.
+_VALID = "(d.valid_until IS NULL OR d.valid_until >= ?)"
 
 # 컬럼 이름은 _mapping.DOCUMENT_COLUMNS 상수에서만 오고 값은 전부 바인딩된다.
 _INSERT_DOCUMENT = (
@@ -44,16 +60,23 @@ _INSERT_DOCUMENT = (
 _INSERT_CHUNK = "INSERT INTO chunks (chunk_id, doc_id, ordinal, heading, text) VALUES (?,?,?,?,?)"
 _SELECT_DOCUMENT = "SELECT * FROM documents WHERE doc_id = ?"
 # FTS5 는 MATCH·bm25() 에서 별칭이 아니라 테이블 이름을 요구한다.
+# {valid} 는 모듈 상수 _VALID(바인딩 하나), {orgs} 는 placeholders(정수 개수) 로만 채워진다.
 _FTS_SEARCH = (
     "SELECT c.chunk_id FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid "
-    "WHERE chunks_fts MATCH ? ORDER BY bm25(chunks_fts), c.id LIMIT ?"
-)
+    "JOIN documents d ON d.doc_id = c.doc_id "
+    "WHERE chunks_fts MATCH ? AND {valid} ORDER BY bm25(chunks_fts), c.id LIMIT ?"
+).replace("{valid}", _VALID)
 _FTS_SEARCH_ORGS = (
     "SELECT c.chunk_id FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid "
-    "WHERE chunks_fts MATCH ? AND EXISTS (SELECT 1 FROM document_orgs o "
+    "JOIN documents d ON d.doc_id = c.doc_id "
+    "WHERE chunks_fts MATCH ? AND {valid} AND EXISTS (SELECT 1 FROM document_orgs o "
     "WHERE o.doc_id = c.doc_id AND o.org IN ({orgs})) "
     "ORDER BY bm25(chunks_fts), c.id LIMIT ?"
+).replace("{valid}", _VALID)
+_ORG_FILTER = (
+    " AND EXISTS (SELECT 1 FROM document_orgs o WHERE o.doc_id = c.doc_id AND o.org IN ({orgs}))"
 )
+_SELECT_ALL_CHUNKS = "SELECT id, text FROM chunks ORDER BY id"
 
 
 class ReindexRequired(RuntimeError):
@@ -84,9 +107,11 @@ class SQLiteDocumentRepository:
         prefer_extension: bool = True,
         rrf_k: int = RRF_K,
         min_similarity: float = 0.0,
+        today: Callable[[], date] = date.today,
     ):
         self.db_path = Path(db_path)
         self.embedding = embedding
+        self.today = today
         self.max_k = max_k
         self.max_queries = max_queries
         self.max_query_chars = max_query_chars
@@ -105,7 +130,30 @@ class SQLiteDocumentRepository:
         runner.migrate(self.conn)
         self.backend = self._select_backend(prefer_extension)
         self._vec_dim = self._stored_dim()
+        self.index_model: str | None = self._get_meta("embedding_model")  # 색인에 쓴 모델
+        if self.index_model_mismatch:
+            logger.warning(
+                "db.embedding_model_mismatch index=%s configured=%s — `rra reindex` 필요",
+                self.index_model,
+                self.configured_model,
+            )
         _secure_paths(self.db_path)
+
+    @property
+    def configured_model(self) -> str | None:
+        """설정된 임베딩 모델명 (어댑터가 model_name 을 노출할 때만)."""
+        name = getattr(self.embedding, "model_name", None)
+        return str(name) if name else None
+
+    @property
+    def index_model_mismatch(self) -> bool:
+        return bool(
+            self.index_model and self.configured_model and self.index_model != self.configured_model
+        )
+
+    @property
+    def schema_version(self) -> int:
+        return runner.current_version(self.conn)
 
     # ── 연결·설정 ────────────────────────────────────────────────
     def _configure(self) -> None:
@@ -149,6 +197,9 @@ class SQLiteDocumentRepository:
             self.backend.create(dim)
             self._set_meta("embedding_dim", str(dim))
             self._set_meta("vec_backend", self.backend.name)
+            if self.configured_model:
+                self._set_meta("embedding_model", self.configured_model)
+                self.index_model = self.configured_model
             self._vec_dim = dim
         elif self._vec_dim != dim:
             raise ReindexRequired(
@@ -283,12 +334,15 @@ class SQLiteDocumentRepository:
                 doc_id = row["doc_id"]
                 if score > best.get(doc_id, -1.0):
                     best[doc_id] = score
-            ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
+            ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
+            today = self.today()
             out: list[tuple[Document, float]] = []
             for doc_id, score in ranked:
                 doc = self._get_document_sync(doc_id)
-                if doc is not None:
+                if doc is not None and doc.is_valid_on(today):  # 만료 문서는 precheck 에서 제외
                     out.append((doc, score))
+                if len(out) >= limit:
+                    break
             return out
 
     # ── 내부 검색 ────────────────────────────────────────────────
@@ -301,11 +355,12 @@ class SQLiteDocumentRepository:
         match = _sql.quote_fts_query(query, max_chars=self.max_query_chars)
         if not match:
             return []
+        today = self.today().isoformat()
         if orgs:
             sql = _FTS_SEARCH_ORGS.format(orgs=_sql.placeholders(len(orgs)))
-            params: tuple[object, ...] = (match, *orgs, fetch)
+            params: tuple[object, ...] = (match, today, *orgs, fetch)
         else:
-            sql, params = _FTS_SEARCH, (match, fetch)
+            sql, params = _FTS_SEARCH, (match, today, fetch)
         # quote_fts_query 가 문법적으로 안전한 식만 만들므로 예외를 삼키지 않는다.
         return [row["chunk_id"] for row in self.conn.execute(sql, params)]
 
@@ -325,23 +380,78 @@ class SQLiteDocumentRepository:
         return [allowed[rowid] for rowid, _ in hits if rowid in allowed][:fetch]
 
     def _chunk_ids_for(self, rowids: list[int], orgs: list[str]) -> dict[int, str]:
+        """벡터 히트 rowid → chunk_id. 만료 문서·org 필터 밖 청크는 빠진다."""
         out: dict[int, str] = {}
+        today = self.today().isoformat()
         for start in range(0, len(rowids), self.max_k):
             batch = rowids[start : start + self.max_k]
             marks = _sql.placeholders(len(batch))
+            # marks·placeholders 는 정수 개수만 받는다 (_sql.placeholders).
+            sql = (
+                f"SELECT c.id, c.chunk_id FROM chunks c JOIN documents d ON d.doc_id = c.doc_id "  # noqa: S608  # nosec B608
+                f"WHERE c.id IN ({marks}) AND {_VALID}"
+            )
+            params: tuple[object, ...] = (*batch, today)
             if orgs:
-                sql = (
-                    # marks·placeholders 는 정수 개수만 받는다 (_sql.placeholders).
-                    f"SELECT c.id, c.chunk_id FROM chunks c WHERE c.id IN ({marks}) "  # noqa: S608  # nosec B608
-                    "AND EXISTS (SELECT 1 FROM document_orgs o WHERE o.doc_id = c.doc_id "
-                    f"AND o.org IN ({_sql.placeholders(len(orgs))}))"
-                )
-                params: tuple[object, ...] = (*batch, *orgs)
-            else:
-                sql = f"SELECT c.id, c.chunk_id FROM chunks c WHERE c.id IN ({marks})"  # noqa: S608  # nosec B608
-                params = tuple(batch)
+                sql += _ORG_FILTER.replace("{orgs}", _sql.placeholders(len(orgs)))
+                params = (*params, *orgs)
             for row in self.conn.execute(sql, params):
                 out[row["id"]] = row["chunk_id"]
+        return out
+
+    # ── 유지보수 (DatabaseMaintenancePort) ─────────────────────
+    async def reindex(self) -> dict[str, int | str | None]:
+        """모든 청크를 현재 임베딩 모델로 다시 임베딩한다 (차원·모델이 바뀌어도 된다).
+
+        벡터 표를 비우고 메타(embedding_dim·embedding_model)를 지운 뒤 배치로 다시 채운다.
+        FTS·문서·청크 행은 그대로.
+        """
+        rows = await asyncio.to_thread(self._all_chunks_sync)
+        dim = _vec.validate_dim(int(self.embedding.dim))
+        vectors: list[tuple[int, list[float]]] = []
+        for start in range(0, len(rows), REINDEX_BATCH):
+            batch = rows[start : start + REINDEX_BATCH]
+            embedded = await self.embedding.embed([text for _, text in batch])
+            if len(embedded) != len(batch):
+                raise ValueError("임베딩 개수가 청크 개수와 다릅니다")
+            vectors.extend(zip((rowid for rowid, _ in batch), embedded, strict=True))
+        await asyncio.to_thread(self._rebuild_vectors_sync, dim, vectors)
+        return {"chunks": len(rows), "dim": dim, "model": self.index_model}
+
+    def _all_chunks_sync(self) -> list[tuple[int, str]]:
+        with self._lock:
+            return [(int(r["id"]), str(r["text"])) for r in self.conn.execute(_SELECT_ALL_CHUNKS)]
+
+    def _rebuild_vectors_sync(self, dim: int, vectors: list[tuple[int, list[float]]]) -> None:
+        with self._lock, self.conn:
+            for table in ("chunk_embeddings", "chunk_vec"):
+                self.conn.execute(f"DROP TABLE IF EXISTS {table}")  # noqa: S608  # nosec B608 - 상수
+            self.conn.execute("DELETE FROM meta WHERE key IN ('embedding_dim', 'embedding_model')")
+            self._vec_dim = None
+            self.index_model = None
+            self.backend.create(dim)
+            self._set_meta("embedding_dim", str(dim))
+            self._set_meta("vec_backend", self.backend.name)
+            if self.configured_model:
+                self._set_meta("embedding_model", self.configured_model)
+                self.index_model = self.configured_model
+            self._vec_dim = dim
+            if vectors:
+                self.backend.add(vectors)
+        _secure_paths(self.db_path)
+
+    async def backup(self, out: str | Path) -> Path:
+        """VACUUM INTO 로 일관된 사본을 만든다. 기존 파일은 덮어쓰지 않는다 (SQLite 가 거부)."""
+        return await asyncio.to_thread(self._backup_sync, Path(out))
+
+    def _backup_sync(self, out: Path) -> Path:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        if os.name != "nt":
+            os.chmod(out.parent, DB_DIR_MODE)
+        with self._lock:
+            self.conn.execute("VACUUM INTO ?", (str(out),))
+        if os.name != "nt":
+            os.chmod(out, DB_FILE_MODE)
         return out
 
     def _load_chunks(self, chunk_ids: list[str]) -> list[Chunk]:

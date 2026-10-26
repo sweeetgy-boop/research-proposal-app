@@ -61,8 +61,9 @@ class DeterministicEmbedding:
 
     _TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
 
-    def __init__(self, dim: int = 32):
+    def __init__(self, dim: int = 32, model_name: str = "fake/deterministic-v1"):
         self.dim = dim
+        self.model_name = model_name  # 저장소가 meta.embedding_model 에 적는 이름
 
     def _vector(self, text: str) -> list[float]:
         vec = [0.0] * self.dim
@@ -125,11 +126,21 @@ class InMemoryRepository:
 
     async def hybrid_search(self, queries, *, k=20, orgs=None):
         self.calls.append(("hybrid_search", {"queries": queries, "k": k, "orgs": orgs}))
-        return self.chunks[:k]
+        return [c for c in self.chunks if self._valid(c.doc_id)][:k]
 
     async def find_similar(self, text, *, k=10):
         self.calls.append(("find_similar", {"text": text, "k": k}))
-        return self.similar[:k]
+        return [(d, s) for d, s in self.similar if d.is_valid_on(self.today())][:k]
+
+    def today(self):
+        from datetime import date
+
+        return date.today()
+
+    def _valid(self, doc_id):
+        """만료(valid_until 경과) 문서의 청크는 검색에서 제외 — SQLite 어댑터와 같은 규칙."""
+        doc = self.docs.get(doc_id)
+        return doc is None or doc.is_valid_on(self.today())
 
     async def get_document(self, doc_id):
         return self.docs.get(doc_id)

@@ -28,6 +28,8 @@ DOCUMENT_COLUMNS = (
     "orgs_json",
     "toc_json",
     "text_basis",
+    "valid_until",
+    "visibility",
     "raw_json",
 )
 
@@ -66,6 +68,8 @@ def document_to_row(doc: Document) -> tuple[Any, ...]:
         "orgs_json": _dumps(doc.orgs),
         "toc_json": _dumps(doc.toc) if doc.toc is not None else None,
         "text_basis": doc.text_basis,
+        "valid_until": _iso(doc.valid_until),
+        "visibility": doc.visibility,
         "raw_json": _dumps(doc.raw),
     }
     return tuple(values[c] for c in DOCUMENT_COLUMNS)
@@ -94,6 +98,8 @@ def row_to_document(row: Any) -> Document:
         project_period=(start, end) if start and end else None,
         toc=toc,
         text_basis=row["text_basis"],
+        valid_until=_parse_date(row["valid_until"]),
+        visibility=row["visibility"],
         raw=json.loads(row["raw_json"]),
     )
 

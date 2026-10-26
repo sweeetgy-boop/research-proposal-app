@@ -9,6 +9,8 @@ SourceType = Literal["openalex", "scienceon", "kipris_kr", "kipris_intl", "ntis"
 DocType = Literal["paper", "patent", "internal_report", "rnd_project"]
 # 본문의 근거. full_text=원문 파일, summary=공개 요약(원문 비공개), abstract=초록·과제요약
 TextBasis = Literal["full_text", "summary", "abstract"]
+# public=외부(검토 LLM 등)로 보낼 수 있음, internal=사내 전용(외부 전송 제외·구획 표시)
+Visibility = Literal["public", "internal"]
 
 
 class Document(BaseModel):
@@ -32,8 +34,13 @@ class Document(BaseModel):
     project_period: tuple[date, date] | None = None
     toc: list[str] | None = None
     text_basis: TextBasis = "full_text"
+    valid_until: date | None = None  # 이 날짜(포함)까지만 검색·precheck 대상. None=만료 없음
+    visibility: Visibility = "public"
     raw: dict[str, Any] = Field(default_factory=dict)
     trust: Literal["untrusted"] = "untrusted"
+
+    def is_valid_on(self, day: date) -> bool:
+        return self.valid_until is None or self.valid_until >= day
 
 
 class Chunk(BaseModel):

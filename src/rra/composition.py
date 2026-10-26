@@ -110,6 +110,16 @@ def build_repository(embedding, settings: Settings | None = None):
     )
 
 
+def build_db_maintenance(settings: Settings | None = None, *, repo=None):
+    """DB 유지보수 유스케이스 (재색인, 백업). repo 를 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.maintain_db import BackupDatabase, ReindexDocuments
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return ReindexDocuments(repo), BackupDatabase(repo)
+
+
 def build_prompt_library(settings: Settings | None = None):
     """PromptLibraryPort 구현체. config/prompts/ 가 있으면 패키지 기본 프롬프트를 덮어쓴다."""
     from rra.adapters.llm import FilePromptLibrary

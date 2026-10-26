@@ -53,3 +53,10 @@ plist 의 경로는 이 저장소 위치(`/Users/chan/projects/research-proposal
 
 `rra runs purge --dry-run` 으로 만료 run(`security.yaml retention_days`, 기본 180일)을 확인하고
 `rra runs purge` 로 지운다. launchd `StartCalendarInterval` 로 주 1회 돌려도 된다.
+
+## DB 백업·재색인
+
+`rra db backup --out data/backups --keep 7` 은 `VACUUM INTO` 로 일관된 사본(`rra-YYYYMMDD-HHMMSS.sqlite`,
+권한 600)을 만들고 같은 폴더에 7벌만 남긴다. 일일 실행은 `deploy/launchd/com.rra.backup.plist`(03:30).
+임베딩 모델을 바꾸면 기동 때 `db.embedding_model_mismatch` 경고가 나고, `rra reindex` 가 모든 청크를
+현재 모델로 다시 색인한다 (문서·FTS 는 그대로).

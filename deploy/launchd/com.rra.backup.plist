@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  rra DB 일일 백업 — launchd 사용자 에이전트 (매일 03:30, VACUUM INTO, 보관 7벌, 파일 권한 600).
+  설치: cp deploy/launchd/com.rra.backup.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.backup.plist
+  해제: launchctl unload -w ~/Library/LaunchAgents/com.rra.backup.plist
+  사본 폴더(data/backups)는 .gitignore 의 /data/ 아래. 비밀은 적지 않는다 (.env 는 settings 가 읽는다).
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rra.backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin/rra</string>
+    <string>db</string>
+    <string>backup</string>
+    <string>--out</string>
+    <string>/Users/chan/projects/research-proposal-app/data/backups</string>
+    <string>--keep</string>
+    <string>7</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chan/projects/research-proposal-app</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin:/usr/bin:/bin</string>
+    <key>RRA_CONFIG_DIR</key>
+    <string>/Users/chan/projects/research-proposal-app/config</string>
+    <key>RRA_DB_PATH</key>
+    <string>/Users/chan/projects/research-proposal-app/data/rra.sqlite</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/chan/Library/Logs/rra-backup.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chan/Library/Logs/rra-backup.err.log</string>
+</dict>
+</plist>

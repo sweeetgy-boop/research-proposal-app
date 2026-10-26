@@ -825,3 +825,33 @@ def test_runs_purge_dry_run_then_delete(monkeypatch, capsys):
     report = json.loads(capsys.readouterr().out)
     assert [r["run_id"] for r in report["deleted"]] == [old.run_id] and not report["dry_run"]
     assert set(store.states) == {("local", fresh.run_id)}
+
+
+def test_reindex_and_db_backup_commands(monkeypatch, capsys, tmp_path):
+    from pathlib import Path
+
+    from rra.application.usecases.maintain_db import BackupDatabase, ReindexDocuments
+
+    class Maint:
+        async def reindex(self):
+            return {"chunks": 12, "dim": 768, "model": "intfloat/multilingual-e5-base"}
+
+        async def backup(self, out):
+            Path(out).parent.mkdir(parents=True, exist_ok=True)
+            Path(out).write_bytes(b"db")
+            return Path(out)
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr(
+        "rra.composition.build_db_maintenance",
+        lambda settings: (ReindexDocuments(Maint()), BackupDatabase(Maint())),
+    )
+    assert cli.main(["reindex"]) == cli.EXIT_OK
+    assert (
+        "재색인 완료: 청크 12개, 차원 768, 모델 intfloat/multilingual-e5-base"
+        in capsys.readouterr().out
+    )
+    assert cli.main(["db", "backup", "--out", str(tmp_path / "bk"), "--keep", "3"]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "백업: " in out and "rra-" in out and "보관 1벌, 삭제 0벌" in out
+    assert len(list((tmp_path / "bk").glob("rra-*.sqlite"))) == 1

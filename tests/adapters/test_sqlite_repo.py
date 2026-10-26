@@ -88,8 +88,9 @@ async def loaded(repo):
 
 # ── 스키마·마이그레이션 ──────────────────────────────────────────
 def test_migration_is_applied_and_idempotent(repo):
-    assert runner.current_version(repo.conn) == 2
-    assert runner.migrate(repo.conn) == 2
+    assert runner.current_version(repo.conn) == 3 and repo.schema_version == 3
+    assert runner.migrate(repo.conn) == 3
+    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3]  # schema_version 표
 
 
 async def test_reopening_reuses_the_pinned_backend(tmp_path, loaded):
@@ -254,7 +255,7 @@ def test_migration_002_backfills_existing_rows(tmp_path):
         [("alio:1", "alio", "internal_report", "a"), ("ntis:1", "ntis", "rnd_project", "b")],
     )
     conn.commit()
-    assert runner.migrate(conn) == 2
+    assert runner.migrate(conn) == 3  # 002 백필 뒤 003 까지 적용
     rows = dict(conn.execute("SELECT doc_id, text_basis FROM documents"))
     assert rows == {"alio:1": "full_text", "ntis:1": "abstract"}
 
@@ -269,3 +270,124 @@ async def test_count_by_source(tmp_path):
     counts = await repo.count_by_source()
     assert sum(counts.values()) == len(make_docs())
     assert set(counts) == {d.source for d in make_docs()}
+
+
+# ── [2] DB 정비 (2026-10-26) ─────────────────────────────────────
+def _old_schema_db(path, docs):
+    """001·002 만 적용된 구버전 DB 를 만든다 (valid_until·visibility·schema_version 없음)."""
+    import shutil
+
+    old_dir = path.parent / "old_migrations"
+    old_dir.mkdir(parents=True)
+    for sql in sorted(runner.MIGRATIONS_DIR.glob("00[12]_*.sql")):
+        shutil.copy(sql, old_dir / sql.name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
+    assert runner.migrate(conn, old_dir) == 2
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(documents)")]
+    assert "valid_until" not in cols and "visibility" not in cols
+    for d in docs:  # 구버전 열만으로 적재
+        conn.execute(
+            "INSERT INTO documents(doc_id, source, doc_type, title, body, text_basis) "
+            "VALUES (?,?,?,?,?,?)",
+            (d.doc_id, d.source, d.doc_type, d.title, d.body, "full_text"),
+        )
+        conn.execute(
+            "INSERT INTO chunks(chunk_id, doc_id, ordinal, text) VALUES (?,?,?,?)",
+            (f"{d.doc_id}#0", d.doc_id, 0, d.body or d.title),
+        )
+    conn.commit()
+    conn.close()
+
+
+async def test_old_schema_is_migrated_and_still_searchable(tmp_path):
+    path = tmp_path / "data" / "rra.sqlite"
+    _old_schema_db(path, make_docs())
+    repo = SQLiteDocumentRepository(path, DeterministicEmbedding(), prefer_extension=False)
+    assert repo.schema_version == 3
+    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3]
+    doc = await repo.get_document("alio:1")
+    assert doc.visibility == "public" and doc.valid_until is None  # 기본값
+    hits = await repo.hybrid_search(["궤도 틀림"], k=5)  # 벡터 색인 전 — FTS 만으로 검색
+    assert [c.doc_id for c in hits] == ["alio:1"]
+    await repo.upsert(make_docs(), make_chunks())  # 새 열로 다시 적재해도 된다
+    assert len(await repo.hybrid_search(["궤도"], k=5)) == 1
+    repo.close()
+
+
+async def test_expired_documents_are_excluded_from_search_and_precheck(tmp_path):
+    today = {"d": date(2026, 10, 26)}
+    repo = SQLiteDocumentRepository(
+        tmp_path / "rra.sqlite",
+        DeterministicEmbedding(),
+        prefer_extension=False,
+        today=lambda: today["d"],
+    )
+    docs = make_docs()
+    docs[0] = docs[0].model_copy(
+        update={"valid_until": date(2026, 10, 31), "visibility": "internal"}
+    )
+    await repo.upsert(docs, make_chunks())
+    stored = await repo.get_document("alio:1")
+    assert stored.valid_until == date(2026, 10, 31) and stored.visibility == "internal"
+    text = "궤도의 틀림을 자동으로 감지한다"  # 청크 본문과 같은 토큰 → FTS·벡터 모두 맞는다
+    assert [c.doc_id for c in await repo.hybrid_search([text], k=5)] == ["alio:1"]
+    assert [d.doc_id for d, _ in await repo.find_similar(text, k=5)] == ["alio:1"]
+
+    today["d"] = date(2026, 11, 1)  # 만료 다음 날
+    assert await repo.hybrid_search([text], k=5) == []  # FTS·벡터 모두 제외
+    assert await repo.find_similar(text, k=5) == []  # precheck 도 제외
+    assert await repo.get_document("alio:1") is not None  # 문서 자체는 남아 있다
+    repo.close()
+
+
+async def test_embedding_model_is_recorded_and_mismatch_warns(tmp_path, caplog):
+    path = tmp_path / "rra.sqlite"
+    repo = SQLiteDocumentRepository(path, DeterministicEmbedding(), prefer_extension=False)
+    assert repo.index_model is None  # 색인 전
+    await repo.upsert(make_docs(), make_chunks())
+    assert repo.index_model == "fake/deterministic-v1" and not repo.index_model_mismatch
+    repo.close()
+
+    with caplog.at_level("WARNING", logger="rra.persistence"):
+        again = SQLiteDocumentRepository(
+            path, DeterministicEmbedding(model_name="fake/v2"), prefer_extension=False
+        )
+    assert again.index_model_mismatch and "db.embedding_model_mismatch" in caplog.text
+    assert "fake/v2" in caplog.text and "rra reindex" in caplog.text
+    again.close()
+
+
+async def test_reindex_rebuilds_vectors_for_new_model_and_dimension(tmp_path):
+    path = tmp_path / "rra.sqlite"
+    repo = SQLiteDocumentRepository(path, DeterministicEmbedding(), prefer_extension=False)
+    await repo.upsert(make_docs(), make_chunks())
+    repo.close()
+    again = SQLiteDocumentRepository(
+        path, DeterministicEmbedding(dim=8, model_name="fake/v2"), prefer_extension=False
+    )
+    assert again.index_model_mismatch
+    with pytest.raises(ReindexRequired):
+        await again.upsert(make_docs(), make_chunks())
+    stats = await again.reindex()
+    assert stats == {"chunks": 2, "dim": 8, "model": "fake/v2"}
+    assert not again.index_model_mismatch and again._vec_dim == 8
+    assert again.conn.execute("SELECT count(*) FROM chunk_embeddings").fetchone()[0] == 2
+    hits = await again.hybrid_search(["track geometry"], k=5)
+    assert hits and hits[0].doc_id == "openalex:W1"
+    await again.upsert(make_docs(), make_chunks())  # 새 차원으로 적재 가능
+    again.close()
+
+
+async def test_backup_is_a_consistent_copy_with_owner_only_mode(tmp_path, loaded):
+    out = tmp_path / "backups" / "rra-20261026-033000.sqlite"
+    path = await loaded.backup(out)
+    assert path == out and out.is_file()
+    if os.name != "nt":
+        assert os.stat(out).st_mode & 0o777 == 0o600
+    copy = sqlite3.connect(out)
+    assert copy.execute("SELECT count(*) FROM documents").fetchone()[0] == 2
+    assert copy.execute("PRAGMA user_version").fetchone()[0] == 3
+    copy.close()
+    with pytest.raises(sqlite3.OperationalError):  # 덮어쓰지 않는다
+        await loaded.backup(out)

@@ -103,6 +103,28 @@ def cmd_search(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── DB 유지보수 ───────────────────────────────────────────
+def cmd_reindex(args: argparse.Namespace) -> int:
+    """모든 청크를 설정된 임베딩 모델로 다시 색인 (모델·차원이 바뀌었을 때)."""
+    from rra.composition import build_db_maintenance, load_settings
+
+    reindex, _ = build_db_maintenance(load_settings())
+    stats = asyncio.run(reindex())
+    model = stats["model"] or "-"
+    print(f"재색인 완료: 청크 {stats['chunks']:,}개, 차원 {stats['dim']}, 모델 {model}")
+    return EXIT_OK
+
+
+def cmd_db_backup(args: argparse.Namespace) -> int:
+    """VACUUM INTO 사본. --out 이 폴더면 rra-YYYYMMDD-HHMMSS.sqlite 로 저장, 보관 --keep 벌."""
+    from rra.composition import build_db_maintenance, load_settings
+
+    _, backup = build_db_maintenance(load_settings())
+    report = asyncio.run(backup(args.out, keep=args.keep))
+    print(f"백업: {report.path} (보관 {len(report.kept)}벌, 삭제 {len(report.removed)}벌)")
+    return EXIT_OK
+
+
 # ── llm-check ─────────────────────────────────────────────
 def cmd_llm_check(args: argparse.Namespace) -> int:
     from rra.composition import (
@@ -631,6 +653,14 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("-k", type=int, default=10)
     search.set_defaults(handler=cmd_search)
 
+    ri = sub.add_parser("reindex", help="모든 청크를 설정 임베딩 모델로 재색인")
+    ri.set_defaults(handler=cmd_reindex)
+    db = sub.add_parser("db", help="DB 유지보수")
+    db_sub = db.add_subparsers(dest="db_cmd", required=True)
+    bk = db_sub.add_parser("backup", help="DB 사본 (VACUUM INTO, 권한 600)")
+    bk.add_argument("--out", required=True, help="저장 경로 또는 폴더(폴더면 날짜 이름)")
+    bk.add_argument("--keep", type=int, default=7, help="같은 폴더에 남길 사본 수 (기본 7)")
+    bk.set_defaults(handler=cmd_db_backup)
     check = sub.add_parser("llm-check", help="LLM 서버 왕복 1회 확인")
     check.add_argument("--stage", default="compose")
     check.add_argument("--prompt", default=DEFAULT_LLM_CHECK_PROMPT)
