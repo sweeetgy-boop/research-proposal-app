@@ -375,3 +375,47 @@ async def test_429_and_5xx_are_retried_with_backoff():
     llm = build(rec)
     assert await llm.complete("p") == "[1]"
     assert len(rec.requests) == 3
+
+
+# ── [L] model_profiles: system 역할 없는 템플릿·stop·usage 집계 ────────────────
+async def test_profile_without_system_role_prepends_system_to_user_and_sends_stop():
+    rec = Recorder(
+        httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "[]"}}],
+                "usage": {"prompt_tokens": 321, "completion_tokens": 7},
+            },
+        )
+    )
+    llm = build(rec, system_role=False, stop=["<|eot_id|>", "<|end_of_text|>"], json_mode="prompt")
+    await llm.complete("질문", system="시스템 지시", json_mode=True)
+    payload = rec.payloads[0]
+    assert [m["role"] for m in payload["messages"]] == ["user"]  # system 역할 없음
+    assert payload["messages"][0]["content"].startswith("시스템 지시")
+    assert (
+        "질문" in payload["messages"][0]["content"]
+        and JSON_FALLBACK_INSTRUCTION in payload["messages"][0]["content"]
+    )
+    assert payload["stop"] == ["<|eot_id|>", "<|end_of_text|>"]
+    assert llm.calls == 1 and llm.max_prompt_tokens == 321 and llm.max_completion_tokens == 7
+    assert llm.fallbacks == 0
+
+
+async def test_profile_switch_changes_request_shape_without_code_change():
+    rec = Recorder(ok())
+    qwen = build(rec, system_role=True, stop=[])
+    await qwen.complete("질문", system="시스템")
+    assert [m["role"] for m in rec.payloads[-1]["messages"]] == ["system", "user"]
+    assert "stop" not in rec.payloads[-1]
+    midm = build(rec, system_role=False, stop=["<|eot_id|>"])
+    await midm.complete("질문", system="시스템")
+    assert [m["role"] for m in rec.payloads[-1]["messages"]] == ["user"]
+    assert rec.payloads[-1]["stop"] == ["<|eot_id|>"]
+
+
+async def test_fallback_counter_increments_when_native_json_is_rejected():
+    rec = Recorder(httpx.Response(400, text="response_format is not supported"), ok("[]"))
+    llm = build(rec, json_mode="auto")
+    await llm.complete("p", json_mode=True)
+    assert llm.fallbacks == 1 and llm.calls == 1

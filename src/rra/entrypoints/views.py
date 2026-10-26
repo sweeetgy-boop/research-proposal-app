@@ -58,6 +58,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
                 "dropped": s.dropped,
                 "parse": s.parse,
                 "raw_chars": s.raw_chars,
+                "retries": s.retries,
             }
             for s in state.steps
         ],
@@ -304,3 +305,94 @@ def chunks_payload(
         }
         for c in chunks
     ]
+
+
+# ── 벤치 보고 (docs/llm-bench-<날짜>.md) ──────────────────
+def bench_markdown(results: list[Any], *, date: str, baseline: str | None = None) -> str:
+    """BenchResult 목록 → 비교 표 Markdown. 기술적 중요도 문장은 모델별로 3건씩 나란히."""
+    rows = [r if isinstance(r, dict) else r.to_dict() for r in results]
+    head = ["지표", *[r["label"] for r in rows]]
+    lines = [f"# 로컬 작성 모델 비교 — {date}", ""]
+    n_ideas = len(rows[0]["ideas"]) if rows else 0
+    lines.append(f"골든셋 {n_ideas}건, 12개 섹션 생성, 같은 입력·같은 수집 자료.")
+    if baseline:
+        lines.append(f"기준 모델: {baseline}.")
+    lines.append("")
+
+    def pct(r):
+        return f"{r['json_success_rate'] * 100:.1f}% ({r['parse_ok']}/{r['sections_llm']})"
+
+    def strict(r):
+        n = r.get("parse_ok_strict", r["parse_ok"])
+        rate = r.get("strict_success_rate", r["json_success_rate"])
+        return f"{rate * 100:.1f}% ({n}/{r['sections_llm']})"
+
+    metrics = [
+        ("모델(served_model)", lambda r: r["model"] or "-"),
+        ("프로필", lambda r: r["profile"] or "-"),
+        ("JSON (a) 첫 응답이 지시 모양 그대로인 비율", strict),
+        ("JSON (b) 관용 처리·재요청·폴백 포함 최종 성공률 — 규칙 ② 기준", pct),
+        ("형식 교정 재요청 횟수", lambda r: str(r.get("retries", 0))),
+        ("프롬프트 폴백 횟수", lambda r: str(r["fallbacks"])),
+        ("근거 대조 폐기 문장 수", lambda r: str(r["totals"]["dropped"])),
+        ("수치 알림 수", lambda r: str(r["totals"]["unsupported_numbers"])),
+        ("외국 문자 알림 수", lambda r: str(r["totals"]["foreign_script"])),
+        ("정책명 규칙 위반(grounding 폐기) 수", lambda r: str(r["totals"]["ungrounded"])),
+        ("lint 문제 합계", lambda r: str(r["totals"]["problems"])),
+        ("섹션당 평균 시간(초)", lambda r: f"{r['avg_section_seconds']:.1f}"),
+        ("전체 시간(초)", lambda r: f"{r['total_seconds']:.1f}"),
+        (
+            "최대 메모리(서버 RSS, MB)",
+            lambda r: f"{r['max_rss_mb']:.0f}" if r["max_rss_mb"] else "-",
+        ),
+        ("최대 문맥 길이(토큰)", lambda r: str(r["context_length"] or "-")),
+        ("실제 최대 프롬프트 토큰", lambda r: str(r["max_prompt_tokens"] or "-")),
+        ("최대 응답 토큰", lambda r: str(r["max_completion_tokens"] or "-")),
+        ("LLM 호출 수", lambda r: str(r["llm_calls"])),
+    ]
+    lines.append("| " + " | ".join(head) + " |")
+    lines.append("|" + "---|" * len(head))
+    for name, fn in metrics:
+        lines.append("| " + " | ".join([name, *[fn(r) for r in rows]]) + " |")
+    lines.append("")
+    lines.append("## 아이디어별")
+    lines.append("")
+    for i, idea in enumerate(rows[0]["ideas"] if rows else []):
+        lines.append(f"### {idea['name']}")
+        lines.append("")
+        lines.append(
+            "| 모델 | 제목 | 시간(초) | JSON ok | 폐기 | 수치 | 외국 문자 | 유사과제 알림 |"
+        )
+        lines.append("|---|---|---|---|---|---|---|---|")
+        for r in rows:
+            if i < len(r["ideas"]):
+                x = r["ideas"][i]
+                cells = [
+                    r["label"],
+                    x["title"][:60],
+                    f"{x['seconds']:.1f}",
+                    f"{x['parse_ok']}/{x['sections_llm']}",
+                    str(x["dropped"]),
+                    str(x["unsupported_numbers"]),
+                    str(x["foreign_script"]),
+                    str(x["overlap_alerts"]),
+                ]
+                lines.append("| " + " | ".join(cells) + " |")
+        lines.append("")
+        lines.append("2-가-(2) 기술적 중요도 문장 (모델별 3건):")
+        lines.append("")
+        for r in rows:
+            if i < len(r["ideas"]):
+                lines.append(f"- **{r['label']}**")
+                for s in r["ideas"][i]["tech_sentences"] or ["(없음)"]:
+                    lines.append(f"  - {s}")
+        failed = [
+            (r["label"], r["ideas"][i]["parse_failed"])
+            for r in rows
+            if i < len(r["ideas"]) and r["ideas"][i]["parse_failed"]
+        ]
+        if failed:
+            lines.append("")
+            lines.append("파싱 실패: " + "; ".join(f"{lbl}: {', '.join(f)}" for lbl, f in failed))
+        lines.append("")
+    return "\n".join(lines) + "\n"

@@ -113,6 +113,48 @@ async def test_bare_fence_output_is_parsed_and_status_recorded(req, repo, rules)
 
 
 async def test_parse_failure_reason_is_kept(req, repo, rules):
-    uc = make(FakeLLM(["결과:\n```json\n[]\n```"]), repo, rules)
+    llm = FakeLLM(["결과:\n```json\n[]\n```", "두 번째도 설명:\n```json\n[]\n```"])
+    uc = make(llm, repo, rules)
     composed = await uc.compose_section("problem", req, await uc.retrieve(req))
     assert composed.parse.status == "fence" and composed.section.sentences == []
+    assert (
+        composed.retries == 1 and composed.first_parse.status == "fence"
+    )  # 두 번 실패 → 기존 처리
+    assert len(llm.calls) == 2 and "[형식 교정" in llm.calls[1] and "코드블록" in llm.calls[1]
+
+
+async def test_schema_error_is_retried_once_with_a_correction_hint(req, repo, rules):
+    """첫 응답 스키마 오류 → 교정 문구를 붙여 같은 섹션 1회 재요청 → 성공. 재요청 횟수 기록."""
+    llm = FakeLLM(['{"text": "객체 하나"}', _llm_json("선행", ['<doc id="alio:1#0">'])])
+    uc = make(llm, repo, rules)
+    composed = await uc.compose_section("prior_work", req, await uc.retrieve(req))
+    assert composed.parse.ok and composed.retries == 1
+    assert composed.first_parse.status == "schema" and not composed.first_parse.ok
+    assert composed.section.sentences[0].text == "선행"
+    assert llm.calls[1].startswith(llm.calls[0])  # 같은 프롬프트 + 교정 문구
+    assert "객체 배열" in llm.calls[1] and "[형식 교정" in llm.calls[1]
+    ok = FakeLLM([_llm_json("선행", ['<doc id="alio:1#0">'])])
+    good = await make(ok, repo, rules).compose_section("prior_work", req, await uc.retrieve(req))
+    assert good.retries == 0 and len(ok.calls) == 1  # 정상 응답은 재요청하지 않는다
+
+
+async def test_choice_section_prompt_has_a_shape_example_with_fake_values(req, repo):
+    """선택형 프롬프트의 모양 예시 1개 — 값은 가상이라 그대로 쓰면 대조에서 걸린다."""
+    from rra.application.usecases.generate_proposal import CHOICE_EXAMPLE
+    from rra.domain.rules.lint import ChoiceSpec, LintRules
+
+    rules = LintRules(
+        required_sections=["task_type"], choices={"task_type": ChoiceSpec(options="task_types")}
+    )
+    llm = FakeLLM([CHOICE_EXAMPLE])  # 모델이 예시를 그대로 베낀 경우
+    uc = make(llm, repo, rules)
+    uc.section_keys = ["task_type"]
+    composed = await uc.compose_section("task_type", req, await uc.retrieve(req))
+    assert "[출력 모양 예시" in llm.calls[0] and CHOICE_EXAMPLE in llm.calls[0]
+    assert (
+        "예시-id" not in llm.calls[0].split("[선택지")[1].split("[출력 모양 예시")[0]
+    )  # 실제 선택지가 아니다
+    assert composed.section.choices == []  # 가상 선택지는 버려진다
+    assert composed.section.sentences == [] or all(
+        s.evidence == [] for s in composed.section.sentences
+    )  # 가짜 근거 id 는 근거 대조에서 걸린다

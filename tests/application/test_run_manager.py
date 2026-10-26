@@ -141,10 +141,20 @@ async def test_resume_keeps_the_original_evidence_set_even_if_db_changed(repo, r
 
 
 async def test_lint_failure_is_a_state_not_an_exception(repo, req):
-    mgr, _ = build(repo, FakeLLM([sentence("배경"), "자유 텍스트", sentence("x"), sentence("y")]))
+    answers = [
+        sentence("배경"),
+        "자유 텍스트",
+        "재요청도 자유 텍스트",
+        sentence("x"),
+        sentence("y"),
+    ]
+    mgr, _ = build(repo, FakeLLM(answers))
     final = await run_to_end(mgr, req)
     assert final.status == "invalid"
     assert {"section": "problem", "code": "missing"}.items() <= final.problems[0].items()
+    assert (
+        final.step("section:problem").retries == 1 and final.step("section:background").retries == 0
+    )
 
 
 async def test_manifest_has_no_raw_text(repo, req):
@@ -249,12 +259,14 @@ async def test_cancel_marks_interrupted_and_releases_lock(repo, req):
 async def test_parse_status_and_raw_length_are_recorded_per_section(repo, req, caplog):
     import logging
 
-    answers = [
-        sentence("배경"),
-        "```python\n[]\n```",  # fence
-        '```\n[{"text": "선행", "evidence": ["alio:1#0"]',  # 잘림 → json
-        '{"text": "목표"}',  # schema
+    bad = [
+        "```python\n[]\n```",
+        '```\n[{"text": "선행", "evidence": ["alio:1#0"]',
+        '{"text": "목표"}',
     ]
+    answers = [sentence("배경")]
+    for b in bad:  # 형식 오류는 1회 재요청되므로 같은 오류를 두 번 준다
+        answers += [b, b]
     log = FakeRunLog()
     mgr, _ = build(repo, FakeLLM(answers), log=log)
     with caplog.at_level(logging.WARNING, logger="rra.runs"):
@@ -262,13 +274,16 @@ async def test_parse_status_and_raw_length_are_recorded_per_section(repo, req, c
     got = {s.name: (s.parse, s.raw_chars) for s in final.steps if s.name.startswith("section:")}
     assert got == {
         "section:background": ("ok", len(answers[0])),
-        "section:problem": ("fence", len(answers[1])),
-        "section:prior_work": ("json", len(answers[2])),
-        "section:objective": ("schema", len(answers[3])),
+        "section:problem": ("fence", len(bad[0])),
+        "section:prior_work": ("json", len(bad[1])),
+        "section:objective": ("schema", len(bad[2])),
     }
     steps = {s["name"]: s for s in log.records[-1][1]["steps"]}
     assert steps["section:prior_work"]["parse"] == "json"
-    assert steps["section:prior_work"]["raw_chars"] == len(answers[2])
+    assert steps["section:prior_work"]["raw_chars"] == len(bad[1])
+    assert (
+        steps["section:prior_work"]["retries"] == 1 and steps["section:background"]["retries"] == 0
+    )
     assert "선행" not in json.dumps(log.records[-1][1], ensure_ascii=False)  # 원문은 없음
     assert "reason=fence" in caplog.text and "선행" not in caplog.text
     assert final.step("retrieve").parse is None  # section 이 아닌 step 에는 없다

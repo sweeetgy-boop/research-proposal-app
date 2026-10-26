@@ -524,9 +524,8 @@ def test_runs_list_and_show(run_env, capsys):
 
 
 def test_generate_progress_shows_parse_failure_reason(run_env, capsys):
-    run_env["use"](
-        ["설명:\n```json\n" + _sentence("문제") + "\n```", _sentence("선행", ["alio:1#0"])]
-    )
+    bad = "설명:\n```json\n" + _sentence("문제") + "\n```"
+    run_env["use"]([bad, bad, _sentence("선행", ["alio:1#0"])])  # 교정 재요청도 같은 오류
     cli.main(["generate", *GEN_ARGS])
     assert "section:problem 완료 (문장 0, 폐기 0, 응답 " in (err := capsys.readouterr().err)
     assert "파싱 실패: fence)" in err

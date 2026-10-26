@@ -79,10 +79,16 @@ class ParseResult:
     sentences: list[Sentence] = field(default_factory=list)
     choices: list[str] = field(default_factory=list)
     stripped: int = 0  # 파싱 전 지운 자료 구획 태그 조각 수
+    lenient: bool = False  # 지시한 모양이 아니라 관용 처리(포장 풀기)로 받아들였다
 
     @property
     def ok(self) -> bool:
         return self.status == "ok"
+
+    @property
+    def strict_ok(self) -> bool:
+        """지시한 모양 그대로 응답했고 파싱도 됐다 (관용 처리 없음)."""
+        return self.status == "ok" and not self.lenient
 
 
 def _unwrap(text: str) -> str | None:
@@ -112,15 +118,23 @@ def _load(raw: str) -> tuple[ParseStatus, object, int]:
         return "json", None, stripped
 
 
-def _sentences(data: object) -> list[Sentence] | None:
-    """LLM 문장 목록. origin 은 모델이 뭐라 하든 llm 으로 고정한다 (app 사칭 차단)."""
+def _sentences(data: object, *, unwrap: bool = False) -> tuple[list[Sentence] | None, bool]:
+    """LLM 문장 목록과 관용 처리 여부. origin 은 모델이 뭐라 하든 llm 으로 고정한다 (app 사칭 차단).
+
+    unwrap=True(비선택 섹션)면 선택형 모양 `{"sentences": [...]}` 포장을 풀어 문장 목록만 받고
+    lenient=True 로 표시한다. 문장 객체 하나(배열 아님)는 여전히 schema 오류다. 키·값 검증은
+    그대로 pydantic 이 한다.
+    """
+    lenient = False
+    if unwrap and isinstance(data, dict) and isinstance(data.get("sentences"), list):
+        data, lenient = data["sentences"], True
     if not isinstance(data, list):
-        return None
+        return None, lenient
     try:
         parsed = [Sentence.model_validate(x) for x in data]
     except ValidationError:
-        return None
-    return [Sentence(text=clean_sentence(s.text), evidence=s.evidence) for s in parsed]
+        return None, lenient
+    return [Sentence(text=clean_sentence(s.text), evidence=s.evidence) for s in parsed], lenient
 
 
 def parse_sentences(raw: str) -> ParseResult:
@@ -128,10 +142,30 @@ def parse_sentences(raw: str) -> ParseResult:
     status, data, stripped = _load(raw)
     if status != "ok":
         return ParseResult(status, n, stripped=stripped)
-    sentences = _sentences(data)
+    sentences, lenient = _sentences(data, unwrap=True)
     if sentences is None:
-        return ParseResult("schema", n, stripped=stripped)
-    return ParseResult("ok", n, sentences, stripped=stripped)
+        return ParseResult("schema", n, stripped=stripped, lenient=lenient)
+    return ParseResult("ok", n, sentences, stripped=stripped, lenient=lenient)
+
+
+def correction_hint(result: ParseResult, *, choice_section: bool) -> str:
+    """스키마·JSON 오류 1회 재요청에 붙이는 짧은 교정 문구 (오류 내용 요약, 모델 공통)."""
+    if result.status == "fence":
+        return "코드블록(```)·설명·머리말 없이 JSON 하나만 출력할 것."
+    if result.status == "json":
+        return "JSON 문법 오류였음. 완결된 JSON 하나만, 따옴표·쉼표·괄호를 닫아 출력할 것."
+    if choice_section:
+        return (
+            '출력은 객체 하나: {"choices": ["선택지 id"], '
+            '"sentences": [{"text": "문장", "evidence": []}]}. '
+            "sentences 는 text(문자열)·evidence(문자열 배열)를 가진 객체 배열이어야 함. "
+            "choices 는 [선택지] 의 id 문자열 배열이어야 함."
+        )
+    return (
+        '출력은 객체 배열: [{"text": "문장", "evidence": ["구획 id"]}]. '
+        '객체 하나나 {"choices": …} 포장이 아니라 배열이어야 하고, 각 원소는 text(문자열)·'
+        "evidence(문자열 배열)만 가진다."
+    )
 
 
 def parse_object(raw: str) -> dict[str, Any] | None:
@@ -158,7 +192,7 @@ def parse_choice_section(
             choices.append(c)
     if not min_n <= len(choices) <= max_n:
         choices = []
-    sentences = _sentences(data.get("sentences", []))
+    sentences, _ = _sentences(data.get("sentences", []))
     if sentences is None:
         # 문장 스키마 오류 → 유효한 선택지만 살린다 (약한 모델이 문장 형식을 자주 틀린다)
         if choices:

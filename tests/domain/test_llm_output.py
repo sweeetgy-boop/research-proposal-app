@@ -244,3 +244,18 @@ def test_parse_sentences_cleans_fragments_at_store_time():
     assert result.ok and result.sentences[0].text == "선행연구는 한계가 있다."
     assert result.sentences[0].evidence == ["alio:sum-1#1"]  # evidence 는 그대로
     assert clean_sentence("  a   b (doc_id: ntis:1) c ") == "a b c"
+
+
+def test_sentence_shape_leniency_wrapper_and_single_object():
+    """모델이 포장 객체({"sentences": …})나 문장 객체 하나를 내도 받는다. 내용 검증은 그대로."""
+    from rra.domain.rules.llm_output import parse_sentences
+
+    wrapped = parse_sentences('{"choices": ["x"], "sentences": [{"text": "a", "evidence": []}]}')
+    assert wrapped.ok and [s.text for s in wrapped.sentences] == ["a"] and wrapped.choices == []
+    assert wrapped.lenient and not wrapped.strict_ok  # (a) 에는 세지 않는다
+    strict = parse_sentences('[{"text": "a", "evidence": []}]')
+    assert strict.strict_ok and not strict.lenient
+    assert parse_sentences('{"text": "제목 하나", "evidence": []}').status == "schema"  # 배열 아님
+    assert parse_sentences('{"sentences": "아님"}').status == "schema"
+    assert parse_sentences('{"other": 1}').status == "schema"
+    assert parse_sentences('[{"text": 1}]').status == "schema"

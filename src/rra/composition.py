@@ -171,6 +171,8 @@ def build_llm(
         api_key=key,
         allowed_hosts=allowed_domains(settings),
         reasoning_effort=cfg["reasoning_effort"],
+        system_role=cfg["system_role"],
+        stop=cfg["stop"],
         max_tokens=cfg["max_tokens"],
         max_tokens_cap=cfg["max_tokens_cap"],
         prompt_max_chars=cfg["prompt_max_chars"],
@@ -201,6 +203,27 @@ def build_reviewer(settings: Settings | None = None, *, llm=None):
         prompt_max_chars=cfg["prompt_max_chars"],
         provider=cfg["provider"],
         model=cfg["served_model"] or cfg["model"],
+    )
+
+
+def build_bench(settings: Settings | None = None, *, label: str, repo=None, llm=None):
+    """로컬 작성 모델 벤치 (`rra llm-bench`). 현재 compose 단계 설정(프로필)으로 돈다."""
+    from rra.adapters.llm.server_stats import server_rss_mb
+    from rra.application.usecases.bench import BenchGenerate
+
+    settings = settings or load_settings()
+    cfg = llm_config(settings, "compose")
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    if llm is None:
+        llm = build_llm(settings, stage="compose")
+    return BenchGenerate(
+        build_generate(settings, repo=repo, llm=llm),
+        label=label,
+        model=cfg["served_model"] or cfg["model"],
+        profile=cfg["profile"],
+        context_length=cfg["context_length"],
+        rss_sampler=server_rss_mb,
     )
 
 
