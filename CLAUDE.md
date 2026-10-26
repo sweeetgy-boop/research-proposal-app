@@ -99,6 +99,11 @@
   CI: `.github/workflows/ci.yml` backend·web job, 샌드박스는 RLIMIT_DATA 만(RLIMIT_AS 는 리눅스 import 실패).
   근거 출처 다양성: `evidence_floor.min_per_source`(4)·`search_multiplier`(4) — 넓은 검색 → 부족 자료원만
   `hybrid_search(sources=[…])` 재검색(`_top_up_sources`) → `balance_sources`. 포트 `hybrid_search` 에 `sources` 필터.
+- 전체 흐름 ③~⑥(2026-10-27, architecture §4.6, ADR 0011): 상태 running → draft_reviewing → drafted(v1→v2 Argon 보완) →
+  editing → final_reviewing → final_reviewed → finalized (`domain/rules/review_flow`, 옛 done·reviewed 는 normalize). ③ 파이프라인은
+  `config/pipeline.yaml`(`PipelineConfig`, 품질 단계는 [Q]). ④ 편집 규칙 `domain/rules/versions`(문장/섹션 편집·근거 이어받기·diff),
+  임시 저장 `draft_working.json`, 같은 내용 저장은 버전 없음, base_version 불일치 `VersionConflict`. ⑤ `RunManager.final_review`
+  (kind=final, review_final_rN.json, score_delta, stale_edits). ⑥ finalize 는 final_reviewed 또는 review_skipped, 임시 편집 없음.
 - 차별화 과제 추천(2026-10-27, architecture §4.14, ADR 0012): precheck 뒤 자동 1회(`llm.yaml recommend.auto`) 기존 과제와
   다른 과제 0~5건(`usecases/recommend_projects`, 검증 `domain/rules/recommendation`: doc_id 범위·수치·정책명·중복·자기 중복
   precheck). 선택 → `apply_recommendation` 미리보기 → 확정 입력으로 생성. run 에 recommendations.json 복사, manifest 는 전송

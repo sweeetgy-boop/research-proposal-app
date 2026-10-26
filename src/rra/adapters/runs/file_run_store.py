@@ -161,6 +161,18 @@ class FileRunStore:
     def list_versions(self, user: str, run_id: str) -> list[int]:
         return self._numbers(self._run_dir(user, run_id) / "versions", "draft_v")
 
+    def save_working(self, user: str, run_id: str, data: dict[str, Any]) -> None:
+        write_json(self._run_dir(user, run_id) / "draft_working.json", data)
+
+    def load_working(self, user: str, run_id: str) -> dict[str, Any] | None:
+        path = self._run_dir(user, run_id) / "draft_working.json"
+        return read_json(path) if path.is_file() else None
+
+    def clear_working(self, user: str, run_id: str) -> None:
+        path = self._run_dir(user, run_id) / "draft_working.json"
+        if path.is_file():
+            path.unlink()
+
     def save_recommendations(self, user: str, run_id: str, data: dict[str, Any]) -> None:
         write_json(self._run_dir(user, run_id) / "recommendations.json", data)
 
@@ -171,15 +183,29 @@ class FileRunStore:
     def save_review(self, user: str, run_id: str, review: ReviewRound) -> None:
         n = self._number(review.round, "차수")
         path = ensure_dir(self._run_dir(user, run_id) / "reviews")
-        write_json(path / f"review_r{n}.json", review.model_dump(mode="json"))
+        write_json(path / _review_file(n), review.model_dump(mode="json"))
 
     def load_review(self, user: str, run_id: str, round_no: int) -> ReviewRound | None:
         n = self._number(round_no, "차수")
-        path = self._run_dir(user, run_id) / "reviews" / f"review_r{n}.json"
-        return ReviewRound.model_validate(read_json(path)) if path.is_file() else None
+        folder = self._run_dir(user, run_id) / "reviews"
+        for name in (_review_file(n), f"review_r{n}.json"):  # 새 이름 → 옛 이름(review_rN)
+            path = folder / name
+            if path.is_file():
+                data = read_json(path)
+                data.setdefault("kind", "draft" if n == 1 else "final")
+                return ReviewRound.model_validate(data)
+        return None
 
     def list_reviews(self, user: str, run_id: str) -> list[int]:
-        return self._numbers(self._run_dir(user, run_id) / "reviews", "review_r")
+        folder = self._run_dir(user, run_id) / "reviews"
+        if not folder.is_dir():
+            return []
+        rounds: set[int] = set()
+        for p in folder.glob("*.json"):
+            n = _review_round(p.name)
+            if n is not None:
+                rounds.add(n)
+        return sorted(rounds)
 
     @staticmethod
     def _numbers(directory: Path, prefix: str) -> list[int]:
@@ -226,3 +252,22 @@ class FileRunStore:
 
     def is_alive(self, user: str, run_id: str) -> bool:
         return is_locked(self._run_dir(user, run_id) / ".lock")
+
+
+def _review_file(round_no: int) -> str:
+    """round 1 = 1차 검토(review_draft.json), round n ≥ 2 = 최종 검토(review_final_r{n-1}.json)."""
+    return "review_draft.json" if round_no == 1 else f"review_final_r{round_no - 1}.json"
+
+
+_LEGACY_REVIEW = re.compile(r"^review_r(\d+)\.json$")
+_FINAL_REVIEW = re.compile(r"^review_final_r(\d+)\.json$")
+
+
+def _review_round(name: str) -> int | None:
+    if name == "review_draft.json":
+        return 1
+    if m := _FINAL_REVIEW.match(name):
+        return int(m.group(1)) + 1
+    if m := _LEGACY_REVIEW.match(name):
+        return int(m.group(1))
+    return None

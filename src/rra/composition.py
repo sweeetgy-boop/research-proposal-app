@@ -25,6 +25,7 @@ from rra.config_loader import (
     llm_config,
     llm_key_present,
     own_unit,
+    pipeline_config,
     read_config,
     recommend_policy,
     relevance_floor,
@@ -650,6 +651,7 @@ def build_run_manager(
         line_limits=render_slots(settings).get("line_limits") or {},
         reviewer=reviewer if reviewer is not None else build_reviewer(settings, llm=review_llm),
         review_auto=review_policy(settings)["auto"],
+        pipeline=pipeline_config(settings),
     )
 
 
@@ -866,6 +868,11 @@ def build_differentiator(settings: Settings | None = None, *, repo=None, llm=Non
         model=cfg["served_model"] or cfg["model"],
         fallback_local=fallback,
     )
+
+
+def build_clarifier(settings: Settings | None = None, *, llm=None):
+    """③ 입력 보강 질문 유스케이스(Q1). [Q] 에서 채운다 — 지금은 None(질문 0개)."""
+    return None
 
 
 def build_recommender(settings: Settings | None = None, *, repo=None, llm=None, precheck=None):

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from rra.domain.models import ProposalRequest  # noqa: F401 — 요청 본문 모델로 그대로 쓴다
@@ -61,6 +63,7 @@ class ProposerIn(BaseModel):
     department: str = Field(default="", max_length=_SHORT)
     proposer: PersonIn = Field(default_factory=PersonIn)
     head: PersonIn = Field(default_factory=PersonIn)
+    version: int | None = Field(default=None, ge=1, le=10_000)  # 마무리할 버전 (기본 최신)
 
 
 class FinalizeIn(ConfirmIn):
@@ -70,6 +73,17 @@ class FinalizeIn(ConfirmIn):
     department: str = Field(default="", max_length=_SHORT)
     proposer: PersonIn = Field(default_factory=PersonIn)
     head: PersonIn = Field(default_factory=PersonIn)
+    version: int | None = Field(default=None, ge=1, le=10_000)  # 마무리할 버전 (기본 최신)
+
+
+class WorkingIn(BaseModel):
+    """PUT /v1/runs/{id}/draft/working — 서버 작업 사본(섹션별 문장 목록 또는 통문). 버전 아님."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sections: list[dict[str, Any]] = Field(default_factory=list, max_length=40)
+    note: str = Field(default="", max_length=200)
+    base_version: int | None = Field(default=None, ge=1)
 
 
 class RevertIn(BaseModel):

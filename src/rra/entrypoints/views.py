@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.overlap import tier_label
 
 
@@ -72,6 +73,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
                         "text": clean(sent.text),
                         "evidence": sent.evidence,
                         "source": _source(sent),
+                        "origin": sent.origin,  # 로컬 작성 / Argon 보완 / Argon 추가 / 제안자 수정
                     }
                     for sent in sec.sentences
                 ],
@@ -93,10 +95,24 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
             }
             for p in state.problems
         ],
-        # [5] 검토·버전 요약 (의견 본문은 review_payload 로)
+        # 검토·버전 요약 (의견 본문은 review_payload 로)
         "version": getattr(view, "version", 1),
         "versions": list(getattr(view, "versions", []) or []),
         "review": review_summary(state, getattr(view, "review", None)),
+        "flow": flow_summary(state, getattr(view, "has_working", False)),
+    }
+
+
+def flow_summary(state: Any, has_working: bool = False) -> dict[str, Any]:
+    """전체 흐름 ③~⑥ 의 현재 위치 — 화면 stepper·배너용."""
+    return {
+        "status": state.status,
+        "draft_review_skipped": getattr(state, "draft_review_skipped", None),
+        "final_reviews": getattr(state, "final_reviews", 0),
+        "final_reviewed_version": getattr(state, "final_reviewed_version", None),
+        "stale_edits": getattr(state, "stale_edits", 0),
+        "stale": bool(getattr(state, "stale", False)),
+        "has_working": has_working,
     }
 
 
@@ -107,6 +123,7 @@ def review_summary(state: Any, latest: Any) -> dict[str, Any]:
         "error": state.review_error,
         "model": state.review_model,
         "latest_round": latest.round if latest else None,
+        "latest_kind": getattr(latest, "kind", None) if latest else None,
         "latest_status": latest.status if latest else None,
         "open_comments": len(latest.open_comments) if latest else 0,
         "finalized_at": state.finalized_at,
@@ -117,7 +134,12 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
     """ReviewRound → dict. 의견·수정안은 외부 LLM 출력(비신뢰 텍스트) — clean 을 거친다."""
     return {
         "round": review.round,
+        "kind": getattr(review, "kind", "draft"),
+        "final_round": getattr(review, "final_round", None),
         "draft_version": review.draft_version,
+        "applied_ids": list(getattr(review, "applied_ids", []) or []),
+        "applied_version": getattr(review, "applied_version", None),
+        "score_delta": dict(getattr(review, "score_delta", {}) or {}),
         "status": review.status,
         "skipped_reason": review.skipped_reason,
         "created_at": review.created_at,
@@ -165,10 +187,27 @@ def version_payload(version: Any, *, clean: Callable[[str], str] = _same) -> dic
     return {
         "version": version.version,
         "origin": version.origin,
+        "origin_label": ORIGIN_LABEL.get(version.origin, version.origin),
         "created_at": version.created_at,
         "based_on_review": version.based_on_review,
         "reverted_from": version.reverted_from,
         "note": version.note,
+        "changed_sections": list(getattr(version, "changed_sections", []) or []),
+        "alerts": getattr(version, "alerts", 0),
+        "open_annotations": getattr(version, "open_annotations", 0),
+        "annotations": [
+            {
+                "id": a.id,
+                "section": a.section,
+                "sentence": a.sentence,
+                "sentence_id": f"s:{a.section}:{a.sentence}" if a.sentence is not None else None,
+                "kind": a.kind,
+                "text": clean(a.text),
+                "reason": a.reason,
+                "status": a.status,
+            }
+            for a in getattr(version, "annotations", []) or []
+        ],
         "sections": [
             {
                 "key": sec.key,
@@ -190,19 +229,47 @@ def version_payload(version: Any, *, clean: Callable[[str], str] = _same) -> dic
 
 
 def versions_payload(versions: list[Any]) -> list[dict[str, Any]]:
-    """버전 목록 — 본문 없이 메타만."""
+    """버전 목록 — 본문 없이 메타만(번호·시각·경로·메모·바뀐 섹션·문장 수·알림 수·남은 메모 수)."""
     return [
         {
             "version": v.version,
             "origin": v.origin,
+            "origin_label": ORIGIN_LABEL.get(v.origin, v.origin),
             "created_at": v.created_at,
             "based_on_review": v.based_on_review,
             "reverted_from": v.reverted_from,
             "note": v.note,
+            "changed_sections": list(getattr(v, "changed_sections", []) or []),
             "sentences": sum(len(s.sentences) for s in v.sections),
+            "alerts": getattr(v, "alerts", 0),
+            "open_annotations": getattr(v, "open_annotations", 0),
         }
         for v in versions
     ]
+
+
+def diff_payload(from_v: Any, to_v: Any, diff: list[dict], *, clean: Callable[[str], str] = _same):
+    """두 버전의 차이 — 섹션마다 added/removed/moved 문장."""
+
+    def rows(items):
+        return [
+            {**x, **{k: clean(v) for k, v in x.items() if k in ("text", "from", "to")}}
+            for x in items
+        ]
+
+    return {
+        "from": from_v.version,
+        "to": to_v.version,
+        "sections": [
+            {
+                **d,
+                "added": rows(d["added"]),
+                "removed": rows(d["removed"]),
+                "moved": rows(d["moved"]),
+            }
+            for d in diff
+        ],
+    }
 
 
 # 한 줄 칸 slot → 양식 칸 이름 (render_check 출력용). 섹션 키는 rules.yaml titles 로 푼다.
@@ -391,6 +458,8 @@ def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
         "created_at": state.created_at,
         "updated_at": state.updated_at,
         "steps": [{"name": s.name, "status": s.status, "error": s.error} for s in state.steps],
+        "draft_version": state.draft_version,
+        "flow": flow_summary(state),
     }
 
 

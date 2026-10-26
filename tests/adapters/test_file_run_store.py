@@ -239,11 +239,11 @@ async def test_process_killed_mid_run_is_resumed_from_files(tmp_path):
 
     await mgr.resume("local", run_id)
     done = await mgr.wait("local", run_id)
-    assert done.status == "done" and len(llm.calls) == 1
+    assert done.status == "drafted" and len(llm.calls) == 1
     draft = json.loads((root / "local" / run_id / "draft.json").read_text())
     assert [s["key"] for s in draft["sections"]] == keys
     manifest = json.loads((root / "local" / run_id / "manifest.json").read_text())
-    assert manifest["status"] == "done" and "목표 문장" not in json.dumps(manifest)
+    assert manifest["status"] == "drafted" and "목표 문장" not in json.dumps(manifest)
 
 
 # ── 양식 개정 (확정값·예전 run) ──────────────────────────────
@@ -349,8 +349,8 @@ def test_versions_and_reviews_round_trip_and_never_overwrite_other_numbers(store
     assert store.load_review("local", rid, 1) == review
     run_dir = store.root / "local" / rid
     assert (run_dir / "versions" / "draft_v1.json").is_file()
-    assert (run_dir / "reviews" / "review_r1.json").is_file()
-    assert mode(run_dir / "reviews" / "review_r1.json") == 0o600
+    assert (run_dir / "reviews" / "review_draft.json").is_file()  # 1차 검토 = review_draft.json
+    assert mode(run_dir / "reviews" / "review_draft.json") == 0o600
     with pytest.raises(ValueError, match="번호"):
         store.load_version("local", rid, 0)
     with pytest.raises(ValueError, match="번호"):

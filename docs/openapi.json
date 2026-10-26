@@ -134,6 +134,47 @@
         }
       }
     },
+    "/v1/precheck/clarify": {
+      "post": {
+        "summary": "Clarify Route",
+        "description": "③ 시작 전 입력 보강 질문(Q1). pipeline.clarify 가 꺼져 있으면 질문 0개.",
+        "operationId": "clarify_route_v1_precheck_clarify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Clarify Route V1 Precheck Clarify Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/precheck/recommendations": {
       "post": {
         "summary": "Recommend Route",
@@ -677,6 +718,56 @@
             }
           }
         }
+      },
+      "post": {
+        "summary": "Save Route",
+        "description": "④ 저장 — 편집을 반영한 새 버전 vN(메모 선택). 같은 내용이면 현재 버전을 그대로 돌려준다.\nbase_version 이 현재와 다르면 409. 저장하면 임시 사본(working)을 지운다.",
+        "operationId": "save_route_v1_runs__run_id__versions_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Save Route V1 Runs  Run Id  Versions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/runs/{run_id}/revert": {
@@ -831,6 +922,7 @@
     "/v1/runs/{run_id}/edits": {
       "post": {
         "summary": "Edits Route",
+        "description": "(호환) = POST /versions",
         "operationId": "edits_route_v1_runs__run_id__edits_post",
         "parameters": [
           {
@@ -862,6 +954,425 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Edits Route V1 Runs  Run Id  Edits Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/draft/working": {
+      "get": {
+        "summary": "Working Get Route",
+        "operationId": "working_get_route_v1_runs__run_id__draft_working_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Working Get Route V1 Runs  Run Id  Draft Working Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Working Put Route",
+        "description": "④ 임시 저장(autosave) — 서버 작업 사본. 버전이 아니다. 편집 가능한 상태에서만.",
+        "operationId": "working_put_route_v1_runs__run_id__draft_working_put",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkingIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Working Put Route V1 Runs  Run Id  Draft Working Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Working Delete Route",
+        "operationId": "working_delete_route_v1_runs__run_id__draft_working_delete",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/versions/diff": {
+      "get": {
+        "summary": "Diff Route",
+        "operationId": "diff_route_v1_runs__run_id__versions_diff_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Diff Route V1 Runs  Run Id  Versions Diff Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/versions/{version}/restore": {
+      "post": {
+        "summary": "Restore Route",
+        "description": "복원 — 그 버전 내용으로 새 버전을 만든다 (= revert).",
+        "operationId": "restore_route_v1_runs__run_id__versions__version__restore_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Restore Route V1 Runs  Run Id  Versions  Version  Restore Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/outline": {
+      "get": {
+        "summary": "Outline Route",
+        "description": "③ 섹션 설계도(Q2, pipeline.outline). 없으면 404.",
+        "operationId": "outline_route_v1_runs__run_id__outline_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Outline Route V1 Runs  Run Id  Outline Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/draft-review": {
+      "get": {
+        "summary": "Draft Review Route",
+        "description": "③ Argon 1차 검토 결과(review_draft.json) — 점수·의견·자동 반영 여부·폐기 사유.",
+        "operationId": "draft_review_route_v1_runs__run_id__draft_review_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Draft Review Route V1 Runs  Run Id  Draft Review Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/final-review": {
+      "post": {
+        "summary": "Final Review Route",
+        "description": "⑤ Argon 최종 검토 — 최신 저장 버전으로 1회(다시 받기도 여기, 횟수 기록).\n임시 편집이 있으면 409.",
+        "operationId": "final_review_route_v1_runs__run_id__final_review_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Final Review Route V1 Runs  Run Id  Final Review Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Final Review Get Route",
+        "description": "⑤ 최종 검토 결과(review_final_rN.json). round 는 최종 검토 차수(1..), 없으면 최신.",
+        "operationId": "final_review_get_route_v1_runs__run_id__final_review_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "round",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 10000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Round"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Final Review Get Route V1 Runs  Run Id  Final Review Get"
                 }
               }
             }
@@ -1262,6 +1773,25 @@
             "maxLength": 200,
             "title": "Note",
             "default": ""
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          },
+          "done_annotations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Done Annotations"
           }
         },
         "type": "object",
@@ -1328,6 +1858,19 @@
           },
           "head": {
             "$ref": "#/components/schemas/PersonIn"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "additionalProperties": false,
@@ -1662,6 +2205,32 @@
             },
             "type": "array",
             "title": "Texts"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
           }
         },
         "type": "object",
@@ -1669,7 +2238,7 @@
           "section"
         ],
         "title": "SectionEdit",
-        "description": "섹션 전체 편집 — 문장 목록을 통째로 바꾼다 (전부 \"제안자 수정\")."
+        "description": "섹션 전체 편집 — 문장 목록(texts) 또는 통문(text, 문장으로 나눈다)으로 바꾼다.\n같은 문장은 근거·출처를 이어받고, 새 문장은 proposer_input(근거 없음)."
       },
       "SentenceEdit": {
         "properties": {
@@ -1682,7 +2251,9 @@
             "enum": [
               "use_revision",
               "keep",
-              "manual"
+              "manual",
+              "delete",
+              "insert_after"
             ],
             "title": "Action",
             "default": "keep"
@@ -1716,7 +2287,7 @@
           "sentence_id"
         ],
         "title": "SentenceEdit",
-        "description": "문장별 선택. use_revision 은 5-4 검증을 통과한 수정안(comment_id)만, manual 은 직접 수정."
+        "description": "문장별 선택.\n\nuse_revision 은 검증을 통과한 수정안(comment_id)만, manual 은 직접 수정(원래 근거 유지,\norigin=proposer_edit), delete 는 삭제, insert_after 는 그 문장 뒤에 새 문장(proposer_input)."
       },
       "SessionIn": {
         "properties": {
@@ -1774,6 +2345,41 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkingIn": {
+        "properties": {
+          "sections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Sections"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Note",
+            "default": ""
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "WorkingIn",
+        "description": "PUT /v1/runs/{id}/draft/working — 서버 작업 사본(섹션별 문장 목록 또는 통문). 버전 아님."
       }
     }
   }

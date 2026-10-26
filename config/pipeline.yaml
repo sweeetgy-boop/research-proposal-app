@@ -1,0 +1,13 @@
+# ③ 초안 생성 파이프라인 — 단계별 켜기/끄기 (ADR 0013: 효과가 확인된 것만 기본 켬)
+# 순서: (clarify) → (outline) → (section_search) → 로컬 작성(exemplars·two_candidates) → rule_check → v1
+#       → draft_review(additions, 후보 선택) → 검증 통과분 자동 반영 → v2
+clarify: false          # Q1 입력 보강 질문 (최대 3개, 로컬 모델)
+outline: false          # Q2 섹션 설계도 (runs/<id>/outline.json)
+section_search: false   # Q3 섹션별 맞춤 검색
+exemplars: false        # Q4 채택 과제 본보기 (구성·문체 참고, 인용 금지)
+rule_check: true        # Q6 규칙 검사·자동 정리 (어미 통일·완전 중복 제거), 나머지는 알림 → 1차 검토에 전달
+draft_review: true      # Argon 1차 검토 → 검증 통과 수정안·추가 문장 자동 반영 → v2 (키 없으면 v1 로 진행)
+additions: false        # Q5 Argon 보완 작성 (섹션별 필수 요소 체크리스트로 빠진 문장 추가 제안)
+two_candidates: false   # Q7 핵심 섹션(기술적 중요도·연구방법) 두 후보 → 1차 검토에서 선택
+reranker: false         # Q8 cross-encoder reranker (이슈 #12)
+draft_review_retries: 1 # 1차 검토 실패 시 재시도 횟수

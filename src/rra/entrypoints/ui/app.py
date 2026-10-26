@@ -22,13 +22,15 @@ from rra.application.services import (
     RenderUnavailable,
     RunNotResumable,
 )
-from rra.application.services.run_manager import FinalizeRejected
+from rra.application.services.run_manager import EditRejected, FinalizeRejected
 from rra.domain.models import Budget, ProposalRequest
 from rra.domain.models.request import SHORT_MAX, SLOT_MAX, validation_message
+from rra.domain.models.review import EditRequest, SectionEdit
 from rra.domain.models.run import ACTIVE
 from rra.domain.rules import agent_policy as policy
 from rra.domain.rules.differentiation import needs_differentiation
 from rra.domain.rules.overlap import SOURCE_LABELS
+from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.ui import service
 from rra.entrypoints.ui.auth import require_token
@@ -44,11 +46,56 @@ from rra.entrypoints.ui.labels import (
     tier_text,
 )
 from rra.entrypoints.views import (
+    diff_payload,
     draft_payload,
     render_check_lines,
     render_check_payload,
     review_payload,
+    versions_payload,
 )
+
+STEPS = [
+    "① 아이디어 입력",
+    "② 유사과제 확인·과제 추천",
+    "③ 초안 생성 (로컬 작성 → Argon 1차 검토)",
+    "④ 직접 수정·보완",
+    "⑤ Argon 최종 검토",
+    "⑥ 최종 마무리 및 다운로드",
+]
+
+
+STEP_LABEL = {
+    "retrieve": "근거 찾기",
+    "outline": "설계도 만들기",
+    "finalize": "규칙 검사·정리 → v1",
+    "draft_review": "Argon 1차 검토·보완 → v2",
+}
+
+
+def step_index(state) -> int:
+    """현재 흐름 위치 (0~5)."""
+    if state is None:
+        return 0
+    s = state.status
+    if s in ("queued", "running", "draft_reviewing", "interrupted", "failed", "invalid"):
+        return 2
+    if s in ("drafted", "editing"):
+        return 3
+    if s == "final_reviewing":
+        return 4
+    if s == "final_reviewed":
+        return 4
+    if s == "finalized":
+        return 5
+    return 2
+
+
+def stepper(current: int) -> None:
+    cols = st.columns(len(STEPS))
+    for i, (col, label) in enumerate(zip(cols, STEPS, strict=True)):
+        mark = "●" if i == current else ("✓" if i < current else "○")
+        col.caption(f"{mark} {label}")
+
 
 FIELDS = {
     "current_state": ("현재 상황·문제", True),
@@ -321,15 +368,18 @@ def progress_panel(run_id: str) -> None:
         done / total if total else 0.0, text=f"{STATUS[state.status]} · {done}/{total} 단계"
     )
     for step in state.steps:
+        name = STEP_LABEL.get(step.name, step.name)
         if step.status == "done":
             extra = ""
             if step.name.startswith("section:"):
                 extra = f" — 문장 {step.sentences}, 폐기 {step.dropped}, 파싱 {step.parse}"
-            st.caption(f"✅ {step.name}{extra}")
+            st.caption(f"✅ {name}{extra}")
+        elif step.status == "skipped":
+            st.caption(f"⏭ {name} (건너뜀)")
         elif step.started_at:
-            st.caption(f"⏳ {step.name} …")
+            st.caption(f"⏳ {name} …")
         else:
-            st.caption(f"▫ {step.name}")
+            st.caption(f"▫ {name}")
 
 
 def draft_panel(view, run_id: str) -> None:
@@ -364,9 +414,169 @@ def draft_panel(view, run_id: str) -> None:
         with st.expander("인용 문서"):
             for c in payload["citations"]:
                 st.caption(f"{c['id']} — {plain(c['title'] or '(제목 없음)', 120)}")
+    versions_panel(view, run_id)
+    edit_panel(view, run_id)
     confirm_panel(payload, view, run_id)
     review_panel(view)
+    final_review_panel(view, run_id)
     finalize_panel(view, run_id)
+
+
+def flow_banner(view) -> None:
+    """④~⑥ 안내 — 다음 할 일을 분명히."""
+    state = view.state
+    if state.status in ("drafted", "editing"):
+        if state.review_skipped and state.final_reviews == 0:
+            st.info(
+                "검토 LLM 이 없어 1차·최종 검토를 건너뜁니다 — 수정을 마치면 바로 마무리합니다."
+            )
+        elif state.stale:
+            st.warning(
+                f"최종 검토 이후 수정 {state.stale_edits}건 — 원하면 다시 받습니다 (강제 아님)."
+            )
+        else:
+            st.info(
+                "수정을 마치면 [Argon 최종 검토 요청]을 누르십시오. 외부 LLM 은 그때만 호출됩니다."
+            )
+    elif state.status == "final_reviewing":
+        st.info("Argon 최종 검토 진행 중 — 편집은 잠깁니다.")
+    elif state.status == "final_reviewed":
+        st.success(
+            "최종 검토 완료 — 의견을 보고 문장별로 반영한 뒤 저장하거나, 바로 최종 마무리하십시오."
+        )
+    if view.has_working:
+        st.caption("저장하지 않은 임시 편집(서버 작업 사본)이 있습니다 — 저장하거나 버리십시오.")
+
+
+def versions_panel(view, run_id: str) -> None:
+    """버전 목록(번호·시각·만든 경로·메모)·두 버전 비교·복원."""
+    rows = versions_payload(worker.call(assistant.manager.versions(assistant.user, run_id)))
+    if not rows:
+        return
+    with st.expander(f"버전 {len(rows)}개 (현재 v{view.version})", expanded=False):
+        st.dataframe(
+            [
+                {
+                    "버전": f"v{r['version']}",
+                    "만든 경로": r["origin_label"],
+                    "시각": r["created_at"] or "-",
+                    "바뀐 섹션": ", ".join(r["changed_sections"]) or "-",
+                    "문장": r["sentences"],
+                    "알림": r["alerts"],
+                    "메모": r["open_annotations"],
+                    "저장 메모": r["note"],
+                }
+                for r in rows
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+        numbers = [r["version"] for r in rows]
+        if len(numbers) >= 2:
+            c1, c2, c3 = st.columns(3)
+            a = c1.selectbox("비교 기준", numbers, index=0, key=f"diff_a_{run_id}")
+            b = c2.selectbox("비교 대상", numbers, index=len(numbers) - 1, key=f"diff_b_{run_id}")
+            if c3.button("비교", key=f"diff_btn_{run_id}") and a != b:
+                va = worker.call(assistant.manager.get_version(assistant.user, run_id, a))
+                vb = worker.call(assistant.manager.get_version(assistant.user, run_id, b))
+                rows_d = worker.call(assistant.manager.diff(assistant.user, run_id, a, b))
+                ss["rra_diff_view"] = diff_payload(va, vb, rows_d, clean=clean)
+            d = ss.get("rra_diff_view")
+            if d:
+                st.caption(f"v{d['from']} → v{d['to']}: 바뀐 섹션 {len(d['sections'])}")
+                for sec in d["sections"]:
+                    st.markdown(f"**{section_title(sec['section'], assistant.rules.titles)}**")
+                    for x in sec["removed"]:
+                        st.caption("− " + plain(x["text"]))
+                    for x in sec["added"]:
+                        st.caption("+ " + plain(x["text"]))
+        target = st.selectbox("복원할 버전", numbers, index=len(numbers) - 1, key=f"rest_{run_id}")
+        if st.button("이 버전으로 복원 (새 버전)", key=f"restore_btn_{run_id}"):
+            try:
+                v = worker.call(assistant.manager.revert(assistant.user, run_id, target))
+            except EditRejected as exc:
+                st.error(f"복원 거부: {plain(exc)}")
+                return
+            st.success(f"v{target} 내용으로 v{v.version} 을 만들었습니다.")
+            st.rerun()
+
+
+def edit_panel(view, run_id: str) -> None:
+    """④ 간단한 섹션 편집·저장 (점검용). 통문을 문장으로 나누고 같은 문장은 근거를 이어받는다."""
+    if view.legacy or view.state.status not in (
+        "drafted",
+        "editing",
+        "final_reviewed",
+        "finalized",
+    ):
+        return
+    st.subheader("4. 직접 수정·보완")
+    flow_banner(view)
+    flash = ss.pop("rra_saved_flash", None)
+    if flash and flash[0] == run_id:
+        st.success(flash[1])
+    keys = [s.key for s in view.sections if s.key not in assistant.rules.choices]
+    if not keys:
+        return
+    key = st.selectbox(
+        "섹션",
+        keys,
+        format_func=lambda k: section_title(k, assistant.rules.titles),
+        key=f"edit_sec_{run_id}",
+    )
+    section = next(s for s in view.sections if s.key == key)
+    text = st.text_area(
+        "섹션 본문 (문장마다 줄을 바꾸거나 마침표로 끝낸다)",
+        value="\n".join(s.text for s in section.sentences),
+        key=f"edit_text_{run_id}_{key}_{view.version}",
+        height=160,
+    )
+    memo = st.text_input("저장 메모 (선택)", key=f"edit_memo_{run_id}", max_chars=200)
+    if st.button("저장 (새 버전)", key=f"save_btn_{run_id}"):
+        try:
+            v = worker.call(
+                assistant.manager.apply_edits(
+                    assistant.user,
+                    run_id,
+                    EditRequest(
+                        sections=[SectionEdit(section=key, text=text)],
+                        note=memo,
+                        base_version=view.version,
+                    ),
+                )
+            )
+        except EditRejected as exc:
+            st.error(f"저장 거부: {plain(exc)}")
+            return
+        if v.version == view.version:
+            st.info("같은 내용이라 새 버전을 만들지 않았습니다.")
+            return
+        ss["rra_saved_flash"] = (
+            run_id,
+            f"v{v.version} 저장 ({', '.join(v.changed_sections) or '-'})",
+        )
+        st.rerun()
+
+
+def final_review_panel(view, run_id: str) -> None:
+    """⑤ 제안자가 요청할 때 최신 저장 버전으로 1회. 결과는 review_panel 이 보여 준다."""
+    state = view.state
+    if view.legacy or state.status not in ("drafted", "editing", "final_reviewed"):
+        return
+    if (
+        state.review_skipped
+        and state.final_reviews == 0
+        and state.draft_review_skipped == "no_review_llm"
+    ):
+        return
+    label = "Argon 최종 검토 다시 받기" if state.final_reviews else "Argon 최종 검토 요청"
+    if st.button(label, key=f"final_review_btn_{run_id}"):
+        try:
+            worker.call(assistant.manager.final_review(assistant.user, run_id))
+        except (InvalidTransition, QueueFull, RunBusy) as exc:
+            st.error(f"최종 검토를 시작할 수 없습니다: {plain(exc)}")
+            return
+        st.rerun()
 
 
 # ── 5. 검토 결과 (읽기 전용) ──────────────────────────────
@@ -380,8 +590,25 @@ def review_panel(view) -> None:
         if summary.status == "reviewing":
             st.caption("검토 진행 중…")
         return
-    with st.expander(f"검토 결과 ({view.review.round}차, 읽기 전용)", expanded=False):
+    kind = "최종 검토" if view.review.kind == "final" else "Argon 1차 검토 (초안 생성의 일부)"
+    title = f"{kind} 결과" + (
+        f" — 최종 검토 {view.review.final_round}차" if view.review.kind == "final" else ""
+    )
+    with st.expander(f"{title} (읽기 전용)", expanded=view.review.kind == "final"):
         payload = review_payload(view.review, clean=clean)
+        if payload["applied_version"]:
+            st.caption(
+                f"검증 통과 수정안 {len(payload['applied_ids'])}건을 "
+                f"v{payload['applied_version']} 에 "
+                "자동 반영했습니다 (Argon 보완). 나머지 의견은 문장 메모로 남았습니다."
+            )
+        if payload["score_delta"]:
+            st.caption(
+                "1차 대비 변화: "
+                + ", ".join(
+                    f"{k} {'+' if v > 0 else ''}{v}" for k, v in payload["score_delta"].items()
+                )
+            )
         if payload["scores"]:
             st.dataframe(
                 [
@@ -418,7 +645,12 @@ def finalize_panel(view, run_id: str) -> None:
     않는다.
     """
     st.subheader("5. 최종 마무리 및 다운로드")
-    if view.legacy or view.state.status not in ("done", "reviewed", "editing", "finalized"):
+    if view.legacy or view.state.status not in (
+        "drafted",
+        "editing",
+        "final_reviewed",
+        "finalized",
+    ):
         st.caption("완료된 현행 양식 run 만 마무리할 수 있습니다 (검토 중에는 불가).")
         return
     with st.expander("양식 하단 정보 (파일에만 들어가고 저장되지 않습니다)", expanded=False):
@@ -516,7 +748,9 @@ def confirm_panel(payload: dict, view, run_id: str) -> None:
             )
         if choices["confirmed"] is not None:
             st.caption("확정됨: " + ", ".join(c["label"] for c in choices["confirmed"]))
-    confirmable = view.state.status in ("done", "invalid") and not view.legacy
+    confirmable = (
+        view.state.status in ("drafted", "editing", "final_reviewed", "invalid") and not view.legacy
+    )
     if st.button("확정 저장", key="confirm_btn", disabled=not confirmable):
         try:
             worker.call(assistant.confirm(run_id, {k: v for k, v in picks.items() if v}))
@@ -535,6 +769,7 @@ def run_panel(run_id: str) -> None:
         ss["rra_run_id"] = None
         return
     state = view.state
+    stepper(step_index(state))
     st.subheader(f"3. 초안 — run {run_id} · {STATUS.get(state.status, state.status)}")
     if state.status in ACTIVE:
         progress_panel(run_id)

@@ -39,7 +39,11 @@ MANIFEST_KEYS = frozenset(
         "finalized_at",
         "differentiation",
         "recommendations",
+        "versions",
     }
+)
+VERSION_KEYS = frozenset(
+    {"version", "origin", "changed_sections", "sentences", "alerts", "open_annotations"}
 )
 DIFFERENTIATION_KEYS = frozenset(
     {
@@ -71,7 +75,19 @@ RECOMMENDATION_KEYS = frozenset(
         "chosen",
     }
 )
-REVIEW_KEYS = frozenset({"rounds", "skipped", "model", "error", "transfers"})
+REVIEW_KEYS = frozenset(
+    {
+        "rounds",
+        "skipped",
+        "model",
+        "error",
+        "transfers",
+        "final_reviews",
+        "final_reviewed_version",
+        "stale_edits",
+        "draft_review_skipped",
+    }
+)
 TRANSFER_KEYS = frozenset(
     {
         "round",
@@ -84,6 +100,9 @@ TRANSFER_KEYS = frozenset(
         "sentences_excluded",
         "comments",
         "scores",
+        "kind",
+        "applied",
+        "applied_version",
     }
 )
 STEP_KEYS = frozenset(
@@ -133,6 +152,10 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
     extra = set(manifest.get("recommendations") or {}) - RECOMMENDATION_KEYS
     if extra:
         raise ValueError(f"manifest recommendations 에 허용되지 않은 키: {sorted(extra)}")
+    for version in manifest.get("versions") or []:
+        extra = set(version) - VERSION_KEYS
+        if extra:
+            raise ValueError(f"manifest versions 에 허용되지 않은 키: {sorted(extra)}")
     for value in _strings(manifest):
         if len(value) > MAX_TEXT_CHARS:
             raise ValueError("manifest 에 긴 문자열이 있습니다 — 원문이 섞였을 수 있습니다.")

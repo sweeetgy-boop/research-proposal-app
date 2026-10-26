@@ -19,6 +19,7 @@ from rra.domain.rules.differentiation import needs_differentiation
 
 Tool = Literal[
     "rra_precheck",
+    "rra_clarify",
     "rra_differentiate",
     "rra_recommend",
     "rra_search",
@@ -145,38 +146,63 @@ def on_confirm() -> Decision:
     return Decision("담당자의 선택형 항목 확정", "rra_confirm 호출 → 확정값 저장", "rra_confirm")
 
 
-# ── [5] 작성 → 검토 → 수정 → 재검토 → 마무리 ────────────────
+# ── ③ 초안 생성(로컬 작성 + Argon 1차 검토) → ④ 직접 수정 → ⑤ 최종 검토 → ⑥ 마무리 (ADR 0011) ──
+def on_clarify(*, questions: int) -> Decision:
+    """③ 시작 전 입력 보강 질문(Q1). 질문이 0개면 바로 생성."""
+    if questions <= 0:
+        return Decision(
+            "보강 질문 없음 (입력 충분)", "바로 초안 생성(rra_generate)", "rra_generate"
+        )
+    return Decision(
+        f"보강 질문 {questions}개 필요",
+        "rra_clarify 호출 → 제안자가 답하거나 건너뛴 뒤 초안 생성",
+        "rra_clarify",
+        needs_human=True,
+    )
+
+
 def after_draft_done(*, review_available: bool, auto: bool = True) -> Decision:
-    """초안 완료 뒤. 검토 LLM 을 쓸 수 있으면 1차 검토(rra_review), 없으면 건너뜀 기록."""
+    """로컬 작성 완료(v1) 뒤. 검토 LLM 이 있으면 Argon 1차 검토(draft_review, 자동) → 검증 통과분
+    반영 v2, 없으면 건너뜀 기록(review_skipped) → v1 로 ④ 진행."""
     if not review_available:
         return Decision(
-            "초안 완료 + review 사용 불가(키 없음 등)",
-            "검토를 건너뛰고 review_skipped 기록 → 바로 마무리 가능",
+            "로컬 작성 완료 + review 사용 불가(키 없음 등)",
+            "1차 검토를 건너뛰고 review_skipped 기록 → v1 로 직접 수정 단계",
         )
     if auto:
-        return Decision("초안 완료 + review 사용 가능", "rra_review 호출 (1차, 자동)", "rra_review")
+        return Decision(
+            "로컬 작성 완료 + review 사용 가능",
+            "rra_review 호출 (draft_review 1차, 자동) → 검증 통과 수정안·추가 문장 자동 반영 → v2",
+            "rra_review",
+        )
     return Decision(
-        "초안 완료 + review 사용 가능 (자동 검토 꺼짐)",
-        "담당자가 검토 시작을 선택하면 rra_review 호출",
+        "로컬 작성 완료 + review 사용 가능 (자동 검토 꺼짐)",
+        "담당자가 1차 검토 시작을 선택하면 rra_review 호출",
         "rra_review",
         needs_human=True,
     )
 
 
-def on_edit(*, rereview: bool, round_no: int) -> Decision:
-    """편집 반영 뒤. 재검토를 요청했으면 rra_review(n+1), 아니면 마무리 대기."""
+def on_edit(*, rereview: bool = False, round_no: int = 1) -> Decision:
+    """④ 편집·저장. 외부 LLM 을 부르지 않는다 — 검토는 ⑤ 에서 제안자가 요청할 때만."""
     if rereview:
-        return Decision(
-            "편집 반영 + 재검토 요청",
-            f"rra_review 호출 ({round_no + 1}차 — 바뀐 문장·남은 의견 위주)",
-            "rra_review",
-        )
-    return Decision("편집 반영", "rra_edit 호출 → 새 버전 저장, 재검토는 담당자가 선택", "rra_edit")
+        return on_final_review(stale=True)
+    return Decision("제안자 편집·저장", "rra_edit 호출 → 새 버전 저장 (외부 LLM 없음)", "rra_edit")
+
+
+def on_final_review(*, stale: bool = False) -> Decision:
+    """⑤ 제안자가 최종 검토를 요청 — 최신 저장 버전으로 1회. 이후 수정이 있어도 강제 아님."""
+    return Decision(
+        "제안자 최종 검토 요청" + (" (최종 검토 이후 수정 있음 — 다시 받기)" if stale else ""),
+        "rra_review 호출 (final_review) → 점수·의견·수정안, 제안자가 문장별로 반영 후 저장",
+        "rra_review",
+        needs_human=True,
+    )
 
 
 def on_finalize() -> Decision:
     return Decision(
-        "담당자의 최종 마무리 (검토 1회 이상 또는 건너뜀, 검토 중 아님)",
+        "담당자의 최종 마무리 (최종 검토 완료 또는 건너뜀, 검토 중 아님, 임시 편집 없음)",
         "rra_finalize 호출 → 선택형 확정·제안자 정보·render_check → HWPX",
         "rra_finalize",
     )

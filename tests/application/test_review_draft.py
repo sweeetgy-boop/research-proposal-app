@@ -266,7 +266,7 @@ async def test_second_round_sends_previous_open_comments_and_changed_sentences_a
     )
     prompt = llm.calls[0]
     assert (
-        "[이전 의견" in prompt and '"id": "r1-1"' in prompt and '"id": "r1-2"' not in prompt
+        "[1차 의견" in prompt and '"id": "r1-1"' in prompt and '"id": "r1-2"' not in prompt
     )  # 해결된 건 반복 안 함
     assert '["s:method:0"]' in prompt  # 바뀐 문장 (보낸 것만)
     assert rnd.resolved_ids == ["r1-1"] and rnd.round == 2
@@ -276,7 +276,7 @@ async def test_long_prompt_is_split_per_section():
     rd, llm = reviewer([reply(), reply(), reply(), reply(), reply()], prompt_max_chars=800)
     rnd = await rd(ctx())
     assert len(llm.calls) == 5 and rnd.transfer.calls == 5  # overlap_review 제외 5개 섹션
-    assert all("(섹션" in c.splitlines()[0] for c in llm.calls)
+    assert all("(섹션" in c.splitlines()[2] for c in llm.calls)  # [검토 종류] 다음 줄
     assert rnd.transfer.sentences_sent == 6
 
 

@@ -53,11 +53,11 @@ async def test_acknowledged_generation_runs_to_done_and_polls_are_logged_once_pe
     state = await a.proceed(REQ, res.alerts, acknowledged=True)
     assert state.status == "queued" and "차단 경보 확인 후" in a.trace[-1].summary
     final = await a.manager.wait(a.user, state.run_id)
-    assert final.status == "done"
+    assert final.status == "drafted"
     await a.poll(state.run_id)
     await a.poll(state.run_id)
     polls = [t for t in a.trace if t.tool == "rra_get_draft"]
-    assert len(polls) == 1 and "done" in polls[0].summary
+    assert len(polls) == 1 and "drafted" in polls[0].summary
     view = await a.poll(state.run_id)
     assert METHOD_SENTENCE in [s.text for s in view.sections[2].sentences]
     assert any(p["code"] == "unsupported_number" for p in view.state.problems)

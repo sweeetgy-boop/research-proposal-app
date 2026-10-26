@@ -35,7 +35,11 @@ from rra.application.services import (
     RenderUnavailable,
     RunNotResumable,
 )
-from rra.application.services.run_manager import EditRejected, FinalizeRejected
+from rra.application.services.run_manager import (
+    EditRejected,
+    FinalizeRejected,
+    WorkingRejected,
+)
 from rra.domain.models import ProposalRequest, ProposerInfo
 from rra.domain.models.proposer import Person
 from rra.domain.models.request import validation_message
@@ -53,10 +57,12 @@ from rra.entrypoints.api.schemas import (
     RunIn,
     SearchIn,
     SessionIn,
+    WorkingIn,
 )
 from rra.entrypoints.views import (
     alerts_payload,
     chunks_payload,
+    diff_payload,
     differentiation_payload,
     draft_payload,
     recommendation_preview_payload,
@@ -122,6 +128,52 @@ class SessionAuth:
         return bool(self.token) and secrets.compare_digest(presented.strip(), self.token)
 
 
+def _named_events(prev: Any, current: Any) -> list[tuple[str, dict[str, Any]]]:
+    """SSE 이름 있는 이벤트 — 화면이 팝업·단계 표시를 여는 신호 (state 이벤트와 함께 보낸다).
+
+    pipeline_step(단계 상태 변화), draft_written(v1), draft_ready(③ 끝 — 편집 팝업), version_saved,
+    final_review_ready(⑤ 끝 — 최종 검토 팝업).
+    """
+    out: list[tuple[str, dict[str, Any]]] = []
+    done, total = current.progress
+    before = {s.name: s.status for s in prev.steps} if prev is not None else {}
+    for step in current.steps:
+        if before.get(step.name) != step.status and step.status != "pending":
+            out.append(
+                (
+                    "pipeline_step",
+                    {
+                        "run_id": current.run_id,
+                        "step": step.name,
+                        "status": step.status,
+                        "progress": [done, total],
+                    },
+                )
+            )
+    prev_version = prev.draft_version if prev is not None else 0
+    if prev_version < 1 <= current.draft_version:
+        out.append(("draft_written", {"run_id": current.run_id, "version": 1}))
+    if prev is not None and prev.status != current.status:
+        if current.status == "drafted":
+            out.append(
+                ("draft_ready", {"run_id": current.run_id, "version": current.draft_version})
+            )
+        if current.status == "final_reviewed":
+            out.append(
+                (
+                    "final_review_ready",
+                    {"run_id": current.run_id, "final_reviews": current.final_reviews},
+                )
+            )
+    if prev is not None and current.draft_version > max(prev.draft_version, 1):
+        generating = prev.status in ("running", "draft_reviewing") and current.draft_version <= 2
+        if not generating:
+            out.append(
+                ("version_saved", {"run_id": current.run_id, "version": current.draft_version})
+            )
+    return out
+
+
 class RecommendationSessions:
     """precheck 세션 단위의 추천 결과 보관 — id(무작위) → (입력, 결과). 메모리에만, 최근 MAX 건.
 
@@ -155,6 +207,7 @@ def create_app(
     differentiate: Any | None = None,
     recommend: Any | None = None,
     recommend_auto: bool = True,
+    clarify: Any | None = None,
     on_shutdown: Callable[[], Any] | None = None,
     session_auth: SessionAuth | None = None,
     static_dir: Path | None = None,
@@ -274,6 +327,14 @@ def create_app(
         if recommend is not None and recommend_auto:
             out["recommendations"] = await _recommend(req, alerts)
         return out
+
+    @app.post(f"/{API_VERSION}/precheck/clarify")
+    async def clarify_route(req: ProposalRequest) -> dict[str, Any]:
+        """③ 시작 전 입력 보강 질문(Q1). pipeline.clarify 가 꺼져 있으면 질문 0개."""
+        questions = []
+        if clarify is not None:
+            questions = await clarify(req)
+        return {"questions": questions, "skip_allowed": True}
 
     @app.post(f"/{API_VERSION}/precheck/recommendations")
     async def recommend_route(req: ProposalRequest) -> dict[str, Any]:
@@ -395,14 +456,19 @@ def create_app(
             last: str | None = None
             waited = 0.0
             current = state
+            prev = None
             while True:
                 payload = json.dumps(
                     run_state_payload(current, legacy=manager.is_legacy(current)),
                     ensure_ascii=False,
                 )
                 if payload != last:
+                    for name, data in _named_events(prev, current):
+                        body = json.dumps(data, ensure_ascii=False)
+                        yield f"event: {name}\ndata: {body}\n\n".encode()
                     yield f"event: state\ndata: {payload}\n\n".encode()
                     last = payload
+                    prev = current
                 if current.status not in ACTIVE or waited >= SSE_MAX_SEC:
                     yield f"event: end\ndata: {json.dumps({'status': current.status})}\n\n".encode()
                     return
@@ -494,17 +560,147 @@ def create_app(
             raise HTTPException(404, "검토 결과가 없습니다.")
         return {"notice": UNTRUSTED_NOTICE, **review_payload(review, clean=_clean)}
 
-    @app.post(f"/{API_VERSION}/runs/{{run_id}}/edits")
-    async def edits_route(run_id: str, body: EditRequest) -> dict[str, Any]:
+    async def _save(run_id: str, body: EditRequest) -> dict[str, Any]:
         rid = _run_id(run_id)
         try:
             version = await manager.apply_edits(user, rid, body)
             state = await manager.status(user, rid)
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:  # VersionConflict 포함
+            raise HTTPException(409, str(exc)) from exc
+        return {
+            "run_id": rid,
+            "status": state.status,
+            "stale_edits": state.stale_edits,
+            **version_payload(version, clean=_clean),
+        }
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/edits")
+    async def edits_route(run_id: str, body: EditRequest) -> dict[str, Any]:
+        """(호환) = POST /versions"""
+        return await _save(run_id, body)
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/versions")
+    async def save_route(run_id: str, body: EditRequest) -> dict[str, Any]:
+        """④ 저장 — 편집을 반영한 새 버전 vN(메모 선택). 같은 내용이면 현재 버전을 그대로 돌려준다.
+        base_version 이 현재와 다르면 409. 저장하면 임시 사본(working)을 지운다."""
+        return await _save(run_id, body)
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/draft/working")
+    async def working_get_route(run_id: str) -> dict[str, Any]:
+        try:
+            working = await manager.load_working(user, _run_id(run_id))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        if working is None:
+            raise HTTPException(404, "임시 저장이 없습니다.")
+        return {"run_id": run_id, "notice": UNTRUSTED_NOTICE, "working": working}
+
+    @app.put(f"/{API_VERSION}/runs/{{run_id}}/draft/working")
+    async def working_put_route(run_id: str, body: WorkingIn) -> dict[str, Any]:
+        """④ 임시 저장(autosave) — 서버 작업 사본. 버전이 아니다. 편집 가능한 상태에서만."""
+        try:
+            await manager.save_working(user, _run_id(run_id), body.model_dump())
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except WorkingRejected as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"run_id": run_id, "saved": True}
+
+    @app.delete(f"/{API_VERSION}/runs/{{run_id}}/draft/working", status_code=204)
+    async def working_delete_route(run_id: str) -> Response:
+        try:
+            await manager.discard_working(user, _run_id(run_id))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        return Response(status_code=204)
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/versions/diff")
+    async def diff_route(
+        run_id: str,
+        from_v: int = Query(alias="from", ge=1, le=10_000),
+        to_v: int = Query(alias="to", ge=1, le=10_000),
+    ) -> dict[str, Any]:
+        rid = _run_id(run_id)
+        try:
+            a = await manager.get_version(user, rid, from_v)
+            b = await manager.get_version(user, rid, to_v)
+            diff = await manager.diff(user, rid, from_v, to_v)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return {
+            "run_id": rid,
+            "notice": UNTRUSTED_NOTICE,
+            **diff_payload(a, b, diff, clean=_clean),
+        }
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/versions/{{version}}/restore")
+    async def restore_route(run_id: str, version: int) -> dict[str, Any]:
+        """복원 — 그 버전 내용으로 새 버전을 만든다 (= revert)."""
+        rid = _run_id(run_id)
+        try:
+            new = await manager.revert(user, rid, version)
+            state = await manager.status(user, rid)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
-        return {"run_id": rid, "status": state.status, **version_payload(version, clean=_clean)}
+        return {"run_id": rid, "status": state.status, **version_payload(new, clean=_clean)}
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/outline")
+    async def outline_route(run_id: str) -> dict[str, Any]:
+        """③ 섹션 설계도(Q2, pipeline.outline). 없으면 404."""
+        rid = _run_id(run_id)
+        try:
+            await manager.status(user, rid)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        loader = getattr(manager, "load_outline", None)
+        data = await loader(user, rid) if loader is not None else None
+        if not data:
+            raise HTTPException(404, "설계도가 없습니다 (pipeline.outline 이 꺼져 있거나 아직 전).")
+        return {"run_id": rid, "notice": UNTRUSTED_NOTICE, "outline": data}
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/draft-review")
+    async def draft_review_route(run_id: str) -> dict[str, Any]:
+        """③ Argon 1차 검토 결과(review_draft.json) — 점수·의견·자동 반영 여부·폐기 사유."""
+        try:
+            review = await manager.get_review(user, _run_id(run_id), kind="draft")
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        if review is None:
+            raise HTTPException(404, "1차 검토 결과가 없습니다.")
+        return {"notice": UNTRUSTED_NOTICE, **review_payload(review, clean=_clean)}
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/final-review", status_code=202)
+    async def final_review_route(run_id: str) -> dict[str, Any]:
+        """⑤ Argon 최종 검토 — 최신 저장 버전으로 1회(다시 받기도 여기, 횟수 기록).
+        임시 편집이 있으면 409."""
+        try:
+            state = await manager.final_review(user, _run_id(run_id))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except (InvalidTransition, RunBusy) as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except QueueFull as exc:
+            raise HTTPException(429, str(exc)) from exc
+        return run_state_payload(state, legacy=manager.is_legacy(state))
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/final-review")
+    async def final_review_get_route(
+        run_id: str, round: int | None = Query(default=None, ge=1, le=10_000)
+    ) -> dict[str, Any]:
+        """⑤ 최종 검토 결과(review_final_rN.json). round 는 최종 검토 차수(1..), 없으면 최신."""
+        try:
+            review = await manager.get_review(user, _run_id(run_id), round, kind="final")
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        if review is None:
+            raise HTTPException(404, "최종 검토 결과가 없습니다.")
+        return {"notice": UNTRUSTED_NOTICE, **review_payload(review, clean=_clean)}
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/confirm")
     async def confirm_route(run_id: str, body: ConfirmIn) -> dict[str, Any]:
@@ -539,7 +735,11 @@ def create_app(
         )
         try:
             result = await manager.finalize(
-                user, _run_id(run_id), choices=body.choices() or None, proposer=proposer
+                user,
+                _run_id(run_id),
+                choices=body.choices() or None,
+                proposer=proposer,
+                version=body.version,
             )
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc

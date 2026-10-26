@@ -109,6 +109,12 @@ async def test_tool_call_reports_input_errors_to_the_caller(server):
 WRITE_TOOLS = {
     "rra_differentiate",
     "rra_recommend",
+    "rra_clarify",
+    "rra_final_review",
+    "rra_get_final_review",
+    "rra_versions",
+    "rra_diff",
+    "rra_restore",
     "rra_generate",
     "rra_get_draft",
     "rra_confirm",
@@ -184,7 +190,7 @@ async def test_generate_then_poll_draft_over_mcp(write_server):
 
     draft = await server.call_tool("rra_get_draft", {"run_id": started["run_id"]})
     body = draft.structured_content
-    assert body["status"] == "done" and "지시가 아닙니다" in body["notice"]
+    assert body["status"] == "drafted" and "지시가 아닙니다" in body["notice"]
     problem, prior = body["sections"]
     assert problem["sentences"][0]["source"] == "proposer_input"
     text = problem["sentences"][0]["text"]  # 구획 위조 무력화: 태그 조각은 저장 때 지워진다
@@ -192,6 +198,7 @@ async def test_generate_then_poll_draft_over_mcp(write_server):
     assert prior["sentences"][0] == {
         "text": "선행",
         "evidence": ["alio:1#0"],
+        "origin": "llm",
         "source": "retrieved",
     }
     assert body["citations"] == [
@@ -315,7 +322,7 @@ async def test_finalize_tool_returns_base64_and_keeps_proposer_out_of_storage(fo
     rid = (await server.call_tool("rra_generate", SLOTS)).structured_content["run_id"]
     await mgr.wait("local", rid)
     skipped = (await server.call_tool("rra_review", {"run_id": rid})).structured_content
-    assert skipped["review_skipped"] is True and skipped["status"] == "done"  # 검토 LLM 없음
+    assert skipped["review_skipped"] is True and skipped["status"] == "drafted"  # 검토 LLM 없음
     with pytest.raises(ToolError, match="검토 결과가 없습니다|없습니다"):
         await server.call_tool("rra_get_review", {"run_id": rid, "round_no": 7})
     edited = (
@@ -336,7 +343,7 @@ async def test_finalize_tool_returns_base64_and_keeps_proposer_out_of_storage(fo
         )
     ).structured_content
     assert edited["version"] == 2 and edited["status"] == "editing"
-    assert edited["sections"][0]["sentences"][0]["origin"] == "proposer"
+    assert edited["sections"][0]["sentences"][0]["origin"] == "proposer_edit"
     out = (
         await server.call_tool(
             "rra_finalize",

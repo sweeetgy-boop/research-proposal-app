@@ -431,41 +431,61 @@ UI 는 받기 버튼 위, REST `GET /v1/runs/{id}/render-check`. 알림이 있�
 (`RRA_API_HOST/PORT`), 외부 공개는 HTTPS 역프록시(Tailscale·Cloudflare) 뒤에서만 — `deploy/README.md`.
 `deploy/launchd/com.rra.api.plist` 는 실경로로 채웠고 비밀은 `.env` 경유. MCP streamable-http 는 미구현.
 
-### 4.6 작성 → 검토(Argon) → 제안자 수정 → 재검토 → 최종 마무리 (2026-10-26)
+### 4.6 전체 흐름 ③~⑥ — 2중 작성·직접 수정·최종 검토·버전 관리 (2026-10-27, ADR 0011)
 
-**단계별 모델** (`config/llm.yaml`): `stages.compose` = mlx(Qwen2.5-7B, 작성), `stages.review` = gemini(gemini-4-argon,
-검토). provider 표 `providers.{mlx,gemini,openai}`, 키는 `RRA_GEMINI_API_KEY`(SecretStr)만. 키가 없으면 `build_reviewer` 가
-None → 검토 건너뜀(`review_skipped`). 원격 provider 는 `security.yaml allowed_domains` 호스트만, `reasoning_effort`
-low|medium|high(none 금지, thinking_level 동시 전송 금지), 429·5xx 재시도, 401/403 은 재시도 없이 `LLMAuthError`.
+**흐름**(모든 진입점·문서·화면이 따른다): ① 아이디어 입력 → ② 유사과제 확인·과제 추천(§4.14) → **③ 초안 생성** =
+(입력 보강 질문, 선택) → 섹션 설계도 → 섹션별 맞춤 검색 → 로컬 모델(Qwen) 작성 → 규칙 검사·자동 정리 → **v1** → Argon 1차 검토
+→ 검증을 통과한 수정안·추가 문장만 자동 반영 → **v2("Argon 보완")** → **④ 직접 수정·보완**(저장·임시 저장·복원·비교, 외부 LLM
+없음) → **⑤ Argon 최종 검토**(요청 시 최신 저장 버전으로 1회, 이후 수정은 "최종 검토 이후 수정 n건" 표시·다시 받기는 선택,
+횟수 기록) → **⑥ 최종 마무리 및 다운로드**(최종 검토 완료 또는 키가 없어 건너뜀 뒤에만, stale 이면 경고). 이전의 "재검토
+무제한" 흐름을 대체한다.
 
-**상태 흐름** (`domain/rules/review_flow.py`, 표 테스트): 
+**상태 흐름** (`domain/rules/review_flow.py`, 표 테스트 `tests/domain/test_review_flow.py`):
 
 ```
-done ──start_review──▶ reviewing(n) ──finish_review──▶ reviewed(n) ──edit──▶ editing ──start_review──▶ reviewing(n+1) …
-reviewing ──fail_review──▶ (검토 전 상태)         reviewed | editing ──finalize──▶ finalized ──reopen──▶ editing
-finalized ──finalize──▶ finalized (새 파일)        검토 LLM 없음: review() 는 상태를 두고 review_skipped 만 기록 → done 에서 finalize
+queued → running(생성) → v1 ─(검토 LLM 있음)─▶ draft_reviewing ─finish/fail─▶ drafted(v2 또는 v1)
+                         └(키 없음)──────────▶ drafted (draft_review_skipped=no_review_llm, review_skipped)
+drafted | editing | final_reviewed ─edit─▶ editing          drafted | editing | final_reviewed ─start_final_review─▶ final_reviewing
+final_reviewing ─finish─▶ final_reviewed ─edit─▶ editing(stale)      final_reviewed ─finalize─▶ finalized ─reopen─▶ editing
+drafted | editing ─finalize─▶ finalized  (review_skipped 또는 최종 검토를 한 번이라도 한 뒤)      finalized ─finalize─▶ 새 파일
 ```
-재검토 횟수 제한 없음. `can_finalize` = 검토 1회 이상(또는 건너뜀)이고 검토 중이 아닐 것. `can_render` = finalized 만 —
-양식 파일은 `finalize` 로만 만들어진다(`rra runs finalize`, MCP `rra_finalize`, REST `POST /runs/{id}/finalize`, UI 버튼).
-`review.auto`(기본 true)면 초안 완료 뒤 1차 검토를 RunManager 가 자동 시작한다(생성 락을 놓은 뒤, 동시성 1·대기열 3 공유).
+검토 중(draft_reviewing·final_reviewing)에는 편집 잠금. 옛 run 파일의 done·reviewed·reviewing 은 읽을 때 변환(`normalize_status`).
+`can_finalize` = final_reviewed, 또는 drafted/editing 이면서 (검토 건너뜀 또는 최종 검토 1회 이상). 저장하지 않은 임시 편집이
+있으면 유스케이스가 거부. `can_render` = finalized 만.
 
-**검토 유스케이스** (`application/usecases/review_draft.py`): 입력 = 현재 버전·스냅샷 근거·제안자 입력·(n≥2) 이전 의견과
-바뀐 문장. `overlap_review` 는 보내지 않고 선택값은 의견만. `external_llm.include_internal`(기본 true)이면 internal 근거를
-`<doc … visibility="internal">` 로 구획해 보내고, false 면 internal 근거와 그 근거를 인용한 문장을 "검토 제외" 한다.
-사람 이름·연락처는 보내지 않는다. 초안 전체를 한 번에, 길이 상한을 넘으면 섹션 단위. 출력은 JSON 객체만 — 문장별
-`{sentence_id, issue_type, comment, revised_text, evidence}` + 섹션 의견 + 해결된 의견 id. **수정안 검증(5-4)**:
-evidence 범위(기존 근거 id) → foreign_script → 근거 필수/금지 → grounding(정책명) → numbers. 실패하면
-`status=discarded`(원문 유지, comment 유지, 사유 코드).
+**③ 파이프라인** (`config/pipeline.yaml` → `PipelineConfig`, 단계마다 켜고 끔. [E] 는 뼈대, 품질 단계는 [Q]): run 의 step 계획
+`retrieve → (outline) → section:* → finalize(규칙 검사·v1) → (draft_review)`. v1 = `DraftVersion(origin=local)`. `draft_review` 가
+켜져 있고 검토 LLM 이 있으면 생성 락을 놓은 뒤 자동으로 1차 검토(`RunManager.review`, round 1, `reviews/review_draft.json`,
+실패 시 `draft_review_retries` 재시도 → 그래도 실패면 v1 유지·`draft_review_skipped=failed`). 통과한 수정안(`usable`)만
+`_apply_draft_review` 가 v2(`origin=argon`, 문장 `origin=argon`)로 반영하고, 폐기된 수정안·수정안 없는 의견·섹션 의견은
+`DraftVersion.annotations`(문장 메모, 사람이 "처리됨")로 붙는다. 선택형 섹션의 선택값은 바꾸지 않는다. overlap_review 는 검토에
+보내지 않는다. 키가 없으면 ③은 v1 까지(`review_skipped`) → ④.
 
-**데이터 경계.** 저장: `runs/<user>/<run_id>/versions/draft_vN.json`(v1=로컬 초안, 편집·되돌리기마다 +1, 전부 보존),
-`reviews/review_rN.json`(의견·수정안·전송 범위). manifest 에는 차수별 provider/model·외부 전송 doc_id(public/internal)·
-보낸 문장 수만(의견 원문·개인정보 없음, `adapters/logging` 허용목록). 제안자·부서장·제안부서·제안일자는 finalize 호출
-인자로만 — 어디에도 저장되지 않는다(테스트로 고정). 외부 전송 안내 문구는 어떤 진입점에도 없다.
+**④ 직접 수정·보완** (`domain/rules/versions.py`, `RunManager.apply_edits`/`save_working`/`revert`/`diff`): 문장 단위 `EditRequest`
+— `use_revision`(검증 통과 수정안만, origin=reviewed) · `manual`(origin=proposer_edit, 원래 근거 유지) · `delete` · `insert_after`
+(origin=proposer_input, 근거 없음) · 섹션 `order`; 섹션 전체 `SectionEdit(texts | text)` 는 `split_sentences` 로 나누고 같은
+문장은 근거·출처를 이어받는다(`section_from_texts`). 버리지 않고 lint 는 알림만. 저장(save) = 새 버전 vN(만든 경로 origin:
+local/argon/edit/final_review/revert, 메모 ≤200자, 바뀐 섹션, 문장 수, 알림 수, 남은 메모 수). 같은 내용이면 새 버전 없음.
+`base_version` 이 현재와 다르면 `VersionConflict`(409). 임시 저장(autosave) = `runs/<id>/draft_working.json`(버전 아님, 편집 가능
+상태에서만, 저장하면 삭제, 최종 검토·마무리는 임시 편집이 있으면 거부). 복원 = 이전 버전 내용으로 새 버전. 비교 = 섹션·문장
+단위 added/removed/moved. 이 단계에서는 외부 LLM 을 부르지 않는다.
 
-**제안자 편집** (`RunManager.apply_edits`, `EditRequest`): 문장별 `use_revision`(검증 통과 수정안만, origin=reviewed) |
-`keep` | `manual`(origin=proposer "제안자 수정", 원래 근거 id 유지, 버리지 않음), 섹션 전체 편집. 반영마다 새 버전,
-lint 는 알림만. `revert` 는 이전 버전 내용으로 새 버전. Agent 정책 행: `after_draft_done`(review 가능 → rra_review),
-`on_edit`(재검토 요청 → rra_review n+1), `on_finalize`, `on_reopen`.
+**⑤ 최종 검토** (`RunManager.final_review`, `ReviewContext.kind="final"`): 최신 저장 버전으로 실행, 프롬프트에 "최종 점검 관점"
+(근거 일치·수치·섹션 간 일관성·서식 요건·차별성·필수 요소)과 1차 의견·그 뒤 바뀐 문장·1차 점수를 함께 준다. 결과
+`reviews/review_final_rN.json`(round = N+1, `kind=final`, `score_delta` = 1차 대비). 제안자가 문장별로 반영(수정안 사용/원문 유지/
+직접 수정) 후 저장 → origin=final_review. 이후 저장은 `stale_edits`(최종 검토 버전 대비 바뀐 문장 수)를 올리고, 다시 받기는
+요청 시만(`final_reviews` 횟수).
+
+**⑥ 최종 마무리** (`RunManager.finalize(version=…)`): 조건 위 참조. stale 이면 render_check 맨 위 "최종 검토 이후 수정 n건".
+마무리할 버전을 고를 수 있다(기본 최신). 제안자 정보는 렌더 인자로만.
+
+**manifest** (`adapters/logging` 허용목록): 검토 차수별 provider·model·외부 전송 doc_id·보낸 문장 수·kind·applied(자동 반영 수),
+`final_reviews`·`final_reviewed_version`·`stale_edits`·`draft_review_skipped`, 버전별 origin·바뀐 섹션 수·문장 수·알림 수·메모 수.
+본문·제안자 정보는 없다. 진입점은 §9.2(REST: `/draft/working`·`/versions`·`/versions/diff`·`/versions/{n}/restore`·`/draft-review`·
+`/final-review`·`/outline`·`/precheck/clarify`, SSE 이름 이벤트 pipeline_step·draft_written·draft_ready·version_saved·
+final_review_ready), CLI(`rra clarify`, `rra runs outline|edit --memo|diff|restore|final-review [--apply-passed]`), MCP(`rra_clarify`·
+`rra_final_review`·`rra_get_final_review`·`rra_versions`·`rra_diff`·`rra_restore`), Streamlit(①~⑥ stepper·버전 비교·섹션 편집·최종
+검토 요청). Agent 정책 행: `on_clarify`, `after_draft_done`(draft_review 자동), `on_edit`(외부 LLM 없음), `on_final_review`(요청 시).
 
 ### 4.7 생성 근거의 관련도 하한 (2026-10-26, 이슈 #2)
 
@@ -1073,14 +1093,21 @@ Step 1 코드: `research-report-app-step1.zip`
 | POST | `/v1/runs` | `RunManager.submit` | 202. 대기열 초과 429, 락 충돌 409 |
 | GET | `/v1/runs` | `RunManager.list_runs` | 내 목록(최근 순, 본문 없음) |
 | GET | `/v1/runs/{id}` | `RunManager.status` | 상태·step·legacy. 모르는·형식 틀린 id 는 404 |
-| GET | `/v1/runs/{id}/events` | `RunManager.status` 폴링 | SSE `event: state`(변화마다) → `event: end`. 끊겨도 GET 으로 복구 |
+| GET | `/v1/runs/{id}/events` | `RunManager.status` 폴링 | SSE `event: state`(변화마다) + 이름 이벤트 `pipeline_step`·`draft_written`·`draft_ready`·`version_saved`·`final_review_ready` → `event: end`. 끊겨도 GET 으로 복구 |
 | POST | `/v1/runs/{id}/resume` | `RunManager.resume` | 202 |
 | GET | `/v1/runs/{id}/draft?version=` | `get_draft` / `get_version` | 현재 초안(`version`·`versions`·`review` 요약 포함) 또는 특정 버전 |
 | GET | `/v1/runs/{id}/versions` | `RunManager.versions` | 버전 메타 목록 |
 | POST | `/v1/runs/{id}/revert` | `RunManager.revert` | `{to}` → 새 버전(origin=revert) |
 | POST | `/v1/runs/{id}/review` | `RunManager.review` | 202. 검토 LLM 없으면 건너뜀 기록(상태 유지). 검토 중·불가 409 |
 | GET | `/v1/runs/{id}/review?round=` | `RunManager.get_review` | 의견·수정안(usable)·폐기 사유·전송 범위 |
-| POST | `/v1/runs/{id}/edits` | `RunManager.apply_edits` | 본문 = `EditRequest`. 새 버전 + status |
+| POST | `/v1/runs/{id}/edits` · `/versions` | `RunManager.apply_edits` | ④ 저장. 본문 = `EditRequest`(sentences·sections·note·base_version·done_annotations). 새 버전 + status + stale_edits. 같은 내용이면 현재 버전, base_version 불일치 409 |
+| GET / PUT / DELETE | `/v1/runs/{id}/draft/working` | `save_working` 등 | ④ 임시 저장(서버 작업 사본, 버전 아님). 검토 중 409 |
+| GET | `/v1/runs/{id}/versions/diff?from=&to=` | `RunManager.diff` | 섹션·문장 단위 added/removed/moved |
+| POST | `/v1/runs/{id}/versions/{n}/restore` | `RunManager.revert` | 복원 → 새 버전(origin=revert) |
+| GET | `/v1/runs/{id}/draft-review` | `get_review(kind=draft)` | ③ 1차 검토 결과(applied_ids·applied_version 포함) |
+| POST / GET | `/v1/runs/{id}/final-review?round=` | `RunManager.final_review` | ⑤ 202 (임시 편집 있음·검토 중 409, 키 없음 409) / 결과(kind=final, score_delta) |
+| GET | `/v1/runs/{id}/outline` | — | ③ 설계도(pipeline.outline, Q2). 없으면 404 |
+| POST | `/v1/precheck/clarify` | — | ③ 입력 보강 질문(pipeline.clarify, Q1). 꺼져 있으면 질문 0개 |
 | POST | `/v1/runs/{id}/confirm` | `RunManager.confirm` | 선택형 확정 (finalize 가 대신해도 된다) |
 | GET | `/v1/runs/{id}/render-check` | `RunManager.render_check` | 읽기 전용 점검 |
 | POST | `/v1/runs/{id}/finalize` | `RunManager.finalize` | 본문 `{task_type?,utilization?,strategy?,proposed_on,department,proposer{},head{}}` → HWPX. 헤더 `X-RRA-Version`·`X-RRA-Status`·`X-RRA-Check`(JSON). 제안자 정보는 파일에만 |
@@ -1187,6 +1214,7 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-27 (E) | 전체 흐름 ③~⑥(§4.6 재작성, ADR 0011): review_flow 재정의(drafted·draft_reviewing·final_reviewing·final_reviewed), `PipelineConfig`·`config/pipeline.yaml`, 1차 검토 자동 반영 v2(origin argon·annotations), `domain/rules/versions`(문장·섹션 편집·diff), 임시 저장(draft_working.json)·VersionConflict, 최종 검토(kind final·score_delta·stale), finalize(version·stale 경고), REST/CLI/MCP/Streamlit 진입점, manifest versions |
 | 2026-10-27 (R) | 차별화 과제 추천(§4.14, ADR 0012): `usecases/recommend_projects`, `domain/rules/recommendation`, `prompts/recommend.md`, `llm.yaml stages.recommend`·`recommend.auto`, `RunStorePort.save_recommendations`(recommendations.json), manifest `recommendations`, agent_policy `rra_recommend`, CLI `rra recommend`, REST `/v1/precheck/recommendations(/{id}/apply)`·`RunIn.recommendation_id`, MCP `rra_recommend`, Streamlit 추천 카드; `docs/history/`(연표·수치·ADR·구조도·그래프·캡처, #20) |
 | 2026-10-26 (코퍼스) | OpenAlex 철도 분야 질의 목록 13개·초록 필터·증분/전체 기간·질의당 상한·page 페이징·polite pool/API 키 설정(§4.13); CI 워크플로(`.github/workflows/ci.yml`)·CODEOWNERS·PR 템플릿·CONTRIBUTING; 샌드박스 RLIMIT_AS 제거(리눅스 pymupdf import); 근거 출처 다양성(`hybrid_search sources` 필터·`_top_up_sources`·`balance_sources`, §4.13) |
 | 2026-10-26 (A) | 판단 반영: own 티어 = source own 전부(세부 institute/company, `tier_label`), own 출처 경고 제외, generic_terms 14개 추가, visibility 전부 public(공시용 없는 요약만 internal), 차별화 자동 실행은 차단 알림만, REST `RunIn.differentiation_transfer` → manifest |
