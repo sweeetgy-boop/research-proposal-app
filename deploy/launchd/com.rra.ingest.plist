@@ -21,7 +21,7 @@
     <string>openalex,alio,alio_summary,own_projects,own_docs,scienceon,ntis,kipris</string>
     <string>--skip-unavailable</string>
     <string>--limit</string>
-    <string>200</string>
+    <string>5000</string>
   </array>
   <key>WorkingDirectory</key>
   <string>/Users/chan/projects/research-proposal-app</string>

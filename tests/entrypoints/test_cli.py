@@ -1055,3 +1055,37 @@ def test_precheck_without_llm_skips_differentiation_but_still_reports(stub, caps
     assert cli.main(["precheck", *SLOT_ARGS]) == cli.EXIT_BLOCKED
     out, err = capsys.readouterr()
     assert "차단 1건" in out and "차별화 제안 생략" in err and "RRA_GEMINI_API_KEY" in err
+
+
+def test_ingest_full_flag_turns_on_full_window_for_supporting_sources(monkeypatch, capsys):
+
+    class OpenAlexLike:
+        source = "openalex"
+        full_window = False
+
+        async def aclose(self):
+            pass
+
+    class Other:
+        source = "alio"
+
+        async def aclose(self):
+            pass
+
+    built = [OpenAlexLike(), Other()]
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_sources", lambda names, settings=None: built)
+    monkeypatch.setattr("rra.composition.build_ingest", lambda *a, **k: _IngestStub())
+    assert cli.main(["ingest", "--source", "openalex,alio", "--full"]) == cli.EXIT_OK
+    assert built[0].full_window is True and not hasattr(built[1], "full_window")
+    assert cli.main(["ingest", "--source", "openalex,alio"]) == cli.EXIT_OK
+    assert built[0].full_window is True  # 이미 켜진 객체는 그대로 (새 조립이면 False)
+
+
+class _IngestStub:
+    async def __call__(self, query):
+        from rra.application.usecases.ingest_sources import IngestReport
+
+        return IngestReport(
+            fetched={"openalex": 1, "alio": 1}, normalized={"openalex": 1, "alio": 1}
+        )

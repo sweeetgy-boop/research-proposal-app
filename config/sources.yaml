@@ -47,13 +47,35 @@ openalex:
   concurrency: 4
   base_url: https://api.openalex.org   # 호스트는 security.yaml allowed_domains 에 있어야 함
   per_page: 100             # 최대 200
-  default_query: railway    # rra ingest 에 --query 가 없을 때 (증분)
-  lookback_days: 7          # 증분 수집 기간 (publication_date 기준)
+  default_query: railway    # queries 가 비어 있을 때의 질의 (증분)
+  lookback_days: 7          # 증분 수집 기간 (publication_date 기준). 야간 적재(com.rra.ingest.plist)가 쓴다
+  # 철도 분야 질의 목록 (2026-10-26, 영문). rra ingest --source openalex 는 이 목록을 돌며 질의마다 per_query_limit 까지
+  # 관련도순으로 받는다. 조건: 초록 있는 것만(has_abstract), 증분은 lookback_days, 전체(--full)는 backfill_years.
+  # 2026-10-28 기준 10년·초록 조건 예상 건수(질의당): 궤도 1,530 / 궤도검측 4,029 / 차량 1,809 / 신호 156 / 전력 585 /
+  # 유지보수 16,114 / 안전 1,519 / 수송수요 2,409 / 역사 5,011 / 자산관리 16,017 / 탄소중립 4,596 / 화물 6,580 / 운영 4,098
+  # → 상한 200 × 13 = 2,600 (중복 제거 전). 같은 work 는 한 번만, 분야는 raw.field 에 남긴다.
+  backfill_years: 10        # --full 수집 기간 (최근 10년 우선)
+  per_query_limit: 200      # 질의당 최대 건수
+  require_abstract: true    # 초록이 있는 것만
+  queries:
+    - {field: 궤도,     query: "railway track geometry irregularity degradation"}
+    - {field: 궤도검측, query: "rail track inspection defect detection measurement"}
+    - {field: 차량,     query: "railway vehicle bogie wheel rail dynamics wear"}
+    - {field: 신호,     query: "railway signalling train control interlocking CBTC ETCS"}
+    - {field: 전력,     query: "railway electrification catenary pantograph traction power supply"}
+    - {field: 유지보수, query: "railway infrastructure maintenance condition monitoring predictive"}
+    - {field: 안전,     query: "railway safety risk assessment accident derailment"}
+    - {field: 수송수요, query: "rail passenger demand forecasting ridership"}
+    - {field: 역사,     query: "railway station passenger flow design facility"}
+    - {field: 자산관리, query: "railway asset management life cycle cost infrastructure"}
+    - {field: 탄소중립, query: "railway energy efficiency carbon emissions decarbonization"}
+    - {field: 화물,     query: "rail freight transport logistics intermodal"}
+    - {field: 운영,     query: "train timetable scheduling railway operation capacity"}
   max_response_mb: 20
   max_redirects: 3
   retries: 3
   timeout: {connect: 10, read: 30}
-  # mailto: you@example.org  # OpenAlex polite pool. 넣으면 요청 URL 에 그대로 실린다.
+  # polite pool 이메일은 .env RRA_OPENALEX_MAILTO (환경변수가 있으면 그쪽이 이긴다). 여기 mailto 를 적어도 된다.
 # 키는 여기 두지 않는다. .env 의 RRA_SCIENCEON_* · RRA_NTIS_KEY 에서만 온다 (보안 D).
 scienceon:
   base_url: https://apigateway.kisti.re.kr   # 호스트는 security.yaml allowed_domains 에 있어야 함

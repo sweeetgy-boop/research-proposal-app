@@ -392,6 +392,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
             skipped.extend(missing)
         else:
             sources = build_sources(names, settings)
+        if getattr(args, "full", False):
+            for source in sources:  # 전체 기간 수집을 지원하는 소스만 (OpenAlex backfill_years)
+                if hasattr(source, "full_window"):
+                    source.full_window = True
         try:
             ingest = build_ingest(settings, sources=sources, limit=args.limit)
             return await ingest(args.query)
@@ -1164,6 +1168,11 @@ def build_parser() -> argparse.ArgumentParser:
         "kipris)",
     )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
+    ingest.add_argument(
+        "--full",
+        action="store_true",
+        help="증분(lookback_days) 대신 전체 기간(openalex.backfill_years) 수집 — 최초 적재용",
+    )
     ingest.add_argument(
         "--skip-unavailable",
         action="store_true",

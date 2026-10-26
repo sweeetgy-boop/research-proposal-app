@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     scienceon_key: SecretStr | None = None
     scienceon_mac: SecretStr | None = None
     kipris_key: SecretStr | None = None
+    openalex_mailto: str | None = (
+        None  # OpenAlex polite pool 연락 이메일 (요청 URL 에 실린다, 비밀 아님)
+    )
     ntis_key: SecretStr | None = None  # NTIS rndopen apprvKey (과제검색 활용신청)
     api_token: SecretStr | None = None
     # REST API 바인딩 (G). 기본 루프백. 외부 공개는 HTTPS 역프록시(Tailscale·Cloudflare) 뒤에서만.
