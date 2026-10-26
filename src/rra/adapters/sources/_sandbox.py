@@ -7,7 +7,8 @@
 - 환경: 최소 env(LANG·PATH)만. `RRA_*` 비밀은 자식에 전달되지 않는다 (D).
 - stderr 는 버린다. 자식 트레이스백에 파일 내용이 섞일 수 있다.
 - 상한: 벽시계 타임아웃(프로세스 그룹 kill), stdout 크기, 메모리.
-  메모리는 두 겹이다. 자식이 RLIMIT_DATA(힙)를 걸고(Linux·WSL 에서 유효; RLIMIT_AS 는 공유 라이브러리 매핑 때문에 쓰지 않는다),
+  메모리는 두 겹이다. 자식이 RLIMIT_DATA(힙)를 걸고(Linux·WSL 에서 유효. RLIMIT_AS 는
+  공유 라이브러리 매핑까지 세어 쓰지 않는다),
   부모가 자식 RSS 를 주기적으로 읽어 넘으면 kill 한다(macOS 는 RLIMIT_AS 를 강제하지 않으므로
   이쪽이 실제 방어선. 샘플링 간격 사이의 순간 초과는 못 잡는 best-effort).
 - 실패는 `SandboxError` 하위 클래스로만 올라온다. 메시지에 경로·내용을 넣지 않는다.
