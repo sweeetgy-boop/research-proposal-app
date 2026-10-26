@@ -192,7 +192,8 @@ def slot_values(
     req = draft.request
     for key, ph in slots.text.items():
         section = draft.section(key)
-        text = "\n".join(s.text for s in section.sentences) if section else ""
+        sep = "\n" if key in slots.paragraphs else " "  # 한 줄 칸(연구과제명)은 띄어쓰기로 잇는다
+        text = sep.join(s.text for s in section.sentences) if section else ""
         if key == "overlap_review" and req.remarks:
             text = f"{text}\n{req.remarks}".strip()
         values[ph] = sanitize(text)
