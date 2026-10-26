@@ -241,35 +241,43 @@ async def test_made_up_ids_and_numbers_are_discarded_with_reasons():
     }
 
 
-async def test_self_overlapping_recommendation_is_excluded_and_all_excluded_gives_reason():
-    uc, _, precheck = make(
-        [
-            reply(
-                [
-                    rec("overlap 과제"),
-                    rec(
-                        "new 과제",
-                        summary="역사 설비 자료로 다른 대상을 봄",
-                        differentiation="대상 설비가 다름",
-                    ),
-                    rec("지어낸 수치", summary="40% 절감"),
-                ]
-            )
-        ]
-    )
+async def test_self_overlap_is_a_warning_by_default_and_an_exclusion_in_exclude_mode():
+    """warn(기본): 더 가까워진 추천도 남기되 overlap_warning 에 문서 id. exclude: 추천에서 뺀다."""
+    answers = [
+        reply(
+            [
+                rec("overlap 과제"),
+                rec(
+                    "new 과제",
+                    summary="역사 설비 자료로 다른 대상을 봄",
+                    differentiation="대상 설비가 다름",
+                ),
+                rec("지어낸 수치", summary="40% 절감"),
+            ]
+        )
+    ]
+    uc, _, precheck = make(list(answers))
+    out = await uc(REQ, ALERTS)
+    assert [r.title for r in out.recommendations] == ["overlap 과제", "new 과제"]
+    assert out.recommendations[0].overlap_warning == ["own:1"]  # 같은 문서, 더 가까워짐
+    assert out.recommendations[1].overlap_warning == ["alio:9"]  # 원래 차단되지 않던 문서
+    assert [d["reason"] for d in out.discarded] == [rule.DISCARD_NUMBER]
+    assert len(precheck.calls) == 2  # 검증에서 떨어진 것은 자기 중복 검사를 하지 않는다
+    uc, _, _ = make(list(answers))
+    uc.self_overlap_mode = "exclude"
     out = await uc(REQ, ALERTS)
     assert out.recommendations == []
     reasons = [d["reason"] for d in out.discarded]
     assert reasons.count(rule.DISCARD_SELF_OVERLAP) == 2 and rule.DISCARD_NUMBER in reasons
     assert out.no_recommendation_reason.endswith("검증에서 제외됨 3건")
-    assert len(precheck.calls) == 2  # 검증에서 떨어진 것은 자기 중복 검사를 하지 않는다
 
 
-async def test_recommendation_that_moved_away_from_the_blocking_project_passes():
-    """같은 문서에 아직 차단되더라도 원래 아이디어(0.88)보다 멀어졌으면(0.85) 자기 중복이 아니다."""
+async def test_recommendation_that_moved_away_from_the_blocking_project_has_no_warning():
+    """같은 문서에 아직 차단되더라도 원래 아이디어(0.88)보다 멀어졌으면(0.85) 경고도 없다."""
     uc, _, _ = make([reply([rec("near 과제")])])
     out = await uc(REQ, ALERTS)
     assert [r.title for r in out.recommendations] == ["near 과제"] and out.discarded == []
+    assert out.recommendations[0].overlap_warning == []
 
 
 async def test_parse_failure_and_empty_inputs_are_skipped():

@@ -902,6 +902,7 @@ def build_recommender(settings: Settings | None = None, *, repo=None, llm=None, 
         provider=cfg["provider"],
         model=cfg["served_model"] or cfg["model"],
         fallback_local=fallback,
+        self_overlap_mode=recommend_policy(settings)["self_overlap"],
     )
 
 

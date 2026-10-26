@@ -27,6 +27,9 @@ class ProjectRecommendation(BaseModel):
     risks: str = Field(default="", max_length=MAX_REC_CHARS)  # 예상 위험·확인할 점
     compared_with: list[str] = Field(default_factory=list)  # 비교한 기존 과제 doc_id (precheck 안)
     evidence: list[str] = Field(default_factory=list)  # 근거 doc_id (검색·precheck 안)
+    # 자기 중복 검사(추천 글로 precheck)에서 원래 아이디어보다 가깝게 차단된 기존 과제 doc_id.
+    # recommend.self_overlap=warn 이면 카드에 경고로 보이고(사람이 판단), exclude 면 추천에서 뺀다
+    overlap_warning: list[str] = Field(default_factory=list)
 
     def self_check_text(self) -> str:
         """자기 중복 검사(precheck)에 넣는 글 — 가제·요약·차별점."""

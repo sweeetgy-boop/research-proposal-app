@@ -119,7 +119,7 @@ def test_recommend_policy_and_stage_in_project_llm_yaml():
     from tests.test_composition import project_settings
 
     settings = project_settings()
-    assert recommend_policy(settings) == {"auto": True}
+    assert recommend_policy(settings) == {"auto": True, "self_overlap": "warn"}
     cfg = llm_config(settings, "recommend")
     assert cfg["provider"] == "gemini" and cfg["max_tokens"] == 3000
 
@@ -148,3 +148,18 @@ def test_file_store_today_is_not_used_by_recommendations(tmp_path):
     text = (tmp_path / "runs" / "local" / state.run_id / "recommendations.json").read_text()
     assert "proposer" not in text and date.today().isoformat() not in text
     _ = DeterministicEmbedding  # 임베딩은 쓰지 않는다 (import 만 확인)
+
+
+def test_recommend_policy_rejects_unknown_self_overlap_mode(tmp_path):
+    import pytest
+
+    from rra.config_loader import recommend_policy
+    from tests.test_composition import settings_for
+
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "llm.yaml").write_text("recommend:\n  self_overlap: maybe\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="self_overlap"):
+        recommend_policy(settings_for(cfg))
+    (cfg / "llm.yaml").write_text("recommend:\n  self_overlap: exclude\n", encoding="utf-8")
+    assert recommend_policy(settings_for(cfg))["self_overlap"] == "exclude"

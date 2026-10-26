@@ -164,6 +164,8 @@ def _print_recommendations(result, *, auto: bool = False) -> None:
         compared = ", ".join(r["compared_with"]) or "-"
         evidence = ", ".join(r["evidence"]) or "-"
         print(f"  비교 과제: {compared} · 근거: {evidence}")
+        if r["overlap_warning"]:
+            print(f"  ! 기존 과제와 겹칠 수 있음(사람이 판단): {', '.join(r['overlap_warning'])}")
     for d in payload["discarded"]:
         print(f"  (제외) {_safe(d.get('title', ''), 64)}: {_safe(d.get('reason', ''), 40)}")
     t = payload["transfer"]

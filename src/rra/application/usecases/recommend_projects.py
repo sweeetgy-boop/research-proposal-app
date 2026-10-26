@@ -38,7 +38,7 @@ from rra.domain.rules.recommendation import (
     DISCARD_SELF_OVERLAP,
     no_recommendation_text,
     select_recommendations,
-    self_overlaps,
+    self_overlap_docs,
     validate_recommendation,
 )
 from rra.domain.rules.trust import escape_untrusted
@@ -66,6 +66,10 @@ class RecommendProjects:
     fallback_local: bool = False
     max_doc_chars: int = 1200
     max_chunk_chars: int = 700
+    # 자기 중복 검사 결과 처리: warn = 추천에 overlap_warning 으로 붙여 사람이 판단(기본),
+    # exclude = 추천에서 뺀다(지시서 원문). e5 만으로는 같은 분야 글이 전부 차단되어 기본은 warn
+    # (ADR 0012)
+    self_overlap_mode: str = "warn"
 
     async def __call__(
         self, req: ProposalRequest, alerts: list[OverlapAlert]
@@ -127,11 +131,12 @@ class RecommendProjects:
         items, dup = select_recommendations(items)
         discarded.extend(dup)
         kept: list[ProjectRecommendation] = []
-        for rec in items:  # 자기 중복 검사 — 추천 글로 precheck 를 다시 돌려 원래보다 가까우면 뺀다
-            if await self._self_overlaps(req, rec, alerts):
+        for rec in items:  # 자기 중복 검사 — 추천 글로 precheck 를 다시 돌려 더 가까운 문서
+            close = await self._self_overlaps(req, rec, alerts)
+            if close and self.self_overlap_mode == "exclude":
                 discarded.append({"title": rec.title[:80], "reason": DISCARD_SELF_OVERLAP})
             else:
-                kept.append(rec)
+                kept.append(rec.model_copy(update={"overlap_warning": close}))
         reason = None
         model_reason = data.get("no_recommendation_reason")
         if not kept:
@@ -220,8 +225,8 @@ class RecommendProjects:
 
     async def _self_overlaps(
         self, req: ProposalRequest, rec: ProjectRecommendation, alerts: list[OverlapAlert]
-    ) -> bool:
-        """추천 글(가제·요약·차별점·위험)만으로 precheck 를 돌려 원래 알림과 비교(self_overlaps).
+    ) -> list[str]:
+        """추천 글(가제·요약·차별점·위험)만으로 precheck 를 돌려 원래 알림과 비교.
 
         원래 입력 4칸을 섞으면 원래 아이디어가 이미 차단될 때 모든 추천이 같이 떨어지고, 절대값
         차단으로 보면 같은 분야 추천이 전부 떨어진다 (2026-10-27 골든셋 01·02 실측에서).
@@ -234,7 +239,7 @@ class RecommendProjects:
             title_hint=rec.title,
             constraints=req.constraints,
         )
-        return self_overlaps(alerts, await self.precheck(probe))
+        return self_overlap_docs(alerts, await self.precheck(probe))
 
 
 def _visibility(chunk: Any) -> str:

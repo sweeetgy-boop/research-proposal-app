@@ -93,6 +93,9 @@ review:
 # 차별화 과제 추천 정책
 recommend:
   auto: true                 # precheck 가 끝나면 자동 1회. 다시 받기는 사용자 요청 시만
+  # 자기 중복 검사(추천 글로 precheck 재실행) 결과: warn = 카드에 "겹칠 수 있음" 경고(사람이 판단), exclude = 추천에서 제외.
+  # e5 만으로는 같은 분야 글이 전부 0.80 위로 차단되어 exclude 면 추천이 항상 0 (2026-10-27 실측) → reranker 뒤 재검토
+  self_overlap: warn
 external_llm:
   include_internal: true     # 사내(internal) 근거·문장을 외부 검토 LLM 에 보낼지. false 면 "검토 제외"
 

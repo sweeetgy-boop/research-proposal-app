@@ -355,6 +355,7 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
                 "risks": clean(r.risks),
                 "compared_with": list(r.compared_with),
                 "evidence": list(r.evidence),
+                "overlap_warning": list(r.overlap_warning),
             }
             for i, r in enumerate(result.recommendations)
         ],

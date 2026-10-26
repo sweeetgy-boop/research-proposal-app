@@ -190,7 +190,10 @@ def recommend_policy(settings: Settings) -> dict[str, Any]:
     """llm.yaml 의 recommend 정책 (기본: auto=true — precheck 뒤 자동 1회)."""
     cfg = read_config("llm.yaml", settings)
     rec = cfg.get("recommend") or {}
-    return {"auto": bool(rec.get("auto", True))}
+    mode = str(rec.get("self_overlap", "warn"))
+    if mode not in ("warn", "exclude"):
+        raise ValueError(f"llm.yaml recommend.self_overlap 은 warn|exclude 중 하나: {mode!r}")
+    return {"auto": bool(rec.get("auto", True)), "self_overlap": mode}
 
 
 def served_model_aliases(served: str | None) -> frozenset[str]:

@@ -125,3 +125,8 @@ def test_self_overlap_is_relative_to_the_original_idea():
     assert rule.self_overlaps(original, [a("own:1", 0.9)])  # 더 가까워짐
     assert rule.self_overlaps(original, [a("own:2", 0.9)])  # 원래 차단 아니던 문서 → 새 중복
     assert rule.self_overlaps(original, [a("own:1", 0.86)], margin=0.03)  # 여유 폭 미달
+
+    assert rule.self_overlap_docs(original, [a("own:1", 0.9), a("own:2", 0.9)]) == [
+        "own:1",
+        "own:2",
+    ]

@@ -246,6 +246,11 @@ def recommendation_panel() -> None:
                 + " · 근거: "
                 + (", ".join(rec.evidence) or "-")
             )
+            if rec.overlap_warning:
+                st.warning(
+                    "이 추천도 기존 과제와 겹칠 수 있습니다 (중복 여부는 담당자가 판단): "
+                    + ", ".join(rec.overlap_warning)
+                )
     labels = [f"추천 {i + 1}. {clean(r.title, 60)}" for i, r in enumerate(result.recommendations)]
     pick = st.radio("진행할 방향", options=labels, index=None, key="rec_pick")
     c1, c2 = st.columns(2)

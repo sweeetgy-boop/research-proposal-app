@@ -657,9 +657,11 @@ Argon 점수(필요성·차별성·실현가능성·기대효과)는 이전 run 
   (`numbers.unsupported_numbers`)·정책명(`grounding.ungrounded`)·한자·가나 → 폐기(사유 기록). 거의 같은 추천(가제+요약+
   차별점 토큰 자카드 ≥ 0.8)은 하나만, 최대 5. **자기 중복 검사**(`self_overlaps`): 추천 글(가제·요약·차별점·위험)만으로
   precheck 를 다시 돌려 **원래 아이디어보다 기존 과제에 가깝거나 같으면** 뺀다 — 원래 차단되지 않던 문서를 차단하면
-  새 중복, 같은 문서면 유사도가 원래보다 낮아야 통과(로컬, LLM 호출 없음). 절대값 "차단이면 제외" 는 e5 가 같은 분야
-  한국어 글을 모두 0.80 위로 올려 주제 안의 추천이 전부 떨어졌다(2026-10-27 실측 1·2차). 남은 추천이 0 이면 사유 =
-  모델 사유 + "검증에서 제외됨 n건".
+  새 중복, 같은 문서면 유사도가 원래보다 낮아야 통과(로컬, LLM 호출 없음). 결과 처리는 `llm.yaml recommend.self_overlap`:
+  **warn**(기본) = 추천을 남기고 `overlap_warning`(문서 id)으로 카드·CLI·API 에 "겹칠 수 있음" 경고(중복 판단은 사람),
+  exclude = 추천에서 제외(지시서 원문). 절대값 "차단이면 제외" 도, 상대 기준 exclude 도 e5 가 같은 분야 한국어 글을 모두
+  0.84~0.87 로 올려 골든셋 01·02 의 추천이 전부 떨어졌다(2026-10-27 실측 1~3차) → reranker(Q8) 뒤 exclude 재검토. 남은
+  추천이 0 이면 사유 = 모델 사유 + "검증에서 제외됨 n건".
 - 모델 `domain/models/recommendation.py`: `ProjectRecommendation`(title·summary·differentiation·reasons 1~3·build_on·risks·
   compared_with·evidence), `RecommendationResult`(+ 전송 범위, `transfer()`), `RecommendationPreview`.
 - 선택 반영 `apply_recommendation`: 가제 ← 추천 가제, 목표 ← 원래 목표 + "(추천 과제 보완) 요약", 차별화 방향 ← 차별점.

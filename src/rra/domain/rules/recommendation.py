@@ -142,7 +142,9 @@ def select_recommendations(
     return kept, discarded
 
 
-def self_overlaps(original: Iterable[Any], probe: Iterable[Any], margin: float = 0.0) -> bool:
+def self_overlap_docs(
+    original: Iterable[Any], probe: Iterable[Any], margin: float = 0.0
+) -> list[str]:
     """추천 글만으로 다시 돌린 precheck(probe)가 원래 아이디어보다 기존 과제에 가깝거나 같으면
     자기 중복.
 
@@ -153,12 +155,17 @@ def self_overlaps(original: Iterable[Any], probe: Iterable[Any], margin: float =
     알림이 없으면 통과.
     """
     base = {a.doc_id: a.similarity for a in original if a.blocking}
+    out: list[str] = []
     for a in probe:
         if not a.blocking:
             continue
         if a.doc_id not in base or a.similarity + margin >= base[a.doc_id]:
-            return True
-    return False
+            out.append(a.doc_id)
+    return list(dict.fromkeys(out))
+
+
+def self_overlaps(original: Iterable[Any], probe: Iterable[Any], margin: float = 0.0) -> bool:
+    return bool(self_overlap_docs(original, probe, margin))
 
 
 def no_recommendation_text(model_reason: str | None, excluded: int) -> str:
