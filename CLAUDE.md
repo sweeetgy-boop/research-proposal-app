@@ -1,7 +1,7 @@
 # research-proposal-app
 
 연구과제 제안서 자동 작성 앱 (한국철도공사 철도연구원 양식). 헥사고날 아키텍처, 보안코딩 적용.
-설계 문서: docs/architecture.md
+설계 문서: docs/architecture.md. 개발 현황·남은 일·단계 계획(P0~P7): docs/status.md (단계 끝마다 해당 행 갱신).
 
 ## 계층 규칙 (import-linter 강제)
 - `src/rra/domain/`: 순수 파이썬. pydantic·표준라이브러리만. 다른 rra 패키지·I/O 라이브러리 import 금지.
@@ -82,8 +82,10 @@
   [5] 검토 흐름(domain/rules/review_flow, usecases/review_draft, RunManager review/apply_edits/versions/revert/finalize/
   reopen, runs/…/versions·reviews 파일, 양식 파일은 finalize 로만), [6] REST 세션·CSRF·SSE·problem+json·정적 SPA·
   RRA_FAKE_LLM 가짜 모드(adapters/fake)·`rra api schema`, [7] Streamlit [최종 마무리 및 다운로드]. 설계 architecture §4.5·§4.6·§9.2.
-- 대기(사람 입력): Gemini 키, 사내 과제 목록·공시용 요약문 적재([8], 열 매핑 확인 필요), 연구과제 공고문(data/inbox/notice/).
-- 후속: critique_draft·예산표·차별성 매트릭스(Step 9), MCP streamable-http·Tailscale 공개(Step 10), reranker.
+- Gemini 키는 .env 에 있고 Argon 왕복 확인됨. 대기(사람 입력): 사내 과제 목록·공시용 요약문 적재([8] → P2), 연구과제 공고문(data/inbox/notice/).
+- 기획서 필수 기능 2 "유사과제 활용·차별화 제안" 은 미구현(P3). `rra llm-check` 기본 프롬프트의 `[]` 응답은 의도된 연결 확인 출력.
+- 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
+  MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.
