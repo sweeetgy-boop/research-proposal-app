@@ -28,6 +28,7 @@ from rra.adapters.sources._sandbox import SandboxError, SandboxLimits, run_parse
 from rra.adapters.sources.alio._models import ExtractResult
 from rra.adapters.sources.alio.filecheck import FileRejected, open_validated
 from rra.adapters.sources.korail_web._pii import strip_pii
+from rra.adapters.sources.korail_web._sheets import sheets_to_text
 from rra.adapters.sources.korail_web.crawler import MenuSpec
 from rra.adapters.sources.korail_web.snapshot import SnapshotDir, latest_snapshot, read_manifest
 from rra.domain.models import Document
@@ -171,9 +172,11 @@ class KorailWebSource:
             return None
         with vf:
             try:
-                result = ExtractResult.model_validate(
-                    await self._runner(vf.fd, vf.fmt, self.limits)
-                )
+                raw = await self._runner(vf.fd, vf.fmt, self.limits)
+                sheet_text = sheets_to_text(raw)
+                if sheet_text is not None:  # xlsx·xls: 시트 구조 → 본문 (표 줄)
+                    raw = {"text": sheet_text, "toc": [], "pages": None}
+                result = ExtractResult.model_validate(raw)
             except (SandboxError, ValidationError) as exc:
                 logger.warning(
                     "korail_web.rejected error=%s sha=%s", type(exc).__name__, vf.sha256[:8]
