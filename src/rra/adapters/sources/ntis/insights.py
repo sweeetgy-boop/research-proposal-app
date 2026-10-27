@@ -2,19 +2,23 @@
 
 ProjectOutcomePort·RelatedProjectPort.
 
-형식은 공개 구현(kisti-mcp) 기준이며 매뉴얼 미확보 — 실호출로 확정 전까지 fixture 는
-합성(tests/fixtures/ntis/README.md).
+형식은 2026-10-27 실응답(tests/fixtures/ntis/ntis_outcome_*.xml·ntis_related_*.json)으로 확정.
 - 성과검색: `collection=rpaper|rpatent`, `SRWR=<과제번호>`, `searchFd=BI`, `addQuery=DBT=PAP|PAT`.
-  레코드 HIT. 논문 필드 ResultTitle·JournalName·PubYear·ResultID·ProjectNumber, 특허
-  ResultTitle·RegistNumber·Registrant·PubYear. 저자(Author)·발명자 이름은 읽지 않는다. Registrant 는
-  기관으로 보일 때만 남긴다.
-- 연관콘텐츠: `pjtId=<과제번호>`, `collection=project` → JSON `{exist, items:[{PJT_ID, KOR_PJT_NM,
-  similarity_score, rank}]}`. 정규화(normalize_outcome·normalize_related)는 순수 함수.
+  레코드 `HIT NO SITID=PAP|PAT`. 논문 필드 ResultTitle·JournalName·IssnNumber·PubYear|Year·ResultID·
+  Abstract/Full·DigitalObjectIdentifier·ProjectID(과제번호)·ProjectTitle·PerformAgency, 특허
+  ResultTitle·RegistNumber·Registrant·RegistType(출원|등록)·IprType·Year·ProjectID. 저자(Author)·
+  발명자 이름은 읽지 않는다. Registrant 는 기관으로 보일 때만 남긴다.
+- 연관콘텐츠: `pjtId=<과제번호>`, `collection=project` → JSON `{PJT_ID, KOR_PJT_NM, exist, count,
+  items:[{PJT_ID, KOR_PJT_NM, similarity_score, rank, creat_dt}]}` — Accept 에 json 이 있으면 이
+  객체가 JSON 문자열 안에 한 번 더 감싸여 오고(`unwrap_json_string`) `creat_dt` 에 비표준 `NaN`
+  이 섞인다.
+  정규화(normalize_outcome·normalize_related)는 순수 함수.
 """
 
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
 from typing import Any
 
@@ -23,7 +27,7 @@ from pydantic import SecretStr
 from rra.adapters.sources import _xml
 from rra.adapters.sources._base import GuardedClient
 from rra.adapters.sources._orgs import is_organization
-from rra.adapters.sources.ntis.client import NtisClient, NtisError
+from rra.adapters.sources.ntis.client import NtisClient, NtisError, unwrap_json_string
 from rra.adapters.sources.ntis.projects import pick
 
 JSON_TYPES = frozenset({"application/json", "text/json", "text/plain", "text/html", "text/xml"})
@@ -38,10 +42,14 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "registrant": ("Registrant", "Applicant"),
     "registration_no": ("RegistNumber", "ApplicationNumber", "RegistrationNumber"),
     "result_id": ("ResultID", "ResultId", "TermSn"),
-    "project_no": ("ProjectNumber",),
+    "project_no": ("ProjectID", "ProjectNumber"),
+    "doi": ("DigitalObjectIdentifier", "DOI"),
+    "regist_type": ("RegistType",),
 }
 MAX_ITEMS = 10
-PROBE_PROJECT_NO = "1415171234"  # 연결 확인용 과제번호 (형식만 맞으면 된다 — 빈 결과도 정상 응답)
+# 연결 확인용 과제번호 — 한국철도기술연구원 과제(2026-10-27 실응답: 논문 13·특허 2·연관 10).
+# 빈 결과도 정상 응답이지만 건수가 보이는 과제가 진단에 낫다.
+PROBE_PROJECT_NO = "1615007833"
 
 
 def normalize_outcome(kind: str, raw: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -63,6 +71,8 @@ def normalize_outcome(kind: str, raw: Mapping[str, Any]) -> dict[str, Any] | Non
         if kind == "patent"
         else None,
         "project_no": pick(raw, FIELDS["project_no"]) or None,
+        "doi": pick(raw, FIELDS["doi"]) or None if kind == "paper" else None,
+        "regist_type": pick(raw, FIELDS["regist_type"]) or None if kind == "patent" else None,
     }
 
 
@@ -80,6 +90,7 @@ def normalize_related(payload: Any) -> list[dict[str, Any]]:
     for it in items[: MAX_ITEMS * 2]:
         if not isinstance(it, dict):
             continue
+        score = it.get("similarity_score")
         out.append(
             {
                 "project_no": str(
@@ -88,9 +99,7 @@ def normalize_related(payload: Any) -> list[dict[str, Any]]:
                 "title": str(
                     it.get("KOR_PJT_NM") or it.get("title") or it.get("ProjectTitle") or ""
                 ),
-                "score": it.get("similarity_score")
-                if isinstance(it.get("similarity_score"), int | float)
-                else None,
+                "score": score if isinstance(score, int | float) and math.isfinite(score) else None,
                 "rank": it.get("rank") if isinstance(it.get("rank"), int) else None,
             }
         )
@@ -161,7 +170,7 @@ class NtisInsightSource:
             accept_types=JSON_TYPES,
         )
         try:
-            payload = json.loads(body)
+            payload = json.loads(unwrap_json_string(body))  # 문자열 안의 JSON 도 (실응답)
         except ValueError as exc:
             raise NtisError("NTIS 연관콘텐츠 응답이 JSON 이 아닙니다.") from exc
         return normalize_related(payload)

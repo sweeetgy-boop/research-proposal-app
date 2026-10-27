@@ -822,6 +822,42 @@ def test_sources_check_prints_presence_only(monkeypatch, capsys):
     assert '"record_tag_candidates": ["HIT"]' in out
 
 
+def test_sources_check_record_tag_hint_uses_ntis_config_for_reports(monkeypatch, capsys):
+    """2026-10-27 실호출: ntis_reports 행이 'record_tag 가 비어 있습니다' 라고 잘못 안내했다 —
+    보고서·insights 는 ntis 설정을 같이 쓴다."""
+    asked = []
+
+    async def fake_run():
+        return [
+            {
+                "source": name,
+                "credentials": {"RRA_NTIS_KEY": True},
+                "host": "www.ntis.go.kr",
+                "host_allowed": True,
+                "roundtrip": "ok",
+                "result": {
+                    "total": 202,
+                    "hits": 5,
+                    "record_tag_matches": True,
+                    "record_tag_candidates": ["HIT"],
+                },
+            }
+            for name in ("ntis", "ntis_reports")
+        ]
+
+    def fake_source_config(settings, name):
+        asked.append(name)
+        return {"record_tag": "HIT"} if name == "ntis" else {}
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: object())
+    monkeypatch.setattr("rra.composition.source_config", fake_source_config)
+    monkeypatch.setattr("rra.composition.build_sources_check", lambda settings, names: fake_run)
+    assert cli.main(["sources", "check", "--source", "ntis,ntis_reports"]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert out.count("record_tag 'HIT' 확인됨.") == 2 and "비어 있습니다" not in out
+    assert asked == ["ntis", "ntis"]
+
+
 def test_ingest_without_key_reports_variable_name(monkeypatch, capsys):
     from rra.settings import Settings
 

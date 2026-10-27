@@ -1,0 +1,1388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RESULT xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://www.ntis.go.kr/searchapi/schema/title.1.0.xsd">
+   <QUERYTRANSFORMS>
+      <ORIGINALQUERY>전차선</ORIGINALQUERY>
+   </QUERYTRANSFORMS>
+   <COUNTLIST>
+      <COLCOUNT NAME="project">193</COLCOUNT>
+   </COUNTLIST>
+   <NAVIGATION>
+      <NAVIGATIONENTRY NAME="leadagency">
+         <NAVIGATIONELEMENTS COUNT="50">
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원▦B551201" COUNT="67" />
+            <NAVIGATIONELEMENT NAME="한국철도공사▦B551457" COUNT="16" />
+            <NAVIGATIONELEMENT NAME="투아이시스(주)▦ABA7627" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="중앙대학교▦7002171" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="(주)다원시스▦ZC98735" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="유진기공산업(주)▦ZC14709" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="한국기계연구원▦B350011" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="경일대학교▦7003452" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="(주)도화종합기술공사▦ZA15697" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="신흥에스이씨주식회사▦ACD0864" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="(주)평일▦ZA66433" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="하나솔루션(주)▦ABQ2500" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="서울과학기술대학교 산학협력단▦ACB5699" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="(주)비츠로테크▦ZC81451" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="(주)티와이테크▦ZE01580" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="화인폴리머(주)▦ZC96201" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="주)대명엔지니어링▦AAA4773" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="투아이시스▦ABU4860" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="(주) 평일▦ACN5395" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="(주)삼문이엔아이▦ACV8530" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="(주) 재영테크▦ACL4403" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="주식회사재영테크▦ACK2257" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="한국원자력연구소▦ZD02184" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="한국전기연구원▦B551929" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="한양대학교▦7002282" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="한국생산기술연구원▦B090021" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="중앙대학▦ABX2206" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="충북대학교▦7001161" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="동국대학교산학협력단▦ZC91806" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="(주)우진산전▦ZA47952" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="orderagency">
+         <NAVIGATIONELEMENTS COUNT="16">
+            <NAVIGATIONELEMENT NAME="국토교통과학기술진흥원▦ACH0421" COUNT="60" />
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원▦B551201" COUNT="38" />
+            <NAVIGATIONELEMENT NAME="중소기업기술정보진흥원▦ZC79622" COUNT="21" />
+            <NAVIGATIONELEMENT NAME="한국건설교통기술평가원▦ZC88136" COUNT="21" />
+            <NAVIGATIONELEMENT NAME="한국연구재단▦ABX3869" COUNT="10" />
+            <NAVIGATIONELEMENT NAME="한국산업기술평가관리원▦ABX2955" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="한국산업기술평가원▦B551367" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="한국산학연협회▦ABX7886" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="구미1대학▦7003462" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="한국산업기술진흥원▦ABX3081" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="산학연전국협의회▦ZE01422" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="(사단)한국산업기술진흥협회▦ACS1745" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="경제인문사회연구회▦B551541" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="한국부품소재산업진흥원▦B551507" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="(재)한국산업기술재단▦ZC83097" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="중소기업청▦1420000" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="projectyear">
+         <NAVIGATIONELEMENTS COUNT="25">
+            <NAVIGATIONELEMENT NAME="2026" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="2025" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="2024" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="2023" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="2022" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="2021" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="2020" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="2019" COUNT="9" />
+            <NAVIGATIONELEMENT NAME="2018" COUNT="9" />
+            <NAVIGATIONELEMENT NAME="2017" COUNT="16" />
+            <NAVIGATIONELEMENT NAME="2016" COUNT="19" />
+            <NAVIGATIONELEMENT NAME="2015" COUNT="20" />
+            <NAVIGATIONELEMENT NAME="2014" COUNT="11" />
+            <NAVIGATIONELEMENT NAME="2013" COUNT="10" />
+            <NAVIGATIONELEMENT NAME="2012" COUNT="9" />
+            <NAVIGATIONELEMENT NAME="2011" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="2010" COUNT="10" />
+            <NAVIGATIONELEMENT NAME="2009" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="2008" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="2007" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="2006" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="2005" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="2004" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="2003" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="2002" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="budgetprojectname">
+         <NAVIGATIONELEMENTS COUNT="50">
+            <NAVIGATIONELEMENT NAME="철도기술연구사업▦26117512012641004159301" COUNT="24" />
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원연구운영비지원▦13111015015222002241430" COUNT="15" />
+            <NAVIGATIONELEMENT NAME="미래철도기술개발사업▦200807741590301A" COUNT="13" />
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원연구운영비지원(주요사업비)▦162111015015222002241430B" COUNT="9" />
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원연구운영비지원(R&amp;D)(주요사업비)▦13111015015222002241430A" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="철도기술연구사업▦58117512012641004159301" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="철도기술연구사업(R&amp;D)▦26117512012641004159301" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="중소기업상용화기술개발▦102111011011921002134303" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="철도기술연구사업▦26217512012641004159301" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="국토교통연구기획▦26111012012641004153301" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="중소기업상용화기술개발▦20070300300094" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="개인기초연구(교육부)(R&amp;D)▦12111005005224002446301" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="중소기업기술혁신개발▦102111011011921002134302" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="중소기업상용화기술개발▦49111011011221002134303" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원연구운영비지원▦200807420620401A" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="미래철도기술개발▦200807741590301A" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="국토교통기술촉진연구(R&amp;D)▦26111012012641004141300" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="산학연공동기술개발▦4700010001200500" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="내구연한도래노후디젤기관차대체를위한친환경수소전기기관차기술개발▦095121412012641004159343" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="소재부품기술개발(R&amp;D)▦21111011011735003573302" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="철도차량부품개발사업(R&amp;D)▦095121412012641004159304" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="소재부품기술개발(R&amp;D)▦21126011011732003231302" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="중소기업상용화기술개발▦48111011011221002134303" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="산학연공동기술개발▦2006011703304011" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="국토교통기술사업화지원▦26111012012641004141301" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="건설교통기술촉진연구▦58111012012641004141300" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="산학연협력기술개발▦49139211011221002151301" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="중소기업상용화기술개발▦2006030133403031" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="중소기업기술혁신개발▦2006030133403021" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="중소기업상용화기술개발▦2006011183704011" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="manageagency">
+         <NAVIGATIONELEMENTS COUNT="14">
+            <NAVIGATIONELEMENT NAME="국토교통과학기술진흥원" COUNT="63" />
+            <NAVIGATIONELEMENT NAME="중소기업기술정보진흥원" COUNT="31" />
+            <NAVIGATIONELEMENT NAME="산업기술연구회" COUNT="22" />
+            <NAVIGATIONELEMENT NAME="한국건설교통기술평가원" COUNT="21" />
+            <NAVIGATIONELEMENT NAME="국가과학기술연구회" COUNT="15" />
+            <NAVIGATIONELEMENT NAME="한국연구재단" COUNT="12" />
+            <NAVIGATIONELEMENT NAME="한국산업기술평가원" COUNT="9" />
+            <NAVIGATIONELEMENT NAME="한국산업기술평가관리원" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="과학기술부" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="교육과학기술부" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="한국산학연협회" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="한국산업기술진흥원" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="국무조정실" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="scienceclass1">
+         <NAVIGATIONELEMENTS COUNT="50">
+            <NAVIGATIONELEMENT NAME="건설/교통▦EI" COUNT="75" />
+            <NAVIGATIONELEMENT NAME="철도교통기술▦EI06" COUNT="71" />
+            <NAVIGATIONELEMENT NAME="전철/전력기술▦EI0603" COUNT="23" />
+            <NAVIGATIONELEMENT NAME="전기/전자▦ED" COUNT="20" />
+            <NAVIGATIONELEMENT NAME="철도시스템 유지관리기술▦EI0606" COUNT="20" />
+            <NAVIGATIONELEMENT NAME="기계▦EA" COUNT="19" />
+            <NAVIGATIONELEMENT NAME="건설/교통▦P" COUNT="19" />
+            <NAVIGATIONELEMENT NAME="철도교통기술▦P06" COUNT="19" />
+            <NAVIGATIONELEMENT NAME="에너지/자원▦EF" COUNT="18" />
+            <NAVIGATIONELEMENT NAME="중전기기▦ED03" COUNT="16" />
+            <NAVIGATIONELEMENT NAME="자동차/철도차량▦EA09" COUNT="14" />
+            <NAVIGATIONELEMENT NAME="신재생에너지▦EF06" COUNT="11" />
+            <NAVIGATIONELEMENT NAME="전기·전자▦I" COUNT="11" />
+            <NAVIGATIONELEMENT NAME="철도차량 추진/제어기술▦EA0908" COUNT="9" />
+            <NAVIGATIONELEMENT NAME="기계▦H" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="자동차/철도차량▦H09" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="철도차량기술▦EI0608" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="건설·교통▦Q" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="달리 분류되지 않는 신재생에너지▦EF0699" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="궤도토목기술▦EI0602" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="환경▦EH" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="전력변환기기▦ED0302" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="철도시스템 안전방재▦EI0605" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="송-배전계통▦EF04" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="개폐기류▦ED0305" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="산업용전기·전자▦I1" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="철도시스템 유지관리기술▦P0606" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="전기/전자▦K" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="기타 전기/전자▦K99" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="요소부품▦EA03" COUNT="3" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="sixtechnology">
+         <NAVIGATIONELEMENTS COUNT="22">
+            <NAVIGATIONELEMENT NAME="위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구▦070000" COUNT="120" />
+            <NAVIGATIONELEMENT NAME="기타 에너지기술▦050218" COUNT="10" />
+            <NAVIGATIONELEMENT NAME="기타 정보처리시스템 및 S/W 기술▦010316" COUNT="9" />
+            <NAVIGATIONELEMENT NAME="미활용 에너지 이용기술▦050212" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="기타 환경기반기술▦050116" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="에너지저장 이용기술▦050217" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="신호처리기술(영상·음성처리·인식·합성)▦010314" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="연료전지기술▦050214" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="기타 정보기술▦010411" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="IT분야▦010000" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="대기오염물질 저감 및 제거기술▦050111" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="기타 네트워크기술▦010214" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="수소생산 이용기술▦050215" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="고속인터넷 네트워킹기술▦010213" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="ET분야▦050000" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="▦70000" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="제품디자인기술▦060213" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="계면 혹은 표면의 나노구조화기술▦030414" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="기타 나노소자 및 시스템기술▦030115" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="4세대 이동통신▦010211" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="가변 파장 광소자기술▦030113" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="▦50218" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="commisionproject">
+         <NAVIGATIONELEMENTS COUNT="4">
+            <NAVIGATIONELEMENT NAME="N" COUNT="102" />
+            <NAVIGATIONELEMENT NAME="C" COUNT="39" />
+            <NAVIGATIONELEMENT NAME="A" COUNT="33" />
+            <NAVIGATIONELEMENT NAME="Y" COUNT="19" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="ministryname">
+         <NAVIGATIONELEMENTS COUNT="14">
+            <NAVIGATIONELEMENT NAME="국토교통부" COUNT="63" />
+            <NAVIGATIONELEMENT NAME="중소기업청" COUNT="32" />
+            <NAVIGATIONELEMENT NAME="과학기술정보통신부" COUNT="27" />
+            <NAVIGATIONELEMENT NAME="국토해양부" COUNT="19" />
+            <NAVIGATIONELEMENT NAME="미래창조과학부" COUNT="13" />
+            <NAVIGATIONELEMENT NAME="중소벤처기업부" COUNT="13" />
+            <NAVIGATIONELEMENT NAME="교육부" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="산업통상자원부" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="지식경제부" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="교육과학기술부" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="건설교통부" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="과학기술부" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="국무조정실" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="산업자원부" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="performagent">
+         <NAVIGATIONELEMENTS COUNT="6">
+            <NAVIGATIONELEMENT NAME="출연연구소" COUNT="80" />
+            <NAVIGATIONELEMENT NAME="중소기업" COUNT="70" />
+            <NAVIGATIONELEMENT NAME="대학" COUNT="20" />
+            <NAVIGATIONELEMENT NAME="대기업" COUNT="16" />
+            <NAVIGATIONELEMENT NAME="중견기업" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="기타" COUNT="3" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="developmentphases">
+         <NAVIGATIONELEMENTS COUNT="4">
+            <NAVIGATIONELEMENT NAME="개발연구" COUNT="138" />
+            <NAVIGATIONELEMENT NAME="기초연구" COUNT="26" />
+            <NAVIGATIONELEMENT NAME="응용연구" COUNT="18" />
+            <NAVIGATIONELEMENT NAME="기타" COUNT="9" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="researchernumber">
+         <NAVIGATIONELEMENTS COUNT="50">
+            <NAVIGATIONELEMENT NAME="6" COUNT="13" />
+            <NAVIGATIONELEMENT NAME="1" COUNT="12" />
+            <NAVIGATIONELEMENT NAME="5" COUNT="12" />
+            <NAVIGATIONELEMENT NAME="4" COUNT="9" />
+            <NAVIGATIONELEMENT NAME="8" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="9" COUNT="8" />
+            <NAVIGATIONELEMENT NAME="2" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="10" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="0" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="3" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="26" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="27" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="12" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="15" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="35" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="54" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="7" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="11" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="17" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="24" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="25" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="19" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="20" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="50" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="38" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="44" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="65" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="13" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="16" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="41" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="strategictechnique">
+         <NAVIGATIONELEMENTS COUNT="50">
+            <NAVIGATIONELEMENT NAME="비전Ⅳ. 기반주력산업 가치창출 분야▦040000" COUNT="37" />
+            <NAVIGATIONELEMENT NAME="ICT 융합 신산업 창출 분야▦010000" COUNT="29" />
+            <NAVIGATIONELEMENT NAME="스마트 ·교통 물류 시스템 구축▦010400" COUNT="28" />
+            <NAVIGATIONELEMENT NAME="첨단철도기술▦010403" COUNT="27" />
+            <NAVIGATIONELEMENT NAME="한국형 고속전철 및 첨단경전철 기술▦040400" COUNT="26" />
+            <NAVIGATIONELEMENT NAME="위의 국가전략기술에 속하지 않는 기타 연구▦060000" COUNT="24" />
+            <NAVIGATIONELEMENT NAME="건설·교통▦010000" COUNT="21" />
+            <NAVIGATIONELEMENT NAME="교통·물류▦010400" COUNT="21" />
+            <NAVIGATIONELEMENT NAME="위의 국가기술지도(NTRM) 99개 핵심기술 분류에 속하지 않는 기타 연구▦060000" COUNT="20" />
+            <NAVIGATIONELEMENT NAME="스마트 철도교통 기술▦010402" COUNT="15" />
+            <NAVIGATIONELEMENT NAME="위의 국가전략기술 분류에 속하지 않는 기타 연구▦130000" COUNT="12" />
+            <NAVIGATIONELEMENT NAME="기타▦120000" COUNT="11" />
+            <NAVIGATIONELEMENT NAME="기타▦120100" COUNT="11" />
+            <NAVIGATIONELEMENT NAME="위의 중점과학기술에 속하지 않는 기타 연구▦120101" COUNT="11" />
+            <NAVIGATIONELEMENT NAME="미래성장동력 확충▦020000" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="미래에너지와  자원 확보·활용▦020100" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="비전Ⅰ. 정보-지식-지능화 사회 구현 분야▦010000" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="지능형 물류체계기술▦010403" COUNT="6" />
+            <NAVIGATIONELEMENT NAME="에너지·자원▦090000" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="인공지능▦090000" COUNT="5" />
+            <NAVIGATIONELEMENT NAME="신재생에너지▦090200" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="수소·연료전지 기술▦090206" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="걱정 없는 안전사회 구축▦050000" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="사회적 재난 대응체계 확보▦050200" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="기반시설 기능유지 및 복구·복원기술▦050205" COUNT="4" />
+            <NAVIGATIONELEMENT NAME="지능형 교통 시스템 (ITS) 기술▦040600" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="첨단 모빌리티▦030000" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="전기·수소차▦030200" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="안전·신뢰 AI▦090300" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="기계적 에너지 저장 기술▦020113" COUNT="3" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+   </NAVIGATION>
+   <TOTALHITS>193</TOTALHITS>
+   <SECRETPROJECTHITS />
+   <PROJECTRHITS>182</PROJECTRHITS>
+   <PROJECTCHITS>283</PROJECTCHITS>
+   <PROJECTCRHITS>256</PROJECTCRHITS>
+   <STARTPOSITION>1</STARTPOSITION>
+   <HITS>10</HITS>
+   <SEARCHTIME>0.057</SEARCHTIME>
+   <RESULTSET>
+      <HIT NO="1">
+         <ProjectNumber>1615007665</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>화물취급선(CY선)용 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 국산화 개발</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>36</ManCount>
+            <WomanCount>1</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>□ 화물취급선(CY선)에 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템을 적용하여 E&amp;S (입환생략모델)구현-화물취급선용 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 개발-E&amp;S 효율성 검증□  시스템 개발-국산화 개발 (부품 국산화율 90% 이상)-구동장치 개발 (실외용, IP64:물/먼지 보호 만족)-Interlock Logic &amp; Interface 개발 (안전, 설비 제어 및 보호)-시스템 보호용 장치 ...</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>□ 요구 사양 및 기능 검토- 기존 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 설계자료 조사/분석- Test Bed 설치 개소 선정을 위한 입지 조건 및 시스템 개발 필요 사항 검토- 시스템 및 구성품 사양 결정 □ 설계 및 제작- R-BAR시스템 설계 및 제작- 구동장치 설계 및 제작- 제어장치 설계- 급단전장치 설계 □ 제작 및 부품시험- 구동시험- 기계적 및 전기적 시험- 구동장치 ...</Full>
+            <Teaser>□ 요구 사양 및 기능 검토- 기존 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 설계자료 조사/분석- Test Bed 설치 개소 선정을 위한 입지 조건 및 시스템 개발 필요 사항 검토- 시스템 및 구성품 사양 결정 □ 설계 및 제작- R-BAR시스템 설계 및 제작- 구동장치 설계 및 제작- 제어장치 설계- 급단전장치 설계 □ 제작 및 부품시험- 구동시험- 기계적 및 전기적 시험- 구동장치 ...</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>□ CY선 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt;의 활용으로 E&amp;S (Effective &amp; Speedy Container Handling System: 정거장 입환 생략모델) 구현 시 전기기관차 입환으로 신개념의 철도물류체계가 구축될 수 있으며 이를 바탕으로 연관기술의 재생산 효과를 가져올 수 있음.- 입환기관차 조성작업, 견인작업 등이 불필요하게 되어 컨테이너 상하역을 위한 시간과 인력 ...</Full>
+            <Teaser>□ CY선 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt;의 활용으로 E&amp;S (Effective &amp; Speedy Container Handling System: 정거장 입환 생략모델) 구현 시 전기기관차 입환으로 신개념의 철도물류체계가 구축될 수 있으며 이를 바탕으로 연관기술의 재생산 효과를 가져올 수 있음.- 입환기관차 조성작업, 견인작업 등이 불필요하게 되어 컨테이너 상하역을 위한 시간과 인력 ...</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt;,컨테이너야드,CY</Korean>
+            <English>Movable Overhead Rigid System,Container Yard,Container Yard</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>국토교통과학기술진흥원</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>(주) 재영테크</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>국토교통기술사업화지원</Name>
+         </BudgetProject>
+         <BusinessName>국토교통기술사업화지원</BusinessName>
+         <BigprojectTitle>국토교통기술사업화지원</BigprojectTitle>
+         <ManageAgency>
+            <Name>국토교통과학기술진흥원</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>국토교통부</Name>
+         </Ministry>
+         <ProjectYear>2015</ProjectYear>
+         <ProjectPeriod>
+            <Start>20150427</Start>
+            <End>20160426</End>
+            <TotalStart>2015-04-27 00:00:00.0</TotalStart>
+            <TotalEnd>2017-04-26 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>92264</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="EI">건설/교통</Large>
+            <Medium code="EI10">물류기술</Medium>
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large code="EI">건설/교통</Large>
+            <Medium code="EI08">해양안전/교통기술</Medium>
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="05">중소기업</PerformAgent>
+         <DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+         <TechnologyLifecycle code="01">도입기</TechnologyLifecycle>
+         <Region code="08">경기도</Region>
+         <EconomicSocialGoal code="02">하부구조 및 토지의 계획적 사용</EconomicSocialGoal>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <ApplyArea>
+            <First code="X08">교통/정보통신/기타 기반시설</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>1</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>410000000</GovernmentFunds>
+         <SbusinessFunds>30200000</SbusinessFunds>
+         <TotalFunds>820000000</TotalFunds>
+         <CorporateRegistrationNumber>140-81-53901</CorporateRegistrationNumber>
+         <SeriesProject>after=1615008472</SeriesProject>
+         <PrePjtId />
+      </HIT>
+      <HIT NO="2">
+         <ProjectNumber>1425055765</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>철도 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 레일 자동검측 분석시스템 개발</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>6</ManCount>
+            <WomanCount>1</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>...용 2D/3D 카메라, 조명, Laser, 이동거리장치 인터페이스, 프레임 GRABBER, 및 2D/3D 영상분석소프트웨어 및 데이터베이스를 탑재하는 시스템을 개발하여 철도레일 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;을 비접촉식 연속적으로 측정, 레일의 평탄도 및 결함, 레일체결부결함에 대한 상태 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;마모상태를 자동으로 분석하고, 분석된 데이터를 데이터베이스화하여 유지보수업무를 체계적으로 관리하는 계측시스템을 ...</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>... 요구되어지고 있다.한정된 예산의 범위 내에서 효율적 유지보수를 위해서는 기존의 유지보수시스템을 개선하고 대체할 유지보수시스템이 필요하다. 즉, 기존의 유지보수시스템은 인력에 의해 궤도 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 마모상태를 검측하여 검측된 값이 관리기준을 초과하면 보수작업을 투입하는 사후보수 개념에서 이를 대체할 보수유지시스템은 궤도 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;마모상태의 상태추이를 항상 모니터링 및 문제점을 자동분석하여 ...</Full>
+            <Teaser>... 요구되어지고 있다.한정된 예산의 범위 내에서 효율적 유지보수를 위해서는 기존의 유지보수시스템을 개선하고 대체할 유지보수시스템이 필요하다. 즉, 기존의 유지보수시스템은 인력에 의해 궤도 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 마모상태를 검측하여 검측된 값이 관리기준을 초과하면 보수작업을 투입하는 사후보수 개념에서 이를 대체할 보수유지시스템은 궤도 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;마모상태의 상태추이를 항상 모니터링 및 문제점을 자동분석하여 ...</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>ㆍ 개발효과○ 기술적 측면- &lt;span class="search_word"&gt;전차선&lt;/span&gt; 및 철도레일의 측정 정밀도 향상- 측정 데이터에 대한 실시간 그래픽 출력과 통계 처리 기술 확보- 측정 결과에 대한 자동 저장 및 Database화로 철도유지보수 관리시스템과의 Interface 가능 ○ 산업ㆍ경제적 측면- 수입대체에 따른 비용 절감효과- 측정 정밀도 향상과 유지 보수 및 이력 관리의 자동화로 인한 유지 보수비용 ...</Full>
+            <Teaser>ㆍ 개발효과○ 기술적 측면- &lt;span class="search_word"&gt;전차선&lt;/span&gt; 및 철도레일의 측정 정밀도 향상- 측정 데이터에 대한 실시간 그래픽 출력과 통계 처리 기술 확보- 측정 결과에 대한 자동 저장 및 Database화로 철도유지보수 관리시스템과의 Interface 가능 ○ 산업ㆍ경제적 측면- 수입대체에 따른 비용 절감효과- 측정 정밀도 향상과 유지 보수 및 이력 관리의 자동화로 인한 유지 보수비용 ...</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>레일결함; 체결부; 마모; &lt;span class="search_word"&gt;전차선&lt;/span&gt;; 레일표면</Korean>
+            <English>RAIL DEFECT; fastener; wear; contact wire; RAIL SURFACE</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>한국산업기술평가관리원</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>투아이시스(주)</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>중소기업기술혁신개발</Name>
+         </BudgetProject>
+         <BusinessName>중소기업기술개발사업</BusinessName>
+         <BigprojectTitle>철도 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 레일 자동검측 분석시스템 개발</BigprojectTitle>
+         <ManageAgency>
+            <Name>한국산업기술평가관리원</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>중소기업청</Name>
+         </Ministry>
+         <ProjectYear>2009</ProjectYear>
+         <ProjectPeriod>
+            <Start>20090501</Start>
+            <End>20100430</End>
+            <TotalStart>2009-05-01 00:00:00.0</TotalStart>
+            <TotalEnd>2011-04-30 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>S1061383</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large code="I">재료</Large>
+            <Medium code="I1" />
+            <Small code="I12" />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="H">기계</Large>
+            <Medium code="H09">자동차/철도차량</Medium>
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large>전기ㆍ전자</Large>
+            <Medium>계측기기</Medium>
+            <Small>기타 계측기기</Small>
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="05">중소기업</PerformAgent>
+         <DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+         <TechnologyLifecycle code="02">성장기</TechnologyLifecycle>
+         <Region code="08">경기도</Region>
+         <EconomicSocialGoal />
+         <SixTechnology code="010314">신호처리기술(영상·음성처리·인식·합성)</SixTechnology>
+         <ApplyArea>
+            <First code="Y08">제조업(전자부품, 컴퓨터, 영상, 음향 및 통신장비)</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>1</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>185000000</GovernmentFunds>
+         <SbusinessFunds>20000000</SbusinessFunds>
+         <TotalFunds>205000000</TotalFunds>
+         <CorporateRegistrationNumber />
+         <SeriesProject>after=1425064234</SeriesProject>
+         <PrePjtId />
+      </HIT>
+      <HIT NO="3">
+         <ProjectNumber>1615008472</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>화물취급선(CY선)용 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 국산화 개발</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>32</ManCount>
+            <WomanCount>3</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>○ 화물취급선(CY선)에 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템을 적용하여 ES (입환생략모델)구현 - 화물취급선용 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 개발 - ES 효율성 검증: 화물취급선 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 설치로 기존 하역 운송체계인 디젤기관차 입                     환 생략 시 경제적 효율성을 실제 운용상황에서 검증○ 시스템 개발 - 국산화 개발 (부품 국산화율 90% 이상) ...</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>□ 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템(Movable Catenary System)은 상시 가압되어 있는 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 설비를 회전 또는 슬라이딩 방법으로 위치를 변경시키는 설비로, &lt;span class="search_word"&gt;전차선&lt;/span&gt;로를 분리 이동시켜, 작업을 위한 안전 공간 확보 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;로 횡단 통행을 가능토록 함.□ 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템은 주로 전기철도 차량기지의 검수고에서 차량 상부의 작업을 위해 적용되고 있으며, 국내를 ...</Full>
+            <Teaser>□ 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템(Movable Catenary System)은 상시 가압되어 있는 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 설비를 회전 또는 슬라이딩 방법으로 위치를 변경시키는 설비로, &lt;span class="search_word"&gt;전차선&lt;/span&gt;로를 분리 이동시켜, 작업을 위한 안전 공간 확보 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;로 횡단 통행을 가능토록 함.□ 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템은 주로 전기철도 차량기지의 검수고에서 차량 상부의 작업을 위해 적용되고 있으며, 국내를 ...</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>... 국내외 철도수송기지 인입선에 공급하여 철도물류의 친화경, 수송비 절감효과를 통해 철도물류 개선을 통한 물류 선진화가 가능할 것으로 예상됨.○ 해외 철도물류시설 수출시장 개척 - CY선 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템의 최종제품은 국내외 최초로 개발되는 것으로  서 유사제품이 없으며 ES (Effective  Speedy Container Handling System: 정거장 입환 생략모델) 구현 시 ...</Full>
+            <Teaser>... 국내외 철도수송기지 인입선에 공급하여 철도물류의 친화경, 수송비 절감효과를 통해 철도물류 개선을 통한 물류 선진화가 가능할 것으로 예상됨.○ 해외 철도물류시설 수출시장 개척 - CY선 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템의 최종제품은 국내외 최초로 개발되는 것으로  서 유사제품이 없으며 ES (Effective  Speedy Container Handling System: 정거장 입환 생략모델) 구현 시 ...</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt;,R-BAR,화물취급선</Korean>
+            <English>Movable R-BAR,Conductor Rail,Container Yard</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>국토교통과학기술진흥원</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>(주) 재영테크</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>국토교통기술사업화지원</Name>
+         </BudgetProject>
+         <BusinessName>국토교통기술사업화지원</BusinessName>
+         <BigprojectTitle>중소기업 보유기술 사업화</BigprojectTitle>
+         <ManageAgency>
+            <Name>국토교통과학기술진흥원</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>국토교통부</Name>
+         </Ministry>
+         <ProjectYear>2016</ProjectYear>
+         <ProjectPeriod>
+            <Start>20160427</Start>
+            <End>20170426</End>
+            <TotalStart>2015-04-27 00:00:00.0</TotalStart>
+            <TotalEnd>2017-04-26 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>92264</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="EI">건설/교통</Large>
+            <Medium code="EI10">물류기술</Medium>
+            <Small code="EI1001">물류운송기술</Small>
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large code="EI">건설/교통</Large>
+            <Medium code="EI08">해양안전/교통기술</Medium>
+            <Small code="EI0899">달리 분류되지 않는 해양안전/교통기술</Small>
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="05">중소기업</PerformAgent>
+         <DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+         <TechnologyLifecycle code="01">도입기</TechnologyLifecycle>
+         <Region code="14">경상북도</Region>
+         <EconomicSocialGoal />
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <ApplyArea>
+            <First code="X08">교통/정보통신/기타 기반시설</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>2</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>407000000</GovernmentFunds>
+         <SbusinessFunds>28700000</SbusinessFunds>
+         <TotalFunds>814000000</TotalFunds>
+         <CorporateRegistrationNumber>140-81-53901</CorporateRegistrationNumber>
+         <SeriesProject>before=1615007665</SeriesProject>
+         <PrePjtId>1615007665</PrePjtId>
+      </HIT>
+      <HIT NO="4">
+         <ProjectNumber>1425064234</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>철도 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 레일 자동검측 분석시스템 개발</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>5</ManCount>
+            <WomanCount>0</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>...용 2D/3D 카메라, 조명, Laser, 이동거리장치 인터페이스, 프레임 GRABBER, 및 2D/3D 영상분석소프트웨어 및 데이터베이스를 탑재하는 시스템을 개발하여 철도레일 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;을 비접촉식 연속적으로 측정, 레일의 평탄도 및 결함, 레일체결부결함에 대한 상태 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;마모상태를 자동으로 분석하고, 분석된 데이터를 데이터베이스화하여 유지보수업무를 체계적으로 관리하는 계측시스템을 ...</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>... 요구되어지고 있다.한정된 예산의 범위 내에서 효율적 유지보수를 위해서는 기존의 유지보수시스템을 개선하고 대체할 유지보수시스템이 필요하다. 즉, 기존의 유지보수시스템은 인력에 의해 궤도 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 마모상태를 검측하여 검측된 값이 관리기준을 초과하면 보수작업을 투입하는 사후보수 개념에서 이를 대체할 보수유지시스템은 궤도 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;마모상태의 상태추이를 항상 모니터링 및 문제점을 자동분석하여 ...</Full>
+            <Teaser>... 요구되어지고 있다.한정된 예산의 범위 내에서 효율적 유지보수를 위해서는 기존의 유지보수시스템을 개선하고 대체할 유지보수시스템이 필요하다. 즉, 기존의 유지보수시스템은 인력에 의해 궤도 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 마모상태를 검측하여 검측된 값이 관리기준을 초과하면 보수작업을 투입하는 사후보수 개념에서 이를 대체할 보수유지시스템은 궤도 및 &lt;span class="search_word"&gt;전차선&lt;/span&gt;마모상태의 상태추이를 항상 모니터링 및 문제점을 자동분석하여 ...</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>· 개발효과○ 기술적 측면- &lt;span class="search_word"&gt;전차선&lt;/span&gt; 및 철도레일의 측정 정밀도 향상- 측정 데이터에 대한 실시간 그래픽 출력과 통계 처리 기술 확보- 측정 결과에 대한 자동 저장 및 Database화로 철도유지보수 관리시스템과의 Interface 가능 ○ 산업ㆍ경제적 측면- 수입대체에 따른 비용 절감효과- 측정 정밀도 향상과 유지 보수 및 이력 관리의 자동화로 인한 유지 보수비용 ...</Full>
+            <Teaser>· 개발효과○ 기술적 측면- &lt;span class="search_word"&gt;전차선&lt;/span&gt; 및 철도레일의 측정 정밀도 향상- 측정 데이터에 대한 실시간 그래픽 출력과 통계 처리 기술 확보- 측정 결과에 대한 자동 저장 및 Database화로 철도유지보수 관리시스템과의 Interface 가능 ○ 산업ㆍ경제적 측면- 수입대체에 따른 비용 절감효과- 측정 정밀도 향상과 유지 보수 및 이력 관리의 자동화로 인한 유지 보수비용 ...</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>레일결함, 체결부, 마모, &lt;span class="search_word"&gt;전차선&lt;/span&gt;, 레일표면</Korean>
+            <English>RAIL DEFECT, fastener, wear, contact wire, RAIL SURFACE</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>중소기업기술정보진흥원</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>투아이시스(주)</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>중소기업기술혁신개발</Name>
+         </BudgetProject>
+         <BusinessName>중소기업기술혁신개발</BusinessName>
+         <BigprojectTitle>철도 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 레일 자동검측 분석시스템 개발</BigprojectTitle>
+         <ManageAgency>
+            <Name>한국산업기술평가관리원</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>중소기업청</Name>
+         </Ministry>
+         <ProjectYear>2010</ProjectYear>
+         <ProjectPeriod>
+            <Start>20100501</Start>
+            <End>20110430</End>
+            <TotalStart>2009-05-01 00:00:00.0</TotalStart>
+            <TotalEnd>2011-04-30 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>S1061383</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="H">기계</Large>
+            <Medium code="H09">자동차/철도차량</Medium>
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large>전기ㆍ전자</Large>
+            <Medium>계측기기</Medium>
+            <Small>기타 계측기기</Small>
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="05">중소기업</PerformAgent>
+         <DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+         <TechnologyLifecycle code="02">성장기</TechnologyLifecycle>
+         <Region code="08">경기도</Region>
+         <EconomicSocialGoal code="07">산업생산 및 기술</EconomicSocialGoal>
+         <SixTechnology code="010314">신호처리기술(영상·음성처리·인식·합성)</SixTechnology>
+         <ApplyArea>
+            <First code="Y08">제조업(전자부품, 컴퓨터, 영상, 음향 및 통신장비)</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>2</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>200000000</GovernmentFunds>
+         <SbusinessFunds>20000000</SbusinessFunds>
+         <TotalFunds>220000000</TotalFunds>
+         <CorporateRegistrationNumber>123-81-87008</CorporateRegistrationNumber>
+         <SeriesProject>before=1425055765</SeriesProject>
+         <PrePjtId>1425055765</PrePjtId>
+      </HIT>
+      <HIT NO="5">
+         <ProjectNumber>1615001747</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>전기철도 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 전력선통신(PLC)을 활용한 실시간 안전정보공유 시스템 개발</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>17</ManCount>
+            <WomanCount>1</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>ο 전기철도 열차의 안전업무종사자(관제사, 기관사, 신호원)간에 실시간으로 안전정보를 공유할 수 있는 전용통신시스템을 개발</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>ο 철도 고압&lt;span class="search_word"&gt;전차선&lt;/span&gt;을 이용한 전력선통신 솔루션(PLC Solution) 연구- 전기철도 PLC를 위한 철도전기 Noise 분석 및  Filter 기술 연구- &lt;span class="search_word"&gt;전차선&lt;/span&gt;과 판토그라프간의 이선현상에 따른 변복조 기술 및 Data Packet Solution 기술연구- 전기차량 회생제동시 전력 위상변화에 따른 전력선통신 (PLC)의 Noise, 신호감쇄 및 신호왜곡과 ...</Full>
+            <Teaser>ο 철도 고압&lt;span class="search_word"&gt;전차선&lt;/span&gt;을 이용한 전력선통신 솔루션(PLC Solution) 연구- 전기철도 PLC를 위한 철도전기 Noise 분석 및  Filter 기술 연구- &lt;span class="search_word"&gt;전차선&lt;/span&gt;과 판토그라프간의 이선현상에 따른 변복조 기술 및 Data Packet Solution 기술연구- 전기차량 회생제동시 전력 위상변화에 따른 전력선통신 (PLC)의 Noise, 신호감쇄 및 신호왜곡과 ...</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>ο 전력선통신은 전력산업분야의 제한된 영역에서 원격검침 및 Home Network사업이 실용화되고 있으나 타 산업분야에서는 아직 연구/개발단계에 머무르고 있다.ο 본 연구는 &lt;span class="search_word"&gt;전차선&lt;/span&gt;을 매개로하는 전기철도 전력선통신 기술의 확보뿐만 아니라 안전업무의 실시간공유 통하여 전기철도의 새로운 기반기술 분야를 제시하는 효과가 기대 된다.</Full>
+            <Teaser>ο 전력선통신은 전력산업분야의 제한된 영역에서 원격검침 및 Home Network사업이 실용화되고 있으나 타 산업분야에서는 아직 연구/개발단계에 머무르고 있다.ο 본 연구는 &lt;span class="search_word"&gt;전차선&lt;/span&gt;을 매개로하는 전기철도 전력선통신 기술의 확보뿐만 아니라 안전업무의 실시간공유 통하여 전기철도의 새로운 기반기술 분야를 제시하는 효과가 기대 된다.</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>&lt;span class="search_word"&gt;전차선&lt;/span&gt; 전력선통신</Korean>
+            <English>power line communication</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>한국건설교통기술평가원</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>한국철도대학산학협력단</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>미래철도기술개발사업</Name>
+         </BudgetProject>
+         <BusinessName>미래철도기술개발사업</BusinessName>
+         <BigprojectTitle>전기철도 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 전력선통신(PLC)을 활용한 실시간 안전정보공유 시스템 개발</BigprojectTitle>
+         <ManageAgency>
+            <Name>한국건설교통기술평가원</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>국토해양부</Name>
+         </Ministry>
+         <ProjectYear>2010</ProjectYear>
+         <ProjectPeriod>
+            <Start>20101223</Start>
+            <End>20111222</End>
+            <TotalStart>2009-12-23 00:00:00.0</TotalStart>
+            <TotalEnd>2011-12-22 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>54246</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large code="Q" />
+            <Medium code="Q0" />
+            <Small code="Q00" />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="P">건설/교통</Large>
+            <Medium code="P06">철도교통기술</Medium>
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="03">대학</PerformAgent>
+         <DevelopmentPhases code="02">응용연구</DevelopmentPhases>
+         <TechnologyLifecycle code="01">도입기</TechnologyLifecycle>
+         <Region code="08">경기도</Region>
+         <EconomicSocialGoal code="13">기타</EconomicSocialGoal>
+         <SixTechnology code="010214">기타 네트워크기술</SixTechnology>
+         <ApplyArea>
+            <First code="X99">기타 공공목적</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>2</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>80000000</GovernmentFunds>
+         <SbusinessFunds>2700000</SbusinessFunds>
+         <TotalFunds>82700000</TotalFunds>
+         <CorporateRegistrationNumber>123-82-11811</CorporateRegistrationNumber>
+         <SeriesProject>before=1615001066</SeriesProject>
+         <PrePjtId>1615001066</PrePjtId>
+      </HIT>
+      <HIT NO="6">
+         <ProjectNumber>1711100771</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 유지보수성 향상을 위한 하부구동 시스템 개발</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>7</ManCount>
+            <WomanCount>3</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>○ 경량 및 단순구조 브래킷 개발○ 다양한 현장 적용 가능 연결구조 브래킷 개발○ 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 표준 사양 제정 및 검증</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>... 모터와 감속기의 고장발생에 따른 취급이 용이하여 시간과 작업자의 안전을 또한 확보하게 됨○ 다양한 현장 적용 가능 브래킷 구조 개발● 구동형 브래킷의 회전축 다관절화는 또한 설치되는 구조물이 수직이외에 호 형태도 또한 적용이 가능함○ 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 표준 사양 제정 및 검증● 고객 요구사항 분석 및 현장설치에 적합한 설계안 사양 및 도면 구성(安) 도출</Full>
+            <Teaser>... 모터와 감속기의 고장발생에 따른 취급이 용이하여 시간과 작업자의 안전을 또한 확보하게 됨○ 다양한 현장 적용 가능 브래킷 구조 개발● 구동형 브래킷의 회전축 다관절화는 또한 설치되는 구조물이 수직이외에 호 형태도 또한 적용이 가능함○ 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 표준 사양 제정 및 검증● 고객 요구사항 분석 및 현장설치에 적합한 설계안 사양 및 도면 구성(安) 도출</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>○ 기술적 파급효과● 옥외 설치에 따른 경량화, 설치 편의성과 유지보수 향상을 위한 다관절 브래킷 구조의 브래킷으로 국내외 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템에 적용한 사례가 없음.● 항만, 컨테이너 기지에서도 별도의 입환기관차가 필요 없이 전기기관차 자가입환이 가능하므로, 전기기관차를 이용한 E&amp;S시스템 구현 용이함.● 디젤기관차를 전기기관차로 대체함으로써 CO2 배출량, ...</Full>
+            <Teaser>○ 기술적 파급효과● 옥외 설치에 따른 경량화, 설치 편의성과 유지보수 향상을 위한 다관절 브래킷 구조의 브래킷으로 국내외 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템에 적용한 사례가 없음.● 항만, 컨테이너 기지에서도 별도의 입환기관차가 필요 없이 전기기관차 자가입환이 가능하므로, 전기기관차를 이용한 E&amp;S시스템 구현 용이함.● 디젤기관차를 전기기관차로 대체함으로써 CO2 배출량, ...</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>(이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt;)(컨테이너야드)(입환생략)(강체&lt;span class="search_word"&gt;전차선&lt;/span&gt;)</Korean>
+            <English>Movable Overhead Rigid Conductor System, Container Yard,E&amp;S,R-Bar</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>(사단)한국산업기술진흥협회</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>(주)재영테크</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>연구산업육성(R&amp;D)</Name>
+         </BudgetProject>
+         <BusinessName>연구산업육성(R&amp;D)</BusinessName>
+         <BigprojectTitle>기업부설연구소연계후속연구개발지원</BigprojectTitle>
+         <ManageAgency>
+            <Name>한국연구재단</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>과학기술정보통신부</Name>
+         </Ministry>
+         <ProjectYear>2019</ProjectYear>
+         <ProjectPeriod>
+            <Start>20190301</Start>
+            <End>20191231</End>
+            <TotalStart>2019-03-01 00:00:00.0</TotalStart>
+            <TotalEnd>2019-12-31 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>KOITA-NET-20190108</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="EA">기계</Large>
+            <Medium code="EA09">자동차/철도차량</Medium>
+            <Small code="EA0908">철도차량 추진/제어기술</Small>
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="05">중소기업</PerformAgent>
+         <DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+         <TechnologyLifecycle />
+         <Region code="14">경상북도 김천시</Region>
+         <EconomicSocialGoal />
+         <SixTechnology code="050116">기타 환경기반기술</SixTechnology>
+         <ApplyArea>
+            <First code="X08">교통/정보통신/기타 기반시설</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>1</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>155000000</GovernmentFunds>
+         <SbusinessFunds>31500000</SbusinessFunds>
+         <TotalFunds>260000000</TotalFunds>
+         <CorporateRegistrationNumber>140-81-53901</CorporateRegistrationNumber>
+         <SeriesProject />
+         <PrePjtId />
+      </HIT>
+      <HIT NO="7">
+         <ProjectNumber>1711047937</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>&lt;span class="search_word"&gt;전차선&lt;/span&gt; 검사를 위한 표면형 와전류 프루브 개발</Korean>
+            <English>Development of a surface type eddy current probe for contact wire inspection</English>
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>4</ManCount>
+            <WomanCount>0</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>○ &lt;span class="search_word"&gt;전차선&lt;/span&gt; 검사를 위한 와전류 프루브 실용화 모델 개발</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>○ 도시철도 T바-&lt;span class="search_word"&gt;전차선&lt;/span&gt;을 스캔하는 1 채널형 프루브 개발   - 검사 대상 &lt;span class="search_word"&gt;전차선&lt;/span&gt;과 지지구조 및 탈착, 이동 등을 고려한 시스템 그조 개발    - &lt;span class="search_word"&gt;전차선&lt;/span&gt; 직경의 10% 두께 변화 감지능 구현  - 실제와 동일/유사 환경에서 성능평가    -제품 홍보 및 장래 고객과의 교류 주선, 피드백 등을 통한 상용화 지원</Full>
+            <Teaser>○ 도시철도 T바-&lt;span class="search_word"&gt;전차선&lt;/span&gt;을 스캔하는 1 채널형 프루브 개발   - 검사 대상 &lt;span class="search_word"&gt;전차선&lt;/span&gt;과 지지구조 및 탈착, 이동 등을 고려한 시스템 그조 개발    - &lt;span class="search_word"&gt;전차선&lt;/span&gt; 직경의 10% 두께 변화 감지능 구현  - 실제와 동일/유사 환경에서 성능평가    -제품 홍보 및 장래 고객과의 교류 주선, 피드백 등을 통한 상용화 지원</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>- 다양한 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 진단 수단의 확보- 국내 철도 검측 장비 시장 진출- 다양한 결함 진단 기술을 확보하여 실무에 활용함으로써 유지보수 과학화 기여 기대- ECT &lt;span class="search_word"&gt;전차선&lt;/span&gt; 결함 판정에 대한 국제표준 제정이 향후 이루어질 경우 우리에게 유리한 방향으로 제정 가능</Full>
+            <Teaser>- 다양한 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 진단 수단의 확보- 국내 철도 검측 장비 시장 진출- 다양한 결함 진단 기술을 확보하여 실무에 활용함으로써 유지보수 과학화 기여 기대- ECT &lt;span class="search_word"&gt;전차선&lt;/span&gt; 결함 판정에 대한 국제표준 제정이 향후 이루어질 경우 우리에게 유리한 방향으로 제정 가능</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>&lt;span class="search_word"&gt;전차선&lt;/span&gt;, 와전류, 프루브, 검사, &lt;span class="search_word"&gt;전차선&lt;/span&gt;로</Korean>
+            <English>Contact wire, Eddy current, Probe, Inspection, Overhead contact lines(or Catenary)</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>한국철도기술연구원</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>한국철도기술연구원</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>한국철도기술연구원연구운영비지원</Name>
+         </BudgetProject>
+         <BusinessName>한국철도기술연구원연구운영비지원</BusinessName>
+         <BigprojectTitle>기술이전 및 실용화 촉진을 위한 산업계 연계 기술 개발</BigprojectTitle>
+         <ManageAgency>
+            <Name>산업기술연구회</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>미래창조과학부</Name>
+         </Ministry>
+         <ProjectYear>2016</ProjectYear>
+         <ProjectPeriod>
+            <Start>20160501</Start>
+            <End>20161231</End>
+            <TotalStart>2016-05-01 00:00:00.0</TotalStart>
+            <TotalEnd>2016-12-31 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>PK1606E11</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="EI">건설/교통</Large>
+            <Medium code="EI11">시설물안전/유지관리 기술</Medium>
+            <Small code="EI1101">시설물점검/진단기술</Small>
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+         <TechnologyLifecycle code="05">기타</TechnologyLifecycle>
+         <Region code="08">경기도</Region>
+         <EconomicSocialGoal />
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <ApplyArea>
+            <First code="X08">교통/정보통신/기타 기반시설</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>1</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>72772000</GovernmentFunds>
+         <SbusinessFunds>0</SbusinessFunds>
+         <TotalFunds>72772000</TotalFunds>
+         <CorporateRegistrationNumber>138-82-02013</CorporateRegistrationNumber>
+         <SeriesProject />
+         <PrePjtId />
+      </HIT>
+      <HIT NO="8">
+         <ProjectNumber>1615001066</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>전기철도 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 전력선통신(PLC)을 활용한 실시간 안전정보공유 시스템 개발</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>12</ManCount>
+            <WomanCount>1</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>ο 전기철도 열차의 안전업무종사자(관제사, 기관사, 신호원)간에 실시간으로 안전정보를 공유할 수 있는 전용통신시스템을 개발</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>ο 철도 고압&lt;span class="search_word"&gt;전차선&lt;/span&gt;을 이용한 전력선통신 솔루션(PLC Solution) 연구- 전기철도 PLC를 위한 철도전기 Noise 분석 및  Filter 기술 연구- &lt;span class="search_word"&gt;전차선&lt;/span&gt;과 판토그라프간의 이선현상에 따른 변복조 기술 및 Data Packet Solution 기술연구- 전기차량 회생제동시 전력 위상변화에 따른 전력선통신 (PLC)의 Noise, 신호감쇄 및 신호왜곡과 ...</Full>
+            <Teaser>ο 철도 고압&lt;span class="search_word"&gt;전차선&lt;/span&gt;을 이용한 전력선통신 솔루션(PLC Solution) 연구- 전기철도 PLC를 위한 철도전기 Noise 분석 및  Filter 기술 연구- &lt;span class="search_word"&gt;전차선&lt;/span&gt;과 판토그라프간의 이선현상에 따른 변복조 기술 및 Data Packet Solution 기술연구- 전기차량 회생제동시 전력 위상변화에 따른 전력선통신 (PLC)의 Noise, 신호감쇄 및 신호왜곡과 ...</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>ο &lt;span class="search_word"&gt;전차선&lt;/span&gt;을 매개로하는 전기철도 전력선통신 기술의 확보뿐만 아니라 안전업무의 실시간공유 통하여 전기철도의 새로운 기반기술 분야를 제시하는 효과가 기대 된다.   ο 철도의 기존 인프라(&lt;span class="search_word"&gt;전차선&lt;/span&gt;)를 활용하므로 저 비용 고 부가가치의 전기철도용 실시간 전용통신망 구축에 따른 사고방지 및 안전운행 향상으로 철도 위상 증대.  예) 불량視界확보에 따른 안전사고 감소ο ...</Full>
+            <Teaser>ο &lt;span class="search_word"&gt;전차선&lt;/span&gt;을 매개로하는 전기철도 전력선통신 기술의 확보뿐만 아니라 안전업무의 실시간공유 통하여 전기철도의 새로운 기반기술 분야를 제시하는 효과가 기대 된다.   ο 철도의 기존 인프라(&lt;span class="search_word"&gt;전차선&lt;/span&gt;)를 활용하므로 저 비용 고 부가가치의 전기철도용 실시간 전용통신망 구축에 따른 사고방지 및 안전운행 향상으로 철도 위상 증대.  예) 불량視界확보에 따른 안전사고 감소ο ...</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>신호결합기</Korean>
+            <English>railway feeder power line communication</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>한국건설교통기술평가원</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>한국철도대학</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>미래철도기술개발사업</Name>
+         </BudgetProject>
+         <BusinessName>미래철도기술개발사업</BusinessName>
+         <BigprojectTitle>전기철도 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 전력선통신(PLC)을 활용한 실시간 안전정보공유 시스템 개발</BigprojectTitle>
+         <ManageAgency>
+            <Name>한국건설교통기술평가원</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>국토해양부</Name>
+         </Ministry>
+         <ProjectYear>2009</ProjectYear>
+         <ProjectPeriod>
+            <Start>20091223</Start>
+            <End>20101222</End>
+            <TotalStart>2009-12-23 00:00:00.0</TotalStart>
+            <TotalEnd>2011-12-23 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>54246</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large code="Q" />
+            <Medium code="Q8" />
+            <Small code="Q8" />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="P">건설/교통</Large>
+            <Medium code="P06">철도교통기술</Medium>
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="03">대학</PerformAgent>
+         <DevelopmentPhases code="02">응용연구</DevelopmentPhases>
+         <TechnologyLifecycle code="01">도입기</TechnologyLifecycle>
+         <Region code="08">경기도</Region>
+         <EconomicSocialGoal />
+         <SixTechnology code="010214">기타 네트워크기술</SixTechnology>
+         <ApplyArea>
+            <First code="X99">기타 공공목적</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>1</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>170000000</GovernmentFunds>
+         <SbusinessFunds>0</SbusinessFunds>
+         <TotalFunds>176000000</TotalFunds>
+         <CorporateRegistrationNumber />
+         <SeriesProject>after=1615001747</SeriesProject>
+         <PrePjtId />
+      </HIT>
+      <HIT NO="9">
+         <ProjectNumber>1425099219</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>직류전기철도용 이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt;로시스템 국산화 개발</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name>NAME-REMOVED</Name>
+            <ManCount>13</ManCount>
+            <WomanCount>1</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>- 기존 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 설계 자료 조사/분석- 수요처 요구사항을 반영한 적용 시스템 사양결정- 시제품 설계 및 제작(R-bar, 구동장치, 제어 및 보호장치)- 구성품 시험/평가- Test-bed 선정을 위한 타당성 검토</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>기존 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 설계자료 조사/분석  - 핵심부품별 설계자료 조사/분석을 통한 부품 사양결정  - 특허 분석을 통한 선행기술조사1. 적용 시스템 사양결정  - 수요처 요구사항 반영 시스템의 사양을 결정하고 설계에 적용  - Test  Bed 입지 조건에 적합하도록 시스템 구성2. 시제품 설계 및 제작  - R-Bar 시스템    . 국산화 된 제품 ...</Full>
+            <Teaser>기존 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템 설계자료 조사/분석  - 핵심부품별 설계자료 조사/분석을 통한 부품 사양결정  - 특허 분석을 통한 선행기술조사1. 적용 시스템 사양결정  - 수요처 요구사항 반영 시스템의 사양을 결정하고 설계에 적용  - Test  Bed 입지 조건에 적합하도록 시스템 구성2. 시제품 설계 및 제작  - R-Bar 시스템    . 국산화 된 제품 ...</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>- 기존 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 장단점을 분석하여 현 과제에 접목시켜 효율적인 시스템을 확보할 수 있음- 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템의 기본적인 설계 능력을 확보- DC용 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템에 대한 전반적인 설계 기술과 제조 능력을 확보- 안정적인 품질의 확보 및 구동 안정성을 확보- 현장설치 전 Test bed에 대한 환경 분석 및 최적 시스템 설계 능력 확보하여 안정적인 ...</Full>
+            <Teaser>- 기존 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 장단점을 분석하여 현 과제에 접목시켜 효율적인 시스템을 확보할 수 있음- 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템의 기본적인 설계 능력을 확보- DC용 이동식 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 시스템에 대한 전반적인 설계 기술과 제조 능력을 확보- 안정적인 품질의 확보 및 구동 안정성을 확보- 현장설치 전 Test bed에 대한 환경 분석 및 최적 시스템 설계 능력 확보하여 안정적인 ...</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>이동식&lt;span class="search_word"&gt;전차선&lt;/span&gt;,강체&lt;span class="search_word"&gt;전차선&lt;/span&gt;,직류시스템,차량기지,보호장치</Korean>
+            <English>Movable Catenary System,Overhead Conductor Rail,DC System,Depot,Safety Interlocking</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>중소기업기술정보진흥원</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>주식회사재영테크</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>중소기업상용화기술개발</Name>
+         </BudgetProject>
+         <BusinessName>구매조건부신제품개발사업</BusinessName>
+         <BigprojectTitle>구매조건부신제품개발</BigprojectTitle>
+         <ManageAgency>
+            <Name>중소기업기술정보진흥원</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>중소기업청</Name>
+         </Ministry>
+         <ProjectYear>2015</ProjectYear>
+         <ProjectPeriod>
+            <Start>20151201</Start>
+            <End>20161130</End>
+            <TotalStart>2015-12-01 00:00:00.0</TotalStart>
+            <TotalEnd>2017-11-30 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>S2364845</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large code="EI">건설/교통</Large>
+            <Medium code="EI06">철도교통기술</Medium>
+            <Small code="EI0603">전철/전력기술</Small>
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large>기계ㆍ소재</Large>
+            <Medium>자동차/철도차량</Medium>
+            <Small>기타 자동차/철도차량 관련기술</Small>
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="05">중소기업</PerformAgent>
+         <DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+         <TechnologyLifecycle code="02">성장기</TechnologyLifecycle>
+         <Region code="14">경상북도</Region>
+         <EconomicSocialGoal code="02">하부구조 및 토지의 계획적 사용</EconomicSocialGoal>
+         <SixTechnology code="050218">기타 에너지기술</SixTechnology>
+         <ApplyArea>
+            <First code="X08">교통/정보통신/기타 기반시설</First>
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag>1</ContinuousFlag>
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>210000000</GovernmentFunds>
+         <SbusinessFunds>20000000</SbusinessFunds>
+         <TotalFunds>387196000</TotalFunds>
+         <CorporateRegistrationNumber>140-81-53901</CorporateRegistrationNumber>
+         <SeriesProject>after=1425106056</SeriesProject>
+         <PrePjtId />
+      </HIT>
+      <HIT NO="10">
+         <ProjectNumber>1420008552</ProjectNumber>
+         <SecretProject />
+         <ProjectTitle>
+            <Korean>고속전철 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 측정을 위한 실시간 레이저 스캔 모듈 개발 (휴대형 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 편위/높이 측정장치 개발)</Korean>
+            <English />
+         </ProjectTitle>
+         <Manager>
+            <Name>NAME-REMOVED</Name>
+         </Manager>
+         <Researchers>
+            <Name />
+            <ManCount>2</ManCount>
+            <WomanCount>1</WomanCount>
+         </Researchers>
+         <Goal>
+            <Full>고속전철에 탑재 가능한 방진 구조 - 고속전철 지붕에 탑재 가능한 동작  온도                                                                                                                         .</Full>
+            <Teaser>AB01</Teaser>
+         </Goal>
+         <Abstract>
+            <Full>기존의 레이저 스캔 모듈은 회전 스캔 방식으로서 스캔 효율이 낮아 고속 측정이 불가능하다. 회전 속도를 증가 시키는 방법은 레이저 측정속도의 한계로 인하여 적용할 수가 없으므로 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 측정 범위각 만큼만을 정확하게 스캔하는 방식이 필요하며, 이러한 방식으로 개발한 결과 제품은 곧바로 상용화하여 매출이 가능하다. 또한 압상력 측정 장비의 핵심 구성품으로 사용할 ...</Full>
+            <Teaser>기존의 레이저 스캔 모듈은 회전 스캔 방식으로서 스캔 효율이 낮아 고속 측정이 불가능하다. 회전 속도를 증가 시키는 방법은 레이저 측정속도의 한계로 인하여 적용할 수가 없으므로 &lt;span class="search_word"&gt;전차선&lt;/span&gt; 측정 범위각 만큼만을 정확하게 스캔하는 방식이 필요하며, 이러한 방식으로 개발한 결과 제품은 곧바로 상용화하여 매출이 가능하다. 또한 압상력 측정 장비의 핵심 구성품으로 사용할 ...</Teaser>
+         </Abstract>
+         <Effect>
+            <Full>- 미러 회전 방식에 비하여 고효율, 고정밀도의 측정 성능을 제공하는 미러 진동형 레이저 측정 모듈 구성 기술 확보- 고속전철 주행 안전성 향상  고속전철의 주행 중, &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 상태를 실시간으로 측정, 허용치 초과 지점을 추출하여 보수함으로써 고속전철의 안전성을 향상- 수출 전략 품목 확보  열차의 전철화는 세계적인 추세이며 이에 따라 관련 장치의 수요 또한 ...</Full>
+            <Teaser>- 미러 회전 방식에 비하여 고효율, 고정밀도의 측정 성능을 제공하는 미러 진동형 레이저 측정 모듈 구성 기술 확보- 고속전철 주행 안전성 향상  고속전철의 주행 중, &lt;span class="search_word"&gt;전차선&lt;/span&gt;의 상태를 실시간으로 측정, 허용치 초과 지점을 추출하여 보수함으로써 고속전철의 안전성을 향상- 수출 전략 품목 확보  열차의 전철화는 세계적인 추세이며 이에 따라 관련 장치의 수요 또한 ...</Teaser>
+         </Effect>
+         <Keyword>
+            <Korean>고속전철,&lt;span class="search_word"&gt;전차선&lt;/span&gt;,거리측정,스캐너,레이저</Korean>
+            <English>Laser,Range,Finder,Mirror Scanner</English>
+         </Keyword>
+         <OrderAgency>
+            <Name>구미1대학</Name>
+         </OrderAgency>
+         <ResearchAgency>
+            <Name>호남대학교</Name>
+         </ResearchAgency>
+         <BudgetProject>
+            <Name>산학연공동기술개발</Name>
+         </BudgetProject>
+         <BusinessName>산학연공동기술개발</BusinessName>
+         <BigprojectTitle />
+         <ManageAgency>
+            <Name>중소기업기술정보진흥원</Name>
+         </ManageAgency>
+         <Ministry>
+            <Name>중소기업청</Name>
+         </Ministry>
+         <ProjectYear>2005</ProjectYear>
+         <ProjectPeriod>
+            <Start>20050701</Start>
+            <End>20060401</End>
+            <TotalStart>2005-07-01 00:00:00.0</TotalStart>
+            <TotalEnd>2006-04-01 00:00:00.0</TotalEnd>
+         </ProjectPeriod>
+         <OrganizationPNumber>00016433</OrganizationPNumber>
+         <ScienceClass type="old">
+            <Large code="I">전기·전자</Large>
+            <Medium code="I" />
+            <Small code="I" />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="1">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="2">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <ScienceClass type="new" sequence="3">
+            <Large />
+            <Medium />
+            <Small />
+         </ScienceClass>
+         <MinistryScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </MinistryScienceClass>
+         <TempScienceClass>
+            <Large />
+            <Medium />
+            <Small />
+         </TempScienceClass>
+         <PerformAgent code="03">대학</PerformAgent>
+         <DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+         <TechnologyLifecycle code="01">도입기</TechnologyLifecycle>
+         <Region code="05">광주광역시</Region>
+         <EconomicSocialGoal code="07">산업생산 및 기술</EconomicSocialGoal>
+         <SixTechnology code="010000">IT분야</SixTechnology>
+         <ApplyArea>
+            <First />
+            <Second />
+            <Third />
+         </ApplyArea>
+         <ContinuousFlag />
+         <PolicyProjectFlag>N</PolicyProjectFlag>
+         <GovernmentFunds>17000000</GovernmentFunds>
+         <SbusinessFunds />
+         <TotalFunds>34000000</TotalFunds>
+         <CorporateRegistrationNumber />
+         <SeriesProject />
+         <PrePjtId />
+      </HIT>
+   </RESULTSET>
+</RESULT>

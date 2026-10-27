@@ -2,6 +2,8 @@
 
     python -m tests.tools.record_fixture scienceon --query "철도 궤도" --target ARTI --rows 10
     python -m tests.tools.record_fixture ntis --query 궤도 --rows 10
+    python -m tests.tools.record_fixture ntis_reports --query "철도 궤도" --rows 10
+    python -m tests.tools.record_fixture ntis_insights --query 1615007833  # 과제번호: 성과 2·연관 1
 
 보안 D:
 - 응답 본문에서 키·client_id·MAC·accounts·발급된 토큰 값(원문·URL 인코딩)을 전부 REDACTED 로 바꾼다.
@@ -11,6 +13,9 @@
 - ScienceON 레코드의 사람 이름 항목(Author·Author2·Contributors)은 값을 NAME-REMOVED 로 바꾸고,
   출원인(Applicants)은 기관으로 보이는 이름만 남긴다(개인 출원인은 지움). fixture 에 개인 이름을
   커밋하지 않는다.
+- NTIS 는 Accept 에 json 이 있으면 본문을 JSON 문자열로 감싸 보낸다 → 저장 전에 푼다
+  (unwrap_json_string). 사람 이름 요소(Manager/Name·Researchers/Name·ManagerName·Author·Inventor)는
+  NAME-REMOVED, 특허 Registrant 는 기관으로 보일 때만 남긴다.
 """
 
 from __future__ import annotations
@@ -27,8 +32,10 @@ from urllib.parse import parse_qs, quote, quote_plus, urlsplit
 
 import httpx
 
+from rra.adapters.sources.ntis.client import unwrap_json_string
 from rra.composition import (
     build_kipris_source,
+    build_ntis_insight_source,
     build_ntis_report_source,
     build_ntis_source,
     build_scienceon_source,
@@ -142,14 +149,16 @@ def strip_person_names(body: bytes) -> bytes:
 
 
 _NTIS_NAME = re.compile(
-    r"<(?P<tag>Manager|ManagerName|Author|Inventor|Researchers)>(?P<body>.*?)</(?P=tag)>", re.S
+    r"<(?P<tag>Manager|ManagerName|Author|Inventor|Researchers|Registrant)>(?P<body>.*?)</(?P=tag)>",
+    re.S,
 )
 
 
 def strip_ntis_names(body: bytes) -> bytes:
     """NTIS XML 의 사람 이름 요소(연구책임자 Manager/Name·ManagerName, 참여연구원 Researchers/Name,
-    저자 Author)를
-    NAME-REMOVED 로. 기관명 요소(ResearchAgency·PublicationAgency 등)는 그대로."""
+    저자·발명자 Author·Inventor)를 NAME-REMOVED 로. 특허 Registrant(출원인)는 기관으로 보일 때만
+    남긴다. 기관명 요소(ResearchAgency·PublicationAgency·PerformAgency 등)는 그대로."""
+    from rra.adapters.sources._orgs import is_organization
 
     def repl(m: re.Match[str]) -> str:
         tag, inner = m.group("tag"), m.group("body")
@@ -161,6 +170,9 @@ def strip_ntis_names(body: bytes) -> bytes:
             if "<Name>" not in inner and inner.strip():
                 inner = "NAME-REMOVED"
             return f"<{tag}>{inner}</{tag}>"
+        if tag == "Registrant":
+            names = [n.strip() for n in re.split(r"\s*[;|]\s*", inner) if n.strip()]
+            return f"<{tag}>{';'.join(n for n in names if is_organization(n))}</{tag}>"
         return f"<{tag}>{'NAME-REMOVED' if inner.strip() else ''}</{tag}>"
 
     return _NTIS_NAME.sub(repl, body.decode("utf-8", "replace")).encode("utf-8")
@@ -184,6 +196,7 @@ async def record(
     inner: httpx.AsyncBaseTransport | None = None,
     resolver=None,
     out_root: Path = ROOT,
+    label: str | None = None,
 ) -> list[Path]:
     settings = settings or load_settings()
     transport = RecordingTransport(inner)
@@ -204,6 +217,10 @@ async def record(
         from rra.adapters.sources._xml import find_records, local
 
         print("record_tag 후보:", sorted({local(r.tag) for r in find_records(root)}))
+    elif source == "ntis_insights":  # query = 과제번호. 성과검색(rpaper·rpatent) + 연관콘텐츠
+        src = build_ntis_insight_source(settings, transport=transport, resolver=resolver)
+        src.display_count = max(1, min(rows, 100))
+        print("성과:", len(await src.outcomes(query)), "연관:", len(await src.related(query)))
     else:
         src = build_ntis_source(settings, transport=transport, resolver=resolver)
         root = await src._fetch_root(query, 1, count=rows)  # noqa: SLF001 - 녹화 전용
@@ -213,7 +230,8 @@ async def record(
     await src.aclose()
 
     secrets = secret_values(settings, transport.exchanges)
-    out_dir = out_root / ("ntis" if source == "ntis_reports" else source)
+    ntis = source in ("ntis", "ntis_reports", "ntis_insights")
+    out_dir = out_root / ("ntis" if ntis else source)
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%d")
     saved: list[Path] = []
@@ -222,13 +240,19 @@ async def record(
             path = out_dir / "token_shape.json"
             path.write_text(json.dumps(token_shape(ex["body"]), indent=2) + "\n", encoding="utf-8")
         else:
-            kind = "report" if source == "ntis_reports" else (target or "project")
-            name = f"{'ntis' if source == 'ntis_reports' else source}_{kind}_{stamp}_{i}"
-            path = out_dir / f"{name}.xml"
+            if ntis:
+                name, ext = _ntis_name(source, ex, stamp, label or str(i))
+            else:
+                name, ext = f"{source}_{target or 'project'}_{stamp}_{i}", "xml"
+            path = out_dir / f"{name}.{ext}"
             body = redact(ex["body"], secrets)
+            wrapped = False
+            if ntis:  # Accept json → XML(또는 JSON)을 JSON 문자열로 감싸 보낸다. 푼 꼴로 저장
+                unwrapped = unwrap_json_string(body)
+                wrapped, body = unwrapped is not body, redact(unwrapped, secrets)
             if source == "scienceon":
                 body = strip_person_names(body)
-            elif source == "ntis":
+            elif ntis and ext == "xml":
                 body = strip_ntis_names(body)
             path.write_bytes(body)
             meta = {
@@ -238,6 +262,7 @@ async def record(
                 "rows": rows,
                 "status": ex["status"],
                 "content_type": ex["content_type"],
+                "json_wrapped": wrapped,
                 "recorded_at": stamp,
             }
             (out_dir / f"{name}.meta.json").write_text(
@@ -248,14 +273,34 @@ async def record(
     return saved
 
 
+def _ntis_name(source: str, ex: dict[str, Any], stamp: str, label: str) -> tuple[str, str]:
+    """NTIS fixture 파일 이름 — 과제 `ntis_project_<날짜>_<label>`, 보고서 `ntis_report_…`, 성과
+    `ntis_outcome_<날짜>_<collection>`, 연관콘텐츠 `ntis_related_<날짜>` (JSON). label 은 `--label`
+    (ASCII, 질의 구분용) 또는 교환 순번."""
+    label = re.sub(r"[^A-Za-z0-9]", "", label)[:20] or "0"
+    if source == "ntis_reports":
+        return f"ntis_report_{stamp}_{label}", "xml"
+    if source == "ntis":
+        return f"ntis_project_{stamp}_{label}", "xml"
+    if ex["path"].endswith("ConnectionContent"):
+        return f"ntis_related_{stamp}", "json"
+    collection = re.sub(r"[^a-z]", "", ex["query"].get("collection", "").lower()) or label
+    return f"ntis_outcome_{stamp}_{collection}", "xml"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser("record_fixture")
-    parser.add_argument("source", choices=["scienceon", "ntis", "ntis_reports", "kipris"])
-    parser.add_argument("--query", required=True)
+    parser.add_argument(
+        "source", choices=["scienceon", "ntis", "ntis_reports", "ntis_insights", "kipris"]
+    )
+    parser.add_argument("--query", required=True, help="검색어 (ntis_insights 는 과제번호)")
     parser.add_argument("--target", help="ScienceON: ARTI | REPORT | PATENT")
     parser.add_argument("--rows", type=int, default=10)
+    parser.add_argument("--label", help="NTIS 파일 이름 꼬리 (ASCII, 질의 구분용)")
     args = parser.parse_args(argv)
-    asyncio.run(record(args.source, args.query, args.target, max(1, min(args.rows, 50))))
+    asyncio.run(
+        record(args.source, args.query, args.target, max(1, min(args.rows, 50)), label=args.label)
+    )
     return 0
 
 

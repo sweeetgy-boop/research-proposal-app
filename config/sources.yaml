@@ -123,7 +123,8 @@ scienceon:
   timeout: {connect: 10, read: 30}
 ntis:
   # NTIS 국가R&D OpenAPI (rndopen apprvKey, .env RRA_NTIS_KEY). 승인 서비스 4개(2026-10-27, 유효 2027-05-27): 과제검색·성과검색·
-  # 연구보고서 검색·연관콘텐츠 추천. 형식은 공개 매뉴얼(과제검색 2021-02-08, 연구보고서 2021-12-28; tests/fixtures/ntis/README.md).
+  # 연구보고서 검색·연관콘텐츠 추천. 형식은 2026-10-27 실응답으로 확정(tests/fixtures/ntis/README.md) — 공개 매뉴얼과 같다.
+  # 응답은 Accept json 때문에 JSON 문자열로 감싸여 온다(어댑터가 푼다). 과제 "철도 궤도" 1,087건·"전차선" 193건, 보고서 202건.
   # 호출 IP 제한: 활용신청에 등록한 서버 IP 에서만 받는다(다르면 HTTP 200 + "접근 허용 IP가 아닙니다").
   # 등록 IP 목록(2026-10-27). 바뀌면 여기와 활용신청 둘 다 고친다 — `rra sources check --source ntis` 가 대조한다.
   base_url: https://www.ntis.go.kr
@@ -133,10 +134,10 @@ ntis:
   report_path: /rndopen/openApi/rresearchpdf/       # 연구보고서 검색 (매뉴얼 p.6). query·searchField·displayCount·returnType
   outcome_path: /rndopen/openApi/public_result      # 성과검색 (공개 구현 기준 — 실호출로 확정). collection rpaper|rpatent
   related_path: /rndopen/openApi/ConnectionContent  # 연관콘텐츠 추천 (공개 구현 기준, JSON). pjtId
-  record_tag: HIT           # 매뉴얼 응답명세: RESULT > RESULTSET > HIT (NO 속성). 총건수 TOTALHITS
+  record_tag: HIT           # 실응답 확정: RESULT > RESULTSET > HIT (NO 속성). 총건수 TOTALHITS (성과검색은 HIT SITID=PAP|PAT)
   search_field: BI          # 전체(과제명·기관·키워드·연구목표·내용·기대효과)
   # 철도 분야 질의 13개 (openalex.queries 분야와 같은 순서, 한국어). 과제검색은 띄어쓰기 = AND 라 2어절 이내로 짧게.
-  # 총건수는 IP 등록 뒤 `rra sources check` / 녹화 도구로 채운다. 예상(질의당 상한 per_query_limit 150 × 13 = 1,950, 중복 제거 전).
+  # 총건수(2026-10-27): 철도 궤도 1,087 · 전차선 193 (나머지는 적재 때 로그). 질의당 상한 per_query_limit 150 × 13 = 1,950(중복 제거 전).
   queries:
     - 철도 궤도              # 궤도
     - 궤도 검측              # 궤도검측

@@ -851,6 +851,7 @@ def build_ntis_source(settings: Settings | None = None, *, transport=None, resol
         search_field=str(cfg.get("search_field", "BI")),
         display_count=int(cfg.get("display_count", 100)),
         record_tag=str(cfg.get("record_tag") or "") or None,
+        per_query_limit=int(cfg["per_query_limit"]) if cfg.get("per_query_limit") else None,
     )
 
 

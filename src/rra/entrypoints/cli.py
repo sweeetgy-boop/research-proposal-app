@@ -2061,8 +2061,10 @@ def _record_tag_hints(r: dict) -> list[str]:
     candidates = result.get("record_tag_candidates") or []
     if not candidates:
         return []
+    # ntis_reports·ntis_insights 는 ntis 설정을 같이 쓴다 (composition 과 같은 대응)
+    cfg_name = "ntis" if r["source"] in ("ntis_reports", "ntis_insights") else r["source"]
     try:
-        configured = str(source_config(load_settings(), r["source"]).get("record_tag") or "")
+        configured = str(source_config(load_settings(), cfg_name).get("record_tag") or "")
     except Exception:  # 설정을 읽을 수 없으면(테스트 스텁 등) 진단을 생략한다
         return []
     safe = [_safe(c, 40) for c in candidates[:5]]

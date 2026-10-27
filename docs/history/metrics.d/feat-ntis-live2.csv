@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,(feat/ntis-live2),NTIS 실응답 확정(레인 R-NTIS),1770,1383,8,7768,8388,16334,7487,272,,,,,,,,,,ParseError 원인=Accept json → XML 을 JSON 문자열로 감쌈(unwrap) + 보고서 DocUrl 맨 &; 실응답 fixture 6종(과제 20·보고서 10·성과 12·연관 10, 이름 NAME-REMOVED); sources check ntis/ntis_reports/ntis_insights ok(1087/202/12·10); NTIS 호출 17회
