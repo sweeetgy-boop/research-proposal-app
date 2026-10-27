@@ -9,6 +9,7 @@ import type {
   DraftOut,
   EditRequest,
   FinalizeIn,
+  NtisOutcomesOut,
   OutlineOut,
   PrecheckOut,
   ProposalRequest,
@@ -66,6 +67,9 @@ export const applyRecommendation = (id: string, index: number) =>
   });
 export const differentiate = (req: ProposalRequest) =>
   request<PrecheckOut>(`${V}/precheck/differentiate`, { method: "POST", body: req });
+/** ② NTIS 과제 주요 성과(참고용)·NTIS 추천 — 알림에 tier national_rnd 가 있을 때만 1회. 키 없으면 503. */
+export const ntisOutcomes = (req: ProposalRequest) =>
+  request<NtisOutcomesOut>(`${V}/precheck/ntis-outcomes`, { method: "POST", body: req });
 
 // ── run ───────────────────────────────────────
 export const submitRun = (body: RunIn) => request<RunState>(`${V}/runs`, { method: "POST", body });

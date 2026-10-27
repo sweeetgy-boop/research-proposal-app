@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { UntrustedText } from "@/components/UntrustedText";
 import { EmptyState } from "@/components/EmptyState";
 import { ShieldCheck } from "lucide-react";
+import { tierLabel } from "@/lib/tiers";
 
 export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
   if (alerts.length === 0) {
@@ -25,7 +26,7 @@ export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
         <tbody>
           {alerts.map((a) => (
             <tr key={a.doc_id} className="border-t align-top">
-              <td className="px-3 py-2 whitespace-nowrap">{a.tier_label}</td>
+              <td className="px-3 py-2 whitespace-nowrap">{tierLabel(a)}</td>
               <td className="px-3 py-2">
                 <UntrustedText text={a.title} className="font-medium" />
                 <p className="text-xs text-muted-foreground">{a.doc_id}{a.basis ? ` · ${a.basis}` : ""}</p>

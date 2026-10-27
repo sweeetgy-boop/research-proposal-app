@@ -1179,8 +1179,10 @@ def build_fake_parts(settings: Settings):
         InMemoryRunStore,
         NoopRunLog,
         ScriptedComposeLLM,
+        ScriptedNtisInsights,
         ScriptedReviewLLM,
     )
+    from rra.application.usecases.ntis_insights import NtisProjectInsights
     from rra.domain.models import Chunk, Document
 
     repo = InMemoryDocumentRepository()
@@ -1206,6 +1208,19 @@ def build_fake_parts(settings: Settings):
                 orgs=["external"],
                 text_basis="abstract",
             ),
+            # NTIS 과제검색 문서 → 유사과제 티어 national_rnd (② "주요 성과"·"NTIS 추천" e2e 경로).
+            # 청크 없이 문서만 — precheck(find_similar) 에는 잡히고 생성 근거(hybrid_search) 에는
+            # 안 들어간다
+            Document(
+                doc_id="ntis:fake-1",
+                source="ntis",
+                doc_type="rnd_project",
+                title="궤도 틀림 진행 예측 국가R&D 과제 (가짜)",
+                abstract="궤도 틀림 진행 속도를 예측해 보수 우선순위를 정하는 국가R&D 과제 요약",
+                orgs=["external"],
+                text_basis="abstract",
+                raw={"kind": "national_rnd", "project_no": "fake-1"},
+            ),
         ],
         [
             Chunk(
@@ -1226,12 +1241,14 @@ def build_fake_parts(settings: Settings):
         ],
         when="2026-10-26",
     )
+    ntis = ScriptedNtisInsights()
     return {
         "repo": repo,
         "llm": ScriptedComposeLLM(),
         "review_llm": ScriptedReviewLLM(),
         "store": InMemoryRunStore(),
         "run_log": NoopRunLog(),
+        "ntis_insights": NtisProjectInsights(ntis, ntis, repo=repo),
     }
 
 
@@ -1286,7 +1303,7 @@ def build_api(
         structure=build_structurer(settings, llm=llm),
         compare=build_comparer(settings, repo=repo, precheck=precheck),
         brief=build_briefer(settings, repo=repo, llm=llm),
-        ntis_insights=build_ntis_insights(settings, repo=repo),
+        ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
