@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 IMAGE_TYPES = ("체계도·조직도·흐름도", "표", "그래프", "글자 이미지", "기타")
 ImageType = Literal["체계도·조직도·흐름도", "표", "그래프", "글자 이미지", "기타"]
-ReadStatus = Literal["argon", "ocr_only", "failed", "skipped"]
+ReadStatus = Literal["argon", "ocr_only", "failed", "skipped", "photo"]
 # 처리 순서 그룹 — 경영목표·전략·비전 > ESG·정책(사전정보공표·경영공시) > 통계 > 브로슈어
 # > 보도자료 > 기타
 # (config/vision.yaml order)

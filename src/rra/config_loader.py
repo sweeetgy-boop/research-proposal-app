@@ -191,6 +191,7 @@ def vision_config(settings: Settings) -> dict[str, Any]:
     ocr = cfg.get("ocr") or {}
     return {
         "filter": dict(cfg.get("filter") or {}),
+        "photo": dict(cfg.get("photo") or {}),
         "cap": int(cfg.get("cap", 2000)),
         "snapshots_dir": str(paths.get("snapshots", "data/korail_web/snapshots")),
         "store_dir": str(paths.get("store", "data/korail_web")),
