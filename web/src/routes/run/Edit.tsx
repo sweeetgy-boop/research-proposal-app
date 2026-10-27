@@ -1,12 +1,14 @@
 import * as React from "react";
 import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { CloudOff, CloudUpload, Save } from "lucide-react";
+import { CloudOff, CloudUpload, MessageCircleQuestion, Save, Wand2 } from "lucide-react";
 import { useRunContext } from "./useRunContext";
 import { keys, useDraft, useDraftReview, useFinalReview, useSaveVersion, useVersion, useWorking } from "@/api/hooks";
 import { deleteWorking, putWorking } from "@/api/endpoints";
 import { isApiError } from "@/api/client";
 import { DraftEditor } from "@/features/draft/DraftEditor";
+import { SectionRewrite } from "@/features/rewrite/SectionRewrite";
+import { SectionQuestions } from "@/features/rewrite/SectionQuestions";
 import { countChanges, emptyEditState, fromWorking, isDirty, toEditRequest, toWorking, usableRevisions, type EditState } from "@/features/draft/editModel";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -17,6 +19,7 @@ import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
+import { sectionTitle } from "@/lib/sections";
 
 const EDITABLE = new Set(["drafted", "editing", "final_reviewed"]);
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "saved"; at: string } | { kind: "error"; error: unknown };
@@ -38,6 +41,8 @@ export default function Edit() {
   const [autosave, setAutosave] = React.useState<SaveState>({ kind: "idle" });
   const [conflict, setConflict] = React.useState<unknown>(null);
   const [offeredWorking, setOfferedWorking] = React.useState(false);
+  const [rewriteKey, setRewriteKey] = React.useState<string | null>(null);
+  const [questionsKey, setQuestionsKey] = React.useState<string | null>(null);
   const editable = EDITABLE.has(run.status) && !run.legacy;
 
   const revisions = React.useMemo(
@@ -167,7 +172,44 @@ export default function Edit() {
 
       <ProblemBanner error={save.error && !(isApiError(save.error) && save.error.status === 409) ? save.error : null} />
 
-      <DraftEditor sections={sections} annotations={version.data?.annotations ?? []} revisions={revisions} state={state} onChange={setState} disabled={!editable} />
+      <DraftEditor
+        sections={sections}
+        annotations={version.data?.annotations ?? []}
+        revisions={revisions}
+        state={state}
+        onChange={setState}
+        disabled={!editable}
+        sectionTools={(sec) =>
+          editable && sec.key !== "title" ? (
+            <span className="flex flex-wrap gap-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => setRewriteKey(sec.key)} aria-label={`${sectionTitle(sec.key)} AI 다시 쓰기`}>
+                <Wand2 aria-hidden="true" />
+                AI 다시 쓰기
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setQuestionsKey(sec.key)} aria-label={`${sectionTitle(sec.key)} 보완 질문`}>
+                <MessageCircleQuestion aria-hidden="true" />
+                보완 질문
+              </Button>
+            </span>
+          ) : null
+        }
+      />
+
+      <SectionRewrite
+        runId={id}
+        sectionKey={rewriteKey}
+        baseVersion={current ?? 0}
+        dirty={dirty}
+        onClose={() => setRewriteKey(null)}
+        onApplied={(v) => {
+          setRewriteKey(null);
+          setState(emptyEditState());
+          setAutosave({ kind: "idle" });
+          toast(v === current ? "바뀐 내용이 없어 새 버전을 만들지 않았습니다." : `AI 다시 쓰기를 v${v} 으로 반영했습니다.`, "success");
+          refetch();
+        }}
+      />
+      <SectionQuestions runId={id} sectionKey={questionsKey} onClose={() => setQuestionsKey(null)} />
 
       <div className="sticky bottom-0 -mx-4 flex flex-wrap items-end gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur">
         <div className="min-w-0 flex-1 space-y-1">

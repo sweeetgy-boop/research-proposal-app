@@ -2,8 +2,9 @@
  *  요청 본문 타입은 생성된 schema.d.ts(components.schemas)에서 가져온다. */
 import type { components } from "./schema";
 
-export type ProposalRequest = components["schemas"]["ProposalRequest"];
-export type RunIn = components["schemas"]["RunIn"];
+/** main 의 ProposalRequest 에는 아직 `supplement`(보강 질문 답)가 없다(feat/draft-quality 에만). 서버는 모르는 칸을 무시한다. */
+export type ProposalRequest = components["schemas"]["ProposalRequest"] & { supplement?: string };
+export type RunIn = components["schemas"]["RunIn"] & { supplement?: string };
 export type EditRequest = components["schemas"]["EditRequest"];
 export type SentenceEdit = components["schemas"]["SentenceEdit"];
 export type SectionEdit = components["schemas"]["SectionEdit"];
@@ -443,4 +444,218 @@ export interface OutlineOut {
   run_id: string;
   notice: string;
   outline: Record<string, unknown> | unknown[];
+}
+
+// ── U1~U8 (feat/usability, 2026-10-27) ─────────────────────────
+export type StructureIn = components["schemas"]["StructureIn"];
+export type StructureMergeIn = components["schemas"]["StructureMergeIn"];
+export type EvidenceDecisionRequest = components["schemas"]["EvidenceDecisionRequest"];
+export type EvidenceDecisionIn = components["schemas"]["EvidenceDecision"];
+export type RewriteApplyIn = components["schemas"]["RewriteApplyIn"];
+export type SectionAnswersIn = components["schemas"]["SectionAnswersIn"];
+export type FeedbackIn = components["schemas"]["FeedbackIn"];
+
+export type StructureField = "current_state" | "root_cause" | "limitation" | "goal";
+
+export interface StructureQuestion {
+  field: StructureField;
+  label: string;
+  question: string;
+  reason: "empty" | "short" | string;
+}
+
+/** POST /v1/ideas/structure · /merge */
+export interface StructureOut {
+  notice: string;
+  fields: Record<StructureField, string>;
+  labels: Record<string, string>;
+  questions: StructureQuestion[];
+  skip_allowed: boolean;
+  complete: boolean;
+  provider: string | null;
+  model: string | null;
+  parse_failed: boolean;
+}
+
+export type ComparisonAspect = "objective" | "method" | "scope" | "outcome" | "differentiation";
+
+export interface ComparisonColumn {
+  doc_id: string | null;
+  title: string;
+  tier: string | null;
+  similarity: number | null;
+  blocking: boolean;
+  basis: string | null;
+  title_only: boolean;
+  cells: Record<ComparisonAspect | string, string>;
+}
+
+/** POST /v1/precheck/comparison */
+export interface ComparisonOut {
+  notice: string;
+  blocking: boolean;
+  alerts: OverlapAlert[];
+  comparison: {
+    aspects: { key: ComparisonAspect | string; label: string }[];
+    proposal: ComparisonColumn;
+    projects: ComparisonColumn[];
+  };
+}
+
+export interface BriefItem {
+  doc_id: string;
+  chunk_id: string;
+  title: string;
+  source: string;
+  doc_type: string;
+  year: number | null;
+  basis: string | null;
+  summary: string;
+  summary_missing: boolean;
+}
+
+export interface GapCandidate {
+  text: string;
+  evidence: string[];
+}
+
+/** POST /v1/precheck/brief */
+export interface BriefOut {
+  notice: string;
+  skipped_reason: string | null;
+  provider: string | null;
+  model: string | null;
+  fallback_local: boolean;
+  transfer: Transfer;
+  items: BriefItem[];
+  years: Record<string, number>;
+  keywords: string[];
+  gap_label: string;
+  gaps: GapCandidate[];
+  discarded: Record<string, string>[];
+}
+
+export type EvidenceSupport = "지지" | "부분" | "불일치" | string;
+export type DecisionAction = "approve" | "replace" | "exclude";
+
+export interface EvidenceItem {
+  evidence_id: string;
+  doc_id: string;
+  chunk_id: string;
+  text: string;
+  title: string | null;
+  source: string;
+  source_label: string;
+  orgs: string[];
+  year: number | null;
+  ingested_at: string | null;
+  basis: string | null;
+  basis_label: string;
+  needs_check: boolean;
+  needs_check_label: string | null;
+  support: EvidenceSupport | null;
+  decision: DecisionAction | null;
+  in_snapshot: boolean;
+  trust: "untrusted";
+}
+
+/** GET /v1/runs/{id}/sentences/{sid}/evidence */
+export interface EvidenceOut {
+  run_id: string;
+  sentence_id: string;
+  notice: string;
+  evidence: EvidenceItem[];
+}
+
+export interface EvidenceDecisionRecord {
+  sentence_id: string;
+  evidence_id: string;
+  action: DecisionAction;
+}
+
+/** POST /v1/runs/{id}/evidence-decisions · …/rewrite/apply → 상태 + 버전 */
+export interface VersionWithStatus extends VersionOut {
+  run_id: string;
+  status: RunStatus;
+  evidence_decisions?: EvidenceDecisionRecord[];
+}
+
+export interface RewriteSentence {
+  text: string;
+  evidence: string[];
+  origin: SentenceOrigin;
+  preserved?: boolean;
+}
+
+export interface RewriteRow {
+  index: number;
+  current: RewriteSentence | null;
+  candidate: RewriteSentence | null;
+}
+
+/** POST /v1/runs/{id}/sections/{key}/rewrite */
+export interface RewriteOut {
+  run_id: string;
+  notice: string;
+  section: string;
+  created_at: string | null;
+  dropped: number;
+  rows: RewriteRow[];
+  candidate: { index: number; text: string; evidence: string[]; origin: SentenceOrigin; source: SentenceSource }[];
+  choices: string[];
+}
+
+/** GET /v1/runs/{id}/sections/{key}/questions */
+export interface SectionQuestionsOut {
+  run_id: string;
+  section: string;
+  questions: { element: string; question: string }[];
+  coverage: number | null;
+  answers: Record<string, string>;
+}
+
+export interface SectionAnswersOut {
+  run_id: string;
+  section: string;
+  answers: Record<string, string>;
+}
+
+export type CheckTarget = `section:${string}` | `sentence:${string}` | `route:${string}` | null;
+
+export interface SubmitCheckItem {
+  key: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+  count: number;
+  target: CheckTarget;
+  target_label: string | null;
+  /** 항목별 추가 정보 (strategy_source: source·options, evidence_approval: rate …) */
+  [extra: string]: unknown;
+}
+
+/** GET /v1/runs/{id}/submit-check */
+export interface SubmitCheckOut {
+  run_id: string;
+  ok: boolean;
+  failing: number;
+  items: SubmitCheckItem[];
+}
+
+export interface UsageRecord {
+  run_id: string;
+  step_seconds: Record<string, number>;
+  total_seconds: number;
+  checklist_coverage: number | null;
+  evidence: { approve: number; replace: number; exclude: number; total: number; ratios: Record<string, number> };
+  rewrites: number;
+  hwpx_success: boolean | null;
+  satisfaction: { score: number; comment: string; recorded_at: string | null } | null;
+  updated_at: string | null;
+}
+
+/** GET /v1/runs/{id}/usage · POST …/feedback */
+export interface UsageOut {
+  run_id: string;
+  usage: UsageRecord | null;
 }

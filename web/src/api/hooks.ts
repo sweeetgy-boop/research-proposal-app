@@ -1,7 +1,7 @@
 /** TanStack Query 훅. 키는 ["run", id, …] 로 묶어 저장·복원 뒤 한꺼번에 무효화한다. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "./endpoints";
-import type { EditRequest, FinalizeIn, ProposalRequest, RunState } from "./types";
+import type { EditRequest, EvidenceDecisionRequest, FeedbackIn, FinalizeIn, ProposalRequest, RewriteApplyIn, RunState } from "./types";
 import { isApiError } from "./client";
 
 export const keys = {
@@ -165,4 +165,72 @@ export function useSubmitRun() {
 
 export function usePrecheck() {
   return useMutation({ mutationFn: (req: ProposalRequest) => api.precheck(req) });
+}
+
+// ── U1~U8 ─────────────────────────────────────
+export const usabilityKeys = {
+  evidence: (id: string, sid: string) => ["run", id, "evidence", sid] as const,
+  questions: (id: string, key: string) => ["run", id, "questions", key] as const,
+  submitCheck: (id: string) => ["run", id, "submit-check"] as const,
+  usage: (id: string) => ["run", id, "usage"] as const,
+};
+
+/** 503(기능 꺼짐·LLM 없음)은 "없음" 으로 다루는 조회 */
+function unavailable<T>(fn: () => Promise<T>): () => Promise<T | null> {
+  return async () => {
+    try {
+      return await fn();
+    } catch (e) {
+      if (isApiError(e) && (e.status === 503 || e.status === 404)) return null;
+      throw e;
+    }
+  };
+}
+
+export function useSentenceEvidence(id: string, sid: string | null) {
+  return useQuery({
+    queryKey: usabilityKeys.evidence(id, sid ?? ""),
+    queryFn: () => api.sentenceEvidence(id, sid ?? ""),
+    enabled: sid !== null,
+  });
+}
+
+export function useSectionQuestions(id: string, key: string | null) {
+  return useQuery({
+    queryKey: usabilityKeys.questions(id, key ?? ""),
+    queryFn: unavailable(() => api.sectionQuestions(id, key ?? "")),
+    enabled: key !== null,
+  });
+}
+
+export function useSubmitCheck(id: string, enabled = true) {
+  return useQuery({ queryKey: usabilityKeys.submitCheck(id), queryFn: unavailable(() => api.getSubmitCheck(id)), enabled });
+}
+
+export function useUsage(id: string, enabled = true) {
+  return useQuery({ queryKey: usabilityKeys.usage(id), queryFn: unavailable(() => api.getUsage(id)), enabled });
+}
+
+export function useDecideEvidence(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: EvidenceDecisionRequest) => api.decideEvidence(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.run(id) }),
+  });
+}
+
+export function useApplyRewrite(id: string, key: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RewriteApplyIn) => api.applyRewrite(id, key, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.run(id) }),
+  });
+}
+
+export function useFeedback(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: FeedbackIn) => api.sendFeedback(id, body),
+    onSuccess: (out) => qc.setQueryData(usabilityKeys.usage(id), out),
+  });
 }

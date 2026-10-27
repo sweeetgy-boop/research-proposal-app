@@ -94,7 +94,7 @@ export default function FinalReview() {
           <ReviewPanel review={review.data} title={`Argon 최종 검토 ${review.data.final_round ?? ""}차 (v${review.data.draft_version})`} />
           <div className="mt-4 flex flex-wrap gap-2">
             <Link to={`/runs/${id}/edit`} className={buttonVariants({ variant: "outline" })}>의견 반영하러 가기</Link>
-            <Link to={`/runs/${id}/finalize`} className={buttonVariants()}>최종 마무리 →</Link>
+            <Link to={`/runs/${id}/submit-check`} className={buttonVariants()}>제출 전 점검 →</Link>
           </div>
         </div>
       ) : null}

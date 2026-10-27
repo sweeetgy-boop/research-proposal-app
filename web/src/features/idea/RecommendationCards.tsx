@@ -104,7 +104,7 @@ export function RecommendationCards({
         {rec.recommendations.map((r) => {
           const chosen = chosenIndex === r.index;
           return (
-            <li key={r.index}>
+            <li key={r.index} id={`rec-${r.index}`}>
               <Card className={chosen ? "border-primary" : undefined}>
                 <CardHeader>
                   <CardTitle className="flex items-start justify-between gap-2 text-base">

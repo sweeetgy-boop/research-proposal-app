@@ -138,3 +138,52 @@ export async function finalizeRun(id: string, body: FinalizeIn): Promise<Finaliz
     check,
   };
 }
+
+// ── U1~U8 (feat/usability) ─────────────────────────
+import type {
+  BriefOut,
+  ComparisonOut,
+  EvidenceDecisionRequest,
+  EvidenceOut,
+  FeedbackIn,
+  RewriteApplyIn,
+  RewriteOut,
+  SectionAnswersOut,
+  SectionQuestionsOut,
+  StructureMergeIn,
+  StructureOut,
+  SubmitCheckOut,
+  UsageOut,
+  VersionWithStatus,
+} from "./types";
+
+/** U2 간편 입력 — 자유 문장(+가제) → 4칸. 서버는 본문을 저장하지 않는다. 꺼짐·LLM 없음이면 503. */
+export const structureIdea = (text: string, title = "") =>
+  request<StructureOut>(`${V}/ideas/structure`, { method: "POST", body: { text, title } });
+export const mergeStructure = (body: StructureMergeIn) =>
+  request<StructureOut>(`${V}/ideas/structure/merge`, { method: "POST", body });
+/** U4 차별성 비교표 (화면·API 표만) */
+export const comparison = (req: ProposalRequest) =>
+  request<ComparisonOut>(`${V}/precheck/comparison`, { method: "POST", body: req });
+/** U5 선행연구 브리핑 */
+export const brief = (req: ProposalRequest) =>
+  request<BriefOut>(`${V}/precheck/brief`, { method: "POST", body: req });
+/** U1 문장 근거 원문·적합성·판단 */
+export const sentenceEvidence = (id: string, sid: string) =>
+  request<EvidenceOut>(`${V}/runs/${enc(id)}/sentences/${enc(sid)}/evidence`);
+export const decideEvidence = (id: string, body: EvidenceDecisionRequest) =>
+  request<VersionWithStatus>(`${V}/runs/${enc(id)}/evidence-decisions`, { method: "POST", body });
+/** U3 섹션 다시 쓰기·반영·보완 질문·답 */
+export const rewriteSection = (id: string, key: string) =>
+  request<RewriteOut>(`${V}/runs/${enc(id)}/sections/${enc(key)}/rewrite`, { method: "POST" });
+export const applyRewrite = (id: string, key: string, body: RewriteApplyIn) =>
+  request<VersionWithStatus>(`${V}/runs/${enc(id)}/sections/${enc(key)}/rewrite/apply`, { method: "POST", body });
+export const sectionQuestions = (id: string, key: string) =>
+  request<SectionQuestionsOut>(`${V}/runs/${enc(id)}/sections/${enc(key)}/questions`);
+export const saveSectionAnswers = (id: string, key: string, answers: Record<string, string>) =>
+  request<SectionAnswersOut>(`${V}/runs/${enc(id)}/sections/${enc(key)}/answers`, { method: "POST", body: { answers } });
+/** U7 제출 전 점검 · U8 측정·만족도 */
+export const getSubmitCheck = (id: string) => request<SubmitCheckOut>(`${V}/runs/${enc(id)}/submit-check`);
+export const getUsage = (id: string) => request<UsageOut>(`${V}/runs/${enc(id)}/usage`);
+export const sendFeedback = (id: string, body: FeedbackIn) =>
+  request<UsageOut>(`${V}/runs/${enc(id)}/feedback`, { method: "POST", body });

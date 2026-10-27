@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 function stepFromPath(pathname: string): number | null {
   if (pathname === "/new") return 1;
-  if (pathname === "/new/precheck") return 2;
+  if (pathname === "/new/precheck" || pathname === "/new/brief") return 2;
   if (pathname === "/new/clarify") return 3;
   const m = /^\/runs\/[^/]+(?:\/([a-z-]+))?$/.exec(pathname);
   if (!m) return null;
@@ -21,6 +21,7 @@ function stepFromPath(pathname: string): number | null {
     case "versions":
       return 4;
     case "final-review":
+    case "submit-check":
       return 5;
     case "finalize":
       return 6;

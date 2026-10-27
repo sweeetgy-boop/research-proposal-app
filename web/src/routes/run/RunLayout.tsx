@@ -22,6 +22,7 @@ const SUBNAV = [
   { to: "edit", label: "직접 수정" },
   { to: "versions", label: "버전·비교" },
   { to: "final-review", label: "최종 검토" },
+  { to: "submit-check", label: "제출 전 점검" },
   { to: "finalize", label: "최종 마무리" },
 ];
 
