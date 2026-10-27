@@ -1411,6 +1411,30 @@ def cmd_vision_sample(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_vision_ingest(args: argparse.Namespace) -> int:
+    from rra.composition import build_ingest_image_readings, load_settings
+
+    usecase = build_ingest_image_readings(load_settings(), snapshot=args.snapshot)
+    report = asyncio.run(usecase(dry_run=args.dry_run, limit=args.limit))
+    summary = report.summary()
+    if args.json:
+        print(json.dumps({**summary, "doc_ids": report.doc_ids}, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    skipped = ", ".join(f"{k} {v}" for k, v in summary["skipped"].items()) or "없음"
+    print(
+        f"스냅샷 {summary['snapshot']} — 판독 결과 {summary['results']}건 → "
+        f"문서 {summary['documents']}건 / 청크 {summary['chunks']}건 "
+        f"(페이지 문서 {summary['pages_found']}건, 건너뜀: {skipped})"
+    )
+    if summary["removed_personal"]:
+        print(
+            "개인정보 제거: "
+            + ", ".join(f"{k} {v}" for k, v in summary["removed_personal"].items())
+        )
+    print("dry-run: 적재하지 않았습니다." if args.dry_run else "적재했습니다.")
+    return EXIT_OK
+
+
 # ── mcp ───────────────────────────────────────────────────
 def cmd_mcp(args: argparse.Namespace) -> int:
     from rra.entrypoints.mcp.server import main as mcp_main
@@ -1608,6 +1632,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--cached-only", action="store_true", help="Argon 호출 없이 캐시·OCR 결과만으로"
     )
     vs.set_defaults(handler=cmd_vision_sample)
+    vi = vis_sub.add_parser(
+        "ingest", help="판독 캐시(OCR·Argon) → DB 적재 (호출 없음, basis=image_vision)"
+    )
+    vi.add_argument("--snapshot")
+    vi.add_argument("--dry-run", action="store_true", help="적재하지 않고 문서·청크 수만")
+    vi.add_argument("--limit", type=int)
+    vi.add_argument("--json", action="store_true")
+    vi.set_defaults(handler=cmd_vision_ingest)
 
     alio = sub.add_parser("alio", help="알리오 공시 보고서 카탈로그·filedrop 관리")
     alio_sub = alio.add_subparsers(dest="alio_cmd", required=True)

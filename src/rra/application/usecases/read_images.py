@@ -152,11 +152,15 @@ class ReadImages:
             )
         mime = item.mime or MIME_BY_EXT.get(_ext(item), "image/png")
         ocr, ocr_error = await self._ocr(item, image, mime)
-        reading, vision_error, cached, status = await self._vision(item, image, mime, may_call)
+        reading, vision_error, cached, status, took = await self._vision(
+            item, image, mime, may_call
+        )
         confirmed: list[str] = []
         unconfirmed: list[str] = []
         if reading is not None:
             confirmed, unconfirmed = verify_numbers(reading, ocr)
+        # 캐시 적중이면 처음 판독했을 때의 시간을 돌려준다 (측정 harness 가 캐시 재실행에서도 장당 시간을 보도록)
+        elapsed = took if cached and took is not None else self._clock() - t0
         return ImageReadResult(
             sha256=item.sha256,
             status=status,
@@ -168,7 +172,7 @@ class ReadImages:
             confirmed_numbers=confirmed,
             unconfirmed_numbers=unconfirmed,
             cached=cached,
-            elapsed_sec=self._clock() - t0,
+            elapsed_sec=elapsed,
         )
 
     async def _ocr(
@@ -204,20 +208,25 @@ class ReadImages:
 
     async def _vision(
         self, item: ImageItem, image: bytes, mime: str, may_call: bool
-    ) -> tuple[VisionReading | None, str | None, bool, str]:
+    ) -> tuple[VisionReading | None, str | None, bool, str, float | None]:
+        """(판독, 오류, 캐시 여부, status, 캐시된 처리 시간)."""
         cached = self.store.get_reading(item.sha256)
         if isinstance(cached, dict):
+            took = cached.get("elapsed_sec")
+            took = float(took) if isinstance(took, int | float) else None
             if cached.get("ok") and isinstance(cached.get("reading"), dict):
                 try:
-                    return VisionReading.model_validate(cached["reading"]), None, True, "argon"
+                    reading = VisionReading.model_validate(cached["reading"])
                 except ValueError:
-                    return None, "CachedReadingInvalid", True, "failed"
-            return None, str(cached.get("error") or "CachedFailure"), True, "failed"
+                    return None, "CachedReadingInvalid", True, "failed", took
+                return reading, None, True, "argon", took
+            return None, str(cached.get("error") or "CachedFailure"), True, "failed", took
         if not may_call or self.reader is None:
-            return None, None, False, "ocr_only"
+            return None, None, False, "ocr_only", None
         if self.calls >= self.cap:  # 계획과 별개의 안전장치
-            return None, None, False, "ocr_only"
+            return None, None, False, "ocr_only", None
         self.calls += 1
+        t0 = self._clock()
         record = {
             "sha256": item.sha256,
             "url": (item.url or item.path)[:MAX_LOG_URL_CHARS],
@@ -236,21 +245,15 @@ class ReadImages:
             )
         except Exception as exc:  # LLMError 계열 — 클래스명만 남긴다 (본문·키 금지)
             name = type(exc).__name__
-            self.store.put_reading(
-                item.sha256, {"ok": False, "error": name, "time": record["time"]}
-            )
-            self.store.log({**record, "status": "failed", "error": name})
+            self._cache_failure(item, name, record, t0)
             logger.warning("vision failed sha=%s error=%s", item.sha256[:12], name)
-            return None, name, False, "failed"
+            return None, name, False, "failed", None
         try:
             reading = parse_reading(text)
         except VisionParseError as exc:
             name = f"VisionParseError:{exc}"
-            self.store.put_reading(
-                item.sha256, {"ok": False, "error": name, "time": record["time"]}
-            )
-            self.store.log({**record, "status": "failed", "error": name})
-            return None, name, False, "failed"
+            self._cache_failure(item, name, record, t0)
+            return None, name, False, "failed", None
         self.store.put_reading(
             item.sha256,
             {
@@ -258,11 +261,24 @@ class ReadImages:
                 "time": record["time"],
                 "provider": record["provider"],
                 "model": record["model"],
+                "elapsed_sec": round(self._clock() - t0, 3),
                 "reading": reading.model_dump(),
             },
         )
         self.store.log({**record, "status": "argon", "image_type": reading.image_type})
-        return reading, None, False, "argon"
+        return reading, None, False, "argon", None
+
+    def _cache_failure(self, item: ImageItem, name: str, record: dict, t0: float) -> None:
+        self.store.put_reading(
+            item.sha256,
+            {
+                "ok": False,
+                "error": name,
+                "time": record["time"],
+                "elapsed_sec": round(self._clock() - t0, 3),
+            },
+        )
+        self.store.log({**record, "status": "failed", "error": name})
 
     def _stamp(self) -> str:
         return self._now().isoformat(timespec="seconds")

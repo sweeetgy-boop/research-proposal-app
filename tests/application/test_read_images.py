@@ -77,6 +77,7 @@ async def test_same_hash_is_never_called_twice_even_across_runs():
     assert len(reader.calls) == 1
     assert first.results[0].cached is False and second.results[0].cached is True
     assert second.results[0].reading.image_type == "표" and second.calls == 0
+    assert second.results[0].elapsed_sec == store.readings[sha(table)]["elapsed_sec"]  # 캐시된 시간
     assert second.plan.summary()["cached"] == 1 and second.plan.expected_calls == 0
     assert [r["status"] for r in store.records] == ["argon"]
 

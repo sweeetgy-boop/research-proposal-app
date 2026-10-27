@@ -304,6 +304,19 @@ def build_read_images(
     )
 
 
+def build_ingest_image_readings(
+    settings: Settings | None = None, *, snapshot: str | None = None, repo=None, store=None
+):
+    """판독 캐시 → DB 적재 (Argon 호출 없음). repo 를 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.ingest_image_readings import IngestImageReadings
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    reader = build_read_images(settings, snapshot=snapshot, with_reader=False, store=store)
+    return IngestImageReadings(reader, repo)
+
+
 def build_reviewer(settings: Settings | None = None, *, llm=None):
     """검토 유스케이스(ReviewDraft). review 단계 LLM(gemini) 키가 없으면 None → 검토 건너뜀."""
     from rra.application.usecases.review_draft import ReviewDraft
