@@ -37,6 +37,24 @@ REST 스키마는 `docs/openapi.json` (`rra api schema` 로 생성), 세션 쿠�
 - `data/`(DB·inbox)·`runs/`·실물 양식 `config/templates/proposal_korail.hwpx` 는 커밋하지 않는다(.gitignore).
 - PR 본문·이슈에 사내 과제명·제안자 이름을 적지 않는다(건수·구조만).
 
+## 데이터 위치 (2026-10-27)
+- **모든 실행 데이터는 `RRA_DATA_DIR` 한 곳에**: 적재 DB(`data/rra.sqlite`)·크롤 스냅샷(`korail_web`·`rnd_notice`·`bai`)·받은 파일
+  (`molit`·`mofe`·`datago`)·캐시(`cache/ntis`, `ocr/`, `vision_cache/`, `vision_log.jsonl`)·inbox(`inbox/own`·`own_docs`·`alio`·
+  `catalog`)·측정(`eval`·`bench`)·백업(`backups`). 기본값은 **원 저장소의 `data/` 절대 경로** — `git rev-parse --git-common-dir`
+  의 부모(`config_loader.resolve_data_dir`). 연결 worktree 에서 돌려도 같은 곳을 쓴다. git 이 없으면 `cwd/data`.
+- **worktree 는 데이터를 갖지 않는다.** 합쳐진 브랜치의 worktree 를 지울 때 그 안의 미커밋 스냅샷이 함께 사라진 일(2026-10-27)이 계기다.
+  지우기 전에 `git -C <worktree> status --ignored --short | grep '^!! data/'` 로 데이터가 남아 있는지 본다. 남아 있으면 원 저장소
+  `data/` 로 옮긴 뒤 지운다.
+- **코드 규칙**: 상대 데이터 경로(`settings.db_path` 기본값, `config/*.yaml` 의 `snapshot_dir`·`store_dir`·`cache_dir`·`*_inbox`)는
+  `config_loader.data_path`/`data_location` 이 데이터 폴더 기준 절대 경로로 바꾸고 조립(`composition.build_*`)이 어댑터에 절대 경로를
+  준다. 어댑터·유스케이스·진입점에 `"data/…"` 리터럴이나 cwd 기준 기본값을 두지 않는다(`tests/test_data_dir.py` 가 막는다 —
+  새 데이터 경로는 `config_loader._DATA_LOCATIONS` 표에 더한다). `runs/` 는 그대로(`data/` 아래로 지정했을 때만 옮긴다).
+- **덮어쓰기**: `.env` 또는 환경변수 `RRA_DATA_DIR=/절대/경로` (상대면 cwd 기준). 기동 로그에 `데이터 폴더: <경로>` 한 줄이 남는다.
+  `RRA_DB_PATH` 가 상대 경로면 `RRA_DATA_DIR` 기준이다.
+- **자료를 모으는 서브에이전트·레인**은 시작할 때 `PYTHONPATH=src .venv/bin/python -c "from rra.composition import
+  load_settings, resolve_data_dir; print(resolve_data_dir(load_settings()))"` 로 원 저장소 `data/` 가 찍히는지 확인하고, 다른 곳에
+  모아야 하면 `RRA_DATA_DIR` 를 명시한다.
+
 ## 코드 규칙 (백엔드)
 - 헥사고날 계층(`CLAUDE.md`, `docs/architecture.md` §1). `lint-imports` 계약 8건이 강제한다.
 - 새 기능은 domain → ports → usecase(fake 로 테스트) → adapter. 테스트는 LLM·임베딩·네트워크 없이 돌아야 한다(`tests/fakes.py`).

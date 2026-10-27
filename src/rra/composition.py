@@ -18,7 +18,11 @@ from rra.config_loader import (
     KEYED_SOURCES,
     MissingCredential,
     allowed_domains,
+    api_config,
     credential_status,
+    data_location,
+    data_locations,
+    data_path,
     input_limits,
     institutions,
     keyword_rule,
@@ -35,6 +39,7 @@ from rra.config_loader import (
     render_slots,
     render_template_path,
     require_credentials,
+    resolve_data_dir,
     retention_days,
     retrieval_mix,
     review_policy,
@@ -58,6 +63,9 @@ __all__ = [
     "SOURCE_NAMES",
     "Settings",
     "credential_status",
+    "data_locations",
+    "data_path",
+    "resolve_data_dir",
     "institutions",
     "keyword_rule",
     "relevance_floor",
@@ -152,7 +160,7 @@ def build_repository(embedding, settings: Settings | None = None):
 
     settings = settings or load_settings()
     return SQLiteDocumentRepository(
-        settings.db_path,
+        data_location(settings, "db"),
         embedding,
         max_query_chars=int(input_limits(settings).get("query_max_chars", 500)),
     )
@@ -347,6 +355,7 @@ def build_read_images(
     dry-run·시험용."""
     from rra.application.usecases.read_images import ReadImages
     from rra.domain.rules.image_filter import ImageFilterConfig
+    from rra.domain.rules.photo_filter import PhotoRule
     from rra.domain.rules.vision_plan import group_keywords
 
     settings = settings or load_settings()
@@ -371,6 +380,8 @@ def build_read_images(
         cap=cap if cap is not None else vcfg["cap"],
         keywords=group_keywords(vcfg["order_keywords"]),
         max_tokens=stage["max_tokens"],
+        photo_rule=PhotoRule.from_dict(vcfg.get("photo")),
+        concurrency=vcfg.get("concurrency", 1),
     )
 
 
@@ -650,7 +661,7 @@ def build_alio_catalog(settings: Settings | None = None):
     settings = settings or load_settings()
     cfg = source_config(settings, "alio")
     return FileCatalog(
-        Path(cfg.get("catalog_dir", "data/catalog")),
+        data_location(settings, "alio_catalog", cfg=cfg),
         limits=sandbox_limits(settings),
         institutions=institutions(settings),
         columns=(cfg.get("catalog") or {}).get("columns") or None,
@@ -676,7 +687,7 @@ def build_alio_catalog_fetcher(settings: Settings | None = None, *, transport=No
         **({"resolver": resolver} if resolver else {}),
     )
     return CatalogFetcher(
-        client, url, Path(cfg.get("catalog_dir", "data/catalog")), max_bytes=max_bytes
+        client, url, data_location(settings, "alio_catalog", cfg=cfg), max_bytes=max_bytes
     )
 
 
@@ -687,7 +698,7 @@ def build_alio_source(settings: Settings | None = None):
     settings = settings or load_settings()
     cfg = source_config(settings, "alio")
     return AlioSource(
-        Path(cfg.get("inbox_dir", "data/inbox/alio")),
+        data_location(settings, "alio_inbox", cfg=cfg),
         limits=sandbox_limits(settings),
         catalog=build_alio_catalog(settings),
     )
@@ -700,7 +711,7 @@ def build_alio_summary_source(settings: Settings | None = None):
     settings = settings or load_settings()
     cfg = source_config(settings, "alio").get("summary") or {}
     return AlioSummarySource(
-        Path(cfg.get("inbox_dir", "data/inbox/alio_summary")),
+        data_location(settings, "alio_summary_inbox", cfg=cfg),
         limits=sandbox_limits(settings),
         institutions=institutions(settings),
         catalog=build_alio_catalog(settings),
@@ -810,7 +821,7 @@ def build_ntis_insights(
             record_tag=str(cfg.get("record_tag") or "HIT"),
             display_count=int(insights.get("max_items", 10)),
         )
-    cache_dir = Path(str(insights.get("cache_dir", "data/cache/ntis")))
+    cache_dir = data_location(settings, "ntis_cache", cfg=insights)
     cache = FileCache(cache_dir, ttl_sec=float(insights.get("cache_ttl_days", 7)) * 86400)
     return NtisProjectInsights(
         source, source, cache=cache, repo=repo, max_projects=int(insights.get("max_projects", 3))
@@ -847,7 +858,7 @@ def build_own_projects_source(settings: Settings | None = None):
     settings = settings or load_settings()
     cfg = source_config(settings, "own")
     return OwnProjectsSource(
-        Path(cfg.get("projects_inbox", "data/inbox/own")), limits=sandbox_limits(settings)
+        data_location(settings, "own_projects_inbox", cfg=cfg), limits=sandbox_limits(settings)
     )
 
 
@@ -859,7 +870,7 @@ def build_own_docs_source(settings: Settings | None = None):
     cfg = source_config(settings, "own")
     summary_cfg = source_config(settings, "alio").get("summary") or {}
     return OwnDocsSource(
-        Path(cfg.get("docs_inbox", "data/inbox/own_docs")),
+        data_location(settings, "own_docs_inbox", cfg=cfg),
         limits=sandbox_limits(settings),
         institutions=institutions(settings),
         labels=summary_cfg.get("labels") or None,
@@ -868,7 +879,7 @@ def build_own_docs_source(settings: Settings | None = None):
 
 
 def _korail_web_root(settings: Settings, cfg: dict[str, Any]) -> Path:
-    return Path(str(cfg.get("snapshot_dir") or "data/korail_web"))
+    return data_location(settings, "korail_web", cfg=cfg)
 
 
 def build_korail_web_crawler(settings: Settings | None = None, *, transport=None, resolver=None):
@@ -943,7 +954,7 @@ def build_molit_source(settings: Settings | None = None, *, transport=None, reso
         base_url=str(cfg.get("base_url") or "https://www.molit.go.kr"),
         list_path=str(cfg.get("list_path") or "/USR/policyData/m_34681/lst.jsp"),
         queries=[str(q) for q in cfg.get("queries") or ["철도"]],
-        store_dir=Path(str(cfg.get("store_dir") or "data/molit")),
+        store_dir=data_location(settings, "molit", cfg=cfg),
         limits=sandbox_limits(settings),
         max_pages=int(cfg.get("max_pages", 5)),
         max_file_bytes=int(float(cfg.get("max_file_mb", 50)) * 1024 * 1024),
@@ -965,8 +976,8 @@ def build_korail_web_source(settings: Settings | None = None):
     )
 
 
-def _rnd_notice_root(cfg: dict[str, Any]) -> Path:
-    return Path(str(cfg.get("snapshot_dir") or "data/rnd_notice"))
+def _rnd_notice_root(settings: Settings, cfg: dict[str, Any]) -> Path:
+    return data_location(settings, "rnd_notice", cfg=cfg)
 
 
 def build_rnd_notice_crawler(settings: Settings | None = None, *, transport=None, resolver=None):
@@ -981,7 +992,7 @@ def build_rnd_notice_crawler(settings: Settings | None = None, *, transport=None
     client = _guarded(settings, raw, transport=transport, resolver=resolver)
     client._client.headers["Accept"] = "text/html,application/xhtml+xml,application/json,*/*;q=0.8"
     client._client.headers["User-Agent"] = cfg.user_agent
-    return RndNoticeCrawler(client, cfg, root=_rnd_notice_root(raw))
+    return RndNoticeCrawler(client, cfg, root=_rnd_notice_root(settings, raw))
 
 
 def build_rnd_notice_source(settings: Settings | None = None):
@@ -992,7 +1003,7 @@ def build_rnd_notice_source(settings: Settings | None = None):
 
     settings = settings or load_settings()
     raw = rnd_notice_config(settings)
-    return RndNoticeSource(_rnd_notice_root(raw), limits=sandbox_limits(settings))
+    return RndNoticeSource(_rnd_notice_root(settings, raw), limits=sandbox_limits(settings))
 
 
 # ── [P2] 레인 E (2026-10-27): 발주 용역·감사·경영평가·통계 ─────────────
@@ -1021,8 +1032,8 @@ def build_g2b_source(settings: Settings | None = None, *, transport=None, resolv
     )
 
 
-def _bai_root(cfg: dict[str, Any]) -> Path:
-    return Path(str(cfg.get("snapshot_dir") or "data/bai"))
+def _bai_root(settings: Settings, cfg: dict[str, Any]) -> Path:
+    return data_location(settings, "bai", cfg=cfg)
 
 
 def build_bai_crawler(settings: Settings | None = None, *, transport=None, resolver=None):
@@ -1050,7 +1061,7 @@ def build_bai_crawler(settings: Settings | None = None, *, transport=None, resol
         finally:
             await client.aclose()
 
-    return BaiCrawler(cfg, _bai_root(raw), robots_text=robots_text)
+    return BaiCrawler(cfg, _bai_root(settings, raw), robots_text=robots_text)
 
 
 def build_bai_source(settings: Settings | None = None):
@@ -1062,7 +1073,7 @@ def build_bai_source(settings: Settings | None = None):
     settings = settings or load_settings()
     raw = read_config("bai.yaml", settings)
     return BaiAuditSource(
-        _bai_root(raw),
+        _bai_root(settings, raw),
         limits=sandbox_limits(settings),
         institutions=institutions(settings),
         max_file_bytes=int(float(raw.get("max_file_mb", 50)) * 1024 * 1024),
@@ -1086,7 +1097,7 @@ def build_mofe_source(settings: Settings | None = None, *, transport=None, resol
         menu_no=str(cfg.get("menu_no") or "4010100"),
         queries=[str(q) for q in cfg.get("queries") or ["경영실적 평가 결과"]],
         title_filter=[str(t) for t in cfg.get("title_filter") or ["경영실적 평가"]],
-        store_dir=Path(str(cfg.get("store_dir") or "data/mofe")),
+        store_dir=data_location(settings, "mofe", cfg=cfg),
         limits=sandbox_limits(settings),
         max_file_bytes=int(float(cfg.get("max_file_mb", 50)) * 1024 * 1024),
     )
@@ -1104,7 +1115,7 @@ def build_datago_source(settings: Settings | None = None, *, transport=None, res
         client,
         datasets=[d for d in cfg.get("datasets") or [] if isinstance(d, dict)],
         base_url=str(cfg.get("base_url") or "https://www.data.go.kr"),
-        store_dir=Path(str(cfg.get("store_dir") or "data/datago")),
+        store_dir=data_location(settings, "datago", cfg=cfg),
         limits=sandbox_limits(settings),
         institutions=institutions(settings),
         max_file_bytes=int(float(cfg.get("max_file_mb", 50)) * 1024 * 1024),
@@ -1335,7 +1346,8 @@ def build_run_manager(
     from rra.application.services import RunManager
 
     settings = settings or load_settings()
-    root = Path(runs_dir or settings.runs_dir)
+    # runs/ 는 그대로(상대면 cwd). data/ 아래를 지정했을 때만 데이터 폴더로 옮긴다.
+    root = data_path(settings, runs_dir or settings.runs_dir, only_prefixed=True)
     compose_cfg = llm_config(settings, "compose")
     pipeline = pipeline or pipeline_config(settings)
     # manifest 에는 선언된 실제 모델명(served_model)을, 없으면 요청용 이름을 남긴다
@@ -1392,10 +1404,19 @@ def api_middlewares(
     )
 
     limits = input_limits(settings)
+    api = api_config(settings)
     outer_to_inner = [
         (SecurityHeadersMiddleware, {}),
         (BodyLimitMiddleware, {"max_bytes": int(limits.get("api_max_body_bytes", 64 * 1024))}),
-        (TokenAuthMiddleware, {"token": token, "sessions": sessions}),
+        (
+            TokenAuthMiddleware,
+            {
+                "token": token,
+                "sessions": sessions,
+                "public_origin": api["public_origin"],
+                "trust_cf": api["trust_cf_connecting_ip"],
+            },
+        ),
     ]
     return list(reversed(outer_to_inner))
 
@@ -1549,6 +1570,7 @@ def build_api(
         query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
         on_shutdown=manager.generate.llm.aclose,
         session_auth=SessionAuth(token, sessions),
+        public_origin=api_config(settings)["public_origin"],
         static_dir=static,
         sse_poll_sec=sse_poll_sec,
         fake_mode=fake is not None,

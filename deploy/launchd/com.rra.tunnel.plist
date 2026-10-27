@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Cloudflare Tunnel (cloudflared) — launchd 사용자 에이전트. rra.ai-edu-lab.co.kr → http://127.0.0.1:8000.
+  전제: cloudflared 설치(brew install cloudflared), `cloudflared tunnel login` → `create rra` → `route dns`,
+  ~/.cloudflared/config.yml(deploy/cloudflared/config.example.yml 참고). 자격 파일(<TUNNEL_ID>.json)·cert.pem 은
+  ~/.cloudflared 에만 — 여기 적지 않는다(보안 D). Access(이메일 OTP) 가 켜진 뒤에만 load 한다.
+  설치: cp deploy/launchd/com.rra.tunnel.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.tunnel.plist
+  해제: launchctl unload -w ~/Library/LaunchAgents/com.rra.tunnel.plist
+  `cloudflared service install` 이 만드는 com.cloudflare.cloudflared 와 둘 중 하나만 쓴다(중복 기동 금지).
+  앱(rra api)·mlx 는 127.0.0.1 바인딩 유지 — 터널은 아웃바운드 연결만 쓰고 포트를 열지 않는다.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rra.tunnel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>tunnel</string>
+    <string>--config</string>
+    <string>/Users/chan/.cloudflared/config.yml</string>
+    <string>--no-autoupdate</string>
+    <string>run</string>
+    <string>rra</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chan/projects/research-proposal-app</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/chan/Library/Logs/rra-tunnel.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chan/Library/Logs/rra-tunnel.err.log</string>
+</dict>
+</plist>

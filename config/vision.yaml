@@ -2,6 +2,7 @@
 # 설계: docs/architecture.md (P3 이미지 판독), manifest 형식: docs/vision-manifest.md.
 # 비용 규칙: 같은 sha256 은 한 번만 부른다(캐시, 실패 포함). cap 을 넘는 이미지는 OCR 만 하고 목록에 남긴다.
 
+concurrency: 4               # 동시에 처리할 이미지 수 — Gemini 공용 제한기(동시 4·분당 60) 안에서. 순차는 분당 8장
 cap: 2000                     # 한 번의 `rra vision read` 가 보낼 최대 Argon 호출 수 (캐시 적중은 세지 않는다)
 image_max_bytes: 8388608      # Argon 에 보낼 이미지 바이트 상한 (8MB, base64 data URL)
 sample_per_type: 30           # `rra vision sample` 이미지 종류별 표본 수
@@ -27,6 +28,16 @@ filter:
   skip_ext: [.svg, .gif, .ico]
 
 # 처리 순서 — 경영목표·전략·비전 > ESG·사전정보공표(경영공시·정책) > 통계 > 브로슈어 > 보도자료 > 기타.
+# 사진 거르기 (2026-10-27): OCR 결과로 글자가 적고 숫자·표·도형 신호가 없는 이미지는 Argon 에 보내지 않는다.
+# 기준값은 OCR 표본 2,062장 분포(글자 0 이 46%, 20자 미만·숫자 없음·줄 3개 미만이 55%)로 정했다.
+# 전략·ESG·통계 그룹은 OCR 이 못 읽는 체계도일 수 있어 적용하지 않는다. 사진 표본은 docs/ocr-sample/excluded/.
+photo:
+  enabled: true
+  max_chars: 20            # OCR 글자 수(공백 제외)가 이 미만이면 "글자가 적다"
+  max_lines: 2             # OCR 줄이 이보다 많으면 라벨·표로 본다
+  short_label_lines: 3     # 6자 이하 짧은 줄이 이 수 이상이면 도형 라벨
+  exempt_groups: [strategy, esg_policy, statistics]
+
 # manifest 의 order_group 이 있으면 그 값이 우선. 없으면 page_url·page_title(메뉴 경로 포함)·alt·caption·path 의 키워드로 판정.
 order:
   strategy: [비전, 경영목표, 경영전략, 전략체계, 전략과제, 경영가치체계, 미션, 핵심가치, vision, strategy]

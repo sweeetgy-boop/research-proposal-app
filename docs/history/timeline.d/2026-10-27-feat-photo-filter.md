@@ -1,0 +1,1 @@
+| 2026-10-27 | Argon 판독 전 OCR 결과로 사진 거르기 — `domain/rules/photo_filter`(글자 < 20·숫자/도형 기호 없음·줄 ≤ 2, 전략·ESG·통계 그룹 제외), 판독 계획 `photos`, status photo(적재 안 함, alt·캡션·제목만 vision_log 메타), `config/vision.yaml photo` | 첨부 내장 이미지로 판독 대상이 4,003장이 되자 사진이 Argon 상한 2,000 을 잡아먹음 — OCR 표본 2,062장에서 글자 0 이 46% | #TBD | 기준값은 표본 분포로, 사진 표본 30장은 docs/ocr-sample/excluded/ |

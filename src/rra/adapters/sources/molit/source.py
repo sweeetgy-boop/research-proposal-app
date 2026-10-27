@@ -43,7 +43,7 @@ class MolitPolicySource:
         base_url: str = "https://www.molit.go.kr",
         list_path: str = "/USR/policyData/m_34681/lst.jsp",
         queries: Sequence[str] = (),
-        store_dir: Path = Path("data/molit"),
+        store_dir: Path,
         limits: SandboxLimits,
         max_pages: int = 5,
         max_file_bytes: int = 50 * 1024 * 1024,
