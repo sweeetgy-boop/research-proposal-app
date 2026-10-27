@@ -86,6 +86,8 @@ stages:
   differentiate: {provider: gemini, max_tokens: 2000}
   # 차별화 과제 추천(ADR 0012) = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
   recommend: {provider: gemini, max_tokens: 3000}
+  # U5 선행연구 브리핑 = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
+  brief: {provider: gemini, max_tokens: 2500}
 
 # 검토(review) 단계 정책
 review:

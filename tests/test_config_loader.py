@@ -350,3 +350,30 @@ def test_project_overlap_yaml_floor_equals_the_golden_measurement():
     from rra.domain.rules.relevance import RelevanceFloor
 
     assert relevance_floor(project_settings()) == RelevanceFloor()
+
+
+# ── U1~U8 usability.yaml · section_checklists.yaml ───────────
+def test_usability_config_defaults_on_and_rejects_unknown_keys(tmp_path):
+    from rra.config_loader import section_checklists, usability_config
+
+    cfg = usability_config(settings_for(tmp_path))  # 파일 없음 → 전부 켬
+    assert cfg.evidence_view and cfg.brief and cfg.strategy_source == "confirmed"
+    (tmp_path / "usability.yaml").write_text(
+        "brief: false\nstrategy_source: draft\n", encoding="utf-8"
+    )
+    cfg = usability_config(settings_for(tmp_path))
+    assert not cfg.brief and cfg.evidence_view and cfg.strategy_source == "draft"
+    (tmp_path / "usability.yaml").write_text("nope: true\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="모르는 키"):
+        usability_config(settings_for(tmp_path))
+    assert section_checklists(settings_for(tmp_path)) == {}
+
+
+def test_shipped_usability_and_checklists_load():
+    from rra.config_loader import llm_config, section_checklists, usability_config
+
+    cfg = usability_config(project_settings())
+    assert len(cfg.enabled()) == 12
+    lists = section_checklists(project_settings())
+    assert "method" in lists and all(r["question"] and r["keywords"] for r in lists["method"])
+    assert llm_config(project_settings(), "brief")["provider"] == "gemini"

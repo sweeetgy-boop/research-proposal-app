@@ -201,6 +201,41 @@ def pipeline_config(settings: Settings):
     return PipelineConfig(**(cfg or {}))
 
 
+def usability_config(settings: Settings):
+    """config/usability.yaml → UsabilityConfig (파일이 없으면 기본값 = 전부 켬). 모르는 키 오류."""
+    from rra.domain.models import UsabilityConfig
+
+    cfg = read_config("usability.yaml", settings) or {}
+    known = set(UsabilityConfig.model_fields)
+    unknown = set(cfg) - known
+    if unknown:
+        raise ValueError(f"config/usability.yaml 에 모르는 키: {sorted(unknown)}")
+    return UsabilityConfig(**cfg)
+
+
+def section_checklists(settings: Settings) -> dict[str, list[dict[str, Any]]]:
+    """config/templates/section_checklists.yaml → {섹션: [{element, question, keywords[]}]}.
+    파일이 없으면 빈 dict (U3 보완 질문 없음)."""
+    data = read_config("templates/section_checklists.yaml", settings) or {}
+    out: dict[str, list[dict[str, Any]]] = {}
+    for key, items in (data.get("sections") or {}).items():
+        rows = []
+        for item in items or []:
+            if not isinstance(item, dict) or not item.get("element"):
+                continue
+            rows.append(
+                {
+                    "element": str(item["element"]),
+                    "question": str(
+                        item.get("question") or f"{item['element']} 을(를) 적어 주십시오."
+                    ),
+                    "keywords": [str(k) for k in (item.get("keywords") or []) if str(k)],
+                }
+            )
+        out[str(key)] = rows
+    return out
+
+
 def recommend_policy(settings: Settings) -> dict[str, Any]:
     """llm.yaml 의 recommend 정책 (기본: auto=true — precheck 뒤 자동 1회)."""
     cfg = read_config("llm.yaml", settings)

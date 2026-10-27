@@ -1,0 +1,15 @@
+# 사용자 관점 검토 반영 (U1~U8, ADR 0016). 항목마다 켜고 끈다 — 기본 전부 켬.
+evidence_view: true       # U1 근거 원문 바로보기 (GET /v1/runs/{id}/sentences/{sid}/evidence)
+evidence_support: true    # U1 Argon 1차 검토에 문장별 근거 적합성(지지·부분·불일치) 판정 포함 (추가 호출 없음)
+evidence_decisions: true  # U1 제안자 근거 판단(approve·replace·exclude) 저장 → 새 버전
+quick_input: true         # U2 간편 입력 (POST /v1/ideas/structure, rra structure)
+section_rewrite: true     # U3 섹션별 AI 다시 쓰기 (제안자 수정 문장 보존, 선택값 불변)
+section_questions: true   # U3 섹션 체크리스트(config/templates/section_checklists.yaml) 보완 질문
+comparison: true          # U4 차별성 비교표 (화면·API 표만, 양식 밖)
+brief: true               # U5 선행연구 브리핑 (stage brief = Gemini, 키 없으면 로컬)
+schedule_metrics: true    # U6 연구기간이 있으면 추진일정(개월)·성과지표 지시 + 일정 초과 알림
+submit_check: true        # U7 제출 전 점검 (GET /v1/runs/{id}/submit-check)
+usage_record: true        # U8 run 별 usage.json (단계 시간·근거 판단 비율·다시 쓰기 횟수·HWPX 성공)
+feedback: true            # U8 마무리 뒤 만족도(1~5 + 한 줄) 기록
+# 전략체계 목록(korail_strategy.yaml)의 상태. draft 면 제출 전 점검이 "임시 목록 사용" 을 알린다
+strategy_source: confirmed

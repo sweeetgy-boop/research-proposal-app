@@ -41,6 +41,7 @@ from rra.application.ports.renderer import RenderRejected
 from rra.application.usecases.generate_proposal import GenerateProposal
 from rra.application.usecases.render_check import RenderCheck, render_check
 from rra.application.usecases.review_draft import ReviewContext, ReviewDraft
+from rra.application.usecases.submit_check import SubmitCheck, submit_check
 from rra.domain.models import (
     Annotation,
     Confirmation,
@@ -54,11 +55,19 @@ from rra.domain.models import (
     ReviewComment,
     ReviewRound,
     RunState,
+    Satisfaction,
     Section,
     Sentence,
     StepRecord,
+    UsabilityConfig,
+    UsageRecord,
 )
-from rra.domain.models.review import EditRequest, parse_sentence_id, sentence_id
+from rra.domain.models.review import (
+    EditRequest,
+    EvidenceDecisionRequest,
+    parse_sentence_id,
+    sentence_id,
+)
 from rra.domain.models.run import (
     ACTIVE,
     DRAFT_REVIEW,
@@ -71,9 +80,24 @@ from rra.domain.models.run import (
     section_step,
 )
 from rra.domain.rules import review_flow
-from rra.domain.rules.lint import has_errors, lint
+from rra.domain.rules.checklist import clean_answers, coverage, missing_elements
+from rra.domain.rules.evidence import (
+    DecisionRejected,
+    apply_decisions,
+    basis_label,
+    decisions_for_sections,
+    evidence_counts,
+    excerpt,
+    exclusion_problems,
+    needs_check,
+    support_problems,
+)
+from rra.domain.rules.lint import has_errors
 from rra.domain.rules.llm_output import clean_sentence
+from rra.domain.rules.overlap import SOURCE_LABELS
 from rra.domain.rules.review_flow import InvalidTransition
+from rra.domain.rules.rewrite import REWRITE_NOTE, pick, side_by_side
+from rra.domain.rules.usage import refresh as refresh_usage
 from rra.domain.rules.versions import (
     changed_sections,
     count_changed_sentences,
@@ -92,6 +116,11 @@ __all__ = [
     "Citation",
     "ConfirmRejected",
     "DraftView",
+    "EvidenceItem",
+    "FeatureDisabled",
+    "FeedbackRejected",
+    "RewriteRejected",
+    "RewriteView",
     "QueueFull",
     "RunBusy",
     "RunManager",
@@ -130,6 +159,50 @@ class VersionConflict(EditRejected):
 
 class WorkingRejected(ValueError):
     """임시 저장은 편집 가능한 상태에서만 (검토 중·생성 중 불가)."""
+
+
+class FeatureDisabled(RuntimeError):
+    """config/usability.yaml 에서 꺼진 기능."""
+
+
+class RewriteRejected(ValueError):
+    """다시 쓰기·후보 반영 요청이 규칙(상태·섹션·후보 유무)에 맞지 않는다."""
+
+
+class FeedbackRejected(ValueError):
+    """만족도 기록은 마무리(finalized) 뒤에만."""
+
+
+@dataclass(frozen=True)
+class EvidenceItem:
+    """U1 문장 하나의 근거 하나 — 원문 발췌 + 문서 메타 + 적합성 판정 + 제안자 판단."""
+
+    evidence_id: str
+    doc_id: str
+    chunk_id: str | None
+    text: str  # 발췌 (비신뢰)
+    title: str | None  # 비신뢰
+    source: str
+    source_label: str
+    orgs: list[str]
+    year: int | None
+    ingested_at: str | None
+    basis: str | None
+    basis_label: str
+    needs_check: bool
+    support: str | None  # 지지|부분|불일치 (Argon 1차 검토)
+    decision: str | None  # approve|replace|exclude (제안자)
+    in_snapshot: bool
+
+
+@dataclass(frozen=True)
+class RewriteView:
+    section: str
+    current: Section
+    candidate: Section
+    rows: list[dict]
+    dropped: list[str]
+    created_at: str | None
 
 
 @dataclass(frozen=True)
@@ -203,7 +276,11 @@ class RunManager:
         reviewer: ReviewDraft | None = None,
         review_auto: bool = True,
         pipeline: PipelineConfig | None = None,
+        usability: UsabilityConfig | None = None,
+        checklists: Mapping[str, list[dict[str, Any]]] | None = None,
     ):
+        self.usability = usability or UsabilityConfig()  # U1~U8 켜기/끄기
+        self.checklists: dict[str, list[dict[str, Any]]] = dict(checklists or {})
         self.generate = generate
         self.reviewer = reviewer  # None 이면 검토를 건너뛴다 (review_skipped)
         self.review_auto = review_auto
@@ -229,8 +306,12 @@ class RunManager:
         differentiation: dict[str, Any] | None = None,
         recommendations: RecommendationResult | None = None,
         chosen_recommendation: int | None = None,
+        priority_evidence: list[str] | None = None,
     ) -> RunState:
         """queued 로 저장하고 백그라운드 실행을 시작한 뒤 즉시 돌려준다.
+
+        priority_evidence: U5 브리핑에서 고른 우선 근거 id — retrieve 뒤 검색 집합 안의 것만
+        snapshot.priority_ids 에 남기고 그 청크를 앞세운다 (proposer_notes.json 에 보관).
 
         differentiation: 기능 2 차별화 제안의 전송 기록(DifferentiationProposal.transfer()).
         manifest 에만 남는다.
@@ -254,6 +335,9 @@ class RunManager:
                 **recommendations.transfer(),
                 "chosen": chosen_recommendation,
             }
+        if priority_evidence:
+            ids = [str(x)[:200] for x in priority_evidence if str(x).strip()][:50]
+            self.store.save_notes(user, state.run_id, {"priority_evidence": ids})
         self.store.save_state(state)
         claim = self.store.claim(user, state.run_id)  # 백그라운드 시작 전에 잡아 공백을 없앤다
         self._start(state, claim, on_step)
@@ -316,6 +400,7 @@ class RunManager:
                 if snapshot is None:
                     current = self._begin(state, RETRIEVE)
                     snapshot = await self.generate.retrieve(req)
+                    snapshot = self._prioritize(user, run_id, snapshot)
                     self.store.save_snapshot(user, run_id, snapshot)
                     self._finish(
                         state,
@@ -376,6 +461,7 @@ class RunManager:
                 draft, problems = self.generate.finalize(run_id, req, snapshot, ordered)
                 self.store.save_draft(user, run_id, draft)
                 state.problems = [p.model_dump() for p in problems]
+                self._touch_usage(user, run_id, state)
                 invalid = has_errors(problems)
                 state.status = "invalid" if invalid else "drafted"
                 if not invalid:  # draft_v1 = 로컬 생성
@@ -477,6 +563,7 @@ class RunManager:
                 self.store.load_confirmation(state.user, state.run_id),
                 reviews,
                 versions,
+                self.store.load_usage(state.user, state.run_id),
             ),
         )
 
@@ -689,6 +776,14 @@ class RunManager:
                 if kind == "draft":
                     result = self._apply_draft_review(user, run_id, state, version, result)
                     self.store.save_review(user, run_id, result)
+                    if result.support:  # U1 불일치 판정 → 문장 경고
+                        self._refresh_problems(user, run_id, state)
+                    self._touch_usage(
+                        user,
+                        run_id,
+                        state,
+                        checklist_coverage=getattr(result, "checklist_coverage", None),
+                    )
                     state.review_rounds += 1
                     state.draft_review_skipped = None
                     state.status = review_flow.transition(state.status, "finish_draft_review")
@@ -945,6 +1040,7 @@ class RunManager:
             note=edits.note,
             changed_sections=changed_sections(current.sections, sections),
             annotations=annotations,
+            evidence_decisions=decisions_for_sections(sections, current.evidence_decisions),
         )
         self._store_version(user, run_id, state, new_version, nxt)
         if latest is not None and used:
@@ -982,6 +1078,7 @@ class RunManager:
             note=f"v{to} 로 복원",
             changed_sections=changed_sections(current.sections, target.sections),
             annotations=target.annotations,
+            evidence_decisions=decisions_for_sections(target.sections, target.evidence_decisions),
         )
         self._store_version(user, run_id, state, new_version, nxt)
         return self.store.load_version(user, run_id, new_version.version) or new_version
@@ -1005,14 +1102,7 @@ class RunManager:
             retrieved_ids=snapshot.retrieved_ids if snapshot else set(),
             template=state.template,
         )
-        chunk_texts = {c.chunk_id: c.text for c in snapshot.chunks} if snapshot else {}
-        problems = lint(
-            draft,
-            self.generate.rules,
-            choice_options=self.generate.choice_options(),
-            chunk_texts=chunk_texts,
-            evidence_skipped=self.generate.evidence_skipped(snapshot) if snapshot else None,
-        )
+        problems = self._problems_for(user, run_id, draft, snapshot, version)
         version = version.model_copy(update={"alerts": len(problems)})
         self.store.save_version(user, run_id, version)
         state.problems = [
@@ -1025,8 +1115,384 @@ class RunManager:
                 state.stale_edits = count_changed_sentences(base.sections, version.sections)
         state.status = status
         self.store.clear_working(user, run_id)
+        self._touch_usage(
+            user,
+            run_id,
+            state,
+            counts=evidence_counts(version.sections, version.evidence_decisions),
+        )
         self._save(state)
         del previous
+
+    def _problems_for(
+        self,
+        user: str,
+        run_id: str,
+        draft: Draft,
+        snapshot: RetrievalSnapshot | None,
+        version: DraftVersion,
+    ) -> list:
+        """규칙 검사 전부 — lint·U6 일정 + U1 검토 판정 불일치·근거 전부 제외 경고."""
+        problems = self.generate.lint_draft(draft, snapshot)
+        review = self.store.load_review(user, run_id, 1)
+        if review is not None and review.support:
+            problems.extend(support_problems(draft.sections, review.support))
+        problems.extend(
+            exclusion_problems(
+                draft.sections, version.evidence_decisions, self.generate.rules.evidence_required
+            )
+        )
+        return problems
+
+    def _refresh_problems(self, user: str, run_id: str, state: RunState) -> None:
+        version = self._current_version(user, run_id, state)
+        snapshot = self.store.load_snapshot(user, run_id)
+        draft = Draft(
+            run_id=run_id,
+            request=self.store.load_request(user, run_id),
+            sections=version.sections,
+            retrieved_ids=snapshot.retrieved_ids if snapshot else set(),
+            template=state.template,
+        )
+        problems = self._problems_for(user, run_id, draft, snapshot, version)
+        state.problems = [p.model_dump() for p in problems]
+        self.store.save_version(user, run_id, version.model_copy(update={"alerts": len(problems)}))
+
+    def _prioritize(self, user: str, run_id: str, snapshot: RetrievalSnapshot) -> RetrievalSnapshot:
+        """U5 우선 근거 — 검색 집합 안의 id 만 남기고 그 청크를 앞으로."""
+        notes = self.store.load_notes(user, run_id) or {}
+        wanted = [str(x) for x in notes.get("priority_evidence") or []]
+        if not wanted:
+            return snapshot
+        allowed = snapshot.retrieved_ids
+        ids = [x for x in wanted if x in allowed]
+        if not ids:
+            return snapshot
+        keys = set(ids)
+        first = [c for c in snapshot.chunks if c.chunk_id in keys or c.doc_id in keys]
+        rest = [c for c in snapshot.chunks if c not in first]
+        snapshot.chunks = first + rest
+        snapshot.priority_ids = ids
+        return snapshot
+
+    # ── U1 근거 원문 바로보기·제안자 판단 ──────────────────────
+    async def sentence_evidence(self, user: str, run_id: str, sid: str) -> list[EvidenceItem]:
+        """문장 id("s:<섹션>:<번호>")의 근거마다 원문 발췌·문서 메타·적합성·판단. 없는 문장은
+        EditRejected."""
+        if not self.usability.evidence_view:
+            raise FeatureDisabled("근거 원문 보기가 꺼져 있습니다 (usability.yaml evidence_view).")
+        state = await self.status(user, run_id)
+        version = self._current_version(user, run_id, state)
+        parsed = parse_sentence_id(sid)
+        if parsed is None:
+            raise EditRejected(f"문장 id 형식이 올바르지 않습니다: {sid}")
+        key, idx = parsed
+        sec = version.section(key)
+        if sec is None or idx >= len(sec.sentences):
+            raise EditRejected(f"그런 문장이 없습니다: {sid}")
+        sentence = sec.sentences[idx]
+        snapshot = self.store.load_snapshot(user, run_id)
+        chunks = {c.chunk_id: c for c in (snapshot.chunks if snapshot else [])}
+        by_doc: dict[str, list] = {}
+        for c in chunks.values():
+            by_doc.setdefault(c.doc_id, []).append(c)
+        review = self.store.load_review(user, run_id, 1)
+        support = review.support.get(sid) if review and review.support else None
+        decided = {
+            d.evidence_id: d.action for d in version.evidence_decisions if d.sentence_id == sid
+        }
+        allowed = snapshot.retrieved_ids if snapshot else set()
+        out: list[EvidenceItem] = []
+        for ev in sentence.evidence:
+            chunk = chunks.get(ev)
+            doc_id = chunk.doc_id if chunk else ev.split("#", 1)[0]
+            if chunk is None and by_doc.get(doc_id):
+                chunk = by_doc[doc_id][0]
+            doc = await self.generate.repo.get_document(doc_id)
+            basis = chunk.basis if chunk and chunk.basis else (doc.text_basis if doc else None)
+            raw = dict(doc.raw) if doc else {}
+            ingested = raw.get("ingested_at")
+            out.append(
+                EvidenceItem(
+                    evidence_id=ev,
+                    doc_id=doc_id,
+                    chunk_id=chunk.chunk_id if chunk else None,
+                    text=excerpt(
+                        chunk.text if chunk else ((doc.abstract or doc.body or "") if doc else "")
+                    ),
+                    title=doc.title if doc else None,
+                    source=doc.source if doc else doc_id.split(":", 1)[0],
+                    source_label=SOURCE_LABELS.get(
+                        doc.source if doc else doc_id.split(":", 1)[0], doc_id.split(":", 1)[0]
+                    ),
+                    orgs=list(doc.orgs) if doc else [],
+                    year=doc.pub_date.year if doc and doc.pub_date else None,
+                    ingested_at=str(ingested) if ingested else None,
+                    basis=basis,
+                    basis_label=basis_label(basis),
+                    needs_check=needs_check(basis),
+                    support=support,
+                    decision=decided.get(ev),
+                    in_snapshot=ev in allowed or doc_id in allowed,
+                )
+            )
+        return out
+
+    async def decide_evidence(
+        self, user: str, run_id: str, request: EvidenceDecisionRequest
+    ) -> DraftVersion:
+        """U1 제안자 근거 판단 → 새 버전(origin=edit, note 기본 "근거 판단"). replace 는 검색 집합
+        안의 id 로만. 같은 판단이면 새 버전 없음."""
+        if not self.usability.evidence_decisions:
+            raise FeatureDisabled(
+                "근거 판단 저장이 꺼져 있습니다 (usability.yaml evidence_decisions)."
+            )
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise EditRejected(LEGACY_HINT.format(run_id=run_id))
+        try:
+            nxt = review_flow.transition(state.status, "edit")
+        except InvalidTransition as exc:
+            raise EditRejected(str(exc)) from exc
+        if not request.decisions:
+            raise EditRejected("반영할 판단이 없습니다.")
+        current = self._current_version(user, run_id, state)
+        if request.base_version is not None and request.base_version != current.version:
+            raise VersionConflict(
+                f"기준 버전 v{request.base_version} 과 현재 버전 v{current.version} 이 다릅니다 — "
+                "최신 버전을 불러와 다시 저장하십시오."
+            )
+        snapshot = self.store.load_snapshot(user, run_id)
+        allowed = snapshot.retrieved_ids if snapshot else set()
+        try:
+            sections, decisions = apply_decisions(
+                current.sections, current.evidence_decisions, request.decisions, allowed
+            )
+        except DecisionRejected as exc:
+            raise EditRejected(str(exc)) from exc
+        same = same_content(current.sections, sections) and sorted(
+            d.model_dump() for d in decisions
+        ) == sorted(d.model_dump() for d in current.evidence_decisions)
+        if same:
+            return current
+        new_version = DraftVersion(
+            version=current.version + 1,
+            origin="edit",
+            sections=sections,
+            created_at=self._clock(),
+            note=request.note or "근거 판단",
+            changed_sections=changed_sections(current.sections, sections),
+            annotations=current.annotations,
+            evidence_decisions=decisions,
+        )
+        self._store_version(user, run_id, state, new_version, nxt)
+        return self.store.load_version(user, run_id, new_version.version) or new_version
+
+    # ── U3 섹션별 AI 다시 쓰기·보완 질문 ────────────────────────
+    async def rewrite_section(self, user: str, run_id: str, key: str) -> RewriteView:
+        """섹션 하나를 로컬 모델로 다시 쓴 후보 (반영 전). 제안자 수정 문장은 보존, 선택값 불변.
+        후보는 rewrites/rewrite_<key>.json 에 두고 apply_rewrite 로 반영한다."""
+        if not self.usability.section_rewrite:
+            raise FeatureDisabled(
+                "섹션 다시 쓰기가 꺼져 있습니다 (usability.yaml section_rewrite)."
+            )
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise RewriteRejected(LEGACY_HINT.format(run_id=run_id))
+        if not review_flow.can_edit(state.status):
+            raise RewriteRejected(review_flow.hint(state.status, "edit"))
+        if key not in self.generate.section_keys:
+            raise RewriteRejected(f"그런 섹션이 없습니다: {key}")
+        version = self._current_version(user, run_id, state)
+        current = version.section(key) or Section(key=key, sentences=[])
+        snapshot = self.store.load_snapshot(user, run_id)
+        if snapshot is None:
+            raise RewriteRejected("검색 스냅샷이 없어 다시 쓸 수 없습니다.")
+        notes = (self.store.load_notes(user, run_id) or {}).get("answers", {}).get(key) or {}
+        async with self.slot.acquire():
+            try:
+                composed = await self.generate.rewrite_section(
+                    key, self.store.load_request(user, run_id), snapshot, current, notes=notes
+                )
+            except ValueError as exc:
+                raise RewriteRejected(str(exc)) from exc
+        candidate = _cleaned(composed.section)
+        now = self._clock()
+        self.store.save_rewrite(
+            user,
+            run_id,
+            key,
+            {
+                "section": key,
+                "base_version": version.version,
+                "candidate": candidate.model_dump(mode="json"),
+                "dropped": len(composed.dropped),
+                "created_at": now,
+            },
+        )
+        return RewriteView(
+            section=key,
+            current=current,
+            candidate=candidate,
+            rows=side_by_side(current, candidate),
+            dropped=list(composed.dropped),
+            created_at=now,
+        )
+
+    async def apply_rewrite(
+        self,
+        user: str,
+        run_id: str,
+        key: str,
+        *,
+        chosen: list[int] | None = None,
+        base_version: int | None = None,
+        note: str = "",
+    ) -> DraftVersion:
+        """다시 쓰기 후보를 반영 → 새 버전(origin=edit, note "AI 다시 쓰기"). chosen 은 후보 문장
+        인덱스(없으면 전부). 후보가 만들어진 버전과 현재 버전이 다르면 VersionConflict."""
+        state = await self.status(user, run_id)
+        try:
+            nxt = review_flow.transition(state.status, "edit")
+        except InvalidTransition as exc:
+            raise RewriteRejected(str(exc)) from exc
+        stored = self.store.load_rewrite(user, run_id, key)
+        if not stored:
+            raise RewriteRejected(
+                f"{key}: 반영할 다시 쓰기 후보가 없습니다 — 먼저 rewrite 를 요청."
+            )
+        current = self._current_version(user, run_id, state)
+        base = base_version if base_version is not None else stored.get("base_version")
+        if base is not None and base != current.version:
+            raise VersionConflict(
+                f"후보 기준 버전 v{base} 과 현재 버전 v{current.version} 이 다릅니다 — 다시 요청."
+            )
+        candidate = Section.model_validate(stored["candidate"])
+        if chosen is not None and any(i < 0 or i >= len(candidate.sentences) for i in chosen):
+            raise RewriteRejected("후보에 없는 문장 번호입니다.")
+        picked = pick(candidate, chosen)
+        sections = [picked if s.key == key else s for s in current.sections]
+        if same_content(current.sections, sections):
+            self.store.clear_rewrite(user, run_id, key)
+            return current
+        new_version = DraftVersion(
+            version=current.version + 1,
+            origin="edit",
+            sections=sections,
+            created_at=self._clock(),
+            note=note or REWRITE_NOTE,
+            changed_sections=changed_sections(current.sections, sections),
+            annotations=current.annotations,
+            evidence_decisions=decisions_for_sections(sections, current.evidence_decisions),
+        )
+        self._store_version(user, run_id, state, new_version, nxt)
+        self.store.clear_rewrite(user, run_id, key)
+        self._touch_usage(user, run_id, state, rewrites_add=1)
+        return self.store.load_version(user, run_id, new_version.version) or new_version
+
+    async def section_questions(self, user: str, run_id: str, key: str) -> dict[str, Any]:
+        """섹션 체크리스트에서 빠진 요소 → 보완 질문. 답(proposer_notes.json)이 있으면 함께."""
+        if not self.usability.section_questions:
+            raise FeatureDisabled("보완 질문이 꺼져 있습니다 (usability.yaml section_questions).")
+        state = await self.status(user, run_id)
+        if key not in state.section_keys:
+            raise EditRejected(f"그런 섹션이 없습니다: {key}")
+        version = self._current_version(user, run_id, state)
+        checklist = self.checklists.get(key, [])
+        answers = (self.store.load_notes(user, run_id) or {}).get("answers", {}).get(key) or {}
+        return {
+            "section": key,
+            "questions": missing_elements(version.section(key), checklist),
+            "coverage": coverage(version.section(key), checklist),
+            "answers": dict(answers),
+        }
+
+    async def save_section_answers(
+        self, user: str, run_id: str, key: str, answers: Mapping[str, Any]
+    ) -> dict[str, str]:
+        """보완 질문의 답을 제안자 입력으로 저장 (proposer_notes.json) — 다음 다시 쓰기에."""
+        state = await self.status(user, run_id)
+        if key not in state.section_keys:
+            raise EditRejected(f"그런 섹션이 없습니다: {key}")
+        cleaned = clean_answers(answers)
+        notes = self.store.load_notes(user, run_id) or {}
+        all_answers = dict(notes.get("answers") or {})
+        merged = {**(all_answers.get(key) or {}), **cleaned}
+        all_answers[key] = merged
+        self.store.save_notes(
+            user, run_id, {**notes, "answers": all_answers, "saved_at": self._clock()}
+        )
+        return merged
+
+    # ── U7 제출 전 점검 ─────────────────────────────────
+    async def submit_check(self, user: str, run_id: str) -> SubmitCheck:
+        if not self.usability.submit_check:
+            raise FeatureDisabled("제출 전 점검이 꺼져 있습니다 (usability.yaml submit_check).")
+        state = await self.status(user, run_id)
+        version = self._current_version(user, run_id, state) if state.status in FINISHED else None
+        check = await self.render_check(user, run_id)
+        confirmation = self.store.load_confirmation(user, run_id)
+        options = self.generate.choice_options()
+        return submit_check(
+            state=state,
+            version=version,
+            problems=state.problems,
+            rules=self.generate.rules,
+            confirmed=confirmation.choices if confirmation else {},
+            overflow=check.overflow,
+            evidence_counts=evidence_counts(version.sections, version.evidence_decisions)
+            if version
+            else {"total": 0},
+            strategy_source=self.usability.strategy_source,
+            strategy_options=len(options.get("strategy_alignment", {})),
+        )
+
+    # ── U8 시범운영 측정 ─────────────────────────────────
+    def _touch_usage(
+        self,
+        user: str,
+        run_id: str,
+        state: RunState,
+        *,
+        counts: dict[str, int] | None = None,
+        checklist_coverage: float | None = None,
+        rewrites_add: int = 0,
+        hwpx_success: bool | None = None,
+    ) -> UsageRecord | None:
+        if not self.usability.usage_record:
+            return None
+        record = self.store.load_usage(user, run_id) or UsageRecord(run_id=run_id)
+        record = refresh_usage(record, state, counts=counts, now=self._clock())
+        update: dict[str, Any] = {}
+        if checklist_coverage is not None:
+            update["checklist_coverage"] = float(checklist_coverage)
+        if rewrites_add:
+            update["rewrites"] = record.rewrites + rewrites_add
+        if hwpx_success is not None:
+            update["hwpx_success"] = hwpx_success
+        record = record.model_copy(update=update)
+        self.store.save_usage(user, run_id, record)
+        return record
+
+    async def usage(self, user: str, run_id: str) -> UsageRecord | None:
+        state = await self.status(user, run_id)
+        return self.store.load_usage(user, run_id) or self._touch_usage(user, run_id, state)
+
+    async def feedback(self, user: str, run_id: str, score: int, comment: str = "") -> UsageRecord:
+        """마무리 뒤 만족도(1~5 + 한 줄). 개인정보 없음(이메일·전화 금지, 200자)."""
+        if not self.usability.feedback:
+            raise FeatureDisabled("만족도 기록이 꺼져 있습니다 (usability.yaml feedback).")
+        state = await self.status(user, run_id)
+        if state.status != "finalized":
+            raise FeedbackRejected("만족도는 최종 마무리(finalized) 뒤에 기록합니다.")
+        satisfaction = Satisfaction(score=score, comment=comment, recorded_at=self._clock())
+        record = self.store.load_usage(user, run_id) or UsageRecord(run_id=run_id)
+        record = refresh_usage(record, state, now=self._clock()).model_copy(
+            update={"satisfaction": satisfaction}
+        )
+        self.store.save_usage(user, run_id, record)
+        self._record(state)
+        return record
 
     # ── ⑥ 최종 마무리·다시 열기 ───────────────────────
     async def finalize(
@@ -1084,10 +1550,15 @@ class RunManager:
             sections=sections,
             template=state.template,
         )
-        data = self.renderer.render(draft, confirmation=confirmation, proposer=proposer)
+        try:
+            data = self.renderer.render(draft, confirmation=confirmation, proposer=proposer)
+        except Exception:
+            self._touch_usage(user, run_id, state, hwpx_success=False)
+            raise
         state = await self.status(user, run_id)
         state.status = review_flow.transition(state.status, "finalize")
         state.finalized_at = self._clock()
+        self._touch_usage(user, run_id, state, hwpx_success=True)
         self._save(state)
         return FinalizeResult(
             data=data, confirmation=confirmation, check=check, version=picked, state=state
@@ -1229,10 +1700,12 @@ def manifest(
     confirmation: Confirmation | None = None,
     reviews: list[ReviewRound] | None = None,
     versions: list[DraftVersion] | None = None,
+    usage: UsageRecord | None = None,
 ) -> dict[str, Any]:
     """보안 I: 해시·id·개수·클래스명만. 입력·문장·lint 메시지(문장 앞부분 포함)·의견 원문은 제외.
 
     검토는 차수별 provider·model, 외부 전송 doc_id(public/internal 구분), 보낸 문장 수만 남긴다.
+    U8 usage 는 개수·성공 여부·점수만 (한 줄 소감은 남기지 않는다).
     """
     return {
         "run_id": state.run_id,
@@ -1290,6 +1763,7 @@ def manifest(
                     "kind": r.kind,
                     "applied": len(r.applied_ids),
                     "applied_version": r.applied_version,
+                    "support": len(getattr(r, "support", {}) or {}),
                 }
                 for r in reviews or []
             ],
@@ -1306,9 +1780,18 @@ def manifest(
                 "sentences": v.sentence_count,
                 "alerts": v.alerts,
                 "open_annotations": v.open_annotations,
+                "decisions": len(getattr(v, "evidence_decisions", []) or []),
             }
             for v in versions or []
         ],
+        "usage": None
+        if usage is None
+        else {
+            "rewrites": usage.rewrites,
+            "decisions": usage.evidence.approve + usage.evidence.replace + usage.evidence.exclude,
+            "hwpx_success": usage.hwpx_success,
+            "satisfaction_score": usage.satisfaction.score if usage.satisfaction else None,
+        },
         "finalized_at": state.finalized_at,
         "differentiation": dict(state.differentiation) if state.differentiation else None,
         "recommendations": dict(state.recommendations) if state.recommendations else None,
