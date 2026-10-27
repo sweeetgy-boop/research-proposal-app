@@ -2,7 +2,7 @@
 
 | 항목 | 현재 | 다음 |
 |---|---|---|
-| 외부 자료원 | OpenAlex 2,482 + ScienceON 2,045(논문·보고서·특허) 실적재. NTIS 4 서비스는 코드·합성 fixture 완료, 실호출은 서버 IP 등록 대기(#35·`rra sources check` 가 현재 IP 를 등록 목록과 대조). KIPRIS 는 선택(특허는 ScienceON 기본). 공공 자료원 bai·datago·mofe·rnd_notice 추가(#37·#38), 나라장터 g2b 는 키 대기 | NTIS IP 등록 → 녹화 → 적재 |
+| 외부 자료원 | OpenAlex 2,482 + ScienceON 2,045(논문·보고서·특허) 실적재. NTIS 4 서비스 실연결 확정(#35·#50: 서버 IP 등록 뒤 실호출 ok, 실응답 fixture, `rra sources check` 가 현재 IP 를 등록 목록과 대조) — 적재 2026-10-27 저녁. KIPRIS 는 선택(특허는 ScienceON 기본). 공공 자료원 bai·datago·mofe·rnd_notice 추가(#37·#38), 나라장터 g2b 는 키 대기 | NTIS IP 등록 → 녹화 → 적재 |
 | 사내 자료 | 엑셀 4개(1,119)·공시 요약 120. 원문 비공개 보고서는 공개 요약 경로만 | 원문 공시 파일·카탈로그 CSV 투입 |
 | 전략체계 목록 | 홈페이지 자료로 만든 초안(5 방향·15 과제, 출처 주석)을 "초안(확인 전)" 으로 사용 중 | 확인 뒤 `rra strategy promote` |
 | 공고문 | `data/inbox/notice/` 비어 있음(이슈 #13) | 투입 뒤 반영 |
