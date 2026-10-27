@@ -75,9 +75,12 @@ async def test_ingests_cached_readings_as_image_vision_documents():
 async def test_dry_run_does_not_upsert_and_unknown_source_is_skipped():
     store = MemoryVisionStore()
     store.put_reading(sha(table_image()), {"ok": True, "reading": TABLE_READING})
-    repo = FakeRepo()  # 페이지 문서 없음 → manifest source(korail_web) 는 아직 SourceType 에 없다
+    repo = (
+        FakeRepo()
+    )  # 페이지 문서 없음 → manifest source(korail_web) 를 그대로 따른다 (크롤 레인 병합 뒤)
     report = await IngestImageReadings(cache_only_reader(store), repo)(dry_run=True)
-    assert report.dry_run and repo.upserts == [] and report.skipped == {"unknown_source": 1}
+    assert report.dry_run and repo.upserts == [] and report.skipped == {}
+    assert report.doc_ids and report.doc_ids[0].startswith("korail_web:img:")
 
 
 def test_requires_cache_only_reader():

@@ -7,6 +7,7 @@ LLM 은 이 목록 안에서만 제안하고(Section.choices), 확정은 사용�
 from __future__ import annotations
 
 import re
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -33,6 +34,8 @@ UTILIZATION: dict[str, str] = {
 TASK_TYPES_SOURCE = "task_types"
 UTILIZATION_SOURCE = "utilization"
 STRATEGY_SOURCE = "strategy_catalog"
+STRATEGY_DRAFT_LABEL = "전략체계 초안(확인 전)"
+StrategyStatus = Literal["draft", "confirmed"]
 OPTION_SOURCES = frozenset({TASK_TYPES_SOURCE, UTILIZATION_SOURCE, STRATEGY_SOURCE})
 
 _ID = re.compile(r"^[A-Za-z0-9-]{1,16}$")
@@ -62,7 +65,15 @@ class StrategyCatalog(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source: str = ""
+    # draft: 공사 홈페이지 자료에서 뽑은 초안(korail_strategy.draft.yaml) —
+    # 사람이 `rra strategy promote` 로
+    # 확정하기 전. 화면·API 는 "전략체계 초안(확인 전)" 을 함께 보여 준다.
+    status: StrategyStatus = "confirmed"
     directions: list[StrategyDirection] = Field(default_factory=list)
+
+    @property
+    def label(self) -> str | None:
+        return STRATEGY_DRAFT_LABEL if self.status == "draft" else None
 
     @model_validator(mode="after")
     def _unique(self) -> StrategyCatalog:

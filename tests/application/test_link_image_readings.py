@@ -108,8 +108,10 @@ def test_failed_argon_uses_ocr_text_only_and_no_text_is_skipped():
 
 def test_unknown_source_without_page_is_skipped_not_raised():
     data = make_image(800, 400, ["x"])
-    r = result(data, TABLE_READING, source="korail_web")
+    r = result(data, TABLE_READING, source="nope_site")  # SourceType 에 없는 자료원
     out = link_readings([r], {})
     assert out.skipped == {r.sha256: "unknown_source"}
+    ok = link_readings([result(data, TABLE_READING, source="korail_web")], {})
+    assert ok.documents[0].source == "korail_web"  # 크롤 레인이 추가한 자료원은 통과
     out2 = link_readings([result(data, TABLE_READING, source="own")], {})
     assert out2.documents[0].source == "own" and out2.documents[0].orgs == ["korail"]

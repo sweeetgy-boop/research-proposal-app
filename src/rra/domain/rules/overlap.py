@@ -140,13 +140,18 @@ SOURCE_LABELS: dict[str, str] = {
     "openalex": "OpenAlex 해외 논문",
     "kipris_kr": "KIPRIS 국내 특허",
     "kipris_intl": "KIPRIS 해외 특허",
+    "korail_web": "공사 홈페이지 정책·보도자료",
+    "molit": "국토교통부 철도 계획·정책",
 }
 ALL_SOURCES: tuple[str, ...] = tuple(get_args(SourceType))
+# 유사과제 판정에 쓰지 않는 자료원 — 검토 범위·미수집 문장에 넣지 않는다 (정책·보도자료는 근거 전용)
+NON_OVERLAP_SOURCES: frozenset[str] = frozenset({"korail_web", "molit"})
+OVERLAP_SOURCES: tuple[str, ...] = tuple(s for s in ALL_SOURCES if s not in NON_OVERLAP_SOURCES)
 
 
 def uncollected_sources(counts: dict[str, int]) -> list[str]:
-    """적재 문서가 한 건도 없는 자료원 (SourceType 순서)."""
-    return [s for s in ALL_SOURCES if not counts.get(s)]
+    """유사과제 판정 자료원 중 적재 문서가 한 건도 없는 것 (SourceType 순서)."""
+    return [s for s in OVERLAP_SOURCES if not counts.get(s)]
 
 
 def _label(source: str) -> str:
