@@ -197,6 +197,9 @@ class EvaluateQuality:
         hit: bool | None = None
         if expected is not None:
             hit = (not alerts) if not expected else any(d in top for d in expected)
+        if expected is not None and hasattr(self.manager.generate, "exemplar_exclude"):
+            # [4] 정답 유사과제는 Q4 본보기에서 뺀다 (정답을 베끼는 것을 막는다)
+            self.manager.generate.exemplar_exclude = frozenset(expected)
         t0 = self._clock()
         state = await self.manager.submit(self.user, req)
         state = await self.manager.wait(self.user, state.run_id)

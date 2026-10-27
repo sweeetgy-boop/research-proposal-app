@@ -37,6 +37,7 @@ async def test_evaluate_collects_version_review_citation_and_precheck_metrics():
     )
     result = await ev([("01", REQ)])
     assert result.label == "all" and result.max_rss_mb == 1234.5 and result.gemini_calls == 1
+    assert mgr.generate.exemplar_exclude == frozenset({"own:1"})  # 정답은 본보기에서 제외
     (a,) = result.ideas
     assert a.status == "drafted" and a.v1_alerts >= 1 and a.v2_alerts is not None
     assert a.sentences_v1 == 5 and a.sentences_v2 == 6  # 추가 문장 1
