@@ -61,3 +61,29 @@
 ## 3. 내려받기 경과
 
 (아래 §3 은 `--download` 가 끝날 때마다 갱신한다.)
+
+실행: `rra crawl korail --download` (2026-10-27 13:15 시작, 백그라운드). 2026-10-27 16:40 기준(진행 중, 사전정보공개목록까지):
+
+| 항목 | 값 |
+|---|---|
+| 항목(페이지·게시글) | 229건 — 콘텐츠 29, 지속가능경영보고서 7/12, 환경경영보고서 9/15, 안전 자료 7, 규정 자료 3, 인권경영 자료실 29, 사전정보공개 151 |
+| 파일 | 207개 (pdf 33, hwp 25, hwpx 80, pptx 35, xlsx 34), 본문 이미지 67 |
+| 디스크 | 654MB (`data/korail_web/snapshots/2026-10-27/`, 내용 주소 저장이라 같은 파일은 한 번) |
+| 건너뜀 | zip 등 형식 7, 사진 첨부(정책상 메타데이터만) 5 |
+| 텍스트 레이어 없는 PDF | 4건 (manifest `text_layer: false` — 적재 시 `no_text_layer` 경고) |
+| 보류(50MB 상한 초과 추정) | 지속가능경영보고서 5건, 환경경영보고서 6건, 사전정보공개 첨부 2건 — 끝에 10초 간격 1회 재시도 뒤 `snapshot.json held` 에 남는다 |
+| 남은 것 | 주요사업 콘텐츠 17, 통계자료 18, 신사업자료실 8, 기업브로슈어 24, 보도자료(2021-10-27~) 약 1,350건 — 2초 간격이라 약 2~3시간 |
+
+이어 가기(중단됐거나 끝난 뒤 보충): `rra crawl korail --download --incremental` — 같은 날 스냅샷을 이어 받고(받은 게시글은
+다시 받지 않음), 보류 항목만 다시 시도한다. 50MB 를 넘는 보고서는 `config/korail_web.yaml max_file_mb` 를 올린 뒤 같은 명령.
+
+## 4. 수집처 확장 탐색 ([P2], 2026-10-27)
+
+| 수집처 | 확인 결과 | 상태 |
+|---|---|---|
+| P2-1 국토교통부 정책자료 (`www.molit.go.kr/USR/policyData/m_34681/`) | robots: `/USR/BORD0201/*`·`/search/` 만 Disallow (정책자료 허용). WAF 가 첫 요청에 쿠키(307 자기 리다이렉트)를 주며 GuardedClient 가 hop 안에서 처리. "철도" 48건, 국가철도망 구축계획 3건(제4차 2023-03-30 등록), 철도산업발전 2건, 철도안전종합 1건. 상세에 담당자 이름·전화 있음 → 저장 전 제거. 첨부 `DownloadMltm2.jsp?FilePath=&FileName=` (pdf·hwp). | **구현** `adapters/sources/molit/`, `rra ingest --source molit`, 판 추적(제N차 → 현행/구판, 구판 `valid_until` = 다음 판 등록일). 실사이트 probe 통과 |
+| P2-2 철도 안전 통계 | `railsafety.or.kr`(교통안전공단 철도안전정보종합관리시스템) 연결 시간 초과(20s). `stat.molit.go.kr`·`kosis.kr` robots 는 Googlebot 일부 경로만 제한. 공사 자체 수송·시설 통계는 §2 주요사업 페이지·통계자료 게시판(xlsx)으로 이미 수집. | 탐색만. 다음: KOSIS 철도사고 통계 API(data.go.kr 키) 또는 stat.molit 통계누리 파일 — `statistics` doc_type 은 미정의 |
+| P2-4 감사원 감사결과 (`www.bai.go.kr/bai/result/branch/list`) | robots Allow(단 `/api/` Disallow), sitemap 있음. 목록 페이지는 3.7KB 뼈대만(JS 렌더) → Playwright 또는 내부 `/api/`(robots 금지) 필요. | 보류(자동 판단 2: robots 가 막은 API 는 쓰지 않음). 대안: 감사원 공개 보고서 PDF 직접 URL 수집 |
+| P2-6 연구용역 공고 (`ebid.korail.com`) | 프레임셋 + POST 폼(`torForm`, `__EventTarget`, TouchEn 키보드보안) 로 목록 조회, GET 은 "총 0 건". robots 는 오류 페이지로 307. | 보류. 대안: 공공데이터포털 나라장터 입찰공고정보 API(`apis.data.go.kr`, 키 필요, 이미 allowed_domains) 로 `procurement` 수집 — overlap.yaml 새 키·"용역으로 진행 중/예정" 상태는 미구현 |
+| P2-10 판 추적 | `domain/rules/editions.py` — 제목의 "제N차" 로 계획 가족을 묶고 최신만 현행. 차수가 없거나 등록일을 모르면 둘 다 현행(모호하면 유지). | 구현(molit 에 적용) |
+| P2-3·5·7·8·9 | 미착수 | — |
