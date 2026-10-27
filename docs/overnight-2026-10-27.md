@@ -39,6 +39,10 @@
 | (중단) | 세션 | 크레딧 소진으로 멈춤 → 사용자 구입 뒤 재개 |
 | 08:43~09:40 | [Q] 배선 | Q1~Q8 백엔드 배선 완료(GenerateProposal reranker·섹션별 검색·본보기·규칙 검사, ReviewDraft 체크리스트·추가 문장·후보 선택, RunManager outline 단계·두 후보·자동 반영, composition build_reranker/outliner/clarifier, Assistant·Streamlit clarify·후보 표시, 프롬프트). 테스트 25건 추가 → 1,273 통과·8 kept·ruff 통과. 커밋 296749a |
 
+| 10:03~10:08 | [Q] Q8 | bge-reranker-v2-m3 내려받음(~/models, 2.1GB, safetensors). 라이선스는 지시서의 MIT 가 아니라 **Apache-2.0**(HF 모델 카드 확인) — 업무 이용 허용이라 진행. MPS 측정: 적재 6.1s, 80쌍 0.67s, 32쌍 0.28s, RSS 900MB → 지연 2초 이내 조건 충족 |
+| 10:10~10:25 | [Q] Q9 도구 | `rra eval`(EvaluateQuality, --pipeline none/all/default, --on/--off, --no-review, --report 비교표). 테스트 1,277 통과. 커밋 |
+| 10:26 | [Q] Q9 측정 1 | baseline(모두 끔)·all(모두 켬) × 골든셋 3, Argon 1차 검토 포함(Gemini 6회 예정) 백그라운드 시작 |
+
 ## 판단 기록
 - [H] 배경 메모 중 저장소에 근거가 없는 항목(팀 구성·54초·DRM·.env 흰 화면·8501 충돌·웹 React 결정)은 "(대화 기록 기준, 미검증)" 으로 표시. 팀원 이름은 개인정보라 기록하지 않음.
 - [H] Mermaid SVG 는 `npx @mermaid-js/mermaid-cli`(puppeteer, 저장소 밖 캐시)로 렌더. 02 는 edge 라벨의 따옴표 때문에 실패 → 따옴표 제거.
