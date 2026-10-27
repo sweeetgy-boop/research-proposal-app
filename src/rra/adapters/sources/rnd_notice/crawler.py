@@ -90,7 +90,6 @@ class SiteSpec:
 @dataclass(frozen=True)
 class NoticeConfig:
     user_agent: str = "RRA research-proposal-app (internal research use)"
-    snapshot_dir: str = "data/rnd_notice"
     since_days: int = 730
     max_notices: int = 500
     sites: tuple[SiteSpec, ...] = ()
@@ -117,7 +116,6 @@ class NoticeConfig:
             )
         return cls(
             user_agent=str(raw.get("user_agent") or cls.user_agent),
-            snapshot_dir=str(raw.get("snapshot_dir") or "data/rnd_notice"),
             since_days=int(raw.get("since_days", 730)),
             max_notices=int(raw.get("max_notices", 500)),
             sites=tuple(sites),
@@ -160,13 +158,13 @@ class RndNoticeCrawler:
         client: GuardedClient,
         config: NoticeConfig,
         *,
-        root: Path | None = None,
+        root: Path,
         today: date | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ):
         self.client = client
         self.config = config
-        self.root = Path(root or config.snapshot_dir)
+        self.root = Path(root)  # 스냅샷 뿌리는 조립(composition)이 데이터 폴더 기준으로 준다
         self.today = today or date.today()
         self._sleep = sleep
         self._robots_cache: dict[str, RobotsRules] = {}

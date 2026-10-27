@@ -505,9 +505,15 @@ def test_own_sources_are_wired_from_sources_yaml(tmp_path):
         "institutions:\n  - {code: C0268, name: 한국철도공사, tag: korail}\n",
         encoding="utf-8",
     )
-    projects, docs = build_sources(["own_projects", "own_docs"], settings_for(tmp_path))
-    assert projects.source == "own_projects" and projects.inbox == Path("inbox/own")
-    assert docs.source == "own_docs" and docs.inbox == Path("inbox/docs")
+    projects, docs = build_sources(
+        ["own_projects", "own_docs"], settings_for(tmp_path, data_dir=tmp_path / "data")
+    )
+    # 상대 경로는 데이터 폴더(RRA_DATA_DIR) 아래 절대 경로로 — worktree 의 cwd 에 데이터를 두지
+    # 않는다
+    assert (
+        projects.source == "own_projects" and projects.inbox == tmp_path / "data" / "inbox" / "own"
+    )
+    assert docs.source == "own_docs" and docs.inbox == tmp_path / "data" / "inbox" / "docs"
     assert docs.labels["title"] == ["과제명칭"] and docs.labels["purpose"] == ["연구목적"]
     assert docs.institutions[0]["tag"] == "korail" and docs.default_org == "korail"
     assert projects.limits.max_input_mb == docs.limits.max_input_mb

@@ -564,9 +564,10 @@ def cmd_llm_bench(args: argparse.Namespace) -> int:
         return EXIT_USAGE
     import yaml
 
-    from rra.composition import build_bench, load_settings
+    from rra.composition import build_bench, data_location, load_settings
     from rra.domain.models import ProposalRequest
 
+    settings = load_settings()
     golden = sorted(Path(args.golden).glob("*.yaml"))
     if not golden:
         _eprint(f"골든셋이 없습니다: {args.golden}")
@@ -576,14 +577,14 @@ def cmd_llm_bench(args: argparse.Namespace) -> int:
     ]
 
     async def run():
-        bench = build_bench(load_settings(), label=args.label)
+        bench = build_bench(settings, label=args.label)
         try:
             return await bench(ideas)
         finally:
             await bench.generate.llm.aclose()
 
     result = asyncio.run(run())
-    out = Path(args.out or f"data/bench/{args.label}.json")
+    out = Path(args.out) if args.out else data_location(settings, "bench") / f"{args.label}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     totals = result.totals()
@@ -663,7 +664,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
         return EXIT_USAGE
     import yaml
 
-    from rra.composition import build_eval, load_settings
+    from rra.composition import build_eval, data_location, load_settings
     from rra.domain.models import ProposalRequest
 
     settings = load_settings()
@@ -688,7 +689,10 @@ def cmd_eval(args: argparse.Namespace) -> int:
         if exp is not None:
             expected[p.stem] = [str(x) for x in (exp or [])]
         ideas.append((p.stem, ProposalRequest(**data)))
-    runs_dir = Path(args.runs_dir or f"data/eval/runs/{args.label}")
+    if args.runs_dir:
+        runs_dir = Path(args.runs_dir)
+    else:
+        runs_dir = data_location(settings, "eval") / "runs" / args.label
 
     async def run():
         ev = build_eval(
@@ -700,7 +704,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
             await ev.manager.generate.llm.aclose()
 
     result = asyncio.run(run())
-    out = Path(args.out or f"data/eval/{args.label}.json")
+    out = Path(args.out) if args.out else data_location(settings, "eval") / f"{args.label}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     t = result.totals()
@@ -736,10 +740,12 @@ def cmd_reindex(args: argparse.Namespace) -> int:
 
 def cmd_db_backup(args: argparse.Namespace) -> int:
     """VACUUM INTO 사본. --out 이 폴더면 rra-YYYYMMDD-HHMMSS.sqlite 로 저장, 보관 --keep 벌."""
-    from rra.composition import build_db_maintenance, load_settings
+    from rra.composition import build_db_maintenance, data_path, load_settings
 
-    _, backup = build_db_maintenance(load_settings())
-    report = asyncio.run(backup(args.out, keep=args.keep))
+    settings = load_settings()
+    _, backup = build_db_maintenance(settings)
+    # `data/backups` 처럼 data/ 로 시작하는 상대 경로는 데이터 폴더(원 저장소) 아래로
+    report = asyncio.run(backup(data_path(settings, args.out, only_prefixed=True), keep=args.keep))
     print(f"백업: {report.path} (보관 {len(report.kept)}벌, 삭제 {len(report.removed)}벌)")
     for extra in report.extras:
         print(f"  + {extra.name}")

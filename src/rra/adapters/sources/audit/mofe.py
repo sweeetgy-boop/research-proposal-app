@@ -132,7 +132,7 @@ class MofeEvaluationSource:
         menu_no: str = "4010100",
         queries: Sequence[str] = ("경영실적 평가 결과",),
         title_filter: Sequence[str] = ("경영실적 평가",),
-        store_dir: Path = Path("data/mofe"),
+        store_dir: Path,
         limits: SandboxLimits,
         max_file_bytes: int = 50 * 1024 * 1024,
         runner: Runner = run_parser,
