@@ -26,6 +26,7 @@ from rra.application.ports.vision import (
 )
 from rra.domain.models.vision import ImageItem, ImageReadResult, OcrResult, VisionReading
 from rra.domain.rules.image_filter import FilterReport, ImageFilterConfig, filter_images
+from rra.domain.rules.photo_filter import PhotoRule, is_photo, ocr_signals, photo_meta
 from rra.domain.rules.vision_plan import DEFAULT_CAP, VisionPlan, plan
 from rra.domain.rules.vision_trust import VisionParseError, parse_reading, verify_numbers
 
@@ -89,6 +90,7 @@ class ReadImages:
         cap: int = DEFAULT_CAP,
         keywords: dict | None = None,
         max_tokens: int | None = None,
+        photo_rule: PhotoRule | None = None,
         clock: Callable[[], float] = time.monotonic,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ):
@@ -97,6 +99,7 @@ class ReadImages:
         self.prompt, self.system, self.max_tokens = prompt, system, max_tokens
         self.filter_config = filter_config or ImageFilterConfig()
         self.cap, self.keywords = cap, keywords
+        self.photo_rule = photo_rule or PhotoRule(enabled=False)
         self._clock, self._now = clock, now
         self.calls = 0
         self._ocr_unavailable = False
@@ -107,12 +110,21 @@ class ReadImages:
         report = filter_images(items, self.filter_config)
         cached = self.store.cached_hashes()
         planned = plan(
-            report.kept, cached_hashes=cached, cap=self.cap, keywords=self.keywords, limit=limit
+            report.kept,
+            cached_hashes=cached,
+            cap=self.cap,
+            keywords=self.keywords,
+            limit=limit,
+            is_photo=self._is_photo if self.photo_rule.enabled else None,
         )
         if self.reader is None:  # 판독기가 없으면(키 없음) 전부 OCR 만
             planned.ocr_only = planned.to_call + planned.ocr_only
             planned.to_call = []
         return report, planned
+
+    def _is_photo(self, item: ImageItem, group: str) -> bool:
+        """OCR 캐시가 있을 때만 판정 — OCR 전(캐시 없음)에는 사진으로 보지 않는다."""
+        return is_photo(ocr_signals(self.store.get_ocr(item.sha256)), group, self.photo_rule)
 
     # ── 실행 ──────────────────────────────────────────────
     async def __call__(
@@ -129,8 +141,11 @@ class ReadImages:
             report.elapsed_sec = self._clock() - started
             return report
         call_set = {it.sha256 for it in planned.to_call}
+        photo_set = {it.sha256 for it in planned.photos}
         for item in planned.ordered:
-            result = await self._process(item, may_call=item.sha256 in call_set)
+            result = await self._process(
+                item, may_call=item.sha256 in call_set, photo=item.sha256 in photo_set
+            )
             report.results.append(result)
             if on_result is not None:
                 on_result(result)
@@ -138,8 +153,25 @@ class ReadImages:
         report.elapsed_sec = self._clock() - started
         return report
 
-    async def _process(self, item: ImageItem, *, may_call: bool) -> ImageReadResult:
+    async def _process(
+        self, item: ImageItem, *, may_call: bool, photo: bool = False
+    ) -> ImageReadResult:
         t0 = self._clock()
+        if photo:  # 사진: 이미지를 다시 읽지 않고 OCR 캐시 신호와 메타만 남긴다 (Argon 없음)
+            signals = ocr_signals(self.store.get_ocr(item.sha256))
+            if self.reader is not None:  # 적재(reader=None) 재실행 때는 로그를 겹쳐 쓰지 않는다
+                self.store.log(
+                    {
+                        "sha256": item.sha256,
+                        "url": (item.url or item.path)[:MAX_LOG_URL_CHARS],
+                        "time": self._stamp(),
+                        "status": "photo",
+                        **photo_meta(item, signals),
+                    }
+                )
+            return ImageReadResult(
+                sha256=item.sha256, status="photo", item=item, elapsed_sec=self._clock() - t0
+            )
         try:
             image = self.snapshot.read_image(item)
         except (ValueError, OSError) as exc:

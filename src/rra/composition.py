@@ -354,6 +354,7 @@ def build_read_images(
     dry-run·시험용."""
     from rra.application.usecases.read_images import ReadImages
     from rra.domain.rules.image_filter import ImageFilterConfig
+    from rra.domain.rules.photo_filter import PhotoRule
     from rra.domain.rules.vision_plan import group_keywords
 
     settings = settings or load_settings()
@@ -378,6 +379,7 @@ def build_read_images(
         cap=cap if cap is not None else vcfg["cap"],
         keywords=group_keywords(vcfg["order_keywords"]),
         max_tokens=stage["max_tokens"],
+        photo_rule=PhotoRule.from_dict(vcfg.get("photo")),
     )
 
 

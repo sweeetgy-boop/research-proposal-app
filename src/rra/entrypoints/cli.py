@@ -1977,7 +1977,8 @@ def _vision_plan_lines(summary: dict) -> list[str]:
         f"스냅샷 {summary['snapshot']} — 거르기: 유지 {f['kept']} / 제외 {f['excluded']} "
         f"({reasons or '없음'})",
         f"판독 계획: 대상 {p['planned']}건, 캐시 {p['cached']}건, "
-        f"예상 호출 {p['expected_calls']}건 (상한 {p['cap']}), OCR 만 {p['ocr_only']}건",
+        f"예상 호출 {p['expected_calls']}건 (상한 {p['cap']}), OCR 만 {p['ocr_only']}건, "
+        f"사진(OCR 판정, Argon 제외) {p.get('photos', 0)}건",
         "순서 그룹: " + ", ".join(f"{k} {v}" for k, v in p["groups"].items()),
     ]
     return lines
