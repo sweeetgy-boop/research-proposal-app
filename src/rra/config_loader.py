@@ -21,6 +21,7 @@ from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.lint import LintRules
 from rra.domain.rules.overlap import OwnUnit
 from rra.domain.rules.relevance import RelevanceFloor
+from rra.domain.rules.source_ip import IpPolicy
 from rra.settings import Settings
 
 DEFAULT_STAGE = "compose"
@@ -110,6 +111,17 @@ def source_config(settings: Settings, name: str) -> dict[str, Any]:
     둔
     자료원)."""
     return read_config("sources.yaml", settings).get(name) or read_config(f"{name}.yaml", settings)
+
+
+def public_ip_config(settings: Settings) -> dict[str, Any]:
+    """sources.yaml `public_ip` — 현재 공인 IP 조회 URL·자료원 가용 상태 파일 (레인 I)."""
+    return read_config("sources.yaml", settings).get("public_ip") or {}
+
+
+def source_ip_policy(settings: Settings, name: str, *, label: str = "") -> IpPolicy:
+    """자료원의 IP 제한 (sources.yaml `<source>.ip_restricted`·`registered_ips`). 항목이 없으면 제한
+    없음."""
+    return IpPolicy.from_mapping(source_config(settings, name) or {}, label=label or name)
 
 
 def molit_config(settings: Settings) -> dict[str, Any]:
@@ -235,6 +247,11 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
     ),
     "eval": (lambda s: {}, "", "data/eval"),
     "bench": (lambda s: {}, "", "data/bench"),
+    "source_availability": (
+        public_ip_config,
+        "availability_file",
+        "data/cache/source_availability.json",
+    ),
 }
 DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
 
