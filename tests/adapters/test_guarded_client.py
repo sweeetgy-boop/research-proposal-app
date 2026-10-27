@@ -229,6 +229,19 @@ async def test_get_bytes_returns_body():
         )
 
 
+async def test_get_bytes_sends_accept_header_from_accept_types():
+    """XML API(ScienceON)는 Accept 가 application/json 뿐이면 406 — accept_types 로 보낸다."""
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["accept"] = request.headers["accept"]
+        return file_response()
+
+    async with make(handler) as client:
+        await client.get_bytes("https://api.openalex.org/f.csv", accept_types=CSV_TYPES)
+    assert "text/csv" in seen["accept"] and "*/*;q=0.1" in seen["accept"]
+
+
 async def test_get_bytes_rejects_unexpected_content_type():
     router = Router({"https://api.openalex.org/f.csv": [file_response(ctype="text/html")]})
     async with make(router) as client:

@@ -34,10 +34,12 @@ from rra.config_loader import (
     require_credentials,
     retention_days,
     review_policy,
+    section_checklists,
     security_config,
     served_model_aliases,
     source_config,
     strategy_catalog,
+    usability_config,
     vision_config,
 )
 from rra.settings import Settings, load_settings
@@ -60,6 +62,7 @@ __all__ = [
     "own_unit",
     "read_config",
     "strategy_catalog",
+    "usability_config",
     # 조립
     "build_alio_catalog",
     "build_alio_catalog_fetcher",
@@ -71,6 +74,8 @@ __all__ = [
     "build_own_projects_source",
     "build_api",
     "build_assistant",
+    "build_briefer",
+    "build_comparer",
     "build_differentiator",
     "build_embedding",
     "build_generate",
@@ -89,6 +94,8 @@ __all__ = [
     "build_served_model_check",
     "build_sources",
     "build_sources_check",
+    "build_structurer",
+    "build_usage_report",
     "sandbox_limits",
 ]
 
@@ -337,6 +344,7 @@ def build_reviewer(settings: Settings | None = None, *, llm=None):
         prompt_max_chars=cfg["prompt_max_chars"],
         provider=cfg["provider"],
         model=cfg["served_model"] or cfg["model"],
+        support=usability_config(settings).evidence_support,
     )
 
 
@@ -516,6 +524,8 @@ def build_scienceon_source(settings: Settings | None = None, *, transport=None, 
         search_field=str(cfg.get("search_field", "BI")),
         row_count=int(cfg.get("row_count", 50)),
         max_consecutive_429=int(cfg.get("max_consecutive_429", 2)),
+        per_query_limit=int(cfg["per_query_limit"]) if cfg.get("per_query_limit") else None,
+        institutions=institutions(settings),
     )
 
 
@@ -730,6 +740,7 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
         check_overlap=True,
         keywords=keyword_rule(settings),
         relevance=relevance_floor(settings),
+        schedule_metrics=usability_config(settings).schedule_metrics,
     )
 
 
@@ -777,6 +788,8 @@ def build_run_manager(
         reviewer=reviewer if reviewer is not None else build_reviewer(settings, llm=review_llm),
         review_auto=review_policy(settings)["auto"],
         pipeline=pipeline_config(settings),
+        usability=usability_config(settings),
+        checklists=section_checklists(settings),
     )
 
 
@@ -933,6 +946,9 @@ def build_api(
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
         recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         recommend_auto=recommend_policy(settings)["auto"],
+        structure=build_structurer(settings, llm=llm),
+        compare=build_comparer(settings, repo=repo, precheck=precheck),
+        brief=build_briefer(settings, repo=repo, llm=llm),
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
@@ -954,6 +970,15 @@ def build_api_schema(settings: Settings | None = None) -> dict[str, Any]:
         update={"fake_llm": True, "api_token": SecretStr("schema-only-not-a-token")}
     )
     return build_api(schema_settings).openapi()
+
+
+def build_usage_report(settings: Settings | None = None, *, store=None):
+    """UsageReport — runs/ 의 usage.json 집계 (`rra usage report`). store 를 주면 그대로(테스트)."""
+    from rra.adapters.runs import FileRunStore
+    from rra.application.usecases.usage_report import UsageReport
+
+    settings = settings or load_settings()
+    return UsageReport(store or FileRunStore(Path(settings.runs_dir)))
 
 
 def build_purge_runs(settings: Settings | None = None, *, clock=None):
@@ -992,6 +1017,73 @@ def build_differentiator(settings: Settings | None = None, *, repo=None, llm=Non
         provider=cfg["provider"],
         model=cfg["served_model"] or cfg["model"],
         fallback_local=fallback,
+    )
+
+
+def _stage_or_local(settings: Settings, stage: str) -> tuple[str, bool]:
+    """단계 키가 없으면 compose(로컬)로 — (실제 단계, fallback_local)."""
+    try:
+        available = llm_available(settings, stage=stage)
+    except KeyError:
+        available = False
+    return (stage, False) if available else ("compose", True)
+
+
+def build_structurer(settings: Settings | None = None, *, llm=None):
+    """U2 간편 입력(StructureIdea) — compose(로컬) 모델. usability.quick_input 이 꺼지면 None."""
+    from rra.application.usecases.structure_idea import StructureIdea
+
+    settings = settings or load_settings()
+    if not usability_config(settings).quick_input:
+        return None
+    cfg = llm_config(settings, "compose")
+    if llm is None:
+        llm = build_llm(settings, stage="compose")
+    return StructureIdea(
+        llm,
+        build_prompt_library(settings),
+        provider=cfg["provider"],
+        model=cfg["served_model"] or cfg["model"],
+    )
+
+
+def build_comparer(settings: Settings | None = None, *, repo=None, precheck=None):
+    """U4 차별성 비교표(CompareProjects) — LLM 없음. usability.comparison 이 꺼지면 None."""
+    from rra.application.usecases.compare_projects import CompareProjects
+
+    settings = settings or load_settings()
+    if not usability_config(settings).comparison:
+        return None
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return CompareProjects(repo, precheck=precheck or build_precheck(settings, repo=repo))
+
+
+def build_briefer(settings: Settings | None = None, *, repo=None, llm=None):
+    """U5 선행연구 브리핑(BriefPriorWork) — stage brief(기본 gemini), 키 없으면 compose(로컬)로
+    fallback_local=True. usability.brief 가 꺼지면 None. llm 을 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.brief_prior_work import BriefPriorWork
+
+    settings = settings or load_settings()
+    if not usability_config(settings).brief:
+        return None
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    stage, fallback = _stage_or_local(settings, "brief")
+    cfg = llm_config(settings, stage)
+    if llm is None:
+        llm = build_llm(settings, stage=stage)
+    generate = build_generate(settings, repo=repo, llm=llm)  # retrieve 만 쓴다
+    return BriefPriorWork(
+        llm,
+        build_prompt_library(settings),
+        repo,
+        retrieve=generate.retrieve,
+        include_internal=review_policy(settings)["include_internal"],
+        provider=cfg["provider"],
+        model=cfg["served_model"] or cfg["model"],
+        fallback_local=fallback,
+        keywords=keyword_rule(settings),
     )
 
 

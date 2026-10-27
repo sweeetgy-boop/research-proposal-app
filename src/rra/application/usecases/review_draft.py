@@ -49,6 +49,7 @@ from rra.domain.models.review import (
     sentence_id,
 )
 from rra.domain.models.selection import STRATEGY_SOURCE
+from rra.domain.rules.evidence import parse_support
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.lint import LintRules
@@ -108,6 +109,8 @@ class ReviewDraft:
     prompt_max_chars: int = 100_000
     provider: str | None = None
     model: str | None = None
+    # U1 근거 적합성 — 1차 검토 때 문장마다 support(지지·부분·불일치)를 함께 요청 (추가 호출 없음)
+    support: bool = True
 
     # ── 진입 ─────────────────────────────────────────────
     async def __call__(self, ctx: ReviewContext) -> ReviewRound:
@@ -119,6 +122,7 @@ class ReviewDraft:
         section_items: list[dict] = []
         resolved_raw: list[str] = []
         score_items: list[dict] = []
+        support_items: list = []
         for item in inputs:
             data = parse_object(
                 await self.llm.complete(item.prompt, system=self.prompts.review(), json_mode=True)
@@ -132,7 +136,9 @@ class ReviewDraft:
             )
             if not score_items:  # 분할 호출이면 첫 호출(초안 전체 또는 첫 섹션)의 채점만 쓴다
                 score_items = [x for x in _as_list(data.get("scores")) if isinstance(x, dict)]
+            support_items.extend(_as_list(data.get("support")))
         sent_ids = {sid for item in inputs for sid in item.sentence_ids}
+        support = parse_support(support_items, sent_ids) if self._wants_support(ctx) else {}
         comments = self._comments(ctx, sections, raw_items, section_items, sent_ids)
         scores = parse_scores(score_items, sent_ids)
         comments.extend(
@@ -163,7 +169,11 @@ class ReviewDraft:
             excluded_sentences=sorted(excluded),
             transfer=transfer,
             scores=scores,
+            support=support,
         )
+
+    def _wants_support(self, ctx: ReviewContext) -> bool:
+        return self.support and ctx.kind == "draft"
 
     # ── 전송 범위 ─────────────────────────────────────────
     def _excluded(self, sections: list[Section], internal_docs: set[str]) -> set[str]:
@@ -242,6 +252,12 @@ class ReviewDraft:
             parts.append(
                 "[앱이 찾은 문제 — 규칙 검사]\n"
                 + json.dumps(list(ctx.app_findings), ensure_ascii=False)
+            )
+        if self._wants_support(ctx):
+            parts.append(
+                "[근거 적합성 — 모든 문장] evidence 가 있는 문장마다 support 를 낸다: "
+                "지지(근거가 문장을 뒷받침) | 부분(일부만) | 불일치(근거와 다르거나 근거에 없음). "
+                '출력의 "support": [{"sentence_id": "...", "support": "지지"}] 에 적는다.'
             )
         if ctx.previous is not None:
             prev = [

@@ -40,11 +40,22 @@ MANIFEST_KEYS = frozenset(
         "differentiation",
         "recommendations",
         "versions",
+        "usage",
     }
 )
 VERSION_KEYS = frozenset(
-    {"version", "origin", "changed_sections", "sentences", "alerts", "open_annotations"}
+    {
+        "version",
+        "origin",
+        "changed_sections",
+        "sentences",
+        "alerts",
+        "open_annotations",
+        "decisions",
+    }
 )
+# U8: 개수·성공 여부·점수만. 한 줄 소감은 usage.json 에만 있고 manifest 에는 오지 않는다
+USAGE_KEYS = frozenset({"rewrites", "decisions", "hwpx_success", "satisfaction_score"})
 DIFFERENTIATION_KEYS = frozenset(
     {
         "provider",
@@ -103,6 +114,7 @@ TRANSFER_KEYS = frozenset(
         "kind",
         "applied",
         "applied_version",
+        "support",
     }
 )
 STEP_KEYS = frozenset(
@@ -156,6 +168,9 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
         extra = set(version) - VERSION_KEYS
         if extra:
             raise ValueError(f"manifest versions 에 허용되지 않은 키: {sorted(extra)}")
+    extra = set(manifest.get("usage") or {}) - USAGE_KEYS
+    if extra:
+        raise ValueError(f"manifest usage 에 허용되지 않은 키: {sorted(extra)}")
     for value in _strings(manifest):
         if len(value) > MAX_TEXT_CHARS:
             raise ValueError("manifest 에 긴 문자열이 있습니다 — 원문이 섞였을 수 있습니다.")

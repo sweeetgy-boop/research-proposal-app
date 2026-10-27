@@ -1,4 +1,4 @@
-## [P3] 웹 이미지 판독 (feat/policy-vision, 2026-10-27, ADR 0016, architecture §4.17)
+## [P3] 웹 이미지 판독 (feat/policy-vision, 2026-10-27, ADR 0018, architecture §4.17)
 
 - 코드만·fixture 테스트만 (실제 스냅샷 OCR·Argon 호출·DB 적재는 통합 세션이 아래 순서로). 새 테스트 83, 전체 1322 통과·18 skip, 계약 8 유지.
 - 모듈: `domain/models/vision.py`(ImageItem·OcrResult·VisionReading·ImageReadResult), `domain/rules/image_filter.py`(거르기),

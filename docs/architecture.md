@@ -1231,7 +1231,7 @@ class RunManager:
 | 2026-10-23 | 구조 검토 6항목 반영(§4.3: 필수 슬롯 단일화, `config_loader`·`diagnostics` 분리, `_Lazy` 제거, 포트 비동기화, `TaskRunner`), Step 8 HWPX 렌더러·Step 9 run_log 이동·`runs purge`·Step 10 REST·보안 미들웨어·launchd(§4.4, §9.2). import-linter 계약 6→8. `.gitignore` `runs/`→`/runs/`(그동안 `src/rra/adapters/runs/` 가 커밋되지 않던 문제 수정). 이 문서 §1·§2·§3·§8 를 코드와 맞춤 |
 
 
-### 4.17 웹 이미지 판독 (2026-10-27, P3, ADR 0016)
+### 4.17 웹 이미지 판독 (2026-10-27, P3, ADR 0018)
 
 누리집 크롤 스냅샷(`data/korail_web/snapshots/<date>/manifest.jsonl`, 형식 `docs/vision-manifest.md`)의 이미지를
 글로 옮겨 `text_basis="image_vision"` 문서로 적재한다. 흐름(`usecases/read_images.py`):

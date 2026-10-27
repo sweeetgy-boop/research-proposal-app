@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaData>
+	<resultSummary>
+		<TotalCount>1858</TotalCount>
+		<serviceDatatype>논문</serviceDatatype>
+		<statusCode>200</statusCode>
+	</resultSummary>
+	<parameterData>
+		<client_id>REDACTED</client_id>
+		<token>REDACTED</token>
+		<session_id></session_id>
+		<searchQuery><![CDATA[{"BI": "철도 궤도"}]]></searchQuery>
+		<sortField></sortField>
+		<sortBy></sortBy>
+		<curPage>1</curPage>
+		<rowCount>10</rowCount>
+	</parameterData>
+	<recordList>
+		<record rownum="1">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO201129362564139]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00294862]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[한국철도학회]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[한국철도학회 논문집 = Journal of the Korean Society for Railway]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[1738-6225;2288-2235;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[63]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[14]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[3]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2011]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20110626]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO201129362564139]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[도시철도 궤도구조별 궤도충격계수 평가]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[The Evaluation of Track Impact Factor on the Various Track Type in Urban Transit]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[현재 한국에서 궤도설계 시 사용하고 있는 궤도충격계수는 미국철도기술협회(AREA)의 식(1+0.513V/100)을 사용하고 있다. 이 식은 자갈 및 콘크리트궤도 모두 동일하게 적용되고 있으며 이러한 단일수치로서의 충격계수는 다양한 궤도구조의 역학적 거동특성을 반영하지 못하여 경우에 따라 과다설계가 될 소지가 있다. 또한 자갈궤도의 경우 도상자갈의 상태변화에 따라, 콘크리트궤도는 궤도탄성층의 구성과 탄성범위에 따라 궤도에 작용하는 동적윤하중의 효과, 즉 충격의 효과가 상이하게 발생된다. 이에 본 연구에서는 자갈궤도(도상 상태 양호 및 불량개소)와 콘크리트궤도(일반적인 침목매입식 궤도, 레일플로팅궤도, 침목플로팅궤도)에서의 현장측정을 통해 도상별, 궤도구조별 열차 주행시 발생하는 윤중의 동적효과를 분석하여 궤도의 상태 및 구조적 특성과 궤도 충격의 효과와의 상관관계 및 영향을 비교, 분석하였다. 연구결과 궤도구조의 특성을 감안하여 궤도충격의 영향을 합리적으로 산정 할 수 있는 제안식을 제시하였다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[Impact factor of concrete and ballast track which has been used in Korea railway was applied to equation (1+0.513V/100) from AREA. As the use of this equation, overcapacity of track design might be occurred. Therefore, this study compared impact of ballast track (well, bad) and concrete track (sleeper embeded system, rail floating and sleeper floating) by field test to analyzing dynamic effect of track structure's characterstic and wheel load on service line. In addition, it suggested a method to generate reasonable impact factor on each track type.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[베를린공과대학교 철도.궤도공학과;서울과학기술대학교 철도전문대학원 철도건설공학과;서울과학기술대학교 철도전문대학원 철도건설공학과;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.248-255]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.7782/jksr.2011.14.3.248]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO201129362564139&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201129362564139]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201129362564139&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[궤도 충격계수 . 현장측정 . 궤도구조]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[Track impact factor . Field test . Track type]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="2">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO201609562999252]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00545563]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[한국구조물진단유지관리공학회]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[한국구조물진단유지관리공학회 논문집 = Journal of the Korea Institute for Structural Maintenance and Inspection]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[2234-6937;2287-6979;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[26]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[20]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[2]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2016]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20160301]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO201609562999252]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[철도 궤도의 수명주기비용 분석 : 고속철도 자갈궤도와 콘크리트궤도 사례 연구]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[Analysis of Life Cycle Costs of Railway Track : A Case Study for Ballasted and Concrete Track for High-Speed Railway]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[구조 형식이나 공법의 선정, 유지보수 시기, 보수방법의 결정 등의 의사 결정에서 수명주기비용(life cycle cost, LCC)의 평가가 중요하다. 철도 궤도구조의 경우 초기시공비 뿐 아니라 유지보수비가 총 비용의 상당 부분을 차지하고, 특히 자갈궤도일수록 그 비율은 더욱 높으므로 수명주기비용 평가의 필요성이 더욱 높다. 이 연구에서는 궤도 구조 형식, 연간 통행량, 축중, 열차 속도, 곡선 비율, 구조물(교량, 터널) 비율 등 다양한 설계변수를 고려할 수 있는 LCC 산정 모델을 개발하고, 각 비용의 산정에 필요한 기초 자료를 제시하였으며 구축된 모델과 자료를 바탕으로 주요 설계변수에 따른 고속철도 자갈궤도와 콘크리트궤도 LCC의 변화 경향을 분석하고, 이로부터 궤도 LCC 분석에 있어서의 고려해야 할 주요 변수를 검토하였다. 검토 결과 자갈궤도는 교체 및 운영 비용의 비중이 콘크리트궤도에 비해 현저히 높았으며, 연간 통행량과 자갈 탬핑 주기가 자갈궤도의 LCC에 가장 큰 영향을 미치는 것으로 나타났다. 반면 콘크리트궤도는 초기 시공비의 비중이 현저히 높았고, 연간 통행량이나 열차속도, 축중 등에 상대적으로 영향을 적게 받는 것으로 나타났다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[In the decision-making, such as selection of structure, construction method, or time and scheme of maintenance, the evaluation of life-cycle cost(LCC) is of great importance. The maintenance cost occupy a large portion of the LCC of the railway track as well as the initial construction cost. Futhermore, the proportion of the maintenance cost is much higher in the ballasted track. Thus, the importance of the LCC evaluation is higher than in any other engineering structures. In this study, a LCC model that can consider various design parameters such as the type of track structure, annual traffic volume, axle load, train speed, and proportion of curve sections and engineering structures has been developed. Fundamental data for calculating costs also have been presented. Based on the model and data proposed, the trends in the variation of LCC according to the design parameters were examined and the most important design parameters in the LCC analysis of railway track were investigated. The results show that the proportion of renewal and operational costs is much higher in the ballasted track than in the concrete track, and the annual traffic volume and ballast taming period are most significant factors on the LCC of the ballasted track. On the contrary, it is revealed that the proportion of the initial construction costs in the concrete track is much higher, and the LCC of the concrete track is less sensitive to the traffic volume, train speed, and axle load.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[한국철도기술연구원]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.110-121]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.11112/jksmi.2016.20.2.110]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO201609562999252&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201609562999252]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201609562999252&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[철도 궤도 . 자갈궤도 . 콘크리트궤도 . 수명주기비용 . 유지보수]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[Railway track . Ballasted track . Concrete track . Life-cycle cost(LCC) . Maintenance]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="3">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO201935236777385]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00565478]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[국제문화기술진흥원]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[Journal of the convergence on culture technology : JCCT = 문화기술의 융합]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[2384-0358;2384-0366;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[20]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[5]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[4]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2019]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20191130]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO201935236777385]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[도시철도 침목플로팅궤도 궤도구성품의 손상평가]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[Damage Evaluation of Track Components for Sleeper Floating Track System in Urban Transit]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구에서는 도시철도 침목플로팅궤도(STEDEF) 궤도구성품의 손상영향을 분석하기 위하여 20년 이상 공용중인 현장에서 시료를 채취하여 궤도재료에 대한 육안검사와 실내시험 및 유한요소해석을 통해 궤도구성품의 손상취약부를 분석하였다. 육안검사결과 레일패드와 체결구는 특이사항이 없었으나 침목방진상자는 모서리부분의 마모 및 찢어지는 현상이 발생하였다. 침목방진패드는 두께감소 및 피로경화층이 뚜렷하게 조사되었다. 레일패드와 침목방진패드에 대한 스프링강성 시험결과, 레일패드의 노후는 뚜렷하지 않았으나 침목방진패드는 설계기준치를 크게 상회하는 것으로 나타나 침목방진패드는 통과톤수에 직접적인 영향을 받는 것으로 분석되었다. 현장시료의 열화상태와 수치해석 결과와의 비교결과, 수치해석모델의 응력 및 변위 집중위치와 현장시료의 손상위치가 일치하는 것으로 나타나 공용중인 침목플로팅궤도 궤도구성품의 손상취약부를 실험 및 해석적으로 입증하였다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[In this study, in order to evaluate the damage and deterioration of the track components of sleeper floating track (STEDEF), the field samples(specimens) were taken from the serviced line over 20 years old, and the track components were visually inspected, and investigated by laboratory tests and finite element analysis. As a result of visual inspection, the damage of the rail pad and fastener was slight, but the rubber boot was worn and torn at the edges of bottom. The resilience pads were clearly examined for thickness reduction and fatigue hardening layer. As a result of spring stiffness test of rail pad and resilience pad, the deterioration of rail pad was insignificant, but the deterioration of resilience pad exceeded design standard value. Therefore resilience pad was directly affected by train passing tonnage. As a result of comparing the deterioration state of the field sample and the numerical analysis result, the stress and displacement concentration position of the finite element model and the damage position of the field sample were coincident.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[동양대학교 철도건설안전공학과;서울교통공사 토목2사업소;서울교통공사 궤도2사업소;롯데건설 토목사업본부;동양대학교 철도건설안전공학과;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[Dept. of Civil Engineering office 2, Seoul Metro]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.387-394]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.17703/jcct.2019.5.4.387]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO201935236777385&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201935236777385]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201935236777385&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[궤도구성품 . 손상 . 열화 . 침목방진패드 . 유한요소해석]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[Track component . Damage . Deterioration . Resilience pad . Finite element analysis]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="4">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO202425457637259]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00545563]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[한국구조물진단유지관리공학회]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[한국구조물진단유지관리공학회 논문집 = Journal of the Korea Institute for Structural Maintenance and Inspection]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[2234-6937;2287-6979;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[77]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[28]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[4]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2024]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20240831]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO202425457637259]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[궤도 품질수준에 따른 레일 피로 손상과 자갈 침하 진전을 고려한 철도 궤도 보수량 및 수명주기비용 평가]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[Evaluation of Maintenance Quantity and Life Cycle Costs of Railway Track Considering Evolution of Rail Fatigue Damage and Ballast Settlement According to Track Quality Level]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[이 연구에서는 철도 궤도의 수명주기비용(life cycle cost, LCC)를 보다 합리적으로 평가하기 위하여 실제 경부고속철도의 궤도 유지보수 데이터를 이용하여 열차 하중의 반복에 따른 레일의 피로 손상과 자갈 침하 진전을 고려한 궤도 보수량 추정 모델을 제시하여 기존 궤도 LCC 모델을 수정 보완하고 이 모델을 이용하여 궤도 품질수준에 따른 유지보수량과 수명주기비용을 분석하였다. 연구결과에 따르면 레일의 피로 손상 진전과 자갈 침하 진전을 고려한 궤도 보수량 추정모델을 적용한 결과 유지보수비를 실제 유지보수 비용에 가깝게 합리적으로 산정할 수 있음을 확인하였다. 궤도품질 영향계수는 레일 보수량 및 자갈다짐 보수량 그리고 결과적으로 유지보수비에도 상당한 영향을 미치고, 레일 보수량 보다 자갈다짐 보수량에 더 큰 영향을 미치는 것으로 나타났다. 또한 열차속도가 증가하면 레일 보수량과 자갈다짐 보수량이 증가하고, 궤도품질 영향계수가 클수록 열차속도에 따른 보수량의 증가율이 더 커지는 것으로 나타났다. 이에 따라 LCC 또한 궤도품질 영향계수가 클수록 열차속도가 커질수록 시간에 따른 증가속도가 빠르고, 유지보수비가 차지하는 비중이 증가하는 것으로 나타났다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[This study proposes a track maintenance quantity estimation model that considers evolution of rail fatigue damage and ballast settlement based on actual maintenance data from the Gyeongbu high-speed railway, and revises the existing life cycle cost (LCC) model for railway track. Using this model, maintenance quantities and life cycle costs based on different track quality levels are evaluated and discussed. According to the results, it is confirmed that applying the track maintenance quantity estimation model that accounts for rail fatigue damage and ballast settlement allows us to reasonably estimate maintenance costs close to the actual data. The track quality coefficient significantly influences both rail and ballast maintenance quantities, with ballast maintenance having a greater impact than rail maintenance. Additionally, as train speed increases, both rail and ballast maintenance quantities rise. Moreover, a higher track quality coefficient leads to a steeper increase in maintenance quantities with increasing train speed. Consequently, LCC also exhibits a faster growth rate over time with higher track quality coefficients and faster train speeds, resulting from an increased proportion of maintenance costs.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[국립한국교통대학교;국립한국교통대학교;한국철도공사, 국립한국교통대학교;한국철도공사, 국립한국교통대학교;한국철도공사, 국립한국교통대학교;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[Department of Transportation System Engineering, Graduate School of Transportation, Korea National University of Transportation]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.37-47]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.11112/jksmi.2024.28.4.37]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO202425457637259&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO202425457637259]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO202425457637259&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[철도 궤도 . 수명주기비용 . 유지보수 . 피로 . 손상]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[Railway track . Life-Cycle Cost (LCC) . Maintenance . Fatigue . Damage]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="5">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO199217451624287]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00291053]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[대한토목학회]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[대한토목학회논문집]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[1015-6348;;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[72]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[12]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[1]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[1992]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[19920331]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO199217451624287]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[고속철도(高速鐵道)의 궤도(軌道)에 대한 동특성(動特性) 연구(研究)]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[A Study on the Dynamic Behavior of the High Speed Railway Tracks]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본(本) 연구(研究)는 300 km/h 내외의 속도영역(速度領域)에서 운행(運行)되고 있는 고속열차(高速列車)의 불규칙(不規則)한 동적(動的) 윤중변동(輪重變動)을 해석(解析)하여 고속철도궤도(高速鐵道軌道)에서의 대책(對策)과 궤도(軌道) 각(各) 구성요소(構成要素)들의 구조설계(構造設計)를 위하여 종래의 연구(研究)에서 윤중변동(輪重變動)에 관련이 있다고 생각되어 온 차량(車輛)의 스프링하질량(下質量) 및 궤도틀림이외에 레일지지(支持)스프링계수(係數)와 진동감쇠계수(振動減衰係數) 등(等)을 포함하여 보다 정량적(定量的)인 해석(解析)을 시도(試圖)하였다. 특히 차량(車輛)의 동적(動的) 윤중변동(輪重變動)에 대한 궤도부분(軌道部分)의 주(主)된 역할(役割)은 레일지지(支持)스프링계수(係數)와 진동감쇠계수(振動減衰係數)에 있으므로 이에대한 궤도(軌道)의 각(各) 구성요소별(構成要素別) 특성(特性)을 보다 분명(分明)히 하기위하여 충격(衝擊)에 의한 레일지지계(支持系)의 동적(動的) 응답(應踏)을 역학(力學)모델 설정(設定)을 통하여 이론적(理論的)으로 해석(解析)하고 실물궤도(實物軌道)에서의 시험(試驗)에 의하여 종래 확실하게 밝혀지지 않았던 이들 궤도특성치(軌道特性値)를 산출(算出)하였다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[The purpose of this study is to provide the cause and countermeasure for track problems in the high speed railways due to the irregularly increasing dynamic wheel loads running over the speed range of 300 km/h. It has long been recognised that the track problems encountered on high speed railways are associated mainly with vertical dynamic loads which are related to the unsprung mass of vehicles and track irregularities. In addition to these parameters for the estimation of the dynamic wheel load variation, however, the dynamic characteristics of track structures are discussed in this paper with reference to mathematical modelling of the tracks and vehicle. From the results of the more detailed analyses, the effects of track stiffness and damping characteristics are considered to be significant for reducing the dynamic wheel loads. To make this point clear and appraise the overall performance of the track components, the theoretical analysis on the dynamic behavior of the tracks and wheel set impact tests on several track structures are performed. The experimental results from different track components are compared with each other. The track stiffness and damping characteristics are also presented quantatively.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[건국대학교 공과대학 토목공학과;고속전철사업기획단 건설국 궤도과;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.97-105]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO199217451624287&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO199217451624287]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO199217451624287&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="6">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO202015762902231]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00565478]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[국제문화기술진흥원]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[Journal of the convergence on culture technology : JCCT = 문화기술의 융합]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[2384-0358;2384-0366;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[22]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[6]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[2]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2020]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20200531]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO202015762902231]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[도시철도 인접굴착공사에 따른 운행선 궤도의 궤도틀림 분석]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[Evaluation of Track irregularity due to Adjacent Excavation Work on Serviced Urban Transit]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구는 도시철도 선로를 인접하여 시공되는 대형굴착공사에 따른 기존 지하철 선로구조물의 구조적 안정성을 검토하고자 수치해석을 수행하였다. 수치해석을 바탕으로 단계별 시공과정에서 발생되는 궤도틀림의 영향을 해석적으로 도출하였으며 관련 기준과의 비교를 통해 궤도변형측면에서의 안정성을 검토하였다. 분석결과, 줄틀림과 면틀림과 같이 일정거리에서의 상대변위차를 바탕으로 평가되는 궤도틀림 항목의 경우 인접굴착공사 시종점부와 같이 기존 구조물의 변형이 시작되는 위치에서 가장 명확하게 발생되었다. 반면 궤도의 전반적인 연직 및 수평변위는 공사구간의 중심에서 최대변형이 발생되었다. 인접굴착공사에 따른 기존 구조물의 변형측면의 취약위치는 공사구간의 중심과 같이 구조물의 변형이 크게 발생되는 위치뿐만 아니라 궤도틀림 측면에서는 공사 시종점 구간이 취약위치가 될 수 있음을 해석적으로 입증하였다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[In this study, finite element analysis was performed to evaluate the track irregularity of the existing track system on urban transit according to the large-scale excavation work that is constructed adjacent to the serviced line. Based on the numerical analysis, the effect of track irregularity generated during the step-by-step construction process was analytically derived, and the stability in terms of track deformation was evaluated through comparison with related standards. As the results, in the case of track irregularity items evaluated based on the relative displacement difference at a certain distance, such as alignment and vertical irregularity, it occurred most clearly at the location where deformation of the existing structure begins, such as the end point of adjacent excavation work. On the other hand, the overall vertical and horizontal displacement of the track was the largest deformation at the center of the construction section. The vulnerable position of the deformed side of the existing structure due to adjacent excavation is analytically proven that the both of the end point section and the center of the construction can be a vulnerable position in terms of track irregularity.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[동양대학교 건설공학과;산강이엔씨(주) 기술연구소;(주)유신, 도시철도부;동양대학교 건설공학과;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[SANGANG E&C Ltd]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.481-487]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.17703/jcct.2020.6.2.481]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO202015762902231&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO202015762902231]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO202015762902231&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[인접굴착 . 운행선 . 도시철도 . 궤도틀림 . 유한요소해석]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[Adjacent excavation . Serviced line . Urban transit . Track irregularity . Finite element analysis]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="7">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO202220362427733]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00545563]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[한국구조물진단유지관리공학회]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[한국구조물진단유지관리공학회 논문집 = Journal of the Korea Institute for Structural Maintenance and Inspection]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[2234-6937;2287-6979;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[64]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[26]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[3]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2022]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20220630]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO202220362427733]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[전단파 토모그래피를 활용한 철도 콘크리트 궤도 슬래브 층분리 결함 평가]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[Evaluation of Debonding Defects in Railway Concrete Slabs Using Shear Wave Tomography]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[이 연구의 주요 목적은 고속철도 콘크리트 궤도 슬래브의 콘크리트 슬래브(track concrete layer, TCL)와 도상안정층(hydraulically stabilized based course, HSB) 사이 층분리를 평가하기 위한 비파괴검사법으로 전단파 토모그래피 기술의 활용가능성을 실험적으로 확인하는 것이다. 이를 위하여 다채널 전단파 측정 장치(MIRA)를 활용하여 실물 크기로 제작된 고속철도 콘크리트 궤도 슬래브 실험체 내부의 층분리 결함을 평가하였다. 실물실험체는 Rheda 2000 시스템에 따라 설계 및 시공되었으며, 노반 위에 HSB를 타설하고, 그 위에 TCL이 타설된 2층 슬래브 구조를 갖는다. 실물실험체는 일부구간의 HSB상부에 스티로폼으로 제작된 인공결함(가로 및 세로가 각각 400mm이고 두께가 각각 5mm, 15mm인 압출폴리스티렌폼(XPS)보드 2개)을 삽입하여, TCL과 HSB 사이에 층분리 결함이 생기도록 시공하였다. 시험체의 층분리 구간에서 얻은 콘크리트 단층이미지는 층분리에 따른 균열 및 HSB와 지반사이의 계면에서 반사되는 신호를 효과적으로 보여 주었다. 한편 초음파 토모그래피 이미지에서 TCL 콘크리트의 매입물(철근, 트러스, 인서트 등)에서 반사된 신호와 층분리 결함 신호를 구분하기 위한 노이즈 제거를 위한 이미지 처리방법을 적용하여 층분리 결함을 효과적으로 분리하였다. 토모그래피 이미지에서 추출된 층분리 결함의 크기정보와 공간정보를 통합하여 층분리 지도로 재구성하였으며, 층분리 결함의 위치 및 크기를 시각화하는데 효과적인 것을 확인하였다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[The main purpose of this study is to investigate the applicability of the shear wave tomography technology as a non-destructive testing method to evaluate the debonding between the track concrete layer (TCL) and the hydraulically stabilized based course (HSB) of concrete slab tracks for the Korea high-speed railway system. A commercially available multi-channel shear wave measurement device (MIRA) is used to evaluate debonding defects in full-scaled mock-up test specimen that was designed and constructed according to the Rheda 200 system. A part of the mock-up specimen includes two artificial debonding defects with a length and a width of 400mm and thicknesses of 5mm and 10mm, respectively. The tomography images obtained by a MIRA on the surface of the concrete specimens are effective for visualizing the debonding defects in concrete. In this study, a simple image processing method is proposed to suppress the noisy signals reflected from the embedded items (reinforcing steel, precast sleeper, insert, etc.) in TCL, which significantly improves the readability of debonding defects in shear wave tomography images. Results show that debonding maps constructed in this study are effective for visualizing the spatial distribution and the depths of the debondiing defects in the railway concrete slab specimen.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[한국철도기술연구원, 첨단궤도토목본부;동아대학교, ICT융합해양스마트시티공학과;한양대학교, 건축학부 및 스마트시티공학과;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[;Department of ICT integrated Ocean Smart Cities Engineering, Dong-A University;;]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.11-20]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.11112/jksmi.2022.26.3.11]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO202220362427733&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO202220362427733]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO202220362427733&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[철도 콘크리트 궤도 슬래브 . 층분리 . 전단파 토모그래피 . 비파괴검사]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[Railway concrete . Debonding . Shear wave tomography . Non-destructive evaluation]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="8">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO201217449889296]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00294862]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[한국철도학회]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[한국철도학회 논문집 = Journal of the Korean Society for Railway]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[1738-6225;2288-2235;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[68]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[15]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[2]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2012]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20120430]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO201217449889296]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[콘크리트궤도 부설 철도교량의 동적거동 분석]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[Analysis of Dynamic Behavior of Railway Bridge with Concrete Track]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[철도교량과 같이 주기적 가진에 의해 공진발생의 가능성이 높은 구조물에 있어서, 정확한 구조물의 동적거동 분석은 설계단계 및 공용중 안정적인 응답을 확보하기 위해 필수적이다. 특히, 콘크리트궤도는 강성기여와 질량기여를 통해 철도교량의 동특성을 변화시킬 수 있음에도 불구하고 일반적으로 철도교량 동적해석 시 질량으로만 고려되어진다. 본 연구에서는 실제 콘크리트궤도가 부설된 거더시험체를 제작하여 철도교량의 정 동적거동을 분석하였다. 또한, 궤도질량만을 고려한 경우와 궤도강성을 고려한 수치해석을 통해 중립축 위치와 고유진동수를 실험치와 비교 분석하였다. 이를 통해 콘크리트궤도 부설 철도교량의 경우 정량적인 산정이 가능한 콘크리트궤도의 강성과 질량을 고려한 해석값이 실험값과 근사한 결과를 얻을 수 있음을 확인하였다. 따라서 본 연구에서는 콘크리트궤도 부설 철도교량에 대한 동적설계 및 동적안정성 분석 시 콘크리트궤도의 강성과 질량을 함께 고려할 것을 제안하였다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[Precise estimation f a structure's dynamic characteristics is indispensable for ensuring stable dynamic response during life time especially for the structures which can experience resonance such as railway bridges. Especially, concrete track can change the modal properties of the railway bridge, through the contribution of stiffness as well as mass effects, generally only the mass effect is considered in dynamic analysis of the railway bridge. In this paper, static and dynamic behaviors of railway bridge with concrete track were investigated through experimental study. Also, numerical analysis was performed about considering only mass of concrete track and together with stiffness and mass of concrete track. These were compared with experiment value. Numerical analysis value considering together with stiffness and mass of concrete track was similar experiment value. Therefore, when dynamic analysis of railway bridge with concrete track is performed, the contribution of stiffness as well as mass effects for concrete track is considered.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[서울과학기술대학교 철도전문대학원;대원대학교 철도건설과;서울과학기술대학교 철도전문대학원;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.147-153]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.7782/jksr.2012.15.2.147]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO201217449889296&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201217449889296]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201217449889296&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[철도교량 . 콘크리트궤도 . 동적거동 . 중립축 . 고유진동수]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[Railway bridge . Concrete track . Dynamic behavior . Neutral axis . Natural frequency dynamics]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="9">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO200630335055772]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00428103]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[대한토목학회]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[大韓土木學會論文集, Journal of the Korean Society of Civil Engineers, D. 교통공학, 도로공학, 시공관리, 지역 및 도시계획, 철도공학, 측량 및 지형공간정보공학]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[1015-6348;;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[22]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[26]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[d1]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2006]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20060131]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO200630335055772]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[고속철도 터널에서의 궤도 형식에 따른 궤도와 차체의 진동 특성]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[Characteristics of Vibration of Track and Vehicle Body According to Type of Track in Tunnel of High-Speed Railway Lines]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구에서는 터널 내에서 자갈도상궤도와 콘크리트 슬래브궤도 등 궤도 형식에 따른 궤도와 차량의 진동특성을 규명하기 위해 자갈도상궤도와 콘크리트 슬래브궤도가 부설된 경부고속철도 터널 내에서 궤도와 KTX 차체의 진동가속도를 측정하여 주파수 해석을 수행하였으며, 이를 통해 궤도 형식에 따른 레일, 침목, 자갈도상, 슬래브 등 궤도 구성품과 터널 라이닝 등 궤도의 진동과 차체의 진동 특성을 분석하고, 그 상관관계를 분석하였다. 측정결과에 따르면 터널 내에서는 80Hz 대역의 주파수에서 레일과 차량의 진동이 크게 증가하였고, 특히 콘크리트 슬래브궤도가 부설된 터널에서 진동이 더욱 크게 나타났다. 연구결과에 의하면 레일 지지 스프링의 동적특성의 변화에 따라 차량을 포함한 전체 시스템의 진동특성이 달라질 수 있으며, 따라서 콘크리트 슬래브궤도의 지지강성을 결정하는 데 있어서 시스템 측면에서 차량의 진동과의 상호관계를 고려해야 한다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[In the present study, in order to elucidate the vibration characteristics of track and train body according to the type of track in tunnel, the vibration accelerations of the track and the KTX train body have been measured in tunnels of Kyong-Bu high-speed railway(HSR) lines, and the frequency analysis of the measured data has been performed. From this, the vibration characteristics of the track components such as rail, sleeper, ballast and slab, the tunnel lining and the vehicle body according to the type of track are investigated and their relation is analyzed. The test results show that the vibration of rail and vehicle body rapidly increases at 80Hz in tunnel, and that is much higher in the tunnel on which the concrete slab track is placed. According to the results of the present study, rail supporting stiffness can variate the vibration characteristics of the total system including the vehicle, and therefore the correlation between the vibration of vehicle should be taken into account to determine the supporting stiffness of the slab track.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[한국철도기술연구원;한국철도기술연구원;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.125-132]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.12652/ksce.2006.26.1d.125]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO200630335055772&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO200630335055772]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO200630335055772&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[자갈도상궤도 . 콘크리트 슬래브궤도 . 고속철도 . 레일 지지강성 . 터널 . 진동]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[ballasted track . concrete slab track . HSR lines . rail supporting stiffness . tunnel . vibration]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+		<record rownum="10">
+			<item metaCode="CN" metaName="CN"><![CDATA[JAKO201935236777381]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[JAKO]]></item>
+			<item metaCode="JournalId" metaName="저널제어번호"><![CDATA[NJOU00565478]]></item>
+			<item metaCode="Publisher" metaName="출판사(발행기관)"><![CDATA[국제문화기술진흥원]]></item>
+			<item metaCode="JournalName" metaName="저널명"><![CDATA[Journal of the convergence on culture technology : JCCT = 문화기술의 융합]]></item>
+			<item metaCode="ISSN" metaName="ISSN"><![CDATA[2384-0358;2384-0366;]]></item>
+			<item metaCode="ISBN" metaName="ISBN"><![CDATA[]]></item>
+			<item metaCode="VolumeId" metaName="권호Id"><![CDATA[20]]></item>
+			<item metaCode="VolNo1" metaName="권번호"><![CDATA[5]]></item>
+			<item metaCode="VolNo2" metaName="호번호"><![CDATA[4]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2019]]></item>
+			<item metaCode="Pubdate" metaName="발행일"><![CDATA[20191130]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="HoldingFlag" metaName="소장정보유무"><![CDATA[]]></item>
+			<item metaCode="ArticleId" metaName="논문제어번호"><![CDATA[JAKO201935236777381]]></item>
+			<item metaCode="Title" metaName="논문명"><![CDATA[도시철도 콘크리트궤도 목침목 분기기의 손상현황]]></item>
+			<item metaCode="Title2" metaName="논문명2"><![CDATA[Damage Status of Turnout System with Wooden Sleeper of Concrete Track on Urban Transit]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구는 도시철도 콘크리트궤도 목침목 분기기의 손상현황 및 손상유형별 원인을 분석하고자 현장조사를 수행하였다. 또한 약 24년간의 분기기 유지관리이력을 열차 통과톤수와 연계하여 운영 호선별로 구분하여 손상발생빈도와 연계분석하고 현재까지 수행되어온 손상항목별 궤도보수내용의 적정성을 비교 분석하였다. 도시철도 콘크리트 도상에 적용된 목침목 분기기의 특성상 목침목 하부에 삽입되어 있는 침목방진패드의 성능유지가 중요하다. 현장조사결과 목침목 분기기 궤도구조의 적정탄성 수준 부족에 따른 손상 및 다양한 유형의 레일손상이 조사되었으며, 레일의 손상은 독립적인 손상이 아닌 다른 궤도구성품의 손상에서 기인되어 유발되는 경우도 다수 발견되었다. 분기기 궤도구성품별 손상빈도 분석결과, 손상발생빈도는 레일, 타이플레이트, 나사스파이크, 목침목 순으로 나타났으며 이를 바탕으로 목침목 분기기 궤도구조의 주요 손상유형은 목침목의 변형에 따른 나사스파이크와 타이플레이트의 고정상태불량에서 기인된 손상이 주요 손상유형으로 분석되었다. 연구결과, 분기기에 적용된 목침목의 변형은 레일체결장치구성품의 고정상태 불량을 초래하고 이로 인한 연계손상이 유발될 수 있음을 현장조사결과를 바탕으로 분석하였다. 또한 분기기의 중점 점검항목 및 현행 분기기 점검 시트의 보완점을 도출하여 개선 안을 제시하였다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[The purpose of this study is to investigate the damage status of wood sleepers on concrete track of urban transit at different locations and to analyze the causes of damages. In addition, the turnout maintenance history during the service period of about 24 years was analyzed in conjunction with the train passing tonnage and that was to compare the current repair history. The most frequent damage components were rail, tie plate, spike and wooden sleeper. And, the damage caused by the defect of the rail fastening system such as spike and tie plate according to the deformation of the wooden sleeper was analyzed as the main type of damage. As a result, the damage of track components of turnout system was on the increase because they are directly affected by the train passing tonnage. The supplementary points of the check sheet for current turnout maintenance were derived and the improvement proposal was suggested based on the research results.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Author2" metaName="저자2"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Affiliation" metaName="저자소속기관"><![CDATA[동양대학교 철도건설안전공학과;서울교통공사 궤도2사업소;서울교통공사 궤도2사업소;롯데건설;동양대학교 철도건설안전공학과;]]></item>
+			<item metaCode="Affiliation2" metaName="저자소속기관2"><![CDATA[Dept. of 2 Track Engineering office, Seoul Metro]]></item>
+			<item metaCode="FulltextFlag" metaName="원문유무"><![CDATA[2]]></item>
+			<item metaCode="AbstractFlag" metaName="초록유무"><![CDATA[1]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[pp.379-385]]></item>
+			<item metaCode="DOI" metaName="DOI"><![CDATA[https://doi.org/10.17703/jcct.2019.5.4.379]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?cn=JAKO201935236777381&dbt=JAKO&keyValue=05787966]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201935236777381]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=NART&cn=JAKO201935236777381&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="키워드"><![CDATA[분기기 . 콘크리트 도상 . 목침목 . 통과톤수 . 궤도구성품]]></item>
+			<item metaCode="Keyword2" metaName="키워드2"><![CDATA[Turnout system . Concrete track . Wooden sleeper . Train passing tonnage . Track components]]></item>
+			<item metaCode="Degree" metaName="학위구분"><![CDATA[]]></item>
+			<item metaCode="Country" metaName="국가"><![CDATA[한국]]></item>
+		</record>
+	</recordList>
+</MetaData>

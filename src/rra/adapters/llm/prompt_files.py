@@ -15,6 +15,8 @@ REVIEW_NAME = "review"
 DIFFERENTIATE_NAME = "differentiate"
 RECOMMEND_NAME = "recommend"
 VISION_NAME = "vision"
+STRUCTURE_NAME = "structure"
+BRIEF_NAME = "brief"
 SYSTEM_NAME = "system"
 JSON_FALLBACK_NAME = "json_fallback"
 SECTION_PREFIX = "section_"
@@ -68,6 +70,12 @@ class FilePromptLibrary:
     def vision(self) -> str:
         """이미지 판독(P3) 지시 — 보이는 것만 옮겨 적기, JSON 객체 하나."""
         return self._read(VISION_NAME)
+
+    def structure(self) -> str:
+        return self._read(STRUCTURE_NAME)
+
+    def brief(self) -> str:
+        return self._read(BRIEF_NAME)
 
     # ── 부가 ───────────────────────────────────────────────
     def json_fallback(self) -> str:

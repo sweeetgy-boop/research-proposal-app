@@ -340,6 +340,189 @@ _STATUS_TEXT = {
 }
 
 
+# ── U2 간편 입력 · U4 비교표 · U5 브리핑 ──────────────────────
+def cmd_structure(args: argparse.Namespace) -> int:
+    """U2 자유 문장 → 필수 4칸 + 보완 질문 (로컬 모델 1회). 저장하지 않는다."""
+    from rra.composition import build_structurer, load_settings
+    from rra.entrypoints.views import structure_payload
+
+    settings = load_settings()
+    structure = build_structurer(settings)
+    if structure is None:
+        _eprint("간편 입력이 꺼져 있습니다 (config/usability.yaml quick_input).")
+        return EXIT_USAGE
+
+    async def run():
+        try:
+            return await structure(args.text, title=args.title or "")
+        finally:
+            await structure.llm.aclose()
+
+    payload = structure_payload(asyncio.run(run()), clean=lambda t: _safe(t, 2000))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    for key, label in payload["labels"].items():
+        print(f"{label}: {payload['fields'].get(key) or '(비어 있음)'}")
+    if payload["questions"]:
+        print("\n보완 질문 (답은 generate --<칸> 으로 보충하거나 건너뛸 수 있음):")
+        for i, q in enumerate(payload["questions"], 1):
+            print(f" {i}. [{q['label']}] {q['question']}")
+    else:
+        print("\n필수 4칸이 모두 채워졌습니다 — 그대로 generate 에 쓸 수 있습니다.")
+    return EXIT_OK
+
+
+def cmd_compare(args: argparse.Namespace) -> int:
+    """U4 차별성 비교표 — precheck 상위 5건 × 항목 (LLM 없음, 화면·API 표만)."""
+    from rra.composition import build_comparer, build_precheck, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.entrypoints.views import comparison_payload
+
+    try:
+        req = ProposalRequest(**_read_slots(args), differentiation=args.differentiation or "")
+    except ValidationError as exc:
+        _eprint(validation_message(exc))
+        return EXIT_USAGE
+    settings = load_settings()
+    precheck = build_precheck(settings)
+    compare = build_comparer(settings, repo=getattr(precheck, "repo", None), precheck=precheck)
+    if compare is None:
+        _eprint("차별성 비교표가 꺼져 있습니다 (config/usability.yaml comparison).")
+        return EXIT_USAGE
+    table = asyncio.run(compare(req))
+    payload = comparison_payload(table, clean=lambda t: _safe(t, 400))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    cols = [payload["proposal"], *payload["projects"]]
+    print(f"[차별성 비교표] 유사과제 {len(payload['projects'])}건 (양식 밖 — 화면·API 표)")
+    print(
+        " 열: 제안 | " + " | ".join(f"{c['doc_id']} {c['title'][:24]}" for c in payload["projects"])
+    )
+    for aspect in payload["aspects"]:
+        print(f"\n■ {aspect['label']}")
+        for c in cols:
+            name = "제안" if c["doc_id"] is None else c["doc_id"]
+            print(f"  - {name}: {c['cells'].get(aspect['key'], '')[:160]}")
+    return EXIT_OK
+
+
+def cmd_brief(args: argparse.Namespace) -> int:
+    """U5 선행연구 브리핑 — 검색 상위 논문·보고서 10건 한 줄 요약·연도·키워드·연구 공백 후보."""
+    from rra.composition import build_briefer, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.entrypoints.views import brief_payload
+
+    try:
+        req = ProposalRequest(**_read_slots(args))
+    except ValidationError as exc:
+        _eprint(validation_message(exc))
+        return EXIT_USAGE
+    settings = load_settings()
+    brief = build_briefer(settings)
+    if brief is None:
+        _eprint("선행연구 브리핑이 꺼져 있습니다 (config/usability.yaml brief).")
+        return EXIT_USAGE
+
+    async def run():
+        try:
+            return await brief(req)
+        finally:
+            await brief.llm.aclose()
+
+    payload = brief_payload(asyncio.run(run()), clean=lambda t: _safe(t, 400))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    where = (
+        "로컬 모델(대체)"
+        if payload["fallback_local"]
+        else f"{payload['provider']}/{payload['model']}"
+    )
+    print(f"[선행연구 브리핑] {len(payload['items'])}건 ({where})")
+    if payload["skipped_reason"]:
+        print(f"  건너뜀: {payload['skipped_reason']}")
+    for i, item in enumerate(payload["items"], 1):
+        year = item["year"] or "미상"
+        summary = item["summary"] or "(요약 없음 — 검증 실패 또는 모델 미응답)"
+        print(f" {i:>2}. [{year}] {item['chunk_id']} {item['title'][:50]}\n     {summary}")
+    print("\n연도별: " + ", ".join(f"{y} {n}건" for y, n in payload["years"].items()))
+    print("키워드: " + (", ".join(payload["keywords"]) or "-"))
+    print(f"\n{payload['gap_label']}:")
+    for g in payload["gaps"] or []:
+        print(f"  - {g['text']}  [{', '.join(g['evidence'])}]")
+    if not payload["gaps"]:
+        print("  (없음)")
+    print(
+        "\n고른 항목의 id 는 generate --priority-evidence 또는 POST /v1/runs priority_evidence 로."
+    )
+    return EXIT_OK
+
+
+def _or_dash(value) -> str:
+    return "-" if value is None else str(value)
+
+
+def cmd_usage_report(args: argparse.Namespace) -> int:
+    """U8 runs/ 의 usage.json 집계."""
+    from rra.composition import build_usage_report, load_settings
+
+    report = build_usage_report(load_settings())()
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if not report.get("runs"):
+        print("기록된 run 이 없습니다.")
+        return EXIT_OK
+    print(f"[시범운영 측정] run {report['runs']}건")
+    print(f"  평균 총 시간: {report['avg_total_seconds'] or '-'}초")
+    for k, v in (report.get("avg_step_seconds") or {}).items():
+        print(f"    - {k}: {v}초")
+    print("  필수 요소 충족률 평균: " + _or_dash(report.get("checklist_coverage_avg")))
+    ratios = report.get("evidence_ratio_avg")
+    if ratios:
+        print(
+            f"  근거 판단 비율 평균 (판단한 run {report['evidence_decided_runs']}건): "
+            f"승인 {ratios['approve']}, 교체 {ratios['replace']}, 제외 {ratios['exclude']}"
+        )
+    print(f"  AI 다시 쓰기 반영: {report['rewrites_total']}회")
+    print(f"  HWPX 성공 {report['hwpx_success']}건 / 실패 {report['hwpx_failed']}건")
+    print(
+        f"  만족도: 평균 {_or_dash(report.get('satisfaction_avg'))} "
+        f"({report['satisfaction_count']}건) 분포 {report['satisfaction_distribution']}"
+    )
+    return EXIT_OK
+
+
+def cmd_runs_submit_check(args: argparse.Namespace) -> int:
+    """U7 제출 전 점검 체크리스트."""
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.entrypoints.views import submit_check_payload
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.submit_check(LOCAL_USER, args.run_id), mgr.generate.rules.titles
+        finally:
+            await mgr.generate.llm.aclose()
+
+    check, titles = asyncio.run(run())
+    payload = submit_check_payload(check, titles=titles, clean=lambda t: _safe(t, 300))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    verdict = "통과" if payload["ok"] else f"확인 필요 {payload['failing']}건"
+    print(f"[제출 전 점검] {verdict} — run {args.run_id}")
+    for item in payload["items"]:
+        mark = "✔" if item["ok"] else "!"
+        target = f"  → {item['target']}" if item.get("target") else ""
+        print(f" {mark} {item['label']}: {item['detail']}{target}")
+    return EXIT_OK
+
+
 # ── search ────────────────────────────────────────────────
 def cmd_search(args: argparse.Namespace) -> int:
     from rra.composition import (
@@ -741,7 +924,10 @@ def cmd_generate(args: argparse.Namespace) -> int:
                 state = await mgr.resume(LOCAL_USER, args.resume, on_step=on_step)
             else:
                 request = req or await mgr.load_request(LOCAL_USER, args.reuse_input)
-                state = await mgr.submit(LOCAL_USER, request, on_step=on_step)
+                priority = _csv(getattr(args, "priority_evidence", None)) or None
+                state = await mgr.submit(
+                    LOCAL_USER, request, on_step=on_step, priority_evidence=priority
+                )
             started["run_id"] = state.run_id
             _eprint(f"[run {state.run_id}] 시작 — 다른 생성이 진행 중이면 끝날 때까지 기다립니다.")
             final = await mgr.wait(LOCAL_USER, state.run_id)
@@ -1543,6 +1729,33 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("--json", action="store_true", help="JSON 으로 출력")
     diff.set_defaults(handler=cmd_differentiate)
 
+    st = sub.add_parser("structure", help="U2 자유 문장 → 필수 4칸 + 보완 질문 (로컬 모델)")
+    st.add_argument("--text", required=True, help="아이디어 1~2문장")
+    st.add_argument("--title", default="", help="가제 (선택)")
+    st.add_argument("--json", action="store_true")
+    st.set_defaults(handler=cmd_structure)
+
+    cmp_ = sub.add_parser("compare", help="U4 차별성 비교표 (precheck 상위 5건, LLM 없음)")
+    for slot in SLOTS:
+        cmp_.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    cmp_.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    cmp_.add_argument("--differentiation", default="", help="제안자가 정한 차별화 방향")
+    cmp_.add_argument("--json", action="store_true")
+    cmp_.set_defaults(handler=cmd_compare)
+
+    br = sub.add_parser("brief", help="U5 선행연구 브리핑 (Gemini, 키 없으면 로컬)")
+    for slot in SLOTS:
+        br.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    br.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    br.add_argument("--json", action="store_true")
+    br.set_defaults(handler=cmd_brief)
+
+    usage = sub.add_parser("usage", help="U8 시범운영 측정 기록")
+    usage_sub = usage.add_subparsers(dest="usage_cmd", required=True)
+    ur = usage_sub.add_parser("report", help="runs/ 의 usage.json 집계")
+    ur.add_argument("--json", action="store_true")
+    ur.set_defaults(handler=cmd_usage_report)
+
     search = sub.add_parser("search", help="수집 문서 하이브리드 검색")
     search.add_argument("query")
     search.add_argument("--orgs", help="쉼표로 구분 (예: korail,krri)")
@@ -1668,6 +1881,11 @@ def build_parser() -> argparse.ArgumentParser:
     once.add_argument(
         "--reuse-input", metavar="RUN_ID", help="기존 run(이전 양식 포함)의 입력으로 새로 생성"
     )
+    gen.add_argument(
+        "--priority-evidence",
+        dest="priority_evidence",
+        help="U5 브리핑에서 고른 근거 id (쉼표) — 검색 집합 안의 것만 우선 근거로",
+    )
     gen.add_argument("--json", action="store_true", help="JSON 으로 출력")
     gen.set_defaults(handler=cmd_generate)
 
@@ -1763,6 +1981,10 @@ def build_parser() -> argparse.ArgumentParser:
     ro = runs_sub.add_parser("reopen", help="마무리된 run 다시 열기 → editing")
     ro.add_argument("run_id")
     ro.set_defaults(handler=cmd_runs_reopen)
+    rsc = runs_sub.add_parser("submit-check", help="U7 제출 전 점검 체크리스트")
+    rsc.add_argument("run_id")
+    rsc.add_argument("--json", action="store_true")
+    rsc.set_defaults(handler=cmd_runs_submit_check)
     rp = runs_sub.add_parser("purge", help="보존 기간(security.yaml retention_days) 지난 run 삭제")
     rp.add_argument("--dry-run", action="store_true", help="지울 대상만 보여 주고 삭제하지 않는다")
     rp.add_argument("--json", action="store_true")

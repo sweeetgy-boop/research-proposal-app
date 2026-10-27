@@ -11,4 +11,4 @@
   llm.yaml stage vision·gemini.rate, composition build_*, CLI vision read/sample.
 - 01:30 테스트 79건 → 9건 실패 수정(numbers.py 는 "만명" 을 단위로 안 봄 → bare 1,234 로 대조; privacy 부서 보존; 순서 테스트의
   page_url 기본값이 vision 키워드). 전체 1318 통과. 첫 커밋.
-- 01:50 `rra vision ingest`(캐시→DB, 호출 없음) + 테스트 4건, 문서(ADR 0016·architecture §4.17·status/timeline 조각·manifest 형식).
+- 01:50 `rra vision ingest`(캐시→DB, 호출 없음) + 테스트 4건, 문서(ADR 0018·architecture §4.17·status/timeline 조각·manifest 형식).

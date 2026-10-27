@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,596360e,feat/usability U1~U8,1292,951,8,4580,5330,8079,5988,169,,,,,,,,,,사용자 관점 검토 반영(ADR 0017) — 테스트 +53(1,239→1,292)·18 skip
