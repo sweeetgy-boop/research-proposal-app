@@ -13,11 +13,11 @@ from pydantic import BaseModel, Field
 class PipelineConfig(BaseModel):
     clarify: bool = False  # Q1 입력 보강 질문 (초안 생성 전, 최대 3개)
     outline: bool = False  # Q2 섹션 설계도
-    section_search: bool = False  # Q3 섹션별 맞춤 검색
+    section_search: bool = True  # Q3 섹션별 맞춤 검색 (2026-10-27 측정 뒤 기본 켬)
     exemplars: bool = False  # Q4 채택 과제 본보기
     rule_check: bool = True  # Q6 규칙 검사·자동 정리 (Argon 전)
     draft_review: bool = True  # ③ Argon 1차 검토 → 검증 통과분 자동 반영 → v2 (키 없으면 v1)
-    additions: bool = False  # Q5 Argon 보완 작성(빠진 요소 추가 문장)
+    additions: bool = True  # Q5 Argon 보완 작성(빠진 요소 추가 문장) (2026-10-27 측정 뒤 기본 켬)
     two_candidates: bool = False  # Q7 핵심 섹션 두 후보 → 1차 검토에서 선택
     reranker: bool = (
         True  # Q8 cross-encoder reranker (2026-10-27 측정 뒤 기본 켬; 모델 없으면 생략)

@@ -246,7 +246,12 @@ async def test_two_candidates_are_not_written_without_a_reviewer_and_outline_fai
 
 async def test_disabled_quality_steps_keep_the_old_plan_and_prompts():
     no_b = [a for i, a in enumerate(ANSWERS) if i != 3]
-    mgr, store, log = build(review=None, pipeline=PipelineConfig(), answers=no_b)
+    off = (
+        PipelineConfig(  # 품질 단계 전부 끔 (기본값은 측정 뒤 section_search·additions·reranker 켬)
+            section_search=False, additions=False, reranker=False, rule_check=True
+        )
+    )
+    mgr, store, log = build(review=None, pipeline=off, answers=no_b)
     st = await run(mgr)
     assert [s.name for s in st.steps][:2] == ["retrieve", "section:title"]
     assert store.load_snapshot("local", st.run_id).section_chunks == {}
