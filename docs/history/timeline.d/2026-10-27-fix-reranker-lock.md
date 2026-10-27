@@ -1,0 +1,1 @@
+| 2026-10-27 | reranker 모델 호출 직렬화 — `CrossEncoderReranker._scores` 에 threading.Lock(적재·추론) | 웹 e2e 에서 `/precheck/comparison` 과 `/precheck/ntis-outcomes` 가 동시에 reranker 를 돌리자 Metal 단언으로 API 프로세스가 죽음(웹 레인 발견, 보안 G 생성 동시성 1 과 같은 취지) | #TBD | 가짜 모델로 동시 4요청 겹침 0 검증 |
