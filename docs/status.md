@@ -71,7 +71,11 @@
 | 항목 | 상태 |
 |---|---|
 | ScienceON 키 | **.env 의 `RRA_SCIENCEON_CLIENT_ID`(64자)·`RRA_SCIENCEON_KEY`(32자) 값이 서로 바뀌어 있음** — 맞바꿔 넣을 것(Mac mini 포함). 실호출·fixture·적재 2,045건은 worktree 사본으로 완료(#25) |
-| NTIS·KIPRIS API 키 → 실응답 녹화 → FIELDS 매핑·record_tag 확정 (`external-apis.md` 신청처) | 대기 (skip 2건). 특허는 ScienceON PATENT 가 기본(ADR 0016)이라 KIPRIS 는 선택 |
+| **NTIS 서버 IP 변경** — 활용신청 4개 서비스의 서버 IP 를 호출 기기 공인 IP 로(ntis.go.kr 데이터활용 > OpenAPI). 실호출이 전부 `접근 허용 IP가 아닙니다` | 반영 뒤 `rra sources check --source ntis,ntis_reports` → 녹화(SYNTHETIC fixture 교체) → `rra ingest --source ntis --limit 2000 && --source ntis_reports --limit 1500` → 골든셋 01·02 재측정 (`docs/status.d/feat-ntis-live.md`) |
+| KIPRIS API 키 → 실응답 녹화 → FIELDS·record_tag 확정 | 대기. 특허는 ScienceON PATENT 가 기본(ADR 0016)이라 선택 |
+| `RRA_DATA_GO_KR_KEY` (나라장터 입찰공고정보서비스, 공공데이터포털 자동승인) | 대기 — 반영 뒤 `rra sources check --source g2b` → 녹화 → `rra ingest --source g2b` (`docs/status.d/feat-policy-sources.md`) |
+| 감사원 수집용 Playwright | `uv pip install playwright && .venv/bin/playwright install chromium` (선택 의존성, pyproject 미추가) |
+| 용어 후보 검토 (`config/*.candidates.yaml`, 미커밋) | `rra terms candidates` 결과를 보고 generic_terms 만 overlap.yaml 에 옮길지 결정 — 자동 반영 없음(이슈 #11 댓글) |
 | 전략체계 초안 → 확정 (`rra strategy promote`, `config/strategy.yaml source: draft`) | 초안 `korail_strategy.draft.yaml`(5 방향·15 과제, 출처 주석) 확인 뒤 사람이 실행 |
 | 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건). 공시용 요약문은 P2 에서 own_docs 로 적재됨 |
 | `config/templates/korail_strategy.yaml` 전략체계 목록(확정본) | 비어 있음 — 확정 전까지 앱은 초안을 쓰고 "전략체계 초안(확인 전)" 라벨 표시 |
@@ -176,5 +180,11 @@ main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기�
 | 사용 편의성 [U] | U1~U8 백엔드(REST 14경로·CLI 5·usability.yaml)와 U9 웹 반영(8화면 추가, vitest 51·e2e 9) | ADR 0017, `docs/status.d/feat-usability.md`·`feat-web-u9.md` |
 | 웹 [W] | Vite+React+TS SPA 11화면 + U9, Lighthouse 100/100/100(/login), axe 0, 초기 JS 111.6KB gzip | ADR 0015, `web/README.md` |
 | 병렬 검사 | pytest-xdist(1,495 테스트 ≈10s), CI backend-unit/api·web-check/e2e + 모음 job, heavy lock, 조각 파일 규칙 | CONTRIBUTING |
+| NTIS 실연결 [N] | 4개 서비스(과제·성과·연구보고서·연관콘텐츠) 실호출 전부 `접근 허용 IP가 아닙니다` → 합성 fixture 로 어댑터·매핑·`national_rnd` 티어("국가R&D 과제", 0.80)·보고서 합침(과제번호+제목+연도)·`POST /v1/precheck/ntis-outcomes` 완성(#35). 적재는 IP 반영 뒤 | ADR 0020, `docs/status.d/feat-ntis-live.md` |
+| 웹 ② NTIS 카드 [W] | national_rnd 알림이 있으면 '주요 성과(참고용)'·'NTIS 추천'(외부 링크·미검증) 표시, 503 은 한 줄 안내(#39). 발견한 reranker 동시 호출 크래시는 서버 잠금으로(#41) | `docs/status.d/feat-web-ntis.md` |
+| [P2] 보류 자료원 [E] | g2b 나라장터 API(키 대기, procurement 티어 '발주 용역'·'용역으로 진행 중/예정'), bai 감사원(Playwright 공개 화면 조작, 철도 55건), datago 공공데이터포털 파일 16개(키 없음), mofe 기재부 경영평가 10건, 판 추적 모호 처리(#37) | ADR 0021, `docs/status.d/feat-policy-sources.md` |
+| 표 구조화·용어 후보 [F] | table_facts(migration 005, `rra facts extract|search`, `GET /v1/facts`) 로 수치 lint 가 인용 문서의 표 칸을 근거로 인정; `rra terms candidates` 는 후보 파일만(자동 반영 없음, 이슈 #11)(#36). xlsx·xls 첨부는 시트 본문으로 적재(#40) | ADR 0022, `docs/status.d/feat-table-facts-terms.md` |
+| R&D 공고 [G] | `rnd_notice`(KAIA 주·IRIS 보조, 공고 99건), 마감일=valid_until, 담당자 PII 제거, `rra notices match`·`POST /v1/ideas/notices`, 정책 근거 후보에 포함·유사과제 판정 제외(#38). NTIS 공고는 robots 금지 | ADR 0023, `docs/status.d/feat-rnd-notice.md` |
+| 첨부 내장 이미지 [P3] | HWPX·HWP·PDF·PPTX·XLSX 내장 이미지를 격리 워커로 추출(같은 해시 하나, 원본 위치 메타, brochure 순서 그룹)(#34) — 판독 대상 196장 → 4,003장(Argon 2,000 + OCR 2,003) | `docs/overnight-2026-10-27.md` 15:27 |
 
-보류·미착수: P2-2 안전 통계(키 필요)·P2-4 감사원(JS·robots)·P2-6 발주 용역(POST 폼)·P2 우선순위 2 전부, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구.
+보류·미착수: g2b 실호출(키)·NTIS 적재(IP)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).

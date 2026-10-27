@@ -19,3 +19,11 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-27,47c7f27,웹 U9 U1~U8 화면(#30),,,8,,,,,,,,,,,,,,,web: vitest 50(13 파일)·Playwright 10·axe 0(새 8 화면)·초기 JS 111.6KB gzip(전체 ≈184KB)·CSS 21.4KB·Lighthouse /login 100/100/100; backend entrypoints+adapters 779 통과
 2026-10-27,bcaf367,초안 품질 강화 [Q],1494,,8,,,,,,1119,120,2482,131,,3,3,3,3,"final(01~03) 점수 10.5/run vs baseline3 9.0, 충족률 0.77 vs 0.71, 131s vs 116s; all4 10건 평균 178s; precheck 적중 9/10"
 2026-10-27,c5f05f5,2026-10-27 합침(#23~#32),1495,,8,,,,,,1119,120,2482,131,,3,3,3,3,"scienceon 2045(논문 888·보고서 588·특허 569) 추가; Q9 final 10.5/run; precheck 9/10; 웹 vitest 51·e2e 9·Lighthouse 100"
+2026-10-27,044b2b9,[P3] 첨부 내장 이미지(#34),1502,1150,8,,,,,,,,,,,,,,,추출 장수는 적재 뒤 overnight 기록
+2026-10-27,(feat/ntis-live),NTIS 실연결(레인 N)(#35),1522,1173,8,6381,7517,11893,6795,223,,,,,,,,,,NTIS 실호출 4건 모두 IP 차단(HTTP 200 error 0.13~0.52 s); 합성 fixture 과제3·보고서2·성과3·연관4; 드라이런 NtisError; 적재 예상 과제≤1950·보고서≤1950(26회/소스)
+2026-10-27,feat/table-facts-terms,표 구조화·용어 후보(#36),1572,,8,,,,,,,,,,,,,,,"scratch dry-run(레인 A 스냅샷 2026-10-27): 표 2094장→사실 48253건/문서 32건(모두 미적재 xlsx), 사실 없는 표 2035장, pdf 사실 2건, 단위 있음 46%, 연도 있음 23%, 샌드박스 거부 1, 59초; 새 테스트 72"
+2026-10-27,,feat/policy-sources(#37),1519,,8,,,,,,,,,,,,,,,bai 스냅샷 55항목·파일 40개·82.5MB(적재 전); 어댑터 g2b(키 대기)·bai·mofe·datago(16 데이터셋); Tier procurement
+2026-10-27,,feat/rnd-notice(#38),1515,,8,,,,,,,,,,,,,,,rnd_notice 스냅샷 공고 99건(KAIA 83 + IRIS 16· 두 사이트에 함께 실린 63건은 한 문서로 합침)· 첨부 229개 808MB(KAIA pdf·hwp; IRIS 첨부 40건은 이름만)· 등록일 2024-10-30~2026-08-20 (완료· 2년 범위) (적재 전); KAIA 1224건·IRIS 국토교통부 945건 탐색
+2026-10-27,(feat/web-ntis),웹 ② NTIS 과제 카드(레인 W)(#39),1530,1181,8,6398,7525,12483,6823,226,,,,,,,,,,web: Vitest 56(14 파일, +5)·Playwright 11(+1 ntis.spec)·axe 0; ② 화면 주요 성과(참고용)·NTIS 추천(외부 링크) 가짜 모드 e2e; Precheck 청크 gzip 6.9KB
+2026-10-27,f1b69fc,fix xlsx 시트 본문(#40),,1252,8,,,,,,,,,,,,,,,korail_web xlsx·xls 첨부 61건 적재 가능
+2026-10-27,7790e4a,fix reranker lock(#41),,1274,8,,,,,,,,,,,,,,,reranker 동시 호출 직렬화
