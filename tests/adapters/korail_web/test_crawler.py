@@ -307,13 +307,14 @@ async def test_pdf_probe_flags_missing_text_layer(tmp_path):
 
 
 async def test_attachment_without_extension_is_typed_by_served_name(tmp_path):
-    """링크 글자가 '다운로드' 뿐인 첨부(계약 길잡이) — 받은 뒤 Content-Disposition 으로 형식을 정한다."""
+    """링크 글자가 '다운로드' 뿐인 첨부 — 받은 뒤 Content-Disposition 으로 형식을 정한다."""
     site = Site()
     site.contents_html = (
         '<html><head><title>A>B - 한국철도공사</title></head><body><div id="container">'
         '<div id="contents"><p>본문 ' + "가" * 100 + "</p>"
         '<a href="/downloadContentsFile.do?key=2973&fileNo=1">다운로드</a>'
-        '<a href="/downloadContentsFile.do?key=2973&fileNo=2">다운로드</a></div></div></body></html>'
+        '<a href="/downloadContentsFile.do?key=2973&fileNo=2">다운로드</a>'
+        "</div></div></body></html>"
     )
 
     def serve(request: httpx.Request) -> httpx.Response:
