@@ -143,6 +143,11 @@
   `config/retrieval_mix.yaml`(섹션별 doc_type·최소 보장), reranker 잠금(#41). **브라우저 접속**(#45, ADR 0024): `config/api.yaml`
   (`public_origin`·`trust_cf_connecting_ip`), `adapters/security/client_ip.py`(CF-Connecting-IP 는 peer 127.0.0.1 일 때만), Origin 검사,
   cloudflared 설정 초안·`com.rra.tunnel.plist` — 터널·Access 는 사람 작업(`docs/deploy-exposure.md` §5).
+  **로그인**(#48, ADR 0026): `domain/models/principal.py`·`domain/rules/auth_policy.py`(가명 `staff:<HMAC 12자>`·`guest:<아이디>`, 잠금·일일 상한),
+  `adapters/auth/file_store.py`(`data/auth/` 700/600, 사번 HMAC·비밀번호 scrypt, 원문 없음), `config/auth.yaml`, `POST /v1/session {kind: token|staff|guest}`,
+  run 소유자 격리(남의 run 404, 관리자 토큰은 전부), 공용 계정은 `PublicOnlyRepository` 로 internal 제외, Gemini 일일 상한 `llm.yaml budget`
+  (`adapters/llm/daily_budget.py`), `rra auth staff|guest|status`(getpass). **자료원 IP**(#46, ADR 0025): `sources.yaml registered_ips`,
+  `domain/rules/source_ip.py`, IP 거부 응답은 그 자료원만 건너뜀 + `cache/source_availability.json` 안내.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 

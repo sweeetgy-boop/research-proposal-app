@@ -81,6 +81,7 @@
 | 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건). 공시용 요약문은 P2 에서 own_docs 로 적재됨 |
 | `config/templates/korail_strategy.yaml` 전략체계 목록(확정본) | 비어 있음 — 확정 전까지 앱은 초안을 쓰고 "전략체계 초안(확인 전)" 라벨 표시 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
+| 시범 계정 등록(`rra auth`) | `rra auth staff add`(사번, 한 명씩)·`rra auth guest set --id korail`(비밀번호 2회)·`rra auth status`. `data/auth/secret` 은 백업에 포함(잃으면 run 소유권 단절). 절차 `docs/status.d/feat-login.md` |
 | 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
 | `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
 | 운영 공개 방식 | 시범 결정: Cloudflare Tunnel + Access + 앱 로그인(ADR 0024, #45). 막힌 점: ai-edu-lab.co.kr DNS 가 Gabia → 존 이전 또는 Tailscale 대체(`docs/deploy-exposure.md` §5). 터널·Access 는 사람 작업 |
@@ -192,4 +193,5 @@ main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기�
 | 브라우저 접속 준비 [W] | `config/api.yaml`(public_origin·trust_cf_connecting_ip), 쿠키 Secure·Origin 검사·`client_ip`·이메일 해시 로그, cloudflared 설정 초안·`com.rra.tunnel.plist`·절차(#45). **터널 미기동·Access 미확인** — DNS 가 Gabia(Cloudflare 아님)·cloudflared 미설치 → 사람 6단계 또는 Tailscale 대체 | ADR 0024, `docs/deploy-exposure.md` §5, `docs/status.d/feat-tunnel.md` |
 
 | 자료원 IP 확인 [I] | `sources.yaml` 자료원별 `ip_restricted`·`registered_ips`(NTIS 2개), `rra sources check` 가 공인 IP(api.ipify.org) 를 대조해 "현재 IP … 등록 IP 에 없습니다" 안내, IP 거부 응답은 그 자료원만 건너뜀(ingest·사전 점검 NTIS 성과) + 웹 `/sources`·`rra sources status` 안내(#46). 실호출: ScienceON ok, NTIS 는 현재 IP 59.0.251.250 이 목록에 있어도 거부 → NTIS 쪽 반영 확인 | ADR 0025, `docs/status.d/feat-source-ip.md` |
+| 로그인 [A] | 직원 사번(HMAC-SHA256, `data/auth/` 700/600·원문 없음)·공용 아이디·비밀번호(scrypt)·관리 토큰 3종, run 소유자 가명 격리(남의 run 404, 관리자는 전부, 옛 run 은 관리자만), 공용 계정 internal 제외, 사용자별 일일 상한(공용 10·직원 20)·잠금(계정 5회·IP 20회/10분·전체 50회 지연), Gemini 일일 300회 상한(소진 시 검토 없이 진행+알림), `rra auth` CLI(getpass), 웹 로그인 두 탭(#48). **사람: 사번 등록·공용 계정 설정** | ADR 0026, `docs/status.d/feat-login.md` |
 보류·미착수: g2b 실호출(키)·NTIS 적재(IP)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).

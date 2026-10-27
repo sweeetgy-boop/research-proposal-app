@@ -32,3 +32,4 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-27,deb5e69,[P3] 판독 병렬 4(#44),1677,,8,,,,,,,,,,,,,,,Argon 분당 8 → 29장; 2000장 80분
 2026-10-27,3b6b298,feat tunnel(#45),1696,,8,,,,,,,,,,,,,,,Cloudflare Tunnel+Access 준비(코드·plist·절차) — 터널 미기동
 2026-10-27,(feat/source-ip),자료원 IP 확인 [I](#46),1729,1329,8,7578,8105,15723,7236,262,,,,,,,,,,web Vitest 58; 실호출 ScienceON ok·NTIS 3 대상 NtisIpBlocked(공인 IP 59.0.251.250 는 등록 목록에 있음); cache/source_availability.json
+2026-10-27,(feat/login),로그인 사번·공용 계정 [A](#48),1756,1337,8,,,,,,,,,,,,,,,테스트 +26; web Vitest 59(axe 0)·Playwright 13(두 로그인 경로); data/auth 700/600·git 추적 없음
