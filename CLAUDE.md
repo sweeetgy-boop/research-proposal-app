@@ -28,7 +28,7 @@
 ## 작업 방식
 - 새 기능은 domain → ports → usecase(fake로 테스트 통과) → adapter 순서.
 - 어댑터 normalize()는 순수 함수, tests/fixtures 원본 응답으로 테스트.
-- 커밋 전: `pytest -q && lint-imports && ruff check src tests`
+- 커밋 전: `pytest -q -n auto && lint-imports && ruff check src tests`
 - 임베딩·LLM 호출 없이 테스트가 돌아야 함 (tests/fakes.py 사용).
 
 ## 개발 환경

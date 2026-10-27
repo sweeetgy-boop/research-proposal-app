@@ -1,0 +1,446 @@
+/** 응답 모양 — openapi.json 은 요청 본문만 담으므로 응답은 entrypoints/views.py 를 따라 손으로 적는다.
+ *  요청 본문 타입은 생성된 schema.d.ts(components.schemas)에서 가져온다. */
+import type { components } from "./schema";
+
+export type ProposalRequest = components["schemas"]["ProposalRequest"];
+export type RunIn = components["schemas"]["RunIn"];
+export type EditRequest = components["schemas"]["EditRequest"];
+export type SentenceEdit = components["schemas"]["SentenceEdit"];
+export type SectionEdit = components["schemas"]["SectionEdit"];
+export type WorkingIn = components["schemas"]["WorkingIn"];
+export type FinalizeIn = components["schemas"]["FinalizeIn"];
+export type ConfirmIn = components["schemas"]["ConfirmIn"];
+export type DifferentiationTransferIn = components["schemas"]["DifferentiationTransferIn"];
+
+export interface Problem {
+  type: string;
+  title: string;
+  status: number;
+  detail: string;
+}
+
+export interface SessionOut {
+  csrf: string;
+  expires_in: number;
+}
+
+export type RunStatus =
+  | "queued"
+  | "running"
+  | "interrupted"
+  | "failed"
+  | "invalid"
+  | "draft_reviewing"
+  | "drafted"
+  | "editing"
+  | "final_reviewing"
+  | "final_reviewed"
+  | "finalized";
+
+export interface StepState {
+  name: string;
+  status: "pending" | "done" | "error" | "skipped";
+  error: string | null;
+}
+
+export interface FlowSummary {
+  status: RunStatus;
+  draft_review_skipped: string | null;
+  final_reviews: number;
+  final_reviewed_version: number | null;
+  stale_edits: number;
+  stale: boolean;
+  has_working: boolean;
+}
+
+export interface RunState {
+  run_id: string;
+  status: RunStatus;
+  progress: [number, number];
+  template: string;
+  legacy: boolean;
+  created_at: string;
+  updated_at: string;
+  steps: StepState[];
+  draft_version: number;
+  flow: FlowSummary;
+}
+
+export interface RunList {
+  runs: RunState[];
+}
+
+export interface OverlapAlert {
+  doc_id: string;
+  title: string;
+  tier: string;
+  similarity: number;
+  blocking: boolean;
+  basis: string | null;
+  keywords: string[];
+  status: string | null;
+  own_detail: string | null;
+  tier_label: string;
+}
+
+export interface Transfer {
+  public_doc_ids: string[];
+  internal_doc_ids: string[];
+  excluded_doc_ids: string[];
+  calls: number;
+}
+
+export interface DifferentiationItem {
+  doc_id: string;
+  title: string;
+  tier: string;
+  status: string | null;
+  overlap_summary: string;
+  build_on: string;
+  differentiation: string[];
+  evidence: string[];
+}
+
+export interface Differentiation {
+  skipped_reason: string | null;
+  provider: string | null;
+  model: string | null;
+  fallback_local: boolean;
+  transfer: Transfer;
+  items: DifferentiationItem[];
+  discarded: Record<string, unknown>[];
+}
+
+export interface Recommendation {
+  index: number;
+  title: string;
+  summary: string;
+  differentiation: string;
+  reasons: string[];
+  build_on: string;
+  risks: string;
+  compared_with: string[];
+  evidence: string[];
+  overlap_warning: string[];
+}
+
+export interface Recommendations {
+  id: string;
+  skipped_reason: string | null;
+  no_recommendation_reason: string | null;
+  provider: string | null;
+  model: string | null;
+  fallback_local: boolean;
+  transfer: Transfer;
+  recommendations: Recommendation[];
+  discarded: Record<string, string>[];
+}
+
+export interface PrecheckOut {
+  notice: string;
+  blocking: boolean;
+  alerts: OverlapAlert[];
+  differentiation?: Differentiation;
+  recommendations?: Recommendations;
+}
+
+export interface RecommendationPreview {
+  notice: string;
+  index: number;
+  changed: string[];
+  before: Record<string, string>;
+  after: Record<string, string>;
+  request: ProposalRequest;
+}
+
+export interface ClarifyQuestion {
+  id?: string;
+  field?: string;
+  question: string;
+  hint?: string;
+}
+
+export interface ClarifyOut {
+  questions: (ClarifyQuestion | string)[];
+  skip_allowed: boolean;
+}
+
+export type SentenceOrigin = string; // llm | argon | argon_added | proposer_edit | proposer_input | app …
+export type SentenceSource = "retrieved" | "proposer_input" | "app";
+
+export interface DraftSentence {
+  sentence_id?: string;
+  text: string;
+  evidence: string[];
+  source: SentenceSource;
+  origin: SentenceOrigin;
+}
+
+export interface ChoiceOption {
+  id: string;
+  label: string;
+}
+
+export interface Choices {
+  proposed: ChoiceOption[];
+  confirmed: ChoiceOption[] | null;
+  options: ChoiceOption[];
+}
+
+export interface DraftSection {
+  key: string;
+  sentences: DraftSentence[];
+  choices: Choices | null;
+}
+
+export interface Citation {
+  id: string;
+  doc_id: string;
+  title: string | null;
+}
+
+export interface Problem_ {
+  section: string;
+  code: string;
+  severity: string;
+  message: string;
+  sentence: number | null;
+}
+
+export interface ReviewSummary {
+  rounds: number;
+  skipped: boolean;
+  error: string | null;
+  model: string | null;
+  latest_round: number | null;
+  latest_kind: string | null;
+  latest_status: string | null;
+  open_comments: number;
+  finalized_at: string | null;
+}
+
+export interface DraftStep extends StepState {
+  sentences: number;
+  dropped: number;
+  parse: string | null;
+  raw_chars: number | null;
+  retries: number;
+}
+
+export interface DraftOut {
+  notice: string;
+  run_id: string;
+  status: RunStatus;
+  template: string;
+  legacy: boolean;
+  progress: [number, number];
+  steps: DraftStep[];
+  sections: DraftSection[];
+  citations: Citation[];
+  problems: Problem_[];
+  version: number;
+  versions: number[];
+  review: ReviewSummary;
+  flow: FlowSummary;
+}
+
+export interface Score {
+  criterion: string;
+  score: number;
+  weak: boolean;
+  reason: string;
+  sentence_ids: string[];
+}
+
+export interface ReviewComment {
+  id: string;
+  section: string;
+  sentence: number | null;
+  sentence_id: string | null;
+  kind?: "revision" | "addition" | string;
+  after?: string | null;
+  issue_type: string;
+  comment: string;
+  revised_text: string | null;
+  evidence: string[];
+  status: "open" | "resolved" | "discarded";
+  usable: boolean;
+  discard_reason: string | null;
+}
+
+export interface CandidateChoice {
+  chosen?: string | number;
+  rejected_text?: string | null;
+  reason?: string;
+  [k: string]: unknown;
+}
+
+export interface ReviewOut {
+  notice: string;
+  round: number;
+  kind: "draft" | "final";
+  final_round: number | null;
+  draft_version: number;
+  applied_ids: string[];
+  applied_version: number | null;
+  score_delta: Record<string, number>;
+  candidate_choices?: Record<string, CandidateChoice>;
+  checklist?: Record<string, unknown>;
+  checklist_coverage?: number | null;
+  status: "done" | "skipped" | "error";
+  skipped_reason: string | null;
+  created_at: string | null;
+  excluded_sentences: string[];
+  resolved_ids: string[];
+  scores: Score[];
+  transfer: {
+    provider: string | null;
+    model: string | null;
+    public_doc_ids: string[];
+    internal_doc_ids: string[];
+    sentences_sent: number;
+    sentences_excluded: number;
+    calls: number;
+  };
+  comments: ReviewComment[];
+}
+
+export interface Annotation {
+  id: string;
+  section: string;
+  sentence: number | null;
+  sentence_id: string | null;
+  kind: "opinion" | "discarded" | "section";
+  text: string;
+  reason: string | null;
+  status: "open" | "done";
+}
+
+export interface VersionSentence {
+  sentence_id: string;
+  text: string;
+  evidence: string[];
+  origin: SentenceOrigin;
+  source: SentenceSource;
+}
+
+export interface VersionSection {
+  key: string;
+  sentences: VersionSentence[];
+  choices: string[];
+}
+
+export interface VersionMeta {
+  version: number;
+  origin: string;
+  origin_label: string;
+  created_at: string | null;
+  based_on_review: number | null;
+  reverted_from: number | null;
+  note: string;
+  changed_sections: string[];
+  sentences?: number;
+  alerts: number;
+  open_annotations: number;
+}
+
+export interface VersionOut extends VersionMeta {
+  notice?: string;
+  run_id?: string;
+  status?: RunStatus;
+  stale_edits?: number;
+  annotations: Annotation[];
+  sections: VersionSection[];
+}
+
+export interface VersionsOut {
+  run_id: string;
+  versions: VersionMeta[];
+}
+
+export interface DiffRow {
+  sentence_id: string;
+  text: string;
+  from?: number;
+  to?: number;
+}
+
+export interface DiffSection {
+  section: string;
+  added: DiffRow[];
+  removed: DiffRow[];
+  moved: DiffRow[];
+  choices_changed: boolean;
+  sentences: [number, number];
+}
+
+export interface DiffOut {
+  run_id: string;
+  notice: string;
+  from: number;
+  to: number;
+  sections: DiffSection[];
+}
+
+export interface WorkingSection {
+  section: string;
+  texts?: string[];
+  text?: string;
+}
+
+export interface WorkingOut {
+  run_id: string;
+  notice: string;
+  working: {
+    sections: WorkingSection[];
+    note: string;
+    base_version: number | null;
+    saved_at: string;
+  };
+}
+
+export interface RenderCheckOut {
+  run_id: string;
+  count: number;
+  unsupported_numbers: number;
+  unresolved: Problem_[];
+  overflow: { slot: string; label: string; chars: number; limit: number; kind: string }[];
+  notes: string[];
+}
+
+export interface ConfirmOut {
+  run_id: string;
+  confirmed: Record<string, string[]>;
+}
+
+export interface SearchChunk {
+  chunk_id: string;
+  doc_id: string;
+  ordinal: number;
+  basis: string | null;
+  similarity: number | null;
+  text: string;
+  trust: "untrusted";
+}
+
+export interface SearchOut {
+  notice: string;
+  chunks: SearchChunk[];
+}
+
+export interface SourceStatus {
+  source: string;
+  label: string;
+  count: number;
+  last_ingested: string | null;
+}
+
+export interface SourcesOut {
+  sources: SourceStatus[];
+}
+
+export interface OutlineOut {
+  run_id: string;
+  notice: string;
+  outline: Record<string, unknown> | unknown[];
+}
