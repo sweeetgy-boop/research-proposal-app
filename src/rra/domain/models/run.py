@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from .document import Chunk
 from .gap import OverlapAlert
+from .table_fact import TableFact
 
 # running(생성) → v1 → draft_reviewing(Argon 1차) → drafted(v2) → editing → final_reviewing
 # → final_reviewed → finalized (domain/rules/review_flow.py, ADR 0011).
@@ -179,6 +180,9 @@ class RetrievalSnapshot(BaseModel):
     # U5 제안자가 브리핑에서 고른 우선 근거(doc_id·chunk_id, 검색 집합 안의 것만). 섹션 검색이
     # 있으면 이 id 의 청크를 앞세운다. 이전 스냅샷은 빈 값
     priority_ids: list[str] = Field(default_factory=list)
+    # P2-8 표 사실 — 검색 집합 문서의 (항목·연도·단위·값). 수치 lint 가 인용 문서의 표 칸을 근거로
+    # 인정하는 데 쓴다. 저장소가 사실을 모르면(옛 스냅샷·fake) 빈 값 = 종전 동작
+    facts: dict[str, list[TableFact]] = Field(default_factory=dict)
 
     @classmethod
     def of(

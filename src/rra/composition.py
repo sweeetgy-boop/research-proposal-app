@@ -106,6 +106,9 @@ __all__ = [
     "build_purge_runs",
     "build_renderer",
     "build_reranker",
+    "build_table_source",
+    "build_extract_facts",
+    "build_term_candidates",
     "build_outliner",
     "build_clarifier",
     "build_repository",
@@ -378,6 +381,70 @@ def build_ingest_image_readings(
         repo = build_repository(build_embedding(settings), settings)
     reader = build_read_images(settings, snapshot=snapshot, with_reader=False, store=store)
     return IngestImageReadings(reader, repo)
+
+
+# ── 표 사실(P2-8)·용어 후보(P2-9) ──────────────────────────
+TABLE_SOURCES = ("korail_web", "molit", "vision")
+
+
+def build_table_source(
+    settings: Settings | None = None,
+    *,
+    source: str,
+    snapshot: str | None = None,
+    repo=None,
+    store=None,
+):
+    """TableSourcePort — korail_web(스냅샷 첨부 xlsx·xls·pdf), molit(DB 문서 본문), vision(판독
+    캐시 표)."""
+    from rra.adapters.tables import DocumentTables, SnapshotTables, VisionTables
+
+    settings = settings or load_settings()
+    if source == "korail_web":
+        return SnapshotTables(
+            _korail_web_root(settings, korail_web_config(settings)),
+            limits=sandbox_limits(settings),
+            snapshot=snapshot,
+        )
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    if source == "vision":
+        return VisionTables(store or build_vision_store(settings), repo)
+    if source == "molit":
+        return DocumentTables(repo, source="molit")
+    raise KeyError(f"표 자료원은 {', '.join(TABLE_SOURCES)} 중 하나: {source!r}")
+
+
+def build_extract_facts(
+    settings: Settings | None = None,
+    *,
+    source: str,
+    snapshot: str | None = None,
+    repo=None,
+    store=None,
+):
+    """표 → 사실 적재 유스케이스. repo 를 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.extract_facts import ExtractTableFacts
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    table_source = build_table_source(
+        settings, source=source, snapshot=snapshot, repo=repo, store=store
+    )
+    return ExtractTableFacts(table_source, repo, repo)
+
+
+def build_term_candidates(settings: Settings | None = None, *, repo=None):
+    """용어 후보 유스케이스 + YAML 쓰기 함수. 후보 파일만 적는다 (overlap.yaml 은 건드리지
+    않는다)."""
+    from rra.adapters.terms import write_candidates
+    from rra.application.usecases.term_candidates import ExtractTermCandidates
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return ExtractTermCandidates(repo, keyword_rule(settings)), write_candidates
 
 
 def build_reviewer(settings: Settings | None = None, *, llm=None, pipeline=None):

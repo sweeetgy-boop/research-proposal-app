@@ -326,3 +326,20 @@ async def test_real_xls_is_read_with_dates(limits):
     [sheet] = result["sheets"]
     header = next(r for r in sheet["rows"] if r and r[0] == "구분")
     assert "연구과제명" in header and any("20" in (c or "") for r in sheet["rows"][4:8] for c in r)
+
+
+# ── pdf_pages (P2-8 표 사실 — 쪽별 텍스트) ───────────────
+async def test_pdf_pages_keeps_page_boundaries(parse):
+    data = make_pdf(["첫 쪽\n매출액 5,100", "둘째 쪽"], toc=False)
+    result = await parse(data, "pdf_pages")
+    assert len(result["pages"]) == 2 and result["truncated"] is False
+    assert "매출액 5,100" in result["pages"][0] and "둘째 쪽" in result["pages"][1]
+
+
+async def test_pdf_pages_encrypted_rejected(parse):
+    import pymupdf
+
+    doc = pymupdf.open()
+    doc.new_page().insert_text((72, 72), "secret")
+    data = doc.tobytes(encryption=pymupdf.PDF_ENCRYPT_AES_256, user_pw="u", owner_pw="o")
+    assert await rejected(parse, data, "pdf_pages") == "EncryptedDocument"
