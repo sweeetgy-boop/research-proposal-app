@@ -120,6 +120,7 @@ cd /Users/chan/projects/research-proposal-app && .venv/bin/rra api --port 8000  
 
 ## 내가 할 일 (사람 입력)
 
+- [ ] **main 보호 규칙 확인** — 19:45 `gh api …/branches/main/protection` 이 "Branch not protected", rulesets 도 없음. 그래서 #52·#53 은 CI 완료 전에 `gh pr merge` 가 통과됐다(둘 다 로컬 전체 검사 통과, main CI 도 #52 success·#53 진행 중 확인). 저장소 설정 변경은 금지라 손대지 않음 → PR 필수·상태 검사(backend·detect·web)·최신 브랜치 필수를 직접 켤 것
 - [x] `.env` 의 ScienceON client_id·인증키 맞바꿈 — 15:48 실호출 auth ok(ARTI 1,858·REPORT 370·PATENT 911). Mac mini 의 .env 도 같은 값인지 확인
 - [ ] ScienceON 보고서(REPORT)는 doc_type `internal_report` 로 저장됨(적재 당시 `report` 가 없었음) — retrieval_mix 의 '논문·보고서·특허' 보장에는 들어가지 않음. 다음 적재 때 `report` 로 재매핑할지 결정
 - [x] **NTIS 서버 IP** — 19:01 실호출 ok(#50). 공인 IP 가 59.0.251.250 → 59.0.166.199 로 바뀌는 회선이라 두 IP 모두 등록돼 있어야 하고, 다른 IP 로 바뀌면 활용신청 서버 IP 와 `config/sources.yaml ntis.registered_ips` 를 함께 갱신

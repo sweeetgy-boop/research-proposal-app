@@ -244,3 +244,4 @@ Gemini 상한: 이미지 판독 2,000회(별도), 그 외 오늘 추가 작업 8
 | 19:40 | ntis_reports 적재 0건 원인: 연구보고서 100건 응답 안의 `Joint R&DB;` — `&DB;` 가 엔티티 꼴이라 맨 & 복구에서 빠지고 DTD 금지라 undefined entity ParseError(probe 는 5건이라 통과). `_xml._BARE_AMP` 를 미리 정의된 5개 엔티티·숫자 참조만 엔티티로 보도록 수정, 테스트 추가 → PR(fix/ntis-bare-amp). 병합 뒤 ntis_reports 1,500 재적재 | 직접 호출 진단 |
 | 19:40 | #51 병합·main 당김 뒤에도 ntis_reports 0건 → 전 페이지 스캔: 3쪽(철도 궤도 2쪽·철도 신호 2쪽·철도 안전 1쪽)에 `R&amp;D 동향조사 < <span…>` 처럼 공백 앞의 맨 `<` → `_xml` 에 `_BARE_LT`(뒤가 공백·<·줄끝일 때만 &lt;) 추가, PR #53. 작업 중 테스트 파일을 잘못 잘라(1,771 → 1,749) origin/main 기준으로 복구 뒤 재검사 1,772 통과·ruff 0(파이프 없이 확인). [D] 시범 준비 PR #52 병합(19:39) | chain53.log |
 | 19:43 | PR #53 병합 → ntis_reports 적재 1,084건·청크 634(중복 17) → NTIS 합계 3,084건, DB 문서 14,092. api 재기동(healthz 200). 남은 일: [Z] 문서 조립·#49 병합·main 전체 검사·e2e·최종 보고 | chain53.log |
+| 19:46 | main 보호 규칙이 실제로는 없음(API 404, rulesets 없음) → #52·#53 이 CI 완료 전에 병합됨(로컬 검사는 통과, main CI #52 success). 설정 변경 금지라 사람 할 일로 기록 | gh api |
