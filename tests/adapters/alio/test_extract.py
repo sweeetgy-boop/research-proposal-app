@@ -70,7 +70,7 @@ async def test_hwpx_roundtrip(parse):
         (make_hwpx({"Contents/section0.xml": XXE}), "DTDForbidden"),
         (b"PK\x03\x04 not really a zip", "BadZipFile"),
     ],
-    # id 를 바이트가 아닌 이름으로 — zip 바이트는 프로세스마다 달라(시각) xdist 워커 간 수집이 어긋난다
+    # id 를 이름으로 — zip 바이트는 프로세스마다 달라(시각) xdist 워커 간 수집이 어긋난다
     ids=[
         "zip_bomb",
         "dotdot",
