@@ -13,6 +13,7 @@ from .gap import (
     OverlapAlert,
     Tier,
 )
+from .notice import MAX_NOTICE_MATCHES, NoticeMatch
 from .outline import Outline, SectionPlan
 from .pipeline import PipelineConfig
 from .policy import MAX_SUGGESTIONS, MIN_SUGGESTIONS, PolicySuggestion
@@ -36,6 +37,7 @@ from .review import (
 from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
 from .selection import STRATEGY_DRAFT_LABEL, Confirmation, StrategyCatalog, StrategyStatus
 from .structure import FollowUp, StructuredIdea
+from .table_fact import FactBasis, ParsedTable, TableFact
 from .usability import UsabilityConfig
 from .usage import EvidenceCounts, Satisfaction, UsageRecord
 
@@ -74,6 +76,8 @@ __all__ = [
     "MIN_SUGGESTIONS",
     "PipelineConfig",
     "PolicySuggestion",
+    "NoticeMatch",
+    "MAX_NOTICE_MATCHES",
     "CriterionScore",
     "DraftVersion",
     "EvidenceDecision",
@@ -98,4 +102,7 @@ __all__ = [
     "RunState",
     "RunStatus",
     "StepRecord",
+    "FactBasis",
+    "ParsedTable",
+    "TableFact",
 ]

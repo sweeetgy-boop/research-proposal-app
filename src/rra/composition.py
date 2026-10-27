@@ -38,6 +38,7 @@ from rra.config_loader import (
     retention_days,
     retrieval_mix,
     review_policy,
+    rnd_notice_config,
     section_checklists,
     security_config,
     served_model_aliases,
@@ -77,6 +78,14 @@ __all__ = [
     "build_korail_web_crawler",
     "build_korail_web_source",
     "build_molit_source",
+    "build_notice_match",
+    "build_rnd_notice_crawler",
+    "build_rnd_notice_source",
+    "build_g2b_source",
+    "build_bai_crawler",
+    "build_bai_source",
+    "build_mofe_source",
+    "build_datago_source",
     "build_strategy_drafter",
     "build_own_docs_source",
     "build_own_projects_source",
@@ -91,6 +100,8 @@ __all__ = [
     "build_ingest",
     "build_list_missing",
     "build_llm",
+    "build_ntis_insights",
+    "build_ntis_report_source",
     "build_ntis_source",
     "build_openalex_source",
     "build_policy_suggest",
@@ -99,6 +110,9 @@ __all__ = [
     "build_purge_runs",
     "build_renderer",
     "build_reranker",
+    "build_table_source",
+    "build_extract_facts",
+    "build_term_candidates",
     "build_outliner",
     "build_clarifier",
     "build_repository",
@@ -300,6 +314,25 @@ def build_vision_snapshot(settings: Settings | None = None, *, snapshot: str | N
     )
 
 
+def build_extract_attachment_images(
+    settings: Settings | None = None, *, snapshot: str | None = None
+):
+    """첨부 속 내장 이미지 추출(`rra vision extract`) — 격리 자식, 같은 해시 하나,
+    attachment_images.jsonl 에 기록."""
+    from rra.adapters.vision import ExtractAttachmentImages
+
+    settings = settings or load_settings()
+    acfg = vision_config(settings)["attachments"]
+    return ExtractAttachmentImages(
+        build_vision_snapshot(settings, snapshot=snapshot),
+        sandbox_limits(settings),
+        formats=frozenset(acfg["formats"]),
+        max_images_per_file=acfg["max_images_per_file"],
+        max_image_bytes=acfg["max_image_bytes"],
+        min_pixels=acfg["min_pixels"],
+    )
+
+
 def build_read_images(
     settings: Settings | None = None,
     *,
@@ -352,6 +385,70 @@ def build_ingest_image_readings(
         repo = build_repository(build_embedding(settings), settings)
     reader = build_read_images(settings, snapshot=snapshot, with_reader=False, store=store)
     return IngestImageReadings(reader, repo)
+
+
+# ── 표 사실(P2-8)·용어 후보(P2-9) ──────────────────────────
+TABLE_SOURCES = ("korail_web", "molit", "vision")
+
+
+def build_table_source(
+    settings: Settings | None = None,
+    *,
+    source: str,
+    snapshot: str | None = None,
+    repo=None,
+    store=None,
+):
+    """TableSourcePort — korail_web(스냅샷 첨부 xlsx·xls·pdf), molit(DB 문서 본문), vision(판독
+    캐시 표)."""
+    from rra.adapters.tables import DocumentTables, SnapshotTables, VisionTables
+
+    settings = settings or load_settings()
+    if source == "korail_web":
+        return SnapshotTables(
+            _korail_web_root(settings, korail_web_config(settings)),
+            limits=sandbox_limits(settings),
+            snapshot=snapshot,
+        )
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    if source == "vision":
+        return VisionTables(store or build_vision_store(settings), repo)
+    if source == "molit":
+        return DocumentTables(repo, source="molit")
+    raise KeyError(f"표 자료원은 {', '.join(TABLE_SOURCES)} 중 하나: {source!r}")
+
+
+def build_extract_facts(
+    settings: Settings | None = None,
+    *,
+    source: str,
+    snapshot: str | None = None,
+    repo=None,
+    store=None,
+):
+    """표 → 사실 적재 유스케이스. repo 를 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.extract_facts import ExtractTableFacts
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    table_source = build_table_source(
+        settings, source=source, snapshot=snapshot, repo=repo, store=store
+    )
+    return ExtractTableFacts(table_source, repo, repo)
+
+
+def build_term_candidates(settings: Settings | None = None, *, repo=None):
+    """용어 후보 유스케이스 + YAML 쓰기 함수. 후보 파일만 적는다 (overlap.yaml 은 건드리지
+    않는다)."""
+    from rra.adapters.terms import write_candidates
+    from rra.application.usecases.term_candidates import ExtractTermCandidates
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return ExtractTermCandidates(repo, keyword_rule(settings)), write_candidates
 
 
 def build_reviewer(settings: Settings | None = None, *, llm=None, pipeline=None):
@@ -663,6 +760,63 @@ def build_ntis_source(settings: Settings | None = None, *, transport=None, resol
     )
 
 
+def build_ntis_report_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """NtisReportSource (연구보고서 검색, doc_type report). 같은 RRA_NTIS_KEY (서비스별 활용신청은
+    따로)."""
+    from rra.adapters.sources.ntis import NtisReportSource
+
+    settings = settings or load_settings()
+    require_credentials(settings, "ntis")
+    cfg = source_config(settings, "ntis")
+    return NtisReportSource(
+        _guarded(settings, cfg, transport=transport, resolver=resolver),
+        apprv_key=settings.ntis_key,
+        base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
+        report_path=str(cfg.get("report_path", "/rndopen/openApi/rresearchpdf/")),
+        queries=list(cfg.get("report_queries") or cfg.get("queries") or ["철도"]),
+        institutions=institutions(settings),
+        search_field=str(cfg.get("search_field", "BI")),
+        display_count=int(cfg.get("display_count", 100)),
+        record_tag=str(cfg.get("record_tag") or "") or None,
+        per_query_limit=int(cfg["per_query_limit"]) if cfg.get("per_query_limit") else None,
+    )
+
+
+def build_ntis_insights(
+    settings: Settings | None = None, *, repo=None, transport=None, resolver=None
+):
+    """NtisProjectInsights 유스케이스 (성과검색·연관콘텐츠, 과제번호 파일 캐시). 키가 없으면 포트
+    없이(enabled=False)."""
+    from rra.adapters.persistence.file_cache import FileCache
+    from rra.application.usecases.ntis_insights import NtisProjectInsights
+
+    settings = settings or load_settings()
+    cfg = source_config(settings, "ntis")
+    insights = cfg.get("insights") or {}
+    source = None
+    if (
+        settings.ntis_key
+        and settings.ntis_key.get_secret_value().strip()
+        and insights.get("enabled", True)
+    ):
+        from rra.adapters.sources.ntis import NtisInsightSource
+
+        source = NtisInsightSource(
+            _guarded(settings, cfg, transport=transport, resolver=resolver),
+            apprv_key=settings.ntis_key,
+            base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
+            outcome_path=str(cfg.get("outcome_path", "/rndopen/openApi/public_result")),
+            related_path=str(cfg.get("related_path", "/rndopen/openApi/ConnectionContent")),
+            record_tag=str(cfg.get("record_tag") or "HIT"),
+            display_count=int(insights.get("max_items", 10)),
+        )
+    cache_dir = Path(str(insights.get("cache_dir", "data/cache/ntis")))
+    cache = FileCache(cache_dir, ttl_sec=float(insights.get("cache_ttl_days", 7)) * 86400)
+    return NtisProjectInsights(
+        source, source, cache=cache, repo=repo, max_projects=int(insights.get("max_projects", 3))
+    )
+
+
 def build_kipris_source(settings: Settings | None = None, *, transport=None, resolver=None):
     """KiprisPatentSource (KIPRIS Plus 자유검색). RRA_KIPRIS_KEY 없으면 MissingCredential."""
     from rra.adapters.sources.kipris import KiprisPatentSource
@@ -811,6 +965,153 @@ def build_korail_web_source(settings: Settings | None = None):
     )
 
 
+def _rnd_notice_root(cfg: dict[str, Any]) -> Path:
+    return Path(str(cfg.get("snapshot_dir") or "data/rnd_notice"))
+
+
+def build_rnd_notice_crawler(settings: Settings | None = None, *, transport=None, resolver=None):
+    """RndNoticeCrawler — config/rnd_notice.yaml (KAIA GET·IRIS 공개 POST 폼).
+
+    2초 간격·동시 1·robots 준수 (P2-7)."""
+    from rra.adapters.sources.rnd_notice import NoticeConfig, RndNoticeCrawler
+
+    settings = settings or load_settings()
+    raw = rnd_notice_config(settings)
+    cfg = NoticeConfig.from_config(raw)
+    client = _guarded(settings, raw, transport=transport, resolver=resolver)
+    client._client.headers["Accept"] = "text/html,application/xhtml+xml,application/json,*/*;q=0.8"
+    client._client.headers["User-Agent"] = cfg.user_agent
+    return RndNoticeCrawler(client, cfg, root=_rnd_notice_root(raw))
+
+
+def build_rnd_notice_source(settings: Settings | None = None):
+    """RndNoticeSource — 최신 스냅샷(data/rnd_notice/snapshots/<날짜>/) → Document(rnd_notice).
+
+    첨부는 샌드박스 파싱."""
+    from rra.adapters.sources.rnd_notice import RndNoticeSource
+
+    settings = settings or load_settings()
+    raw = rnd_notice_config(settings)
+    return RndNoticeSource(_rnd_notice_root(raw), limits=sandbox_limits(settings))
+
+
+# ── [P2] 레인 E (2026-10-27): 발주 용역·감사·경영평가·통계 ─────────────
+def build_g2b_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """G2bProcurementSource — 나라장터 입찰공고(용역) API. RRA_DATA_GO_KR_KEY 없으면
+    MissingCredential."""
+    from rra.adapters.sources.procurement import G2bProcurementSource
+
+    settings = settings or load_settings()
+    require_credentials(settings, "g2b")
+    cfg = source_config(settings, "g2b")
+    return G2bProcurementSource(
+        _guarded(settings, cfg, transport=transport, resolver=resolver),
+        service_key=settings.data_go_kr_key,
+        base_url=str(cfg.get("base_url") or "https://apis.data.go.kr"),
+        path=str(
+            cfg.get("path") or "/1230000/ad/BidPublicInfoService/getBidPblancListInfoServcPPSSrch"
+        ),
+        queries=[str(q) for q in cfg.get("queries") or ["철도"]],
+        institutions=institutions(settings),
+        org_filter=[str(o) for o in cfg.get("org_filter") or []],
+        lookback_days=int(cfg.get("lookback_days", 365)),
+        rows=int(cfg.get("rows", 100)),
+        max_pages=int(cfg.get("max_pages", 5)),
+        active_days=int(cfg.get("active_days", 540)),
+    )
+
+
+def _bai_root(cfg: dict[str, Any]) -> Path:
+    return Path(str(cfg.get("snapshot_dir") or "data/bai"))
+
+
+def build_bai_crawler(settings: Settings | None = None, *, transport=None, resolver=None):
+    """BaiCrawler — config/bai.yaml. Playwright 로 공개 화면만 조작, robots 는 GuardedClient 로
+    읽는다."""
+    from rra.adapters.sources import GuardedClient
+    from rra.adapters.sources.audit.bai_crawler import BaiConfig, BaiCrawler
+
+    settings = settings or load_settings()
+    raw = read_config("bai.yaml", settings)
+    cfg = BaiConfig.from_config(raw)
+
+    async def robots_text() -> str:
+        client = GuardedClient(
+            allowed_domains(settings),
+            retries=0,
+            transport=transport,
+            user_agent=cfg.user_agent,
+            accept="text/plain,*/*;q=0.8",
+            **({"resolver": resolver} if resolver else {}),
+        )
+        try:
+            _h, body, _s = await client.get_raw(f"{cfg.base_url}/robots.txt")
+            return body.decode("utf-8", "replace")
+        finally:
+            await client.aclose()
+
+    return BaiCrawler(cfg, _bai_root(raw), robots_text=robots_text)
+
+
+def build_bai_source(settings: Settings | None = None):
+    """BaiAuditSource — 최신 스냅샷(data/bai/snapshots/<날짜>/) → Document(audit). 전문 PDF 는
+    샌드박스
+    파싱."""
+    from rra.adapters.sources.audit import BaiAuditSource
+
+    settings = settings or load_settings()
+    raw = read_config("bai.yaml", settings)
+    return BaiAuditSource(
+        _bai_root(raw),
+        limits=sandbox_limits(settings),
+        institutions=institutions(settings),
+        max_file_bytes=int(float(raw.get("max_file_mb", 50)) * 1024 * 1024),
+    )
+
+
+def build_mofe_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """MofeEvaluationSource — config/mofe.yaml (기획재정부 공공기관 경영평가 결과 보도자료)."""
+    from rra.adapters.sources.audit import MofeEvaluationSource
+
+    settings = settings or load_settings()
+    cfg = read_config("mofe.yaml", settings)
+    client = _guarded(settings, cfg, transport=transport, resolver=resolver)
+    client._client.headers["Accept"] = "text/html,application/xhtml+xml,*/*;q=0.8"
+    return MofeEvaluationSource(
+        client,
+        base_url=str(cfg.get("base_url") or "https://mofe.go.kr"),
+        list_path=str(cfg.get("list_path") or "/nw/nes/nesdta.do"),
+        detail_path=str(cfg.get("detail_path") or "/nw/nes/detailNesDtaView.do"),
+        bbs_id=str(cfg.get("bbs_id") or "MOSFBBS_000000000028"),
+        menu_no=str(cfg.get("menu_no") or "4010100"),
+        queries=[str(q) for q in cfg.get("queries") or ["경영실적 평가 결과"]],
+        title_filter=[str(t) for t in cfg.get("title_filter") or ["경영실적 평가"]],
+        store_dir=Path(str(cfg.get("store_dir") or "data/mofe")),
+        limits=sandbox_limits(settings),
+        max_file_bytes=int(float(cfg.get("max_file_mb", 50)) * 1024 * 1024),
+    )
+
+
+def build_datago_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """DataGoKrFileSource — config/datago.yaml 데이터셋 목록(철도 안전·수송 통계 파일, 키 없음)."""
+    from rra.adapters.sources.datago import DataGoKrFileSource
+
+    settings = settings or load_settings()
+    cfg = read_config("datago.yaml", settings)
+    client = _guarded(settings, cfg, transport=transport, resolver=resolver)
+    client._client.headers["Accept"] = "text/html,application/json,*/*;q=0.8"
+    return DataGoKrFileSource(
+        client,
+        datasets=[d for d in cfg.get("datasets") or [] if isinstance(d, dict)],
+        base_url=str(cfg.get("base_url") or "https://www.data.go.kr"),
+        store_dir=Path(str(cfg.get("store_dir") or "data/datago")),
+        limits=sandbox_limits(settings),
+        institutions=institutions(settings),
+        max_file_bytes=int(float(cfg.get("max_file_mb", 50)) * 1024 * 1024),
+        max_rows=int(cfg.get("max_rows", 400)),
+    )
+
+
 _SOURCE_BUILDERS = {
     "openalex": build_openalex_source,
     "alio": build_alio_source,
@@ -819,9 +1120,15 @@ _SOURCE_BUILDERS = {
     "own_docs": build_own_docs_source,
     "scienceon": build_scienceon_source,
     "ntis": build_ntis_source,
+    "ntis_reports": build_ntis_report_source,
     "kipris": build_kipris_source,
     "korail_web": build_korail_web_source,
     "molit": build_molit_source,
+    "rnd_notice": build_rnd_notice_source,
+    "g2b": build_g2b_source,
+    "bai": build_bai_source,
+    "mofe": build_mofe_source,
+    "datago": build_datago_source,
 }
 SOURCE_NAMES = tuple(_SOURCE_BUILDERS)
 
@@ -870,14 +1177,19 @@ def build_sources_check(
     builders = {
         "scienceon": build_scienceon_source,
         "ntis": build_ntis_source,
+        "ntis_reports": build_ntis_report_source,
         "kipris": build_kipris_source,
+        "g2b": build_g2b_source,
     }
     targets = []
     for name in names:
         if name not in builders:
             raise KeyError(f"연결 확인을 지원하지 않는 소스: {name} (가능: {list(builders)})")
-        host = urlsplit(str(source_config(settings, name).get("base_url", ""))).hostname or ""
-        creds = credential_status(settings, name)
+        cfg_name = (
+            "ntis" if name == "ntis_reports" else name
+        )  # 연구보고서는 과제검색 설정·키를 같이 쓴다
+        host = urlsplit(str(source_config(settings, cfg_name).get("base_url", ""))).hostname or ""
+        creds = credential_status(settings, cfg_name)
         ready = host in allowed and all(creds.values())
 
         def connect(_build=builders[name]):
@@ -940,6 +1252,15 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
         reranker=reranker,
         mix=retrieval_mix(settings),
     )
+
+
+def build_notice_match(settings: Settings | None = None, repo=None):
+    """NoticeMatcher — rnd_notice 자료원만, 접수 중인 공고 상위 3건 (LLM 없음, #13 선행)."""
+    from rra.application.usecases.notice_match import NoticeMatcher
+
+    settings = settings or load_settings()
+    repo = repo or build_repository(build_embedding(settings), settings)
+    return NoticeMatcher(repo)
 
 
 def build_policy_suggest(settings: Settings | None = None, repo=None):
@@ -1096,8 +1417,10 @@ def build_fake_parts(settings: Settings):
         InMemoryRunStore,
         NoopRunLog,
         ScriptedComposeLLM,
+        ScriptedNtisInsights,
         ScriptedReviewLLM,
     )
+    from rra.application.usecases.ntis_insights import NtisProjectInsights
     from rra.domain.models import Chunk, Document
 
     repo = InMemoryDocumentRepository()
@@ -1123,6 +1446,19 @@ def build_fake_parts(settings: Settings):
                 orgs=["external"],
                 text_basis="abstract",
             ),
+            # NTIS 과제검색 문서 → 유사과제 티어 national_rnd (② "주요 성과"·"NTIS 추천" e2e 경로).
+            # 청크 없이 문서만 — precheck(find_similar) 에는 잡히고 생성 근거(hybrid_search) 에는
+            # 안 들어간다
+            Document(
+                doc_id="ntis:fake-1",
+                source="ntis",
+                doc_type="rnd_project",
+                title="궤도 틀림 진행 예측 국가R&D 과제 (가짜)",
+                abstract="궤도 틀림 진행 속도를 예측해 보수 우선순위를 정하는 국가R&D 과제 요약",
+                orgs=["external"],
+                text_basis="abstract",
+                raw={"kind": "national_rnd", "project_no": "fake-1"},
+            ),
         ],
         [
             Chunk(
@@ -1143,12 +1479,14 @@ def build_fake_parts(settings: Settings):
         ],
         when="2026-10-26",
     )
+    ntis = ScriptedNtisInsights()
     return {
         "repo": repo,
         "llm": ScriptedComposeLLM(),
         "review_llm": ScriptedReviewLLM(),
         "store": InMemoryRunStore(),
         "run_log": NoopRunLog(),
+        "ntis_insights": NtisProjectInsights(ntis, ntis, repo=repo),
     }
 
 
@@ -1196,6 +1534,7 @@ def build_api(
         manager=manager,
         precheck=precheck,
         policy_suggest=build_policy_suggest(settings, repo=repo),
+        notice_match=build_notice_match(settings, repo=repo),
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
         recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         recommend_auto=recommend_policy(settings)["auto"],
@@ -1203,6 +1542,7 @@ def build_api(
         structure=build_structurer(settings, llm=llm),
         compare=build_comparer(settings, repo=repo, precheck=precheck),
         brief=build_briefer(settings, repo=repo, llm=llm),
+        ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
@@ -1213,6 +1553,7 @@ def build_api(
         sse_poll_sec=sse_poll_sec,
         fake_mode=fake is not None,
         snapshot_status=build_korail_web_source(settings).status,
+        notice_snapshot_status=build_rnd_notice_source(settings).status,
     )
 
 

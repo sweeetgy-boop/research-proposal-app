@@ -2,7 +2,7 @@ import * as React from "react";
 import { Navigate, useNavigate } from "react-router";
 import { ShieldAlert } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { comparison, differentiate, recommend } from "@/api/endpoints";
+import { comparison, differentiate, ntisOutcomes, recommend } from "@/api/endpoints";
 import { isApiError } from "@/api/client";
 import { ComparisonTable } from "@/features/idea/ComparisonTable";
 import type { RecommendationPreview } from "@/api/types";
@@ -10,6 +10,8 @@ import { updateIdea, updateRequest, useIdea } from "@/features/idea/store";
 import { AlertsTable } from "@/features/idea/AlertsTable";
 import { RecommendationCards } from "@/features/idea/RecommendationCards";
 import { DifferentiationPanel } from "@/features/idea/DifferentiationPanel";
+import { NtisInsights } from "@/features/idea/NtisInsights";
+import { NATIONAL_RND } from "@/lib/tiers";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +30,16 @@ export default function Precheck() {
     queryKey: ["comparison", idea.request],
     queryFn: () => comparison(idea.request),
     enabled: !!pre,
+    staleTime: Infinity,
+    retry: false,
+  });
+  // NTIS 과제(tier national_rnd)가 알림에 있을 때만 1회 — 503·오류는 한 줄 안내, 흐름을 막지 않는다.
+  // 비교표가 끝난 뒤에 보낸다: 두 경로 모두 서버에서 precheck(reranker)를 다시 돌리므로 동시에 보내지 않는다
+  const hasNtis = !!pre?.alerts.some((a) => a.tier === NATIONAL_RND);
+  const ntis = useQuery({
+    queryKey: ["ntis-outcomes", idea.request],
+    queryFn: () => ntisOutcomes(idea.request),
+    enabled: !!pre && hasNtis && !cmp.isFetching,
     staleTime: Infinity,
     retry: false,
   });
@@ -134,6 +146,8 @@ export default function Precheck() {
         <h2 className="text-lg font-semibold">유사과제 {pre.alerts.length}건</h2>
         <AlertsTable alerts={pre.alerts} />
       </section>
+
+      {hasNtis ? <NtisInsights data={ntis.data} loading={ntis.isPending} unavailable={!!ntis.error} /> : null}
 
       <ComparisonTable
         data={cmp.data?.comparison}

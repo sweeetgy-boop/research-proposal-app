@@ -2,8 +2,10 @@
 제목.
 
 같은 계획 이름(차수·연도 범위·괄호를 뺀 이름)에서 차수가 가장 큰 것이 현행, 나머지는 구판
-(valid_until = 다음 판의 등록일; 등록일을 모르면 None 으로 두고 둘 다 현행으로 본다 —
-모호하면 유지).
+(valid_until = 다음 판의 등록일). 모호하면 유지: 최신 판의 등록일을 모르면 이전 판도 현행으로 두되
+`ambiguous: True`·`superseded_by` 를 기록한다(P2-10, 2026-10-27 확인). 같은 차수가 여러 건이면 모두
+현행.
+차수가 없는 제목(연도별 통계·연도별 평가 결과)은 판이 아니라 기록이라 표시하지 않는다.
 """
 
 from __future__ import annotations
@@ -47,12 +49,14 @@ def mark_editions(
         latest = [i for no, i in members if no == latest_no]
         newest_date = max((str(out[i].get(date_key) or "") for i in latest), default="")
         for no, i in members:
-            status = "현행" if no == latest_no else "구판"
-            edition: dict[str, Any] = {"family": name, "no": no, "status": status}
-            if status == "구판":
+            edition: dict[str, Any] = {"family": name, "no": no, "status": "현행"}
+            if no != latest_no:
                 edition["superseded_by"] = latest_no
                 if newest_date:
+                    edition["status"] = "구판"
                     edition["valid_until"] = newest_date
+                else:  # 최신 판 등록일 미상 — 모호하면 둘 다 현행으로 두고 기록만
+                    edition["ambiguous"] = True
             out[i]["edition"] = edition
     return out
 

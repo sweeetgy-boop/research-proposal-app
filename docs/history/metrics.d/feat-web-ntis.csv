@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,(feat/web-ntis),웹 ② NTIS 과제 카드(레인 W),1530,1181,8,6398,7525,12483,6823,226,,,,,,,,,,web: Vitest 56(14 파일, +5)·Playwright 11(+1 ntis.spec)·axe 0; ② 화면 주요 성과(참고용)·NTIS 추천(외부 링크) 가짜 모드 e2e; Precheck 청크 gzip 6.9KB

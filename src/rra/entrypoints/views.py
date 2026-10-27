@@ -15,7 +15,7 @@ from typing import Any
 
 from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
-from rra.domain.rules.overlap import tier_label
+from rra.domain.rules.overlap import STATUS_LABELS, tier_label
 
 
 def _same(text: str) -> str:
@@ -389,6 +389,26 @@ def policy_suggestions_payload(
     ]
 
 
+def notice_matches_payload(
+    matches: list[Any], *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """공고문 대조(#13 선행) — 접수 중인 공고 상위 3건. 제안서에 자동 삽입 없음."""
+    return [
+        {
+            "doc_id": m.doc_id,
+            "title": clean(m.title),
+            "agency": clean(m.agency) if m.agency else None,
+            "program": clean(m.program) if m.program else None,
+            "posted": m.posted.isoformat() if m.posted else None,
+            "deadline": m.deadline.isoformat() if m.deadline else None,
+            "days_left": m.days_left,
+            "url": m.url,
+            "similarity": m.similarity,
+        }
+        for m in matches
+    ]
+
+
 def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
     """유사과제 경보 목록 → 출력용 dict (MCP·REST 공용). 제목은 수집 문서에서 온 비신뢰 텍스트."""
     return {
@@ -403,12 +423,66 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
                 "basis": a.basis,
                 "keywords": list(a.keywords),
                 "status": a.status,
+                "status_label": STATUS_LABELS.get(
+                    a.status or "", a.status
+                ),  # 용역으로 진행 중/예정 등
                 "own_detail": a.own_detail,
                 "tier_label": tier_label(a.tier, a.own_detail),
             }
             for a in alerts
         ],
     }
+
+
+def ntis_insights_payload(insights: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """NtisInsights → dict (REST). 제목·성과는 NTIS API 출력(비신뢰) → clean. 양식 본문 근거로 쓰지
+    않는다.
+
+    프론트엔드 영향: ② 과제 카드의 "주요 성과"(projects[].outcomes) 와 "NTIS
+    추천"(ntis_recommended)."""
+    return {
+        "projects": [
+            {
+                "project_no": p.project_no,
+                "doc_id": p.doc_id,
+                "title": clean(p.title),
+                "tier": p.tier,
+                "tier_label": tier_label(p.tier),
+                "similarity": round(p.similarity, 4),
+                "blocking": p.blocking,
+                "cached": p.cached,
+                "error": p.error,
+                "outcomes": [
+                    {
+                        "kind": o.kind,
+                        "title": clean(o.title),
+                        "year": o.year,
+                        "venue": clean(o.venue) if o.venue else None,
+                        "result_id": o.result_id,
+                        "registration_no": o.registration_no,
+                    }
+                    for o in p.outcomes
+                ],
+            }
+            for p in insights.projects
+        ],
+        "ntis_recommended": [
+            {
+                "project_no": r.project_no,
+                "title": clean(r.title),
+                "url": NTIS_PROJECT_URL.format(project_no=r.project_no),
+                "score": r.score,
+                "rank": r.rank,
+                "source_project_no": r.source_project_no,
+            }
+            for r in insights.recommended
+        ],
+    }
+
+
+# NTIS 과제 상세 페이지 — 공개 사이트 경로 (실호출 뒤 확인). 수집 Document 에는 넣지 않는다 (검증 안
+# 된 링크)
+NTIS_PROJECT_URL = "https://www.ntis.go.kr/project/pjtInfo.do?pjtId={project_no}"
 
 
 def differentiation_payload(
@@ -720,6 +794,35 @@ def chunks_payload(
         }
         for c in chunks
     ]
+
+
+def facts_payload(facts: list[Any], *, clean: Callable[[str], str] = _same) -> list[dict[str, Any]]:
+    """표 사실(P2-8) → dict. 전부 비신뢰 — 표에서 파싱·판독한 값이지 확인된 사실이 아니다."""
+    return [
+        {
+            "item": clean(f.item),
+            "year": f.year,
+            "unit": clean(f.unit) if f.unit else None,
+            "value": float(f.value),
+            "value_text": clean(f.value_text),
+            "doc_id": f.doc_id,
+            "page": f.page,
+            "sheet": clean(f.sheet) if f.sheet else None,
+            "basis": f.basis,
+            "trust": "untrusted",
+        }
+        for f in facts
+    ]
+
+
+def fact_line(f: Any, *, clean: Callable[[str], str] = _same) -> str:
+    """CLI 한 줄: 항목 · 연도 · 값단위 · 출처."""
+    year = f"{f.year}년 " if f.year else ""
+    where = (
+        f.doc_id + (f" p.{f.page}" if f.page else "") + (f" [{clean(f.sheet)}]" if f.sheet else "")
+    )
+    basis = " (이미지 판독)" if f.basis == "image_vision" else ""
+    return f"{clean(f.item)}: {year}{clean(f.value_text)}{clean(f.unit or '')} — {where}{basis}"
 
 
 # ── 벤치 보고 (docs/llm-bench-<날짜>.md) ──────────────────

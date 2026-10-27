@@ -1288,3 +1288,37 @@ OCR 에도 있을 때만 확인, 나머지는 "[판독 확인 필요]" 표식·�
 (`adapters/llm/rate_limiter.py`: provider 당 동시 4·분당 60·429 지수 백오프+Retry-After, 프로세스 내)는
 `build_llm`·`build_vision_reader` 가 같은 provider 에 같은 객체를 붙인다. 설정 `config/vision.yaml`, `llm.yaml stages.vision`·
 `providers.gemini.rate`. 측정 `rra vision sample`(종류별 30건 나란히 + 구조화 성공률·숫자 대조 통과율·장당 시간·호출 수).
+
+### 4.18 표 구조화(table_facts)·용어 후보 (2026-10-27, P2-8·P2-9, ADR 0022)
+
+수집 문서의 표 한 칸을 사실 한 건 `TableFact(item, year, unit, value, value_text, doc_id, page, sheet, row_label, col_label,
+basis text|image_vision)` 으로 저장해(migration 005 `table_facts`, documents 와 FK 없음) 생성 초안의 수치 lint 가 **인용 문서의
+표 칸**을 근거로 인정하게 한다. 규칙은 전부 순수(`domain/rules/table_facts.py`): 머리글 행(값 셀 40% 미만인 첫 행, 두 줄 병합
+머리글), 연도 열("2023"·"2023년"·"'23"·날짜 머리글 → (연도, "N월"))과 행 연도 열, 단위 우선순위(셀 접미 > 열 괄호 > 행 괄호 >
+"(단위: …)" > 어댑터 기본값), 연번·식별자(번호·코드·전화·일자) 열과 긴 문장·날짜 셀 제외. 못 읽으면 내지 않는다 —
+틀린 사실은 지어낸 수치를 근거 있는 것으로 둔갑시킨다. 본문 줄 표(`facts_from_lines`)는 위쪽 8줄 안 같은 블록의 연도/라벨 줄과
+개수가 맞는 숫자 줄만(PDF 텍스트는 셀이 줄로 흩어져 실측 69개 pdf 에서 2건 — 격자 복원은 후속), 이미지 판독 structure
+(`facts_from_structure`)는 `unconfirmed_numbers` 가 있으면 표 통째 제외.
+흐름: `TableSourcePort`(`adapters/tables/`: SnapshotTables=korail_web 첨부 xlsx·xls 시트·`pdf_pages` 쪽, VisionTables=판독 캐시,
+DocumentTables=DB 본문) → `usecases/extract_facts.ExtractTableFacts` → `TableFactRepository.replace_facts`(문서 단위 통째 교체,
+미적재 문서는 `missing_doc` 보고). `GenerateProposal.retrieve/retrieve_sections` 가 검색 집합 문서의 사실을
+`RetrievalSnapshot.facts` 에 고정(문서당 300·전체 2,000, 연도·단위 있는 것 우선 — lint 경로가 동기이고 state.json 을 화면이 폴링하므로)
+→ `lint(facts=)` → `numbers.unsupported_numbers(facts=)` 가 `fact.as_text()`("2023년 1,512대")를 허용 텍스트에 더한다. 사실이
+없으면 종전과 같다. 진입점 `rra facts extract --source korail_web|molit|vision`, `rra facts search`, `GET /v1/facts?q=`(비신뢰
+알림 + 항목 LIKE 토큰 AND 검색, 보안 E 바인딩·ESCAPE).
+용어 후보(P2-9, §5-7): `domain/rules/term_candidates.py` — 청크 표본(`CorpusAccessPort.sample_chunks`, 자료원별 고르게)의 한글 2~8자
+어간 토큰 문서빈도로 흔한 단어 후보(df/문서수 ≥ 0.15 & 자료원 ≥ 2)와 철도 용어 후보(나머지, 철도 어근 hint)를 나눠
+`rra terms candidates` 가 `config/rail_terms.candidates.yaml`·`generic_terms.candidates.yaml` 로 쓴다. **overlap.yaml 자동 반영 없음**
+— 사람이 검토해 옮긴다(이슈 #11). 회귀: `tests/domain/test_table_facts.py`·`test_term_candidates.py`, `tests/contracts/test_table_facts.py`
+(SQLite·InMemory 동일 계약), `tests/adapters/test_tables.py`, `tests/entrypoints/test_facts_terms.py`.
+
+### 4.19 정부 R&D 사업공고 `rnd_notice` (2026-10-27, P2-7, ADR 0023)
+
+국토교통 분야 정부 R&D 공고·RFP 를 KAIA 사업공고(GET, PDF 공고문)와 IRIS 사업공고(국토교통부 필터, 공개 POST 검색 폼 → JSON,
+인라인 공고문)에서 스냅샷으로 받는다(`adapters/sources/rnd_notice/`, `rra crawl rnd-notice`, `data/rnd_notice/snapshots/<날짜>/`,
+탐색 표 docs/korail-web-crawl.md §5). NTIS 는 robots 전면 금지라 수집하지 않는다. 규칙은 `domain/rules/notices.py`: 같은 공고는
+제목(공고번호·기호 제거)+기관+공고일 키로 한 문서(`raw.notice.also_in`), 접수 마감일 = `valid_until`(만료 공고는 저장소 규칙으로
+검색·precheck 제외), 담당자 이름·전화·이메일은 저장 전 제거. 쓰임은 정책 근거 추천 후보(`POLICY_DOC_TYPES`)와 공고문 대조
+(`usecases/notice_match.py` — 접수 중 상위 3건, LLM 없음, 자동 삽입 없음, `rra notices match`, `POST /v1/ideas/notices`)뿐이며
+유사과제 판정·기술적 중요도 근거에서는 뺀다(`retrieval_scope`, `NON_OVERLAP_SOURCES`, retrieval_mix `overlap_exclude`). #13(공고
+요건 대조)은 이 목록에서 고른 `rnd_notice:<key>` 를 notice_id 로 이어 쓴다.

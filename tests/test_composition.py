@@ -558,7 +558,7 @@ async def test_sources_check_covers_kipris():
 
     rows = await build_sources_check(project_settings())()
     by = {r["source"]: r for r in rows}
-    assert set(by) == {"scienceon", "ntis", "kipris"}
+    assert set(by) == {"scienceon", "ntis", "kipris", "g2b"}
     assert by["kipris"]["host_allowed"] and by["kipris"]["roundtrip"] == "skipped"
     assert by["kipris"]["credentials"] == {"RRA_KIPRIS_KEY": False}
 
@@ -603,3 +603,36 @@ def test_build_clarifier_and_outliner_take_an_injected_llm():
     assert isinstance(build_clarifier(settings, llm=FakeLLM()), ClarifyInput)
     outliner = build_outliner(settings, llm=FakeLLM())
     assert isinstance(outliner, OutlineSections) and "method" in outliner.section_keys
+
+
+# ── 표 사실(P2-8)·용어 후보(P2-9) 조립 ───────────────────────
+def test_build_table_source_by_name_and_unknown_is_key_error(tmp_path):
+    from rra.adapters.tables import DocumentTables, SnapshotTables, VisionTables
+    from rra.adapters.vision.store import MemoryVisionStore
+    from rra.composition import build_table_source
+    from tests.fakes import InMemoryRepository
+
+    settings = settings_for(ROOT_CONFIG, db_path=tmp_path / "x.sqlite")
+    repo = InMemoryRepository()
+    snap = build_table_source(settings, source="korail_web", snapshot="2026-10-27")
+    assert isinstance(snap, SnapshotTables) and snap.snapshot_day == "2026-10-27"
+    assert isinstance(build_table_source(settings, source="molit", repo=repo), DocumentTables)
+    vision = build_table_source(settings, source="vision", repo=repo, store=MemoryVisionStore())
+    assert isinstance(vision, VisionTables)
+    with pytest.raises(KeyError):
+        build_table_source(settings, source="alio", repo=repo)
+
+
+def test_build_extract_facts_and_term_candidates_with_given_repo(tmp_path):
+    from rra.application.usecases.extract_facts import ExtractTableFacts
+    from rra.application.usecases.term_candidates import ExtractTermCandidates
+    from rra.composition import build_extract_facts, build_term_candidates
+    from tests.fakes import InMemoryRepository
+
+    settings = settings_for(ROOT_CONFIG, db_path=tmp_path / "x.sqlite")
+    repo = InMemoryRepository()
+    usecase = build_extract_facts(settings, source="molit", repo=repo)
+    assert isinstance(usecase, ExtractTableFacts) and usecase.source.name == "molit"
+    terms, write = build_term_candidates(settings, repo=repo)
+    assert isinstance(terms, ExtractTermCandidates) and callable(write)
+    assert "안전" in terms.rule.generic_terms  # config/overlap.yaml generic_terms 반영

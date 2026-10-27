@@ -87,3 +87,43 @@
 | P2-6 연구용역 공고 (`ebid.korail.com`) | 프레임셋 + POST 폼(`torForm`, `__EventTarget`, TouchEn 키보드보안) 로 목록 조회, GET 은 "총 0 건". robots 는 오류 페이지로 307. | 보류. 대안: 공공데이터포털 나라장터 입찰공고정보 API(`apis.data.go.kr`, 키 필요, 이미 allowed_domains) 로 `procurement` 수집 — overlap.yaml 새 키·"용역으로 진행 중/예정" 상태는 미구현 |
 | P2-10 판 추적 | `domain/rules/editions.py` — 제목의 "제N차" 로 계획 가족을 묶고 최신만 현행. 차수가 없거나 등록일을 모르면 둘 다 현행(모호하면 유지). | 구현(molit 에 적용) |
 | P2-3·5·7·8·9 | 미착수 | — |
+
+## 5. [P2] 보류 항목 처리 — 레인 E (2026-10-27)
+
+§4 의 보류 5건을 처리했다. 공통 규칙: GuardedClient(허용 도메인·2초 간격·동시 1·백오프 2s→5s→10s·연속 3회 보류), 파일은 샌드박스 파싱,
+개인정보 제거(`strip_pii`), `data/` 미커밋. info.korail.com 은 건드리지 않았다(다른 프로세스 수집 중).
+
+| 항목 | 수집처 | 탐색 결과 | 결정 | 코드 |
+|---|---|---|---|---|
+| P2-6 발주 연구용역 | `ebid.korail.com` | 프레임셋 → `main.do`. 메뉴 전부 `torForm` POST(`__EventTarget`·`code`·`gubun`), GET 목록 "총 0 건", POST 1회(용역 code=A03·gubun=5)도 행 없음(JS 가 다른 경로로 적재). 상세 `fn_bid_content` 는 "로그인 후 이용 가능". robots 는 307→오류 페이지, 약관은 POST 목록 안이라 확인 불가 | **불명확 → 나라장터 공개 API 로 전환**(자동 판단). `apis.data.go.kr /1230000/ad/BidPublicInfoService/getBidPblancListInfoServcPPSSrch` 는 키 없이 401 SERVICE_KEY_IS_NULL(경로 유효). 과업 개요는 API 에 없음(공고서 첨부는 g2b 파일 호스트 — 실응답 뒤 허용 도메인 결정) → **보류** | `adapters/sources/procurement/`, `config/g2b.yaml`, 키 `RRA_DATA_GO_KR_KEY`(없으면 건너뜀), 티어 "발주 용역"(0.80), 알림 "용역으로 진행 중/예정" |
+| P2-4 감사원 감사결과 | `www.bai.go.kr/bai/result/branch/list/` | Vue SPA. 헤드리스 Chromium 렌더 OK: 전체 3,173건, "철도" **55건**(1998~2026), 공공누리 제4유형 표기. 상세 `detail?srno=N` 에 "공개문_전문.pdf (2.49 MB)"·보도자료 hwp, 파일 클릭 → blob 다운로드(페이지가 `/api/files/download` POST). robots `Disallow: /api/` | Playwright 로 **공개 화면만 조작**(검색어 입력·제목 클릭·파일 클릭), `/api/` URL 직접 호출 없음, 2초 간격. 1차: 55항목·전문 PDF 20건·45.8MB·보류 0. 옛 항목은 hwp 공개문만 → `attachment_types` 에 hwp 추가 후 2차: 54항목·파일 40개(pdf 20·hwp 20)·82.5MB·보류 1(srno 1849) (`data/bai/snapshots/2026-10-27/`) | `adapters/sources/audit/bai_crawler.py`·`bai_source.py`, `config/bai.yaml`, `rra crawl bai [--incremental]`, `rra ingest --source bai` |
+| P2-4 국정감사 지적 | — | 감사원 사이트에 없음(국회 의안정보·열린국회정보 = 범위 밖) | **보류** — "공개 보고서 파일만" 규칙상 감사원 전문만 | — |
+| P2-2 철도 안전 통계 | `railsafety.or.kr` / `www.data.go.kr` | railsafety 20s 시간 초과(레인 A 와 동일). 공공데이터포털 "철도사고" 파일데이터 10건(국토교통부_철도사고 발생 현황 15122753 CSV 79행 2024-09-04, 철도사고 통계 15123043, 발생목록 15123062, 바로미터 15123055, 교통안전공단 통계현황 3047220 …). 상세에 "로그인 없이 다운로드"·이용허락 제한 없음. 내려받기 2단계(`selectFileDataDownload.do` JSON → `cmm/cmm/fileDownload.do`), CSV cp949 16KB 정상 | **키 없는 파일 경로 채택**(KOSIS·통계누리 API 는 키 필요라 2순위, 미구현) | `adapters/sources/datago/`, `config/datago.yaml datasets`(safety 7) |
+| P2-3 운영·수송 통계 | `www.data.go.kr`, 레인 A 스냅샷 | "한국철도공사 수송실적" 파일데이터 10건(연도별 수송실적 3050961 CSV 120행 2026-09-29, 여객 15088862, 화물 3073553, 수도권전철 3050644 …). 광역수송 통계 xlsx 18건은 레인 A 스냅샷 `biz_stat_docs` 에 이미 있음 | 파일데이터 9건 + korail_web `biz_stat_docs` doc_type 을 `statistics` 로(설정만). 공공데이터포털 수송실적 **API** 는 키 필요라 쓰지 않음 | `config/datago.yaml`(transport 9), `config/korail_web.yaml` |
+| P2-5 경영평가 개선 권고 | `mofe.go.kr` 보도자료, `www.alio.go.kr` | 기재부 egov 게시판 검색(`searchCondition=1&searchKeyword1=경영실적 평가 결과`) → 2016~2025년도 "공공기관 경영실적 평가 결과 발표" 10건, 상세에 hwpx·pdf 개별 `FileDown.do`(zip 전체받기는 안 씀), 담당자 이름·전화·이메일 있음. robots 는 2경로만 금지. 알리오 robots Allow(기관별 평가보고서는 범위 밖) | 보도자료(총괄 결과·등급표) 수집, pdf > hwpx. 공사별 개선 권고 본문(평가보고서)은 **보류** | `adapters/sources/audit/mofe.py`, `config/mofe.yaml`, `rra ingest --source mofe` |
+| P2-10 판 추적 | `domain/rules/editions.py` | molit 에 적용돼 있었음. 최신 판 등록일을 모르면 이전 판이 "구판" 표시만 되고 valid_until 없음(모호 처리 불명확) | 모호하면 둘 다 현행 + `ambiguous: true`·`superseded_by` 기록으로 고침. 새 자료원은 판이 아니라 연도별 기록(경영평가·통계)이라 미적용 — datago 는 같은 pk 갱신 시 한 문서를 덮어씀 | 테스트 `tests/domain/test_editions_and_procurement_tier.py` |
+
+크기·형식: 감사원 전문 PDF 0.2~5.8MB/건(20건) + hwp 공개문 20건, 총 82.5MB. 스크래치 DB 시운전(`RRA_DB_PATH`, `--limit 3`): datago 3·mofe 3 → 6문서 34청크. 기재부 보도자료 pdf 0.5MB/건. 공공데이터 CSV 수십 KB.
+허용 도메인 추가: `www.bai.go.kr`, `mofe.go.kr` (www.data.go.kr·apis.data.go.kr 은 기존).
+
+## 6. P2-7 국토교통 분야 정부 R&D 공고·RFP (레인 G, 2026-10-27)
+
+탐색은 GET/POST 각 1~4회(2초 간격), 상세·첨부는 표본 1건씩. `rnd_notice` 자료원(doc_type `rnd_notice`, visibility public,
+`valid_until` = 접수 마감일 → 저장소의 만료 규칙(`sqlite_repo._VALID`)으로 마감 지난 공고는 검색·precheck 에서 빠진다).
+
+| 수집처 | robots·이용조건 | 목록 구조 | 최근 2년 건수 | 첨부(RFP) | 마감일 | 상태 |
+|---|---|---|---|---|---|---|
+| KAIA 사업공고 > 국토교통R&D 공고 (`www.kaia.re.kr/KAIA/contents/K30101000000.do`) | `Allow: /`. 저작권정책: 공공누리 제3유형(출처표시·변경금지, 게시물별 확인) | **GET** `?page=N`(10건/쪽, 최신순), 열 = 번호·제목·사업명·공고기간·등록일. 상세 `?schM=view&id=<20자리>`, 본문은 PDF 뷰어(iframe)뿐 | 전체 1,224건(2005~), 11쪽≈2023-07 → 2년 ≈ 80~100건(8~10쪽) | `/afile/fileDownload/<id>` octet-stream + Content-Disposition 이름. 공고문 pdf 0.1~0.3MB, 안내서 pdf 1~3MB, 서식 zip 33MB(받지 않음) | 목록·상세 "공고기간" (시작 ~ 마감) | **구현** — 주 수집처 |
+| IRIS 사업공고 (`www.iris.go.kr/contents/retrieveBsnsAncmBtinSituListView.do`) | `/wklounge/…`·`/sysadmn/…` 만 Disallow(사업공고 경로 허용). 저작권 안내 페이지 없음(개인정보처리방침·이용안내만) → 정부 공고문 출처 표시 | JS 템플릿 + **공개 검색 폼 POST** `/contents/retrieveBsnsAncmBtinSituList.do` → JSON(`listBsnsAncmBtinSitu`, `paginationInfo`). 필터 `ancmPrg`(ancmIng 접수중·ancmPre 예정·ancmEnd 마감), `blngGovdSe`+`blngGovdSeArr`=AR4004 국토교통부, `sorgnId(+Arr)`=10002 KAIA. 상세 GET `retrieveBsnsAncmView.do?ancmId=` 에 소관부처·전문기관·공고번호·공고일자·접수기간·**공고문 본문 인라인**·사업담당자 이름(전화) | 마감 전체 19,113건, 국토교통부 945건(전 기간), 접수중 0·예정 1(2026-10-27). 2년 안은 79건 — 그중 63건이 KAIA 와 같은 공고(합침), IRIS 에만 있는 것 16건(모두 KAIA 전문기관) | 세션 POST 다운로드(`/comm/file/retrieveCheckFileDownload.do` → `fileDownload.do`) — 받지 않고 이름만(`post_download`). 공고문 본문이 인라인이라 RFP 텍스트는 확보 | JSON `rcveStrDe`·`rcveEndDe`, 상세 "접수기간" | **구현** — 보조 수집처(국토교통부 필터), 첨부는 보류 |
+| NTIS 공고 (`www.ntis.go.kr`) | **`User-agent: * / Disallow: /`** — 공개 페이지 수집 금지 | — | — | — | — | 보류(자동 판단 2). 공고 OpenAPI 유무는 키 투입 뒤 확인(과제검색 어댑터와 같은 키) |
+| 공공데이터포털 R&D 공고 API (`www.data.go.kr`) | Googlebot 일부 경로만 제한 | "사업공고" API 검색: 과기정통부_사업공고(15074634), 산기평 지역균형 유관기관 사업공고(15106158·15067525), 식약처 연구관리 사업공고(15067899) 등 — **국토교통 R&D 공고 API 없음** | — | — | — | 범위 밖(타 부처·키 필요). 필요하면 과기정통부_사업공고를 키 투입 뒤 어댑터 추가 |
+
+중복: 같은 공고가 KAIA 와 IRIS 에 함께 실린다(표본: 국토교통연구기획 제2차 공고·재공고 모두 양쪽). `domain/rules/notices.notice_key`
+(제목에서 공고번호·괄호·기호·"재공고/공고/시행" 제거 + 기관 + 공고일 → 16자 해시)로 한 문서로 합치고 나머지 URL 은 `raw.notice.also_in`.
+KAIA 가 먼저 돌아 PDF 공고문이 붙고 IRIS 는 같은 키면 `duplicate_of` 로만 기록된다.
+
+수집 명령: `rra crawl rnd-notice --explore` → `rra crawl rnd-notice --download [--limit N] [--incremental]`
+(스냅샷 `data/rnd_notice/snapshots/<날짜>/manifest.jsonl`, 첨부 `files/<sha[:2]>/<sha>.<ext>`, 본문 `items/<site>/<id>.txt`),
+적재 `rra ingest --source rnd_notice --limit 600`. 실행 경과는 `docs/history/progress.d/feat-rnd-notice.md`.
+
+수집 결과(2026-10-27): 공고 99건(KAIA 83 + IRIS 16, 두 사이트에 함께 실린 63건은 한 문서로 합침), 첨부 229개 808MB(KAIA pdf·hwp; IRIS 첨부 40건은 이름만), 등록일 2024-10-30~2026-08-20 (완료, 2년 범위). 보류 0, 오류 0, 50MB 초과 안내서 6건 미수집. 스냅샷 575MB(커밋 안 함).

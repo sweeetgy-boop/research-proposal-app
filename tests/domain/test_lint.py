@@ -252,3 +252,28 @@ def test_lint_reports_no_relevant_evidence_as_a_warning_not_missing(req):
     problems = lint(d, rules, evidence_skipped={"tech": "no_relevant_evidence"})
     assert [(p.code, p.severity) for p in problems] == [("no_relevant_evidence", "warning")]
     assert "관련도 하한" in problems[0].message
+
+
+# ── 표 사실(P2-8) ─────────────────────────────────────────
+def test_cited_table_facts_make_numbers_supported(req):
+    from decimal import Decimal
+
+    from rra.domain.models import TableFact
+
+    rules = LintRules(sections=["effect"], required_sections=[], number_checked=["effect"])
+    sentence = Sentence(text="엘리베이터는 1,512대로 집계됨", evidence=["korail_web:a#0"])
+    d = Draft(run_id="r", request=req, sections=[Section(key="effect", sentences=[sentence])])
+    fact = TableFact(
+        item="합계 엘리베이터",
+        value=Decimal("1512"),
+        value_text="1,512",
+        doc_id="korail_web:a",
+        unit="대",
+    )
+    chunk_texts = {"korail_web:a#0": "역별 승강설비 현황 표 (수치는 셀에 흩어져 있음)"}
+    assert [p.code for p in lint(d, rules, chunk_texts=chunk_texts)] == ["unsupported_number"]
+    assert lint(d, rules, chunk_texts=chunk_texts, facts={"korail_web:a": [fact]}) == []
+    # 인용하지 않은 문서의 사실은 근거가 아니다
+    assert [p.code for p in lint(d, rules, chunk_texts=chunk_texts, facts={"alio:z": [fact]})] == [
+        "unsupported_number"
+    ]

@@ -220,6 +220,19 @@ class GuardedClient:
         headers, body, safe = await self._get(url, params)
         return {k.lower(): v for k, v in headers.items()}, body, safe
 
+    async def post_form(
+        self, url: str, data: dict[str, Any], *, accept: str | None = None
+    ) -> tuple[dict[str, str], bytes, str]:
+        """공개 검색 폼(POST, application/x-www-form-urlencoded) — 목록 조회 전용 (IRIS 사업공고
+        등).
+
+        허용목록·크기 상한·재시도·간격은 GET 과 같다. 비밀은 보내지 않는다(폼 값은 검색 조건만)."""
+        headers = {"Accept": accept} if accept else None
+        hdrs, body, safe = await self._get(
+            url, None, headers=headers, method="POST", content=urlencode(data).encode()
+        )
+        return {k.lower(): v for k, v in hdrs.items()}, body, safe
+
     async def get_bytes(
         self,
         url: str,
@@ -245,13 +258,17 @@ class GuardedClient:
         params: dict[str, Any] | None,
         *,
         headers: dict[str, str] | None = None,
+        method: str = "GET",
+        content: bytes | None = None,
     ) -> tuple[httpx.Headers, bytes, str]:
         """재시도·상태 코드 처리 공통 경로. (헤더, 본문, 비밀 제거된 최종 URL)."""
         target = httpx.URL(url, params=params) if params else httpx.URL(url)
         attempt = 0
         while True:
             try:
-                status, headers, body, final = await self._fetch(target, headers)
+                status, headers, body, final = await self._fetch(
+                    target, headers, method=method, content=content
+                )
             except httpx.TransportError as exc:
                 if attempt >= self.retries:
                     safe = strip_secrets(str(target))
@@ -275,7 +292,12 @@ class GuardedClient:
             return headers, body, safe
 
     async def _fetch(
-        self, target: httpx.URL, headers: dict[str, str] | None = None
+        self,
+        target: httpx.URL,
+        headers: dict[str, str] | None = None,
+        *,
+        method: str = "GET",
+        content: bytes | None = None,
     ) -> tuple[int, httpx.Headers, bytes, httpx.URL]:
         for _ in range(self.max_redirects + 1):
             check_url(str(target), self.allowed, resolver=self._resolver)
@@ -285,9 +307,15 @@ class GuardedClient:
                 )
             await self._throttle()
             self.requests_made += 1
-            async with self._client.stream("GET", target, headers=headers) as resp:
+            req_headers = dict(headers or {})
+            if method == "POST":
+                req_headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+            async with self._client.stream(
+                method, target, headers=req_headers or None, content=content
+            ) as resp:
                 if resp.has_redirect_location:
                     target = target.join(resp.headers["location"])
+                    method, content = "GET", None  # 리다이렉트 뒤는 GET (폼은 다시 보내지 않음)
                     continue  # 다음 hop 도 check_url 을 다시 거친다
                 body = await self._read_capped(resp, target)
                 return resp.status_code, resp.headers, body, target

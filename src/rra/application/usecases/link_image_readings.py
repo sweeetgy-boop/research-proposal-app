@@ -191,4 +191,6 @@ def _image_meta(r: ImageReadResult, page: Document | None) -> dict[str, Any]:
         "unconfirmed_numbers": list(r.unconfirmed_numbers),
         "width": r.item.width,
         "height": r.item.height,
+        # 첨부 속 내장 이미지면 원본 위치(첨부 파일명·쪽 또는 슬라이드) — 화면의 "원본" 표시용
+        "attachment": dict(r.item.attachment) if r.item.attachment else None,
     }

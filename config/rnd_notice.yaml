@@ -1,0 +1,30 @@
+# 국토교통 분야 정부 R&D 공고·RFP 수집 — P2-7 (레인 G, 2026-10-27). 호스트는 security.yaml allowed_domains.
+# 스냅샷: data/rnd_notice/snapshots/<날짜>/manifest.jsonl (커밋 금지). 적재: rra ingest --source rnd_notice.
+# 이용조건: KAIA 저작권정책 = 공공누리 제3유형(출처표시·변경금지, 게시물별 확인). IRIS 는 별도 저작권 안내 없음
+# (정부 공고문 — 출처 표시). 담당자 이름·전화·이메일은 저장 전에 지운다 (_pii.strip_pii).
+user_agent: "RRA research-proposal-app (internal research use)"
+snapshot_dir: data/rnd_notice
+since_days: 730                # 최근 2년
+max_notices: 500               # 한 스냅샷 상한 (두 사이트 합산, 중복 제거 뒤)
+sites:
+  kaia:
+    enabled: true
+    base_url: https://www.kaia.re.kr
+    list_path: /KAIA/contents/K30101000000.do      # 사업공고 > 국토교통R&D 공고 (GET ?page=N)
+    max_pages: 60
+    agency: 국토교통과학기술진흥원
+  iris:
+    enabled: true
+    base_url: https://www.iris.go.kr
+    list_path: /contents/retrieveBsnsAncmBtinSituList.do   # 공개 검색 폼(POST, JSON) — robots 허용
+    view_path: /contents/retrieveBsnsAncmView.do           # ?ancmId=
+    ministry_code: AR4004                                   # 국토교통부
+    statuses: [ancmIng, ancmPre, ancmEnd]                   # 접수중·접수예정·마감
+    max_pages: 60
+attachment_types: [pdf, hwp, hwpx]   # zip 은 받지 않음
+max_file_mb: 50
+rate_limit: 0.5                 # 2초 간격 (사이트별 동시 1)
+max_requests_per_run: 2000
+retries: 2
+max_response_mb: 50
+timeout: {connect: 10, read: 60}

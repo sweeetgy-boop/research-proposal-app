@@ -23,6 +23,7 @@ EXIT_INPUT = 87
 
 PARSERS = {
     "pdf": "rra.adapters.sources.alio.extract.pdf",
+    "pdf_pages": "rra.adapters.sources.alio.extract.pdf:extract_pages",  # 쪽별 텍스트 (P2-8 표)
     "hwpx": "rra.adapters.sources.alio.extract.hwpx",
     "hwp": "rra.adapters.sources.alio.extract.hwp",
     "csv": "rra.adapters.sources.alio.extract.csv_catalog",
@@ -30,6 +31,7 @@ PARSERS = {
     "xlsx": "rra.adapters.sources.alio.extract.spreadsheet:extract_xlsx",
     "xls": "rra.adapters.sources.alio.extract.spreadsheet:extract_xls",
     "ocr_image": "rra.adapters.vision._ocr_worker",  # macOS Vision OCR (P3, 이미지 바이트)
+    "embedded_images": "rra.adapters.vision._embedded_worker",  # 첨부 속 내장 이미지 (P3 확장)
 }
 TEST_PARSERS = {
     "_test_echo",

@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,,feat/rnd-notice,1515,,8,,,,,,,,,,,,,,,rnd_notice 스냅샷 공고 99건(KAIA 83 + IRIS 16· 두 사이트에 함께 실린 63건은 한 문서로 합침)· 첨부 229개 808MB(KAIA pdf·hwp; IRIS 첨부 40건은 이름만)· 등록일 2024-10-30~2026-08-20 (완료· 2년 범위) (적재 전); KAIA 1224건·IRIS 국토교통부 945건 탐색

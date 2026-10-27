@@ -1,0 +1,31 @@
+# 공공데이터포털 파일데이터 — 철도 안전·운영·수송 통계 (P2-2·P2-3, 레인 E 2026-10-27). `rra ingest --source datago`. 키 불필요.
+# 데이터셋 페이지(/data/<pk>/fileData.do)에 "로그인 없이 다운로드"·"이용허락범위 제한 없음" 표기. robots 는 Googlebot 일부 경로만.
+# topic: safety(안전) | transport(수송·운영). label 은 표시용. pk 는 공공데이터포털 데이터셋 번호 (2026-10-27 검색 결과).
+base_url: https://www.data.go.kr
+store_dir: data/datago
+max_file_mb: 50
+max_rows: 400                   # 본문에 넣는 표 행 수 상한 (나머지는 행 수만 표기)
+rate_limit: 0.5                 # 2초 간격
+max_requests_per_run: 120
+retries: 2
+max_response_mb: 50
+timeout: {connect: 10, read: 60}
+datasets:
+  # 안전 통계 (P2-2)
+  - {pk: 15122753, topic: safety, label: 국토교통부_철도사고 발생 현황}              # CSV 79행, 2024-09-04 확인(16KB)
+  - {pk: 15123043, topic: safety, label: 국토교통부_철도사고 통계}
+  - {pk: 15123062, topic: safety, label: 국토교통부_철도사고 발생목록}
+  - {pk: 15123055, topic: safety, label: 국토교통부_철도사고 및 운행장애 바로미터}
+  - {pk: 3047220,  topic: safety, label: 한국교통안전공단_철도사고 통계현황}
+  - {pk: 15079935, topic: safety, label: 한국교통안전공단_국내 철도사고 및 운행장애 발생 정보}
+  - {pk: 15119094, topic: safety, label: 한국교통안전공단_자연재해로 인한 철도사고 피해 현황}
+  # 운영·수송 통계 (P2-3)
+  - {pk: 3050961,  topic: transport, label: 한국철도공사_연도별 수송실적}                # CSV 120행, 2026-09-29
+  - {pk: 15088862, topic: transport, label: 한국철도공사_철도 여객수송실적}
+  - {pk: 3073553,  topic: transport, label: 한국철도공사_화물 수송실적 현황}
+  - {pk: 3050644,  topic: transport, label: 한국철도공사_수도권전철 여객 수송실적}
+  - {pk: 3050959,  topic: transport, label: 한국철도공사_철도 할인수송실적}
+  - {pk: 15068393, topic: transport, label: 한국철도공사_연도별 컨테이너 수송실적(톤수)}
+  - {pk: 15068396, topic: transport, label: 한국철도공사_연도별 시멘트 수송실적(톤수)}
+  - {pk: 15068398, topic: transport, label: 한국철도공사_연도별 석탄 수송실적(톤수)}
+  - {pk: 15068405, topic: transport, label: 한국철도공사_연도별 건설 수송실적(톤수)}

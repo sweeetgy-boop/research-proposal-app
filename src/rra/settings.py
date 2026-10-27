@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     )
     openalex_api_key: SecretStr | None = None  # 선택 — 없어도 page 페이징으로 수집된다
     ntis_key: SecretStr | None = None  # NTIS rndopen apprvKey (과제검색 활용신청)
+    # 공공데이터포털 일반 인증키(서비스별 활용신청, 같은 키) — 나라장터 입찰공고 API (g2b, P2-6).
+    # 파일데이터는
+    # 키
+    # 불필요
+    data_go_kr_key: SecretStr | None = None
     api_token: SecretStr | None = None
     # REST API 바인딩 (G). 기본 루프백. 외부 공개는 HTTPS 역프록시(Tailscale·Cloudflare) 뒤에서만.
     api_host: str = "127.0.0.1"

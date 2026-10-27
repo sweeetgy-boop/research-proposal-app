@@ -63,12 +63,20 @@ def retention_days(settings: Settings, default: int = 180) -> int:
 
 
 def source_config(settings: Settings, name: str) -> dict[str, Any]:
-    return read_config("sources.yaml", settings).get(name) or {}
+    """sources.yaml 의 항목. 없으면 config/<name>.yaml (molit·bai·mofe·datago·g2b 처럼 파일을 따로
+    둔
+    자료원)."""
+    return read_config("sources.yaml", settings).get(name) or read_config(f"{name}.yaml", settings)
 
 
 def molit_config(settings: Settings) -> dict[str, Any]:
     """국토교통부 정책자료 수집 설정 (config/molit.yaml)."""
     return read_config("molit.yaml", settings)
+
+
+def rnd_notice_config(settings: Settings) -> dict[str, Any]:
+    """정부 R&D 공고(KAIA·IRIS) 스냅샷 수집 설정 (config/rnd_notice.yaml). 없으면 빈 dict."""
+    return read_config("rnd_notice.yaml", settings)
 
 
 def korail_web_config(settings: Settings) -> dict[str, Any]:
@@ -188,6 +196,22 @@ def vision_config(settings: Settings) -> dict[str, Any]:
         "store_dir": str(paths.get("store", "data/korail_web")),
         "sample_dir": str(paths.get("sample", "docs/ocr-sample")),
         "order_keywords": {k: list(v) for k, v in order.items() if isinstance(v, list)},
+        "attachments": {
+            "formats": [
+                str(x)
+                for x in (
+                    (cfg.get("attachments") or {}).get("formats")
+                    or ["hwpx", "hwp", "pdf", "pptx", "xlsx"]
+                )
+            ],
+            "max_images_per_file": int(
+                (cfg.get("attachments") or {}).get("max_images_per_file", 200)
+            ),
+            "max_image_bytes": int(
+                (cfg.get("attachments") or {}).get("max_image_bytes", 8 * 1024 * 1024)
+            ),
+            "min_pixels": int((cfg.get("attachments") or {}).get("min_pixels", 20_000)),
+        },
         "ocr": {
             "languages": [str(x) for x in (ocr.get("languages") or ["ko-KR", "en-US"])],
             "max_bytes": int(ocr.get("max_bytes", 15 * 1024 * 1024)),
@@ -449,6 +473,7 @@ CREDENTIALS: dict[str, dict[str, str]] = {
     },
     "ntis": {"RRA_NTIS_KEY": "ntis_key"},
     "kipris": {"RRA_KIPRIS_KEY": "kipris_key"},
+    "g2b": {"RRA_DATA_GO_KR_KEY": "data_go_kr_key"},  # 나라장터 입찰공고정보서비스 (공공데이터포털)
 }
 KEYED_SOURCES = tuple(CREDENTIALS)
 

@@ -82,6 +82,7 @@ export interface OverlapAlert {
   status: string | null;
   own_detail: string | null;
   tier_label: string;
+  status_label?: string | null;
 }
 
 export interface Transfer {
@@ -143,6 +144,44 @@ export interface PrecheckOut {
   alerts: OverlapAlert[];
   differentiation?: Differentiation;
   recommendations?: Recommendations;
+}
+
+/** POST /v1/precheck/ntis-outcomes — ② NTIS 과제(tier national_rnd) 주요 성과(참고용)·연관 과제 추천. 전부 비신뢰(NTIS API 출력). */
+export interface NtisOutcome {
+  kind: string; // paper | patent
+  title: string;
+  year: string | null;
+  venue: string | null;
+  result_id: string | null;
+  registration_no: string | null;
+}
+
+export interface NtisProjectInsight {
+  project_no: string;
+  doc_id: string;
+  title: string;
+  tier: string;
+  tier_label: string;
+  similarity: number;
+  blocking: boolean;
+  cached: boolean;
+  error: string | null;
+  outcomes: NtisOutcome[];
+}
+
+export interface NtisRecommended {
+  project_no: string;
+  title: string;
+  url: string;
+  score: number | null;
+  rank: number | null;
+  source_project_no: string;
+}
+
+export interface NtisOutcomesOut {
+  notice: string;
+  projects: NtisProjectInsight[];
+  ntis_recommended: NtisRecommended[];
 }
 
 export interface RecommendationPreview {
