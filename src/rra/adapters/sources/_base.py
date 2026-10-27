@@ -165,6 +165,8 @@ class GuardedClient:
         resolver: Resolver = resolves_private,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         clock: Callable[[], float] = time.monotonic,
+        user_agent: str = USER_AGENT,
+        accept: str = "application/json",
     ):
         self.allowed = {d.strip().lower().rstrip(".") for d in allowed if d.strip()}
         self.max_redirects = max_redirects
@@ -183,7 +185,7 @@ class GuardedClient:
             timeout=timeout,
             transport=transport,
             follow_redirects=False,
-            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            headers={"User-Agent": user_agent, "Accept": accept},
         )
 
     def __repr__(self) -> str:
@@ -207,6 +209,16 @@ class GuardedClient:
             return json.loads(body)
         except ValueError as exc:
             raise FetchError(f"JSON 파싱 실패: {safe}") from exc
+
+    async def get_raw(
+        self, url: str, params: dict[str, Any] | None = None
+    ) -> tuple[dict[str, str], bytes, str]:
+        """HTML·파일 공용 GET — (응답 헤더(소문자 키), 본문, 비밀 제거된 최종 URL).
+
+        content-type 검사는 호출자가 한다 (웹 페이지 크롤러처럼 여러 형식을 받는 어댑터용).
+        크기 상한·허용목록·리다이렉트 검사는 get_json 과 같다."""
+        headers, body, safe = await self._get(url, params)
+        return {k.lower(): v for k, v in headers.items()}, body, safe
 
     async def get_bytes(
         self,

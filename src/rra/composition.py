@@ -21,6 +21,7 @@ from rra.config_loader import (
     input_limits,
     institutions,
     keyword_rule,
+    korail_web_config,
     lint_rules,
     llm_config,
     llm_key_present,
@@ -66,6 +67,8 @@ __all__ = [
     "build_alio_summary_source",
     "build_available_sources",
     "build_kipris_source",
+    "build_korail_web_crawler",
+    "build_korail_web_source",
     "build_own_docs_source",
     "build_own_projects_source",
     "build_api",
@@ -464,6 +467,67 @@ def build_own_docs_source(settings: Settings | None = None):
     )
 
 
+def _korail_web_root(settings: Settings, cfg: dict[str, Any]) -> Path:
+    return Path(str(cfg.get("snapshot_dir") or "data/korail_web"))
+
+
+def build_korail_web_crawler(settings: Settings | None = None, *, transport=None, resolver=None):
+    """KorailWebCrawler — config/korail_web.yaml. 2초 간격·동시 1·robots 준수.
+    PDF 텍스트 레이어 probe 는 샌드박스."""
+    from rra.adapters.sources import GuardedClient
+    from rra.adapters.sources._sandbox import SandboxError, run_parser
+    from rra.adapters.sources.alio._models import ExtractResult
+    from rra.adapters.sources.alio.filecheck import FileRejected, open_validated
+    from rra.adapters.sources.korail_web import CrawlConfig, KorailWebCrawler
+
+    settings = settings or load_settings()
+    raw = korail_web_config(settings)
+    cfg = CrawlConfig.from_config(raw)
+    interval = float(raw.get("min_interval_sec", 2) or 2)
+    client = GuardedClient(
+        allowed_domains(settings),
+        rate_limit=1.0 / max(interval, 0.1),
+        max_response_bytes=cfg.max_file_bytes,
+        retries=0,  # 백오프·보류는 크롤러가 관리한다
+        transport=transport,
+        user_agent=cfg.user_agent,
+        accept="text/html,application/xhtml+xml,*/*;q=0.8",
+        **({"resolver": resolver} if resolver else {}),
+    )
+    limits = sandbox_limits(settings)
+
+    async def pdf_probe(path: Path):
+        try:
+            vf = open_validated(
+                path, max_bytes=int(limits.max_input_mb * 1024 * 1024), allowed=frozenset({"pdf"})
+            )
+        except FileRejected:
+            return None
+        with vf:
+            try:
+                result = ExtractResult.model_validate(await run_parser(vf.fd, vf.fmt, limits))
+            except (SandboxError, ValueError):
+                return None
+        return {"pages": result.pages or 0, "text_chars": len(result.text.strip())}
+
+    return KorailWebCrawler(client, cfg, _korail_web_root(settings, raw), pdf_probe=pdf_probe)
+
+
+def build_korail_web_source(settings: Settings | None = None):
+    """KorailWebSource — 최신 스냅샷(data/korail_web/snapshots/<날짜>/) → Document.
+    첨부는 샌드박스 파싱."""
+    from rra.adapters.sources.korail_web import CrawlConfig, KorailWebSource
+
+    settings = settings or load_settings()
+    raw = korail_web_config(settings)
+    cfg = CrawlConfig.from_config(raw)
+    return KorailWebSource(
+        _korail_web_root(settings, raw),
+        limits=sandbox_limits(settings),
+        menus={m.id: m for m in cfg.menus},
+    )
+
+
 _SOURCE_BUILDERS = {
     "openalex": build_openalex_source,
     "alio": build_alio_source,
@@ -473,6 +537,7 @@ _SOURCE_BUILDERS = {
     "scienceon": build_scienceon_source,
     "ntis": build_ntis_source,
     "kipris": build_kipris_source,
+    "korail_web": build_korail_web_source,
 }
 SOURCE_NAMES = tuple(_SOURCE_BUILDERS)
 

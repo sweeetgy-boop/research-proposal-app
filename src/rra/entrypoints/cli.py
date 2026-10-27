@@ -556,6 +556,74 @@ def _warning_line(w) -> str:
     return f"[경고] {text}"
 
 
+# ── crawl (공사 홈페이지 스냅샷) ───────────────────────────
+def cmd_crawl_korail(args: argparse.Namespace) -> int:
+    """`rra crawl korail --explore | --download [--incremental]`. 예약 실행 없음 (사람이 돌린다)."""
+    from rra.composition import build_korail_web_crawler, load_settings
+
+    settings = load_settings()
+    crawler = build_korail_web_crawler(settings)
+
+    async def run():
+        try:
+            if args.explore:
+                return await crawler.explore()
+            return await crawler.download(incremental=bool(args.incremental))
+        finally:
+            await crawler.aclose()
+
+    result = asyncio.run(run())
+    if args.explore:
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return EXIT_OK
+        print(
+            f"탐색 {result['date']} {result['base_url']} robots "
+            f"{'비어 있음(제한 없음)' if result['robots_empty'] else '있음'}"
+        )
+        for m in result["menus"]:
+            if m.get("held") or m.get("blocked"):
+                print(
+                    f"- {_safe(m['path'], 60)}: {'보류' if m.get('held') else '차단'} "
+                    f"{_safe(m.get('held') or m.get('blocked'), 80)}"
+                )
+                continue
+            if m["kind"] == "contents":
+                print(
+                    f"- {_safe(m['path'], 60)}: 본문 {m.get('chars', 0):,}자, "
+                    f"첨부 {m.get('attachments', 0)}"
+                    f"{' ' + str(m.get('attachment_kinds')) if m.get('attachment_kinds') else ''}, "
+                    f"이미지 {m.get('images', 0)}"
+                )
+            else:
+                print(
+                    f"- {_safe(m['path'], 60)}: {m.get('posts') or '?'}건 / "
+                    f"{m.get('pages') or '?'}쪽, {m.get('earliest') or '?'} ~ "
+                    f"{m.get('latest') or '?'}, "
+                    f"1쪽 첨부 {m.get('attachment_kinds_page1')}"
+                    f"{' (since ' + m['since'] + ')' if m.get('since') else ''}"
+                )
+        return EXIT_OK
+    data = result.to_dict()
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    else:
+        total = sum(data["items"].values())
+        carried = sum(data["carried"].values())
+        print(
+            f"스냅샷 {data['snapshot']}{' (증분)' if data['incremental'] else ''}: 항목 {total:,}건"
+            f"(이어 적음 {carried:,}), 파일 {data['files']:,}, 이미지 {data['images']:,}, "
+            f"{data['bytes'] / 1024 / 1024:,.1f}MB, 건너뜀 {data['skipped_files']}, "
+            f"삭제 표시 {data['removed']}, "
+            f"보류 {len(data['held'])}, robots 차단 {data['robots_blocked']}"
+        )
+        for menu, n in data["items"].items():
+            print(f"- {_safe(menu, 40)}: {n:,}건 (이어 적음 {data['carried'].get(menu, 0):,})")
+        for url in data["held"]:
+            _eprint(f"[보류] {_safe(url, 160)}")
+    return EXIT_ERROR if data["held"] else EXIT_OK
+
+
 # ── alio ──────────────────────────────────────────────────
 def cmd_alio_catalog(args: argparse.Namespace) -> int:
     from rra.composition import build_alio_catalog, build_alio_catalog_fetcher, load_settings
@@ -1484,7 +1552,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--source",
         default="openalex",
         help="쉼표로 구분 (openalex, alio, alio_summary, own_projects, own_docs, scienceon, ntis, "
-        "kipris)",
+        "kipris, korail_web)",
     )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
     ingest.add_argument(
@@ -1508,6 +1576,24 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis,kipris)")
     chk.add_argument("--json", action="store_true")
     chk.set_defaults(handler=cmd_sources_check)
+
+    crawl = sub.add_parser("crawl", help="공개 웹 자료 스냅샷 수집 (예약 실행 없음)")
+    crawl_sub = crawl.add_subparsers(dest="crawl_cmd", required=True)
+    ck = crawl_sub.add_parser(
+        "korail", help="공사 홈페이지(info.korail.com) — config/korail_web.yaml 메뉴를 2초 간격으로"
+    )
+    mode = ck.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--explore", action="store_true", help="메뉴별 건수·기간·첨부 형식만 조사")
+    mode.add_argument(
+        "--download", action="store_true", help="data/korail_web/snapshots/<오늘>/ 에 저장"
+    )
+    ck.add_argument(
+        "--incremental",
+        action="store_true",
+        help="이전 스냅샷과 같은 항목은 다시 받지 않고, 사라진 항목은 '원본 삭제됨' 으로 표시",
+    )
+    ck.add_argument("--json", action="store_true")
+    ck.set_defaults(handler=cmd_crawl_korail)
 
     alio = sub.add_parser("alio", help="알리오 공시 보고서 카탈로그·filedrop 관리")
     alio_sub = alio.add_subparsers(dest="alio_cmd", required=True)

@@ -64,6 +64,11 @@ def source_config(settings: Settings, name: str) -> dict[str, Any]:
     return read_config("sources.yaml", settings).get(name) or {}
 
 
+def korail_web_config(settings: Settings) -> dict[str, Any]:
+    """공사 홈페이지 스냅샷 수집 설정 (config/korail_web.yaml). 없으면 빈 dict."""
+    return read_config("korail_web.yaml", settings)
+
+
 # ── LLM ────────────────────────────────────────────────────
 # provider → .env 키 필드 (settings). mlx 는 키가 없다.
 LLM_KEY_FIELDS: dict[str, str] = {"openai": "llm_api_key", "gemini": "gemini_api_key"}

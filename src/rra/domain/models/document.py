@@ -5,8 +5,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-SourceType = Literal["openalex", "scienceon", "kipris_kr", "kipris_intl", "ntis", "alio", "own"]
-DocType = Literal["paper", "patent", "internal_report", "rnd_project"]
+SourceType = Literal[
+    "openalex", "scienceon", "kipris_kr", "kipris_intl", "ntis", "alio", "own", "korail_web"
+]
+# policy=공사 경영목표·전략·ESG·정책 자료(정책적 중요도·경영전략 정합성 근거),
+# korail_news=보도자료(특이사항·현황 보조). 둘 다 기술적 중요도 근거·유사과제 판정에는 쓰지 않는다
+# (domain/rules/retrieval_scope.py).
+DocType = Literal["paper", "patent", "internal_report", "rnd_project", "policy", "korail_news"]
 # 본문의 근거. full_text=원문 파일, summary=공개 요약(원문 비공개), abstract=초록·과제요약
 TextBasis = Literal["full_text", "summary", "abstract"]
 # public=외부(검토 LLM 등)로 보낼 수 있음, internal=사내 전용(외부 전송 제외·구획 표시)
