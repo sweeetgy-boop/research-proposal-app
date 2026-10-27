@@ -19,6 +19,7 @@ from rra.config_loader import (
     MissingCredential,
     allowed_domains,
     api_config,
+    auth_config,
     credential_status,
     data_location,
     data_locations,
@@ -28,6 +29,7 @@ from rra.config_loader import (
     keyword_rule,
     korail_web_config,
     lint_rules,
+    llm_budget,
     llm_config,
     llm_key_present,
     molit_config,
@@ -225,7 +227,60 @@ def build_llm(
     """
     from rra.adapters.llm import OpenAICompatLLM
 
-    return _build_openai_compat(OpenAICompatLLM, settings, stage=stage, provider=provider)
+    settings = settings or load_settings()
+    llm = _build_openai_compat(OpenAICompatLLM, settings, stage=stage, provider=provider)
+    if llm.provider == "gemini":  # 일일 전체 호출 상한 (레인 A) — 모든 gemini 단계가 같은 카운터
+        budget = build_review_budget(settings)
+        if budget is not None:
+            from rra.adapters.llm.daily_budget import BudgetedLLM
+
+            llm = BudgetedLLM(llm, budget)
+    return llm
+
+
+_BUDGETS: dict[tuple[str, int], Any] = {}
+
+
+def build_review_budget(settings: Settings | None = None):
+    """외부 LLM 일일 예산 카운터(FileDailyBudget). limit 0 이면 None(상한 없음). 같은 경로·상한은
+    프로세스 안에서 하나를 공유한다."""
+    from rra.adapters.llm.daily_budget import FileDailyBudget
+
+    settings = settings or load_settings()
+    cfg = llm_budget(settings)
+    if cfg["limit"] <= 0:
+        return None
+    key = (str(cfg["path"]), cfg["limit"])
+    if key not in _BUDGETS:
+        _BUDGETS[key] = FileDailyBudget(cfg["path"], cfg["limit"])
+    return _BUDGETS[key]
+
+
+# ── 로그인 (레인 A) ─────────────────────────────────────
+def build_auth_store(settings: Settings | None = None):
+    """AuthStorePort 구현체 — <data_dir>/auth (config/auth.yaml store_dir)."""
+    from rra.adapters.auth import FileAuthStore
+
+    settings = settings or load_settings()
+    return FileAuthStore(auth_config(settings)["store_dir"])
+
+
+def build_login(settings: Settings | None = None, *, store=None):
+    """로그인 유스케이스 — 잠금 정책은 auth.yaml lockout."""
+    from rra.application.usecases.login import Login
+    from rra.domain.rules.auth_policy import LockoutPolicy, LoginGuard
+
+    settings = settings or load_settings()
+    cfg = auth_config(settings)
+    known = {k: v for k, v in cfg["lockout"].items() if k in LockoutPolicy.__dataclass_fields__}
+    return Login(store or build_auth_store(settings), guard=LoginGuard(LockoutPolicy(**known)))
+
+
+def public_repository(repo):
+    """공용 계정용 — visibility=internal 을 뺀 저장소 (application/services/scoped_repository)."""
+    from rra.application.services.scoped_repository import PublicOnlyRepository
+
+    return PublicOnlyRepository(repo)
 
 
 def _build_openai_compat(
@@ -821,9 +876,7 @@ def build_ntis_report_source(settings: Settings | None = None, *, transport=None
     )
 
 
-def build_ntis_insight_source(
-    settings: Settings | None = None, *, transport=None, resolver=None
-):
+def build_ntis_insight_source(settings: Settings | None = None, *, transport=None, resolver=None):
     """NtisInsightSource (성과검색·연관콘텐츠 어댑터). RRA_NTIS_KEY 없으면 MissingCredential."""
     from rra.adapters.sources.ntis import NtisInsightSource
 
@@ -1252,9 +1305,7 @@ def build_sources_check(
         def connect(_build=builders[name]):
             return _build(settings, transport=transport, resolver=resolver)
 
-        policy = source_ip_policy(
-            settings, cfg_name, label=SOURCE_LABELS.get(cfg_name, cfg_name)
-        )
+        policy = source_ip_policy(settings, cfg_name, label=SOURCE_LABELS.get(cfg_name, cfg_name))
         targets.append(
             SourceTarget(
                 name, host, host in allowed, creds, connect if ready else None, ip_policy=policy
@@ -1420,8 +1471,18 @@ def build_run_manager(
         repo = build_repository(build_embedding(settings), settings)
     if llm is None:
         llm = build_llm(settings, stage="compose")
+    generate = build_generate(settings, repo=repo, llm=llm, pipeline=pipeline)
+    generate_public = None
+    if not auth_config(settings)["include_internal"]:  # 공용 계정 run 은 internal 제외 (레인 A)
+        generate_public = build_generate(
+            settings,
+            repo=public_repository(repo),
+            llm=llm,
+            reranker=generate.reranker,
+            pipeline=pipeline,
+        )
     return RunManager(
-        build_generate(settings, repo=repo, llm=llm, pipeline=pipeline),
+        generate,
         store or FileRunStore(root),
         FlockSlot(root / ".generate.lock"),
         run_log or FileRunLog(root),
@@ -1438,6 +1499,8 @@ def build_run_manager(
         outliner=build_outliner(settings, llm=llm) if pipeline.outline else None,
         usability=usability_config(settings),
         checklists=section_checklists(settings),
+        generate_public=generate_public,
+        review_budget=build_review_budget(settings),
     )
 
 
@@ -1501,6 +1564,7 @@ def build_fake_parts(settings: Settings):
         InMemoryDocumentRepository,
         InMemoryRunStore,
         NoopRunLog,
+        ScriptedAuthStore,
         ScriptedComposeLLM,
         ScriptedNtisInsights,
         ScriptedReviewLLM,
@@ -1572,6 +1636,7 @@ def build_fake_parts(settings: Settings):
         "store": InMemoryRunStore(),
         "run_log": NoopRunLog(),
         "ntis_insights": NtisProjectInsights(ntis, ntis, repo=repo),
+        "auth": ScriptedAuthStore(),  # e2e 고정 계정 — 실제 data/auth 를 쓰지 않는다
     }
 
 
@@ -1585,6 +1650,7 @@ def build_api(
     sse_poll_sec: float = 1.0,
 ):
     """FastAPI 앱. 토큰이 없으면 ApiTokenMissing (G: 인증 필수). RRA_FAKE_LLM=1 이면 가짜 부품."""
+    from rra.adapters.security import client_ip
     from rra.entrypoints.api import create_app
     from rra.entrypoints.api.app import SessionAuth
 
@@ -1615,6 +1681,15 @@ def build_api(
     static = static_dir if static_dir is not None else Path(settings.static_dir)
     precheck = build_precheck(settings, repo=repo)
     pipeline = pipeline_config(settings)
+    auth = auth_config(settings)
+    guest_services = None
+    if not auth["include_internal"]:  # 공용 계정용 — internal 을 뺀 저장소로 같은 유스케이스
+        guest_services = build_scoped_services(
+            settings,
+            public_repository(repo),
+            llm=llm,
+            ntis_insights=fake["ntis_insights"] if fake else None,
+        )
     return create_app(
         manager=manager,
         precheck=precheck,
@@ -1629,6 +1704,11 @@ def build_api(
         brief=build_briefer(settings, repo=repo, llm=llm),
         ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
+        login=build_login(settings, store=fake["auth"] if fake else None),
+        auth_limits=auth["limits"],
+        trust_cf=auth["trust_cf_connecting_ip"],
+        client_ip=client_ip,
+        guest_services=guest_services,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
         query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
@@ -1642,6 +1722,27 @@ def build_api(
         notice_snapshot_status=build_rnd_notice_source(settings).status,
         availability_notices=build_source_availability(settings).notices,
     )
+
+
+def build_scoped_services(
+    settings: Settings, repo, *, llm=None, ntis_insights=None
+) -> dict[str, Any]:
+    """공용 계정(guest)용 서비스 묶음 — 같은 유스케이스를 internal 제외 저장소로 조립 (레인 A).
+    키는 create_app 의 인자 이름과 같다."""
+    precheck = build_precheck(settings, repo=repo)
+    return {
+        "repo": repo,
+        "precheck": precheck,
+        "policy_suggest": build_policy_suggest(settings, repo=repo),
+        "notice_match": build_notice_match(settings, repo=repo),
+        "differentiate": build_differentiator(settings, repo=repo, llm=llm),
+        "recommend": build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
+        "compare": build_comparer(settings, repo=repo, precheck=precheck),
+        "brief": build_briefer(settings, repo=repo, llm=llm),
+        "ntis_insights": ntis_insights
+        if ntis_insights is not None
+        else build_ntis_insights(settings, repo=repo),
+    }
 
 
 def build_api_schema(settings: Settings | None = None) -> dict[str, Any]:

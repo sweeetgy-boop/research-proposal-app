@@ -28,23 +28,58 @@ afterEach(() => {
 });
 
 describe("로그인", () => {
-  it("토큰을 보내고 CSRF 만 보관, 잘못된 토큰은 problem detail 표시", async () => {
-    const { calls } = mockFetch({
-      "/v1/session": (init?: RequestInit) => ((JSON.parse(String(init?.body)) as { token: string }).token === "good" ? { csrf: "c1", expires_in: 10 } : problem(401, "인증 토큰이 맞지 않습니다.")),
+  const FAILED = "사번 또는 아이디·비밀번호를 확인하세요";
+  function sessionMock() {
+    return mockFetch({
+      "/v1/session": (init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as { kind: string; token?: string; staff_no?: string; id?: string; password?: string };
+        if (body.kind === "token") return body.token === "good" ? { csrf: "c1", expires_in: 10, kind: "admin", label: "관리자" } : problem(401, "인증 토큰이 맞지 않습니다.");
+        if (body.kind === "staff") return body.staff_no === "K-0001" ? { csrf: "c2", expires_in: 10, kind: "staff", label: "직원" } : problem(401, FAILED);
+        return body.id === "team" && body.password === "pw" ? { csrf: "c3", expires_in: 10, kind: "guest", label: "공용 계정" } : problem(401, FAILED);
+      },
     });
+  }
+
+  it("직원 탭: 사번만 보내고 CSRF·종류만 보관, 틀리면 통일된 문구 (axe 0)", async () => {
+    const { calls } = sessionMock();
     const { container } = renderWithProviders(<Login />, { route: "/login" });
     await expectNoA11yViolations(container);
-    await userEvent.type(screen.getByLabelText("접속 토큰"), "bad");
+    expect(screen.getByRole("tab", { name: "철도연구원 직원(사번)" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.type(screen.getByLabelText("사번"), "K-9999");
     await userEvent.click(screen.getByRole("button", { name: "로그인" }));
-    expect(await screen.findByText("인증 토큰이 맞지 않습니다.")).toBeInTheDocument();
+    expect(await screen.findByText(FAILED)).toBeInTheDocument();
     expect(getCsrf()).toBeNull();
-    await userEvent.clear(screen.getByLabelText("접속 토큰"));
-    await userEvent.type(screen.getByLabelText("접속 토큰"), "good");
+    expect(screen.getByLabelText("사번")).toHaveValue(""); // 실패 뒤 입력값 삭제
+    await userEvent.type(screen.getByLabelText("사번"), "K-0001");
+    await userEvent.click(screen.getByRole("button", { name: "로그인" }));
+    await waitFor(() => expect(getCsrf()).toBe("c2"));
+    expect(sessionStorage.getItem("rra-session-kind")).toBe("직원");
+    expect(JSON.stringify(sessionStorage)).not.toContain("K-0001"); // 사번은 저장하지 않는다
+    expect(calls.every((c) => !String(c.url).includes("K-0001"))).toBe(true);
+  });
+
+  it("그 외 사용자 탭: 아이디·비밀번호, 관리자 링크 아래 토큰 (axe 0)", async () => {
+    sessionMock();
+    const { container } = renderWithProviders(<Login />, { route: "/login" });
+    await userEvent.click(screen.getByRole("tab", { name: "그 외 사용자(아이디·비밀번호)" }));
+    await expectNoA11yViolations(container);
+    await userEvent.type(screen.getByLabelText("아이디"), "team");
+    await userEvent.type(screen.getByLabelText("비밀번호"), "wrong");
+    await userEvent.click(screen.getByRole("button", { name: "로그인" }));
+    expect(await screen.findByText(FAILED)).toBeInTheDocument();
+    expect(screen.getByLabelText("비밀번호")).toHaveValue("");
+    await userEvent.type(screen.getByLabelText("비밀번호"), "pw");
+    await userEvent.click(screen.getByRole("button", { name: "로그인" }));
+    await waitFor(() => expect(getCsrf()).toBe("c3"));
+    expect(sessionStorage.getItem("rra-session-kind")).toBe("공용 계정");
+    clearSession();
+    await userEvent.click(screen.getByRole("button", { name: "관리자" }));
+    await expectNoA11yViolations(container);
+    expect(screen.queryByRole("tablist")).toBeNull();
+    await userEvent.type(screen.getByLabelText("관리자 접속 토큰"), "good");
     await userEvent.click(screen.getByRole("button", { name: "로그인" }));
     await waitFor(() => expect(getCsrf()).toBe("c1"));
-    expect(sessionStorage.getItem("rra-csrf")).toBe("c1");
-    expect(JSON.stringify(sessionStorage)).not.toContain("good"); // 토큰은 저장하지 않는다
-    expect(calls.every((c) => !String(c.url).includes("good"))).toBe(true);
+    expect(JSON.stringify(sessionStorage)).not.toContain("good");
   });
 });
 

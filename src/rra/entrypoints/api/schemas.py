@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,11 +13,16 @@ _SHORT = 100
 
 
 class SessionIn(BaseModel):
-    """POST /v1/session — 관리 토큰으로 세션 쿠키를 받는다. 토큰은 본문으로만 (URL·로그 금지)."""
+    """POST /v1/session — 세션 쿠키를 받는다. kind: token(관리 토큰) | staff(사번) | guest(아이디·
+    비밀번호). 값은 본문으로만 (URL·로그 금지). 옛 본문 `{token}` 은 kind=token 으로 본다."""
 
     model_config = ConfigDict(extra="forbid")
 
-    token: str = Field(min_length=1, max_length=512)
+    kind: Literal["token", "staff", "guest"] = "token"
+    token: str | None = Field(default=None, min_length=1, max_length=512)
+    staff_no: str | None = Field(default=None, min_length=1, max_length=64)
+    id: str | None = Field(default=None, min_length=1, max_length=64)
+    password: str | None = Field(default=None, min_length=1, max_length=256)
 
 
 class SearchIn(BaseModel):

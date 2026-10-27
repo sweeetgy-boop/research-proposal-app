@@ -131,6 +131,8 @@ class RunState(BaseModel):
     differentiation: dict[str, Any] | None = None
     # 차별화 과제 추천 전송 기록(RecommendationResult.transfer()) + 고른 추천 index. manifest 에만
     recommendations: dict[str, Any] | None = None
+    # 자료 범위 — public 이면 검색·근거에서 visibility=internal 을 뺀다 (공용 계정, 레인 A)
+    scope: Literal["all", "public"] = "all"
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)
