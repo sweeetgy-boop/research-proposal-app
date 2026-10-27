@@ -7,3 +7,4 @@ goal: 영업 차량에 탑재한 가속도 센서로 궤도 틀림 징후를 상
 constraints: 1차년도 센서 설치 10편성, 기존 검측차 데이터와 대조 검증, 예산 2억 원 이내.
 policy_basis: 국가철도망 구축계획의 철도 안전 강화 방향
 beneficiaries: 시설처, 철도연구원
+expected_similar: ['alio:sum-02163ce76920ec88', 'alio:sum-9eac91e627db128b', 'alio:sum-992f47e5bbb2deb6', 'own:88be9194b37a8f43', 'own:0ac3b2ea28bbde4c', 'own:d6b5dab8a4c8b1ea']

@@ -20,7 +20,14 @@ SourceType = Literal[
 # korail_news=보도자료(특이사항·현황 보조). 둘 다 기술적 중요도 근거·유사과제 판정에는 쓰지 않는다
 # (domain/rules/retrieval_scope.py). web_page=웹 페이지 이미지 판독 결과 문서(P3).
 DocType = Literal[
-    "paper", "patent", "internal_report", "rnd_project", "policy", "korail_news", "web_page"
+    "paper",
+    "report",
+    "patent",
+    "internal_report",
+    "rnd_project",
+    "policy",
+    "korail_news",
+    "web_page",
 ]
 # 본문의 근거. full_text=원문 파일, summary=공개 요약(원문 비공개), abstract=초록·과제요약,
 # image_vision=웹 페이지 이미지 판독(OCR 대조 + Argon JSON, 화면에는 "이미지 판독" 배지 + 원본 링크)

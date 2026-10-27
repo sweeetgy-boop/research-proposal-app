@@ -53,6 +53,12 @@ class FakePromptLibrary:
     def recommend(self) -> str:
         return "RECOMMEND: 추천 0~5건 또는 사유, 자료·입력 안에서만, 한국어, JSON 객체 하나"
 
+    def outline(self) -> str:
+        return "OUTLINE: 섹션별 핵심 메시지·근거 id·연결, JSON 객체 하나"
+
+    def clarify(self) -> str:
+        return "CLARIFY: 빠진 정보만 최대 3개, JSON 객체 하나"
+
     def vision(self) -> str:
         return "VISION: 보이는 것만, 숫자 지어내기 금지, JSON 객체 하나"
 
@@ -204,6 +210,25 @@ class InMemoryRepository:
         return {s: {"count": n, "last_ingested": "2026-10-26"} for s, n in counts.items()}
 
 
+class FakeReranker:
+    """RerankerPort fake — 호출을 기록하고 순서를 뒤집는다 (끄면 원래 순서가 유지되는지 검사용)."""
+
+    model_name = "fake/reranker"
+
+    def __init__(self):
+        self.calls: list[tuple[str, int]] = []
+
+    async def rerank(self, query, chunks, *, k=None):
+        self.calls.append((query, len(chunks)))
+        out = list(reversed(chunks))
+        return out[:k] if k else out
+
+    async def rerank_documents(self, query, docs, *, k=None):
+        self.calls.append((query, len(docs)))
+        out = list(reversed(docs))
+        return out[:k] if k else out
+
+
 class FakeRenderer:
     """RendererPort fake — JSON 바이트. 받은 proposer 를 기록해 '저장되지 않았는지' 검사에 쓴다."""
 
@@ -291,6 +316,8 @@ class InMemoryRunStore:
         self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
         self.recommendations: dict[tuple[str, str], dict[str, Any]] = {}
         self.working: dict[tuple[str, str], dict[str, Any]] = {}
+        self.outlines: dict[tuple[str, str], dict[str, Any]] = {}
+        self.candidates: dict[tuple[str, str], dict[str, Any]] = {}
         self.rewrites: dict[tuple[str, str], dict[str, Any]] = {}
         self.notes: dict[tuple[str, str], dict[str, Any]] = {}
         self.usage: dict[tuple[str, str], Any] = {}
@@ -358,6 +385,18 @@ class InMemoryRunStore:
 
     def list_versions(self, user, run_id):
         return sorted(self.versions.get(self._key(user, run_id), {}))
+
+    def save_outline(self, user, run_id, data):
+        self.outlines[self._key(user, run_id)] = dict(data)
+
+    def load_outline(self, user, run_id):
+        return self.outlines.get(self._key(user, run_id))
+
+    def save_candidates(self, user, run_id, data):
+        self.candidates[self._key(user, run_id)] = dict(data)
+
+    def load_candidates(self, user, run_id):
+        return self.candidates.get(self._key(user, run_id))
 
     def save_working(self, user, run_id, data):
         self.working[self._key(user, run_id)] = dict(data)

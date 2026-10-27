@@ -344,12 +344,50 @@ def keyword_rule(settings: Settings) -> KeywordRule:
 
 
 def relevance_floor(settings: Settings) -> RelevanceFloor:
-    """생성 근거의 관련도 하한 (config/overlap.yaml `evidence_floor`). 없으면 도메인 기본값."""
+    """생성 근거의 관련도 하한 (config/overlap.yaml `evidence_floor`). 없으면 도메인 기본값.
+    출처별 최소 보장(min_per_source)은 config/retrieval_mix.yaml 이 있으면 그 값이 우선한다."""
     cfg = read_config("overlap.yaml", settings).get("evidence_floor") or {}
     if not isinstance(cfg, dict):
         raise ValueError("overlap.yaml evidence_floor 는 매핑이어야 합니다.")
     keys = ("min_similarity", "min_keyword_hits", "min_per_source", "search_multiplier")
-    return RelevanceFloor.model_validate({k: cfg[k] for k in keys if k in cfg})
+    values = {k: cfg[k] for k in keys if k in cfg}
+    mix = _retrieval_mix_raw(settings)
+    if mix is not None and "min_per_source" in mix:
+        values["min_per_source"] = mix["min_per_source"]
+    return RelevanceFloor.model_validate(values)
+
+
+def _retrieval_mix_raw(settings: Settings) -> dict[str, Any] | None:
+    if not (Path(settings.config_dir) / "retrieval_mix.yaml").is_file():
+        return None
+    cfg = read_config("retrieval_mix.yaml", settings)
+    if not isinstance(cfg, dict):
+        raise ValueError("retrieval_mix.yaml 은 매핑이어야 합니다.")
+    return cfg
+
+
+def retrieval_mix(settings: Settings):
+    """config/retrieval_mix.yaml → RetrievalMix (파일이 없으면 None = 규칙 없음)."""
+    from rra.domain.rules.retrieval_mix import RetrievalMix, SectionMix
+
+    cfg = _retrieval_mix_raw(settings)
+    if cfg is None:
+        return None
+    sections = {}
+    for key, item in (cfg.get("sections") or {}).items():
+        if not isinstance(item, dict):
+            raise ValueError(f"retrieval_mix.yaml sections.{key} 는 매핑이어야 합니다.")
+        sections[str(key)] = SectionMix(
+            allow=tuple(str(x) for x in (item.get("allow") or [])),
+            min_scholarly=int(item.get("min_scholarly", 0)),
+        )
+    return RetrievalMix(
+        min_per_source=int(cfg.get("min_per_source", 6)),
+        section_min_per_source=int(cfg.get("section_min_per_source", 2)),
+        scholarly=tuple(str(x) for x in (cfg.get("scholarly") or ["paper", "report", "patent"])),
+        sections=sections,
+        overlap_exclude=tuple(str(x) for x in (cfg.get("overlap_exclude") or [])),
+    )
 
 
 # ── 양식 ───────────────────────────────────────────────────

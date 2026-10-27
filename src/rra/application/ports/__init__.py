@@ -6,6 +6,7 @@ from .maintenance import DatabaseMaintenancePort
 from .prompt_library import PromptLibraryPort
 from .renderer import RendererPort
 from .repository import DocumentRepository
+from .reranker import RerankerPort, rerank_stats
 from .run_log import RunLogPort
 from .run_store import RunBusy, RunClaim, RunNotFound, RunStorePort
 from .source import AcknowledgingSource, InboxSource, ProbingSource, SourcePort, WarningSource
@@ -23,6 +24,8 @@ __all__ = [
     "ProbingSource",
     "PromptLibraryPort",
     "RendererPort",
+    "RerankerPort",
+    "rerank_stats",
     "DocumentRepository",
     "RunBusy",
     "RunClaim",

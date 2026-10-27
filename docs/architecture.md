@@ -699,6 +699,47 @@ Argon 점수(필요성·차별성·실현가능성·기대효과)는 이전 run 
   근거로 함께 보인다.
 - 실측(골든셋, Gemini 4 Argon, 2026-10-27): docs/overnight-2026-10-27.md [R] 절과 ADR 0012.
 
+### 4.15 초안 품질 강화 8가지 [Q] (2026-10-27, ADR 0013)
+
+③ 초안 생성의 품질 단계. 전부 `config/pipeline.yaml`(`PipelineConfig`)로 켜고 끄며, 기본값은 `rra eval` 측정에서
+효과가 확인된 것만 켠다(ADR 0013, 결과 `docs/eval-2026-10-27.md`). LLM 호출은 로컬(Qwen)만 늘고 Gemini 호출 수는 그대로다.
+
+| # | 단계 | 켜는 키 | 어디서 | 산출물 |
+|---|---|---|---|---|
+| Q1 | 입력 보강 질문 — 생성 전에 로컬 모델이 필수 4칸을 보고 빠진 정보를 최대 3개 질문. 답은 `ProposalRequest.supplement`("보충 정보", 제안자 입력 근거)로 설계도·작성 프롬프트에 들어간다. 건너뛸 수 있다 | `clarify` | `usecases/clarify_input.py`(ClarifyInput, `validate_questions`, `apply_answers`), 프롬프트 `clarify.md`, Assistant `clarify`/`apply_clarification`, Streamlit 생성 버튼 위 패널, CLI `rra clarify`, REST `POST /v1/precheck/clarify`, MCP `rra_clarify` | — |
+| Q2 | 섹션 설계도 — 검색 뒤 로컬 모델이 섹션별 {핵심 메시지, 쓸 근거 id, 연결 섹션} JSON. 검증(`domain/rules/outline.validate_outline`): 키는 양식 안, 근거 id 는 검색 집합 안(밖이면 그 섹션 계획만 폐기), 외국 문자 폐기. 실패면 교정 1회, 그래도 실패면 단계 error 로 적고 설계도 없이 계속 | `outline` | `usecases/outline.py`(OutlineSections), 모델 `domain/models/outline.py`, RunManager `_outline_step`(step `outline`), 프롬프트 `outline.md` | `runs/…/outline.json`, 섹션 프롬프트 `[이 섹션의 설계]`·`[전체 설계 요약]`, CLI `rra runs outline`, REST `GET /v1/runs/{id}/outline` |
+| Q3 | 섹션별 맞춤 검색 — 섹션마다 입력 칸 조합(+설계도 메시지)으로 질의(`domain/rules/section_search.section_queries`)를 만들어 다시 검색(같은 관련도 하한·reranker). 섹션 프롬프트 `[자료]` 는 `RetrievalSnapshot.chunks_for(key)`; 새 청크는 스냅샷에 더해져 근거 대조 집합에도 들어간다. 재개 때 다시 하지 않는다 | `section_search` | `GenerateProposal.retrieve_sections`, `RetrievalSnapshot.section_chunks` | 스냅샷 |
+| Q4 | 채택 과제 본보기 — `find_similar` 후보 중 완료·수행(status completed/ongoing) 또는 공시용 요약인 공개 문서 2건의 같은 항목 문장(항목 머리 `연구목적:`·`연구내용:`·`기대효과:`·`활용계획:`)을 "구성·문체만 참고, 내용 인용 금지" 로 넣는다. doc id 는 주지 않고, 본보기 doc 을 근거로 단 문장·본보기 문장을 그대로 쓴 문장은 폐기(`exemplar_cited`). 골든셋 정답 과제는 `exemplar_exclude` | `exemplars` | `domain/rules/exemplars.py`(pick_exemplars·section_sentences), `GenerateProposal._enforce_no_exemplar` | `RetrievalSnapshot.exemplars` |
+| Q5 | Argon 보완 작성 — 1차 검토 프롬프트에 섹션별 필수 요소(`config/templates/section_checklists.yaml`)를 넣어 `checklist`(요소별 true/false → `ReviewRound.checklist`, 충족률)와 빠진 요소의 `additions`(추가 문장 제안)를 받는다. 추가 문장은 수정안과 같은 검증(근거 범위·외국 문자·근거 필수·정책명·수치)을 거쳐 통과분만 v2 에 끼워 넣고(`origin=argon_addition`, 화면 "Argon 추가"), 섹션당 4·전체 60 상한. 최종 검토도 같은 체크리스트 | `additions`(체크리스트 자체는 항상) | `ReviewDraft.checklists/additions`, `ReviewComment.kind=addition/after`, RunManager `_apply_draft_review` | `review_draft.json` |
+| Q6 | 규칙 검사 선행 — finalize 에서 Argon 전에 `domain/rules/style.check_sections`: 자동 수정(서술형 종결 → 개조식 ~함·~임, 같은 섹션 완전 중복 제거)은 v1 에 반영하고(step `finalize.dropped` = 정리 수), 긴 문장(180자)·고치지 못한 문체 혼용·연차 불일치("2차년도" 인데 제약 "1년 이내")는 경고(`STYLE_CODES`)로 남겨 1차 검토에 `[앱이 찾은 문제]` 로 보낸다. 편집·검토로 새 버전이 생겨도 경고는 다시 계산한다(`style_problems`) | `rule_check`(기본 켬) | `GenerateProposal.finalize/style_problems` | `state.problems` |
+| Q7 | 핵심 섹션 두 후보 — 기술적 중요도·연구방법(`CORE_SECTIONS`)은 후보 A 를 쓴 뒤 "다른 전개·다른 근거 우선" 지시로 후보 B 를 한 번 더 쓴다(로컬 +2회). B 는 `candidates.json`, 초안(v1)은 A. 1차 검토 프롬프트에 `[후보 B]` 로 함께 보내 `candidates`(A|B, 이유)를 받고, B 를 고르면 v2 에서 섹션을 통째로 바꾸고 A 기준 문장 의견·추가 문장은 `candidate_replaced` 로 폐기. 버린 후보 문장은 `candidate_choices[섹션].rejected_text` 에 남아 화면 "다른 후보 보기". 검토 LLM 이 없으면 B 를 쓰지 않는다 | `two_candidates` | RunManager 섹션 루프·`_choose_candidates`, `ReviewContext.candidates` | `candidates.json`, `review_draft.json` |
+| Q8 | reranker — `RerankerPort`(`application/ports/reranker.py`)·`adapters/reranking/cross_encoder.py`(sentence-transformers CrossEncoder, `~/models/bge-reranker-v2-m3`, **Apache-2.0**, MPS 적재 6.1s·80쌍 0.67s·RSS 0.9GB). 생성 검색(하한 통과 후보 → 재순위 → 자료원 보장)·섹션별 검색·precheck(`find_similar` k×4 → 재순위 상위 k, 유사도 값은 그대로)·과제 추천(retrieve 공유)에 쓴다. 모델 폴더가 없으면 경고만 내고 없이 진행(`build_reranker`, 프로세스당 한 번 적재) | `reranker` | `GenerateProposal.reranker`, `PrecheckOverlap.reranker` | — |
+
+- 측정 `rra eval --label <이름> --pipeline none|all|default [--on a,b] [--off c] [--no-review] [--only 01,02]`
+  (`usecases/evaluate.py` EvaluateQuality, `composition.build_eval` — pipeline·runs_dir 덮어쓰기, run 은 `data/eval/runs/<label>`):
+  아이디어마다 precheck → 생성 → v1 → 1차 검토 → v2 를 돌려 v1·v2 알림, 섹션별 문장 수, 자동 정리·경고, 인용 id·논문 인용·
+  무관 인용(한글 청크인데 질의 키워드 0 — 대리 지표), 1차 점수·반영·추가 문장·충족률·후보 선택, precheck 알림·정답 적중
+  (골든셋 yaml `expected_similar`), 단계별 시간·RSS·reranker 지연, Gemini 호출 수를 JSON 으로. `--report a.json b.json`
+  → `docs/eval-<날짜>.md` "초안 품질 강화 비교"(`views.eval_markdown`). 결정 규칙은 ADR 0013.
+- manifest `review.transfers[]` 에 `additions`·`candidates`·`checklist_coverage` 만 추가(허용목록). 본문·의견 원문은 없음.
+
+### 4.16 근거 구성 규칙 `config/retrieval_mix.yaml` (2026-10-27)
+
+자료원이 늘어나면(policy·korail_news·statistics·audit·procurement·rnd_notice·ScienceON) 한국어 질의는 짧은 사내 기록·정책 문서를
+앞세워 논문·보고서·특허가 밀린다(2026-10-26 OpenAlex, 2026-10-27 Q3 섹션별 검색에서 재발). 그래서 **섹션별 허용 doc_type 과
+자료원별 최소 보장을 config 한 곳**에 둔다. 규칙은 `domain/rules/retrieval_mix.py`(RetrievalMix, 순수), 로더
+`config_loader.retrieval_mix`(파일이 없으면 None = 규칙 없음).
+- `min_per_source`: 전체 검색의 출처별 최소 보장(`overlap.yaml evidence_floor` 보다 우선). `section_min_per_source`: 섹션별 검색(Q3).
+- `sections.<키>.allow`: 그 섹션 프롬프트 `[자료]` 에 넣을 doc_type(`GenerateProposal.chunks_for`). 걸러서 0건이면 전부로 되돌리고,
+  doc_type 을 모르는 청크(옛 스냅샷)는 거르지 않는다. `min_scholarly`: 논문·보고서·특허(`scholarly`) 최소 건수 — 섹션별 검색 뒤
+  모자라면 후보 순위에서 보탠다(`top_up_scholarly`). 기술적 중요도·연구방법은 2.
+- `overlap_exclude`: 유사과제 판정(precheck·generate retrieve)에서 뺄 doc_type — 정책·보도·통계·감사·공고는 과제가 아니다.
+  발주 용역(procurement)은 판정에 들어간다("용역" 구분, [P2]).
+- 스냅샷 `RetrievalSnapshot.doc_types`(doc_id → doc_type)는 retrieve 때 저장소에서 채운다(규칙이 있을 때만).
+- 회귀 테스트: `tests/domain/test_retrieval_mix.py`, `tests/application/test_quality_usecases.py`(섹션별 검색 뒤 논문 최소 2·허용 밖
+  제외·precheck 제외), `tests/test_config_loader.py`. 새 자료원을 적재할 때마다 골든셋 01 로 섹션별 근거 구성을 확인해 기록한다.
+- 새 자료원의 doc_type 은 [P]·[P2] 레인이 추가하며, 규칙 행은 통합 담당이 이 파일에 모은다.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,

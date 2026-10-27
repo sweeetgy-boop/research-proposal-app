@@ -2738,6 +2738,12 @@
             "description": "제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
             "default": ""
           },
+          "supplement": {
+            "type": "string",
+            "title": "Supplement",
+            "description": "보충 정보 (보강 질문의 답)",
+            "default": ""
+          },
           "department": {
             "type": "string",
             "title": "Department",
@@ -2898,6 +2904,12 @@
             "description": "제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
             "default": ""
           },
+          "supplement": {
+            "type": "string",
+            "title": "Supplement",
+            "description": "보충 정보 (보강 질문의 답)",
+            "default": ""
+          },
           "department": {
             "type": "string",
             "title": "Department",
@@ -2949,6 +2961,11 @@
               }
             ],
             "title": "Recommendation Index"
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "title": "Acknowledged",
+            "default": false
           },
           "priority_evidence": {
             "anyOf": [

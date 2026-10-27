@@ -78,8 +78,10 @@ async def client():
 
 async def _drafted(client):
     r = await client.post(
-        "/v1/runs", json={**SLOTS, "priority_evidence": ["openalex:W1", "zzz"]}, headers=AUTH
-    )
+        "/v1/runs",
+        json={**SLOTS, "priority_evidence": ["openalex:W1", "zzz"], "acknowledged": True},
+        headers=AUTH,
+    )  # 차단 경보가 있는 조립이라 확인 뒤에만 생성(서버 게이트)
     assert r.status_code == 202
     rid = r.json()["run_id"]
     mgr = client.assistant.manager

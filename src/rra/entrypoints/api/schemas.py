@@ -177,6 +177,8 @@ class RunIn(ProposalRequest):
     differentiation_transfer: DifferentiationTransferIn | None = None
     recommendation_id: str | None = Field(default=None, min_length=8, max_length=64)
     recommendation_index: int | None = Field(default=None, ge=0, le=4)
+    # 차단 경보 확인 — 서버가 precheck 를 다시 돌려 차단 알림이 있는데 False 면 409
+    acknowledged: bool = False
     priority_evidence: list[str] | None = Field(default=None, max_length=50)
 
     def request(self) -> ProposalRequest:
@@ -186,6 +188,7 @@ class RunIn(ProposalRequest):
                     "differentiation_transfer",
                     "recommendation_id",
                     "recommendation_index",
+                    "acknowledged",
                     "priority_evidence",
                 }
             )

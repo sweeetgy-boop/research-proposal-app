@@ -598,6 +598,129 @@ def cmd_llm_bench(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── eval (Q9 초안 품질 강화 효과 측정) ─────────────────────
+QUALITY_STEPS = (
+    "clarify",
+    "outline",
+    "section_search",
+    "exemplars",
+    "rule_check",
+    "additions",
+    "two_candidates",
+    "reranker",
+)
+
+
+def _eval_pipeline(settings, args: argparse.Namespace):
+    """--pipeline none|all|default 에 --on/--off 를 덮어쓴 PipelineConfig."""
+    from rra.composition import pipeline_config
+    from rra.domain.models import PipelineConfig
+
+    base = pipeline_config(settings)
+    if args.pipeline == "none":
+        values = {k: False for k in QUALITY_STEPS}
+    elif args.pipeline == "all":
+        values = {k: True for k in QUALITY_STEPS}
+    else:
+        values = {k: getattr(base, k) for k in QUALITY_STEPS}
+    for name in _csv(args.on):
+        values[name] = True
+    for name in _csv(args.off):
+        values[name] = False
+    unknown = set(values) - set(QUALITY_STEPS)
+    if unknown:
+        raise ValueError(f"모르는 단계: {sorted(unknown)} (가능: {list(QUALITY_STEPS)})")
+    return PipelineConfig(
+        **values,
+        draft_review=not args.no_review,
+        draft_review_retries=base.draft_review_retries,
+    )
+
+
+def _csv(value: str | None) -> list[str]:
+    return [x.strip() for x in (value or "").split(",") if x.strip()]
+
+
+def cmd_eval(args: argparse.Namespace) -> int:
+    """골든셋으로 ③ 흐름(precheck → 생성 → v1 → 1차 검토 → v2)을 돌려 지표 JSON 을 남기거나
+    (--label), JSON 들을 비교표(docs/eval-<날짜>.md "초안 품질 강화 비교")로 합친다(--report)."""
+    from rra.entrypoints.views import eval_markdown
+
+    if args.report:
+        results = [json.loads(Path(p).read_text(encoding="utf-8")) for p in args.report]
+        out = Path(args.out or f"docs/eval-{time.strftime('%Y-%m-%d')}.md")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        text = eval_markdown(results, date=time.strftime("%Y-%m-%d"))
+        if out.exists() and args.append:
+            out.write_text(out.read_text(encoding="utf-8").rstrip() + "\n\n" + text, "utf-8")
+        else:
+            out.write_text(text, encoding="utf-8")
+        print(f"저장: {out} (구성 {len(results)}개)")
+        return EXIT_OK
+    if not args.label:
+        _eprint("--label <이름> (측정 실행) 또는 --report <json…> (표 작성) 중 하나가 필요합니다.")
+        return EXIT_USAGE
+    import yaml
+
+    from rra.composition import build_eval, load_settings
+    from rra.domain.models import ProposalRequest
+
+    settings = load_settings()
+    try:
+        pipeline = _eval_pipeline(settings, args)
+    except ValueError as exc:
+        _eprint(str(exc))
+        return EXIT_USAGE
+    only = set(_csv(args.only))
+    golden = [
+        p
+        for p in sorted(Path(args.golden).glob("*.yaml"))
+        if not only or any(p.stem.startswith(o) for o in only)
+    ]
+    if not golden:
+        _eprint(f"골든셋이 없습니다: {args.golden}")
+        return EXIT_USAGE
+    ideas, expected = [], {}
+    for p in golden:
+        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+        exp = data.pop("expected_similar", None)
+        if exp is not None:
+            expected[p.stem] = [str(x) for x in (exp or [])]
+        ideas.append((p.stem, ProposalRequest(**data)))
+    runs_dir = Path(args.runs_dir or f"data/eval/runs/{args.label}")
+
+    async def run():
+        ev = build_eval(
+            settings, label=args.label, pipeline=pipeline, runs_dir=runs_dir, expected=expected
+        )
+        try:
+            return await ev(ideas)
+        finally:
+            await ev.manager.generate.llm.aclose()
+
+    result = asyncio.run(run())
+    out = Path(args.out or f"data/eval/{args.label}.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    t = result.totals()
+    print(
+        f"[{result.label}] 켠 단계 {[k for k, v in result.pipeline.items() if v is True]} — "
+        f"알림 v1 {t['v1_alerts']}→v2 {t['v2_alerts']}, "
+        f"문장 {t['sentences_v1']}→{t['sentences_v2']}, "
+        f"무관 인용 {t['irrelevant_citations']}, 논문 인용 {t['paper_citations']}, "
+        f"점수합 {t['score_sum']}, 충족률 {t['checklist_coverage']}, "
+        f"precheck 적중 {t['precheck_hits']}/{t['precheck_known']}, "
+        f"평균 {t['seconds_avg']}s, Gemini {t['gemini_calls']}회, RSS {result.max_rss_mb or '-'}MB"
+    )
+    for i in result.ideas:
+        print(
+            f"  {i.name}: {i.status} v1 알림 {i.v1_alerts} v2 알림 {i.v2_alerts} "
+            f"점수 {i.scores} 반영 {i.applied}+{i.additions_applied} {i.seconds}s run {i.run_id}"
+        )
+    print(f"저장: {out}")
+    return EXIT_OK
+
+
 # ── DB 유지보수 ───────────────────────────────────────────
 def cmd_reindex(args: argparse.Namespace) -> int:
     """모든 청크를 설정된 임베딩 모델로 다시 색인 (모델·차원이 바뀌었을 때)."""
@@ -1987,6 +2110,21 @@ def build_parser() -> argparse.ArgumentParser:
     lb.add_argument("--report", nargs="*", help="합칠 결과 JSON 들 → docs/llm-bench-<날짜>.md")
     lb.add_argument("--baseline", help="--report 에 적을 기준 모델 이름")
     lb.set_defaults(handler=cmd_llm_bench)
+    ev = sub.add_parser(
+        "eval", help="골든셋으로 초안 품질 강화 효과 측정 (JSON 저장 / --report 로 비교표)"
+    )
+    ev.add_argument("--label", help="이 구성의 이름 (예: baseline, all, minus-outline)")
+    ev.add_argument("--pipeline", choices=["none", "all", "default"], default="default")
+    ev.add_argument("--on", help="켤 단계 (쉼표 구분)")
+    ev.add_argument("--off", help="끌 단계 (쉼표 구분)")
+    ev.add_argument("--no-review", action="store_true", help="Argon 1차 검토 없이 (Gemini 0회)")
+    ev.add_argument("--golden", default="tests/golden", help="아이디어 yaml 폴더")
+    ev.add_argument("--only", help="골든셋 이름 접두어 (쉼표 구분, 예: 01,02)")
+    ev.add_argument("--runs-dir", help="run 저장 폴더 (기본 data/eval/runs/<label>)")
+    ev.add_argument("--out", help="JSON(실행) 또는 Markdown(--report) 경로")
+    ev.add_argument("--report", nargs="*", help="합칠 결과 JSON 들 → docs/eval-<날짜>.md")
+    ev.add_argument("--append", action="store_true", help="--report: 기존 문서 끝에 덧붙인다")
+    ev.set_defaults(handler=cmd_eval)
     ri = sub.add_parser("reindex", help="모든 청크를 설정 임베딩 모델로 재색인")
     ri.set_defaults(handler=cmd_reindex)
     db = sub.add_parser("db", help="DB 유지보수")

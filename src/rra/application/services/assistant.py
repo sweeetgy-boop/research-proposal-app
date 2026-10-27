@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 
 from rra.application.ports import DocumentRepository
 from rra.application.services.run_manager import DraftView, RunManager
+from rra.application.usecases.clarify_input import ClarifyInput, apply_answers
 from rra.application.usecases.differentiate import Differentiate
 from rra.application.usecases.precheck_overlap import PrecheckOverlap
 from rra.application.usecases.recommend_projects import RecommendProjects
@@ -76,11 +77,13 @@ class ProposalAssistant:
         differentiate: Differentiate | None = None,
         recommend: RecommendProjects | None = None,
         recommend_auto: bool = True,
+        clarify: ClarifyInput | None = None,
     ):
         self.precheck, self.manager, self.repo, self.user = precheck, manager, repo, user
         self.differentiate_usecase = differentiate  # None 이면 기능 2 를 쓸 수 없다 (LLM 없음)
         self.recommend_usecase = recommend  # None 이면 과제 추천을 쓸 수 없다
         self.recommend_auto = recommend_auto
+        self.clarify_usecase = clarify  # Q1 입력 보강 질문 (pipeline.clarify 가 켜져 있을 때만)
         self._clock, self._max_trace = clock, max_trace
         self.trace: list[ToolCall] = []
         self._last_status: dict[str, str] = {}
@@ -139,6 +142,18 @@ class ProposalAssistant:
             )
         self._log(decision, summary)
         return result
+
+    # ── ③ 시작 전 입력 보강 질문 (Q1) → rra_clarify ─────────
+    async def clarify(self, req: ProposalRequest) -> list[str]:
+        """빠진 정보 질문 최대 3개 (로컬 모델). 유스케이스가 없으면 0개 → 바로 생성."""
+        questions = await self.clarify_usecase(req) if self.clarify_usecase is not None else []
+        self._log(policy.on_clarify(questions=len(questions)), f"질문 {len(questions)}개")
+        return questions
+
+    @staticmethod
+    def apply_clarification(req: ProposalRequest, answers: dict[str, str]) -> ProposalRequest:
+        """답을 보충 정보(supplement)로 붙인 입력. 건너뛰면(빈 답) 그대로."""
+        return apply_answers(req, answers)
 
     @staticmethod
     def preview_recommendation(

@@ -1,13 +1,13 @@
 # ③ 초안 생성 파이프라인 — 단계별 켜기/끄기 (ADR 0013: 효과가 확인된 것만 기본 켬)
 # 순서: (clarify) → (outline) → (section_search) → 로컬 작성(exemplars·two_candidates) → rule_check → v1
 #       → draft_review(additions, 후보 선택) → 검증 통과분 자동 반영 → v2
-clarify: false          # Q1 입력 보강 질문 (최대 3개, 로컬 모델)
-outline: false          # Q2 섹션 설계도 (runs/<id>/outline.json)
-section_search: false   # Q3 섹션별 맞춤 검색
-exemplars: false        # Q4 채택 과제 본보기 (구성·문체 참고, 인용 금지)
+clarify: false          # Q1 입력 보강 질문 (최대 3개, 로컬 모델) — 흐름 안에서 측정 불가(대화형), 요청 시 켬
+outline: false          # Q2 섹션 설계도 — 끔: 빼면 문장 37 vs 14·논문 인용 5 vs 1·invalid 0 vs 1, +20s (2026-10-27 측정, ADR 0013)
+section_search: true    # Q3 섹션별 맞춤 검색 — 켬: 논문 인용 유지(retrieval_mix 논문 최소 보장), 빼면 논문 0 (2026-10-27)
+exemplars: false        # Q4 채택 과제 본보기 — 끔: 빼면 invalid 0 vs 1·문장 29 vs 14·논문 5 vs 1 (2026-10-27)
 rule_check: true        # Q6 규칙 검사·자동 정리 (어미 통일·완전 중복 제거), 나머지는 알림 → 1차 검토에 전달
 draft_review: true      # Argon 1차 검토 → 검증 통과 수정안·추가 문장 자동 반영 → v2 (키 없으면 v1 로 진행)
-additions: false        # Q5 Argon 보완 작성 (섹션별 필수 요소 체크리스트로 빠진 문장 추가 제안)
-two_candidates: false   # Q7 핵심 섹션(기술적 중요도·연구방법) 두 후보 → 1차 검토에서 선택
-reranker: false         # Q8 cross-encoder reranker (이슈 #12)
+additions: true         # Q5 Argon 보완 작성 — 켬: 빼면 충족률 0.65→0.47·v2 문장 49→26·점수 10.3→8/run (2026-10-27)
+two_candidates: false   # Q7 두 후보 — 끔: 빼도 점수 같고(10.3/run) invalid 0·논문 11·문장 49 로 더 낫다, 로컬 호출 +2 (2026-10-27)
+reranker: true          # Q8 cross-encoder reranker — precheck 적중 9/10 유지·평균 순위 1.7→1.4·지연 1.5~1.95s (2026-10-27, ADR 0013). 모델 폴더 없으면 자동 생략
 draft_review_retries: 1 # 1차 검토 실패 시 재시도 횟수

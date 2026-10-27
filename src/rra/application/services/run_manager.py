@@ -38,7 +38,8 @@ from rra.application.ports import (
     TaskRunner,
 )
 from rra.application.ports.renderer import RenderRejected
-from rra.application.usecases.generate_proposal import GenerateProposal
+from rra.application.usecases.generate_proposal import CORE_SECTIONS, GenerateProposal
+from rra.application.usecases.outline import OutlineSections
 from rra.application.usecases.render_check import RenderCheck, render_check
 from rra.application.usecases.review_draft import ReviewContext, ReviewDraft
 from rra.application.usecases.submit_check import SubmitCheck, submit_check
@@ -62,6 +63,7 @@ from rra.domain.models import (
     UsabilityConfig,
     UsageRecord,
 )
+from rra.domain.models.outline import Outline
 from rra.domain.models.review import (
     EditRequest,
     EvidenceDecisionRequest,
@@ -73,6 +75,7 @@ from rra.domain.models.run import (
     DRAFT_REVIEW,
     FINALIZE,
     FINISHED,
+    OUTLINE,
     RESUMABLE,
     RETRIEVE,
     is_valid_run_id,
@@ -193,6 +196,7 @@ class EvidenceItem:
     support: str | None  # 지지|부분|불일치 (Argon 1차 검토)
     decision: str | None  # approve|replace|exclude (제안자)
     in_snapshot: bool
+    url: str | None = None  # 원본 링크 — 이미지 판독이면 이미지 URL(raw.image.url), 아니면 문서 URL
 
 
 @dataclass(frozen=True)
@@ -277,6 +281,7 @@ class RunManager:
         reviewer: ReviewDraft | None = None,
         review_auto: bool = True,
         pipeline: PipelineConfig | None = None,
+        outliner: OutlineSections | None = None,
         usability: UsabilityConfig | None = None,
         checklists: Mapping[str, list[dict[str, Any]]] | None = None,
     ):
@@ -284,6 +289,7 @@ class RunManager:
         self.checklists: dict[str, list[dict[str, Any]]] = dict(checklists or {})
         self.generate = generate
         self.reviewer = reviewer  # None 이면 검토를 건너뛴다 (review_skipped)
+        self.outliner = outliner  # Q2 섹션 설계도 (pipeline.outline 이 켜져 있을 때만 조립)
         self.review_auto = review_auto
         self.pipeline = pipeline or PipelineConfig()  # ③ 단계 켜기/끄기 (config/pipeline.yaml)
         self._review_tasks: dict[str, str] = {}  # run_id → 실행 중 검토 작업 key (차수별 고유)
@@ -413,14 +419,31 @@ class RunManager:
                     current = None
                 self._ensure_done(state, RETRIEVE)
 
+                outline = await self._outline_step(user, run_id, state, req, snapshot, on_step)
+                if self.pipeline.section_search and not snapshot.section_chunks:
+                    snapshot = await self.generate.retrieve_sections(req, snapshot, outline)
+                    self.store.save_snapshot(user, run_id, snapshot)  # 재개 때 다시 하지 않는다
+
                 sections = self.store.load_sections(user, run_id)
+                candidates = self.store.load_candidates(user, run_id) or {}
+                want_b = self.pipeline.two_candidates and self.reviewer is not None
                 for key in self.generate.section_keys:
                     if key in sections:
                         self._ensure_done(state, section_step(key))
                         continue
                     current = self._begin(state, section_step(key))
-                    composed = await self.generate.compose_section(key, req, snapshot)
+                    composed = await self.generate.compose_section(
+                        key, req, snapshot, outline=outline
+                    )
                     self.store.save_section(user, run_id, composed.section)
+                    if want_b and key in CORE_SECTIONS and composed.mode == "llm":
+                        # Q7 후보 B — 같은 섹션을 다른 구성으로 한 번 더. 1차 검토가 고른다
+                        alt = await self.generate.compose_section(
+                            key, req, snapshot, outline=outline, candidate=composed.section
+                        )
+                        if alt.section.sentences:
+                            candidates[key] = alt.section.model_dump(mode="json")
+                            self.store.save_candidates(user, run_id, candidates)
                     parse = composed.parse
                     if parse is not None and parse.stripped:
                         logger.warning(
@@ -460,6 +483,11 @@ class RunManager:
                 current = self._begin(state, FINALIZE)
                 ordered = [sections[k] for k in self.generate.section_keys]
                 draft, problems = self.generate.finalize(run_id, req, snapshot, ordered)
+                fixed = _auto_fixed(ordered, draft.sections)  # Q6 자동 정리한 문장 수
+                if fixed:
+                    for sec in draft.sections:
+                        self.store.save_section(user, run_id, sec)
+                ordered = draft.sections
                 self.store.save_draft(user, run_id, draft)
                 state.problems = [p.model_dump() for p in problems]
                 self._touch_usage(user, run_id, state)
@@ -485,7 +513,7 @@ class RunManager:
                     elif not wants_review:
                         self._skip_review(user, run_id, state, "disabled")
                     auto_review = wants_review and self.reviewer is not None
-                self._finish(state, current, on_step)
+                self._finish(state, current, on_step, dropped=fixed)
                 current = None
                 return state
         except Exception as exc:  # 어떤 실패든 저장된 step 은 남고, 재개로 이어서 한다
@@ -508,6 +536,48 @@ class RunManager:
                     )
                     self._skip_review(user, run_id, state, "failed")
                     self._save(state)
+
+    async def _outline_step(
+        self,
+        user: str,
+        run_id: str,
+        state: RunState,
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot,
+        on_step: StepCallback | None,
+    ) -> Outline | None:
+        """Q2 섹션 설계도 — 저장된 것이 있으면 그대로(재개), 없으면 로컬 모델이 만든다. 실패하면
+        단계를 error 로 적고 설계도 없이 계속한다 (생성을 막지 않는다)."""
+        planned = any(s.name == OUTLINE for s in state.steps)
+        if not (self.pipeline.outline and self.outliner is not None and planned):
+            return None
+        stored = self.store.load_outline(user, run_id)
+        if stored is not None:
+            self._ensure_done(state, OUTLINE)
+            return Outline.model_validate(stored)
+        step = self._begin(state, OUTLINE)
+        outline = await self.outliner(req, snapshot)
+        if outline is None:
+            step.status, step.error, step.finished_at = "error", "OutlineFailed", self._clock()
+            self._save(state)
+            logger.warning("run.outline_failed run=%s", run_id)
+            return None
+        outline = outline.model_copy(update={"created_at": self._clock()})
+        self.store.save_outline(user, run_id, outline.model_dump(mode="json"))
+        self._finish(
+            state,
+            step,
+            on_step,
+            sentences=len(outline.sections),
+            dropped=len(outline.discarded),
+            retries=outline.retries,
+        )
+        return outline
+
+    async def load_outline(self, user: str, run_id: str) -> dict[str, Any] | None:
+        """③ 저장된 섹션 설계도(outline.json). 없으면 None."""
+        await self.status(user, run_id)
+        return self.store.load_outline(user, run_id)
 
     def _begin(self, state: RunState, name: str) -> StepRecord:
         step = state.step(name)
@@ -744,6 +814,12 @@ class RunManager:
                 round_no = len(rounds) + 1 if kind == "final" else 1
                 if kind == "final" and round_no < 2:
                     round_no = 2  # 1차가 건너뛰어졌어도 최종 검토는 round 2 부터
+                candidates: dict[str, Section] = {}
+                if kind == "draft" and self.pipeline.two_candidates:
+                    candidates = {
+                        k: Section.model_validate(v)
+                        for k, v in (self.store.load_candidates(user, run_id) or {}).items()
+                    }
                 ctx = ReviewContext(
                     run_id=run_id,
                     round_no=round_no,
@@ -754,6 +830,14 @@ class RunManager:
                     changed=changed if kind == "final" else frozenset(),
                     confirmation=self.store.load_confirmation(user, run_id),
                     kind=kind,
+                    app_findings=tuple(
+                        f"{p['section']}: {p.get('message', p['code'])}"
+                        for p in state.problems
+                        if p.get("severity") == "warning"
+                    )
+                    if kind == "draft"
+                    else (),
+                    candidates=candidates,
                 )
                 last_exc: Exception | None = None
                 result = None
@@ -843,8 +927,12 @@ class RunManager:
         없는 의견은 문장 메모(annotations)로 v2 에 붙인다. 선택형 섹션의 선택값은 바꾸지 않는다."""
         by_key = {sec.key: sec for sec in v1.sections}
         applied: list[str] = []
+        # Q7 후보 선택 — B 를 고른 섹션은 통째로 바꾸고, A 문장 기준 의견은 더 쓰지 않는다
+        review, replaced = self._choose_candidates(user, run_id, review, by_key)
         for c in review.comments:
-            if not (c.usable and c.sentence is not None):
+            if c.kind != "revision" or not (c.usable and c.sentence is not None):
+                continue
+            if c.section in replaced:
                 continue
             sec = by_key.get(c.section)
             if sec is None or c.sentence >= len(sec.sentences):
@@ -860,9 +948,30 @@ class RunManager:
             )
             by_key[c.section] = sec.model_copy(update={"sentences": sentences})
             applied.append(c.id)
+        # Q5 추가 문장 — 검증 통과분만, 섹션 뒤쪽부터 끼워 넣어 인덱스가 밀리지 않게
+        additions = [
+            c
+            for c in review.comments
+            if c.kind == "addition"
+            and c.usable
+            and c.section in by_key
+            and c.section not in replaced
+        ]
+        for c in sorted(additions, key=lambda c: -1 if c.after is None else -c.after):
+            sec = by_key[c.section]
+            sentences = list(sec.sentences)
+            at = len(sentences) if c.after is None else min(c.after + 1, len(sentences))
+            sentences.insert(
+                at,
+                Sentence(
+                    text=c.revised_text or "", evidence=list(c.evidence), origin="argon_addition"
+                ),
+            )
+            by_key[c.section] = sec.model_copy(update={"sentences": sentences})
+            applied.append(c.id)
         sections = [by_key[sec.key] for sec in v1.sections]  # choices 는 그대로
         annotations = _annotations_from(review, applied)
-        if not applied:
+        if not applied and not replaced:
             # 반영할 것이 없으면 v2 를 만들지 않고 메모만 v1 에 붙인다
             v1b = v1.model_copy(update={"annotations": annotations})
             self.store.save_version(user, run_id, v1b)
@@ -896,6 +1005,44 @@ class RunManager:
                     for c in review.comments
                 ],
             }
+        )
+
+    def _choose_candidates(
+        self, user: str, run_id: str, review: ReviewRound, by_key: dict[str, Section]
+    ) -> tuple[ReviewRound, set[str]]:
+        """Q7 — 검토가 고른 후보를 반영한다. 고르지 않았으면 A(초안) 유지. 버린 후보의 문장은
+        review_draft.json(candidate_choices.rejected_text)에 남긴다."""
+        stored = self.store.load_candidates(user, run_id) or {}
+        if not stored:
+            return review, set()
+        choices = {k: dict(v) for k, v in review.candidate_choices.items()}
+        replaced: set[str] = set()
+        for key, raw in stored.items():
+            if key not in by_key:
+                continue
+            alt = Section.model_validate(raw)
+            pick = choices.get(key) or {"choice": "A", "reason": "검토가 고르지 않음 — A 유지"}
+            if pick.get("choice") == "B" and alt.sentences:
+                rejected = by_key[key]
+                by_key[key] = alt.model_copy(update={"choices": rejected.choices})
+                replaced.add(key)
+                pick["rejected"] = "A"
+                pick["rejected_text"] = rejected.text[:4000]
+            else:
+                pick["choice"] = "A"
+                pick["rejected"] = "B"
+                pick["rejected_text"] = alt.text[:4000]
+            choices[key] = pick
+        comments = [
+            c.model_copy(update={"status": "discarded", "discard_reason": "candidate_replaced"})
+            if c.section in replaced
+            and c.status == "open"
+            and (c.sentence is not None or c.kind == "addition")
+            else c
+            for c in review.comments
+        ]
+        return review.model_copy(update={"candidate_choices": choices, "comments": comments}), (
+            replaced
         )
 
     def _current_version(self, user: str, run_id: str, state: RunState) -> DraftVersion:
@@ -1236,6 +1383,7 @@ class RunManager:
                     support=support,
                     decision=decided.get(ev),
                     in_snapshot=ev in allowed or doc_id in allowed,
+                    url=_evidence_url(doc, raw, basis),
                 )
             )
         return out
@@ -1765,6 +1913,9 @@ def manifest(
                     "kind": r.kind,
                     "applied": len(r.applied_ids),
                     "applied_version": r.applied_version,
+                    "additions": sum(1 for c in r.comments if c.kind == "addition"),
+                    "candidates": {k: v.get("choice") for k, v in r.candidate_choices.items()},
+                    "checklist_coverage": r.checklist_coverage,
                     "support": len(getattr(r, "support", {}) or {}),
                 }
                 for r in reviews or []
@@ -1801,6 +1952,26 @@ def manifest(
 
 
 # ── [5] 순수 함수 ─────────────────────────────────────────
+def _evidence_url(doc: Any, raw: Mapping[str, Any], basis: str | None) -> str | None:
+    """근거 원본 링크 — 이미지 판독은 raw.image.url(없으면 페이지 url), 그 밖은 문서 url."""
+    image = raw.get("image") if isinstance(raw, Mapping) else None
+    if basis == "image_vision" and isinstance(image, Mapping):
+        link = image.get("url") or image.get("page_url")
+        if isinstance(link, str) and link:
+            return link
+    link = getattr(doc, "url", None) if doc is not None else None
+    return link if isinstance(link, str) and link else None
+
+
+def _auto_fixed(old: list[Section], new: list[Section]) -> int:
+    """Q6 규칙 검사가 바꾼 문장 수 — 자리별 텍스트 차이 + 줄어든(중복 제거) 개수."""
+    total = 0
+    for a, b in zip(old, new, strict=False):
+        ta, tb = [s.text for s in a.sentences], [s.text for s in b.sentences]
+        total += abs(len(ta) - len(tb)) + sum(1 for x, y in zip(ta, tb, strict=False) if x != y)
+    return total
+
+
 def _review_key(run_id: str, round_no: int) -> str:
     return f"{run_id}:review:{round_no}"
 
@@ -1903,10 +2074,12 @@ def _annotations_from(review: ReviewRound, applied: list[str]) -> list[Annotatio
     for c in review.comments:
         if c.id in applied:
             continue
-        if c.sentence is None:
-            kind = "section"
-        elif c.status == "discarded":
+        if c.discard_reason == "candidate_replaced":
+            continue  # 버린 후보(A)의 문장에 대한 의견 — v2 에는 그 문장이 없다
+        if c.status == "discarded":
             kind = "discarded"
+        elif c.sentence is None:
+            kind = "section"
         else:
             kind = "opinion"
         text = c.comment

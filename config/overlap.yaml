@@ -16,7 +16,7 @@ evidence_floor:
   # 출처 다양성 (2026-10-26, OpenAlex 2,468건 적재 뒤): 검색을 k×search_multiplier 로 넓게 받고, 부족한 자료원은
   # 그 자료원만 다시 검색해 보탠 뒤 출처(openalex·alio·own …)마다 최소 min_per_source 건 보장, 나머지는 융합
   # 순위대로 k(20) 개. 0 이면 끔. 6 = 골든셋 01 에서 7B 가 논문을 실제로 인용하기 시작한 값(4 면 논문 인용 0).
-  min_per_source: 6
+  min_per_source: 6   # config/retrieval_mix.yaml 의 min_per_source 가 있으면 그 값이 우선 (2026-10-27)
   search_multiplier: 4
 keywords:
   min_hits: 2

@@ -48,6 +48,7 @@ from rra.domain.models.proposer import Person
 from rra.domain.models.request import validation_message
 from rra.domain.models.review import EditRequest, EvidenceDecisionRequest
 from rra.domain.models.run import ACTIVE, is_valid_run_id
+from rra.domain.rules import agent_policy as policy
 from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
 from rra.domain.rules.recommendation import apply_recommendation
 from rra.domain.rules.review_flow import InvalidTransition
@@ -493,6 +494,10 @@ def create_app(
     @app.post(f"/{API_VERSION}/runs", status_code=202)
     async def submit_route(body: RunIn) -> dict[str, Any]:
         req = body.request()
+        if not body.acknowledged:  # 차단 경보는 담당자가 확인해야 생성한다 (may_generate)
+            alerts = await precheck(req)
+            if not policy.may_generate(alerts, acknowledged=False):
+                raise HTTPException(409, "차단 유사과제 있음 — acknowledged=true 확인 뒤 생성.")
         recommendations = None
         if body.recommendation_id is not None:
             session = recommendation_sessions.get(body.recommendation_id)

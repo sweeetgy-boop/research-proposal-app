@@ -13,6 +13,7 @@ from .gap import (
     OverlapAlert,
     Tier,
 )
+from .outline import Outline, SectionPlan
 from .pipeline import PipelineConfig
 from .policy import MAX_SUGGESTIONS, MIN_SUGGESTIONS, PolicySuggestion
 from .proposer import Person, ProposerInfo
@@ -67,6 +68,8 @@ __all__ = [
     "Budget",
     "Confirmation",
     "Annotation",
+    "Outline",
+    "SectionPlan",
     "MAX_SUGGESTIONS",
     "MIN_SUGGESTIONS",
     "PipelineConfig",

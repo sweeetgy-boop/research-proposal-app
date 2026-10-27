@@ -313,3 +313,20 @@ async def test_usage_record_and_feedback_after_finalize():
 
 def test_proposal_request_unchanged_by_priority_field():
     assert "priority_evidence" not in ProposalRequest.model_fields
+
+
+def test_evidence_url_prefers_image_url_for_image_vision():
+    from rra.application.services.run_manager import _evidence_url
+    from rra.domain.models import Document
+
+    doc = Document(
+        doc_id="alio:1", source="alio", doc_type="internal_report", title="t", url="https://x/p"
+    )
+    assert _evidence_url(doc, {}, "summary") == "https://x/p"
+    raw = {"image": {"url": "https://x/img.png", "page_url": "https://x/p"}}
+    assert _evidence_url(doc, raw, "image_vision") == "https://x/img.png"
+    assert (
+        _evidence_url(doc, {"image": {"page_url": "https://x/p2"}}, "image_vision")
+        == "https://x/p2"
+    )
+    assert _evidence_url(None, {}, None) is None

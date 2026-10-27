@@ -91,6 +91,8 @@ class InMemoryRunStore:
         self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
         self._recommendations: dict[tuple[str, str], dict[str, Any]] = {}
         self._working: dict[tuple[str, str], dict[str, Any]] = {}
+        self._outlines: dict[tuple[str, str], dict[str, Any]] = {}
+        self._candidates: dict[tuple[str, str], dict[str, Any]] = {}
         self.rewrites: dict[tuple[str, str], dict[str, Any]] = {}
         self.notes: dict[tuple[str, str], dict[str, Any]] = {}
         self.usage: dict[tuple[str, str], Any] = {}
@@ -158,6 +160,18 @@ class InMemoryRunStore:
 
     def list_versions(self, user, run_id):
         return sorted(self.versions.get(self._key(user, run_id), {}))
+
+    def save_outline(self, user, run_id, data):
+        self._outlines[(user, run_id)] = dict(data)
+
+    def load_outline(self, user, run_id):
+        return self._outlines.get((user, run_id))
+
+    def save_candidates(self, user, run_id, data):
+        self._candidates[(user, run_id)] = dict(data)
+
+    def load_candidates(self, user, run_id):
+        return self._candidates.get((user, run_id))
 
     def save_working(self, user, run_id, data):
         self._working[(user, run_id)] = dict(data)

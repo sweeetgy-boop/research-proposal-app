@@ -31,6 +31,13 @@ class PromptLibraryPort(Protocol):
         """차별화 과제 추천 시스템 프롬프트 — 추천 0~5건 또는 사유, 자료 안에서만, JSON 객체."""
         ...
 
+    def outline(self) -> str:
+        """Q2 섹션 설계도 시스템 프롬프트 — 섹션별 핵심 메시지·근거 id·연결, JSON 객체."""
+        ...
+
+    def clarify(self) -> str:
+        """Q1 입력 보강 질문 시스템 프롬프트 — 빠진 정보만 최대 3개, JSON 객체."""
+
     def structure(self) -> str:
         """U2 간편 입력 시스템 프롬프트 — 자유 문장 → 필수 4칸, 없는 칸은 빈 값, JSON 객체."""
         ...

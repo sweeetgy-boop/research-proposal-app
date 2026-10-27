@@ -82,10 +82,15 @@ def parse_sentence_id(value: str) -> tuple[str, int] | None:
     return parts[1], int(parts[2])
 
 
+CommentKind = Literal["revision", "addition"]  # 문장 의견·수정안 / Q5 빠진 요소 추가 문장 제안
+
+
 class ReviewComment(BaseModel):
     id: str  # "r<차수>-<번호>"
     section: str
     sentence: int | None = None  # None 이면 섹션 전체 의견
+    kind: CommentKind = "revision"
+    after: int | None = None  # addition 일 때 넣을 위치(그 문장 뒤, None 이면 섹션 끝)
     issue_type: str = "문장"
     comment: str = Field(default="", max_length=MAX_COMMENT_CHARS)
     revised_text: str | None = Field(default=None, max_length=MAX_REVISED_CHARS)
@@ -207,6 +212,16 @@ class ReviewRound(BaseModel):
     applied_version: int | None = None
     # 최종 검토: 1차 대비 점수 변화 {기준: ±n}
     score_delta: dict[str, int] = Field(default_factory=dict)
+    # Q7 핵심 섹션 후보 선택 {섹션: {"choice": "A"|"B", "reason": str}}
+    candidate_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
+    # Q5 섹션별 필수 요소 충족 {섹션: {요소: True/False}} (검토 LLM 판단, 비신뢰)
+    checklist: dict[str, dict[str, bool]] = Field(default_factory=dict)
+
+    @property
+    def checklist_coverage(self) -> float | None:
+        items = [v for sec in self.checklist.values() for v in sec.values()]
+        return (sum(1 for v in items if v) / len(items)) if items else None
+
     # U1 근거 적합성 — 문장 id → 지지|부분|불일치 (보낸 문장 안에서만). 이전 차수 파일은 빈 값
     support: dict[str, str] = Field(default_factory=dict)
 

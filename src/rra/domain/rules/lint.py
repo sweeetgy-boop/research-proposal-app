@@ -18,6 +18,7 @@ Severity = Literal["error", "warning"]
 INPUT_MISSING = "input_missing"  # 입력에만 근거하는 섹션인데 입력이 비었다 → LLM 생략, 빈칸
 CATALOG_EMPTY = "catalog_empty"  # 선택지 목록이 비었다 → LLM 생략, 빈칸
 NO_CHOICE = "no_choice"  # 선택형 섹션인데 LLM 이 유효한 선택지를 내지 못했다 → 사용자가 고른다
+STYLE_CODES = ("long_sentence", "mixed_style", "period_mismatch")  # Q6 규칙 검사 알림 (경고)
 UNSUPPORTED_NUMBER = "unsupported_number"  # 입력·인용 근거에 없는 수치 → 담당자 확인
 FOREIGN_SCRIPT = "foreign_script"  # 한국어 본문에 한자·가나 혼입 → 문장은 두고 알림만
 NO_RELEVANT_EVIDENCE = "no_relevant_evidence"  # 관련도 하한 넘는 근거 없음 → LLM 생략, 빈칸

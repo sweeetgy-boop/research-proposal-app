@@ -84,6 +84,8 @@ class ProposalRequest(BaseModel):
         default="",
         description="제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
     )
+    # Q1 입력 보강 질문의 답 ("질문: 답" 줄). 제안자 입력 근거로 취급 — 설계도·작성 프롬프트에
+    supplement: str = Field(default="", description="보충 정보 (보강 질문의 답)")
     department: str = Field(default="", description="제안부서 (양식 칸에만 쓴다)")
     budget: Budget | None = None
 

@@ -1077,6 +1077,12 @@ export interface components {
              */
             differentiation: string;
             /**
+             * Supplement
+             * @description 보충 정보 (보강 질문의 답)
+             * @default
+             */
+            supplement: string;
+            /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
              * @default
@@ -1180,6 +1186,12 @@ export interface components {
              */
             differentiation: string;
             /**
+             * Supplement
+             * @description 보충 정보 (보강 질문의 답)
+             * @default
+             */
+            supplement: string;
+            /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
              * @default
@@ -1191,6 +1203,11 @@ export interface components {
             recommendation_id?: string | null;
             /** Recommendation Index */
             recommendation_index?: number | null;
+            /**
+             * Acknowledged
+             * @default false
+             */
+            acknowledged: boolean;
             /** Priority Evidence */
             priority_evidence?: string[] | null;
         };

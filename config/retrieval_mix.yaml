@@ -1,0 +1,24 @@
+# 근거 구성 규칙 — 자료원이 늘어도(policy·korail_news·statistics·audit·procurement·rnd_notice·ScienceON) 논문·보고서·특허가
+# 밀리지 않게 한 곳에서 정한다 (2026-10-27, 통합 [0]). 설계: docs/architecture.md §4.16.
+# - min_per_source: 전체 검색에서 출처(doc_id 접두어 = source)마다 최소 보장 건수. overlap.yaml evidence_floor 의 값보다 우선.
+# - section_min_per_source: 섹션별 검색(Q3)에서의 출처별 최소 보장.
+# - scholarly: "논문·보고서·특허" 로 묶는 doc_type. 섹션의 min_scholarly 가 이 묶음에서 최소 몇 건을 남길지.
+# - sections.<키>.allow: 그 섹션 프롬프트 [자료] 에 넣을 doc_type. 비어 있거나 섹션이 없으면 전부. 걸러서 0건이면 전부로 되돌린다.
+#   doc_type 을 모르는 청크(옛 스냅샷)는 거르지 않는다.
+# - overlap_exclude: 유사과제 판정(precheck·generate)에서 뺄 doc_type — 정책·보도·통계·감사·공고는 과제가 아니다.
+#   발주 용역(procurement)은 판정에 "용역" 구분으로 들어간다(제외하지 않음).
+min_per_source: 6
+section_min_per_source: 2
+scholarly: [paper, report, patent]
+sections:
+  tech_importance:     {allow: [paper, report, patent, internal_report, rnd_project], min_scholarly: 2}
+  objective:           {allow: [paper, report, patent, internal_report, rnd_project, statistics, table_facts]}
+  method:              {allow: [paper, report, patent, internal_report, rnd_project], min_scholarly: 2}
+  policy_importance:   {allow: [policy, audit, rnd_notice]}     # 입력 전용 섹션 — 자료는 주지 않지만 규칙은 명시
+  strategy_alignment:  {allow: [policy]}
+  expected_management: {allow: [internal_report, rnd_project, statistics, table_facts, paper, report, audit]}
+  expected_technology: {allow: [paper, report, patent, internal_report, rnd_project]}
+  expected_standing:   {allow: [paper, report, patent, internal_report, rnd_project, policy]}
+  utilization:         {allow: [internal_report, rnd_project, paper, report, procurement]}
+  overlap_review:      {allow: [internal_report, rnd_project, procurement, paper, report, patent]}
+overlap_exclude: [policy, korail_news, audit, statistics, table_facts, rnd_notice]

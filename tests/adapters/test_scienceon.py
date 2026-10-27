@@ -354,3 +354,33 @@ async def test_dtd_in_response_is_rejected():
 
     with pytest.raises(XmlResponseError):
         await source_for(Gateway([evil])).search(None, 10)
+
+
+async def test_search_skips_a_target_with_server_error_and_keeps_the_rest():
+    """한 (target, 질의) 의 서버 오류(code=500)는 그 조합만 건너뛴다 — 모은 것은 적재한다."""
+    from rra.adapters.sources.scienceon.client import ScienceOnError, ScienceOnSource
+
+    src = object.__new__(ScienceOnSource)
+    src.targets, src.queries = ["ARTI", "PATENT"], ["철도 궤도", "전차선"]
+    src.per_query_limit, src.row_count, src.max_consecutive_429 = 10, 10, 2
+    calls = []
+
+    async def page(target, q, page_no):
+        calls.append((target, q))
+        if target == "PATENT" and q == "철도 궤도":
+            raise ScienceOnError("ScienceON 오류 (code=500)")
+        return [{"target": target, "CN": f"{target}-{q}"}], 1
+
+    src._page = page
+    rows = await ScienceOnSource.search(src, None, 100)
+    assert [r["CN"] for r in rows] == ["ARTI-철도 궤도", "ARTI-전차선", "PATENT-전차선"]
+    assert len(calls) == 4
+
+    async def always_fail(target, q, page_no):
+        raise ScienceOnError("ScienceON 오류 (code=500)")
+
+    src._page = always_fail
+    import pytest
+
+    with pytest.raises(ScienceOnError, match="code=500"):  # 전부 실패면 첫 오류를 그대로
+        await ScienceOnSource.search(src, None, 100)

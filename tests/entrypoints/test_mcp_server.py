@@ -196,6 +196,7 @@ async def test_generate_then_poll_draft_over_mcp(write_server):
     text = problem["sentences"][0]["text"]  # 구획 위조 무력화: 태그 조각은 저장 때 지워진다
     assert "<doc" not in text and "&lt;doc" not in text and text.startswith("문제")
     assert prior["sentences"][0] == {
+        "sentence_id": "s:prior_work:0",
         "text": "선행",
         "evidence": ["alio:1#0"],
         "origin": "llm",
