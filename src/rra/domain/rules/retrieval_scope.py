@@ -13,8 +13,12 @@ from collections.abc import Iterable
 
 from rra.domain.models import Document
 
-# 유사과제 판정(find_similar)에서 빼는 자료 종류
-OVERLAP_EXCLUDED_DOC_TYPES: frozenset[str] = frozenset({"policy", "korail_news"})
+# 유사과제 판정(find_similar)에서 빼는 자료 종류. [P2] 감사·통계도 과제가 아니다. 발주
+# 용역(procurement)은
+# 남긴다.
+OVERLAP_EXCLUDED_DOC_TYPES: frozenset[str] = frozenset(
+    {"policy", "korail_news", "audit", "statistics"}
+)
 # 정책 근거 추천에 쓰는 자료 종류
 POLICY_DOC_TYPES: frozenset[str] = frozenset({"policy"})
 

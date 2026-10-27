@@ -109,8 +109,8 @@ async def test_full_form_is_done_with_only_expected_warnings(req, repo):
         "알리오 공시 연구보고서 1건, OpenAlex 해외 논문 1건임."
     )
     assert overlap[1] == (
-        "미수집 자료원(사내 과제 현황, NTIS 국가R&D 과제, KIPRIS 국내 특허, KIPRIS 해외 특허)은 "
-        "검토 범위에서 제외됨."
+        "미수집 자료원(사내 과제 현황, NTIS 국가R&D 과제, KIPRIS 국내 특허, KIPRIS 해외 특허, "
+        "나라장터 발주 용역 공고)은 검토 범위에서 제외됨."
     )
     assert "ScienceON" not in overlap[1]  # 적재된 자료원은 미수집으로 쓰지 않는다
     assert "확인되지 않음" in overlap[2]

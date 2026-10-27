@@ -1,0 +1,51 @@
+{
+ "_note": "구성 예시 — 실응답 아님. 필드 이름은 공공데이터포털 '조달청_나라장터 입찰공고정보서비스' 용역 조회 명세 기준이며 키 투입 뒤 tests/tools/record_fixture 로 녹화해 확정한다. 담당자 필드는 넣지 않았다.",
+ "response": {
+  "header": {
+   "resultCode": "00",
+   "resultMsg": "정상"
+  },
+  "body": {
+   "numOfRows": 10,
+   "pageNo": 1,
+   "totalCount": 2,
+   "items": [
+    {
+     "bidNtceNo": "20261015001",
+     "bidNtceOrd": "00",
+     "reNtceYn": "N",
+     "ntceKindNm": "일반",
+     "bidNtceDt": "2026-10-15 10:00:00",
+     "bidNtceNm": "궤도 기하 열화 예측 모델 개발 연구용역",
+     "ntceInsttNm": "한국철도공사",
+     "dminsttNm": "한국철도공사 철도연구원",
+     "bidMethdNm": "전자입찰",
+     "cntrctCnclsMthdNm": "제한경쟁",
+     "bidClseDt": "2026-11-05 14:00:00",
+     "opengDt": "2026-11-05 15:00:00",
+     "ntceSpecDocUrl1": "https://files.example/spec1.hwp",
+     "ntceSpecFileNm1": "과업지시서_궤도기하.hwp",
+     "presmptPrce": "180000000",
+     "bidNtceDtlUrl": "https://www.g2b.go.kr/detail?bidno=20261015001",
+     "srvceDivNm": "기술용역",
+     "ntceInsttOfclNm": "담당자이름",
+     "ntceInsttOfclTelNo": "042-000-0000",
+     "ntceInsttOfclEmailAdrs": "someone@korail.com"
+    },
+    {
+     "bidNtceNo": "20250301002",
+     "bidNtceOrd": "01",
+     "reNtceYn": "Y",
+     "ntceKindNm": "일반",
+     "bidNtceDt": "2025-03-01 09:00:00",
+     "bidNtceNm": "철도 역사 혼잡도 분석 용역",
+     "ntceInsttNm": "서울특별시",
+     "dminsttNm": "서울교통공사",
+     "bidClseDt": "2025-03-20 10:00:00",
+     "presmptPrce": "50000000",
+     "bidNtceDtlUrl": "https://www.g2b.go.kr/detail?bidno=20250301002"
+    }
+   ]
+  }
+ }
+}

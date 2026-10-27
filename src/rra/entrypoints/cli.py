@@ -337,6 +337,7 @@ _STATUS_TEXT = {
     "stopped": "중단",
     "rejected": "미채택 — 보완 재제안 검토",
     "proposed": "제안·검토 중",
+    "procuring": "용역으로 진행 중/예정",  # 발주 용역 공고 (P2-6)
 }
 
 
@@ -907,6 +908,33 @@ def cmd_policy_suggest(args: argparse.Namespace) -> int:
 
 
 # ── crawl (공사 홈페이지 스냅샷) ───────────────────────────
+def cmd_crawl_bai(args: argparse.Namespace) -> int:
+    """`rra crawl bai [--incremental]` — 감사원 감사결과 전문 PDF 스냅샷 (Playwright, 공개 화면
+    조작만)."""
+    from rra.composition import build_bai_crawler, load_settings
+
+    settings = load_settings()
+    try:
+        crawler = build_bai_crawler(settings)
+    except ImportError:
+        _eprint("playwright 가 없습니다: uv pip install playwright && playwright install chromium")
+        return EXIT_USAGE
+
+    report = asyncio.run(crawler.download(incremental=bool(args.incremental)))
+    if args.json:
+        print(json.dumps(asdict(report), ensure_ascii=False, indent=2))
+        return EXIT_OK
+    totals = ", ".join(
+        f"{q} {n if n is not None else '?'}건" for q, n in report.total_by_query.items()
+    )
+    print(
+        f"스냅샷 {report.snapshot}: 항목 {report.items}건(건너뜀 {report.skipped_existing}), "
+        f"파일 {report.files}개 {report.bytes / 1024 / 1024:.1f}MB, 보류 {len(report.held)}, "
+        f"검색 결과 {totals}"
+    )
+    return EXIT_OK
+
+
 def cmd_crawl_korail(args: argparse.Namespace) -> int:
     """`rra crawl korail --explore | --download [--incremental]`. 예약 실행 없음 (사람이 돌린다)."""
     from rra.composition import build_korail_web_crawler, load_settings
@@ -2292,6 +2320,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ck.add_argument("--json", action="store_true")
     ck.set_defaults(handler=cmd_crawl_korail)
+    cb = crawl_sub.add_parser(
+        "bai",
+        help=(
+            "감사원 감사결과 전문 PDF — config/bai.yaml 질의를 Playwright 공개 화면 조작으로 "
+            "(2초 간격, /api/ 직접 호출 없음)"
+        ),
+    )
+    cb.add_argument(
+        "--incremental", action="store_true", help="같은 날 스냅샷에 이미 받은 항목은 건너뛴다"
+    )
+    cb.add_argument("--json", action="store_true")
+    cb.set_defaults(handler=cmd_crawl_bai)
 
     strat = sub.add_parser("strategy", help="전략체계 목록 — 초안 추출·확정")
     strat_sub = strat.add_subparsers(dest="strategy_cmd", required=True)

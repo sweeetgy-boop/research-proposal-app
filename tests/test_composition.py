@@ -558,7 +558,7 @@ async def test_sources_check_covers_kipris():
 
     rows = await build_sources_check(project_settings())()
     by = {r["source"]: r for r in rows}
-    assert set(by) == {"scienceon", "ntis", "kipris"}
+    assert set(by) == {"scienceon", "ntis", "kipris", "g2b"}
     assert by["kipris"]["host_allowed"] and by["kipris"]["roundtrip"] == "skipped"
     assert by["kipris"]["credentials"] == {"RRA_KIPRIS_KEY": False}
 
