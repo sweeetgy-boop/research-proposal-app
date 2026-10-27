@@ -118,21 +118,76 @@ class RecommendationApplyIn(BaseModel):
     index: int = Field(ge=0, le=4)
 
 
+class RewriteApplyIn(BaseModel):
+    """POST /v1/runs/{id}/sections/{key}/rewrite/apply — 고른 후보 문장 번호(없으면 전부)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    chosen: list[int] | None = Field(default=None, max_length=100)
+    base_version: int | None = Field(default=None, ge=1, le=10_000)
+    note: str = Field(default="", max_length=200)
+
+
+class SectionAnswersIn(BaseModel):
+    """POST /v1/runs/{id}/sections/{key}/answers — 보완 질문의 답 {요소: 답} (제안자 입력)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answers: dict[str, str] = Field(default_factory=dict, max_length=20)
+
+
+class FeedbackIn(BaseModel):
+    """POST /v1/runs/{id}/feedback — 만족도 1~5 + 한 줄(200자, 이메일·전화 금지). 마무리 뒤에만."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    score: int = Field(ge=1, le=5)
+    comment: str = Field(default="", max_length=200)
+
+
+class StructureIn(BaseModel):
+    """POST /v1/ideas/structure — 자유 문장(1~2문장) + 가제(선택). 서버는 저장하지 않는다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=2000)
+    title: str = Field(default="", max_length=200)
+
+
+class StructureMergeIn(BaseModel):
+    """POST /v1/ideas/structure/merge — 구조화 결과(fields) + 보완 답(answers) → 합친 4칸 미리보기.
+    LLM 호출 없음."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fields: dict[str, str] = Field(default_factory=dict, max_length=8)
+    answers: dict[str, str] = Field(default_factory=dict, max_length=8)
+
+
 class RunIn(ProposalRequest):
-    """생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 + (선택) 과제 추천 세션 id·번호.
+    """생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 + (선택) 과제 추천 세션 id·번호
+    + (선택) U5 우선 근거 id.
 
     recommendation_id 가 있으면 서버가 그 세션의 추천 결과 전체를 run 의 recommendations.json 에
     복사하고 manifest 에 전송 기록·chosen 을 남긴다. 모르는 id 는 404.
+    priority_evidence 는 브리핑에서 고른 doc_id·chunk_id — 검색 집합 안의 것만
+    snapshot.priority_ids 로.
     """
 
     differentiation_transfer: DifferentiationTransferIn | None = None
     recommendation_id: str | None = Field(default=None, min_length=8, max_length=64)
     recommendation_index: int | None = Field(default=None, ge=0, le=4)
+    priority_evidence: list[str] | None = Field(default=None, max_length=50)
 
     def request(self) -> ProposalRequest:
         return ProposalRequest(
             **self.model_dump(
-                exclude={"differentiation_transfer", "recommendation_id", "recommendation_index"}
+                exclude={
+                    "differentiation_transfer",
+                    "recommendation_id",
+                    "recommendation_index",
+                    "priority_evidence",
+                }
             )
         )
 

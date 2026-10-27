@@ -53,6 +53,12 @@ class FakePromptLibrary:
     def recommend(self) -> str:
         return "RECOMMEND: 추천 0~5건 또는 사유, 자료·입력 안에서만, 한국어, JSON 객체 하나"
 
+    def structure(self) -> str:
+        return "STRUCTURE: 자유 문장 → 필수 4칸, 문장에 없는 칸은 빈 값, 한국어, JSON 객체 하나"
+
+    def brief(self) -> str:
+        return "BRIEF: 구획별 한 줄 요약·연구 공백 후보, 자료 안에서만, 한국어, JSON 객체 하나"
+
 
 class FakeEmbedding:
     dim = 4
@@ -282,6 +288,9 @@ class InMemoryRunStore:
         self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
         self.recommendations: dict[tuple[str, str], dict[str, Any]] = {}
         self.working: dict[tuple[str, str], dict[str, Any]] = {}
+        self.rewrites: dict[tuple[str, str], dict[str, Any]] = {}
+        self.notes: dict[tuple[str, str], dict[str, Any]] = {}
+        self.usage: dict[tuple[str, str], Any] = {}
         self.claimed: set[tuple[str, str]] = set()
         self._seq = 0
 
@@ -361,6 +370,27 @@ class InMemoryRunStore:
 
     def load_recommendations(self, user, run_id):
         return self.recommendations.get(self._key(user, run_id))
+
+    def save_rewrite(self, user, run_id, key, data):
+        self.rewrites.setdefault(self._key(user, run_id), {})[key] = dict(data)
+
+    def load_rewrite(self, user, run_id, key):
+        return self.rewrites.get(self._key(user, run_id), {}).get(key)
+
+    def clear_rewrite(self, user, run_id, key):
+        self.rewrites.get(self._key(user, run_id), {}).pop(key, None)
+
+    def save_notes(self, user, run_id, data):
+        self.notes[self._key(user, run_id)] = dict(data)
+
+    def load_notes(self, user, run_id):
+        return self.notes.get(self._key(user, run_id))
+
+    def save_usage(self, user, run_id, usage):
+        self.usage[self._key(user, run_id)] = usage.model_copy(deep=True)
+
+    def load_usage(self, user, run_id):
+        return self.usage.get(self._key(user, run_id))
 
     def save_review(self, user, run_id, review):
         self.reviews.setdefault(self._key(user, run_id), {})[review.round] = review

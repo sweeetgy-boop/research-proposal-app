@@ -167,6 +167,9 @@ class RetrievalSnapshot(BaseModel):
     uncollected: list[str] | None = None
     # 관련도 하한(domain/rules/relevance.py)에 걸려 근거에서 뺀 청크 id → 이유. 이전 스냅샷은 빈 값
     dropped_chunks: dict[str, str] = Field(default_factory=dict)
+    # U5 제안자가 브리핑에서 고른 우선 근거(doc_id·chunk_id, 검색 집합 안의 것만). 섹션 검색이
+    # 있으면 이 id 의 청크를 앞세운다. 이전 스냅샷은 빈 값
+    priority_ids: list[str] = Field(default_factory=list)
 
     @classmethod
     def of(
