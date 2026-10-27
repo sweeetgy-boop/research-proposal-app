@@ -1,4 +1,4 @@
-# ADR 0015 — 특허 기본 자료원은 ScienceON PATENT, KIPRIS 는 선택 (2026-10-27, 레인 B feat/scienceon-live)
+# ADR 0016 — 특허 기본 자료원은 ScienceON PATENT, KIPRIS 는 선택 (2026-10-27, 레인 B feat/scienceon-live)
 
 **배경** 기획서 기능 3·4(선행기술·차별성)에 국내 특허가 필요하다. KIPRIS Plus 어댑터는 코드만 있고 키·실응답이 없다(P4).
 ScienceON 실연결 과정에서 같은 키로 `target=PATENT` 가 열려 있음을 확인했다.

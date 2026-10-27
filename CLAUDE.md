@@ -134,6 +134,15 @@
   전송 범위는 검토와 동일, `transfer()` → manifest `differentiation`), `ProposalRequest.differentiation` 은 목적·방법·
   특이사항 프롬프트에 `[제안자가 정한 차별화 방향]` 으로 들어간다. 진입점: `rra differentiate`, `POST /v1/precheck/differentiate`,
   MCP `rra_differentiate`(쓰기 서버), Streamlit [차별화 제안 받기]. `rra llm-check` 기본 프롬프트의 `[]` 응답은 의도된 출력.
+- 2026-10-27 오후 일괄(레인 병렬, 조각 파일 규칙은 CONTRIBUTING): **데이터 위치** 모든 실행 데이터는 원 저장소 `data/` 절대 경로
+  (`RRA_DATA_DIR`, `config_loader.resolve_data_dir`·`data_path`·`data_locations`, #42) — worktree 는 데이터를 갖지 않는다.
+  공사 홈페이지 `korail_web`(크롤·첨부·xlsx 시트 본문·내장 이미지 #34·#40), 이미지 판독 `adapters/vision`(거르기·OCR·사진 거르기
+  `domain/rules/photo_filter` #43·병렬 `concurrency` #44·신뢰도 규칙, `rra vision extract|read|sample|ingest`; `sample` 은
+  `--cached-only` 로 — 아니면 캐시 없는 항목을 다시 호출한다), NTIS 4 서비스(`adapters/sources/ntis`, 티어 `national_rnd`, IP 등록 필요,
+  #35), [P2] g2b(키)·bai(Playwright)·datago·mofe(#37), `rnd_notice` KAIA·IRIS 공고(#38), `table_facts`·용어 후보(#36, migration 005),
+  `config/retrieval_mix.yaml`(섹션별 doc_type·최소 보장), reranker 잠금(#41). **브라우저 접속**(#45, ADR 0024): `config/api.yaml`
+  (`public_origin`·`trust_cf_connecting_ip`), `adapters/security/client_ip.py`(CF-Connecting-IP 는 peer 127.0.0.1 일 때만), Origin 검사,
+  cloudflared 설정 초안·`com.rra.tunnel.plist` — 터널·Access 는 사람 작업(`docs/deploy-exposure.md` §5).
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 

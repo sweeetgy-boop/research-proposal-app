@@ -70,10 +70,11 @@
 
 | 항목 | 상태 |
 |---|---|
-| ScienceON 키 | **.env 의 `RRA_SCIENCEON_CLIENT_ID`(64자)·`RRA_SCIENCEON_KEY`(32자) 값이 서로 바뀌어 있음** — 맞바꿔 넣을 것(Mac mini 포함). 실호출·fixture·적재 2,045건은 worktree 사본으로 완료(#25) |
-| **NTIS 서버 IP 변경** — 활용신청 4개 서비스의 서버 IP 를 호출 기기 공인 IP 로(ntis.go.kr 데이터활용 > OpenAPI). 실호출이 전부 `접근 허용 IP가 아닙니다` | 반영 뒤 `rra sources check --source ntis,ntis_reports` → 녹화(SYNTHETIC fixture 교체) → `rra ingest --source ntis --limit 2000 && --source ntis_reports --limit 1500` → 골든셋 01·02 재측정 (`docs/status.d/feat-ntis-live.md`) |
+| ScienceON 키 | 2026-10-27 15:48 사람이 .env 를 맞바꿔 실호출 auth ok(ARTI 1,858·REPORT 370·PATENT 911). Mac mini 의 .env 도 같은 값인지 확인 |
+| **NTIS 서버 IP 반영 확인** — 현재 공인 IP 59.0.251.250 은 `sources.yaml registered_ips` 에 있으나 4개 서비스 실호출이 여전히 `접근 허용 IP가 아닙니다`(17:5x, #46). NTIS 활용신청의 서비스별 서버 IP 반영 여부·실제 송신 IP 를 확인(콜센터 042-865-1115) | 반영 뒤 `rra sources check --source ntis,ntis_reports,ntis_insights` → 녹화(SYNTHETIC fixture 교체) → `rra ingest --source ntis --limit 2000 && rra ingest --source ntis_reports --limit 1500` → 골든셋 01·02 재측정 (`docs/status.d/feat-ntis-live.md`) |
 | KIPRIS API 키 → 실응답 녹화 → FIELDS·record_tag 확정 | 대기. 특허는 ScienceON PATENT 가 기본(ADR 0016)이라 선택 |
 | `RRA_DATA_GO_KR_KEY` (나라장터 입찰공고정보서비스, 공공데이터포털 자동승인) | 대기 — 반영 뒤 `rra sources check --source g2b` → 녹화 → `rra ingest --source g2b` (`docs/status.d/feat-policy-sources.md`) |
+| `.env RRA_DATA_DIR` | `RRA_DATA_DIR=/Users/chan/projects/research-proposal-app/data` 명시 권장(Mac mini 는 그 경로). 기본값도 원 저장소 data/ 를 찾는다(#42) |
 | 감사원 수집용 Playwright | `uv pip install playwright && .venv/bin/playwright install chromium` (선택 의존성, pyproject 미추가) |
 | 용어 후보 검토 (`config/*.candidates.yaml`, 미커밋) | `rra terms candidates` 결과를 보고 generic_terms 만 overlap.yaml 에 옮길지 결정 — 자동 반영 없음(이슈 #11 댓글) |
 | 전략체계 초안 → 확정 (`rra strategy promote`, `config/strategy.yaml source: draft`) | 초안 `korail_strategy.draft.yaml`(5 방향·15 과제, 출처 주석) 확인 뒤 사람이 실행 |
@@ -82,7 +83,7 @@
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
 | 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
 | `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
-| 운영 공개 방식(Tailscale/Cloudflare) 결정 | 보류(#14 댓글): 시범(팀 3명) Tailscale / 확대(사내·산학연) Cloudflare Access 검토, 공사 정보보안 규정 확인 후 결정 |
+| 운영 공개 방식 | 시범 결정: Cloudflare Tunnel + Access + 앱 로그인(ADR 0024, #45). 막힌 점: ai-edu-lab.co.kr DNS 가 Gabia → 존 이전 또는 Tailscale 대체(`docs/deploy-exposure.md` §5). 터널·Access 는 사람 작업 |
 
 ### 3.3 나중 (P7, 이슈만)
 
@@ -186,5 +187,9 @@ main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기�
 | 표 구조화·용어 후보 [F] | table_facts(migration 005, `rra facts extract|search`, `GET /v1/facts`) 로 수치 lint 가 인용 문서의 표 칸을 근거로 인정; `rra terms candidates` 는 후보 파일만(자동 반영 없음, 이슈 #11)(#36). xlsx·xls 첨부는 시트 본문으로 적재(#40) | ADR 0022, `docs/status.d/feat-table-facts-terms.md` |
 | R&D 공고 [G] | `rnd_notice`(KAIA 주·IRIS 보조, 공고 99건), 마감일=valid_until, 담당자 PII 제거, `rra notices match`·`POST /v1/ideas/notices`, 정책 근거 후보에 포함·유사과제 판정 제외(#38). NTIS 공고는 robots 금지 | ADR 0023, `docs/status.d/feat-rnd-notice.md` |
 | 첨부 내장 이미지 [P3] | HWPX·HWP·PDF·PPTX·XLSX 내장 이미지를 격리 워커로 추출(같은 해시 하나, 원본 위치 메타, brochure 순서 그룹)(#34) — 판독 대상 196장 → 4,003장(Argon 2,000 + OCR 2,003) | `docs/overnight-2026-10-27.md` 15:27 |
+| 데이터 위치 고정 | 모든 실행 데이터(DB·스냅샷·캐시·inbox·eval·bench·backups)는 원 저장소 `data/` 절대 경로(`RRA_DATA_DIR`, 기본값은 git common dir 의 부모/data) — 레인 worktree 는 데이터를 갖지 않는다(#42). 계기: worktree 삭제로 미커밋 스냅샷 손실 → 재수집 | CONTRIBUTING "데이터 위치", `docs/status.d/feat-data-dir.md` |
+| 사진 거르기·병렬 판독 [P3] | Argon 전 OCR 결과로 사진 제외(글자 < 20·숫자/도형 신호 없음·줄 ≤ 2, 전략·ESG·통계 그룹 면제)(#43) → 4,003장 중 사진 1,570·Argon 2,000·OCR 만 364(캐시 69). 판독 병렬 4(#44) 로 분당 8 → 29장. 실판독 17:40 종료: 성공 1,903·실패 166(OCR 텍스트만)·미확인 수치 2,414. 사진 표본 30장 `docs/ocr-sample/excluded/photo_sample.json` | `docs/overnight-2026-10-27.md` 17:43, `docs/status.d/feat-photo-filter.md` |
+| 브라우저 접속 준비 [W] | `config/api.yaml`(public_origin·trust_cf_connecting_ip), 쿠키 Secure·Origin 검사·`client_ip`·이메일 해시 로그, cloudflared 설정 초안·`com.rra.tunnel.plist`·절차(#45). **터널 미기동·Access 미확인** — DNS 가 Gabia(Cloudflare 아님)·cloudflared 미설치 → 사람 6단계 또는 Tailscale 대체 | ADR 0024, `docs/deploy-exposure.md` §5, `docs/status.d/feat-tunnel.md` |
 
+| 자료원 IP 확인 [I] | `sources.yaml` 자료원별 `ip_restricted`·`registered_ips`(NTIS 2개), `rra sources check` 가 공인 IP(api.ipify.org) 를 대조해 "현재 IP … 등록 IP 에 없습니다" 안내, IP 거부 응답은 그 자료원만 건너뜀(ingest·사전 점검 NTIS 성과) + 웹 `/sources`·`rra sources status` 안내(#46). 실호출: ScienceON ok, NTIS 는 현재 IP 59.0.251.250 이 목록에 있어도 거부 → NTIS 쪽 반영 확인 | ADR 0025, `docs/status.d/feat-source-ip.md` |
 보류·미착수: g2b 실호출(키)·NTIS 적재(IP)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).

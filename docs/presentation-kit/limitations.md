@@ -2,18 +2,19 @@
 
 | 항목 | 현재 | 다음 |
 |---|---|---|
-| 외부 자료원 | OpenAlex 2,482 + ScienceON 2,045(논문·보고서·특허) 실적재. NTIS·KIPRIS 는 코드만(키 대기; 특허는 ScienceON 기본) | NTIS 키 투입 → fixture 녹화 |
+| 외부 자료원 | OpenAlex 2,482 + ScienceON 2,045(논문·보고서·특허) 실적재. NTIS 4 서비스는 코드·합성 fixture 완료, 실호출은 서버 IP 등록 대기(#35·`rra sources check` 가 현재 IP 를 등록 목록과 대조). KIPRIS 는 선택(특허는 ScienceON 기본). 공공 자료원 bai·datago·mofe·rnd_notice 추가(#37·#38), 나라장터 g2b 는 키 대기 | NTIS IP 등록 → 녹화 → 적재 |
 | 사내 자료 | 엑셀 4개(1,119)·공시 요약 120. 원문 비공개 보고서는 공개 요약 경로만 | 원문 공시 파일·카탈로그 CSV 투입 |
 | 전략체계 목록 | 홈페이지 자료로 만든 초안(5 방향·15 과제, 출처 주석)을 "초안(확인 전)" 으로 사용 중 | 확인 뒤 `rra strategy promote` |
 | 공고문 | `data/inbox/notice/` 비어 있음(이슈 #13) | 투입 뒤 반영 |
 | 유사도 분포 | e5 가 한국어 문서끼리 0.80 위로 압축 — 키워드 조건 + reranker(기본 켬, 순위 1.7→1.4) | 표본 쌓인 뒤 임계치·self_overlap exclude 재검토(#12) |
 | Argon 점수 편차 | 같은 입력도 run 마다 ±1 | 로컬 지표 우선, 골든셋 확대([4])로 표본 확보 |
 | 자동 반영의 범위 | 검증 통과 수정안·추가 문장만. 의견은 메모 | 제안자가 메모를 처리하는 UI 흐름 개선 |
-| 운영 | Mac mini 실제 등록·타 제안자 시연 미실시, 공개 방식 미결정(#14) | 결정 뒤 Tailscale 또는 Cloudflare |
+| 운영 | 시범 공개 방식은 Cloudflare Tunnel + Access + 앱 로그인(ADR 0024, #45)으로 결정·코드 반영. 터널·Access 는 DNS(Gabia) 이전 또는 Tailscale 대체를 사람이 선택한 뒤 기동 | 사람 작업 6단계(`docs/status.d/feat-tunnel.md`) → 시범 3명 |
 | 평가 | 골든셋 10건·`rra eval`. 로컬 모델 JSON 실패(7B)로 run 이 invalid 되는 일이 남아 있음(관용 파싱·재요청 축소·칸 자르기로 완화) | 심사 결과 피드백 루프(#10), 더 큰 로컬 모델 검토 |
 | 웹 | 구현 완료(#23·#30). 로그인 뒤 화면 Lighthouse 는 세션 게이트로 미측정(/login 100) | 동료 아이디 CODEOWNERS 등록, 로그인 뒤 측정 방법 |
-| 용어사전 | 없음(#11) | 반자동 확장 |
+| 용어사전 | 후보 파일만 생성(`rra terms candidates`, #36) — 자동 반영 없음 | 사람이 후보를 보고 overlap.yaml 반영(#11) |
+| 데이터 위치 | 모든 실행 데이터는 원 저장소 `data/` 절대 경로(`RRA_DATA_DIR`, #42) — worktree 삭제로 스냅샷을 잃은 뒤 고정 | Mac mini .env 에 명시 |
 
 "대화 기록 기준, 미검증" 표시가 붙은 배경 메모(팀 구성·54초·DRM 등)는 저장소에 근거가 없으므로 발표에서 수치로 쓰지 않는다.
 | 공사 홈페이지 자료 | www.korail.com(SPA·봇 보호)은 수집하지 않음, info.korail.com 스냅샷(보도자료 5년, 50MB 초과 13건 보류). 감사원·발주 용역·안전 통계는 보류 | 사람이 범위 확인 뒤 증분 수집(`rra crawl korail --incremental`) |
-| 이미지 판독 | Argon 수치는 OCR 교집합만 근거. 리눅스에는 OCR 없음(macOS Vision) | 판독 견본(docs/ocr-sample) 확인 |
+| 이미지 판독 | 첨부 내장 이미지 포함 4,450장 → 거르기 447 제외 → OCR 4,003 → 사진 1,570 제외 → Argon 2,000(성공 1,903·실패 166 은 OCR 텍스트만)·OCR 만 364. Argon 수치는 OCR 교집합만 근거(미확인 수치 2,414). 리눅스에는 OCR 없음(macOS Vision) | 판독 견본(docs/ocr-sample)·사진 표본 30장 확인, 실패분은 다음 상한에서 재시도 |
