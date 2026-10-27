@@ -62,6 +62,41 @@ def input_limits(settings: Settings) -> dict[str, Any]:
     return security_config(settings).get("input_limits") or {}
 
 
+API_CONFIG_FILE = "api.yaml"
+API_CONFIG_KEYS = ("public_origin", "trust_cf_connecting_ip")
+
+
+def api_config(settings: Settings) -> dict[str, Any]:
+    """config/api.yaml → {"public_origin": str, "trust_cf_connecting_ip": bool} (보안 G).
+
+    파일이 없으면 public_origin "" · trust_cf_connecting_ip False. 모르는 키는 오류.
+    public_origin 은 `https://host[:port]` 만(경로·쿼리 없음, 끝 슬래시 제거) — 공개 주소는
+    항상 TLS 종단(역프록시) 뒤에 있어야 한다.
+    """
+    from urllib.parse import urlsplit
+
+    raw = read_config(API_CONFIG_FILE, settings) or {}
+    unknown = set(raw) - set(API_CONFIG_KEYS)
+    if unknown:
+        raise ValueError(f"config/{API_CONFIG_FILE} 에 모르는 키: {sorted(unknown)}")
+    origin = str(raw.get("public_origin") or "").strip().rstrip("/")
+    if origin:
+        parts = urlsplit(origin)
+        extra = parts.path or parts.query or parts.fragment
+        if parts.scheme != "https" or not parts.netloc or extra:
+            raise ValueError(
+                f"config/{API_CONFIG_FILE} public_origin 은 https://호스트 형식이어야 합니다: "
+                f"{origin!r}"
+            )
+        origin = f"https://{parts.netloc.lower()}"
+    trust = raw.get("trust_cf_connecting_ip", False)
+    if not isinstance(trust, bool):
+        raise ValueError(
+            f"config/{API_CONFIG_FILE} trust_cf_connecting_ip 는 true/false 여야 합니다."
+        )
+    return {"public_origin": origin, "trust_cf_connecting_ip": trust}
+
+
 def retention_days(settings: Settings, default: int = 180) -> int:
     """I. runs/ 보존 기간 (security.yaml retention_days). 0 이하는 거부."""
     days = int(security_config(settings).get("retention_days", default))

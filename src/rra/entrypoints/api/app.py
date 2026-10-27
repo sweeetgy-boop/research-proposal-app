@@ -135,6 +135,14 @@ def problem_response(
     )
 
 
+def _origin_host(origin: str) -> str:
+    """`https://host[:port]` → `host[:port]` 소문자. 비어 있으면 ""."""
+    from urllib.parse import urlsplit
+
+    value = (origin or "").strip()
+    return urlsplit(value).netloc.lower() if value else ""
+
+
 class SessionAuth:
     """POST/DELETE /v1/session 이 쓰는 토큰 검사·세션 저장소. 조립이 넘긴다 (adapters/security)."""
 
@@ -233,6 +241,7 @@ def create_app(
     brief: Any | None = None,
     on_shutdown: Callable[[], Any] | None = None,
     session_auth: SessionAuth | None = None,
+    public_origin: str = "",
     static_dir: Path | None = None,
     sse_poll_sec: float = 1.0,
     fake_mode: bool = False,
@@ -296,21 +305,27 @@ def create_app(
         return {"status": "ok"}
 
     # ── 세션 ────────────────────────────────────────────
+    public_host = _origin_host(public_origin)
+
     @app.post(f"/{API_VERSION}/session")
     async def session_login(body: SessionIn, request: Request) -> JSONResponse:
-        """토큰 → httpOnly·SameSite=Strict 세션 쿠키 + CSRF 토큰. 토큰은 본문으로만."""
+        """토큰 → httpOnly·SameSite=Strict 세션 쿠키 + CSRF 토큰. 토큰은 본문으로만.
+
+        Secure: https 요청이거나 요청 Host 가 public_origin(역프록시 공개 주소)일 때.
+        """
         if session_auth is None or not session_auth.token_ok(body.token):
             raise HTTPException(
                 401, "인증 토큰이 맞지 않습니다.", headers={"www-authenticate": "Bearer"}
             )
         session = session_auth.sessions.create()
         response = JSONResponse({"csrf": session.csrf, "expires_in": session_auth.sessions.ttl})
+        host = (request.headers.get("host") or "").strip().lower()
         response.set_cookie(
             "rra_session",
             session.id,
             httponly=True,
             samesite="strict",
-            secure=request.url.scheme == "https",
+            secure=request.url.scheme == "https" or (bool(public_host) and host == public_host),
             path="/",
             max_age=session_auth.sessions.ttl,
         )
