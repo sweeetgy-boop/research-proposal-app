@@ -7,6 +7,11 @@
 #   doc_type 을 모르는 청크(옛 스냅샷)는 거르지 않는다.
 # - overlap_exclude: 유사과제 판정(precheck·generate)에서 뺄 doc_type — 정책·보도·통계·감사·공고는 과제가 아니다.
 #   발주 용역(procurement)은 판정에 "용역" 구분으로 들어간다(제외하지 않음).
+# - NTIS(2026-10-27 레인 N, ADR 0020): 과제검색은 doc_type rnd_project(raw.kind national_rnd), 연구보고서는 report(raw.kind
+#   national_rnd_report). doc_id 접두어 ntis 라 min_per_source(6) 가 그대로 최소 보장이 된다(요청 최소 2 이상). report 는 scholarly 에
+#   이미 들어 있어 ScienceON 보고서와 같은 "보고서" 범주로 센다. 유사과제 판정에는 티어 national_rnd 로 들어간다(overlap_exclude 아님).
+#   국가R&D 과제 요약(연구목표·내용·기대효과)을 필요성·기대효과 본문 근거에서 빼는 규칙은 doc_type 만으로는 own 과제(rnd_project)와
+#   구분되지 않아 보류 — raw.kind 별 허용은 후속(적재 뒤 골든셋 01·02 근거 구성으로 판단). 성과·추천은 화면 전용, 검색 집합에 없다.
 min_per_source: 6
 section_min_per_source: 2
 scholarly: [paper, report, patent]

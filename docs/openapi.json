@@ -134,6 +134,47 @@
         }
       }
     },
+    "/v1/precheck/ntis-outcomes": {
+      "post": {
+        "summary": "Ntis Outcomes Route",
+        "description": "② NTIS 부가 조회 — 유사과제 알림의 NTIS 과제(상위 3건) 주요 성과(참고용) + 연관 과제\n추천(우리 검색에\n없던 것만 `ntis_recommended`). 캐시(과제번호)·호출 간격은 어댑터. 키가 없으면 503.",
+        "operationId": "ntis_outcomes_route_v1_precheck_ntis_outcomes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Ntis Outcomes Route V1 Precheck Ntis Outcomes Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/ideas/policy-suggestions": {
       "post": {
         "summary": "Policy Suggestions Route",

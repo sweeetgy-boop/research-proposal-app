@@ -130,3 +130,41 @@ def test_without_keyword_rule_similarity_alone_decides(own):
 def test_keywords_below_threshold_do_not_block(own):
     (alert,) = judge([(ASSET_DOC, 0.70)], own=own, query=ASSET, keywords=RULE)
     assert not alert.blocking and alert.keywords  # 키워드는 보여 주되 임계치 미달
+
+
+# ── 국가R&D 과제 티어 (NTIS, 2026-10-27) ─────────────────────
+def _ntis(doc_type="rnd_project", orgs=("korail",), department=None):
+    from rra.domain.models import Document
+
+    return Document(
+        doc_id="ntis:1415171234",
+        source="ntis",
+        doc_type=doc_type,
+        title="t",
+        orgs=list(orgs),
+        department=department,
+    )
+
+
+def test_ntis_projects_are_national_rnd_regardless_of_agency(own):
+    assert tier_of(_ntis(), own) == "national_rnd"
+    assert tier_of(_ntis(orgs=("krri",)), own) == "national_rnd"
+    assert tier_of(_ntis(orgs=()), own) == "national_rnd"
+    assert tier_of(_ntis()) == "national_rnd"  # own 기준 없어도
+
+
+def test_ntis_own_department_still_wins_and_reports_are_not_national_rnd(own):
+    assert (
+        tier_of(_ntis(department="철도연구원"), own) == "own"
+    )  # 부서가 있으면(미래 필드) own 이 우선
+    assert tier_of(_ntis(doc_type="report"), own) == "domestic_rail"  # 보고서는 기관 태그로
+
+
+def test_national_rnd_threshold_and_label(own):
+    from rra.domain.rules.overlap import DEFAULT_THRESHOLDS, no_overlap_statement, tier_label
+
+    assert DEFAULT_THRESHOLDS["national_rnd"] == DEFAULT_THRESHOLDS["own"] == 0.80
+    (alert,) = judge([(_ntis(), 0.81)], own=own)
+    assert alert.tier == "national_rnd" and alert.blocking and alert.own_detail is None
+    assert tier_label("national_rnd") == "국가R&D 과제"
+    assert "국가R&D 과제 0.80" in no_overlap_statement({"ntis": 3}, [])[-1]

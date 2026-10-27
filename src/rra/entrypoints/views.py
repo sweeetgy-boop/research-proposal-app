@@ -411,6 +411,57 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
     }
 
 
+def ntis_insights_payload(insights: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """NtisInsights → dict (REST). 제목·성과는 NTIS API 출력(비신뢰) → clean. 양식 본문 근거로 쓰지
+    않는다.
+
+    프론트엔드 영향: ② 과제 카드의 "주요 성과"(projects[].outcomes) 와 "NTIS
+    추천"(ntis_recommended)."""
+    return {
+        "projects": [
+            {
+                "project_no": p.project_no,
+                "doc_id": p.doc_id,
+                "title": clean(p.title),
+                "tier": p.tier,
+                "tier_label": tier_label(p.tier),
+                "similarity": round(p.similarity, 4),
+                "blocking": p.blocking,
+                "cached": p.cached,
+                "error": p.error,
+                "outcomes": [
+                    {
+                        "kind": o.kind,
+                        "title": clean(o.title),
+                        "year": o.year,
+                        "venue": clean(o.venue) if o.venue else None,
+                        "result_id": o.result_id,
+                        "registration_no": o.registration_no,
+                    }
+                    for o in p.outcomes
+                ],
+            }
+            for p in insights.projects
+        ],
+        "ntis_recommended": [
+            {
+                "project_no": r.project_no,
+                "title": clean(r.title),
+                "url": NTIS_PROJECT_URL.format(project_no=r.project_no),
+                "score": r.score,
+                "rank": r.rank,
+                "source_project_no": r.source_project_no,
+            }
+            for r in insights.recommended
+        ],
+    }
+
+
+# NTIS 과제 상세 페이지 — 공개 사이트 경로 (실호출 뒤 확인). 수집 Document 에는 넣지 않는다 (검증 안
+# 된 링크)
+NTIS_PROJECT_URL = "https://www.ntis.go.kr/project/pjtInfo.do?pjtId={project_no}"
+
+
 def differentiation_payload(
     proposal: Any, *, clean: Callable[[str], str] = _same
 ) -> dict[str, Any]:

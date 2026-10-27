@@ -56,13 +56,19 @@ def flatten(el: Any) -> dict[str, str]:
         for child in node:
             name = child.get("metaCode") or local(child.tag)
             key = f"{prefix}/{name}" if prefix else name
-            if len(child):
+            if len(child) and not _only_highlights(child):
                 walk(child, key)
             else:
                 put(key, text(child))
 
     walk(el, "")
     return out
+
+
+def _only_highlights(el: Any) -> bool:
+    """자식이 전부 검색어 강조 `<span>` 이면 잎으로 본다 (NTIS 는 `<span class="search_word">` 를
+    텍스트 안에 그대로 돌려준다 — 하위 요소로 내려가면 강조어 뒤 꼬리 텍스트가 사라진다)."""
+    return all(local(c.tag) == "span" for c in el)
 
 
 def find_records(root: Any, record_tag: str | None = None) -> list[Any]:

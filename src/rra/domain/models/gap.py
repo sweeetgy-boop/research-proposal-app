@@ -6,9 +6,8 @@ from pydantic import BaseModel, Field
 
 from .document import TextBasis
 
-Tier = Literal[
-    "own", "domestic_rail", "external"
-]  # 사내(철도연구원·공사 과제 기록) / 공단 등 / KRRI·외부
+Tier = Literal["own", "national_rnd", "domestic_rail", "external"]
+# 사내(철도연구원·공사 과제 기록) / 국가R&D 과제(NTIS 과제검색, 수행기관 무관) / 공단 등 / KRRI·외부
 # own 티어의 세부 구분 — institute: 철도연구원 부서, company: 그 외 공사 부서(사내 과제 기록 출처)
 OwnDetail = Literal["institute", "company"]
 

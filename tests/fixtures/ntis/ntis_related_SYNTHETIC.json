@@ -1,0 +1,7 @@
+{"exist": true, "PJT_ID": "1415171234", "KOR_PJT_NM": "철도 궤도 틀림 상시 감시 기술 개발",
+ "items": [
+  {"rank": 1, "similarity_score": 0.91, "PJT_ID": "1415199001", "KOR_PJT_NM": "궤도 검측 데이터 기반 유지보수 의사결정", "creat_dt": "2026-01-01"},
+  {"rank": 2, "similarity_score": 0.84, "PJT_ID": "1711185678", "KOR_PJT_NM": "고속철도 전차선 마모 예측 모델", "creat_dt": "2026-01-01"},
+  {"rank": 3, "similarity_score": 0.80, "PJT_ID": "1415171234", "KOR_PJT_NM": "자기 자신", "creat_dt": "2026-01-01"},
+  {"rank": 4, "similarity_score": 0.70, "PJT_ID": "../bad", "KOR_PJT_NM": "형식 오류 과제번호", "creat_dt": "2026-01-01"}
+ ]}
