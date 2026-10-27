@@ -23,10 +23,20 @@ import json
 import os
 import signal
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
 
+import rra
+
 WORKER_MODULE = "rra.adapters.sources._worker"
+# `-I` 는 PYTHONPATH·사용자 site 를 무시하므로, 자식이 부모와 같은 패키지 트리(편집 설치·워크트리)를
+# 쓰도록
+# 부모의 패키지 루트를 sys.path 맨 앞에 넣고 워커 모듈을 띄운다. 루트는 우리 패키지 위치에서만 온다.
+_BOOTSTRAP = (
+    "import sys, runpy; sys.path.insert(0, sys.argv.pop(1)); "
+    "runpy.run_module(sys.argv.pop(1), run_name='__main__', alter_sys=True)"
+)
 EXIT_MEMORY = 86  # 자식이 MemoryError 를 만나면 이 코드로 끝낸다
 EXIT_INPUT = 87  # 입력이 상한을 넘음
 POLL_SEC = 0.05
@@ -76,6 +86,9 @@ class SandboxLimits:
     max_text_chars: int = 5_000_000
     max_csv_rows: int = 200_000
     test_mode: bool = False  # tests/ 전용 가짜 파서(_test_*) 허용
+    extra: dict[str, Any] = field(
+        default_factory=dict
+    )  # 파서별 추가 상한 (예: OCR max_pixels·languages)
 
     @classmethod
     def from_security_config(cls, security: dict[str, Any]) -> SandboxLimits:
@@ -98,6 +111,11 @@ def child_env() -> dict[str, str]:
     return {"LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PATH": os.defpath}
 
 
+def package_root() -> str:
+    """부모가 import 한 rra 패키지의 상위 폴더 (src/ 또는 site-packages)."""
+    return str(Path(rra.__file__).resolve().parent.parent)
+
+
 async def run_parser(fd: int, fmt: str, limits: SandboxLimits) -> dict[str, Any]:
     """fd(읽기 위치 0)를 자식 파서에 넘기고 결과 dict 를 돌려준다."""
     if not fmt.replace("_", "").isalnum():
@@ -105,7 +123,9 @@ async def run_parser(fd: int, fmt: str, limits: SandboxLimits) -> dict[str, Any]
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
         "-I",
-        "-m",
+        "-c",
+        _BOOTSTRAP,
+        package_root(),
         WORKER_MODULE,
         fmt,
         limits.to_json(),

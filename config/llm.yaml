@@ -19,6 +19,9 @@ providers:
     json_mode: auto
     # 추론 노력 low|medium|high (none 금지). thinking_level 과 동시 전송 금지 — 어댑터가 거부한다.
     reasoning_effort: low
+    # 프로세스 내 공유 호출 제한기 (adapters/llm/rate_limiter): 같은 provider 의 모든 단계(검토·차별화·추천·판독)가
+    # 하나를 쓴다. 동시 요청 수·분당 시작 수·429 지수 백오프(Retry-After 우선). 프로세스 간 제한은 통합 세션 큐.
+    rate: {concurrency: 4, per_minute: 60}
   openai:
     base_url: https://api.openai.com/v1
     model: gpt-4o-mini
@@ -86,6 +89,8 @@ stages:
   differentiate: {provider: gemini, max_tokens: 2000}
   # 차별화 과제 추천(ADR 0012) = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
   recommend: {provider: gemini, max_tokens: 3000}
+  # 이미지 판독(P3, config/vision.yaml) = Gemini 이미지 입력. 키 없으면 OCR 만 (rra vision read)
+  vision: {provider: gemini, max_tokens: 3000}
   # U5 선행연구 브리핑 = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
   brief: {provider: gemini, max_tokens: 2500}
 
