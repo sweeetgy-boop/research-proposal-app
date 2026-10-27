@@ -389,6 +389,26 @@ def policy_suggestions_payload(
     ]
 
 
+def notice_matches_payload(
+    matches: list[Any], *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """공고문 대조(#13 선행) — 접수 중인 공고 상위 3건. 제안서에 자동 삽입 없음."""
+    return [
+        {
+            "doc_id": m.doc_id,
+            "title": clean(m.title),
+            "agency": clean(m.agency) if m.agency else None,
+            "program": clean(m.program) if m.program else None,
+            "posted": m.posted.isoformat() if m.posted else None,
+            "deadline": m.deadline.isoformat() if m.deadline else None,
+            "days_left": m.days_left,
+            "url": m.url,
+            "similarity": m.similarity,
+        }
+        for m in matches
+    ]
+
+
 def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
     """유사과제 경보 목록 → 출력용 dict (MCP·REST 공용). 제목은 수집 문서에서 온 비신뢰 텍스트."""
     return {

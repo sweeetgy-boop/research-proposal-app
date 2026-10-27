@@ -179,17 +179,19 @@ SOURCE_LABELS: dict[str, str] = {
     "kipris_intl": "KIPRIS 해외 특허",
     "korail_web": "공사 홈페이지 정책·보도자료",
     "molit": "국토교통부 철도 계획·정책",
+    "rnd_notice": "국토교통 R&D 사업공고(KAIA·IRIS)",
     "g2b": "나라장터 발주 용역 공고",
     "bai": "감사원 감사결과",
     "mofe": "기획재정부 공공기관 경영평가",
     "datago": "공공데이터포털 철도 통계",
 }
 ALL_SOURCES: tuple[str, ...] = tuple(get_args(SourceType))
-# 유사과제 판정에 쓰지 않는 자료원 — 검토 범위·미수집 문장에 넣지 않는다 (정책·보도자료·감사·통계는
-# 근거
-# 전용).
-# g2b(발주 용역 공고)는 판정에 들어간다(procurement 티어).
-NON_OVERLAP_SOURCES: frozenset[str] = frozenset({"korail_web", "molit", "bai", "mofe", "datago"})
+# 유사과제 판정에 쓰지 않는 자료원 — 검토 범위·미수집 문장에 넣지 않는다
+# (정책·보도자료·공고·감사·통계는 근거 전용). g2b(발주 용역 공고)는 판정에 들어간다
+# (procurement 티어).
+NON_OVERLAP_SOURCES: frozenset[str] = frozenset(
+    {"korail_web", "molit", "rnd_notice", "bai", "mofe", "datago"}
+)
 OVERLAP_SOURCES: tuple[str, ...] = tuple(s for s in ALL_SOURCES if s not in NON_OVERLAP_SOURCES)
 
 

@@ -15,6 +15,7 @@ SourceType = Literal[
     "own",
     "korail_web",
     "molit",
+    "rnd_notice",
     "g2b",  # 나라장터 입찰공고 API(발주 연구용역, P2-6)
     "bai",  # 감사원 감사결과 전문(P2-4)
     "mofe",  # 기획재정부 공공기관 경영평가 결과 보도자료(P2-5)
@@ -23,6 +24,8 @@ SourceType = Literal[
 # policy=공사 경영목표·전략·ESG·정책 자료(정책적 중요도·경영전략 정합성 근거),
 # korail_news=보도자료(특이사항·현황 보조). 둘 다 기술적 중요도 근거·유사과제 판정에는 쓰지 않는다
 # (domain/rules/retrieval_scope.py). web_page=웹 페이지 이미지 판독 결과 문서(P3).
+# rnd_notice=정부 R&D 사업공고·RFP(KAIA·IRIS, P2-7): 정책 근거 추천·공고문 대조(#13)에만.
+# valid_until=접수 마감일.
 # [P2] statistics=철도 안전·수송 통계 표(현황·필요성·기대효과 수치), audit=감사원 감사결과·경영평가
 # 지적(정책적
 # 중요도·
@@ -38,6 +41,7 @@ DocType = Literal[
     "policy",
     "korail_news",
     "web_page",
+    "rnd_notice",
     "statistics",
     "audit",
     "procurement",

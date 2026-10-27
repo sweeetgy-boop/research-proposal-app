@@ -72,7 +72,7 @@ async def test_suggests_only_policy_documents_from_korail_web():
     assert s.quote == "차량·철도시설 상태기반의 유지보수체계 확립." and "유지보수" in s.keywords
     assert s.menu_path.startswith("ESG경영")
     call = next(c for c in repo.calls if c[0] == "hybrid_search")
-    assert call[1]["sources"] == ["korail_web", "molit"] and call[1]["k"] == 30
+    assert call[1]["sources"] == ["korail_web", "molit", "rnd_notice"] and call[1]["k"] == 30
 
 
 async def test_empty_when_nothing_ingested():

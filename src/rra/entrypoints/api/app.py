@@ -78,6 +78,7 @@ from rra.entrypoints.views import (
     draft_payload,
     evidence_items_payload,
     facts_payload,
+    notice_matches_payload,
     ntis_insights_payload,
     policy_suggestions_payload,
     recommendation_preview_payload,
@@ -237,6 +238,8 @@ def create_app(
     fake_mode: bool = False,
     snapshot_status: Callable[[], dict[str, Any]] | None = None,
     policy_suggest: Any | None = None,
+    notice_match: Any | None = None,
+    notice_snapshot_status: Callable[[], dict[str, Any]] | None = None,
     ntis_insights: Any | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api()."""
@@ -345,6 +348,17 @@ def create_app(
                         if snap.get("snapshot")
                         else "공사 홈페이지 자료: 스냅샷 없음"
                     )
+        if notice_snapshot_status is not None:  # 정부 R&D 공고: <수집일> 기준 스냅샷 (P2-7)
+            snap = notice_snapshot_status()
+            for row in rows:
+                if row["source"] == "rnd_notice":
+                    row["snapshot"] = snap.get("snapshot")
+                    row["snapshot_items"] = int(snap.get("items") or 0)
+                    row["snapshot_label"] = (
+                        f"정부 R&D 공고: {snap['snapshot']} 기준 스냅샷"
+                        if snap.get("snapshot")
+                        else "정부 R&D 공고: 스냅샷 없음"
+                    )
         return {"sources": rows}
 
     recommendation_sessions = RecommendationSessions()
@@ -390,6 +404,20 @@ def create_app(
             "notice": UNTRUSTED_NOTICE,
             "suggestions": policy_suggestions_payload(suggestions, clean=_clean),
             "count": len(suggestions),
+        }
+
+    @app.post(f"/{API_VERSION}/ideas/notices")
+    async def notice_matches_route(req: ProposalRequest) -> dict[str, Any]:
+        """공고문 대조(#13 선행, P2-7) — 접수 중인 정부 R&D 공고 상위 3건.
+
+        LLM 없음, 자동 삽입 없음."""
+        if notice_match is None:
+            raise HTTPException(503, "공고문 대조가 꺼져 있습니다.")
+        matches = await notice_match(req)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            "items": notice_matches_payload(matches, clean=_clean),
+            "count": len(matches),
         }
 
     @app.post(f"/{API_VERSION}/precheck/clarify")

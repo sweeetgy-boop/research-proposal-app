@@ -907,6 +907,83 @@ def cmd_policy_suggest(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── notices match (공고문 대조, #13 선행) ─────────────────
+def cmd_notices_match(args: argparse.Namespace) -> int:
+    """① 입력 → 접수 중인 정부 R&D 공고 상위 3건 (LLM 없음, 자동 삽입 없음)."""
+    from rra.composition import build_notice_match, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.entrypoints.views import notice_matches_payload
+
+    settings = load_settings()
+    try:
+        req = ProposalRequest(**_read_slots(args))
+    except ValidationError as exc:
+        _eprint(f"입력 오류: {validation_message(exc)}")
+        return EXIT_USAGE
+    matches = asyncio.run(build_notice_match(settings)(req))
+    rows = notice_matches_payload(matches, clean=_safe)
+    if args.json:
+        print(json.dumps({"items": rows, "count": len(rows)}, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if not rows:
+        print("접수 중인 관련 공고가 없습니다 (rnd_notice 적재 전이거나 마감 지난 공고뿐).")
+        return EXIT_OK
+    for i, r in enumerate(rows, 1):
+        left = f"D-{r['days_left']}" if isinstance(r["days_left"], int) else "마감 미상"
+        sim = f", 유사도 {r['similarity']:.2f}" if r["similarity"] is not None else ""
+        print(
+            f"{i}. {r['title']} — {r['agency'] or '기관 미상'}, "
+            f"마감 {r['deadline'] or '-'} ({left}{sim})"
+        )
+        print(f"   {r['url'] or ''}")
+    print("공고는 제안서에 자동으로 들어가지 않습니다 (공고 요건 대조는 #13).")
+    return EXIT_OK
+
+
+# ── crawl (정부 R&D 공고 스냅샷) ──────────────────────────
+def cmd_crawl_rnd_notice(args: argparse.Namespace) -> int:
+    """`rra crawl rnd-notice --explore | --download [--limit N] [--incremental]` (P2-7)."""
+    from rra.composition import build_rnd_notice_crawler, load_settings
+
+    crawler = build_rnd_notice_crawler(load_settings())
+
+    async def run():
+        try:
+            if args.explore:
+                return await crawler.explore()
+            return await crawler.download(limit=args.limit, incremental=bool(args.incremental))
+        finally:
+            await crawler.aclose()
+
+    result = asyncio.run(run())
+    if args.explore:
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return EXIT_OK
+        print(f"탐색 {result['date']} (최근 {result['since']} 이후)")
+        for s in result["sites"]:
+            if s.get("held"):
+                print(f"- {s['site']}: 보류 {_safe(s['held'], 60)}")
+                continue
+            print(
+                f"- {s['site']} ({s['base_url']}): robots {s.get('robots')}, "
+                f"전체 {s.get('total')}, 표본 {[_safe(t, 50) for t in s.get('sample') or []]}"
+            )
+        return EXIT_OK
+    data = result.to_dict()
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    print(
+        f"스냅샷 {data['snapshot']}: 공고 {sum(data['notices'].values())}건 {data['notices']}, "
+        f"중복 합침 {data['duplicates']}, 이어 받음 {data['carried']}, 파일 {data['files']}개 "
+        f"{data['bytes'] / 1024 / 1024:.1f}MB, 건너뛴 파일 {data['skipped_files']}, "
+        f"보류 {len(data['held'])}, 오류 {data['errors']}, robots 차단 {data['robots_blocked']}"
+    )
+    return EXIT_OK
+
+
 # ── crawl (공사 홈페이지 스냅샷) ───────────────────────────
 def cmd_crawl_bai(args: argparse.Namespace) -> int:
     """`rra crawl bai [--incremental]` — 감사원 감사결과 전문 PDF 스냅샷 (Playwright, 공개 화면
@@ -1815,6 +1892,7 @@ def cmd_sources_status(args: argparse.Namespace) -> int:
         build_embedding,
         build_korail_web_source,
         build_repository,
+        build_rnd_notice_source,
         load_settings,
     )
     from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
@@ -1823,6 +1901,7 @@ def cmd_sources_status(args: argparse.Namespace) -> int:
     repo = build_repository(build_embedding(settings), settings)
     status = asyncio.run(repo.source_status())
     snap = build_korail_web_source(settings).status()
+    notice_snap = build_rnd_notice_source(settings).status()
     rows = [
         {
             "source": s,
@@ -1834,7 +1913,11 @@ def cmd_sources_status(args: argparse.Namespace) -> int:
     ]
     if args.json:
         print(
-            json.dumps({"sources": rows, "korail_web_snapshot": snap}, ensure_ascii=False, indent=2)
+            json.dumps(
+                {"sources": rows, "korail_web_snapshot": snap, "rnd_notice_snapshot": notice_snap},
+                ensure_ascii=False,
+                indent=2,
+            )
         )
         return EXIT_OK
     for r in rows:
@@ -1846,6 +1929,14 @@ def cmd_sources_status(args: argparse.Namespace) -> int:
         )
     else:
         print("공사 홈페이지 자료: 스냅샷 없음 (rra crawl korail --download)")
+    if notice_snap.get("snapshot"):
+        print(
+            f"정부 R&D 공고: {notice_snap['snapshot']} 기준 스냅샷 "
+            f"(공고 {notice_snap.get('items', 0):,}건, "
+            f"중복 합침 {notice_snap.get('duplicates', 0)})"
+        )
+    else:
+        print("정부 R&D 공고: 스냅샷 없음 (rra crawl rnd-notice --download)")
     return EXIT_OK
 
 
@@ -2273,7 +2364,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--source",
         default="openalex",
         help="쉼표로 구분 (openalex, alio, alio_summary, own_projects, own_docs, scienceon, ntis, "
-        "kipris, korail_web, molit)",
+        "kipris, korail_web, molit, rnd_notice)",
     )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
     ingest.add_argument(
@@ -2320,6 +2411,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ck.add_argument("--json", action="store_true")
     ck.set_defaults(handler=cmd_crawl_korail)
+    cn = crawl_sub.add_parser(
+        "rnd-notice",
+        help="정부 R&D 사업공고(KAIA·IRIS 국토교통부) — config/rnd_notice.yaml, 최근 2년·상한 500",
+    )
+    nmode = cn.add_mutually_exclusive_group(required=True)
+    nmode.add_argument("--explore", action="store_true", help="사이트별 건수·robots·표본만")
+    nmode.add_argument(
+        "--download", action="store_true", help="data/rnd_notice/snapshots/<오늘>/ 에 저장"
+    )
+    cn.add_argument("--limit", type=int, default=None, help="공고 수 상한 (기본 max_notices)")
+    cn.add_argument(
+        "--incremental", action="store_true", help="이전 스냅샷과 같은 공고는 다시 받지 않음"
+    )
+    cn.add_argument("--json", action="store_true")
+    cn.set_defaults(handler=cmd_crawl_rnd_notice)
+
+    notices = sub.add_parser("notices", help="정부 R&D 공고 — 입력과 맞는 접수 중 공고 (#13 선행)")
+    notices_sub = notices.add_subparsers(dest="notices_cmd", required=True)
+    nm = notices_sub.add_parser("match", help="① 입력 → 접수 중 공고 상위 3건 (LLM 없음)")
+    for slot in SLOTS:
+        nm.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    nm.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    nm.add_argument("--json", action="store_true")
+    nm.set_defaults(handler=cmd_notices_match)
     cb = crawl_sub.add_parser(
         "bai",
         help=(

@@ -1311,3 +1311,14 @@ DocumentTables=DB 본문) → `usecases/extract_facts.ExtractTableFacts` → `Ta
 `rra terms candidates` 가 `config/rail_terms.candidates.yaml`·`generic_terms.candidates.yaml` 로 쓴다. **overlap.yaml 자동 반영 없음**
 — 사람이 검토해 옮긴다(이슈 #11). 회귀: `tests/domain/test_table_facts.py`·`test_term_candidates.py`, `tests/contracts/test_table_facts.py`
 (SQLite·InMemory 동일 계약), `tests/adapters/test_tables.py`, `tests/entrypoints/test_facts_terms.py`.
+
+### 4.19 정부 R&D 사업공고 `rnd_notice` (2026-10-27, P2-7, ADR 0023)
+
+국토교통 분야 정부 R&D 공고·RFP 를 KAIA 사업공고(GET, PDF 공고문)와 IRIS 사업공고(국토교통부 필터, 공개 POST 검색 폼 → JSON,
+인라인 공고문)에서 스냅샷으로 받는다(`adapters/sources/rnd_notice/`, `rra crawl rnd-notice`, `data/rnd_notice/snapshots/<날짜>/`,
+탐색 표 docs/korail-web-crawl.md §5). NTIS 는 robots 전면 금지라 수집하지 않는다. 규칙은 `domain/rules/notices.py`: 같은 공고는
+제목(공고번호·기호 제거)+기관+공고일 키로 한 문서(`raw.notice.also_in`), 접수 마감일 = `valid_until`(만료 공고는 저장소 규칙으로
+검색·precheck 제외), 담당자 이름·전화·이메일은 저장 전 제거. 쓰임은 정책 근거 추천 후보(`POLICY_DOC_TYPES`)와 공고문 대조
+(`usecases/notice_match.py` — 접수 중 상위 3건, LLM 없음, 자동 삽입 없음, `rra notices match`, `POST /v1/ideas/notices`)뿐이며
+유사과제 판정·기술적 중요도 근거에서는 뺀다(`retrieval_scope`, `NON_OVERLAP_SOURCES`, retrieval_mix `overlap_exclude`). #13(공고
+요건 대조)은 이 목록에서 고른 `rnd_notice:<key>` 를 notice_id 로 이어 쓴다.

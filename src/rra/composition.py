@@ -38,6 +38,7 @@ from rra.config_loader import (
     retention_days,
     retrieval_mix,
     review_policy,
+    rnd_notice_config,
     section_checklists,
     security_config,
     served_model_aliases,
@@ -77,6 +78,9 @@ __all__ = [
     "build_korail_web_crawler",
     "build_korail_web_source",
     "build_molit_source",
+    "build_notice_match",
+    "build_rnd_notice_crawler",
+    "build_rnd_notice_source",
     "build_g2b_source",
     "build_bai_crawler",
     "build_bai_source",
@@ -961,6 +965,36 @@ def build_korail_web_source(settings: Settings | None = None):
     )
 
 
+def _rnd_notice_root(cfg: dict[str, Any]) -> Path:
+    return Path(str(cfg.get("snapshot_dir") or "data/rnd_notice"))
+
+
+def build_rnd_notice_crawler(settings: Settings | None = None, *, transport=None, resolver=None):
+    """RndNoticeCrawler — config/rnd_notice.yaml (KAIA GET·IRIS 공개 POST 폼).
+
+    2초 간격·동시 1·robots 준수 (P2-7)."""
+    from rra.adapters.sources.rnd_notice import NoticeConfig, RndNoticeCrawler
+
+    settings = settings or load_settings()
+    raw = rnd_notice_config(settings)
+    cfg = NoticeConfig.from_config(raw)
+    client = _guarded(settings, raw, transport=transport, resolver=resolver)
+    client._client.headers["Accept"] = "text/html,application/xhtml+xml,application/json,*/*;q=0.8"
+    client._client.headers["User-Agent"] = cfg.user_agent
+    return RndNoticeCrawler(client, cfg, root=_rnd_notice_root(raw))
+
+
+def build_rnd_notice_source(settings: Settings | None = None):
+    """RndNoticeSource — 최신 스냅샷(data/rnd_notice/snapshots/<날짜>/) → Document(rnd_notice).
+
+    첨부는 샌드박스 파싱."""
+    from rra.adapters.sources.rnd_notice import RndNoticeSource
+
+    settings = settings or load_settings()
+    raw = rnd_notice_config(settings)
+    return RndNoticeSource(_rnd_notice_root(raw), limits=sandbox_limits(settings))
+
+
 # ── [P2] 레인 E (2026-10-27): 발주 용역·감사·경영평가·통계 ─────────────
 def build_g2b_source(settings: Settings | None = None, *, transport=None, resolver=None):
     """G2bProcurementSource — 나라장터 입찰공고(용역) API. RRA_DATA_GO_KR_KEY 없으면
@@ -1090,6 +1124,7 @@ _SOURCE_BUILDERS = {
     "kipris": build_kipris_source,
     "korail_web": build_korail_web_source,
     "molit": build_molit_source,
+    "rnd_notice": build_rnd_notice_source,
     "g2b": build_g2b_source,
     "bai": build_bai_source,
     "mofe": build_mofe_source,
@@ -1217,6 +1252,15 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
         reranker=reranker,
         mix=retrieval_mix(settings),
     )
+
+
+def build_notice_match(settings: Settings | None = None, repo=None):
+    """NoticeMatcher — rnd_notice 자료원만, 접수 중인 공고 상위 3건 (LLM 없음, #13 선행)."""
+    from rra.application.usecases.notice_match import NoticeMatcher
+
+    settings = settings or load_settings()
+    repo = repo or build_repository(build_embedding(settings), settings)
+    return NoticeMatcher(repo)
 
 
 def build_policy_suggest(settings: Settings | None = None, repo=None):
@@ -1473,6 +1517,7 @@ def build_api(
         manager=manager,
         precheck=precheck,
         policy_suggest=build_policy_suggest(settings, repo=repo),
+        notice_match=build_notice_match(settings, repo=repo),
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
         recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         recommend_auto=recommend_policy(settings)["auto"],
@@ -1491,6 +1536,7 @@ def build_api(
         sse_poll_sec=sse_poll_sec,
         fake_mode=fake is not None,
         snapshot_status=build_korail_web_source(settings).status,
+        notice_snapshot_status=build_rnd_notice_source(settings).status,
     )
 
 
