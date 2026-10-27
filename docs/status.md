@@ -70,11 +70,13 @@
 
 | 항목 | 상태 |
 |---|---|
-| ScienceON·NTIS·KIPRIS API 키 → 실응답 녹화 → FIELDS 매핑·record_tag 확정 (`external-apis.md` 신청처) | 대기 (skip 3건) |
+| ScienceON 키 | **.env 의 `RRA_SCIENCEON_CLIENT_ID`(64자)·`RRA_SCIENCEON_KEY`(32자) 값이 서로 바뀌어 있음** — 맞바꿔 넣을 것(Mac mini 포함). 실호출·fixture·적재 2,045건은 worktree 사본으로 완료(#25) |
+| NTIS·KIPRIS API 키 → 실응답 녹화 → FIELDS 매핑·record_tag 확정 (`external-apis.md` 신청처) | 대기 (skip 2건). 특허는 ScienceON PATENT 가 기본(ADR 0016)이라 KIPRIS 는 선택 |
+| 전략체계 초안 → 확정 (`rra strategy promote`, `config/strategy.yaml source: draft`) | 초안 `korail_strategy.draft.yaml`(5 방향·15 과제, 출처 주석) 확인 뒤 사람이 실행 |
 | 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건). 공시용 요약문은 P2 에서 own_docs 로 적재됨 |
-| `config/templates/korail_strategy.yaml` 전략체계 목록 | 비어 있음 → 2-가-(3) 빈칸 |
+| `config/templates/korail_strategy.yaml` 전략체계 목록(확정본) | 비어 있음 — 확정 전까지 앱은 초안을 쓰고 "전략체계 초안(확인 전)" 라벨 표시 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
-| 웹 프론트엔드 `web/dist` | 동료가 별도 진행. API 변경 시 `openapi.json` 갱신·PR 에 "프론트엔드 영향" 기재. CI `web` job 은 `web/` 이 생기면 자동으로 돈다 |
+| 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
 | `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
 | 운영 공개 방식(Tailscale/Cloudflare) 결정 | 보류(#14 댓글): 시범(팀 3명) Tailscale / 확대(사내·산학연) Cloudflare Access 검토, 공사 정보보안 규정 확인 후 결정 |
 
