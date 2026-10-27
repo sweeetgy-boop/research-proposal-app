@@ -1,0 +1,15 @@
+{
+ "dataSetFileDetailInfo": {
+  "publicDataPk": "15122753",
+  "publicDataDetailPk": "uddi:a7d29d87-dc3f-4790-8c4e-dbd890c3f89d",
+  "publicDataSj": "국토교통부_철도사고 발생 현황",
+  "publicDataTyDetailCode": "DATY03",
+  "insttNm": "국토교통부",
+  "stdrDe": "12/31/2023",
+  "dataNm": "국토교통부_철도사고 발생 현황_20231231",
+  "atchFileCo": "79"
+ },
+ "fileDetailSn": "1",
+ "status": true,
+ "atchFileId": "FILE_000000003014148"
+}

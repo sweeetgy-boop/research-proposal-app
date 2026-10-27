@@ -411,3 +411,17 @@ def test_shipped_usability_and_checklists_load():
     lists = section_checklists(project_settings())
     assert "method" in lists and all(r["question"] and r["keywords"] for r in lists["method"])
     assert llm_config(project_settings(), "brief")["provider"] == "gemini"
+
+
+def test_source_config_falls_back_to_named_yaml_and_g2b_credentials(tmp_path):
+    from pathlib import Path as _P
+
+    from rra.config_loader import KEYED_SOURCES, credential_status, source_config
+    from rra.settings import Settings
+
+    settings = Settings(_env_file=None, config_dir=_P(__file__).parent.parent / "config")
+    assert source_config(settings, "g2b")["path"].endswith("getBidPblancListInfoServcPPSSrch")
+    assert source_config(settings, "kipris")["key_param"] == "accessKey"  # sources.yaml 우선
+    assert "g2b" in KEYED_SOURCES and credential_status(settings, "g2b") == {
+        "RRA_DATA_GO_KR_KEY": False
+    }

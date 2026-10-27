@@ -40,7 +40,7 @@ export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
                   ))}
                 </ul>
               </td>
-              <td className="px-3 py-2">{a.status ?? "—"}</td>
+              <td className="px-3 py-2">{a.status_label ?? a.status ?? "—"}</td>
               <td className="px-3 py-2">
                 {a.blocking ? <Badge variant="destructive">차단</Badge> : <Badge variant="warning">근접</Badge>}
               </td>

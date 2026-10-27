@@ -15,7 +15,7 @@ from typing import Any
 
 from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
-from rra.domain.rules.overlap import tier_label
+from rra.domain.rules.overlap import STATUS_LABELS, tier_label
 
 
 def _same(text: str) -> str:
@@ -423,6 +423,9 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
                 "basis": a.basis,
                 "keywords": list(a.keywords),
                 "status": a.status,
+                "status_label": STATUS_LABELS.get(
+                    a.status or "", a.status
+                ),  # 용역으로 진행 중/예정 등
                 "own_detail": a.own_detail,
                 "tier_label": tier_label(a.tier, a.own_detail),
             }

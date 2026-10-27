@@ -15,17 +15,27 @@ from rra.domain.models import Document, OverlapAlert, SourceType, Tier
 from rra.domain.models.gap import OwnDetail
 from rra.domain.rules.keywords import KeywordRule, enough, keyword_overlap
 
-# national_rnd(NTIS 과제검색)는 own 과 같은 0.80 으로 시작 — 골든셋 확인은 적재 뒤 (2026-10-27, ADR
-# 0020)
+# national_rnd(NTIS 과제검색)·procurement(발주 용역 공고, P2-6)는 own 과 같은 0.80 으로 시작 —
+# 표본이 쌓이면 config/overlap.yaml 설명대로 조정 (2026-10-27, ADR 0020·0021)
 DEFAULT_THRESHOLDS: dict[Tier, float] = {
     "own": 0.80,
     "national_rnd": 0.80,
     "domestic_rail": 0.85,
     "external": 0.90,
+    "procurement": 0.80,
+}
+# 발주 용역 공고 문서의 raw.status 값 — 알림에는 "용역으로 진행 중/예정" 으로 보인다
+PROCURING_STATUS = "procuring"
+STATUS_LABELS: dict[str, str] = {
+    "completed": "완료",
+    "ongoing": "진행중",
+    "stopped": "중단",
+    "rejected": "미채택 — 보완 재제안 검토",
+    "proposed": "제안·검토 중",
+    PROCURING_STATUS: "용역으로 진행 중/예정",
 }
 # 국가R&D 과제 티어 = NTIS 과제검색 문서(source ntis, doc_type rnd_project). 수행기관이 코레일이어도
-# 부서가 없어
-# own 이 될 수 없으므로 own 다음 순서로 본다
+# 부서가 없어 own 이 될 수 없으므로 own 다음 순서로 본다
 NATIONAL_RND_SOURCES: frozenset[str] = frozenset({"ntis"})
 # 사내 과제 기록(엑셀 4개) 출처 — 부서와 관계없이 own 티어. 알림은 철도연구원/공사 부서를 구분한다
 OWN_RECORD_SOURCES: frozenset[str] = frozenset({"own"})
@@ -72,7 +82,10 @@ def unlisted_department(doc: Document, own: OwnUnit) -> str | None:
 
 
 def tier_of(doc: Document, own: OwnUnit | None = None) -> Tier:
-    """사내 과제 기록(source own)은 부서와 관계없이 own. 그 밖은 기관 태그 + own 부서 목록으로."""
+    """사내 과제 기록(source own)은 부서와 관계없이 own. 발주 용역 공고(doc_type procurement)는
+    기관과 관계없이 procurement. 그 밖은 기관 태그 + own 부서 목록으로."""
+    if doc.doc_type == "procurement":
+        return "procurement"
     if doc.source in OWN_RECORD_SOURCES:
         return "own"
     if own is not None and own.org in doc.orgs and department_listed(doc.department, own):
@@ -143,6 +156,7 @@ _TIER_LABEL: dict[Tier, str] = {
     "national_rnd": "국가R&D 과제",
     "domestic_rail": "국내 철도기관",
     "external": "외부",
+    "procurement": "발주 용역",
 }
 OWN_DETAIL_LABEL: dict[str, str] = {"institute": "사내(철도연구원)", "company": "사내(공사)"}
 
@@ -166,10 +180,17 @@ SOURCE_LABELS: dict[str, str] = {
     "korail_web": "공사 홈페이지 정책·보도자료",
     "molit": "국토교통부 철도 계획·정책",
     "rnd_notice": "국토교통 R&D 사업공고(KAIA·IRIS)",
+    "g2b": "나라장터 발주 용역 공고",
+    "bai": "감사원 감사결과",
+    "mofe": "기획재정부 공공기관 경영평가",
+    "datago": "공공데이터포털 철도 통계",
 }
 ALL_SOURCES: tuple[str, ...] = tuple(get_args(SourceType))
-# 유사과제 판정에 쓰지 않는 자료원 — 검토 범위·미수집 문장에 넣지 않는다 (정책·보도자료는 근거 전용)
-NON_OVERLAP_SOURCES: frozenset[str] = frozenset({"korail_web", "molit", "rnd_notice"})
+# 유사과제 판정에 쓰지 않는 자료원 — 검토 범위·미수집 문장에 넣지 않는다
+# (정책·보도자료·공고·감사·통계는 근거 전용). g2b(발주 용역 공고)는 판정에 들어간다(procurement 티어).
+NON_OVERLAP_SOURCES: frozenset[str] = frozenset(
+    {"korail_web", "molit", "rnd_notice", "bai", "mofe", "datago"}
+)
 OVERLAP_SOURCES: tuple[str, ...] = tuple(s for s in ALL_SOURCES if s not in NON_OVERLAP_SOURCES)
 
 
@@ -200,8 +221,8 @@ def no_overlap_statement(
     if not scope:
         return ["비교할 수집 자료가 없어 기수행 유사과제 검토를 수행하지 못함."]
     th = thresholds or DEFAULT_THRESHOLDS
-    tiers: tuple[Tier, ...] = ("own", "national_rnd", "domestic_rail", "external")
-    criteria = ", ".join(f"{_TIER_LABEL[t]} {th[t]:.2f}" for t in tiers)
+    tiers: tuple[Tier, ...] = ("own", "national_rnd", "domestic_rail", "external", "procurement")
+    criteria = ", ".join(f"{_TIER_LABEL[t]} {th[t]:.2f}" for t in tiers if t in th)
     searched = ", ".join(f"{_label(s)} {scope[s]}건" for s in _ordered(scope))
     out = [f"유사과제 검토 범위는 수집 자료 중 본 제안과 관련도가 높은 {searched}임."]
     if uncollected:

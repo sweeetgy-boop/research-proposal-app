@@ -63,7 +63,10 @@ def retention_days(settings: Settings, default: int = 180) -> int:
 
 
 def source_config(settings: Settings, name: str) -> dict[str, Any]:
-    return read_config("sources.yaml", settings).get(name) or {}
+    """sources.yaml 의 항목. 없으면 config/<name>.yaml (molit·bai·mofe·datago·g2b 처럼 파일을 따로
+    둔
+    자료원)."""
+    return read_config("sources.yaml", settings).get(name) or read_config(f"{name}.yaml", settings)
 
 
 def molit_config(settings: Settings) -> dict[str, Any]:
@@ -470,6 +473,7 @@ CREDENTIALS: dict[str, dict[str, str]] = {
     },
     "ntis": {"RRA_NTIS_KEY": "ntis_key"},
     "kipris": {"RRA_KIPRIS_KEY": "kipris_key"},
+    "g2b": {"RRA_DATA_GO_KR_KEY": "data_go_kr_key"},  # 나라장터 입찰공고정보서비스 (공공데이터포털)
 }
 KEYED_SOURCES = tuple(CREDENTIALS)
 

@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,,feat/policy-sources,1519,,8,,,,,,,,,,,,,,,bai 스냅샷 55항목·파일 40개·82.5MB(적재 전); 어댑터 g2b(키 대기)·bai·mofe·datago(16 데이터셋); Tier procurement

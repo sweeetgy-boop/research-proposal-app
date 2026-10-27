@@ -33,6 +33,7 @@ def test_uncollected_follows_source_types():
         "kipris_intl",
         "ntis",
         "own",
+        "g2b",  # 발주 용역 공고 — 판정 자료원 (P2-6). bai·mofe·datago 는 근거 전용이라 빠진다
     ]
 
 

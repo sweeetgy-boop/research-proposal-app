@@ -53,7 +53,8 @@ menus:
   - {id: biz_metro,     kind: contents, key: 861,  path: "주요사업 > 광역수송 > 사업소개", doc_type: policy}
   - {id: biz_metro_ops, kind: contents, key: 1446, path: "주요사업 > 광역수송 > 광역열차 운영정보", doc_type: policy}
   - {id: biz_stat,      kind: contents, key: 866,  path: "주요사업 > 광역수송 > 수송통계", doc_type: policy}
-  - {id: biz_stat_docs, kind: board, bbs_no: 425,  key: 867,  path: "주요사업 > 광역수송 > 통계자료", doc_type: policy}
+  - {id: biz_stat_docs, kind: board, bbs_no: 425,  key: 867,  path: "주요사업 > 광역수송 > 통계자료", doc_type: statistics}
+    # ↑ 통계자료 게시판(xlsx)은 statistics (P2-3, 레인 E) — 현황·필요성·기대효과 수치용, 유사과제 판정 제외
   - {id: biz_freight,   kind: contents, key: 870,  path: "주요사업 > 물류수송 > 사업소개", doc_type: policy}
   - {id: biz_freight_ops, kind: contents, key: 871, path: "주요사업 > 물류수송 > 수송현황 및 자원", doc_type: policy}
   - {id: biz_asset,     kind: contents, key: 875,  path: "주요사업 > 자산개발 > 사업소개", doc_type: policy}
