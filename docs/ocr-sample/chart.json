@@ -1,0 +1,2250 @@
+[
+  {
+    "sha256": "73910fd30614881cf7188cfdcdedfbab9e6eb4ea6069b45749335e5d0cb671c7",
+    "path": "images/attachments/73910fd30614881cf7188cfdcdedfbab9e6eb4ea6069b45749335e5d0cb671c7.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "80\n18, 08c\n04:00\n예측\n08:00\n16:00\n- 예측(DL)- 예측(ML) 레일온도 대기온도",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "10\n0\n10\n20\n18. Dec\n04:00\n08:00\n12:00\n16:00\n2\n예측\n예측(DL)\n예측(ML)\n레일온도\n대기온도",
+      "structure": {
+        "axes": {
+          "x": "18. Dec, 04:00, 08:00, 12:00, 16:00",
+          "y": "10, 0, 10, 20"
+        },
+        "series": [
+          {
+            "name": "예측(DL)",
+            "values": {}
+          },
+          {
+            "name": "예측(ML)",
+            "values": {}
+          },
+          {
+            "name": "레일온도",
+            "values": {}
+          },
+          {
+            "name": "대기온도",
+            "values": {}
+          }
+        ],
+        "units": ""
+      },
+      "summary": "레일온도, 대기온도 및 예측(DL), 예측(ML) 추이를 시간에 따라 나타낸 선 그래프입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "0",
+      "18",
+      "04",
+      "00",
+      "08",
+      "16"
+    ],
+    "unconfirmed_numbers": [
+      "10",
+      "20",
+      "12",
+      "2"
+    ],
+    "elapsed_sec": 5.505
+  },
+  {
+    "sha256": "1a0410a43d4ab310320a381864df50034ca509e44cf36e192c73ac671da9501b",
+    "path": "images/attachments/1a0410a43d4ab310320a381864df50034ca509e44cf36e192c73ac671da9501b.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=19421",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=19421",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "소용도(08(A)]\n철도소음 즉정결과 종관\n82\n..\n52\n지면 위(날)\n지면 이(밤)\n최고치 예상중(나)\n• 2020년 2021년 2022년\n최고지 예상중(밥)",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "철도소음 측정결과 총괄",
+      "text": "철도소음 측정결과 총괄\n소음도[dB(A)]\n64\n62\n60\n58\n56\n54\n52\n50\n57 57 56\n지면 위(낮)\n53 53 53\n지면 위(밤)\n59 60 59\n최고치 예상층(낮)\n57 57 57\n최고치 예상층(밤)\n2020년 2021년 2022년",
+      "structure": {
+        "axes": {
+          "x": "지면 위(낮), 지면 위(밤), 최고치 예상층(낮), 최고치 예상층(밤)",
+          "y": "소음도[dB(A)]"
+        },
+        "series": [
+          {
+            "name": "2020년",
+            "values": {
+              "지면 위(낮)": "57",
+              "지면 위(밤)": "53",
+              "최고치 예상층(낮)": "59",
+              "최고치 예상층(밤)": "57"
+            }
+          },
+          {
+            "name": "2021년",
+            "values": {
+              "지면 위(낮)": "57",
+              "지면 위(밤)": "53",
+              "최고치 예상층(낮)": "60",
+              "최고치 예상층(밤)": "57"
+            }
+          },
+          {
+            "name": "2022년",
+            "values": {
+              "지면 위(낮)": "56",
+              "지면 위(밤)": "53",
+              "최고치 예상층(낮)": "59",
+              "최고치 예상층(밤)": "57"
+            }
+          }
+        ],
+        "units": "소음도[dB(A)]"
+      },
+      "summary": "2020년, 2021년, 2022년의 지면 위(낮/밤) 및 최고치 예상층(낮/밤)에 대한 철도소음 측정결과(소음도[dB(A)])를 나타낸 막대 그래프입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "52",
+      "2020년",
+      "2021년",
+      "2022년"
+    ],
+    "unconfirmed_numbers": [
+      "64",
+      "62",
+      "60",
+      "58",
+      "56",
+      "54",
+      "50",
+      "57",
+      "53",
+      "59"
+    ],
+    "elapsed_sec": 14.044
+  },
+  {
+    "sha256": "a888ae13ddd043351c52ed0868b31e338a50be02bf589b896fe49b054d33e5ac",
+    "path": "images/attachments/a888ae13ddd043351c52ed0868b31e338a50be02bf589b896fe49b054d33e5ac.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12538",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12538",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "열치\n자동차\n건테이너엘지\n어 보세 !\n•서품 •부산 까지 염차를 이용해 여행하시면, 소나루!그루를 심는 효과와 같습니다.\n11,5369c02\n66,6099c62\n77716.159602\n7209.905gc02",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "지금바로 소나무 11그루를 심어보세요. 당신의 선택이 녹색생활의 시작입니다.",
+      "text": "지금바로 소나무 11그루를 심어보세요.\n당신의 선택이 녹색생활의 시작입니다.\n*서울 ~ 부산 까지 열차를 이용해 여행하시면, 소나무11그루를 심는 효과와 같습니다.\n열차 11,536gCO2\n자동차 66,609gCO2\n컨테이너열차 15,735gCO2\n트럭 209,905gCO2",
+      "structure": {
+        "axes": {
+          "x": "",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "CO2",
+            "values": {
+              "열차": "11,536gCO2",
+              "자동차": "66,609gCO2",
+              "컨테이너열차": "15,735gCO2",
+              "트럭": "209,905gCO2"
+            }
+          }
+        ],
+        "units": "gCO2"
+      },
+      "summary": "서울에서 부산까지 열차를 이용해 여행하면 소나무 11그루를 심는 효과와 같다는 안내와 함께, 열차(11,536gCO2), 자동차(66,609gCO2), 컨테이너열차(15,735gCO2), 트럭(209,905gCO2)의 이산화탄소 배출량을 비교한 그림입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [
+      "11",
+      "53",
+      "66",
+      "60",
+      "15",
+      "73",
+      "209",
+      "90"
+    ],
+    "elapsed_sec": 8.72
+  },
+  {
+    "sha256": "81539903491047f97a044a6992b624a21922e1603dad913380fd9d94e3625a67",
+    "path": "images/attachments/81539903491047f97a044a6992b624a21922e1603dad913380fd9d94e3625a67.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=11662",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=11662",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "36\n2007 Environmental Annual Report 》 Promise of KORAIL\nWater\n사업장에서 주변 수계로 배출되고 있는 폐수 및 하수 처리수가 하천 수질과 생태계에 어느 정도의\n영향을 주고 있는지를 파악하기 위해 자체적으로 주기적인 자가측정을 시행하여 사전오염 예방에\n만전을 기하고 있습니다.\n| 수질오염물질 배출 저감\n• 철도 사업장에서 발생하는 수질오염물질은 폐수, 하수\n로 분류되며, 발생원인은 철도 차량검수 및 정비 공정에\n서 발생하는 폐수, 열차의 화장심에서 발생하는 하수입\n니다. 발생된 하수는 위탁 또는 자가 처리하고 있습니다.\n| 용수 사용량\n• 자원절약 캠페인, 절수용 수도설비 사용으로 용수절감\n을 위한 개선활동을 지속적으로 전개하여 해마다 사용\n량을 줄여 나가고 있습니다. 주후 처리시설을 거친 중수\n를 화장실 위생용수 • 조경수로 사용하고 빗물이용 시스\n템 등을 추진할 계획입니다.\n객차 하수발생량\n350\n200\n역, 전기, 건축, 시설, 차량사업소, 하수처리량\n뼈를 총처리량(~/day)\n7,000 w\n4,000\n3,000\n2006년\n2005녀\n9006녀\np005년\n• 2006년 폐수발생량\n서울지사\n수도권서부지사\n수도권남부지사\n수도권북부지사\n수도권동부지사\n강원지사\n대전지사\n충북지사\n충남지사\n광주지사\n전북지사\n전남지사\n대구지사\n경북북부지사\n경북남부지사\n부산지사\n경남지사\n서울철도차량관리단\n부산철도차량과리단\n대전칠도차량관리단\n서울치량사업소\n용산차량사업소\n구로차량사업소\n병점차량사업소\n부곡차량사업소\n시흥차량사업소\n안산차량사업소\n이문차량사업소\n성북차량사업소\n분당차량사업소\n청량리차량사업소\n강릉차량사업소\n동해차량사업소\n대전조차장차량사업소\n대전차량사업소\n제천차량사업소\n장항차량사업소\n천안시설사업소\n천안차량사업소\n광주차량사업소\n목포차량사업소\n송정리시설사업소\n익산시설사업소\n익산차량사업소\n순천차량사업소\n여수차림사업소\n경주차량사업소\n대구차량사업소\n포항차량사업소\n안동차량사업소\n영주차량(동력차)\n영주차량(수송차)\n김천차량(동력차)\n김천차량(수송차)\n가야차량사업소\n부산차량사업소\n부전차량사업소\n울산차량사업소\n마산차량사업소\n서울일바\n고양구소\n부산일반\n부산고속\n대전일반\n시설장비사무소\n1 132\n0.3\n11.2\n0.3\n322\n코레일 환경경영보고서\n를 유량 (antldar)\n§",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "Water",
+      "text": "2007 Environmental Annual Report\nPromise of KORAIL\n코레일 환경경영보고서\n36\n37\nWater\n사업장에서 주변 수계로 배출되고 있는 폐수 및 하수 처리수가 하천 수질과 생태계에 어느 정도의 영향을 주고 있는지를 파악하기 위해 자체적으로 주기적인 자가측정을 시행하여 사전오염 예방에 만전을 기하고 있습니다.\n수질오염물질 배출 저감\n철도 사업장에서 발생하는 수질오염물질은 폐수, 하수로 분류되며, 발생원인은 철도 차량검수 및 정비 공정에서 발생하는 폐수, 열차의 화장실에서 발생하는 하수입니다. 발생된 하수는 위탁 또는 자가 처리하고 있습니다.\n용수 사용량\n자원절약 캠페인, 절수용 수도설비 사용으로 용수절감을 위한 개선활동을 지속적으로 전개하여 해마다 사용량을 줄여 나가고 있습니다. 추후 처리시설을 거친 중수를 화장실 위생용수·조경수로 사용하고 빗물이용 시스템 등을 추진할 계획입니다.\n객차 하수발생량\n총유량(㎡/day)\n350\n300\n250\n238\n200\n150\n113\n100\n50\n0\n2006년\n2005년\n역, 전기, 건축, 시설, 차량사업소, 하수처리량\n총처리량(㎡/day)\n7,000\n6,351\n6,000\n4,949\n5,000\n4,000\n3,000\n2,000\n1,000\n0\n2006년\n2005년\n2006년 폐수발생량\n유량 (㎡/day)\n서울지사\n서울차량사업소 100\n용산차량사업소 240\n수도권서부지사\n구로차량사업소 32.2\n수도권남부지사\n병점차량사업소 31.4\n부곡차량사업소 8\n시흥차량사업소 30\n안산차량사업소 45\n수도권북부지사\n이문차량사업소 126\n성북차량사업소 0.7\n수도권동부지사\n분당차량사업소 50\n청량리차량사업소 12.4\n강원지사\n강릉차량사업소 13.2\n동해차량사업소 1.5\n대전지사\n대전조차장차량사업소 11.2\n대전차량사업소 0.3\n충북지사\n제천차량사업소 3.2\n충남지사\n장항차량사업소 11.2\n천안시설사업소 0.3\n천안차량사업소 3.5\n광주지사\n광주차량사업소 10.3\n목포차량사업소 10.5\n송정리시설사업소 1\n전북지사\n익산시설사업소 0.3\n익산차량사업소 5.4\n전남지사\n순천차량사업소 13.5\n여수차량사업소 7.7\n대구지사\n경주차량사업소 10\n대구차량사업소 25\n포항차량사업소 1\n경북북부지사\n안동차량사업소 13\n영주차량(동력차) 4\n영주차량(수송차) 3\n경북남부지사\n김천차량(동력차) 0.5\n김천차량(수송차) 0.7\n부산지사\n가야차량사업소 5.2\n부산차량사업소 7.5\n부전차량사업소 2\n울산차량사업소 1\n경남지사\n마산차량사업소 5\n서울철도차량관리단\n서울일반 70\n고양고속 80\n부산철도차량관리단\n부산일반 80\n부산고속 50\n대전철도차량관리단\n대전일반 132\n시설장비사무소 15\n0\n50\n100\n150\n200\n250\n300",
+      "structure": {
+        "axes": {
+          "x": "연도 / 유량(㎡/day)",
+          "y": "총유량·총처리량(㎡/day) / 지사 및 사업소"
+        },
+        "series": [
+          {
+            "name": "객차 하수발생량 - 총유량(㎡/day)",
+            "values": {
+              "2005년": "238",
+              "2006년": "113"
+            }
+          },
+          {
+            "name": "역, 전기, 건축, 시설, 차량사업소, 하수처리량 - 총처리량(㎡/day)",
+            "values": {
+              "2005년": "6,351",
+              "2006년": "4,949"
+            }
+          },
+          {
+            "name": "2006년 폐수발생량 - 유량 (㎡/day)",
+            "values": {
+              "서울지사 > 서울차량사업소": "100",
+              "서울지사 > 용산차량사업소": "240",
+              "수도권서부지사 > 구로차량사업소": "32.2",
+              "수도권남부지사 > 병점차량사업소": "31.4",
+              "수도권남부지사 > 부곡차량사업소": "8",
+              "수도권남부지사 > 시흥차량사업소": "30",
+              "수도권남부지사 > 안산차량사업소": "45",
+              "수도권북부지사 > 이문차량사업소": "126",
+              "수도권북부지사 > 성북차량사업소": "0.7",
+              "수도권동부지사 > 분당차량사업소": "50",
+              "수도권동부지사 > 청량리차량사업소": "12.4",
+              "강원지사 > 강릉차량사업소": "13.2",
+              "강원지사 > 동해차량사업소": "1.5",
+              "대전지사 > 대전조차장차량사업소": "11.2",
+              "대전지사 > 대전차량사업소": "0.3",
+              "충북지사 > 제천차량사업소": "3.2",
+              "충남지사 > 장항차량사업소": "11.2",
+              "충남지사 > 천안시설사업소": "0.3",
+              "충남지사 > 천안차량사업소": "3.5",
+              "광주지사 > 광주차량사업소": "10.3",
+              "광주지사 > 목포차량사업소": "10.5",
+              "광주지사 > 송정리시설사업소": "1",
+              "전북지사 > 익산시설사업소": "0.3",
+              "전북지사 > 익산차량사업소": "5.4",
+              "전남지사 > 순천차량사업소": "13.5",
+              "전남지사 > 여수차량사업소": "7.7",
+              "대구지사 > 경주차량사업소": "10",
+              "대구지사 > 대구차량사업소": "25",
+              "대구지사 > 포항차량사업소": "1",
+              "경북북부지사 > 안동차량사업소": "13",
+              "경북북부지사 > 영주차량(동력차)": "4",
+              "경북북부지사 > 영주차량(수송차)": "3",
+              "경북남부지사 > 김천차량(동력차)": "0.5",
+              "경북남부지사 > 김천차량(수송차)": "0.7",
+              "부산지사 > 가야차량사업소": "5.2",
+              "부산지사 > 부산차량사업소": "7.5",
+              "부산지사 > 부전차량사업소": "2",
+              "부산지사 > 울산차량사업소": "1",
+              "경남지사 > 마산차량사업소": "5",
+              "서울철도차량관리단 > 서울일반": "70",
+              "서울철도차량관리단 > 고양고속": "80",
+              "부산철도차량관리단 > 부산일반": "80",
+              "부산철도차량관리단 > 부산고속": "50",
+              "대전철도차량관리단 > 대전일반": "132",
+              "시설장비사무소": "15"
+            }
+          }
+        ],
+        "units": "㎡/day"
+      },
+      "summary": "코레일 환경경영보고서의 수질오염물질 배출 저감 및 용수 사용량에 관한 안내문과 2005~2006년 객차 하수발생량, 하수처리량, 지사·사업소별 2006년 폐수발생량을 나타낸 그래프이다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2007",
+      "36",
+      "350",
+      "200",
+      "2006년",
+      "2005년",
+      "7,000",
+      "4,000",
+      "3,000",
+      "11.2\n대",
+      "0.3",
+      "11.2",
+      "1",
+      "132",
+      "2005"
+    ],
+    "unconfirmed_numbers": [
+      "37",
+      "300",
+      "250",
+      "238",
+      "150",
+      "113",
+      "100",
+      "50",
+      "0",
+      "6,351",
+      "6,000",
+      "4,949",
+      "5,000",
+      "2,000",
+      "1,000",
+      "240",
+      "32.2",
+      "31.4",
+      "8",
+      "30",
+      "45",
+      "126",
+      "0.7",
+      "12.4",
+      "13.2",
+      "1.5\n대",
+      "3.2",
+      "3.5",
+      "10.3",
+      "10.5",
+      "5.4",
+      "13.5",
+      "7.7\n대",
+      "10\n대",
+      "25",
+      "13",
+      "4",
+      "3",
+      "0.5",
+      "5.2",
+      "7.5",
+      "2",
+      "5",
+      "70",
+      "80",
+      "50\n대",
+      "15",
+      "1.5",
+      "7.7",
+      "10"
+    ],
+    "elapsed_sec": 28.558
+  },
+  {
+    "sha256": "ef4465dcbdd935be0286b1061e4f10920f9f0997847165d1020cc7b3cbbaaba0",
+    "path": "images/attachments/ef4465dcbdd935be0286b1061e4f10920f9f0997847165d1020cc7b3cbbaaba0.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=11662",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=11662",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "50\n2007 Environmental Annual Report 》 Promise of KORAIL\n• 1일 평균 열차운행횟수는 '05년 이후 증가하다 감소하였으며, 평균소음도는 1~2dB 정도로 소폭이나 지속적으로 감소되는\n추세입니다. 이는 장대레일화, 전기기관차 교체 및 방음시설 설치 등 철도소음 저감대책을 지속적으로 추진한 결과입니다.\n• 평균소음도는 방음벽 효과가 적은 최고예상층이 지면위보다 4dB 정도 높았으며, 그 차이는 최근 3년간 데이터 비교시 낮\n과 밤의 구분없이 3~4dB 정도의 일정한 차이를 보이는 것으로 나타났습니다.\n• 환경부고시 제 2003-221호(2003.12.31) 소음· 진동공정시험방법에 의한 철도소음도는 34개 지점 모두 철도소음기준 이\n내로 나타났습니다.\n| 철도소음측정망 및 소음도 현황\n전체평균\n낮시간대\n밤시간대\n단위 : dBA)\n2007_ 지연위\n수도권 지역\n수도권 지역 소음현황 (낮시간대)\n수도권 지역 소음현황 (밤시간대)\n코레일 환경경영보고서\n대전 지역 소음현황 (낮시간대)\n경부선 조차장~대전간\n경부선 조차장~대전간\n대전 지역 소음현황 (밤시간대)\n경부선 조차장~대전간\n영남 지역\n영남권 지역 소음현황 (낮시간대)\n55 60 63 60•\n52545657\n영남권 지역 소음현황 (밤시간대)\n59600465\n54 55 59 63\n- 51 5, 56.55\n62 6463 64\n59g, 63 64\n5758 61 631",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "철도소음측정망 및 소음도 현황",
+      "text": "2007 Environmental Annual Report Promise of KORAIL\n코레일 환경경영보고서\n50\n51\n■ 1일 평균 열차운행횟수는 '05년 이후 증가하다 감소하였으며, 평균소음도는 1~2dB 정도로 소폭이나 지속적으로 감소되는 추세입니다. 이는 장대레일화, 전기기관차 교체 및 방음시설 설치 등 철도소음 저감대책을 지속적으로 추진한 결과입니다.\n■ 평균소음도는 방음벽 효과가 적은 최고예상층이 지면위보다 4dB 정도 높았으며, 그 차이는 최근 3년간 데이터 비교시 낮과 밤의 구분없이 3~4dB 정도의 일정한 차이를 보이는 것으로 나타났습니다.\n■ 환경부고시 제 2003-221호(2003.12.31) 소음·진동공정시험방법에 의한 철도소음도는 34개 지점 모두 철도소음기준 이내로 나타났습니다.\n철도소음측정망 및 소음도 현황\n전체평균\n낮시간대\n80 60 40 20 0\n60 58 63 62\n평 균\n밤시간대\n80 60 40 20 0\n57 56 61 60\n평 균\n단위 : dB(A)\n2006 지면위 최고층\n2007 지면위 최고층\n수도권 지역\n수도권 지역 소음현황 (낮시간대)\n80 60 40 20 0\n69 64 74 75 경부선 영등포~구로간\n54 58 63 64 경부선 구로~시흥간\n62 62 70 69 경부선 시흥~안양간\n62 61 71 68 경부선 병점구내\n59 58 68 59 경인선 오류동~부천간\n64 60 65 63 경원선 월계(신)~화랑대\n61 62 63 60 경춘선 성북역구내\n57 55 62 61 중앙선 덕소~팔당간\n61 60 67 65 평 균\n수도권 지역 소음현황 (밤시간대)\n80 60 40 20 0\n66 60 72 64 경부선 영등포~구로간\n52 58 62 64 경부선 구로~시흥간\n58 59 66 67 경부선 시흥~안양간\n58 60 69 69 경부선 병점구내\n58 59 66 61 경인선 오류동~부천간\n62 63 62 60 경원선 월계(신)~화랑대\n57 62 62 64 경춘선 성북역구내\n56 51 61 57 중앙선 덕소~팔당간\n58 58 65 63 평 균\n대전 지역\n대전 지역 소음현황 (낮시간대)\n80 60 40 20 0\n59 57 63 67 경부선 조차장~대전간\n62 56 63 58 경부선 조차장~대전간\n62 61 경부선 대전~세천간\n56 57 64 63 호남선 서대전~가수원\n56 56 고속선 천안아산~대전\n59 57 62 61 평 균\n대전 지역 소음현황 (밤시간대)\n80 60 40 20 0\n58 54 65 66 경부선 조차장~대전간\n63 64 70 64 경부선 조차장~대전간\n62 63 경부선 대전~세천간\n58 57 67 65 호남선 서대전~가수원\n56 55 고속선 천안아산~대전\n60 58 64 63 평 균\n영남 지역\n영남권 지역 소음현황 (낮시간대)\n80 60 40 20 0\n64 66 71 73 경부선 사상~부산진간\n64 65 71 70 경부선 구포~사상간\n59 62 65 68 경부선 물금~화명간\n55 60 63 69 동해남부 수영~해운대\n52 54 56 57 경전선 마산~창원간\n64 60 66 63 경부선 지천~대구간\n58 57 64 67 경부선 경산~삼성간\n59 59 61 60 고속선 대전~동대구간\n57 59 60 65 대구선 동촌~영천간\n59 60 64 66 평 균\n영남권 지역 소음현황 (밤시간대)\n80 60 40 20 0\n60 62 71 69 경부선 사상~부산진간\n58 60 64 65 경부선 구포~사상간\n54 55 59 63 경부선 물금~화명간\n51 55 57 65 동해남부 수영~해운대\n51 51 56 55 경전선 마산~창원간\n62 64 63 64 경부선 지천~대구간\n59 57 63 64 경부선 경산~삼성간\n56 58 58 59 고속선 대전~동대구간\n58 58 60 62 대구선 동촌~영천간\n57 58 61 63 평 균",
+      "structure": {
+        "axes": {
+          "x": "측정지점 및 평균",
+          "y": "소음도 (0~80)"
+        },
+        "series": [
+          {
+            "name": "2006 지면위",
+            "values": {
+              "전체평균 (낮시간대)": "60",
+              "전체평균 (밤시간대)": "57",
+              "수도권 평균 (낮시간대)": "61",
+              "수도권 평균 (밤시간대)": "58",
+              "대전 평균 (낮시간대)": "59",
+              "대전 평균 (밤시간대)": "60",
+              "영남권 평균 (낮시간대)": "59",
+              "영남권 평균 (밤시간대)": "57"
+            }
+          },
+          {
+            "name": "2007 지면위",
+            "values": {
+              "전체평균 (낮시간대)": "58",
+              "전체평균 (밤시간대)": "56",
+              "수도권 평균 (낮시간대)": "60",
+              "수도권 평균 (밤시간대)": "58",
+              "대전 평균 (낮시간대)": "57",
+              "대전 평균 (밤시간대)": "58",
+              "영남권 평균 (낮시간대)": "60",
+              "영남권 평균 (밤시간대)": "58"
+            }
+          },
+          {
+            "name": "2006 최고층",
+            "values": {
+              "전체평균 (낮시간대)": "63",
+              "전체평균 (밤시간대)": "61",
+              "수도권 평균 (낮시간대)": "67",
+              "수도권 평균 (밤시간대)": "65",
+              "대전 평균 (낮시간대)": "62",
+              "대전 평균 (밤시간대)": "64",
+              "영남권 평균 (낮시간대)": "64",
+              "영남권 평균 (밤시간대)": "61"
+            }
+          },
+          {
+            "name": "2007 최고층",
+            "values": {
+              "전체평균 (낮시간대)": "62",
+              "전체평균 (밤시간대)": "60",
+              "수도권 평균 (낮시간대)": "65",
+              "수도권 평균 (밤시간대)": "63",
+              "대전 평균 (낮시간대)": "61",
+              "대전 평균 (밤시간대)": "63",
+              "영남권 평균 (낮시간대)": "66",
+              "영남권 평균 (밤시간대)": "63"
+            }
+          }
+        ],
+        "units": "dB(A)"
+      },
+      "summary": "2006년과 2007년의 철도소음측정망 지점별(전체평균, 수도권, 대전, 영남 지역) 낮시간대 및 밤시간대 지면위·최고층 소음도 현황을 비교한 그래프와 설명입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2007",
+      "50",
+      "51",
+      "1일",
+      "05년",
+      "1",
+      "3년간",
+      "3",
+      "2003",
+      "2003.12",
+      "34개",
+      "60",
+      "63",
+      "62",
+      "61",
+      "64",
+      "54",
+      "59",
+      "55",
+      "62대",
+      "2007년"
+    ],
+    "unconfirmed_numbers": [
+      "80",
+      "40",
+      "20",
+      "0",
+      "58",
+      "57",
+      "56",
+      "2006",
+      "69",
+      "74",
+      "75",
+      "70",
+      "71",
+      "68",
+      "65",
+      "67",
+      "66",
+      "72",
+      "52",
+      "73",
+      "65대",
+      "2006년"
+    ],
+    "elapsed_sec": 22.81
+  },
+  {
+    "sha256": "0371ee7b5605d7b20a57d4c8bef745d66912616e39c0c0515e61cf178171bffb",
+    "path": "images/attachments/0371ee7b5605d7b20a57d4c8bef745d66912616e39c0c0515e61cf178171bffb.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=11662",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=11662",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2007 Environmental Annual Report 》 Excellent of KORAIL\n• 올해 '환경의 날'을 맞이하여 '환경의 날 기념 사진전시\n회'를 개최하였습니다. 역사 내에 희귀조류 및 동• 식\n물 사진을 전시하여 역을 이용하시는 고객 및 임직원 가\n족을 위한 환경행사를 실시하였습니다.\n• 고속철도 운행으로 더욱 향상된 환경친화적 교통수단으\n로써 선도적 역할을 수행하는 동시에 고객 및 임직원의\n친환경 마인드 확산을 위해 최선의 노력을 다하고 있습\n니다. 대외적으로 친환경 철도교통의 장점을 알리는 리\n플렛을 열차 내에 배포하는 등 환경을 우선하는 코레일\n열차내 환경홍보물 비치\n환경홍보물 내용\n경의날기념사진전시회\n| 환경의 날 기념 사진전시회\n의 정책을 홍보하고 전파하기 위한 활동도 꾸준히 전개\n하고 있으며, 대내적으로는 환경, 교통, 정부, 학 협회.\n시민단체 동향 파악을 통해 제도, 신기술 등 환경관련 정\n보공유 및 환경 마인드를 향상하기 위해 적극적인 활동\n을 추진하고 있습니다.\n아는 도는 민감을\n0쪽에 있니 다\n잘 도이용을 있입니다.\n1 환경비용\n• 사업장내 발생하는 폐기물 및 오염물질을 최소화하는 공\n해방지시설 개량 및 확충사업을 지속적으로 시행하고 있\n으며, 그 투자금액 또한 지속적으로 증가하고 있습니다.\n분야별 환경투자 비용\n• 2007- 2006\n단위 : 백만원\n900\n700\n600\n500\n| 환경정보공개\n• 코레일 홈페이지(www.korail.com)에 환경경영 컨텐츠\n를 운영 및 관리하고 있으며 추후 업그레이드된 각종 환\n경 Data를 등록하여 홈페이지 방문자 및 고객들에게 부\n명한 환경경영 정보를 공개할 계획입니다. 또한, 코레일\n의 전반적인 환경경영현황, 환경오염예방, 환경경영정\n책 등을 수록한 환경경영보고서를 발간과 함께 홈페이\n지에도 게재하고 있습니다.\n코레일 환경경영보고서\n전년 대비 약 30%의 투자사업비가 증가하였고, 최근 이슈\n화되고 있는 토양부분이 오염토양 방지사업의 증가로 인\n해 높은 추세를 보이고 있습니다.\n년도별 환경투자 비용\n...........\n1996 1997 1998 1999 2000 2001 2002 2003 2004 2005 2006 20071",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "환경비용 / 환경정보공개",
+      "text": "2007 Environmental Annual Report\nExcellent of KORAIL\n코레일 환경경영보고서\n\n■ 올해 '환경의 날'을 맞이하여 '환경의 날 기념 사진전시회'를 개최하였습니다. 역사 내에 희귀조류 및 동·식물 사진을 전시하여 역을 이용하시는 고객 및 임직원 가족을 위한 환경행사를 실시하였습니다.\n\n환경의날 기념 사진전시회\n2008.6.5(목)용산역사\n한국철도공사서울지사·녹색생태문화과\n환경의 날 기념 사진전시회\n\n62\n\n■ 고속철도 운행으로 더욱 향상된 환경친화적 교통수단으로써 선도적 역할을 수행하는 동시에 고객 및 임직원의 친환경 마인드 확산을 위해 최선의 노력을 다하고 있습니다. 대외적으로 친환경 철도교통의 장점을 알리는 리플렛을 열차 내에 배포하는 등 환경을 우선하는 코레일의 정책을 홍보하고 전파하기 위한 활동도 꾸준히 전개하고 있으며, 대내적으로는 환경, 교통, 정부, 학·협회, 시민단체 동향 파악을 통해 제도, 신기술 등 환경관련 정보공유 및 환경 마인드를 향상하기 위해 적극적인 활동을 추진하고 있습니다.\n\n열차내 환경홍보물 비치\n환경홍보물 내용\n철도는 미래형 교통수단입니다.\n철도이용은 환경 사랑의 시작입니다.\n한국철도는 환경을 이끌어 갑니다\n철도는 지구환경을 지킵니다.\nKORAIL\n\n환경비용\n■ 사업장내 발생하는 폐기물 및 오염물질을 최소화하는 공해방지시설 개량 및 확충사업을 지속적으로 시행하고 있으며, 그 투자금액 또한 지속적으로 증가하고 있습니다.\n전년 대비 약 30%의 투자사업비가 증가하였고, 최근 이슈화되고 있는 토양부문이 오염토양 방지사업의 증가로 인해 높은 추세를 보이고 있습니다.\n\n분야별 환경투자 비용\n2007 2006\n단위 : 백만원\n1,000\n900\n800\n700\n600\n500\n400\n300\n200\n100\n수 질 대 기 폐기물 토 양\n900\n518\n460\n897\n\n년도별 환경투자 비용\n합 계\n단위 : 백만원\n8,000\n7,000\n6,000\n5,000\n4,000\n3,000\n2,000\n1,000\n1996 1997 1998 1999 2000 2001 2002 2003 2004 2005 2006 2007\n2,960\n4,526\n4,414\n3,045\n2,924\n3,005\n3,167\n480\n4,281\n6,948\n1,802\n2,775\n\n63\n\n환경정보공개\n■ 코레일 홈페이지(www.korail.com)에 환경경영 컨텐츠를 운영 및 관리하고 있으며 추후 업그레이드된 각종 환경 Data를 등록하여 홈페이지 방문자 및 고객들에게 투명한 환경경영 정보를 공개할 계획입니다. 또한, 코레일의 전반적인 환경경영현황, 환경오염예방, 환경경영정책 등을 수록한 환경경영보고서를 발간과 함께 홈페이지에도 게재하고 있습니다.\n\nKORAIL 코레일 소개\nKorail 환경경영\nENVIRONMENT MANAGEMENT\nKORAIL MANAGEMENT\nKORAIL 환경경영\nThe Paradigm Of Green Network\nKORAIL",
+      "structure": {
+        "axes": {
+          "x": "수 질, 대 기, 폐기물, 토 양 / 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007",
+          "y": "단위 : 백만원"
+        },
+        "series": [
+          {
+            "name": "분야별 환경투자 비용 - 2007",
+            "values": {
+              "수 질": "900",
+              "대 기": "518",
+              "폐기물": "460",
+              "토 양": "897"
+            }
+          },
+          {
+            "name": "년도별 환경투자 비용 - 합 계",
+            "values": {
+              "1996": "2,960",
+              "1997": "4,526",
+              "1998": "4,414",
+              "1999": "3,045",
+              "2000": "2,924",
+              "2001": "3,005",
+              "2002": "3,167",
+              "2003": "480",
+              "2004": "4,281",
+              "2005": "6,948",
+              "2006": "1,802",
+              "2007": "2,775"
+            }
+          }
+        ],
+        "units": "백만원"
+      },
+      "summary": "2007년 코레일 환경경영보고서의 62~63쪽으로, 환경의 날 기념 사진전시회 및 환경홍보물 배포 활동과 함께 분야별·년도별 환경투자 비용 그래프, 홈페이지를 통한 환경정보공개 현황을 설명하고 있습니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2007",
+      "30%",
+      "2006",
+      "900",
+      "700",
+      "600",
+      "500",
+      "2,000",
+      "1996",
+      "1997",
+      "1998",
+      "1999",
+      "2000",
+      "2001",
+      "2002",
+      "2003",
+      "2004",
+      "2005",
+      "2007년"
+    ],
+    "unconfirmed_numbers": [
+      "2008.6",
+      "62",
+      "1,000",
+      "800",
+      "400",
+      "300",
+      "200",
+      "100",
+      "518",
+      "460",
+      "897",
+      "8,000",
+      "7,000",
+      "6,000",
+      "5,000",
+      "4,000",
+      "3,000",
+      "2,960",
+      "4,526",
+      "4,414",
+      "3,045",
+      "2,924",
+      "3,005",
+      "3,167",
+      "480",
+      "4,281",
+      "6,948",
+      "1,802",
+      "2,775",
+      "63"
+    ],
+    "elapsed_sec": 15.514
+  },
+  {
+    "sha256": "83ea1eef6d572eba4bdbc0afee6d7b397159769f7836799345a1379fd2afcf4c",
+    "path": "images/attachments/83ea1eef6d572eba4bdbc0afee6d7b397159769f7836799345a1379fd2afcf4c.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=20375",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=21076&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "매우 그렇다\n4.3\n그렇다\n보통이다\n그렇지 않다\n매우 그렇지 않다\n1 4.3\n0.0\n10.0\n20.0\n26.1\n30.4\n34.8\n30.0\n40.0",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "매우 그렇다 4.3\n그렇다 26.1\n보통이다 30.4\n그렇지 않다 34.8\n매우 그렇지 않다 4.3\n0.0 10.0 20.0 30.0 40.0",
+      "structure": {
+        "axes": {
+          "x": "0.0, 10.0, 20.0, 30.0, 40.0",
+          "y": "매우 그렇다, 그렇다, 보통이다, 그렇지 않다, 매우 그렇지 않다"
+        },
+        "series": [
+          {
+            "name": "",
+            "values": {
+              "매우 그렇다": "4.3",
+              "그렇다": "26.1",
+              "보통이다": "30.4",
+              "그렇지 않다": "34.8",
+              "매우 그렇지 않다": "4.3"
+            }
+          }
+        ],
+        "units": ""
+      },
+      "summary": "항목별 응답 수치를 나타낸 가로 막대 그래프로, 그렇지 않다가 34.8, 보통이다가 30.4, 그렇다가 26.1, 매우 그렇다와 매우 그렇지 않다가 각각 4.3으로 표시되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "4.3",
+      "26.1",
+      "30.4",
+      "34.8",
+      "0.0",
+      "10.0",
+      "20.0",
+      "30.0",
+      "40.0"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 9.033
+  },
+  {
+    "sha256": "00dd8972d2f27c6bd2cda838fd889bf88d89fa70f323182487407eec57cc718f",
+    "path": "images/attachments/00dd8972d2f27c6bd2cda838fd889bf88d89fa70f323182487407eec57cc718f.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=20375",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=21076&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "매우 그렇다\n그렇다\n보통이다\n그렇지 않다\n매우 그렇지 않다\n6.5\n28.3\n34.8\n26.1\n4.3\n0.0 5.0 10.0 15.0 20.0 25.0 30.0 35.0 40.0",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "매우 그렇다 6.5\n그렇다 28.3\n보통이다 34.8\n그렇지 않다 26.1\n매우 그렇지 않다 4.3\n0.0 5.0 10.0 15.0 20.0 25.0 30.0 35.0 40.0",
+      "structure": {
+        "axes": {
+          "x": "0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0",
+          "y": "매우 그렇다, 그렇다, 보통이다, 그렇지 않다, 매우 그렇지 않다"
+        },
+        "series": [
+          {
+            "name": "",
+            "values": {
+              "매우 그렇다": "6.5",
+              "그렇다": "28.3",
+              "보통이다": "34.8",
+              "그렇지 않다": "26.1",
+              "매우 그렇지 않다": "4.3"
+            }
+          }
+        ],
+        "units": ""
+      },
+      "summary": "응답 항목별 수치를 나타낸 가로 막대 그래프로, 보통이다가 34.8, 그렇다가 28.3, 그렇지 않다가 26.1, 매우 그렇다가 6.5, 매우 그렇지 않다가 4.3으로 표시되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "6.5",
+      "28.3",
+      "34.8",
+      "26.1",
+      "4.3",
+      "0.0",
+      "5.0",
+      "10.0",
+      "15.0",
+      "20.0",
+      "25.0",
+      "30.0",
+      "35.0",
+      "40.0"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 15.284
+  },
+  {
+    "sha256": "d105079af00e817678f27b8ca316609f560121ca93634c68d21ceb03613df271",
+    "path": "images/attachments/d105079af00e817678f27b8ca316609f560121ca93634c68d21ceb03613df271.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=20375",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=21076&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "매우 그렇다\n그렇다\n보통이다\n그렇지 않다\n매우 그렇지 않다\n8.7\n6.5\n0.0\n10.0\n19.6\n20.0\n28.3\n30.0\n37.0\n40.0",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "매우 그렇다 8.7\n그렇다 19.6\n보통이다 37.0\n그렇지 않다 28.3\n매우 그렇지 않다 6.5\n0.0 10.0 20.0 30.0 40.0",
+      "structure": {
+        "axes": {
+          "x": "0.0, 10.0, 20.0, 30.0, 40.0",
+          "y": "매우 그렇다, 그렇다, 보통이다, 그렇지 않다, 매우 그렇지 않다"
+        },
+        "series": [
+          {
+            "name": "",
+            "values": {
+              "매우 그렇다": "8.7",
+              "그렇다": "19.6",
+              "보통이다": "37.0",
+              "그렇지 않다": "28.3",
+              "매우 그렇지 않다": "6.5"
+            }
+          }
+        ],
+        "units": ""
+      },
+      "summary": "'매우 그렇다'(8.7), '그렇다'(19.6), '보통이다'(37.0), '그렇지 않다'(28.3), '매우 그렇지 않다'(6.5)의 수치를 나타낸 가로 막대 그래프이다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "8.7",
+      "19.6",
+      "37.0",
+      "28.3",
+      "6.5",
+      "0.0",
+      "10.0",
+      "20.0",
+      "30.0",
+      "40.0"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 7.37
+  },
+  {
+    "sha256": "ec59beda5659b1b04859c5c237259b2b35a6f5bb987ab443da487d8e719b35f2",
+    "path": "images/attachments/ec59beda5659b1b04859c5c237259b2b35a6f5bb987ab443da487d8e719b35f2.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=20375",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=21076&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "매우 그렇다\n그렇다\n보통이다\n그렇지 않다\n매우 그렇지 않다\n8.7\n1 2.2\n10.9\n21.7\n56.5\n0.0\n10.0 20.0 30.0 40.0 50.0 60.0",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "매우 그렇다 8.7\n그렇다 56.5\n보통이다 21.7\n그렇지 않다 10.9\n매우 그렇지 않다 2.2\n0.0 10.0 20.0 30.0 40.0 50.0 60.0",
+      "structure": {
+        "axes": {
+          "x": "0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0",
+          "y": "매우 그렇다, 그렇다, 보통이다, 그렇지 않다, 매우 그렇지 않다"
+        },
+        "series": [
+          {
+            "name": "",
+            "values": {
+              "매우 그렇다": "8.7",
+              "그렇다": "56.5",
+              "보통이다": "21.7",
+              "그렇지 않다": "10.9",
+              "매우 그렇지 않다": "2.2"
+            }
+          }
+        ],
+        "units": ""
+      },
+      "summary": "5개 응답 항목(매우 그렇다 8.7, 그렇다 56.5, 보통이다 21.7, 그렇지 않다 10.9, 매우 그렇지 않다 2.2)의 수치를 나타낸 가로 막대 그래프임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "8.7",
+      "56.5",
+      "21.7",
+      "10.9",
+      "2.2",
+      "0.0",
+      "10.0",
+      "20.0",
+      "30.0",
+      "40.0",
+      "50.0",
+      "60.0"
+    ],
+    "unconfirmed_numbers": [
+      "5개"
+    ],
+    "elapsed_sec": 7.109
+  },
+  {
+    "sha256": "bcfd8b51b686b342f07edd42948aadf9e2db2499f3f379e4e4bacf6e4141a108",
+    "path": "images/attachments/bcfd8b51b686b342f07edd42948aadf9e2db2499f3f379e4e4bacf6e4141a108.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=20375",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=21076&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "매우 그렇다\n그렇다\n보통이다\n23.9\n0.0\n10.0\n19.6\n20.0\n30.0\n40.0\n56.5\n50.0\n60.0",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "매우 그렇다 23.9\n그렇다 56.5\n보통이다 19.6\n0.0 10.0 20.0 30.0 40.0 50.0 60.0",
+      "structure": {
+        "axes": {
+          "x": "0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0",
+          "y": "매우 그렇다, 그렇다, 보통이다"
+        },
+        "series": [
+          {
+            "name": "",
+            "values": {
+              "매우 그렇다": "23.9",
+              "그렇다": "56.5",
+              "보통이다": "19.6"
+            }
+          }
+        ],
+        "units": ""
+      },
+      "summary": "가로 막대 그래프로 '매우 그렇다' 23.9, '그렇다' 56.5, '보통이다' 19.6의 수치가 나타나 있습니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "23.9",
+      "56.5",
+      "19.6",
+      "0.0",
+      "10.0",
+      "20.0",
+      "30.0",
+      "40.0",
+      "50.0",
+      "60.0"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 9.185
+  },
+  {
+    "sha256": "55df15e0d07aba7020d4e36020fc4909369f9a3e52bf13bf17bd9f3c7ad6d9af",
+    "path": "images/attachments/55df15e0d07aba7020d4e36020fc4909369f9a3e52bf13bf17bd9f3c7ad6d9af.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=20375",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=21076&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "매우 그렇다\n그렇다\n보통이다\n그렇지 않다\n6.5\n4.3\n0.0\n23.9\n65.2\n20.0\n40.0\n60.0\n80.0",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "매우 그렇다 23.9\n그렇다 65.2\n보통이다 6.5\n그렇지 않다 4.3\n0.0 20.0 40.0 60.0 80.0",
+      "structure": {
+        "axes": {
+          "x": "0.0, 20.0, 40.0, 60.0, 80.0",
+          "y": "매우 그렇다, 그렇다, 보통이다, 그렇지 않다"
+        },
+        "series": [
+          {
+            "name": "",
+            "values": {
+              "매우 그렇다": "23.9",
+              "그렇다": "65.2",
+              "보통이다": "6.5",
+              "그렇지 않다": "4.3"
+            }
+          }
+        ],
+        "units": ""
+      },
+      "summary": "응답 항목별 수치를 나타낸 가로 막대그래프로, '그렇다' 65.2, '매우 그렇다' 23.9, '보통이다' 6.5, '그렇지 않다' 4.3 순으로 표시되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "23.9",
+      "65.2",
+      "6.5",
+      "4.3",
+      "0.0",
+      "20.0",
+      "40.0",
+      "60.0",
+      "80.0"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 16.595
+  },
+  {
+    "sha256": "519464274fa28373eff315798ed972ce9b58a83c68964ab4ba6eb49acc30c1de",
+    "path": "images/attachments/519464274fa28373eff315798ed972ce9b58a83c68964ab4ba6eb49acc30c1de.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Pursuing ZERO safety accidents\nthrough field-focused\npreventive risk management\n5a 45001 cccyusind Saya\nwith Maigemat Syoum\nCertified with\nIntemational\nStandard\n3아5AS 18:01\nCertified for\n7 consecutive\nyears\nSecuring our customers' safety\nthrough field-based training\nKORAlLIs committed to securing safety by renovating\nits emergency response system more focused on\ncustomers, conducting real emergency crilis, and\nexpanding emergency response experts We do our\nbest to deliver sate and convenient railway service\nby subdividing and concretizing the emergency\nresponse process into securing customer safety and\ncustomer service (completing theinjoumey)\nEmergency Response Drills\nas of December 2020.\n39 rounds\n31raurds\n2018\n2019\n26rcunds\n2020\nDoing our best for people-centered\nrailway safety management 24/7\nKORAlL has devoted its full capacity to safe railvay\noperation, with the people's safety at its priority, so\nas to prevent any large-scale railway accidents which\ncan cause social ramifications. We will continue to\nrealize people-centered safety management to make\nsure that all users can be assured of railway safety as\nwell as convenience.\nRailway Accident Occurrence\nas of December 20201\n69 ocadins\n58 mcours\n40 occderts\n2018\n2019\n2020\nProtecting the people's life and safety\nby preventing risks\nKORAIL has continued to make an environment\nwhere all our customers can use ratiway service more\nsafely and convenienty by waging a safety awareness\ncampaign and adding and upgrading customer\nsafety tacilities such as elevators and escalators. We\nalso put in our safety efforts. including expanding\nrailroad fences and dimensionalizing level crossings\nto prevent people from exposure to danger.\nPassenger/Non-passenger Casualty Accident\nas of December 2020\n52 cases\n33 cass\n2018\n2019\n24 cnes\n2020",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "Pursuing ZERO safety accidents through field-focused preventive risk management",
+      "text": "Pursuing ZERO safety accidents\nthrough field-focused\npreventive risk management\n\nISO 45001 Occupational Safety &\nHealth Management System\nCertified with\nInternational\nStandard\n\nOccupational Safety & Health\nManagement System\n(K-OHSAS 18001)\nCertified for\n7 consecutive\nyears\n\nSecuring our customers' safety\nthrough field-based training\n\nKORAIL is committed to securing safety by renovating\nits emergency response system more focused on\ncustomers, conducting real emergency drills, and\nexpanding emergency response experts. We do our\nbest to deliver safe and convenient railway service\nby subdividing and concretizing the emergency\nresponse process into securing customer safety and\ncustomer service (completing their journey).\n\nEmergency Response Drills\nas of December 2020\n2018 31 rounds\n2019 39 rounds\n2020 26 rounds\n\nDoing our best for people-centered\nrailway safety management 24/7\n\nKORAIL has devoted its full capacity to safe railway\noperation, with the people's safety at its priority, so\nas to prevent any large-scale railway accidents which\ncan cause social ramifications. We will continue to\nrealize people-centered safety management to make\nsure that all users can be assured of railway safety as\nwell as convenience.\n\nRailway Accident Occurrence\nas of December 2020\n2018 69 accidents\n2019 58 accidents\n2020 40 accidents\n\nProtecting the people's life and safety\nby preventing risks\n\nKORAIL has continued to make an environment\nwhere all our customers can use railway service more\nsafely and conveniently by waging a safety awareness\ncampaign and adding and upgrading customer\nsafety facilities such as elevators and escalators. We\nalso put in our safety efforts, including expanding\nrailroad fences and dimensionalizing level crossings\nto prevent people from exposure to danger.\n\nPassenger/Non-passenger Casualty Accident\nas of December 2020\n2018 52 cases\n2019 33 cases\n2020 24 cases\n\n9",
+      "structure": {
+        "axes": {
+          "x": "2018, 2019, 2020",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "Emergency Response Drills (as of December 2020)",
+            "values": {
+              "2018": "31 rounds",
+              "2019": "39 rounds",
+              "2020": "26 rounds"
+            }
+          },
+          {
+            "name": "Railway Accident Occurrence (as of December 2020)",
+            "values": {
+              "2018": "69 accidents",
+              "2019": "58 accidents",
+              "2020": "40 accidents"
+            }
+          },
+          {
+            "name": "Passenger/Non-passenger Casualty Accident (as of December 2020)",
+            "values": {
+              "2018": "52 cases",
+              "2019": "33 cases",
+              "2020": "24 cases"
+            }
+          }
+        ],
+        "units": "rounds, accidents, cases"
+      },
+      "summary": "현장 중심의 예방적 위험 관리를 통한 안전사고 제로 추진 노력과 안전보건경영시스템(ISO 45001, K-OHSAS 18001) 인증 현황, 그리고 2018년부터 2020년까지의 비상대응 훈련 횟수, 철도사고 발생 건수, 여객/비여객 사상사고 건수 추이를 나타낸 자료임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "45001",
+      "7",
+      "2020",
+      "2018",
+      "2019",
+      "39",
+      "24",
+      "69",
+      "58",
+      "40",
+      "52",
+      "33",
+      "2018년",
+      "2020년"
+    ],
+    "unconfirmed_numbers": [
+      "18001",
+      "31",
+      "26",
+      "9"
+    ],
+    "elapsed_sec": 13.143
+  },
+  {
+    "sha256": "8011e4e076014a0247687b0c371b585dc764d8563d692784ce8a9354c0a1e463",
+    "path": "images/attachments/8011e4e076014a0247687b0c371b585dc764d8563d692784ce8a9354c0a1e463.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Enhancing the value of our customers' time\nwith the world's best punctual railway operation\nRealizing the world's top\nrailway punctuality rate\nand safety\nKORAIL boasts the world's best service in railway\npunctuality rate and safety. According to the\nUIC (Union Interationale des Chemins de fer or\nInternational Union of Railwvays) KORAlL's general\ntrains and KTX (high-speed trains) run on the\nworld's best punctual schedules. In addition, our\nrailway accident rates are registered at the lowest\nunder the standards of the European Union Agency\nfor Railways (ERA). We will not rest on our laurels,\nWe will double our efforts to maintain our records\nand enhance the value of our customers time.\n| High-speed Railway Punctuality Ratel\nUnits\n99.7%\n89.0%\n89.1%\nFrance\nCoech Repubic\nSouth Korea\nSadh Kostoi Uie sueica vartooll Ollen hotsUlE Sarmicl Yafbook)\n: UCi purchulty coeceon to tunts tor get iog nohe 15 prion he tred\ntedled detrsero ime\nReducing our customers'\ntravel time by expanding\nthe operation of express trains\nWe have operated express trains 8 times duning\nrush hours for the Gyeongin Line and added 4\nmetro express train operations for the Bundang\nLine (Wangsipri Station to Suwon Station) and the\nGyeongui Line (Seoul Station to Moonsan Station)\nin order to reduce our customers travel time. h\naddition, we have optimized our current resources, for\nexample, by launching 10 metro express operations\nfor the Gyreongwon Line (Kwangwoon University\nStation to Dongducheon Stationi and expanding 12\ntran operatons tor the Gyeongur Line (Seoul Station\nto lIsan Station): We will.continue our effort for our\ncustomers to travel faster to their destination.\nTravel Time Reduction\nJecrease n\nCommute Tine\nAs mush as 20 mntes\nIncroase in\nPassenger Traffic\nAn avorage of\n12,308 % ca\n12\nRailway Services Connecting Customers Minds",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "Enhancing the value of our customers' time with the world's best punctual railway operation",
+      "text": "Enhancing the value of our customers' time\nwith the world's best punctual railway operation\n\nRealizing the world's top\nrailway punctuality rate\nand safety\n\nKORAIL boasts the world's best service in railway\npunctuality rate and safety. According to the\nUIC (Union Internationale des Chemins de fer or\nInternational Union of Railways), KORAIL's general\ntrains and KTX (high-speed trains) run on the\nworld's best punctual schedules. In addition, our\nrailway accident rates are registered at the lowest\nunder the standards of the European Union Agency\nfor Railways (ERA). We will not rest on our laurels.\nWe will double our efforts to maintain our records\nand enhance the value of our customers' time.\n\nHigh-speed Railway Punctuality Rate\nUnit: %\n89.0%\n89.1%\n99.7%\nFrance\nCzech Republic\nSouth Korea\n※ South Korea (2017 UIC Statistical Yearbook), Others (2015 UIC Statistical Yearbook)\n※ UIC's punctuality operation rate counts trains arriving within 15 minutes from the scheduled destination time.\n\nReducing our customers'\ntravel time by expanding\nthe operation of express trains\n\nWe have operated express trains 8 times during\nrush hours for the Gyeongin Line and added 4\nmetro express train operations for the Bundang\nLine (Wangsimni Station to Suwon Station) and the\nGyeongui Line (Seoul Station to Moonsan Station)\nin order to reduce our customers' travel time. In\naddition, we have optimized our current resources, for\nexample, by launching 10 metro express operations\nfor the Gyeongwon Line (Kwangwoon University\nStation to Dongducheon Station) and expanding 12\ntrain operations for the Gyeongui Line (Seoul Station\nto Ilsan Station). We will continue our effort for our\ncustomers to travel faster to their destination.\n\nTravel Time Reduction\nDecrease in\nCommute Time\nAs much as 20 minutes\nIncrease in\nPassenger Traffic\nAn average of\n12,308 per day\n\n12 Railway Services Connecting Customers' Minds",
+      "structure": {
+        "axes": {
+          "x": "국가",
+          "y": "정시율"
+        },
+        "series": [
+          {
+            "name": "High-speed Railway Punctuality Rate",
+            "values": {
+              "France": "89.0%",
+              "Czech Republic": "89.1%",
+              "South Korea": "99.7%"
+            }
+          },
+          {
+            "name": "Travel Time Reduction",
+            "values": {
+              "Decrease in Commute Time": "As much as 20 minutes",
+              "Increase in Passenger Traffic": "An average of 12,308 per day"
+            }
+          }
+        ],
+        "units": "%"
+      },
+      "summary": "한국철도공사의 고속철도 정시율(99.7%)을 프랑스(89.0%), 체코(89.1%)와 비교한 그래프와, 급행열차 확대 운행을 통한 통근 시간 단축(최대 20분) 및 일평균 여객 수송량 증가(12,308명) 내용을 담고 있음.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "89.0%",
+      "89.1%",
+      "99.7%",
+      "15",
+      "8",
+      "4",
+      "10",
+      "12",
+      "20",
+      "12,308"
+    ],
+    "unconfirmed_numbers": [
+      "2017",
+      "2015",
+      "12,308명"
+    ],
+    "elapsed_sec": 10.024
+  },
+  {
+    "sha256": "751a3db996475d39ee67f0fdc8d89226cd2aef50def994f828e05f3eeb88960a",
+    "path": "images/attachments/751a3db996475d39ee67f0fdc8d89226cd2aef50def994f828e05f3eeb88960a.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Creating a harmonious corporate culture with\nmutual respect, consideration, and work-ite balance\nFird Fianayfroulenceinatuo\nsoogrand by the Mirtay M Gunde\nFainnyae Famil\nCertified for\n9 consecutive\nyears\nLeading the corporate culture\nof striking a successful balance\namong work, family and\nchildcare\nKORAIL emplayees can take parental leave without\nany concerns We have institutionalized the whole\nprocess from taking leave of absence, retuming to\ntheir position to supporting childcare so that either\nmale or female staff can be assured to take care\nof their children without any disadvantages. We\nrecognize that a healthy saciety is rooted in healthy\nfamilies and that the happiness of our employees\nleads to work efficiency. We will continue to lead in\ncreatng a family-onented corporate culture.\nNumber of Staff Using Parental Leave\nas of December 2020\n2019\n308peope\n2020\n303 propio\nNumber of Staff Using Flexible Work Scheme\n7,909people\n5,349 p%\nKORAIL's labor-management\nharmony playing a brilliant\nensemble\nKORAIL's Labor Management Joint Realization\nOrganization aims to encourage cooperation and\ncommunication between labor and management\nand facilitates discussions on pressing issues and\nwin-win development. In addrion, KORAILs Hope\nFoundation a labormanagement cooperation\nmodel, has supported families of cardiac patients.\nOpen and continuous. dialogues contribute to a\nwin-win labor-management culture\n2020\n2020\nAccording the daia d Novime orpoyeed' putishod w\nMl Pubic Itormation in-One as d December 2020)\n요요\nLabor ManagementIndex\nen the sale ctive\n2019\n3.62\n2020\n3.69",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "Creating a harmonious corporate culture with mutual respect, consideration, and work-life balance",
+      "text": "Creating a harmonious corporate culture with\nmutual respect, consideration, and work-life balance\nFamily-Friendly Excellence Institution\nrecognized by the Ministry of Gender\nEquality and Family\nCertified for\n9 consecutive\nyears\nLeading the corporate culture\nof striking a successful balance\namong work, family and\nchildcare\nKORAIL employees can take parental leave without\nany concerns. We have institutionalized the whole\nprocess from taking leave of absence, returning to\ntheir position to supporting childcare so that either\nmale or female staff can be assured to take care\nof their children without any disadvantages. We\nrecognize that a healthy society is rooted in healthy\nfamilies and that the happiness of our employees\nleads to work efficiency. We will continue to lead in\ncreating a family-oriented corporate culture.\nNumber of Staff Using Parental Leave\nas of December 2020\n2019\n308 people\n2020\n303 people\nNumber of Staff Using Flexible Work Scheme\n5,349 people\n7,909 people\n2020\n2020\nAccording the data of 'flextime employees' published at\n'All Public Information in-One' as of December 2020\nKORAIL's labor-management\nharmony, playing a brilliant\nensemble\nKORAIL's Labor-Management Joint Realization\nOrganization aims to encourage cooperation and\ncommunication between labor and management\nand facilitates discussions on pressing issues and\nwin-win development. In addition, KORAIL's Hope\nFoundation, a labor-management cooperation\nmodel, has supported families of cardiac patients.\nOpen and continuous dialogues contribute to a\nwin-win labor-management culture.\nLabor-Management Index\non the scale of five\n2019\n3.62\n2020\n3.69\n17",
+      "structure": {
+        "axes": {
+          "x": "2019, 2020",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "Number of Staff Using Parental Leave",
+            "values": {
+              "2019": "308",
+              "2020": "303"
+            }
+          },
+          {
+            "name": "Number of Staff Using Flexible Work Scheme",
+            "values": {
+              "2020 (left)": "5,349",
+              "2020 (right)": "7,909"
+            }
+          },
+          {
+            "name": "Labor-Management Index",
+            "values": {
+              "2019": "3.62",
+              "2020": "3.69"
+            }
+          }
+        ],
+        "units": "people, on the scale of five"
+      },
+      "summary": "KORAIL의 일·가정 양립 지원 및 노사 화합 문화를 소개하며, 육아휴직 사용자 수(2019년 308명, 2020년 303명), 유연근무제 사용자 수(5,349명, 7,909명), 노사지수(2019년 3.62, 2020년 3.69)를 나타낸 영문 홍보 페이지임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "9",
+      "2020",
+      "2019",
+      "303",
+      "5,349",
+      "3.62",
+      "3.69",
+      "2019년",
+      "2020년",
+      "303명",
+      "5,349명"
+    ],
+    "unconfirmed_numbers": [
+      "308",
+      "7,909",
+      "17",
+      "308명",
+      "7,909명"
+    ],
+    "elapsed_sec": 12.294
+  },
+  {
+    "sha256": "a951d1ce0f2a98d7b3fd2e6be363dad2e7e3118309c37a93b9e10374c5883e37",
+    "path": "images/attachments/a951d1ce0f2a98d7b3fd2e6be363dad2e7e3118309c37a93b9e10374c5883e37.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Pursuing co-development and fair transaction\nKORAIL's business model\nfor win-win coexistence\nand fair transaction\nKORAIL cooperates with many businesses in\nvarious areas with its priority principle on win\nwin coexistence and fair transaction. We provide\nequal opportunities and share profits with sociall\ndisadvantaged businesses and SMEs. This has\nbeen the KORAIL's distinctive business model.\nPurchase Rate of SME-made Products\n83.9%\n2019\nPurchase of SME-made Products\n81.4%\nof Total Amount\n844,\nImplementing win-win management\nthrough railway distribution\nchannels\nKORAIL executes win-win business managerent We\nutilize our railway distribution channel infrastructure\nto run specialized shops for SME made products\nand local specialties. For example, we have the SME\nMyeongpum Maru for quality SME products, the\nChandle Maru for agrifood, and the Gohyang Tteurak\nfor local speciaties, tereby promoting outstanding\nproducts and contributing to their revenues. We\nplan to introduce Brand K products, a joint consumer\nbrand for Korean SMEs, to the Myeongpum Maru\nshops in 2020 so as to help the companies to expand\ntheir markets home and abroad.\n22\nPursuing Win Win Cooperation with Railway Partners\n81.4%\n2020\n중소기업명\nKORNL",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "Pursuing co-development and fair transaction",
+      "text": "Pursuing co-development and fair transaction\n\nKORAIL's business model\nfor win-win coexistence\nand fair transaction\n\nKORAIL cooperates with many businesses in\nvarious areas with its priority principle on win-\nwin coexistence and fair transaction. We provide\nequal opportunities and share profits with social\ndisadvantaged businesses and SMEs. This has\nbeen the KORAIL's distinctive business model.\n\nPurchase Rate of SME-made Products\n83.9%\n81.4%\n2019\n2020\n\nPurchase of SME-made Products\n81.4%\nof Total Amount\n# product purchase, construction, service\nKRW\n844,174 billion\n\nImplementing win-win management\nthrough railway distribution\nchannels\n\nKORAIL executes win-win business management. We\nutilize our railway distribution channel infrastructure\nto run specialized shops for SME-made products\nand local specialties. For example, we have the SME\nMyeongpum Maru for quality SME products, the\nChandle Maru for agrifood, and the Gohyang Tteurak\nfor local specialties, thereby promoting outstanding\nproducts and contributing to their revenues. We\nplan to introduce Brand K products, a joint consumer\nbrand for Korean SMEs, to the Myeongpum Maru\nshops in 2020 so as to help the companies to expand\ntheir markets home and abroad.\n\n중소기업 명\nKORAIL\n\n22 Pursuing Win-Win Cooperation with Railway Partners",
+      "structure": {
+        "axes": {
+          "x": "2019, 2020",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "Purchase Rate of SME-made Products",
+            "values": {
+              "2019": "83.9%",
+              "2020": "81.4%"
+            }
+          },
+          {
+            "name": "Purchase of SME-made Products",
+            "values": {
+              "of Total Amount": "81.4%",
+              "KRW": "844,174 billion"
+            }
+          }
+        ],
+        "units": "%, KRW billion"
+      },
+      "summary": "한국철도공사의 상생 협력 및 공정 거래를 위한 비즈니스 모델, 철도 유통 채널을 통한 상생 경영 이행 내용, 그리고 2019년과 2020년의 중소기업 제품 구매율(83.9%, 81.4%) 및 구매액(844,174 billion KRW)을 나타낸 자료임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "83.9%",
+      "81.4%",
+      "2019",
+      "2020",
+      "22",
+      "2019년",
+      "2020년"
+    ],
+    "unconfirmed_numbers": [
+      "844,174"
+    ],
+    "elapsed_sec": 51.635
+  },
+  {
+    "sha256": "3e3988e776faf893d1b07af80d9b06559ebe02a249f014e0c44e78f971e6e030",
+    "path": "images/attachments/3e3988e776faf893d1b07af80d9b06559ebe02a249f014e0c44e78f971e6e030.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Realizing public values\nthrough a fair and transparent recruitment process\nFulfilling our social responsibility\nas a public organization by\nstrengthening social-equity-based\nrecruitment and taking the lead in\nfair recruitment through an\nobjective and transparent hiring\nsystem\nCompetency is the only criterion for KORAIL'S\nrecruitment. We are the first public organization to\nhave introduced blind recruitment in Korea; we have\nremoved all personal and demographic intormation\nfrom the hiring process to preclude any biases. Solely\nbased on the National Competency Standards, we\nare committed to establish a fair and transparent\nrecruitment process.\nSocial Equity-Based Recruitment\nas of December 2020|\nmng Hig\nchot\nGrads\n282 pcoole\nHining Locd\n-1,196 0cck\n139 pckc\n-198 peosite\nHigh school\na high school\nNonCapital Region Previous Region\ngraduation graduation screening\nnng th\n...\nHiring\nVeterans\n212paode\n12%apk\n98 ceocke\n160copm\n2019\n2020\n2019\n2020\n26\nRealizing Social Values for the Public",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "Realizing public values through a fair and transparent recruitment process",
+      "text": "Realizing public values\nthrough a fair and transparent recruitment process\n\nFulfilling our social responsibility\nas a public organization by\nstrengthening social-equity-based\nrecruitment and taking the lead in\nfair recruitment through an\nobjective and transparent hiring\nsystem\n\nCompetency is the only criterion for KORAIL's\nrecruitment. We are the first public organization to\nhave introduced blind recruitment in Korea; we have\nremoved all personal and demographic information\nfrom the hiring process to preclude any biases. Solely\nbased on the National Competency Standards, we\nare committed to establish a fair and transparent\nrecruitment process.\n\nSocial Equity-Based Recruitment\nas of December 2020\n\nHiring High School Grads\n282 people\nHigh school graduation\n139 people\na high school graduation screening\n\nHiring Local Talent\n-1,196 people\nNonCapital Region\n-198 people\nPrevious Region\n\nHiring the Disabled\n98 people\n2019\n129 people\n2020\n\nHiring Veterans\n160 people\n2019\n212 people\n2020\n\n26 Realizing Social Values for the Public",
+      "structure": {
+        "axes": {
+          "x": "High school graduation, a high school graduation screening / NonCapital Region, Previous Region / 2019, 2020",
+          "y": "people"
+        },
+        "series": [
+          {
+            "name": "Hiring High School Grads",
+            "values": {
+              "High school graduation": "282",
+              "a high school graduation screening": "139"
+            }
+          },
+          {
+            "name": "Hiring Local Talent",
+            "values": {
+              "NonCapital Region": "-1,196",
+              "Previous Region": "-198"
+            }
+          },
+          {
+            "name": "Hiring the Disabled",
+            "values": {
+              "2019": "98",
+              "2020": "129"
+            }
+          },
+          {
+            "name": "Hiring Veterans",
+            "values": {
+              "2019": "160",
+              "2020": "212"
+            }
+          }
+        ],
+        "units": "people"
+      },
+      "summary": "공정하고 투명한 채용 과정을 통한 공공가치 실현에 관한 설명과 2020년 12월 기준 사회형평적 채용(고졸 인재, 지역 인재, 장애인, 보훈 대상자) 현황을 나타내는 막대그래프가 제시되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2020",
+      "282",
+      "139",
+      "196",
+      "98",
+      "2019",
+      "26",
+      "2020년",
+      "12월"
+    ],
+    "unconfirmed_numbers": [
+      "129",
+      "160",
+      "212"
+    ],
+    "elapsed_sec": 70.865
+  },
+  {
+    "sha256": "6a25ce85f8b8c825a63ba65b0da8c4b3b44977c0628fe34861a35ef6ac0d6140",
+    "path": "images/attachments/6a25ce85f8b8c825a63ba65b0da8c4b3b44977c0628fe34861a35ef6ac0d6140.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Creating plenty of decent jobs\nas KORAIL's mandate\nKORAIL is at the forefront of giving more decent\njobs to the public as a public organization. In 2019\nwe employed the largest number of 3,699 newl\nstaff among public organizations, contributing to\ndealing with youth unemployment. In addition, we\nhave generated 10,552 private sector jobs in the\nyear of 2018 through our railway infrastructure.\nRealizing public values through\ntemporary to permanent staff\nconversion\nKORAIL has turned temporary jobs to permanent\nones based on active communication between\nlabor and management. Series of consultations\nled to the conclusion that KORAIL will hire for jobs\ndirectly related to the Ife and safety of the Koreans\nand our affliates will hire for jobs related to customer\nservice and non-safety as permanent positions. We\nhave endeavored to promote railway safety. service\ninnovation, and affiliates expertise, thereby realiting\npublic values.\nKORAIL's Talent Concept\ncomwargLbors\ntwonent Relmons te hel\nEenzmon 180개\nWon the\nMinisterial Prize\nGoeminent hrowrtio Besi,\nHotioe 201e\nWon the\nPresidential Prize\nNew Recruitments\n3,699 pcoca\n2,185 mcal\n1,963 pope\n2018\n2019\n2020\nConversion to Permanent Jobs\nLite & Safecy Jatr\n21.8%\n(1,466x0m)\nTemp-10-Pemm\nConversion\nDatome Servce\n& Nm Satety\nJots\n78.2%\n(5,327 poogle)\nPeople-oriented\nCommunicator\nWith the mind and conduct of putting peopie\nfirst, an open mind, and the wilingness for\ncommunication and cooperation\nCustomer-oriented\nProfessional\nWith the willingness to continue to leam for\ncustomer satistaction and the expertise on\ntheir area\nFuture oriented\nInnovator\nWith the ability to enhance the global\ncompetitiveness of KORAIL and to\ncontinucusily pursue future development",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "Creating plenty of decent jobs as KORAIL's mandate",
+      "text": "Rationalizing Labor &\nManagement Relations for Public\nOrganizations (2018)\nWon the\nMinisterial Prize\nGovernment Innovation Best\nPractice 2018\nWon the\nPresidential Prize\nCreating plenty of decent jobs\nas KORAIL's mandate\nKORAIL is at the forefront of giving more decent\njobs to the public as a public organization. In 2019\nwe employed the largest number of 3,699 new\nstaff among public organizations, contributing to\ndealing with youth unemployment. In addition, we\nhave generated 10,552 private sector jobs in the\nyear of 2018 through our railway infrastructure.\nNew Recruitments\n2,185 people\n2018\n3,699 people\n2019\n1,963 people\n2020\nRealizing public values through\ntemporary to permanent staff\nconversion\nKORAIL has turned temporary jobs to permanent\nones based on active communication between\nlabor and management. Series of consultations\nled to the conclusion that KORAIL will hire for jobs\ndirectly related to the life and safety of the Koreans\nand our affiliates will hire for jobs related to customer\nservice and non-safety as permanent positions. We\nhave endeavored to promote railway safety, service\ninnovation, and affiliates' expertise, thereby realizing\npublic values.\nConversion to Permanent Jobs\nTemp-to-Perm\nConversion\nLife & Safety Jobs\n21.8%\n(1,466people)\nCustomer Service\n& Non-Safety\nJobs\n78.2%\n(5,327people)\nKORAIL's Talent Concept\nPeople-oriented\nCommunicator\nWith the mind and conduct of putting people\nfirst, an open mind, and the willingness for\ncommunication and cooperation\nCustomer-oriented\nProfessional\nWith the willingness to continue to learn for\ncustomer satisfaction and the expertise on\ntheir area\nFuture-oriented\nInnovator\nWith the ability to enhance the global\ncompetitiveness of KORAIL and to\ncontinuously pursue future development\n27",
+      "structure": {
+        "axes": {
+          "x": "2018, 2019, 2020",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "New Recruitments",
+            "values": {
+              "2018": "2,185",
+              "2019": "3,699",
+              "2020": "1,963"
+            }
+          },
+          {
+            "name": "Temp-to-Perm Conversion",
+            "values": {
+              "Life & Safety Jobs": "21.8% (1,466people)",
+              "Customer Service & Non-Safety Jobs": "78.2% (5,327people)"
+            }
+          }
+        ],
+        "units": "people, %"
+      },
+      "summary": "KORAIL의 신규 채용 현황(2018년 2,185명, 2019년 3,699명, 2020년 1,963명), 정규직 전환 현황(생명·안전 업무 21.8%/1,466명, 고객서비스 및 비안전 업무 78.2%/5,327명) 및 인재상(People-oriented Communicator, Customer-oriented Professional, Future-oriented Innovator)을 영문으로 소개한 페이지임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2018",
+      "2019",
+      "3,699",
+      "10,552",
+      "2,185",
+      "1,963",
+      "2020",
+      "21.8%",
+      "1",
+      "46",
+      "78.2%",
+      "2018년",
+      "2,185명",
+      "2019년",
+      "3,699명",
+      "2020년",
+      "1,963명"
+    ],
+    "unconfirmed_numbers": [
+      "5",
+      "32",
+      "27",
+      "466명",
+      "327명"
+    ],
+    "elapsed_sec": 9.598
+  },
+  {
+    "sha256": "09092d247a185f20eda17b809898b558f737b43b018de705b84d10ccbe6ec320",
+    "path": "images/attachments/09092d247a185f20eda17b809898b558f737b43b018de705b84d10ccbe6ec320.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13579",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Gria Cometie falmbigs\nGrand Prize\nSecuring future competitiveness\nby developing advanced\nrailway-tailored technologies\nCreating a pleasant railway\nenvironment by minimizing\nfine dust\nKORAIL has a team dedicated to managing indoor air\nquality and fine dustin order to realize a pleasant railvay\nenvironment We have replaced filters of airconditioning\nfacilities at underground stations for better air quality,\nIn order to minimize the impact of fine dust, we\ndesignated 6 statons tor pliot management of fine dust\nand removed acoustic boards, the source of fine dust\nfrom underground tunnels. As a result, we have 100% of\nthe fine dust management targets for five consecutive\nyears. We will reinforce fine dust management so that\neveryone can use railways pleasanthy and comfortably.\nIndoor Air Quality Measurements of Railway Stations\nas of December 2020\n100 mrless\nFine Dust tesim)\n52\nUnterground\nStandardsl\n1,000mlos\nGround\n466\n433\ncO: ppm)\nSunterds\nUnderground bround\n100g10s\nFomaldehyde (/m))\nStandards\n5\nUnderground\n10\nSround\nloT-based Real-Time Rail Temperature Measuring System\nRapidly responding to abnormal\nclimate with the development of\nstate-of-the-art technologies\nKORAIL has developed technologies tailored\nto railways in order to ensure railway safety in\nany possible abnormal climate. For example, we\ndeveloped the heat-shielding paint spraying device for\nrail temperature reduction of 5 to 6 degrees Celsius in\nresponse to disastrous record-high neat waves. It was\nrecognized with the Grand Prize for Facility Safety in the\nSmart Construction and Safety Contest 2018. KORAILS\nrallvay technologies recorded 3.72 points out of 5\nin 2017 and 3.75 points in 2018. We will proactively\ndevelop railway-tailored technologies to prevent\nrailway risk factors.\nDetection System Equipped with Ultrasonic-wave Sensors\nfor Tension Changes in Catenary Lines\n20 kcalm0\nAnti-Snow Cover on Rail Switches and Heating Devices\n246 ccaln\n41",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "Securing future competitiveness by developing advanced railway-tailored technologies",
+      "text": "Securing future competitiveness\nby developing advanced\nrailway-tailored technologies\n\nSmart Construction Technology\nSafety Contest 2018\nGrand Prize\nHeat-shielding paint\nspraying device for rail\ntemperature reduction\n\nCreating a pleasant railway\nenvironment by minimizing\nfine dust\nKORAIL has a team dedicated to managing indoor air\nquality and fine dust in order to realize a pleasant railway\nenvironment. We have replaced filters of air-conditioning\nfacilities at underground stations for better air quality.\nIn order to minimize the impact of fine dust, we\ndesignated 6 stations for pilot management of fine dust,\nand removed acoustic boards, the source of fine dust,\nfrom underground tunnels. As a result, we have 100% of\nthe fine dust management targets for five consecutive\nyears. We will reinforce fine dust management so that\neveryone can use railways pleasantly and comfortably.\n\nRapidly responding to abnormal\nclimate with the development of\nstate-of-the-art technologies\nKORAIL has developed technologies tailored\nto railways in order to ensure railway safety in\nany possible abnormal climate. For example, we\ndeveloped the heat-shielding paint spraying device for\nrail temperature reduction of 5 to 6 degrees Celsius in\nresponse to disastrous record-high heat waves. It was\nrecognized with the Grand Prize for Facility Safety in the\nSmart Construction and Safety Contest 2018. KORAIL's\nrailway technologies recorded 3.72 points out of 5\nin 2017 and 3.75 points in 2018. We will proactively\ndevelop railway-tailored technologies to prevent\nrailway risk factors.\n\nIndoor Air Quality Measurements of Railway Stations\nas of December 2020\nFine Dust (㎍/㎥)\nStandards 100 or less\nUnderground 52\nGround 31\nCO₂ (ppm)\nStandards 1,000 or less\nUnderground 433\nGround 466\nFormaldehyde (㎍/㎥)\nStandards 100 or less\nUnderground 5\nGround 10\n\nIoT-based Real-Time Rail Temperature Measuring System\n37 locations\n\nDetection System Equipped with Ultrasonic-wave Sensors\nfor Tension Changes in Catenary Lines\n20 locations\n\nAnti-Snow Cover on Rail Switches and Heating Devices\n246 locations\n\n41",
+      "structure": {
+        "axes": {
+          "x": "Standards, Underground, Ground",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "Fine Dust (㎍/㎥)",
+            "values": {
+              "Standards": "100 or less",
+              "Underground": "52",
+              "Ground": "31"
+            }
+          },
+          {
+            "name": "CO₂ (ppm)",
+            "values": {
+              "Standards": "1,000 or less",
+              "Underground": "433",
+              "Ground": "466"
+            }
+          },
+          {
+            "name": "Formaldehyde (㎍/㎥)",
+            "values": {
+              "Standards": "100 or less",
+              "Underground": "5",
+              "Ground": "10"
+            }
+          }
+        ],
+        "units": "㎍/㎥, ppm"
+      },
+      "summary": "철도 맞춤형 첨단 기술 개발을 통한 미래 경쟁력 확보에 관한 페이지로, 미세먼지 저감을 통한 쾌적한 철도 환경 조성, 이상기후 대응 기술 개발, 2020년 12월 기준 철도역 실내 공기질 측정 그래프(미세먼지, 이산화탄소, 폼알데하이드) 및 관련 시스템 설치 개소 수를 안내함.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2018",
+      "6",
+      "100%",
+      "5",
+      "3.72",
+      "2017",
+      "3.75",
+      "2020",
+      "100",
+      "52",
+      "433",
+      "466",
+      "10",
+      "20",
+      "246",
+      "41",
+      "2020년"
+    ],
+    "unconfirmed_numbers": [
+      "31",
+      "1,000",
+      "37",
+      "12월"
+    ],
+    "elapsed_sec": 17.199
+  },
+  {
+    "sha256": "0c172af2265dad4b0e8124b76b3259b4b2629b1b0fc2948963a3241d55624aff",
+    "path": "images/attachments/0c172af2265dad4b0e8124b76b3259b4b2629b1b0fc2948963a3241d55624aff.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "현장 중심의 예방적 위기관리로\n안전사고 ZERO에 도전합니다\n현장 밀착형 훈련을 강화해\n고객 안전을 확보합니다\n고객중심으로 비상대응체계를 전환하고, 실제와 같은\n비상대응훈련과 비상대응 전문가 양성 확대 등을 통해\n국민안전 확보에 전력을 다하고 있습니다. 또한 고객의\n안전 확보와 서비스 중심(목적지 도착)으로 비상대응\n프로세스를 세분화 및 구체화해 안전하고 편안한 열차\n이용이 되도록 최선을 다하고 있습니다\n24시간 365일,\n사람 중심의 철도 안전을 위해\n전력을 다하고 있습니다\n국민 안전을 최우선으로 하기 위해 대형철도사고\n발생으로 사회적 파장에 이르지 않도록 안전한\n열차운행에 초점을 맞춰 모든 역량을 집중하고\n있습니다. 앞으로도 철도를 이용하는 모든 고객에게\n안전이 화보되도록 지속적인 노력과 더불어 한 치의\n불편도 발생하지 않도록 사람 중심의 안전관리를\n실현해 나가겠습니다.\n위험요인을 미리 차단해\n국민의 생명과 안전을 보호합니다\n모든 고객이 안전하고 편안하게 열차를 이용할 수 있는\n환경을 만들기 위해 대국민 안전홍보캠페인을 비롯해\n에스컬레이터와 엘리베이터 등 고객 밀착형\n안전설비를 확충하고 개량하는 사업을 지속적으로\n시행하고 있습니다. 또한 위험에 노출되지 않도록\n선로번 울타리 확충과 건널목 입체화 등 지속적인 시설\n개선으로 국민 안전 확보를 위해 노력하고 있습니다.\n안전보건경영시스템]\n국제표조(50 4500%\n국제표준 인증\n한전보건경영시스템\n1O15:5 18000\n7년 연속 인증\n비상대응훈련\n2020년도 12월 기준\n39회\n31회\n26회\n2018\n2019\n2020\n철도사고 발생 건수\n2020년도 12월 기준\n69권\n58전\n40간\n2018\n2019\n2020\n여객•공중 사상사고 건수\n2020년도 12월 기준\n52건\n33건\n24건\n2018\n2019\n2020",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "현장 중심의 예방적 위기관리로 안전사고 ZERO에 도전합니다",
+      "text": "현장 중심의 예방적 위기관리로\n안전사고 ZERO에 도전합니다\n\n안전보건경영시스템\n국제표준(ISO 45001)\n국제표준 인증\n\n안전보건경영시스템\n(K-OHSAS 18001)\n7년 연속 인증\n\n현장 밀착형 훈련을 강화해\n고객 안전을 확보합니다\n\n고객중심으로 비상대응체계를 전환하고, 실제와 같은\n비상대응훈련과 비상대응 전문가 양성 확대 등을 통해\n국민안전 확보에 전력을 다하고 있습니다. 또한 고객의\n안전 확보와 서비스 중심(목적지 도착)으로 비상대응\n프로세스를 세분화 및 구체화해 안전하고 편안한 열차\n이용이 되도록 최선을 다하고 있습니다\n\n비상대응훈련\n2020년도 12월 기준\n2018 31회\n2019 39회\n2020 26회\n\n24시간 365일,\n사람 중심의 철도 안전을 위해\n전력을 다하고 있습니다\n\n국민 안전을 최우선으로 하기 위해 대형철도사고\n발생으로 사회적 파장에 이르지 않도록 안전한\n열차운행에 초점을 맞춰 모든 역량을 집중하고\n있습니다. 앞으로도 철도를 이용하는 모든 고객에게\n안전이 확보되도록 지속적인 노력과 더불어 한 치의\n불편도 발생하지 않도록 사람 중심의 안전관리를\n실현해 나가겠습니다.\n\n철도사고 발생 건수\n2020년도 12월 기준\n2018 69건\n2019 58건\n2020 40건\n\n위험요인을 미리 차단해\n국민의 생명과 안전을 보호합니다\n\n모든 고객이 안전하고 편안하게 열차를 이용할 수 있는\n환경을 만들기 위해 대국민 안전홍보캠페인을 비롯해,\n에스컬레이터와 엘리베이터 등 고객 밀착형\n안전설비를 확충하고 개량하는 사업을 지속적으로\n시행하고 있습니다. 또한 위험에 노출되지 않도록\n선로변 울타리 확충과 건널목 입체화 등 지속적인 시설\n개선으로 국민 안전 확보를 위해 노력하고 있습니다.\n\n여객·공중 사상사고 건수\n2020년도 12월 기준\n2018 52건\n2019 33건\n2020 24건\n\n9",
+      "structure": {
+        "axes": {
+          "x": "2018, 2019, 2020",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "비상대응훈련 (2020년도 12월 기준)",
+            "values": {
+              "2018": "31회",
+              "2019": "39회",
+              "2020": "26회"
+            }
+          },
+          {
+            "name": "철도사고 발생 건수 (2020년도 12월 기준)",
+            "values": {
+              "2018": "69건",
+              "2019": "58건",
+              "2020": "40건"
+            }
+          },
+          {
+            "name": "여객·공중 사상사고 건수 (2020년도 12월 기준)",
+            "values": {
+              "2018": "52건",
+              "2019": "33건",
+              "2020": "24건"
+            }
+          }
+        ],
+        "units": "회, 건"
+      },
+      "summary": "현장 중심의 예방적 위기관리를 통한 안전사고 예방 노력과 함께 2018년부터 2020년까지의 비상대응훈련 횟수, 철도사고 발생 건수, 여객·공중 사상사고 건수를 나타낸 자료입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "7년",
+      "2020년도",
+      "12월",
+      "2018",
+      "31회",
+      "2019",
+      "39회",
+      "2020",
+      "26회",
+      "24시간",
+      "365일",
+      "69건",
+      "58건",
+      "40건",
+      "52건",
+      "33건",
+      "24건",
+      "2018년",
+      "2020년"
+    ],
+    "unconfirmed_numbers": [
+      "45001",
+      "18001",
+      "9"
+    ],
+    "elapsed_sec": 12.148
+  },
+  {
+    "sha256": "652736ee96707f866619cd7bb63264a763c4008757d586dbf0c760c46d035668",
+    "path": "images/attachments/652736ee96707f866619cd7bb63264a763c4008757d586dbf0c760c46d035668.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "세계 최고 수준의 열차 운행으로\n고객의 시간 가치를 높입니다\n세계 1위의 열차 정시율과\n안전성을 실현합니다\n한국철도는 세계 최고 수준의 열차 정시율과\n안전성을 자랑합니다. 한국철도의 일반열차\n정시운행률과 대한민국 대표 교통수단인 KTX의\n정시운행들은 국제철도연맹(UIC) 기준 세계\n1위입니다. 또한 철도 사고율도 유럽철도(ERA)\n기준 가장 낮은 사고율을 기록하고 있습니다.\n한국철도는 여기에 만족하지 않고 세계 최고\n수준의 열차 정시운행률과 안전성을 확보해\n고객의 시간 가치를 더욱 높여나가겠습니다.\n고속철도 정시운행률\n단위\n99.7%\n89.0%\n89.1%\n프랑스\n체코\n한국\n※ 타 국가는2015년 한국철도는 2017년 UIC 등계연감 기준\n※ UIC 기준 정시운행물 : 종착역 기준 15분 이하 도착 열차\n급행열차 운행 확대로\n고객의 통행시간을 단축합니다\n고객의 통행시간 단축을 위해 출퇴근 시간대에\n운행하는 경인선 특급열차를 8회 운행하고,\n분당선(왕십리역~수원역)과 경의선(서울역~문산역)\n급행열차를 4회 증편했습니다.\n아울러 경원선(광운대역~동두천역) 급행열차 10회\n신규 운행과 경의선(서울역~일산역) 12회 연장 등\n보유자원을 최적화해 열차 운행을 확대했습니다.\n한국질도는 앞으로도 고객의 통행시간 단축을 위해\n최선의 노력을 다하겠습니다.\n•통행시간 단축 효과\n출퇴근 시간 단축\n최대 20분\n수송량 증가\n일평균 12,308명\n12\n고객의 마음을 잇는 철도 서비스",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "세계 최고 수준의 열차 운행으로 고객의 시간 가치를 높입니다",
+      "text": "세계 최고 수준의 열차 운행으로\n고객의 시간 가치를 높입니다\n\n세계 1위의 열차 정시율과\n안전성을 실현합니다\n한국철도는 세계 최고 수준의 열차 정시율과\n안전성을 자랑합니다. 한국철도의 일반열차\n정시운행률과 대한민국 대표 교통수단인 KTX의\n정시운행률은 국제철도연맹(UIC) 기준 세계\n1위입니다. 또한 철도 사고율도 유럽철도국(ERA)\n기준 가장 낮은 사고율을 기록하고 있습니다.\n한국철도는 여기에 만족하지 않고 세계 최고\n수준의 열차 정시운행률과 안전성을 확보해\n고객의 시간 가치를 더욱 높여나가겠습니다.\n\n고속철도 정시운행률\n단위: %\n89.0%\n89.1%\n99.7%\n프랑스\n체코\n한국\n※ 타 국가는 2015년, 한국철도는 2017년 UIC 통계연감 기준\n※ UIC 기준 정시운행률 : 종착역 기준 15분 이하 도착 열차\n\n급행열차 운행 확대로\n고객의 통행시간을 단축합니다\n고객의 통행시간 단축을 위해 출퇴근 시간대에\n운행하는 경인선 특급열차를 8회 운행하고,\n분당선(왕십리역~수원역)과 경의선(서울역~문산역)\n급행열차를 4회 증편했습니다.\n아울러 경원선(광운대역~동두천역) 급행열차 10회\n신규 운행과 경의선(서울역~일산역) 12회 연장 등\n보유자원을 최적화해 열차 운행을 확대했습니다.\n한국철도는 앞으로도 고객의 통행시간 단축을 위해\n최선의 노력을 다하겠습니다.\n\n통행시간 단축 효과\n출퇴근 시간 단축\n최대 20분\n수송량 증가\n일평균 12,308명\n\n12 고객의 마음을 잇는 철도 서비스",
+      "structure": {
+        "axes": {
+          "x": "프랑스, 체코, 한국",
+          "y": "고속철도 정시운행률"
+        },
+        "series": [
+          {
+            "name": "고속철도 정시운행률",
+            "values": {
+              "프랑스": "89.0%",
+              "체코": "89.1%",
+              "한국": "99.7%"
+            }
+          }
+        ],
+        "units": "단위: %"
+      },
+      "summary": "한국철도의 열차 정시율(고속철도 정시운행률 한국 99.7%, 체코 89.1%, 프랑스 89.0%) 및 안전성, 그리고 급행열차 운행 확대를 통한 통행시간 단축 효과(출퇴근 시간 최대 20분 단축, 수송량 일평균 12,308명 증가)를 설명하는 자료임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "1",
+      "89.0%",
+      "89.1%",
+      "99.7%",
+      "2015년",
+      "2017년",
+      "15",
+      "8회",
+      "4회",
+      "10회",
+      "12회",
+      "20",
+      "12,308명",
+      "12"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 10.994
+  },
+  {
+    "sha256": "ab365fd17b2d666fb0dde6e6be54e8335615bf91f6dd1b9e1ae5f256345aedfd",
+    "path": "images/attachments/ab365fd17b2d666fb0dde6e6be54e8335615bf91f6dd1b9e1ae5f256345aedfd.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "여성가족부\n가족친화 우수기관\n9년 연속 인증\n상호존중과 배려, 일과 가정의 균형으로\n모두가 화합하는 조직문화를 만듭니다\n일과 가정과 육아를 모두\n성취할 수 있는 직장문화,\n한국철도가 선도합니다\n'육아휴직을 써도 눈치 보이지 않을까?' 적어도\n한국철도에서는 하지 않아도 될 걱정입니다.\n한국철도는 남녀 구분 없이 마음 놓고 육아에\n전념할 수 있도록 휴직과 복직, 보육 지원에\n이르기까지 전 과정을 제도화해 어떠한 불이익도\n발생하지 않게 합니다. 건강한 가정에서 건강한\n사회가 만들어지고, 직원이 행복해야 기업의\n업무 효율도 높아진다는 것을 한국철도는 잘\n알고 있습니다. 앞으로도 가족친화적인 직장문화\n조성에 앞장서겠습니다.\n육아휴직 이용 인원\n산정기준 : 2020년 12월 일 기준 결원보충휴직 상시근로인원\n2019\n308명\n2020\n303영\n유연근무제 이용률\n7,909명\n5,349명\n한국철도가 그리는\n노사의 하모니,\n함께하면 더 멋진 연주가 됩니다\n화합과 협력의 노사문화를 위해 '노사공동실현기구를\n운영하고, 이름 동해 핵심현안 및 상생 발전 방향을\n논의하고 있습니다. 또한 노사 간 협력 모델인\n회망철도재단을 함께 운영하며 심장병 환우 가족을\n지원하는 등 원화하고 지속적인 소동을 통해 상생의\n노사문화를 만들어가고 있습니다.\n2020\n2020\n알리오 끓시 기준 2020년 시간선택제\n시차출퇴근제 인원\n알리오 공시 기준 2020년 시간선대체,\n시차출퇴근제, 근무시간선택제, 재택근무제 인원\n요&\n노사관계지수\n5점 안정\n2019\n3.62점\n2020\n3.69점",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "상호존중과 배려, 일과 가정의 균형으로 모두가 화합하는 조직문화를 만듭니다",
+      "text": "상호존중과 배려, 일과 가정의 균형으로\n모두가 화합하는 조직문화를 만듭니다\n여성가족부 가족친화 우수기관\n9년 연속 인증\n일과 가정과 육아를 모두\n성취할 수 있는 직장문화,\n한국철도가 선도합니다\n'육아휴직을 써도 눈치 보이지 않을까?' 적어도\n한국철도에서는 하지 않아도 될 걱정입니다.\n한국철도는 남녀 구분 없이 마음 놓고 육아에\n전념할 수 있도록 휴직과 복직, 보육 지원에\n이르기까지 전 과정을 제도화해 어떠한 불이익도\n발생하지 않게 합니다. 건강한 가정에서 건강한\n사회가 만들어지고, 직원이 행복해야 기업의\n업무 효율도 높아진다는 것을 한국철도는 잘\n알고 있습니다. 앞으로도 가족친화적인 직장문화\n조성에 앞장서겠습니다.\n육아휴직 이용 인원\n산정기준 : 2020년 12월 말 기준 결원보충휴직 상시근로인원\n2019 308명\n2020 303명\n유연근무제 이용률\n5,349명\n2020\n알리오 공시 기준 2020년 시간선택제,\n시차출퇴근제 인원\n7,909명\n2020\n알리오 공시 기준 2020년 시간선택제,\n시차출퇴근제, 근무시간선택제, 재택근무제 인원\n한국철도가 그리는\n노사의 하모니,\n함께하면 더 멋진 연주가 됩니다\n화합과 협력의 노사문화를 위해 '노사공동실현기구'를\n운영하고, 이를 통해 핵심현안 및 상생 발전 방향을\n논의하고 있습니다. 또한 노사 간 협력 모델인\n희망철도재단을 함께 운영하며 심장병 환우 가족을\n지원하는 등 원활하고 지속적인 소통을 통해 상생의\n노사문화를 만들어가고 있습니다.\n노사관계지수\n5점 만점\n2019 3.62점\n2020 3.69점\n17",
+      "structure": {
+        "axes": {
+          "x": "연도 및 기준",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "육아휴직 이용 인원 (산정기준 : 2020년 12월 말 기준 결원보충휴직 상시근로인원)",
+            "values": {
+              "2019": "308명",
+              "2020": "303명"
+            }
+          },
+          {
+            "name": "유연근무제 이용률 (2020)",
+            "values": {
+              "알리오 공시 기준 2020년 시간선택제, 시차출퇴근제 인원": "5,349명",
+              "알리오 공시 기준 2020년 시간선택제, 시차출퇴근제, 근무시간선택제, 재택근무제 인원": "7,909명"
+            }
+          },
+          {
+            "name": "노사관계지수 (5점 만점)",
+            "values": {
+              "2019": "3.62점",
+              "2020": "3.69점"
+            }
+          }
+        ],
+        "units": "명, 점"
+      },
+      "summary": "한국철도의 가족친화적인 직장문화와 상생의 노사문화에 관한 설명 및 육아휴직 이용 인원, 유연근무제 이용률, 노사관계지수 현황을 나타낸 자료입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "9년",
+      "2020년",
+      "12월",
+      "2019",
+      "308명",
+      "2020",
+      "303명",
+      "5,349명",
+      "7,909명",
+      "5",
+      "3.62",
+      "3.69"
+    ],
+    "unconfirmed_numbers": [
+      "17"
+    ],
+    "elapsed_sec": 11.119
+  },
+  {
+    "sha256": "a9e0979888938dcbcf89907c38aea70b80b1f2a1ab87ded5afdecb73913f8104",
+    "path": "images/attachments/a9e0979888938dcbcf89907c38aea70b80b1f2a1ab87ded5afdecb73913f8104.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "함께 발전하고 공정하게 거래합니다\n동반상생과 공정거래를 위한\n한국철도형 비즈니스 모델\n다양한 분야에서 수많은 기업과 협력하는 한국철도는\n동반상생과 공정거래를 가장 중요한 원칙으로 삼고\n있습니다. 한국철도는 기회의 공평성을 제공하고,\n사회적 약자기업 및 중소기업과 이익을 공유합니다.\n이를 통해 동반상생과 공정거래를 실현하는\n한국철도형 비즈니스 모델을 구축하고 있습니다.\n중소기업 제품 구매비율\n83.9%\n2019\n중소기업 제품 구매실적\n대상금액의\n81.4%\n※ 대상금액 : 물품, 공사, 용역\n철도 유통 인프라를 활용해\n상생경영을 실천합니다\n한국철도는 철도 유동 인프라를 활용해 중소기업\n제품과 지역 특산품을 판매하는 전문 매장을 운영하며\n상생경영을 실천하고 있습니다. 중소기업 우수제품\n전용 판매장인 '중소기업 명품마루, 전국의 우수한\n농식품을 판매하는 농식품 찬들마루, 지역특산품을\n직거래 판매하는 '고향뜨락 등을 통해 우수제품 발굴과\n매출 확대에 기여하고 있습니다. 2020년부터는\n명품마루 매장에 대한민국 중소기업 공동 브랜드인\n브랜드 제품을 입점해 중소기업의 국내외 판로\n개척을 지원하고 있습니다.\n22\n철도와 함께 성장하는 상생협력\n81.4%\n2020\n중소기업명",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "함께 발전하고 공정하게 거래합니다",
+      "text": "함께 발전하고 공정하게 거래합니다\n\n동반상생과 공정거래를 위한\n한국철도형 비즈니스 모델\n\n다양한 분야에서 수많은 기업과 협력하는 한국철도는\n동반상생과 공정거래를 가장 중요한 원칙으로 삼고\n있습니다. 한국철도는 기회의 공평성을 제공하고,\n사회적 약자기업 및 중소기업과 이익을 공유합니다.\n이를 통해 동반상생과 공정거래를 실현하는\n한국철도형 비즈니스 모델을 구축하고 있습니다.\n\n중소기업 제품 구매비율\n83.9%\n2019\n81.4%\n2020\n\n중소기업 제품 구매실적\n대상금액의\n81.4%\n※ 대상금액 : 물품, 공사, 용역\n총\n8,441억\n7,441만 원\n\n철도 유통 인프라를 활용해\n상생경영을 실천합니다\n\n한국철도는 철도 유통 인프라를 활용해 중소기업\n제품과 지역 특산품을 판매하는 전문 매장을 운영하며\n상생경영을 실천하고 있습니다. 중소기업 우수제품\n전용 판매장인 '중소기업 명품마루', 전국의 우수한\n농식품을 판매하는 '농식품 찬들마루', 지역특산품을\n직거래 판매하는 '고향뜨락' 등을 통해 우수제품 발굴과\n매출 확대에 기여하고 있습니다. 2020년부터는\n명품마루 매장에 대한민국 중소기업 공동 브랜드인\n'브랜드K' 제품을 입점해 중소기업의 국내외 판로\n개척을 지원하고 있습니다.\n\n중소기업 명\nKORAIL\n\n22 철도와 함께 성장하는 상생협력",
+      "structure": {
+        "axes": {
+          "x": "2019, 2020",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "중소기업 제품 구매비율",
+            "values": {
+              "2019": "83.9%",
+              "2020": "81.4%"
+            }
+          },
+          {
+            "name": "중소기업 제품 구매실적",
+            "values": {
+              "대상금액의": "81.4%",
+              "총": "8,441억 7,441만 원"
+            }
+          }
+        ],
+        "units": "%, 원"
+      },
+      "summary": "한국철도의 동반상생과 공정거래를 위한 비즈니스 모델, 2019년(83.9%) 및 2020년(81.4%) 중소기업 제품 구매비율과 구매실적(총 8,441억 7,441만 원), 철도 유통 인프라를 활용한 상생경영 실천 내용을 소개하는 페이지입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "83.9%",
+      "2019",
+      "81.4%",
+      "2020",
+      "2020년",
+      "22",
+      "2019년"
+    ],
+    "unconfirmed_numbers": [
+      "8,441",
+      "7,441"
+    ],
+    "elapsed_sec": 15.952
+  },
+  {
+    "sha256": "62c217351884020266e61f964ec4373c744fb9ee606b511dd943c6155494850e",
+    "path": "images/attachments/62c217351884020266e61f964ec4373c744fb9ee606b511dd943c6155494850e.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "공정하고 투명한 채용 프로세스로\n공공의 가치를 실현합니다\n사회형평적 채용의 강화로\n공기업의 사회적 책임을 다하고,\n객관적이고 투명한 채용 방식으로\n공정한 채용을 선도합니다\n한국철도 입사를 위해 필요한 것은 오직 직무 능력입니다.\n한국철도는 완전한 블라인드 채용을 공공기관 중 가장\n선제적으로 도입해 편견이 생길 수 있는 일체의 신상\n정보를 배제하고, 오직 국가직무능력표준(NCS) 기반의\n공정하고 투명한 채용 프로세스를 확립하고 있습니다.\n사회형평적 채용 인원\n산정기준 : 2020년 12월 말 기준 결원보증휴직 상시근로인원\n고졸\n채용\n282명\n고졸\n139명\n고졸전형\n지역인재\n채용\n1,196명\n비수도권\n198명\n이전지역\n장애인\n채용\n취업지원\n대상자 채용\n국가유공자\n212명\n129명\n98명\n160g\n2019\n2020\n2019\n2020\n26\n공공을 위한 사회적 가치실현",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "공정하고 투명한 채용 프로세스로 공공의 가치를 실현합니다",
+      "text": "공정하고 투명한 채용 프로세스로\n공공의 가치를 실현합니다\n\n사회형평적 채용의 강화로\n공기업의 사회적 책임을 다하고,\n객관적이고 투명한 채용 방식으로\n공정한 채용을 선도합니다\n\n한국철도 입사를 위해 필요한 것은 오직 직무 능력입니다.\n한국철도는 완전한 블라인드 채용을 공공기관 중 가장\n선제적으로 도입해 편견이 생길 수 있는 일체의 신상\n정보를 배제하고, 오직 국가직무능력표준(NCS) 기반의\n공정하고 투명한 채용 프로세스를 확립하고 있습니다.\n\n사회형평적 채용 인원\n산정기준 : 2020년 12월 말 기준 결원보충휴직 상시근로인원\n\n고졸 채용\n282명\n고졸\n139명\n고졸전형\n\n지역인재 채용\n1,196명\n비수도권\n198명\n이전지역\n\n장애인 채용\n98명\n2019\n129명\n2020\n\n취업지원 대상자 채용 (국가유공자)\n160명\n2019\n212명\n2020\n\n26 공공을 위한 사회적 가치실현",
+      "structure": {
+        "axes": {
+          "x": "고졸, 고졸전형, 비수도권, 이전지역, 2019, 2020",
+          "y": "채용 인원"
+        },
+        "series": [
+          {
+            "name": "고졸 채용",
+            "values": {
+              "고졸": "282",
+              "고졸전형": "139"
+            }
+          },
+          {
+            "name": "지역인재 채용",
+            "values": {
+              "비수도권": "1,196",
+              "이전지역": "198"
+            }
+          },
+          {
+            "name": "장애인 채용",
+            "values": {
+              "2019": "98",
+              "2020": "129"
+            }
+          },
+          {
+            "name": "취업지원 대상자 채용 (국가유공자)",
+            "values": {
+              "2019": "160",
+              "2020": "212"
+            }
+          }
+        ],
+        "units": "명"
+      },
+      "summary": "한국철도의 블라인드 채용 및 국가직무능력표준(NCS) 기반 채용 프로세스 안내와 고졸, 지역인재, 장애인, 취업지원 대상자(국가유공자) 등 사회형평적 채용 인원 현황을 나타낸 자료입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2020년",
+      "12월",
+      "282명",
+      "139명",
+      "1,196명",
+      "198명",
+      "98명",
+      "2019",
+      "129명",
+      "2020",
+      "212명",
+      "26",
+      "282",
+      "139",
+      "1,196",
+      "198",
+      "98",
+      "129",
+      "212"
+    ],
+    "unconfirmed_numbers": [
+      "160명",
+      "160"
+    ],
+    "elapsed_sec": 10.764
+  },
+  {
+    "sha256": "22dd8129737e407fafb9743e3cc451a97a8bec4032f307698a8eea2d8c95581c",
+    "path": "images/attachments/22dd8129737e407fafb9743e3cc451a97a8bec4032f307698a8eea2d8c95581c.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "좋은 일자리를 많이 만드는 것은\n한국철도의 의무입니다\n한국철도는 대한민국 대표 공공기관으로서 국민에게\n더 좋은 일자리를 제공하기 위해 잎장서고 있습니다.\n2019년 공공기관 최대 규모인 3699명을 신규로 채용해\n청년실업 해소에 적극 나서고 있습니다. 이와 함께\n철도 인프라를 활용해 2018년 한 해 동안 10.552명의\n일자리를 창출해 활기찬 사회를 만드는 데 기여하고\n있습니다.\n비정규직의 정규직 전환으로\n공공의 가치를 실현합니다\n한국철도는 노사 간 충분한 협의를 바탕으로\n\"노사 및 전문가 협의기구'를 구성해 비정규직\n근로자의 정규직 전환을 추진하고 있습니다.\n국민의 생명과 안전에 직결된 업무종사자는\n공사가 직접 고용하고, 고객서비스와 비(#)안전\n업무종사자는 계열사 정규직으로 전환하기로\n결정했습니다. 이를 통해 한국철도는 철도 안전과\n서비스 혁신, 계열사의 전문성 제고를 이루고,\n공공의 가치를 실현하고 있습니다.\n한국철도 인재상\n2018년 2공기리\n노시귀기다리며\n장관상 수상\n2013년 정부의신\n대통령상 수상\n신규채용 인원\n3,699 g\n2,185명\n1,963명\n2018\n2019\n2020\n정규직 전환 인원\n생명•안전 입무\n21.8%\n(1,466명)\n비정규직의\n정규직화\n고려서비스)\n비(큐)안전 업무\n78.2%\n(5,327명)\n사람지향 소통인\n사람 중심의 사고와 행동을 하는 인성,\n열린 마인드로 주변과 소통하고 협력하는 인재\n고객지향 전문인\n내외부 고객만족을 위해 지속적으로 학습하고\n노력해 담당 분야의 전문성을 갖춘 인재\n미래지향 혁신인\n한국철도의 글로벌 경쟁력을 높이고,\n현실에 안주하지 않고 미래의 발전을\n끊임없이 추구하는 인재\n27",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "좋은 일자리를 많이 만드는 것은 한국철도의 의무입니다 / 비정규직의 정규직 전환으로 공공의 가치를 실현합니다 / 한국철도 인재상",
+      "text": "2018년 공공기관 노사관계합리화\n장관상 수상\n2018년 정부혁신 최우수사례\n대통령상 수상\n\n좋은 일자리를 많이 만드는 것은\n한국철도의 의무입니다\n한국철도는 대한민국 대표 공공기관으로서 국민에게 더 좋은 일자리를 제공하기 위해 앞장서고 있습니다. 2019년 공공기관 최대 규모인 3,699명을 신규로 채용해 청년실업 해소에 적극 나서고 있습니다. 이와 함께 철도 인프라를 활용해 2018년 한 해 동안 10,552명의 일자리를 창출해 활기찬 사회를 만드는 데 기여하고 있습니다.\n\n신규채용 인원\n2018: 2,185명\n2019: 3,699명\n2020: 1,963명\n\n비정규직의 정규직 전환으로\n공공의 가치를 실현합니다\n한국철도는 노사 간 충분한 협의를 바탕으로 '노사 및 전문가 협의기구'를 구성해 비정규직 근로자의 정규직 전환을 추진하고 있습니다. 국민의 생명과 안전에 직결된 업무종사자는 공사가 직접 고용하고, 고객서비스와 비(非)안전 업무종사자는 계열사 정규직으로 전환하기로 결정했습니다. 이를 통해 한국철도는 철도 안전과 서비스 혁신, 계열사의 전문성 제고를 이루고, 공공의 가치를 실현하고 있습니다.\n\n정규직 전환 인원\n비정규직의 정규직화\n생명·안전 업무: 21.8% (1,466명)\n고객서비스·비(非)안전 업무: 78.2% (5,327명)\n\n한국철도 인재상\n사람지향 소통인\n사람 중심의 사고와 행동을 하는 인성, 열린 마인드로 주변과 소통하고 협력하는 인재\n고객지향 전문인\n내외부 고객만족을 위해 지속적으로 학습하고 노력해 담당 분야의 전문성을 갖춘 인재\n미래지향 혁신인\n한국철도의 글로벌 경쟁력을 높이고, 현실에 안주하지 않고 미래의 발전을 끊임없이 추구하는 인재\n\n27",
+      "structure": {
+        "axes": {
+          "x": "연도",
+          "y": "인원"
+        },
+        "series": [
+          {
+            "name": "신규채용 인원",
+            "values": {
+              "2018": "2,185",
+              "2019": "3,699",
+              "2020": "1,963"
+            }
+          },
+          {
+            "name": "정규직 전환 인원",
+            "values": {
+              "생명·안전 업무": "21.8% (1,466명)",
+              "고객서비스·비(非)안전 업무": "78.2% (5,327명)"
+            }
+          }
+        ],
+        "units": "명, %"
+      },
+      "summary": "한국철도의 2018~2020년 신규채용 인원 및 비정규직의 정규직 전환 인원 현황을 나타내는 그래프와 한국철도의 인재상(사람지향 소통인, 고객지향 전문인, 미래지향 혁신인)에 대한 설명입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2018년",
+      "2019년",
+      "3,699명",
+      "2018",
+      "2,185명",
+      "2019",
+      "2020",
+      "1,963명",
+      "21.8%",
+      "1,466명",
+      "78.2%",
+      "5,327명",
+      "27",
+      "2020년",
+      "2,185",
+      "3,699",
+      "1,963"
+    ],
+    "unconfirmed_numbers": [
+      "10,552명"
+    ],
+    "elapsed_sec": 13.306
+  },
+  {
+    "sha256": "0890443f43a82dc018443d8baf89223d0a15b22ac01f3dd2fbc66016d8d386b0",
+    "path": "images/attachments/0890443f43a82dc018443d8baf89223d0a15b22ac01f3dd2fbc66016d8d386b0.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=13577",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2018년 스마트 건설\n기술의전내전\n최우수상\n철도 맞춤형 첨단기술을 개발해\n미래 경쟁력을 확보합니다\n미세먼지 최소화로\n쾌적한 철도 환경을 구현합니다\n한국철도는 쾌적한 철도 환경을 구현하기 위해\n실내공기질과 미세먼지 관리를 위한 전담조직을\n운영하고 있습니다. 공기질 개선을 위해 지하역사\n공조설비 필터를 교체하고, 미세먼지 영향을 최소화하기\n위해 미세먼지 시범관리역사로 6개역 관리와 지하터널\n미세먼지 발생원 흡음판 제거 등의 활동을 수행했습니다.\n그 결과 5년 연속 미세먼지 관리 목표를 100%\n달성했습니다. 앞으로도 모두가 안심하고 쾌적하게 이용할\n수 있도록 미세먼지 관리 대용을 강화해 나가겠습니다.\n철도역사 실내공기질 측정 결과\n2020년도 기준\n100이하\n미세먼지 (/m2)\n52\n지하\n기준치\n1,000이하\n지삼\n466\n433\n이산화탄소 (ppm)\n기준치\n100이하\n지하\n지상\n폼알데하이드 (9/m)\n기준치\n5\n지하\n10\n지상\nlOT 기반 실시간 레일온도 측정시스템\n첨단기술 개발로 이상기후에\n발 빠르게 대응합니다\n한국철도는 이상기후에 대비해 철도 안전성을 확보하기\n위해 철도 맛춤형 기술을 개발하고 있습니다. 대표적으로\n재난 수준의 기록적 폭염에 대응하기 위해 레일온도를\n5~6°C 낮추는 차열페인트 분사장치를 개발했으며,\n이 기술은 '2018 스마트 건설기술•안전대전'에서\n시설안전분야 최우수상을 수상했습니다. 철도기술\n수준은 2017년 5점 만점 3.72점에서 2018년 3.75점으로\n항상했습니다. 한국철도는 앞으로도 맛춤형 기술을 적극\n개발해 철도의 위험요인을 사전에 예방하겠습니다.\n37개소 구축\n초음파 센서 활용한 전차선로 장력변화 검측시스템\n20 개소 구족\n선로전환기 적설방지 커버 및 히팅 장치\n246 개소 설치",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "철도 맞춤형 첨단기술을 개발해 미래 경쟁력을 확보합니다",
+      "text": "철도 맞춤형 첨단기술을 개발해\n미래 경쟁력을 확보합니다\n2018년 스마트 건설 기술·안전대전\n최우수상\n(레일온도 저감을 위한 차열 페인트 분사장치)\n미세먼지 최소화로\n쾌적한 철도 환경을 구현합니다\n한국철도는 쾌적한 철도 환경을 구현하기 위해 실내공기질과 미세먼지 관리를 위한 전담조직을 운영하고 있습니다. 공기질 개선을 위해 지하역사 공조설비 필터를 교체하고, 미세먼지 영향을 최소화하기 위해 미세먼지 시범관리역사로 6개역 관리와 지하터널 미세먼지 발생원 흡음판 제거 등의 활동을 수행했습니다. 그 결과 5년 연속 미세먼지 관리 목표를 100% 달성했습니다. 앞으로도 모두가 안심하고 쾌적하게 이용할 수 있도록 미세먼지 관리 대응을 강화해 나가겠습니다.\n철도역사 실내공기질 측정 결과\n2020년도 기준\n미세먼지 (㎍/㎥)\n기준치 100이하\n지하 52\n지상 31\n이산화탄소 (ppm)\n기준치 1,000이하\n지하 433\n지상 466\n폼알데하이드 (㎍/㎥)\n기준치 100이하\n지하 5\n지상 10\n첨단기술 개발로 이상기후에\n발 빠르게 대응합니다\n한국철도는 이상기후에 대비해 철도 안전성을 확보하기 위해 철도 맞춤형 기술을 개발하고 있습니다. 대표적으로 재난 수준의 기록적 폭염에 대응하기 위해 레일온도를 5~6℃ 낮추는 차열페인트 분사장치를 개발했으며, 이 기술은 '2018 스마트 건설기술·안전대전'에서 시설안전분야 최우수상을 수상했습니다. 철도기술 수준은 2017년 5점 만점 3.72점에서 2018년 3.75점으로 향상했습니다. 한국철도는 앞으로도 맞춤형 기술을 적극 개발해 철도의 위험요인을 사전에 예방하겠습니다.\nIoT 기반 실시간 레일온도 측정시스템\n37 개소 구축\n초음파 센서 활용한 전차선로 장력변화 검측시스템\n20 개소 구축\n선로전환기 적설방지 커버 및 히팅 장치\n246 개소 설치\n41",
+      "structure": {
+        "axes": {
+          "x": "기준치, 지하, 지상",
+          "y": "측정값"
+        },
+        "series": [
+          {
+            "name": "미세먼지 (㎍/㎥)",
+            "values": {
+              "기준치": "100이하",
+              "지하": "52",
+              "지상": "31"
+            }
+          },
+          {
+            "name": "이산화탄소 (ppm)",
+            "values": {
+              "기준치": "1,000이하",
+              "지하": "433",
+              "지상": "466"
+            }
+          },
+          {
+            "name": "폼알데하이드 (㎍/㎥)",
+            "values": {
+              "기준치": "100이하",
+              "지하": "5",
+              "지상": "10"
+            }
+          }
+        ],
+        "units": "㎍/㎥, ppm"
+      },
+      "summary": "한국철도의 미세먼지 관리 활동과 2020년도 기준 철도역사 실내공기질 측정 결과(미세먼지, 이산화탄소, 폼알데하이드), 그리고 이상기후에 대응하기 위한 철도 맞춤형 첨단기술 개발 및 구축 현황을 설명하는 자료임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2018년",
+      "6개",
+      "5년",
+      "100%",
+      "2020년도",
+      "100",
+      "52",
+      "1,000",
+      "433",
+      "466",
+      "5",
+      "10",
+      "6",
+      "2018",
+      "2017년",
+      "3.72",
+      "3.75",
+      "37개소",
+      "20개소",
+      "246개소"
+    ],
+    "unconfirmed_numbers": [
+      "31",
+      "41"
+    ],
+    "elapsed_sec": 11.89
+  },
+  {
+    "sha256": "751877525ef6b9d796c133987ae6fb826a2e17854cf70d0be49f866b6424643b",
+    "path": "images/75/751877525ef6b9d796c133987ae6fb826a2e17854cf70d0be49f866b6424643b.jpg",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000024/수송량_표_이미지.jpg",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=911&bbsNo=199&nttNo=27199&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=6",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "하계기간\n7월1주차 792주차 7일3주지 7일(주 757차 8월1주차\n주차별 수송량\n(단위 : 만명)\n2000년~~3005년\n일자별 수송량",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "(단위 : 만명)\n45\n44\n43\n42\n41\n40\n39\n38\n37\n36\n44만명\n하계기간\n7월1주차 7월2주차 7월3주차 7월4주차 7월5주차 8월1주차\n주차별 수송량\n60\n40\n20\n47\n45\n39\n39\n41\n42\n50만명\n50\n47\n42\n38\n38\n38\n46\n45\n44\n38\n7/25 7/26 7/27 7/28 7/29 7/30 7/31 8/01 8/02 8/03 8/04 8/05 8/06 8/07 8/08 8/09 8/10\n일자별 수송량",
+      "structure": {
+        "axes": {
+          "x": "7월1주차, 7월2주차, 7월3주차, 7월4주차, 7월5주차, 8월1주차 / 7/25, 7/26, 7/27, 7/28, 7/29, 7/30, 7/31, 8/01, 8/02, 8/03, 8/04, 8/05, 8/06, 8/07, 8/08, 8/09, 8/10",
+          "y": "36~45 / 20~60"
+        },
+        "series": [
+          {
+            "name": "주차별 수송량",
+            "values": {
+              "7월5주차": "44만명"
+            }
+          },
+          {
+            "name": "일자별 수송량",
+            "values": {
+              "7/25": "47",
+              "7/26": "45",
+              "7/27": "39",
+              "7/28": "39",
+              "7/29": "41",
+              "7/30": "42",
+              "7/31": "50만명",
+              "8/01": "50",
+              "8/02": "47",
+              "8/03": "42",
+              "8/04": "38",
+              "8/05": "38",
+              "8/06": "38",
+              "8/07": "46",
+              "8/08": "45",
+              "8/09": "44",
+              "8/10": "38"
+            }
+          }
+        ],
+        "units": "(단위 : 만명)"
+      },
+      "summary": "하계기간을 포함한 주차별 수송량(7월1주차~8월1주차)과 일자별 수송량(7/25~8/10)을 만명 단위로 나타낸 꺾은선 그래프임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "7월",
+      "1주",
+      "3주",
+      "8월",
+      "7",
+      "8"
+    ],
+    "unconfirmed_numbers": [
+      "45",
+      "44",
+      "43",
+      "42",
+      "41",
+      "40",
+      "39",
+      "38",
+      "37",
+      "36",
+      "2주",
+      "4주",
+      "5주",
+      "60",
+      "20",
+      "47",
+      "50",
+      "46"
+    ],
+    "elapsed_sec": 12.233
+  },
+  {
+    "sha256": "569aa9d1e907e2819301daa81303198d498a10591b6b779a29f9c8f756c5e86e",
+    "path": "images/attachments/569aa9d1e907e2819301daa81303198d498a10591b6b779a29f9c8f756c5e86e.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=28442",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=911&bbsNo=199&nttNo=27199&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=6",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "45\n44\n43\n42\n41\n40\n39\n38\n37\n36\n44만명\n하계기간\n7월 1주차 7월2주차 73주차 7월 4주차 7월5주차 8월1주차",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "",
+      "text": "45\n44\n43\n42\n41\n40\n39\n38\n37\n36\n44만명\n하계기간\n7월1주차\n7월2주차\n7월3주차\n7월4주차\n7월5주차\n8월1주차",
+      "structure": {
+        "axes": {
+          "x": "7월1주차, 7월2주차, 7월3주차, 7월4주차, 7월5주차, 8월1주차",
+          "y": "36, 37, 38, 39, 40, 41, 42, 43, 44, 45"
+        },
+        "series": [
+          {
+            "name": "",
+            "values": {
+              "7월5주차": "44만명"
+            }
+          }
+        ],
+        "units": "만명"
+      },
+      "summary": "7월1주차부터 8월1주차까지의 꺾은선 그래프로, 하계기간(7월5주차~8월1주차) 중 7월5주차에 44만명으로 표시되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "45",
+      "44",
+      "43",
+      "42",
+      "41",
+      "40",
+      "39",
+      "38",
+      "37",
+      "36",
+      "7월",
+      "1주",
+      "2주",
+      "4주",
+      "5주",
+      "8월"
+    ],
+    "unconfirmed_numbers": [
+      "3주"
+    ],
+    "elapsed_sec": 7.438
+  },
+  {
+    "sha256": "d66a1424785e806731045c3cb46dfb8130645b7d35abac580b2eba544522692d",
+    "path": "images/attachments/d66a1424785e806731045c3cb46dfb8130645b7d35abac580b2eba544522692d.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=27821",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=911&bbsNo=199&nttNo=26854&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=13",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "축제 기간 연계 철도역 이용 인원 비교\n2025년(명)\n2026년(명)\n증가율(전년 대비)\n영월 단종문화제\n4.24~ 4.26\n영월역\n160.7% 7\n임실 N장미축제\n5.28 ~ 5.31\n임실역\n115.5%/\n삼척 장미축제\n5.19~ 5.25\n삼척역\n77.5% 7\n5,989\n곡성 세계장미축제\n5.22~ 5.31\n곡성역\n47.9% 7\n31,328\n보성 다향대축제\n5.1 ~ 5.5\n보성역\n34.4% 1\n5,518\n1,918\n3,375\n21,185\n2,117\n1,741\n2,340\n890\nKORAIL",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "축제 기간 연계 철도역 이용 인원 비교",
+      "text": "축제 기간 연계 철도역 이용 인원 비교\n2025년(명) 2026년(명) 증가율(전년 대비)\n영월 단종문화제\n4.24 ~ 4.26\n영월역\n160.7%\n2,117\n5,518\n임실 N장미축제\n5.28 ~ 5.31\n임실역\n115.5%\n890\n1,918\n삼척 장미축제\n5.19 ~ 5.25\n삼척역\n77.5%\n3,375\n5,989\n곡성 세계장미축제\n5.22 ~ 5.31\n곡성역\n47.9%\n21,185\n31,328\n보성 다향대축제\n5.1 ~ 5.5\n보성역\n34.4%\n1,741\n2,340\nKORAIL",
+      "structure": {
+        "axes": {
+          "x": "영월 단종문화제 (4.24 ~ 4.26, 영월역), 임실 N장미축제 (5.28 ~ 5.31, 임실역), 삼척 장미축제 (5.19 ~ 5.25, 삼척역), 곡성 세계장미축제 (5.22 ~ 5.31, 곡성역), 보성 다향대축제 (5.1 ~ 5.5, 보성역)",
+          "y": ""
+        },
+        "series": [
+          {
+            "name": "2025년(명)",
+            "values": {
+              "영월 단종문화제 (4.24 ~ 4.26, 영월역)": "2,117",
+              "임실 N장미축제 (5.28 ~ 5.31, 임실역)": "890",
+              "삼척 장미축제 (5.19 ~ 5.25, 삼척역)": "3,375",
+              "곡성 세계장미축제 (5.22 ~ 5.31, 곡성역)": "21,185",
+              "보성 다향대축제 (5.1 ~ 5.5, 보성역)": "1,741"
+            }
+          },
+          {
+            "name": "2026년(명)",
+            "values": {
+              "영월 단종문화제 (4.24 ~ 4.26, 영월역)": "5,518",
+              "임실 N장미축제 (5.28 ~ 5.31, 임실역)": "1,918",
+              "삼척 장미축제 (5.19 ~ 5.25, 삼척역)": "5,989",
+              "곡성 세계장미축제 (5.22 ~ 5.31, 곡성역)": "31,328",
+              "보성 다향대축제 (5.1 ~ 5.5, 보성역)": "2,340"
+            }
+          },
+          {
+            "name": "증가율(전년 대비)",
+            "values": {
+              "영월 단종문화제 (4.24 ~ 4.26, 영월역)": "160.7%",
+              "임실 N장미축제 (5.28 ~ 5.31, 임실역)": "115.5%",
+              "삼척 장미축제 (5.19 ~ 5.25, 삼척역)": "77.5%",
+              "곡성 세계장미축제 (5.22 ~ 5.31, 곡성역)": "47.9%",
+              "보성 다향대축제 (5.1 ~ 5.5, 보성역)": "34.4%"
+            }
+          }
+        ],
+        "units": "명, %"
+      },
+      "summary": "영월 단종문화제, 임실 N장미축제, 삼척 장미축제, 곡성 세계장미축제, 보성 다향대축제 등 5개 축제의 기간 중 연계 철도역(영월역, 임실역, 삼척역, 곡성역, 보성역)의 2025년 및 2026년 이용 인원과 전년 대비 증가율을 비교한 막대 그래프임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2025년",
+      "2026년",
+      "4.24",
+      "4.26",
+      "160.7%",
+      "2,117",
+      "5,518",
+      "5.28",
+      "5.31",
+      "115.5%",
+      "890",
+      "1,918",
+      "5.19",
+      "5.25",
+      "77.5%",
+      "3,375",
+      "5,989",
+      "5.22",
+      "47.9%",
+      "21,185",
+      "31,328",
+      "5.1",
+      "5.5",
+      "34.4%",
+      "1,741",
+      "2,340"
+    ],
+    "unconfirmed_numbers": [
+      "5개"
+    ],
+    "elapsed_sec": 13.379
+  },
+  {
+    "sha256": "2389b61f78b32374509043501d9108d5f632b6fbb00f08818e40433a52e9d9b7",
+    "path": "images/attachments/2389b61f78b32374509043501d9108d5f632b6fbb00f08818e40433a52e9d9b7.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24927",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=911&bbsNo=199&nttNo=24961&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=45",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "KORALL\n2025년 외국인 고객 철도 이용 행태조사\n조사 기간\n2025년 5월 18일 ~ 5월 19일\n조사 방법\n대면면접조사(무작위 추출 표본조사)\n조사 대상\n코레일 열차 이용 외국인 301명\n☆ 외국인 코레일 이용 만족도\n(Base : 전체, n=301명, 단위 : 점)\n95.2\n92.7\n92.6\n92.5\n92.6\n92.4\n92.1\n중합\n만족도\n승차권\n구매\n역사\n이용\n서울역\n짐보관•배송\n서비스이용\n열차\n환경\n열차\n고객\n운행\n응대\nL,*정시성 96.4점\n• 자국 철도 대비 만족도\n(Base : 자국 절도 이용 경험자, n=220명, 단위 : %)\n자국 철도가\n더 만족\n한국 철도가\n더 만족\n8.6\n정시성\n(비슷함 31.8%)\n59.5\n15.5\n신속성\n(비슷함25.5%)\n591\n8.6\n화장실 청결성\n(비슷함 35.0%)\n56.4\n191\n비용\n(비슷함 30.0%)\n50.9\n8.6\n편의시설 등 부대시설\n(비슷함40.9%)\n50.5\n10.9\n직원/승무원 친절성\n(비슷함 39.1%)\n50.0\n~ 당일 이용 승차권 예매 방법\nBase : 전체, n=301명, 단위 : %)\nPC/모바일로\n코레일 홈페이지 이용\n29.4\n45.5\n매표 장구\n코레일톡 앱\n친구가 대신 예매\n여행사 상품에 포함\n외국인 구매\n대행으로 예매\n자동발매]\n(역사 내 키오스크)\n19.6\n13.0\n5.5\n11.3\n14.3\n8.6\n4.0\n8.0\n9.9\n6.0\n8.2\n013\n기타\n4.7\n63\n2024년\n2025년\n문12. 귀하께서 오늘 이용하신 ##-## 구간 열차의 승차권은\n어떤 방법으로 예매하셨습니까?",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "그래프",
+      "title": "2025년 외국인 고객 철도 이용 행태조사",
+      "text": "KORAIL\n2025년 외국인 고객 철도 이용 행태조사\n조사 기간 2025년 5월 18일 ~ 5월 19일 조사 방법 대면면접조사(무작위 추출 표본조사) 조사 대상 코레일 열차 이용 외국인 301명\n\n외국인 코레일 이용 만족도\n(Base : 전체, n=301명, 단위 : 점)\n종합 만족도 92.7\n승차권 구매 92.6\n역사 이용 92.5\n서울역 짐보관·배송 서비스이용 92.6\n열차 환경 92.4\n열차 운행 95.2\nㄴ*정시성 96.4점\n고객 응대 92.1\n\n자국 철도 대비 만족도\n(Base : 자국 철도 이용 경험자, n=220명, 단위 : %)\n자국 철도가 더 만족 / 한국 철도가 더 만족\n정시성 (비슷함 31.8%) : 8.6 / 59.5\n신속성 (비슷함25.5%) : 15.5 / 59.1\n화장실 청결성 (비슷함 35.0%) : 8.6 / 56.4\n비용 (비슷함 30.0%) : 19.1 / 50.9\n편의시설 등 부대시설 (비슷함40.9%) : 8.6 / 50.5\n직원/승무원 친절성 (비슷함 39.1%) : 10.9 / 50.0\n\n당일 이용 승차권 예매 방법\n(Base : 전체, n=301명, 단위 : %)\nPC/모바일로 코레일 홈페이지 이용 : 2024년 29.4 / 2025년 45.5\n매표 창구 : 2024년 19.6 / 2025년 13.0\n코레일톡 앱 : 2024년 5.5 / 2025년 11.3\n친구가 대신 예매 : 2024년 14.3 / 2025년 8.6\n여행사 상품에 포함 : 2024년 4.0 / 2025년 8.0\n외국인 구매 대행으로 예매 : 2024년 9.9 / 2025년 6.0\n자동발매기 (역사 내 키오스크) : 2024년 8.2 / 2025년 1.3\n기타 : 2024년 4.7 / 2025년 6.3\n2024년 2025년\n문12. 귀하께서 오늘 이용하신 ##-## 구간 열차의 승차권은 어떤 방법으로 예매하셨습니까?",
+      "structure": {
+        "axes": {
+          "x": "조사 항목",
+          "y": "점 / %"
+        },
+        "series": [
+          {
+            "name": "외국인 코레일 이용 만족도 (단위 : 점)",
+            "values": {
+              "종합 만족도": "92.7",
+              "승차권 구매": "92.6",
+              "역사 이용": "92.5",
+              "서울역 짐보관·배송 서비스이용": "92.6",
+              "열차 환경": "92.4",
+              "열차 운행": "95.2",
+              "정시성": "96.4",
+              "고객 응대": "92.1"
+            }
+          },
+          {
+            "name": "자국 철도 대비 만족도 - 자국 철도가 더 만족 (단위 : %)",
+            "values": {
+              "정시성": "8.6",
+              "신속성": "15.5",
+              "화장실 청결성": "8.6",
+              "비용": "19.1",
+              "편의시설 등 부대시설": "8.6",
+              "직원/승무원 친절성": "10.9"
+            }
+          },
+          {
+            "name": "자국 철도 대비 만족도 - 비슷함 (단위 : %)",
+            "values": {
+              "정시성": "31.8",
+              "신속성": "25.5",
+              "화장실 청결성": "35.0",
+              "비용": "30.0",
+              "편의시설 등 부대시설": "40.9",
+              "직원/승무원 친절성": "39.1"
+            }
+          },
+          {
+            "name": "자국 철도 대비 만족도 - 한국 철도가 더 만족 (단위 : %)",
+            "values": {
+              "정시성": "59.5",
+              "신속성": "59.1",
+              "화장실 청결성": "56.4",
+              "비용": "50.9",
+              "편의시설 등 부대시설": "50.5",
+              "직원/승무원 친절성": "50.0"
+            }
+          },
+          {
+            "name": "당일 이용 승차권 예매 방법 - 2024년 (단위 : %)",
+            "values": {
+              "PC/모바일로 코레일 홈페이지 이용": "29.4",
+              "매표 창구": "19.6",
+              "코레일톡 앱": "5.5",
+              "친구가 대신 예매": "14.3",
+              "여행사 상품에 포함": "4.0",
+              "외국인 구매 대행으로 예매": "9.9",
+              "자동발매기 (역사 내 키오스크)": "8.2",
+              "기타": "4.7"
+            }
+          },
+          {
+            "name": "당일 이용 승차권 예매 방법 - 2025년 (단위 : %)",
+            "values": {
+              "PC/모바일로 코레일 홈페이지 이용": "45.5",
+              "매표 창구": "13.0",
+              "코레일톡 앱": "11.3",
+              "친구가 대신 예매": "8.6",
+              "여행사 상품에 포함": "8.0",
+              "외국인 구매 대행으로 예매": "6.0",
+              "자동발매기 (역사 내 키오스크)": "1.3",
+              "기타": "6.3"
+            }
+          }
+        ],
+        "units": "점, %"
+      },
+      "summary": "2025년 5월 18일부터 5월 19일까지 코레일 열차 이용 외국인 301명을 대상으로 실시한 철도 이용 행태조사 결과로, 외국인 코레일 이용 만족도, 자국 철도 대비 만족도, 당일 이용 승차권 예매 방법의 수치를 나타낸 인포그래픽임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2025년",
+      "5월",
+      "18일",
+      "19일",
+      "301명",
+      "92.7",
+      "92.6",
+      "92.5",
+      "92.4",
+      "95.2",
+      "96.4",
+      "92.1",
+      "220명",
+      "31.8%",
+      "8.6",
+      "59.5",
+      "25.5%",
+      "15.5",
+      "35.0%",
+      "56.4",
+      "30.0%",
+      "50.9",
+      "40.9%",
+      "50.5",
+      "39.1%",
+      "10.9",
+      "50.0",
+      "2024년",
+      "29.4",
+      "45.5",
+      "19.6",
+      "13.0",
+      "5.5",
+      "11.3",
+      "14.3",
+      "4.0",
+      "8.0",
+      "9.9",
+      "6.0",
+      "8.2",
+      "4.7",
+      "12",
+      "31.8",
+      "25.5",
+      "35.0",
+      "30.0",
+      "40.9",
+      "39.1"
+    ],
+    "unconfirmed_numbers": [
+      "59.1",
+      "19.1",
+      "1.3",
+      "6.3"
+    ],
+    "elapsed_sec": 20.586
+  }
+]
