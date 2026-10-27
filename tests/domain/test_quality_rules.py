@@ -126,3 +126,22 @@ def test_validate_outline_accepts_list_form_and_reports_empty_result():
     assert not errors and outline.plan("method").evidence == ["openalex:W1"]
     _, errors = validate_outline({"sections": []}, section_keys=["method"], allowed_ids=set())
     assert errors
+
+
+def test_section_sentences_parse_disclosure_bullet_format_and_numbered_utilization():
+    body = (
+        "[공개 요약] 자체 과제(정기) / 연구기간 2023년 ~ 2024년  ■ 연구목적 ◦ 급전장애 구간을 "
+        "감지하여 알림으로써 신속한 유지보수에 기여함  ■ 연구내용 ◦ 전차선 아크 영상분석 감지 "
+        "기술 개발 "
+        "◦ 센서를 이용한 장애 구간 판단 기술 개발 ◦ 공인기관 성적서 발행  ■ 기대효과 ◦ (정량) 보수시간 단축 "
+        "◦ 열차 정시운행 준수에 기여함 5. 실용화 계획 ◦ 현업 소속으로 연구개발품 인계 추진"
+    )
+    out = section_sentences(doc(body=body), per_section=2)
+    assert out["objective"] == ["급전장애 구간을 감지하여 알림으로써 신속한 유지보수에 기여함"]
+    assert out["method"] == [
+        "전차선 아크 영상분석 감지 기술 개발",
+        "센서를 이용한 장애 구간 판단 기술 개발",
+    ]
+    assert out["expected_management"] == ["열차 정시운행 준수에 기여함"]  # "(정량)…" 조각은 뺀다
+    assert out["utilization"] == ["현업 소속으로 연구개발품 인계 추진"]
+    assert "연구기간" not in str(out)

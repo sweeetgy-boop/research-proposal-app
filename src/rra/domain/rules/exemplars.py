@@ -26,9 +26,15 @@ HEADINGS: dict[str, str] = {
     "기대 효과": "expected_management",
     "활용계획": "utilization",
     "활용 계획": "utilization",
+    "실용화계획": "utilization",
+    "실용화 계획": "utilization",
 }
-_HEAD = re.compile(r"(?m)^\s*(연구 ?목적|연구 ?내용|연구 ?방법|기대 ?효과|활용 ?계획)\s*[:：]\s*")
-_SPLIT = re.compile(r"(?<=[.。])\s+|\n+")
+# 항목 머리: "연구목적:" / "■ 연구목적 ◦ …" / "5. 실용화 계획 ◦ …" (공시용 요약문 두 꼴)
+_HEAD = re.compile(
+    r"(?:^|\n|■|□|\d\.\s*)\s*(연구 ?목적|연구 ?내용|연구 ?방법|기대 ?효과|활용 ?계획|실용화 ?계획)"
+    r"\s*[:：]?\s*"
+)
+_SPLIT = re.compile(r"(?<=[.。])\s+|\n+|\s*[◦•]\s*")
 
 
 def eligible(doc: Document) -> bool:
@@ -48,7 +54,8 @@ def section_sentences(doc: Document, *, per_section: int = 2) -> dict[str, list[
         if key is None:
             continue
         sentences = [clean_sentence(s) for s in _SPLIT.split(parts[i + 1]) if clean_sentence(s)]
-        sentences = [s for s in sentences if 8 <= len(s) <= 200]
+        sentences = [s.lstrip("-–· ").strip() for s in sentences]
+        sentences = [s for s in sentences if 8 <= len(s) <= 200 and not s.startswith("(")]
         if sentences:
             out.setdefault(key, []).extend(sentences[:per_section])
     return {k: v[:per_section] for k, v in out.items()}

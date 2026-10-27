@@ -213,7 +213,14 @@ class GenerateProposal:
                 found, _ = filter_chunks(
                     found, query, self.relevance, self.keywords or KeywordRule()
                 )
-            picked = (await self._rerank(query, found))[: self.section_k]
+            ranked = await self._rerank(query, found)
+            if self.relevance is not None and self.relevance.min_per_source > 0:
+                # 섹션 근거도 자료원 섞임을 지킨다 — 한국어 섹션 질의는 논문을 뒤로 밀기 때문
+                picked = balance_sources(
+                    ranked, self.section_k, max(1, self.relevance.min_per_source // 3)
+                )
+            else:
+                picked = ranked[: self.section_k]
             for c in picked:
                 if c.chunk_id not in have:
                     have.add(c.chunk_id)
