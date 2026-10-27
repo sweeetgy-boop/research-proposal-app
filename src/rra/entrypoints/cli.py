@@ -434,6 +434,8 @@ def cmd_db_backup(args: argparse.Namespace) -> int:
     _, backup = build_db_maintenance(load_settings())
     report = asyncio.run(backup(args.out, keep=args.keep))
     print(f"백업: {report.path} (보관 {len(report.kept)}벌, 삭제 {len(report.removed)}벌)")
+    for extra in report.extras:
+        print(f"  + {extra.name}")
     return EXIT_OK
 
 
@@ -1376,6 +1378,46 @@ def cmd_sources_check(args: argparse.Namespace) -> int:
     return EXIT_OK if all(r["roundtrip"] == "ok" for r in results) else EXIT_ERROR
 
 
+def cmd_sources_status(args: argparse.Namespace) -> int:
+    """자료원별 적재 건수·최근 적재일 + 공사 홈페이지 스냅샷 날짜."""
+    from rra.composition import (
+        build_embedding,
+        build_korail_web_source,
+        build_repository,
+        load_settings,
+    )
+    from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
+
+    settings = load_settings()
+    repo = build_repository(build_embedding(settings), settings)
+    status = asyncio.run(repo.source_status())
+    snap = build_korail_web_source(settings).status()
+    rows = [
+        {
+            "source": s,
+            "label": SOURCE_LABELS.get(s, s),
+            "count": int(status.get(s, {}).get("count", 0)),
+            "last_ingested": status.get(s, {}).get("last_ingested"),
+        }
+        for s in ALL_SOURCES
+    ]
+    if args.json:
+        print(
+            json.dumps({"sources": rows, "korail_web_snapshot": snap}, ensure_ascii=False, indent=2)
+        )
+        return EXIT_OK
+    for r in rows:
+        print(f"- {r['label']}: {r['count']:,}건, 최근 적재 {r['last_ingested'] or '-'}")
+    if snap.get("snapshot"):
+        print(
+            f"공사 홈페이지 자료: {snap['snapshot']} 기준 스냅샷 (항목 {snap.get('items', 0):,}건, "
+            f"삭제 표시 {snap.get('removed', 0)})"
+        )
+    else:
+        print("공사 홈페이지 자료: 스냅샷 없음 (rra crawl korail --download)")
+    return EXIT_OK
+
+
 def _record_tag_hints(r: dict) -> list[str]:
     """NTIS·KIPRIS 레코드 태그 진단 — probe 후보와 설정값을 대조해 다음 할 일을 알려 준다."""
     from rra.composition import load_settings, source_config
@@ -1576,6 +1618,11 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis,kipris)")
     chk.add_argument("--json", action="store_true")
     chk.set_defaults(handler=cmd_sources_check)
+    sst = src_sub.add_parser(
+        "status", help="자료원별 적재 건수·최근 적재일, 공사 홈페이지 스냅샷 날짜"
+    )
+    sst.add_argument("--json", action="store_true")
+    sst.set_defaults(handler=cmd_sources_status)
 
     crawl = sub.add_parser("crawl", help="공개 웹 자료 스냅샷 수집 (예약 실행 없음)")
     crawl_sub = crawl.add_subparsers(dest="crawl_cmd", required=True)

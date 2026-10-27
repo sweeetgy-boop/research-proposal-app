@@ -131,7 +131,22 @@ def build_db_maintenance(settings: Settings | None = None, *, repo=None):
     settings = settings or load_settings()
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
-    return ReindexDocuments(repo), BackupDatabase(repo)
+    return ReindexDocuments(repo), BackupDatabase(
+        repo, extra_files=_korail_web_backup_files(settings)
+    )
+
+
+def _korail_web_backup_files(settings: Settings) -> list[Path]:
+    """`rra db backup` 이 DB 사본 옆에 함께 두는 스냅샷 기록 — index.json + 최신 manifest.jsonl.
+    내려받은 파일 본체는 백업하지 않는다(다시 받을 수 있다)."""
+    from rra.adapters.sources.korail_web.snapshot import INDEX, latest_snapshot
+
+    root = _korail_web_root(settings, korail_web_config(settings))
+    out = [p for p in [root / INDEX] if p.is_file()]
+    snap = latest_snapshot(root)
+    if snap is not None:
+        out.append(snap.manifest)
+    return out
 
 
 def build_prompt_library(settings: Settings | None = None):
@@ -882,6 +897,7 @@ def build_api(
         static_dir=static,
         sse_poll_sec=sse_poll_sec,
         fake_mode=fake is not None,
+        snapshot_status=build_korail_web_source(settings).status,
     )
 
 

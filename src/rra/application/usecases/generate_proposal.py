@@ -75,6 +75,7 @@ from rra.domain.rules.relevance import (
     balance_sources,
     filter_chunks,
 )
+from rra.domain.rules.retrieval_scope import overlap_candidates
 from rra.domain.rules.trust import enforce_section_evidence, wrap_untrusted
 
 OVERLAP_SECTION = "overlap_review"
@@ -158,7 +159,7 @@ class GenerateProposal:
             snapshot = RetrievalSnapshot.of(query, chunks)
             snapshot.dropped_chunks = dropped
             return snapshot
-        hits = await self.repo.find_similar(query, k=self.overlap_k)
+        hits = overlap_candidates(await self.repo.find_similar(query, k=self.overlap_k))
         alerts = judge(hits, own=self.own, query=query, keywords=self.keywords)
         extra = self._overlap_chunks(hits, alerts, chunks)
         snapshot = RetrievalSnapshot.of(query, chunks + extra, alerts)

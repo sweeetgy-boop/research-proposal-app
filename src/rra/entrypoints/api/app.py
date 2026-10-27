@@ -213,6 +213,7 @@ def create_app(
     static_dir: Path | None = None,
     sse_poll_sec: float = 1.0,
     fake_mode: bool = False,
+    snapshot_status: Callable[[], dict[str, Any]] | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api()."""
 
@@ -296,17 +297,27 @@ def create_app(
     @app.get(f"/{API_VERSION}/sources/status")
     async def sources_status() -> dict[str, Any]:
         status = await repo.source_status()
-        return {
-            "sources": [
-                {
-                    "source": s,
-                    "label": SOURCE_LABELS.get(s, s),
-                    "count": int(status.get(s, {}).get("count", 0)),
-                    "last_ingested": status.get(s, {}).get("last_ingested"),
-                }
-                for s in ALL_SOURCES
-            ]
-        }
+        rows = [
+            {
+                "source": s,
+                "label": SOURCE_LABELS.get(s, s),
+                "count": int(status.get(s, {}).get("count", 0)),
+                "last_ingested": status.get(s, {}).get("last_ingested"),
+            }
+            for s in ALL_SOURCES
+        ]
+        if snapshot_status is not None:  # 공사 홈페이지 자료: <수집일> 기준 스냅샷
+            snap = snapshot_status()
+            for row in rows:
+                if row["source"] == "korail_web":
+                    row["snapshot"] = snap.get("snapshot")
+                    row["snapshot_items"] = int(snap.get("items") or 0)
+                    row["snapshot_label"] = (
+                        f"공사 홈페이지 자료: {snap['snapshot']} 기준 스냅샷"
+                        if snap.get("snapshot")
+                        else "공사 홈페이지 자료: 스냅샷 없음"
+                    )
+        return {"sources": rows}
 
     recommendation_sessions = RecommendationSessions()
 

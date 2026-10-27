@@ -4,6 +4,7 @@ from rra.application.ports import DocumentRepository
 from rra.domain.models import OverlapAlert, ProposalRequest
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.overlap import OwnUnit, judge
+from rra.domain.rules.retrieval_scope import overlap_candidates
 
 
 class PrecheckOverlap:
@@ -18,5 +19,5 @@ class PrecheckOverlap:
 
     async def __call__(self, req: ProposalRequest) -> list[OverlapAlert]:
         query = req.search_text()
-        hits = await self.repo.find_similar(query, k=self.k)
+        hits = overlap_candidates(await self.repo.find_similar(query, k=self.k))
         return judge(hits, own=self.own, query=query, keywords=self.keywords)
