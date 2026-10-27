@@ -43,6 +43,7 @@ alio:
     # 필드 → 후보 헤더명 목록. 비워두면 어댑터 기본값(DEFAULT_COLUMNS). 실제 CSV 확인 후 확정.
     columns: {}
 openalex:
+  ip_restricted: false      # 키 없음·IP 제한 없음
   rate_limit: 10            # 초당 요청 수
   concurrency: 4
   base_url: https://api.openalex.org   # 호스트는 security.yaml allowed_domains 에 있어야 함
@@ -76,9 +77,18 @@ openalex:
   retries: 3
   timeout: {connect: 10, read: 30}
   # polite pool 이메일은 .env RRA_OPENALEX_MAILTO (환경변수가 있으면 그쪽이 이긴다). 여기 mailto 를 적어도 된다.
+# 자료원 IP 확인 (레인 I, 2026-10-27). `rra sources check` 가 현재 공인 IP 를 lookup_url 로 한 번 조회해
+# 자료원별 registered_ips(활용신청에 등록한 서버 IP) 와 대조한다. 조회 실패는 진단만 남기고 계속.
+# API 가 IP 거부("접근 허용 IP가 아닙니다")를 돌려주면 그 자료원만 건너뛰고(ingest --skip-unavailable·
+# 사전 점검 NTIS 성과) 안내를 availability_file 에 적어 웹 자료원 상태·`rra sources status` 가 보인다.
+public_ip:
+  lookup_url: https://api.ipify.org   # 응답은 IP 문자열만. 호스트는 security.yaml allowed_domains 에. 비우면 확인 생략
+  timeout: {connect: 5, read: 10}
+  availability_file: data/cache/source_availability.json
 # 키는 여기 두지 않는다. .env 의 RRA_SCIENCEON_* · RRA_NTIS_KEY 에서만 온다 (보안 D).
 scienceon:
   base_url: https://apigateway.kisti.re.kr   # 호스트는 security.yaml allowed_domains 에 있어야 함
+  ip_restricted: false      # ScienceON API Gateway 는 호출 IP 제한 없음 (클라이언트 ID·MAC·키로 인증)
   targets: [ARTI, REPORT, PATENT]   # ARTI 국내논문 · REPORT 국내연구보고서 · PATENT 특허(한국, 발명자 항목 없음)
   search_field: BI          # 전체 필드 (2026-10-27 실응답 확인). 공백 = 같은 필드 안 AND, | = OR, ! = NOT
   # 철도 분야 질의 13개 (openalex.queries 분야와 같은 순서, 한국어). 2026-10-27 총건수(ARTI/REPORT/PATENT):
@@ -114,8 +124,11 @@ scienceon:
 ntis:
   # NTIS 국가R&D OpenAPI (rndopen apprvKey, .env RRA_NTIS_KEY). 승인 서비스 4개(2026-10-27, 유효 2027-05-27): 과제검색·성과검색·
   # 연구보고서 검색·연관콘텐츠 추천. 형식은 공개 매뉴얼(과제검색 2021-02-08, 연구보고서 2021-12-28; tests/fixtures/ntis/README.md).
-  # 실호출은 "접근 허용 IP가 아닙니다" — 활용신청의 서버 IP 를 현재 공인 IP 로 바꾼 뒤 `rra sources check --source ntis`.
+  # 호출 IP 제한: 활용신청에 등록한 서버 IP 에서만 받는다(다르면 HTTP 200 + "접근 허용 IP가 아닙니다").
+  # 등록 IP 목록(2026-10-27). 바뀌면 여기와 활용신청 둘 다 고친다 — `rra sources check --source ntis` 가 대조한다.
   base_url: https://www.ntis.go.kr
+  ip_restricted: true
+  registered_ips: ["59.0.166.199", "59.0.251.250"]
   project_path: /rndopen/openApi/public_project     # 과제검색 (매뉴얼 p.6). SRWR·searchFd·startPosition·displayCnt
   report_path: /rndopen/openApi/rresearchpdf/       # 연구보고서 검색 (매뉴얼 p.6). query·searchField·displayCount·returnType
   outcome_path: /rndopen/openApi/public_result      # 성과검색 (공개 구현 기준 — 실호출로 확정). collection rpaper|rpatent
@@ -158,6 +171,7 @@ ntis:
 # 경로·파라미터·레코드 태그는 공개 구현 기준이며 첫 실응답(rra sources check --source kipris, 녹화 도구)으로 확정한다.
 kipris:
   base_url: https://plus.kipris.or.kr              # 호스트는 security.yaml allowed_domains 에 있어야 함
+  ip_restricted: false                             # KIPRIS Plus 는 accessKey 만 — IP 제한 확인된 바 없음
   search_path: /openapi/rest/patUtiModInfoSearchSevice/freeSearchInfo
   key_param: accessKey                             # 키 파라미터 이름 (data.go.kr 경로를 쓰면 ServiceKey)
   record_tag: PatentUtilityInfo                    # 레코드 요소 이름 — probe 의 record_tag_candidates 로 확인

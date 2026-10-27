@@ -3,7 +3,8 @@
 rndopen apprvKey 방식. 형식은 공개 매뉴얼(data.go.kr 참고문서 "국가R&D 과제검색 서비스(대국민용)"
 2021-02-08, "국가R&D 연구보고서 검색" 2021-12-28) 기준: 응답 루트 RESULT, 총건수 TOTALHITS, 레코드
 HIT. 오류는 HTTP 200 으로 온다 — 루트 `<error>문구</error>`(접근 허용 IP 아님·인증키) 또는
-`<resMsg>`/`<resCd>` (URL 오류). 둘 다 NtisError 로 바꾼다(본문은 80자까지, 키 없음). record_tag 는
+`<resMsg>`/`<resCd>` (URL 오류). 둘 다 NtisError 로 바꾼다(본문은 80자까지, 키 없음). IP 거부 문구는
+NtisIpBlocked(SourceIpBlocked) — 호출자가 그 자료원만 건너뛴다(레인 I). record_tag 는
 설정(config/sources.yaml ntis.record_tag) 필수 — 자동 탐지는 결과 1건 페이지에서 틀린다.
 """
 
@@ -20,6 +21,7 @@ from rra.adapters.sources import _xml
 from rra.adapters.sources._base import GuardedClient, RequestBudgetExceeded
 from rra.adapters.sources.ntis.projects import normalize_project
 from rra.domain.models import Document
+from rra.domain.rules.source_ip import SourceIpBlocked, is_ip_error
 
 logger = logging.getLogger("rra.sources.ntis")
 
@@ -40,6 +42,11 @@ _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 class NtisError(RuntimeError):
     """API 가 오류를 돌려줬다. 메시지에는 짧은 문구·코드만 (키·URL 없음)."""
+
+
+class NtisIpBlocked(NtisError, SourceIpBlocked):
+    """`<error>접근 허용 IP가 아닙니다.</error>` — 활용신청의 서버 IP 와 현재 공인 IP 가 다르다.
+    유스케이스는 SourceIpBlocked 로 잡아 이 자료원만 건너뛴다."""
 
 
 def error_message(body: bytes) -> str | None:
@@ -90,6 +97,8 @@ class NtisClient:
         body = await self.client.get_bytes(self.url(path), query, accept_types=accept_types)
         message = error_message(body)
         if message is not None:
+            if is_ip_error(message):
+                raise NtisIpBlocked(f"NTIS 오류: {message}")
             raise NtisError(f"NTIS 오류: {message}")
         return body
 

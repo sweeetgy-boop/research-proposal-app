@@ -35,6 +35,7 @@ from rra.config_loader import (
     molit_config,
     own_unit,
     pipeline_config,
+    public_ip_config,
     read_config,
     recommend_policy,
     relevance_floor,
@@ -50,6 +51,7 @@ from rra.config_loader import (
     security_config,
     served_model_aliases,
     source_config,
+    source_ip_policy,
     strategy_catalog,
     usability_config,
     vision_config,
@@ -679,6 +681,32 @@ def _guarded(settings: Settings, cfg: dict[str, Any], *, transport=None, resolve
     )
 
 
+# ── 자료원 IP 확인 (레인 I) ─────────────────────────────────
+def build_public_ip_probe(settings: Settings | None = None, *, transport=None, resolver=None):
+    """PublicIpProbe — sources.yaml public_ip.lookup_url 로 현재 공인 IP 1회 조회. URL 이 비었거나
+    호스트가 security.yaml allowed_domains 에 없으면 None (확인 생략, 보안 C)."""
+    from rra.adapters.sources import PublicIpProbe
+
+    settings = settings or load_settings()
+    cfg = public_ip_config(settings)
+    url = str(cfg.get("lookup_url") or "").strip()
+    host = urlsplit(url).hostname or ""
+    if not url or host not in set(allowed_domains(settings)):
+        return None
+    client_cfg = {"timeout": cfg.get("timeout") or {"connect": 5, "read": 10}, "retries": 1}
+    return PublicIpProbe(
+        _guarded(settings, client_cfg, transport=transport, resolver=resolver), url=url
+    )
+
+
+def build_source_availability(settings: Settings | None = None):
+    """FileSourceAvailability — 자료원별 마지막 차단 안내 파일 (데이터 폴더 cache/)."""
+    from rra.adapters.persistence.source_availability import FileSourceAvailability
+
+    settings = settings or load_settings()
+    return FileSourceAvailability(data_location(settings, "source_availability"))
+
+
 # ── 자료원 ─────────────────────────────────────────────────
 def build_openalex_source(settings: Settings | None = None, *, transport=None):
     """OpenAlexSource. 허용목록은 security.yaml, 요청 정책은 sources.yaml 에서 읽는다 (보안 C)."""
@@ -848,6 +876,25 @@ def build_ntis_report_source(settings: Settings | None = None, *, transport=None
     )
 
 
+def build_ntis_insight_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """NtisInsightSource (성과검색·연관콘텐츠 어댑터). RRA_NTIS_KEY 없으면 MissingCredential."""
+    from rra.adapters.sources.ntis import NtisInsightSource
+
+    settings = settings or load_settings()
+    require_credentials(settings, "ntis")
+    cfg = source_config(settings, "ntis")
+    insights = cfg.get("insights") or {}
+    return NtisInsightSource(
+        _guarded(settings, cfg, transport=transport, resolver=resolver),
+        apprv_key=settings.ntis_key,
+        base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
+        outcome_path=str(cfg.get("outcome_path", "/rndopen/openApi/public_result")),
+        related_path=str(cfg.get("related_path", "/rndopen/openApi/ConnectionContent")),
+        record_tag=str(cfg.get("record_tag") or "HIT"),
+        display_count=int(insights.get("max_items", 10)),
+    )
+
+
 def build_ntis_insights(
     settings: Settings | None = None, *, repo=None, transport=None, resolver=None
 ):
@@ -865,21 +912,17 @@ def build_ntis_insights(
         and settings.ntis_key.get_secret_value().strip()
         and insights.get("enabled", True)
     ):
-        from rra.adapters.sources.ntis import NtisInsightSource
-
-        source = NtisInsightSource(
-            _guarded(settings, cfg, transport=transport, resolver=resolver),
-            apprv_key=settings.ntis_key,
-            base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
-            outcome_path=str(cfg.get("outcome_path", "/rndopen/openApi/public_result")),
-            related_path=str(cfg.get("related_path", "/rndopen/openApi/ConnectionContent")),
-            record_tag=str(cfg.get("record_tag") or "HIT"),
-            display_count=int(insights.get("max_items", 10)),
-        )
+        source = build_ntis_insight_source(settings, transport=transport, resolver=resolver)
     cache_dir = data_location(settings, "ntis_cache", cfg=insights)
     cache = FileCache(cache_dir, ttl_sec=float(insights.get("cache_ttl_days", 7)) * 86400)
     return NtisProjectInsights(
-        source, source, cache=cache, repo=repo, max_projects=int(insights.get("max_projects", 3))
+        source,
+        source,
+        cache=cache,
+        repo=repo,
+        max_projects=int(insights.get("max_projects", 3)),
+        public_ip=build_public_ip_probe(settings, transport=transport, resolver=resolver),
+        availability=build_source_availability(settings),
     )
 
 
@@ -1237,6 +1280,7 @@ def build_sources_check(
 ):
     """CheckSources 유스케이스 (`rra sources check`). 대상마다 키 유무·호스트·연결 공장을 묶는다."""
     from rra.application.usecases.diagnostics import CheckSources, SourceTarget
+    from rra.domain.rules.overlap import SOURCE_LABELS
 
     settings = settings or load_settings()
     allowed = set(allowed_domains(settings))
@@ -1244,6 +1288,7 @@ def build_sources_check(
         "scienceon": build_scienceon_source,
         "ntis": build_ntis_source,
         "ntis_reports": build_ntis_report_source,
+        "ntis_insights": build_ntis_insight_source,
         "kipris": build_kipris_source,
         "g2b": build_g2b_source,
     }
@@ -1251,9 +1296,8 @@ def build_sources_check(
     for name in names:
         if name not in builders:
             raise KeyError(f"연결 확인을 지원하지 않는 소스: {name} (가능: {list(builders)})")
-        cfg_name = (
-            "ntis" if name == "ntis_reports" else name
-        )  # 연구보고서는 과제검색 설정·키를 같이 쓴다
+        # 연구보고서·성과/연관콘텐츠는 과제검색 설정·키를 같이 쓴다
+        cfg_name = "ntis" if name in ("ntis_reports", "ntis_insights") else name
         host = urlsplit(str(source_config(settings, cfg_name).get("base_url", ""))).hostname or ""
         creds = credential_status(settings, cfg_name)
         ready = host in allowed and all(creds.values())
@@ -1261,8 +1305,17 @@ def build_sources_check(
         def connect(_build=builders[name]):
             return _build(settings, transport=transport, resolver=resolver)
 
-        targets.append(SourceTarget(name, host, host in allowed, creds, connect if ready else None))
-    return CheckSources(targets)
+        policy = source_ip_policy(settings, cfg_name, label=SOURCE_LABELS.get(cfg_name, cfg_name))
+        targets.append(
+            SourceTarget(
+                name, host, host in allowed, creds, connect if ready else None, ip_policy=policy
+            )
+        )
+    return CheckSources(
+        targets,
+        public_ip=build_public_ip_probe(settings, transport=transport, resolver=resolver),
+        availability=build_source_availability(settings),
+    )
 
 
 # ── 렌더러 (Step 8) ───────────────────────────────────────
@@ -1298,7 +1351,14 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
     settings = settings or load_settings()
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
-    return IngestSources(sources, repo, limit=limit, own=own_unit(settings))
+    return IngestSources(
+        sources,
+        repo,
+        limit=limit,
+        own=own_unit(settings),
+        public_ip=build_public_ip_probe(settings),
+        availability=build_source_availability(settings),
+    )
 
 
 def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None, pipeline=None):
@@ -1660,6 +1720,7 @@ def build_api(
         fake_mode=fake is not None,
         snapshot_status=build_korail_web_source(settings).status,
         notice_snapshot_status=build_rnd_notice_source(settings).status,
+        availability_notices=build_source_availability(settings).notices,
     )
 
 

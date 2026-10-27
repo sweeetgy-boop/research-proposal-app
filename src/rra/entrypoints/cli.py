@@ -897,10 +897,21 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     for name, reason in skipped:  # 키 없는 소스 — 이름과 변수 이름만 (값 없음)
         _eprint(f"[{_safe(name)}] 건너뜀: {_safe(reason, 160)}")
     names = [n for n in names if n not in {name for name, _ in skipped}]
+    # IP 거부로 건너뛴 소스 (레인 I): --skip-unavailable 이면 실패로 치지 않는다 (야간 적재 유지)
+    unavailable = dict(report.unavailable)
+    for name, notice in unavailable.items():
+        _eprint(f"[{_safe(name)}] 건너뜀(IP 거부): {_safe(notice, 300)}")
+    failed = {
+        n: why
+        for n, why in report.failed.items()
+        if not (getattr(args, "skip_unavailable", False) and n in unavailable)
+    }
     if args.json:
         print(json.dumps(asdict(report), ensure_ascii=False, indent=2))
     else:
         for name in names:
+            if name in unavailable:
+                continue  # 위에 안내를 냈다
             if name in report.failed:
                 print(f"[{_safe(name)}] 실패: {report.failed[name]}")
                 continue
@@ -915,7 +926,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         )
         for w in report.warnings:
             _eprint(_warning_line(w))
-    return EXIT_ERROR if report.failed else EXIT_OK
+    return EXIT_ERROR if failed else EXIT_OK
 
 
 _WARNING_TEXT = {
@@ -1956,7 +1967,31 @@ def cmd_sources_check(args: argparse.Namespace) -> int:
                     print(f"    → {line}")
             if r.get("error"):
                 print(f"    {_safe(r['error'], 300)}")
+            for line in _ip_lines(r):
+                print(f"    {line}")
     return EXIT_OK if all(r["roundtrip"] == "ok" for r in results) else EXIT_ERROR
+
+
+def _ip_lines(r: dict) -> list[str]:
+    """자료원 IP 제한 표시 (레인 I) — 등록 IP 목록·현재 공인 IP·안내. 판단은 유스케이스 결과."""
+    if "ip_restricted" not in r:
+        return []
+    if not r["ip_restricted"]:
+        return ["IP 제한 없음"]
+    registered = ", ".join(_safe(ip, 45) for ip in r.get("registered_ips") or []) or "(없음)"
+    if r.get("ip_lookup_error"):
+        current = f"확인 실패 ({_safe(r['ip_lookup_error'], 60)})"
+    else:
+        current = _safe(r.get("current_ip") or "", 45) or "미확인"
+    lines = [f"등록 IP: {registered} / 현재 공인 IP: {current}"]
+    if r.get("ip_notice"):
+        lines.append(f"[안내] {_safe(r['ip_notice'], 300)}")
+        if r.get("ip_registered") is True:  # 목록에는 있는데 API 가 거부 — 반영·서비스별 IP 확인
+            lines.append(
+                "등록 목록에는 있으나 API 가 거부했습니다 — 활용신청 반영 여부, 서비스별 서버 IP, "
+                "실제 송신 IP(회선·프록시)를 확인하세요."
+            )
+    return lines
 
 
 def cmd_sources_status(args: argparse.Namespace) -> int:
@@ -1966,6 +2001,7 @@ def cmd_sources_status(args: argparse.Namespace) -> int:
         build_korail_web_source,
         build_repository,
         build_rnd_notice_source,
+        build_source_availability,
         load_settings,
     )
     from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
@@ -1975,12 +2011,14 @@ def cmd_sources_status(args: argparse.Namespace) -> int:
     status = asyncio.run(repo.source_status())
     snap = build_korail_web_source(settings).status()
     notice_snap = build_rnd_notice_source(settings).status()
+    notices = build_source_availability(settings).notices()  # IP 거부 등 차단 안내 (레인 I)
     rows = [
         {
             "source": s,
             "label": SOURCE_LABELS.get(s, s),
             "count": int(status.get(s, {}).get("count", 0)),
             "last_ingested": status.get(s, {}).get("last_ingested"),
+            "notice": _safe(notices[s], 300) if notices.get(s) else None,
         }
         for s in ALL_SOURCES
     ]
@@ -1995,6 +2033,8 @@ def cmd_sources_status(args: argparse.Namespace) -> int:
         return EXIT_OK
     for r in rows:
         print(f"- {r['label']}: {r['count']:,}건, 최근 적재 {r['last_ingested'] or '-'}")
+        if r["notice"]:
+            print(f"  [안내] {r['notice']}")
     if snap.get("snapshot"):
         print(
             f"공사 홈페이지 자료: {snap['snapshot']} 기준 스냅샷 (항목 {snap.get('items', 0):,}건, "
@@ -2469,7 +2509,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--skip-unavailable",
         action="store_true",
         dest="skip_unavailable",
-        help="키가 없는 소스는 건너뛰고 나머지를 적재 (야간 적재용)",
+        help="키가 없거나 API 가 호출 IP 를 거부한 소스는 건너뛰고 나머지를 적재 (야간 적재용)",
     )
     ingest.add_argument("--limit", type=int, default=200, help="소스당 최대 건수")
     ingest.add_argument("--json", action="store_true", help="JSON 으로 출력")
@@ -2478,7 +2518,10 @@ def build_parser() -> argparse.ArgumentParser:
     src = sub.add_parser("sources", help="키가 필요한 수집 소스 점검")
     src_sub = src.add_subparsers(dest="sources_cmd", required=True)
     chk = src_sub.add_parser("check", help="키 유무(값 미표시)·허용목록·왕복 1회")
-    chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis,kipris)")
+    chk.add_argument(
+        "--source",
+        help="쉼표로 구분 (기본: scienceon,ntis,kipris,g2b; 추가 가능: ntis_reports,ntis_insights)",
+    )
     chk.add_argument("--json", action="store_true")
     chk.set_defaults(handler=cmd_sources_check)
     sst = src_sub.add_parser(
