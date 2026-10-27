@@ -76,6 +76,43 @@ def _int(value: Any) -> int | None:
     return n if n >= 0 else None
 
 
+ATTACHMENT_IMAGES_NAME = "attachment_images.jsonl"
+
+
+def _flatten_nested(page: dict[str, Any], img: dict[str, Any]) -> dict[str, Any]:
+    """페이지 레코드 안의 이미지 항목을 평평한 이미지 레코드로 — 메뉴 경로·제목·URL 을 붙인다."""
+    if img.get("downloaded") is False:
+        return {}
+    title = " > ".join(str(x) for x in (page.get("menu_path"), page.get("title")) if x)
+    return {
+        "type": "image",
+        "sha256": img.get("sha256"),
+        "path": img.get("path"),
+        "url": img.get("src") or img.get("url"),
+        "page_url": page.get("url"),
+        "page_title": title or None,
+        "page_doc_id": page.get("doc_id"),
+        "alt": img.get("alt"),
+        "caption": img.get("caption"),
+        "width": img.get("width"),
+        "height": img.get("height"),
+        "bytes": img.get("bytes"),
+        "mime": img.get("mime") or _MIME.get(str(img.get("ext") or "").lower()),
+        "source": page.get("source"),
+        "attachment": img.get("attachment"),
+    }
+
+
+_MIME = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "bmp": "image/bmp",
+}
+
+
 def parse_item(raw: dict[str, Any]) -> ImageItem | None:
     """manifest 한 줄 → ImageItem. 이미지가 아니거나 필수(sha256·path)가 없으면 None."""
     kind = str(raw.get("type") or raw.get("kind") or "").lower()
@@ -108,6 +145,7 @@ def parse_item(raw: dict[str, Any]) -> ImageItem | None:
         mime=_str(_pick(raw, "mime")),
         order_group=group,  # type: ignore[arg-type]
         source=_str(_pick(raw, "source")) or "korail_web",
+        attachment=raw.get("attachment") if isinstance(raw.get("attachment"), dict) else None,
     )
 
 
@@ -127,12 +165,11 @@ class SnapshotImages:
         self.bad_lines = 0
         self.non_image = 0
 
-    def list_images(self) -> list[ImageItem]:
-        path = self.dir / MANIFEST_NAME
+    def _lines(self, name: str) -> list[dict[str, Any]]:
+        path = self.dir / name
         if not path.is_file():
-            raise FileNotFoundError(f"manifest 가 없습니다: {self.snapshot}/{MANIFEST_NAME}")
-        items: list[ImageItem] = []
-        self.bad_lines = self.non_image = 0
+            return []
+        out: list[dict[str, Any]] = []
         with path.open(encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -146,12 +183,45 @@ class SnapshotImages:
                 if not isinstance(raw, dict):
                     self.bad_lines += 1
                     continue
-                item = parse_item(raw)
-                if item is None:
-                    self.non_image += 1
+                out.append(raw)
+        return out
+
+    def page_records(self) -> list[dict[str, Any]]:
+        """manifest 의 페이지(게시물) 레코드 — 첨부 목록(`attachments`)을 가진 것들."""
+        return [r for r in self._lines(MANIFEST_NAME) if isinstance(r.get("attachments"), list)]
+
+    def list_images(self) -> list[ImageItem]:
+        """manifest.jsonl 의 이미지 줄 + 페이지 레코드 안의 `images` 배열(크롤러 꼴) +
+        attachment_images.jsonl(첨부 속 내장 이미지). 같은 (sha256, path) 줄은 하나."""
+        path = self.dir / MANIFEST_NAME
+        if not path.is_file():
+            raise FileNotFoundError(f"manifest 가 없습니다: {self.snapshot}/{MANIFEST_NAME}")
+        items: list[ImageItem] = []
+        seen: set[tuple[str, str]] = set()  # (sha256, path) — 같은 파일의 중복 줄만 거른다
+        self.bad_lines = self.non_image = 0
+        for raw in self._lines(MANIFEST_NAME) + self._lines(ATTACHMENT_IMAGES_NAME):
+            nested = raw.get("images")
+            if isinstance(nested, list) and nested:  # 크롤러 꼴: 페이지 레코드 안에 이미지 목록
+                for img in nested:
+                    if isinstance(img, dict):
+                        item = parse_item(_flatten_nested(raw, img))
+                        if item is not None and (item.sha256, item.path) not in seen:
+                            seen.add((item.sha256, item.path))
+                            items.append(item)
+                if not raw.get("path"):
                     continue
-                items.append(item)
+            item = parse_item(raw)
+            if item is None:
+                self.non_image += 1
+                continue
+            if (item.sha256, item.path) in seen:
+                continue
+            seen.add((item.sha256, item.path))
+            items.append(item)
         return items
+
+    def existing_hashes(self) -> set[str]:
+        return {i.sha256 for i in self.list_images()}
 
     def resolve(self, item: ImageItem) -> Path:
         target = (self.dir / item.path).resolve()
