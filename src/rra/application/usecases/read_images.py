@@ -159,7 +159,7 @@ class ReadImages:
         unconfirmed: list[str] = []
         if reading is not None:
             confirmed, unconfirmed = verify_numbers(reading, ocr)
-        # 캐시 적중이면 처음 판독한 시간을 쓴다 (측정 harness 가 캐시 재실행에서도 장당 시간을 보도록)
+        # 캐시 적중이면 처음 판독한 시간을 쓴다 (harness 가 재실행에서도 장당 시간을 보도록)
         elapsed = took if cached and took is not None else self._clock() - t0
         return ImageReadResult(
             sha256=item.sha256,
