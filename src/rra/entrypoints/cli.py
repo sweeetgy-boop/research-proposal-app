@@ -752,6 +752,73 @@ def cmd_db_backup(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── auth (레인 A) ───────────────────────────────────────────
+def _prompt_secret(label: str) -> str:
+    """getpass — 화면·인자·셸 기록에 남지 않게. 값은 돌려주기만 한다."""
+    import getpass
+
+    return getpass.getpass(f"{label}: ").strip()
+
+
+def cmd_auth(args: argparse.Namespace) -> int:
+    """`rra auth staff add|remove|count`, `rra auth guest set --id <아이디>|disable`,
+    `rra auth status`.
+    사번·비밀번호는 getpass 로만 받고 출력·기록하지 않는다. 저장은 <data_dir>/auth (700/600)."""
+    from rra.composition import build_auth_store, load_settings
+    from rra.domain.rules.auth_policy import valid_guest_id, valid_staff_no
+
+    store = build_auth_store(load_settings())
+    group = args.auth_cmd
+    if group == "status":
+        info = store.status()
+        staff_state = "활성" if info["staff_count"] else "비활성"
+        guest_state = "설정됨" if info["guest"] else "없음"
+        secret_state = "있음" if info["secret"] else "없음"
+        print(
+            f"직원 사번 등록: {info['staff_count']}건 ({staff_state}), "
+            f"공용 계정: {guest_state}, 비밀 키: {secret_state}"
+        )
+        if not store.permissions_ok():
+            _eprint("경고: auth 폴더·파일 권한이 700/600 이 아닙니다.")
+        return EXIT_OK
+    if group == "staff":
+        if args.staff_cmd == "count":
+            print(f"등록된 사번: {store.staff_count()}건")
+            return EXIT_OK
+        staff_no = _prompt_secret("사번")
+        if not valid_staff_no(staff_no):
+            _eprint("사번 형식이 올바르지 않습니다 (영숫자·하이픈 2~32자).")
+            return EXIT_USAGE
+        if args.staff_cmd == "add":
+            added = store.add_staff(staff_no)
+            print("등록했습니다." if added else "이미 등록된 사번입니다.")
+        else:
+            removed = store.remove_staff(staff_no)
+            print("삭제했습니다." if removed else "등록되지 않은 사번입니다.")
+        print(f"등록된 사번: {store.staff_count()}건")
+        return EXIT_OK
+    if group == "guest":
+        if args.guest_cmd == "disable":
+            print("공용 계정을 껐습니다." if store.disable_guest() else "공용 계정이 없습니다.")
+            return EXIT_OK
+        guest_id = (args.id or "").strip().lower()
+        if not valid_guest_id(guest_id):
+            _eprint("아이디 형식이 올바르지 않습니다 (소문자·숫자·_·- 2~20자).")
+            return EXIT_USAGE
+        first = _prompt_secret("비밀번호")
+        second = _prompt_secret("비밀번호 (확인)")
+        if not first or first != second:
+            _eprint("비밀번호가 비어 있거나 두 입력이 다릅니다.")
+            return EXIT_USAGE
+        if len(first) < 8:
+            _eprint("비밀번호는 8자 이상이어야 합니다.")
+            return EXIT_USAGE
+        store.set_guest(guest_id, first)
+        print(f"공용 계정을 설정했습니다 (아이디 {guest_id}).")
+        return EXIT_OK
+    return EXIT_USAGE
+
+
 # ── llm-check ─────────────────────────────────────────────
 def cmd_llm_check(args: argparse.Namespace) -> int:
     from rra.composition import (
@@ -2383,6 +2450,25 @@ def build_parser() -> argparse.ArgumentParser:
     ev.set_defaults(handler=cmd_eval)
     ri = sub.add_parser("reindex", help="모든 청크를 설정 임베딩 모델로 재색인")
     ri.set_defaults(handler=cmd_reindex)
+    auth = sub.add_parser(
+        "auth", help="로그인 계정 관리 (사번 HMAC·공용 계정 scrypt, 값은 getpass)"
+    )
+    auth_sub = auth.add_subparsers(dest="auth_cmd", required=True)
+    a_staff = auth_sub.add_parser("staff", help="철도연구원 직원 사번 목록")
+    a_staff_sub = a_staff.add_subparsers(dest="staff_cmd", required=True)
+    for name, desc in (
+        ("add", "사번 등록 (getpass 입력)"),
+        ("remove", "사번 삭제 (getpass 입력)"),
+        ("count", "등록된 사번 개수만"),
+    ):
+        a_staff_sub.add_parser(name, help=desc).set_defaults(handler=cmd_auth)
+    a_guest = auth_sub.add_parser("guest", help="공용 계정 (아이디 1개)")
+    a_guest_sub = a_guest.add_subparsers(dest="guest_cmd", required=True)
+    a_set = a_guest_sub.add_parser("set", help="아이디·비밀번호 설정 (비밀번호 두 번 getpass)")
+    a_set.add_argument("--id", required=True, help="아이디 (소문자·숫자·_·- 2~20자)")
+    a_set.set_defaults(handler=cmd_auth)
+    a_guest_sub.add_parser("disable", help="공용 계정 끄기").set_defaults(handler=cmd_auth)
+    auth_sub.add_parser("status", help="설정 여부만 (값 없음)").set_defaults(handler=cmd_auth)
     db = sub.add_parser("db", help="DB 유지보수")
     db_sub = db.add_subparsers(dest="db_cmd", required=True)
     bk = db_sub.add_parser("backup", help="DB 사본 (VACUUM INTO, 권한 600)")

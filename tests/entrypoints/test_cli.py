@@ -1308,9 +1308,7 @@ def _ingest_with_report(monkeypatch, report):
     async def run(query):
         return report
 
-    monkeypatch.setattr(
-        "rra.composition.build_ingest", lambda settings, sources, limit: run
-    )
+    monkeypatch.setattr("rra.composition.build_ingest", lambda settings, sources, limit: run)
 
 
 def test_ingest_ip_blocked_source_is_skipped_only_with_skip_unavailable(monkeypatch, capsys):

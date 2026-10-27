@@ -1,0 +1,21 @@
+# 로그인 설정 (레인 A, 2026-10-27). 비밀이 아니다 — 사번·비밀번호·해시는 <data_dir>/auth/ 에만 (커밋 금지).
+#   rra auth staff add|remove|count, rra auth guest set --id <아이디>|disable, rra auth status
+store_dir: data/auth          # secret(HMAC 키)·staff.json(HMAC 목록)·guest.json(scrypt). 폴더 700, 파일 600
+
+guest:
+  include_internal: false     # false: 공용 계정의 검색·근거·추천·유사과제에서 visibility=internal 제외
+
+limits:                       # 사용자별 일일 생성 상한 (관리자는 없음). 대기·실행 상한은 security.yaml max_queued_runs
+  guest_runs_per_day: 10
+  staff_runs_per_day: 20
+
+lockout:                      # 무차별 대입 방지 (프로세스 메모리, 재시작이면 초기화)
+  account_failures: 5         # 계정별 연속 실패 → 잠금
+  account_lock_sec: 600
+  ip_failures: 20             # 접속자 IP 별 창 안 실패 → 잠금
+  ip_window_sec: 600
+  global_failures: 50         # 전체 실패가 창 안에 이를 넘으면 응답 지연
+  global_window_sec: 600
+  global_delay_sec: 2
+
+# 접속자 IP: config/api.yaml trust_cf_connecting_ip (레인 W) 가 true 이고 peer 가 127.0.0.1 일 때만 CF-Connecting-IP

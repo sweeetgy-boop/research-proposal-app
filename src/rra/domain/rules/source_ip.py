@@ -93,7 +93,7 @@ def ip_registered(ip: str | None, policy: IpPolicy) -> bool | None:
 
 
 def unregistered_notice(ip: str | None, source: str) -> str:
-    """"현재 IP <값> 가 <자료원> 등록 IP 에 없습니다. 활용신청에 추가하세요".
+    """ "현재 IP <값> 가 <자료원> 등록 IP 에 없습니다. 활용신청에 추가하세요".
 
     IP 를 모르면 (확인 실패)."""
     return NOTICE.format(ip=normalize_ip(ip or "") or UNKNOWN_IP, source=source)

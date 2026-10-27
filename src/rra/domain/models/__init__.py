@@ -17,6 +17,7 @@ from .notice import MAX_NOTICE_MATCHES, NoticeMatch
 from .outline import Outline, SectionPlan
 from .pipeline import PipelineConfig
 from .policy import MAX_SUGGESTIONS, MIN_SUGGESTIONS, PolicySuggestion
+from .principal import Principal, PrincipalKind
 from .proposer import Person, ProposerInfo
 from .recommendation import (
     MAX_RECOMMENDATIONS,
@@ -76,6 +77,8 @@ __all__ = [
     "MIN_SUGGESTIONS",
     "PipelineConfig",
     "PolicySuggestion",
+    "Principal",
+    "PrincipalKind",
     "NoticeMatch",
     "MAX_NOTICE_MATCHES",
     "CriterionScore",

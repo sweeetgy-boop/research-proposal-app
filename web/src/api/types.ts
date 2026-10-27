@@ -20,9 +20,26 @@ export interface Problem {
   detail: string;
 }
 
+export type SessionKind = "admin" | "staff" | "guest";
+
 export interface SessionOut {
   csrf: string;
   expires_in: number;
+  /** 로그인 종류 — 사번·가명 ID 는 화면에 오지 않는다 */
+  kind: SessionKind;
+  label: string;
+}
+
+export type SessionIn =
+  | { kind: "token"; token: string }
+  | { kind: "staff"; staff_no: string }
+  | { kind: "guest"; id: string; password: string };
+
+export interface SessionInfo {
+  kind: SessionKind;
+  label: string;
+  staff_enabled?: boolean;
+  guest_enabled?: boolean;
 }
 
 export type RunStatus =

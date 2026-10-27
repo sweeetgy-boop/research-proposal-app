@@ -28,11 +28,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Session Get
+         * @description 현재 로그인 종류만 (가명 ID·사번 없음) + 열려 있는 로그인 방식.
+         */
+        get: operations["session_get_v1_session_get"];
         put?: never;
         /**
          * Session Login
-         * @description 토큰 → httpOnly·SameSite=Strict 세션 쿠키 + CSRF 토큰. 토큰은 본문으로만.
+         * @description 로그인 → httpOnly·SameSite=Strict 세션 쿠키 + CSRF 토큰. 본문 kind:
+         *     token(관리 토큰) | staff(사번) | guest(아이디·비밀번호). 값은 본문으로만(URL·로그 금지).
+         *     실패 메시지는 종류를 가리지 않고 하나. 잠금·지연은 usecases.login.
          */
         post: operations["session_login_v1_session_post"];
         /** Session Logout */
@@ -80,6 +86,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/precheck/ntis-outcomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ntis Outcomes Route
+         * @description ② NTIS 부가 조회 — 유사과제 알림의 NTIS 과제(상위 3건) 주요 성과(참고용) + 연관 과제
+         *     추천(우리 검색에
+         *     없던 것만 `ntis_recommended`). 캐시(과제번호)·호출 간격은 어댑터. 키가 없으면 503.
+         */
+        post: operations["ntis_outcomes_route_v1_precheck_ntis_outcomes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ideas/policy-suggestions": {
         parameters: {
             query?: never;
@@ -96,6 +124,28 @@ export interface paths {
          *     제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음).
          */
         post: operations["policy_suggestions_route_v1_ideas_policy_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ideas/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Notice Matches Route
+         * @description 공고문 대조(#13 선행, P2-7) — 접수 중인 정부 R&D 공고 상위 3건.
+         *
+         *     LLM 없음, 자동 삽입 없음.
+         */
+        post: operations["notice_matches_route_v1_ideas_notices_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -279,6 +329,26 @@ export interface paths {
         put?: never;
         /** Search Post */
         post: operations["search_post_v1_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Facts Get
+         * @description 표 사실(P2-8) 항목 검색. 전부 비신뢰 — 표에서 파싱·판독한 값이다.
+         */
+        get: operations["facts_get_v1_facts_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1271,11 +1341,24 @@ export interface components {
         };
         /**
          * SessionIn
-         * @description POST /v1/session — 관리 토큰으로 세션 쿠키를 받는다. 토큰은 본문으로만 (URL·로그 금지).
+         * @description POST /v1/session — 세션 쿠키를 받는다. kind: token(관리 토큰) | staff(사번) | guest(아이디·
+         *     비밀번호). 값은 본문으로만 (URL·로그 금지). 옛 본문 `{token}` 은 kind=token 으로 본다.
          */
         SessionIn: {
+            /**
+             * Kind
+             * @default token
+             * @enum {string}
+             */
+            kind: "token" | "staff" | "guest";
             /** Token */
-            token: string;
+            token?: string | null;
+            /** Staff No */
+            staff_no?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Password */
+            password?: string | null;
         };
         /**
          * StructureIn
@@ -1361,6 +1444,28 @@ export interface operations {
                 content: {
                     "application/json": {
                         [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    session_get_v1_session_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
                     };
                 };
             };
@@ -1474,7 +1579,77 @@ export interface operations {
             };
         };
     };
+    ntis_outcomes_route_v1_precheck_ntis_outcomes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     policy_suggestions_route_v1_ideas_policy_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notice_matches_route_v1_ideas_notices_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -1838,6 +2013,40 @@ export interface operations {
                 "application/json": components["schemas"]["SearchIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    facts_get_v1_facts_get: {
+        parameters: {
+            query: {
+                q: string;
+                k?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
