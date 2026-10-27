@@ -62,3 +62,14 @@ def test_ip_lock_after_twenty_failures_in_window_and_global_delay():
     assert g.delay(now=1027) == 1.5  # 전체 26건 > 25
     assert g.delay(now=1027 + 601) == 0.0  # 창이 지나면 해제
     assert not g.locked("staff:x", "9.9.9.9", now=1000 + 601)
+
+
+def test_valid_password_min_length_is_configurable():
+    from rra.domain.rules.auth_policy import DEFAULT_MIN_PASSWORD_LENGTH, valid_password
+
+    assert DEFAULT_MIN_PASSWORD_LENGTH == 8
+    assert not valid_password("")
+    assert not valid_password("1234567") and valid_password("12345678")
+    assert valid_password("1234", 4) and not valid_password("123", 4)  # 시범 한정 4자
+    assert valid_password("x", 0)  # 0·음수는 1 로 본다 (빈 값은 항상 거부)
+

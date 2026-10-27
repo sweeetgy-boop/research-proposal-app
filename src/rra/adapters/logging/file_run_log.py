@@ -41,8 +41,10 @@ MANIFEST_KEYS = frozenset(
         "recommendations",
         "versions",
         "usage",
+        "failed_sections",  # 빈 초안 금지(ADR 0027): 실패 섹션 키·사유만
     }
 )
+FAILED_SECTION_KEYS = frozenset({"key", "reason"})
 VERSION_KEYS = frozenset(
     {
         "version",
@@ -174,6 +176,10 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
     extra = set(manifest.get("usage") or {}) - USAGE_KEYS
     if extra:
         raise ValueError(f"manifest usage 에 허용되지 않은 키: {sorted(extra)}")
+    for failed in manifest.get("failed_sections") or []:
+        extra = set(failed) - FAILED_SECTION_KEYS
+        if extra:
+            raise ValueError(f"manifest failed_sections 에 허용되지 않은 키: {sorted(extra)}")
     for value in _strings(manifest):
         if len(value) > MAX_TEXT_CHARS:
             raise ValueError("manifest 에 긴 문자열이 있습니다 — 원문이 섞였을 수 있습니다.")

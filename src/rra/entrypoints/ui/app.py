@@ -422,6 +422,14 @@ def draft_panel(view, run_id: str) -> None:
             by_sentence.setdefault((p["section"], p["sentence"]), []).append(p)
     if view.legacy:
         st.info("이전 양식으로 만든 run — 조회만 가능합니다.")
+    if payload.get("failed_sections"):  # 빈 초안 금지(ADR 0027): 목록만 — 다시 생성은 웹 화면
+        st.warning(
+            "생성 실패 섹션(빈칸): "
+            + ", ".join(
+                f"{section_title(f['key'], titles)}({f['label']})"
+                for f in payload["failed_sections"]
+            )
+        )
     for sec in payload["sections"]:
         key = sec["key"]
         st.markdown(f"#### {section_title(key, titles)}")

@@ -83,7 +83,7 @@ from rra.domain.models.run import (
     plan_steps,
     section_step,
 )
-from rra.domain.rules import review_flow
+from rra.domain.rules import draft_failures, review_flow
 from rra.domain.rules.auth_policy import daily_limit_reached
 from rra.domain.rules.checklist import clean_answers, coverage, missing_elements
 from rra.domain.rules.evidence import (
@@ -513,9 +513,24 @@ class RunManager:
                         self.store.save_section(user, run_id, sec)
                 ordered = draft.sections
                 self.store.save_draft(user, run_id, draft)
+                # 빈 초안 금지(ADR 0027): 실패 섹션은 빈칸 + 목록·사유, 전부 실패일 때만 invalid
+                failed = draft_failures.failed_sections(
+                    state.steps, self.generate.rules.required_sections
+                )
+                problems = draft_failures.relax_failed(problems, failed)
+                state.failed_sections = failed
                 state.problems = [p.model_dump() for p in problems]
                 self._touch_usage(user, run_id, state)
-                invalid = has_errors(problems)
+                invalid = has_errors(problems) or draft_failures.all_failed(
+                    failed, draft_failures.attempted_sections(state.steps)
+                )
+                if failed:
+                    logger.warning(
+                        "run.sections_failed run=%s failed=%s invalid=%s",
+                        run_id,
+                        ",".join(f"{f.key}:{f.reason}" for f in failed),
+                        invalid,
+                    )
                 state.status = "invalid" if invalid else "drafted"
                 if not invalid:  # draft_v1 = 로컬 생성
                     self.store.save_version(
@@ -1327,6 +1342,8 @@ class RunManager:
         problems = self._problems_for(user, run_id, draft, snapshot, version)
         version = version.model_copy(update={"alerts": len(problems)})
         self.store.save_version(user, run_id, version)
+        state.failed_sections = draft_failures.still_failed(state.failed_sections, version.sections)
+        problems = draft_failures.relax_failed(problems, state.failed_sections)
         state.problems = [
             p.model_dump() for p in problems
         ]  # 알림만 — 상태를 invalid 로 바꾸지 않는다
@@ -1377,6 +1394,8 @@ class RunManager:
             template=state.template,
         )
         problems = self._problems_for(user, run_id, draft, snapshot, version)
+        state.failed_sections = draft_failures.still_failed(state.failed_sections, version.sections)
+        problems = draft_failures.relax_failed(problems, state.failed_sections)
         state.problems = [p.model_dump() for p in problems]
         self.store.save_version(user, run_id, version.model_copy(update={"alerts": len(problems)}))
 
@@ -1841,6 +1860,7 @@ class RunManager:
             proposer=proposer,
             line_limits=self.line_limits,
             strategy_labels=view.choice_options.get("strategy_alignment", {}),
+            failed_sections=view.state.failed_sections,
         )
 
     async def render(
@@ -1998,6 +2018,7 @@ def manifest(
             "stale_edits": state.stale_edits,
             "draft_review_skipped": state.draft_review_skipped,
         },
+        "failed_sections": [{"key": f.key, "reason": f.reason} for f in state.failed_sections],
         "versions": [
             {
                 "version": v.version,
