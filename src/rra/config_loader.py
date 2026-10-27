@@ -329,6 +329,7 @@ def vision_config(settings: Settings) -> dict[str, Any]:
         "filter": dict(cfg.get("filter") or {}),
         "photo": dict(cfg.get("photo") or {}),
         "cap": int(cfg.get("cap", 2000)),
+        "concurrency": int(cfg.get("concurrency", 1)),
         "snapshots_dir": str(data_location(settings, "vision_snapshots", cfg=paths)),
         "store_dir": str(data_location(settings, "vision_store", cfg=paths)),
         "sample_dir": str(paths.get("sample", "docs/ocr-sample")),

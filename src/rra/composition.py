@@ -380,6 +380,7 @@ def build_read_images(
         keywords=group_keywords(vcfg["order_keywords"]),
         max_tokens=stage["max_tokens"],
         photo_rule=PhotoRule.from_dict(vcfg.get("photo")),
+        concurrency=vcfg.get("concurrency", 1),
     )
 
 

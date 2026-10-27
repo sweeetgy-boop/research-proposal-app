@@ -212,3 +212,31 @@ async def test_photo_by_ocr_cache_skips_argon_and_logs_meta_only():
         photo_rule=PhotoRule(),
     )()
     assert third.plan.expected_calls == 1
+
+
+async def test_concurrency_limits_parallel_calls_and_keeps_priority_order():
+    """concurrency=3: 동시에 진행되는 판독이 3을 넘지 않고, 결과는 우선순위 순서 그대로."""
+    import asyncio as _asyncio
+
+    from tests.vision_helpers import make_image
+
+    class SlowReader(FakeReader):
+        def __init__(self):
+            super().__init__([TABLE_READING] * 8)
+            self.active = self.max_active = 0
+
+        async def read_image(self, *a, **kw):
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            await _asyncio.sleep(0.01)
+            self.active -= 1
+            return await super().read_image(*a, **kw)
+
+    imgs = [make_image(700, 500, [f"표 {n}", f"항목 {n} | {n}00건"]) for n in range(8)]
+    pairs = [(b, item(b, f"t{n}.png", page_title="경영목표")) for n, b in enumerate(imgs)]
+    reader = SlowReader()
+    uc = build(snapshot_of(*pairs), reader=reader, ocr=FakeOcr(), concurrency=3)
+    report = await uc()
+    assert 1 < reader.max_active <= 3
+    assert [r.sha256 for r in report.results] == [p[1].sha256 for p in pairs]
+    assert report.calls == 8 and all(r.status == "argon" for r in report.results)

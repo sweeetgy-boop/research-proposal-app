@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Callable
@@ -91,6 +92,7 @@ class ReadImages:
         keywords: dict | None = None,
         max_tokens: int | None = None,
         photo_rule: PhotoRule | None = None,
+        concurrency: int = 1,  # 동시에 처리할 이미지 수 — Gemini 제한기(동시 4·분당 60)와 맞춘다
         clock: Callable[[], float] = time.monotonic,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ):
@@ -100,6 +102,7 @@ class ReadImages:
         self.filter_config = filter_config or ImageFilterConfig()
         self.cap, self.keywords = cap, keywords
         self.photo_rule = photo_rule or PhotoRule(enabled=False)
+        self.concurrency = max(1, int(concurrency))
         self._clock, self._now = clock, now
         self.calls = 0
         self._ocr_unavailable = False
@@ -142,13 +145,30 @@ class ReadImages:
             return report
         call_set = {it.sha256 for it in planned.to_call}
         photo_set = {it.sha256 for it in planned.photos}
-        for item in planned.ordered:
-            result = await self._process(
-                item, may_call=item.sha256 in call_set, photo=item.sha256 in photo_set
-            )
-            report.results.append(result)
-            if on_result is not None:
-                on_result(result)
+        if self.concurrency <= 1:
+            for item in planned.ordered:
+                result = await self._process(
+                    item, may_call=item.sha256 in call_set, photo=item.sha256 in photo_set
+                )
+                report.results.append(result)
+                if on_result is not None:
+                    on_result(result)
+        else:
+            # 병렬: 세마포어로 동시 수를 막고, 결과는 우선순위 순서대로 모은다 (2026-10-27 — 순차는
+            # 분당 8장이라 2,000장에 4시간). 호출 수 상한은 _vision 의 self.calls 가 await 없이
+            # 지킨다.
+            sem = asyncio.Semaphore(self.concurrency)
+
+            async def run(item: ImageItem) -> ImageReadResult:
+                async with sem:
+                    return await self._process(
+                        item, may_call=item.sha256 in call_set, photo=item.sha256 in photo_set
+                    )
+
+            for result in await asyncio.gather(*(run(it) for it in planned.ordered)):
+                report.results.append(result)
+                if on_result is not None:
+                    on_result(result)
         report.calls = self.calls
         report.elapsed_sec = self._clock() - started
         return report
