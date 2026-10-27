@@ -6,23 +6,30 @@
 - 선택지: (a) ai-edu-lab.co.kr 존을 Cloudflare 로 옮기고 터널 + Access, (b) Tailscale serve 대체(동료가 Tailscale 설치). 어느 쪽이든 아래 "오늘 밤 할 일" ①② 가 사람 작업.
 - 같은 맥에서는 `http://127.0.0.1:8000` 으로 바로 쓸 수 있다. 앱 로그인 3종: 직원 탭(사번) / 그 외 탭(아이디·비밀번호) / "관리자" 링크(토큰, .env RRA_API_TOKEN).
 
-## 서비스 상태 (launchd, 19:01 등록)
+## 서비스 상태 (launchd, 19:01 등록 · 03:15 api 재시작 = main #57)
 
 | 서비스 | 상태 | 확인 |
 |---|---|---|
 | com.rra.mlx (Qwen2.5-7B-Instruct-4bit, 127.0.0.1:8080) | 실행 중(PID 있음) | `curl http://127.0.0.1:8080/v1/models` |
-| com.rra.api (127.0.0.1:8000, web/dist 최신 main 서빙) | 실행 중, healthz 200·무토큰 401·보안 헤더(CSP·X-Frame DENY·nosniff) | `curl http://127.0.0.1:8000/healthz` |
+| com.rra.api (127.0.0.1:8000, web/dist 03:15 빌드 = main 7bb3929) | 실행 중, healthz 200·무토큰 401·웹 200·보안 헤더 유지. 03:22 생성 1회 확인: 골든셋 04 → drafted 145초 → 최종 검토 15초 → HWPX 41,136 bytes(전체 227초) | `curl http://127.0.0.1:8000/healthz` |
 | com.rra.backup (매일 03:30) | 등록됨 | `launchctl list \| grep com.rra` |
 | com.rra.ingest (매일 02:30, --skip-unavailable) | 등록됨 | 〃 |
 | com.rra.tunnel | 미등록(터널 없음) | 접속 경로 결정 뒤 |
 
 `rra llm-check --stage compose` ok(served 7B). 측정에 쓰던 수동 mlx 서버·백그라운드 작업은 모두 종료했다.
 
-## 한 건 생성 소요 시간 (실제 7B + Argon, 골든셋 04, 로컬 127.0.0.1:8000, 19:24)
+## 2026-10-28 새벽 수정 결과 ([F1] 빈 초안 방지·[F2] 유사과제 판정 복구)
+
+- **[F2] 유사과제 판정**(#56): 판정·알림 후보는 과제형 자료원(own·alio·NTIS 과제·g2b)만. 논문·보고서·특허(ScienceON·OpenAlex·NTIS 보고서)는 ② 화면 "관련 연구" 목록(배지 참고)으로 분리. 골든셋 적중 **5/10 → 9/10**(03 은 기존 거짓 차단), 지연 1.84~2.09s(중앙값 2.06s, 목표 2초를 0.06s 초과 — reranker 단독 지연, 후속). 설정 `config/overlap.yaml candidates`.
+- **[F1] 빈 초안 방지**(#55·#57): 저녁 invalid 원인은 빈 문장 목록이 ok 로 통과(10)·JSON 깨짐(11)·펜스(2), 코퍼스 증가로 섹션 [자료] 글자 2.1×. 수정: 일부 섹션 실패해도 drafted + 실패 섹션 목록(웹 "생성 실패 — 이 섹션 다시 생성" 버튼, 전부 실패일 때만 invalid), 빈 목록은 실패로 보고 교정 재요청, 섹션 [자료] 상한(청크 500자·10청크), finish_reason 집계, 로컬 2회 실패 섹션만 Gemini 4 Argon 대체 작성(`llm.yaml compose.fallback: gemini` 시범 기본 켬, manifest `fallback_sections`, 공용 계정 internal 제외 규칙 동일, 웹 "대체 작성" 배지). 골든셋 10건 재측정 2회: **유효 10/10·10/10, 빈 초안 0**(점수 평균 2.77·2.62, 평균 201·195초, 대체 작성 1건, Gemini 11+15회). 자세한 표 `docs/eval-2026-10-28.md`, ADR 0027.
+- 공용 계정 비밀번호 최소 길이 4자(시범 한정, #54). Tailscale 은 미설치라 `public_origin` 미변경(아래 할 일).
+- Gemini 기타 사용(이번 작업): 약 30 / 60 (F1 재측정 26 + 생성 확인 2회 약 4, F2 0).
+
+## 한 건 생성 소요 시간 (실제 7B + Argon, 골든셋 04, 로컬 127.0.0.1:8000, 19:24 · 03:22 재확인 동일)
 
 - 유사과제 확인(precheck) 38~56초 — 차별화 과제 추천·차별화 제안(Gemini)까지 한 번에 돌려서. 검색·reranker 자체는 2초 안팎.
 - 생성 + Argon 1차 검토 반영 **155초** → 최종 검토 15초 → HWPX 0.2초(40,926 bytes). 로그인부터 다운로드까지 **227초(3분 47초)**.
-- 골든셋 10건 측정 평균 180초/run(최대 259초). **시범 리스크 1순위**: 7B 모델의 JSON 출력 실패로 10건 중 4건(01·02·06·10)이 두 번 모두 "invalid"(초안 비어 있음). 시범에서는 같은 입력으로 "다시 생성" 으로 대응, 근본 수정(섹션 프롬프트 상한·실패 섹션 재요청)은 후속.
+- 골든셋 10건 측정 평균 180~200초/run. 어제의 리스크(7B JSON 실패로 4/10 빈 초안)는 03:00 [F1] 수정으로 해소: 재측정 2회 유효 10/10·빈 초안 0. 섹션 하나가 실패하면 그 섹션만 "다시 생성" 버튼, 로컬 2회 실패면 Gemini 대체 작성(배지).
 
 ## 오늘 작업 결과 요약
 
@@ -120,6 +127,8 @@ cd /Users/chan/projects/research-proposal-app && .venv/bin/rra api --port 8000  
 
 ## 내가 할 일 (사람 입력)
 
+- [ ] **시범 뒤 공용 계정 비밀번호 최소 길이를 8 로 되돌릴 것** — `config/auth.yaml guest.min_password_length: 4`(2026-10-28 시범 한정, #54) → 8
+- [ ] **Tailscale 주소 → `config/api.yaml public_origin`** — 2026-10-28 01:46 기준 이 맥에 Tailscale 이 설치돼 있지 않아 `tailscale serve status` 주소를 얻지 못했다. 설치·`tailscale serve --bg --https=443 http://127.0.0.1:8000` 뒤 주소(`https://<이름>.<tailnet>.ts.net`)를 `public_origin` 에 넣고 `launchctl kickstart -k gui/$(id -u)/com.rra.api`
 - [ ] **main 보호 규칙 확인** — 19:45 `gh api …/branches/main/protection` 이 "Branch not protected", rulesets 도 없음. 그래서 #52·#53 은 CI 완료 전에 `gh pr merge` 가 통과됐다(둘 다 로컬 전체 검사 통과, main CI 도 #52 success·#53 진행 중 확인). 저장소 설정 변경은 금지라 손대지 않음 → PR 필수·상태 검사(backend·detect·web)·최신 브랜치 필수를 직접 켤 것
 - [x] `.env` 의 ScienceON client_id·인증키 맞바꿈 — 15:48 실호출 auth ok(ARTI 1,858·REPORT 370·PATENT 911). Mac mini 의 .env 도 같은 값인지 확인
 - [ ] ScienceON 보고서(REPORT)는 doc_type `internal_report` 로 저장됨(적재 당시 `report` 가 없었음) — retrieval_mix 의 '논문·보고서·특허' 보장에는 들어가지 않음. 다음 적재 때 `report` 로 재매핑할지 결정

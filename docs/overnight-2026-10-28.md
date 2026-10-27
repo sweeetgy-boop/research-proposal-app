@@ -1,0 +1,16 @@
+# 2026-10-28 새벽 작업 기록 — 아침 시범 전 수정 [F1]·[F2] (마감 07:30)
+
+지시(01:4x): [F1] 빈 초안 방지(원인 표·수정·Gemini 대체 작성·실패 섹션 버튼·골든셋 재측정 유효 9/10), [F2] 유사과제 판정은 과제형 자료원만(논문·보고서는 "관련 연구")·precheck 적중 9/10·지연 2초. 마무리: PR 병합 → web 빌드 → api 재시작 → healthz·로그인·생성 1회. Gemini 기타 60회. Tailscale public_origin. 공용 계정 비밀번호 최소 4자(시범 한정). 07:30 못 채우면 안전한 부분만.
+
+## 진행 기록
+
+| 시각 | 내용 | 근거 |
+|---|---|---|
+| 01:46 | 상태: main 53e5a86(#49), launchd mlx·api 가동(healthz 200), 열린 PR 없음. Tailscale 은 설치돼 있지 않아 `serve status` 주소를 얻을 수 없음 → public_origin 변경 보류(사람 할 일). 레인 배정: [F1] feat/draft-fallback(Gemini ≤45, 마감 06:00, 안전한 4번을 첫 PR), [F2] feat/overlap-sources(Gemini 0~5, 마감 05:30). 통합 담당: 공용 계정 비밀번호 최소 길이 설정화(4자, 시범 한정) | — |
+| 01:50 | 공용 계정 비밀번호 최소 길이 설정화 PR #54(auth.yaml guest.min_password_length: 4, 기본 8, 테스트 1,773) — CI 전부 pass 확인 뒤 병합하는 체인 가동. [F1]·[F2] 레인 작업 중 | chain54.log |
+| 01:59 | PR #54 병합(CI 7 job 전부 pass 확인 뒤). 레인 [F1]·[F2] 진행 중 | chain54.log |
+| 02:14 | [F1] 첫 PR #55 병합(빈 초안 금지: 실패 섹션만 빈칸·목록, 전부 실패일 때만 invalid, ADR 0027). [F2] PR #56(판정 후보 과제형 자료원만, 논문·보고서·특허는 관련 연구) CI 진행 중. [F1] 2차(원인 수정·Gemini 대체·재측정) 작업 중 | gh pr |
+| 02:25 | [F2] PR #56 병합: 판정 후보는 과제형 자료원(own·alio·ntis 과제·g2b)만, 논문·보고서·특허는 related_research(웹 ② '관련 연구', 배지 참고). 자료원별 풀 7/28 + reranker 순서 유지. 골든셋 적중 5/10 → **9/10**(03 은 기존 거짓 차단), 지연 1.84~2.09s(중앙값 2.06, 목표 2초를 0.06s 초과 — reranker 단독 지연, 후속). Gemini 0. openapi 재생성 필요(related_research) | 레인 F2 보고, docs/eval-2026-10-28-precheck.md |
+| 02:57 | [F1] 1차 재측정(f1_fallback, 브랜치 코드): **유효 10/10**, 점수 평균 2.77, 충족률 0.667, 평균 201s, Gemini 11회. 레인이 2차 확인 측정(f1_fallback2) 3/10 진행 중, PR #57 CI 통과·미병합 | data/eval/f1_fallback.json |
+| 03:15 | [F1] 2차 PR #57 병합(02:5x). main 체크아웃 7bb3929(#57)로 당김(처음 `git pull` 이 'multiple branches' 오류 → `merge --ff-only origin/main`), 검사 1,810 통과·계약 8·ruff 0, web 재빌드, api kickstart → healthz 200·무토큰 401·web 200. 생성 1회 확인은 [F1] 2차 측정(f1_fallback2, 8/10) 종료 뒤 자동 실행 | wrapA2.log |
+| 03:26 | [F1] 2차 재측정(f1_fallback2, main #57 코드): **유효 10/10**, 점수 평균 2.62, 충족률 0.617, 평균 195s, Gemini 15회 → 두 번 합쳐 빈 초안 0. 생성 1회 확인(최신 main, 골든셋 04): precheck 66.5s → drafted 145s → 최종 검토 15s → HWPX 41,136 bytes, 전체 227s. Gemini 이번 작업 약 30/60 | gen0728.log, data/eval/f1_fallback2.json |

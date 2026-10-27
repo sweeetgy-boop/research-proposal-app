@@ -151,6 +151,11 @@
 - 시범 운영(2026-10-28, 3명, [D]): launchd com.rra.{mlx,api,backup,ingest} 등록(`deploy/README.md` §2), `max_queued_runs` 6(사용자별),
   동료 안내 `docs/pilot-guide.md`, 준비 상태·사람 할 일은 `docs/final-check-2026-10-27.md` 맨 위. 외부 주소는 DNS 가 Gabia 라 터널 미기동
   (Tailscale 대체 가능). 실측: 한 건 227초(생성 155 + 최종 검토 15), precheck 38~56초(자동 추천 Gemini 포함), 7B JSON 실패 4/10.
+- 2026-10-28 새벽 수정: **빈 초안 금지**(ADR 0027, #55·#57) — 일부 섹션 실패는 `failed_sections`(웹 "이 섹션 다시 생성"), 빈 목록은 실패로 보고
+  교정 재요청, 섹션 [자료] 상한(청크 500자·10청크), 로컬 2회 실패 섹션만 Gemini 대체 작성(`llm.yaml compose.fallback: gemini`, manifest
+  `fallback_sections`, 웹 "대체 작성" 배지). **유사과제 판정**(ADR 0028, #56) — 후보는 `config/overlap.yaml candidates` 의 과제형 자료원만
+  (`domain/rules/overlap_candidates.py`, `find_similar(sources=)`), 논문·보고서·특허는 `related_research`(웹 ② 관련 연구). 공용 계정 비밀번호
+  최소 길이는 `auth.yaml guest.min_password_length`(시범 한정 4, #54).
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 
