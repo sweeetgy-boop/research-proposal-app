@@ -10,3 +10,4 @@ playwright/.cache/
 coverage/
 .env
 .env.*
+*.tsbuildinfo
