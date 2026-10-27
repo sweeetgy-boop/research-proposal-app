@@ -1,0 +1,99 @@
+{
+ "run_id": "20260101000000-00000002",
+ "status": "drafted",
+ "progress": [
+  15,
+  15
+ ],
+ "template": "korail_rnd_proposal_v2024",
+ "legacy": false,
+ "created_at": "2026-10-27T01:22:49+00:00",
+ "updated_at": "2026-10-27T01:22:49+00:00",
+ "steps": [
+  {
+   "name": "retrieve",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:title",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:task_type",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:policy_importance",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:tech_importance",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:strategy_alignment",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:objective",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:method",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:expected_management",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:expected_technology",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:expected_standing",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:utilization",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "section:overlap_review",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "finalize",
+   "status": "done",
+   "error": null
+  },
+  {
+   "name": "draft_review",
+   "status": "done",
+   "error": null
+  }
+ ],
+ "draft_version": 2,
+ "flow": {
+  "status": "drafted",
+  "draft_review_skipped": null,
+  "final_reviews": 0,
+  "final_reviewed_version": null,
+  "stale_edits": 0,
+  "stale": false,
+  "has_working": false
+ }
+}
