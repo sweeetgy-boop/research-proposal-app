@@ -44,13 +44,20 @@ class InMemoryDocumentRepository:
         if not query:
             return []
         best: dict[str, float] = {}
-        for c in self.chunks:
-            if not self._valid(c.doc_id):
+        chunked = {c.doc_id for c in self.chunks}
+        texts = [(c.doc_id, c.text) for c in self.chunks] + [
+            # 청크 없는 문서(예: NTIS 과제)는 제목·초록으로 — precheck 에만 잡힌다
+            (d.doc_id, " ".join(p for p in (d.title, d.abstract, d.body) if p))
+            for d in self.docs.values()
+            if d.doc_id not in chunked
+        ]
+        for doc_id, text in texts:
+            if not self._valid(doc_id):
                 continue
-            tokens = set(_TOKEN.findall(c.text.lower()))
+            tokens = set(_TOKEN.findall(text.lower()))
             score = len(query & tokens) / len(query | tokens) if tokens else 0.0
-            if score > 0 and score > best.get(c.doc_id, 0.0):
-                best[c.doc_id] = score
+            if score > 0 and score > best.get(doc_id, 0.0):
+                best[doc_id] = score
         ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))[: max(0, k)]
         return [(self.docs[d], s) for d, s in ranked if d in self.docs]
 

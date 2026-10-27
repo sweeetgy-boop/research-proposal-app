@@ -5,6 +5,7 @@ import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { UntrustedText } from "@/components/UntrustedText";
 import { cn } from "@/lib/utils";
+import { tierLabel } from "@/lib/tiers";
 
 export const TITLE_ONLY = "정보 없음(제목 기준)";
 
@@ -88,7 +89,7 @@ export function ComparisonTable({ data, loading, error, onRetry, recommendationF
                       <>
                         <UntrustedText as="div" text={r.title} />
                         <div className="mt-1 flex flex-wrap gap-1 text-xs font-normal text-muted-foreground">
-                          {r.tier && <Badge variant="outline">{r.tier}</Badge>}
+                          {r.tier && <Badge variant="outline">{tierLabel({ tier: r.tier })}</Badge>}
                           {r.similarity !== null && <span>유사도 {r.similarity.toFixed(2)}</span>}
                           {r.blocking && <Badge variant="destructive">차단</Badge>}
                           {r.title_only && <Badge variant="secondary">제목만</Badge>}

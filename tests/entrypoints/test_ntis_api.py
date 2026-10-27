@@ -112,3 +112,38 @@ async def test_ntis_outcomes_503_without_key():
     ) as c:
         r = await c.post("/v1/precheck/ntis-outcomes", json=REQ, headers=AUTH)
     assert r.status_code == 503
+
+
+async def test_fake_mode_serves_ntis_outcomes_for_the_seeded_national_rnd_alert(tmp_path):
+    """가짜 모드(RRA_FAKE_LLM=1): precheck 에 national_rnd 알림 1건 + ntis-outcomes 200 (e2e)."""
+    from pydantic import SecretStr
+
+    from rra.composition import build_api
+    from rra.settings import Settings
+
+    settings = Settings(
+        _env_file=None,
+        fake_llm=True,
+        api_token=SecretStr(TOKEN),
+        runs_dir=tmp_path / "runs",
+        db_path=tmp_path / "never.sqlite",
+        static_dir=tmp_path / "no-dist",
+    )
+    app = build_api(settings, sse_poll_sec=0.01)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8000"
+    ) as c:
+        pre = (await c.post("/v1/precheck", json=REQ, headers=AUTH)).json()
+        ntis_alerts = [a for a in pre["alerts"] if a["tier"] == "national_rnd"]
+        assert [a["doc_id"] for a in ntis_alerts] == ["ntis:fake-1"]
+        assert ntis_alerts[0]["tier_label"] == "국가R&D 과제"
+        r = await c.post("/v1/precheck/ntis-outcomes", json=REQ, headers=AUTH)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["notice"] == UNTRUSTED_NOTICE
+    (p,) = body["projects"]
+    assert p["doc_id"] == "ntis:fake-1" and p["tier_label"] == "국가R&D 과제"
+    assert [o["kind"] for o in p["outcomes"]] == ["paper", "patent"]
+    assert all("(가짜)" in o["title"] for o in p["outcomes"])
+    assert [r["project_no"] for r in body["ntis_recommended"]] == ["fake-rel-1", "fake-rel-2"]
+    assert all(r["url"].startswith("https://www.ntis.go.kr/") for r in body["ntis_recommended"])
