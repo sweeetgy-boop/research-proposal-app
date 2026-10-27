@@ -54,3 +54,28 @@ def extract(data: bytes, limits: dict[str, Any]) -> dict[str, Any]:
         "meta_title": meta_title[:MAX_HEADING_CHARS] if meta_title else None,
         "truncated": truncated,
     }
+
+
+def extract_pages(data: bytes, limits: dict[str, Any]) -> dict[str, Any]:
+    """쪽별 텍스트 (P2-8 표 사실 — 쪽 번호를 남기려고). 같은 상한(쪽 수·글자 수)·암호 거부."""
+    import pymupdf
+
+    pymupdf.TOOLS.mupdf_display_errors(False)
+    max_chars = int(limits["max_text_chars"])
+    with pymupdf.open(stream=data, filetype="pdf") as doc:
+        if doc.needs_pass:
+            raise EncryptedDocument("encrypted")
+        if doc.page_count > int(limits["max_pdf_pages"]):
+            raise TooManyPages("pages")
+        pages: list[str] = []
+        total = 0
+        truncated = False
+        for page in doc:
+            text = page.get_text("text")
+            if total + len(text) > max_chars:
+                pages.append(text[: max_chars - total])
+                truncated = True
+                break
+            pages.append(text)
+            total += len(text)
+    return {"pages": pages, "truncated": truncated}

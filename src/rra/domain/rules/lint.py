@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from rra.domain.models import Draft, ProposalRequest, RetrievalSnapshot, Sentence
 from rra.domain.models.selection import OPTION_SOURCES, STRATEGY_SOURCE
+from rra.domain.models.table_fact import TableFact
 from rra.domain.rules.foreign_script import foreign_script_chars
 from rra.domain.rules.numbers import unsupported_numbers
 
@@ -169,6 +170,14 @@ def _cited_texts(sentence: Sentence, chunk_texts: Mapping[str, str]) -> list[str
     return out
 
 
+def _cited_facts(sentence: Sentence, facts: Mapping[str, Sequence[TableFact]]) -> list[TableFact]:
+    """문장이 인용한 문서(chunk_id 의 doc 부분)의 표 사실."""
+    out: list[TableFact] = []
+    for ev in sentence.evidence:
+        out.extend(facts.get(ev.split("#")[0], ()))
+    return out
+
+
 def lint(
     draft: Draft,
     rules: LintRules,
@@ -176,9 +185,12 @@ def lint(
     choice_options: Mapping[str, Mapping[str, str]] | None = None,
     chunk_texts: Mapping[str, str] | None = None,
     evidence_skipped: Mapping[str, str] | None = None,
+    facts: Mapping[str, Sequence[TableFact]] | None = None,
 ) -> list[LintProblem]:
     """chunk_texts: 이번 run 스냅샷의 chunk_id → 본문. 수치 검사(number_checked)에만 쓴다.
-    evidence_skipped: `evidence_skipped_sections` 결과 — 근거가 없어 빈칸으로 둔 섹션 (경고만)."""
+    evidence_skipped: `evidence_skipped_sections` 결과 — 근거가 없어 빈칸으로 둔 섹션 (경고만).
+    facts: doc_id → 표 사실(P2-8). 인용 문서의 표 칸 수치는 근거 있는 수치로 본다. 없으면 종전과
+    같다."""
     problems: list[LintProblem] = []
     request_texts = _request_texts(draft.request)
     skipped = {**skipped_sections(draft.request, rules, choice_options), **(evidence_skipped or {})}
@@ -250,7 +262,9 @@ def lint(
                 if s.origin in ("app", "input"):  # 앱 확정 문장·입력 그대로는 검사하지 않는다
                     continue
                 cited = _cited_texts(s, chunk_texts or {})
-                bad = unsupported_numbers(s.text, [*request_texts, *cited])
+                bad = unsupported_numbers(
+                    s.text, [*request_texts, *cited], facts=_cited_facts(s, facts or {})
+                )
                 if bad:
                     problems.append(
                         LintProblem(

@@ -82,6 +82,7 @@ export interface OverlapAlert {
   status: string | null;
   own_detail: string | null;
   tier_label: string;
+  status_label?: string | null;
 }
 
 export interface Transfer {

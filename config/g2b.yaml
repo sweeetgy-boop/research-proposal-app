@@ -1,0 +1,17 @@
+# 나라장터 입찰공고정보서비스(공공데이터포털) — 발주 연구용역 공고 (P2-6, 레인 E 2026-10-27).
+# 키: .env RRA_DATA_GO_KR_KEY (공공데이터포털 일반 인증키, "조달청_나라장터 입찰공고정보서비스" 활용신청 뒤 사용).
+# 키가 없으면 rra ingest --source g2b 는 MissingCredential 로 건너뛴다(--skip-unavailable). 호스트는 security.yaml allowed_domains.
+base_url: https://apis.data.go.kr
+path: /1230000/ad/BidPublicInfoService/getBidPblancListInfoServcPPSSrch   # 용역 공고 목록(검색). 2026-10-27 키 없이 401 확인(경로 유효)
+queries: [철도, 궤도, 전차선, 열차, 역사]        # bidNtceNm 포함 검색
+# 공고기관·수요기관 이름에 아래가 들어간 공고만 남긴다 (비면 전부)
+org_filter: [한국철도공사, 코레일, 국가철도공단, 한국철도기술연구원]
+lookback_days: 365        # 공고게시일 기준 조회 범위
+rows: 100
+max_pages: 5
+active_days: 540          # 공고일이 이보다 오래되면 status procured(발주됨·기간 경과), 그 안이면 procuring("용역으로 진행 중/예정")
+rate_limit: 2
+max_requests_per_run: 60
+retries: 2
+max_response_mb: 20
+timeout: {connect: 10, read: 30}

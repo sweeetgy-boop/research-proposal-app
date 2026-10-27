@@ -20,7 +20,7 @@ def test_overlap_candidates_drops_policy_and_news_only():
     paper = Document(doc_id="openalex:W1", source="openalex", doc_type="paper", title="t")
     hits = [(POLICY, 0.99), (paper, 0.9), (NEWS, 0.95)]
     assert overlap_candidates(hits) == [(paper, 0.9)]
-    assert OVERLAP_EXCLUDED_DOC_TYPES == {"policy", "korail_news"}
+    assert OVERLAP_EXCLUDED_DOC_TYPES == {"policy", "korail_news", "audit", "statistics"}
 
 
 async def test_precheck_ignores_policy_documents_even_when_most_similar(req, docs, own):

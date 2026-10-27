@@ -38,7 +38,9 @@ Runner = Callable[[int, str, SandboxLimits], Awaitable[dict[str, Any]]]
 PARSEABLE = frozenset({"pdf", "hwp", "hwpx", "xlsx", "xls"})
 MIN_CHARS = 80  # 이보다 짧은 본문(메뉴 링크 목록 등)은 적재하지 않는다
 _YEAR = re.compile(r"(20\d{2}|19\d{2})")
-DOC_TYPES = frozenset({"policy", "korail_news"})
+DOC_TYPES = frozenset(
+    {"policy", "korail_news", "statistics"}
+)  # statistics: 통계자료 게시판 xlsx (P2-3)
 
 
 class KorailWebSource:

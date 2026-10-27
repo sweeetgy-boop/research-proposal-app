@@ -15,7 +15,7 @@ from typing import Any
 
 from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
-from rra.domain.rules.overlap import tier_label
+from rra.domain.rules.overlap import STATUS_LABELS, tier_label
 
 
 def _same(text: str) -> str:
@@ -403,6 +403,9 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
                 "basis": a.basis,
                 "keywords": list(a.keywords),
                 "status": a.status,
+                "status_label": STATUS_LABELS.get(
+                    a.status or "", a.status
+                ),  # 용역으로 진행 중/예정 등
                 "own_detail": a.own_detail,
                 "tier_label": tier_label(a.tier, a.own_detail),
             }
@@ -771,6 +774,35 @@ def chunks_payload(
         }
         for c in chunks
     ]
+
+
+def facts_payload(facts: list[Any], *, clean: Callable[[str], str] = _same) -> list[dict[str, Any]]:
+    """표 사실(P2-8) → dict. 전부 비신뢰 — 표에서 파싱·판독한 값이지 확인된 사실이 아니다."""
+    return [
+        {
+            "item": clean(f.item),
+            "year": f.year,
+            "unit": clean(f.unit) if f.unit else None,
+            "value": float(f.value),
+            "value_text": clean(f.value_text),
+            "doc_id": f.doc_id,
+            "page": f.page,
+            "sheet": clean(f.sheet) if f.sheet else None,
+            "basis": f.basis,
+            "trust": "untrusted",
+        }
+        for f in facts
+    ]
+
+
+def fact_line(f: Any, *, clean: Callable[[str], str] = _same) -> str:
+    """CLI 한 줄: 항목 · 연도 · 값단위 · 출처."""
+    year = f"{f.year}년 " if f.year else ""
+    where = (
+        f.doc_id + (f" p.{f.page}" if f.page else "") + (f" [{clean(f.sheet)}]" if f.sheet else "")
+    )
+    basis = " (이미지 판독)" if f.basis == "image_vision" else ""
+    return f"{clean(f.item)}: {year}{clean(f.value_text)}{clean(f.unit or '')} — {where}{basis}"
 
 
 # ── 벤치 보고 (docs/llm-bench-<날짜>.md) ──────────────────
