@@ -1,7 +1,7 @@
-# 배포 (M6 Mac mini 32GB) — launchd 4종 + 127.0.0.1 바인딩 + 역프록시
+# 배포 (M6 Mac mini 32GB) — launchd 4종(+터널 1) + 127.0.0.1 바인딩 + 역프록시
 
 처음 설치하는 사람 기준의 순서다. 모든 서비스는 사용자 launchd 에이전트(`~/Library/LaunchAgents`)로 돌고,
-비밀은 `.env`(권한 600)에만 둔다. 외부 공개 방식(Tailscale/Cloudflare)은 아직 결정 전 — `docs/deploy-exposure.md`.
+비밀은 `.env`(권한 600)에만 둔다. 외부 공개는 시범으로 Cloudflare Tunnel + Access(`docs/deploy-exposure.md` §5) — 터널은 사람이 켠다.
 
 ## 0. 전제 (보안 G·H)
 
@@ -44,7 +44,7 @@ plist 의 경로는 `/Users/chan/projects/research-proposal-app` 로 채워져 �
 `ProgramArguments`·`WorkingDirectory`·`EnvironmentVariables`·로그 경로를 함께 바꾼다
 (`sed -i '' 's#/Users/chan#/Users/<계정>#g' deploy/launchd/*.plist`).
 
-## 2. launchd 등록 (3 + 1종)
+## 2. launchd 등록 (3 + 1종, 공개할 때 + 터널 1종)
 
 | 파일 | 역할 | 일정 | 바인딩 |
 |---|---|---|---|
@@ -52,11 +52,14 @@ plist 의 경로는 `/Users/chan/projects/research-proposal-app` 로 채워져 �
 | `com.rra.api.plist` | REST API (`rra api`) | 상시 (KeepAlive) | 127.0.0.1:8000 |
 | `com.rra.backup.plist` | DB 사본 (`rra db backup --keep 7`, VACUUM INTO, 600) | 매일 03:30 | — |
 | `com.rra.ingest.plist` | 야간 적재 (`rra ingest --skip-unavailable`: OpenAlex·inbox·키 있는 자료원) | 매일 02:30 | — |
+| `com.rra.tunnel.plist` | Cloudflare Tunnel (`cloudflared tunnel --config ~/.cloudflared/config.yml run rra`) — rra.ai-edu-lab.co.kr → 127.0.0.1:8000 | 상시 (KeepAlive), **Access 확인 뒤에만** | 아웃바운드만 (포트 열지 않음) |
 
 ```bash
 cp deploy/launchd/com.rra.{mlx,api,backup,ingest}.plist ~/Library/LaunchAgents/
 for s in mlx api backup ingest; do launchctl load -w ~/Library/LaunchAgents/com.rra.$s.plist; done
 launchctl list | grep com.rra            # 4개가 보이면 등록됨 (PID 가 있으면 실행 중)
+# 공개(시범)까지 했을 때만 — cloudflared 설치·login·create·route dns·Access 설정이 끝난 뒤 (docs/deploy-exposure.md §5.3·5.4)
+cp deploy/launchd/com.rra.tunnel.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.tunnel.plist
 ```
 
 순서: mlx → api (api 는 mlx 없이도 뜨지만 생성은 실패한다). 해제는 `launchctl unload -w …`.
@@ -76,7 +79,8 @@ curl -s -H "X-RRA-Token: $RRA_API_TOKEN" -H 'content-type: application/json' \
 .venv/bin/rra ingest --source openalex --skip-unavailable --limit 20   # 적재 1회 수동 실행
 .venv/bin/rra db backup --out data/backups --keep 7          # 사본 1회 수동 실행 → data/backups 에 7벌까지
 .venv/bin/rra runs purge --dry-run                            # 만료 run (security.yaml retention_days, 180일)
-tail -n 50 ~/Library/Logs/rra-{mlx,api,backup,ingest}.err.log
+tail -n 50 ~/Library/Logs/rra-{mlx,api,backup,ingest,tunnel}.err.log
+curl -sI https://rra.ai-edu-lab.co.kr | head -3                 # 터널 기동 뒤: 302 → cloudflareaccess.com 이어야 한다 (200 이면 즉시 내린다)
 ```
 
 ## 4. REST API 요약 (`rra api`)
@@ -105,6 +109,9 @@ tail -n 50 ~/Library/Logs/rra-{mlx,api,backup,ingest}.err.log
   (`tests/deploy/test_launchd_plists.py` 가 plist 의 `--keep 7` 과 회전을 함께 검사한다).
 - 임베딩 모델을 바꾸면 기동 때 `db.embedding_model_mismatch` 경고 → `rra reindex`.
 
-## 6. 외부 공개
+## 6. 외부 공개 (시범: Cloudflare Tunnel + Access, 2026-10-27)
 
-결정 전. 두 방식(Tailscale serve / Cloudflare Tunnel)의 비교와 필요한 설정은 `docs/deploy-exposure.md`.
+- 공개 주소 `https://rra.ai-edu-lab.co.kr` → Cloudflare Access(이메일 일회용 코드) → 터널 → 127.0.0.1:8000 → 앱 로그인(토큰). 이중 인증.
+- 앱 설정은 `config/api.yaml`(`public_origin`, `trust_cf_connecting_ip`) — 비밀 아님. `.env` 는 그대로.
+- 터널 설정 초안 `deploy/cloudflared/config.example.yml`, 상시 실행 `deploy/launchd/com.rra.tunnel.plist`. 절차·막힌 점(DNS 가 Gabia,
+  cloudflared 미설치)·Access 확인·Tailscale 대체 경로는 `docs/deploy-exposure.md` §5.
