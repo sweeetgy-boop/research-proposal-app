@@ -631,7 +631,7 @@ def cmd_strategy_draft(args: argparse.Namespace) -> int:
     """공사 홈페이지 "중장기 경영목표" 표 → korail_strategy.draft.yaml (basis: text)."""
     import yaml
 
-    from rra.composition import build_korail_web_crawler, load_settings
+    from rra.composition import build_strategy_drafter, load_settings
     from rra.config_loader import STRATEGY_DRAFT_FILE, korail_web_config
 
     settings = load_settings()
@@ -640,18 +640,8 @@ def cmd_strategy_draft(args: argparse.Namespace) -> int:
         args.key
         or next((m["key"] for m in cfg.get("menus") or [] if m.get("id") == "mgmt_goal"), "1900")
     )
-    crawler = build_korail_web_crawler(settings)
-
-    async def run():
-        try:
-            return await crawler.fetch_contents(key)
-        finally:
-            await crawler.aclose()
-
-    from rra.adapters.sources.korail_web import strategy_draft_from_html  # noqa: PLC0415
-
-    html, url = asyncio.run(run())
-    draft = strategy_draft_from_html(html, url=url, snapshot=time.strftime("%Y-%m-%d"))
+    draft = asyncio.run(build_strategy_drafter(settings)(key, time.strftime("%Y-%m-%d")))
+    url = str(draft["directions"][0]["source"]["url"]) if draft["directions"] else ""
     out = Path(args.out) if args.out else Path(settings.config_dir) / STRATEGY_DRAFT_FILE
     out.parent.mkdir(parents=True, exist_ok=True)
     header = (

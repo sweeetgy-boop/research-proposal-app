@@ -69,6 +69,7 @@ __all__ = [
     "build_kipris_source",
     "build_korail_web_crawler",
     "build_korail_web_source",
+    "build_strategy_drafter",
     "build_own_docs_source",
     "build_own_projects_source",
     "build_api",
@@ -526,6 +527,23 @@ def build_korail_web_crawler(settings: Settings | None = None, *, transport=None
         return {"pages": result.pages or 0, "text_chars": len(result.text.strip())}
 
     return KorailWebCrawler(client, cfg, _korail_web_root(settings, raw), pdf_probe=pdf_probe)
+
+
+def build_strategy_drafter(settings: Settings | None = None, *, transport=None, resolver=None):
+    """`rra strategy draft` — 중장기 경영목표 페이지 1건을 받아(GuardedClient) 전략체계 초안 dict 를 만든다."""
+    from rra.adapters.sources.korail_web import strategy_draft_from_html
+
+    settings = settings or load_settings()
+    crawler = build_korail_web_crawler(settings, transport=transport, resolver=resolver)
+
+    async def draft(key: str, snapshot: str | None) -> dict[str, Any]:
+        try:
+            html, url = await crawler.fetch_contents(key)
+        finally:
+            await crawler.aclose()
+        return strategy_draft_from_html(html, url=url, snapshot=snapshot)
+
+    return draft
 
 
 def build_korail_web_source(settings: Settings | None = None):

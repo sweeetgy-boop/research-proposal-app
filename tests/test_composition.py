@@ -258,8 +258,8 @@ def test_generate_is_wired_with_the_relevance_floor():
 
 
 def test_strategy_catalog_uses_draft_until_promoted():
-    """strategy.yaml source: draft — 공사 홈페이지에서 뽑은 초안(15 전략과제)이 선택지가 되고 초안 표시가 붙는다.
-    확정 파일(korail_strategy.yaml)은 아직 비어 있다."""
+    """strategy.yaml source: draft — 공사 홈페이지에서 뽑은 초안(15 전략과제)이 선택지가 되고
+    초안 표시가 붙는다. 확정 파일(korail_strategy.yaml)은 아직 비어 있다."""
     from rra.composition import build_generate, strategy_catalog
     from rra.config_loader import STRATEGY_FILE, read_config
 
