@@ -11,6 +11,7 @@ import yaml
 
 from rra.adapters.sources._xml import find_records, flatten, parse
 from rra.adapters.sources.ntis import normalize_project, normalize_report
+from rra.adapters.sources.ntis.client import parse_response
 from rra.adapters.sources.scienceon import normalize_record
 
 ROOT = Path(__file__).parents[2]
@@ -90,14 +91,15 @@ def test_scienceon_records_normalize(path):
 
 
 def test_ntis_fixtures_present():
-    """2026-10-27: 합성(매뉴얼 형식) fixture — IP 등록 뒤 실응답으로 교체해도 이름이 같은 glob 에
-    잡힌다."""
-    assert NTIS and NTIS_REPORTS and NTIS_TAG == "HIT"
+    """2026-10-27 19:11 실응답 녹화 — 과제 2질의(철도 궤도·전차선)·보고서 1질의, SYNTHETIC 없음."""
+    assert len(NTIS) >= 2 and NTIS_REPORTS and NTIS_TAG == "HIT"
+    assert not list((FIX / "ntis").glob("*SYNTHETIC*"))
+    assert all("2026" in p.name for p in [*NTIS, *NTIS_REPORTS])
 
 
 def test_ntis_fixtures_hold_no_person_names():
-    for path in [*NTIS, *NTIS_REPORTS]:
-        for r in find_records(parse(path.read_bytes()), NTIS_TAG):
+    for path in [*NTIS, *NTIS_REPORTS, *sorted((FIX / "ntis").glob("ntis_outcome_*.xml"))]:
+        for r in find_records(parse_response(path.read_bytes()), NTIS_TAG):
             flat = flatten(r)
             for tag in ("Manager/Name", "Researchers/Name", "ManagerName", "Manager", "Author"):
                 names = {n.strip() for n in re.split(r"[;|]", flat.get(tag, ""))}
@@ -107,10 +109,14 @@ def test_ntis_fixtures_hold_no_person_names():
 @pytest.mark.parametrize("path", NTIS, ids=[p.name for p in NTIS])
 def test_ntis_projects_normalize(path):
     institutions = SOURCES.get("institutions") or []
-    records = [flatten(r) for r in find_records(parse(path.read_bytes()), NTIS_TAG)]
-    assert records, f"record_tag {NTIS_TAG!r} 요소가 없다"
+    records = [flatten(r) for r in find_records(parse_response(path.read_bytes()), NTIS_TAG)]
+    assert len(records) == 10, f"record_tag {NTIS_TAG!r} 요소 10건으로 녹화했다"
     docs = [normalize_project(r, institutions) for r in records]
     assert len({d.doc_id for d in docs}) == len(docs)
+    assert all(d.abstract and "[연구목표]" in d.abstract for d in docs)
+    assert all(d.pub_date and d.project_period and d.codes for d in docs)
+    assert all(d.raw["business"] and d.raw["ministry"] and d.raw["budget"] for d in docs)
+    assert any("krri" in d.orgs for d in docs)  # 한국철도기술연구원 주관 과제가 들어 있다
     assert all(d.doc_id.startswith("ntis:") and d.doc_type == "rnd_project" for d in docs)
     assert all(d.raw["kind"] == "national_rnd" and d.visibility == "public" for d in docs)
     assert all(not d.authors for d in docs)  # 연구책임자·참여연구원 이름은 저장하지 않는다
@@ -123,10 +129,13 @@ def test_ntis_projects_normalize(path):
 @pytest.mark.parametrize("path", NTIS_REPORTS, ids=[p.name for p in NTIS_REPORTS])
 def test_ntis_reports_normalize(path):
     institutions = SOURCES.get("institutions") or []
-    records = [flatten(r) for r in find_records(parse(path.read_bytes()), NTIS_TAG)]
-    assert records
+    records = [flatten(r) for r in find_records(parse_response(path.read_bytes()), NTIS_TAG)]
+    assert len(records) == 10
     docs = [normalize_report(r, institutions) for r in records]
     assert all(d.doc_type == "report" and d.source == "ntis" and d.title for d in docs)
+    assert all(d.url.startswith("https://scienceon.kisti.re.kr/") for d in docs)  # & 복구됨
+    assert all(d.raw["project_no"] and d.pub_date and d.lang == "ko" for d in docs)
+    assert sum(1 for d in docs if d.abstract) >= 8 and any("krri" in d.orgs for d in docs)
     assert all(not d.authors for d in docs)
     assert all(d.raw["kind"] == "national_rnd_report" for d in docs)
     assert any(d.raw["project_no"] for d in docs) and any(d.url for d in docs)

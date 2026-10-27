@@ -1,9 +1,11 @@
-"""NTIS — 과제검색·연구보고서·성과·연관콘텐츠. 키·네트워크 없음 (MockTransport + 합성 fixture).
+"""NTIS — 과제검색·연구보고서·성과·연관콘텐츠. 키·네트워크 없음 (MockTransport + 실응답 fixture).
 
-필드 매핑은 공개 매뉴얼 응답명세 기준(tests/fixtures/ntis/README.md). 실응답은 IP 등록 뒤 녹화해
-교체한다.
+fixture 는 2026-10-27 실응답 녹화(tests/fixtures/ntis/README.md, 사람 이름은 NAME-REMOVED).
+실서버는 Accept 에 json 이 있으면 XML 을 JSON 문자열로 감싸 보내고(`wrapped`), 연구보고서는 맨 `&`
+를 내보낸다 — 둘 다 여기서 재현한다.
 """
 
+import json
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -23,13 +25,28 @@ from rra.adapters.sources.ntis import (
     normalize_project,
     normalize_report,
 )
-from rra.adapters.sources.ntis.client import error_message
-from rra.adapters.sources.ntis.insights import normalize_outcome, normalize_related
+from rra.adapters.sources.ntis.client import (
+    error_message,
+    parse_response,
+    probe_result,
+    unwrap_json_string,
+)
+from rra.adapters.sources.ntis.insights import (
+    PROBE_PROJECT_NO,
+    normalize_outcome,
+    normalize_related,
+)
 from rra.domain.models import Document
 from rra.domain.rules.dedup import dedup
 from rra.domain.rules.overlap import tier_of
 
 FIX = Path(__file__).parents[1] / "fixtures" / "ntis"
+PROJECT_FIX = FIX / "ntis_project_20261027_track.xml"
+REPORT_FIX = FIX / "ntis_report_20261027_track.xml"
+PAPER_FIX = FIX / "ntis_outcome_20261027_rpaper.xml"
+PATENT_FIX = FIX / "ntis_outcome_20261027_rpatent.xml"
+RELATED_FIX = FIX / "ntis_related_20261027.json"
+JSON_CT = {"content-type": "application/json;charset=UTF-8"}
 INSTITUTIONS = [
     {"code": "C0268", "name": "한국철도공사", "tag": "korail", "aliases": ["코레일"]},
     {"code": "C0269", "name": "한국철도기술연구원", "tag": "krri"},
@@ -131,53 +148,130 @@ def test_project_is_not_merged_with_same_title_report():
     assert {d.doc_id for d in dedup([project, report])} == {"ntis:1415171234", "alio:77"}
 
 
+def wrapped(path: Path) -> bytes:
+    """실서버 꼴 — 본문 전체를 JSON 문자열 하나로 (Accept 에 application/json 이 있을 때)."""
+    return json.dumps(path.read_text(encoding="utf-8")).encode("utf-8")
+
+
 def test_fixture_highlight_spans_keep_tail_text():
-    """flatten 이 `<span class="search_word">` 아래로 내려가면 강조어 뒤 텍스트가 사라진다 — 잎으로
-    본다."""
-    root = parse((FIX / "ntis_project_SYNTHETIC_manual.xml").read_bytes())
-    flat = flatten(find_records(root, "HIT")[0])
-    assert flat["ProjectTitle/Korean"] == "철도 궤도 틀림 상시 감시 기술 개발"
-    assert "ProjectTitle/Korean/span" not in flat
-    assert flat["Manager/Name"] == "NAME-REMOVED"
-
-
-# ── 보고서 정규화 ─────────────────────────────────────────
-def test_normalize_report_from_manual_fixture():
-    root = parse((FIX / "ntis_report_SYNTHETIC_manual.xml").read_bytes())
-    docs = [normalize_report(flatten(r), INSTITUTIONS) for r in find_records(root, "HIT")]
-    first, second = docs
-    assert first.doc_id == "ntis:REP-2023-0115000001" and first.doc_type == "report"
-    assert (
-        first.title == "철도 궤도 틀림 상시 감시 기술 개발 최종보고서"
-    )  # 이스케이프된 강조 태그 제거
-    assert first.pub_date.isoformat() == "2023-12-01" and first.url.startswith(
-        "https://nrms.kisti.re.kr/"
+    """과제검색은 강조 태그가 이스케이프돼 오고(strip_highlight), 보고서는 날 `<span>` 이 텍스트
+    안에 온다 — flatten 이 아래로 내려가면 강조어 뒤 텍스트가 사라지므로 잎으로 본다."""
+    flat = flatten(find_records(parse_response(PROJECT_FIX.read_bytes()), "HIT")[0])
+    assert "search_word" in flat["ProjectTitle/Korean"] and "/span" not in "".join(flat)
+    assert flat["Manager/Name"] == flat["Researchers/Name"] == "NAME-REMOVED"
+    doc = normalize_project(flat, INSTITUTIONS)
+    assert doc.title == (
+        "콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선"
     )
-    assert first.orgs == ["korail"] and first.raw["project_no"] == "1415171234"
-    assert first.toc == ["1장 서론", "2장 센서 구성", "3장 알고리즘", "4장 검증"]
-    assert first.codes == ["궤도틀림", "가속도", "상시감시"]
-    assert second.url is None  # http 링크는 버린다
-    assert second.pub_date.isoformat() == "2021-01-01" and second.orgs == ["krri"]
+    assert doc.orgs == ["krri"] and doc.raw["agencies"] == ["한국철도기술연구원"]
+    assert doc.raw["business"] == "철도기술연구사업" and doc.raw["ministry"] == "국토교통부"
+    assert doc.raw["science_class"] == "철도교통기술 | 시설물 설계/해석기술"  # 반복 요소 중복 제거
+    assert doc.pub_date.isoformat() == "2013-12-27" and doc.project_period[1].isoformat() == (
+        "2018-06-26"
+    )
+    report = flatten(find_records(parse_response(REPORT_FIX.read_bytes()), "HIT")[0])
+    assert report["PublicationAgency"] == "한국철도기술연구원"  # `한국<span>철도</span>기술연구원`
+    assert report["ResultTitle/Korean"] == "철도 구성품 환경성 향상 기술개발"
+    assert "ResultTitle/Korean/span" not in report and report["ManagerName"] == "NAME-REMOVED"
+
+
+# ── 실응답 형식: JSON 문자열 감싸기·맨 & (2026-10-27 ParseError 원인) ──────────
+def test_unwrap_json_string_shapes():
+    xml = b'<?xml version="1.0" encoding="UTF-8"?>\n<RESULT><TOTALHITS>1</TOTALHITS></RESULT>'
+    assert unwrap_json_string(json.dumps(xml.decode()).encode()) == xml
+    assert unwrap_json_string(b"\xef\xbb\xbf" + json.dumps(xml.decode()).encode()) == xml
+    assert unwrap_json_string(xml) is xml  # 날 XML 은 그대로
+    obj = b'{"items": []}'
+    assert unwrap_json_string(obj) is obj  # JSON 객체는 건드리지 않는다
+    assert unwrap_json_string(b'"not closed') == b'"not closed'
+    inner = json.dumps({"exist": True, "items": []})
+    assert json.loads(unwrap_json_string(json.dumps(inner).encode())) == {
+        "exist": True,
+        "items": [],
+    }
+
+
+def test_wrapped_real_response_was_the_parse_error_and_is_now_parsed():
+    with pytest.raises(XmlResponseError, match="ParseError"):
+        parse(wrapped(PROJECT_FIX))  # 종전 경로 — `"<?xml` 로 시작하는 본문
+    root = parse_response(wrapped(PROJECT_FIX))
+    assert root.tag == "RESULT" and root.findtext("TOTALHITS") == "1087"
+    assert len(find_records(root, "HIT")) == 10 and root.findtext("HITS") == "10"
+
+
+def test_bare_ampersand_in_report_docurl_is_repaired():
+    body = REPORT_FIX.read_bytes()
+    assert b"dbt=TRKO&cn=" in body  # 녹화 원문 그대로 (이스케이프 없는 &)
+    with pytest.raises(XmlResponseError, match="ParseError"):
+        parse(body)
+    docs = [
+        normalize_report(flatten(r), INSTITUTIONS)
+        for r in find_records(parse_response(body), "HIT")
+    ]
+    assert docs[0].url == (
+        "https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201300021692"
+    )
+    assert parse_response(b"<r><a>x &amp; y &#39; &lt;</a></r>").findtext("a") == "x & y ' <"
+
+
+def test_probe_result_prefers_configured_tag_over_navigation_entries():
+    root = parse_response(PROJECT_FIX.read_bytes())
+    assert [e.tag for e in find_records(root)] == ["NAVIGATIONENTRY"] * 13  # 자동 탐지는 틀린다
+    assert probe_result(root, "HIT") == {
+        "total": 1087,
+        "hits": 10,
+        "record_tag_matches": True,
+        "record_tag_candidates": ["HIT", "NAVIGATIONENTRY"],
+    }
+    assert probe_result(root, "ROW") == {
+        "total": 1087,
+        "hits": 0,
+        "record_tag_matches": False,
+        "record_tag_candidates": ["NAVIGATIONENTRY"],
+    }
+    assert probe_result(root, None) == {"total": 1087, "record_tag_candidates": ["NAVIGATIONENTRY"]}
+
+
+# ── 보고서 정규화 (실응답) ────────────────────────────────
+def test_normalize_report_from_recorded_fixture():
+    root = parse_response(REPORT_FIX.read_bytes())
+    docs = [normalize_report(flatten(r), INSTITUTIONS) for r in find_records(root, "HIT")]
+    first, second = docs[:2]
+    assert first.doc_id == "ntis:REP-2011-0115023251" and first.doc_type == "report"
+    assert first.title == "철도 구성품 환경성 향상 기술개발"  # 날 강조 태그 제거
+    assert first.pub_date.isoformat() == "2011-01-01" and first.lang == "ko"
+    assert first.orgs == ["krri"] and first.raw["project_no"] == "1415119784"
+    assert first.raw["report_no"] == "TRKO201300021692" and first.raw["year"] == "2011"
+    assert first.raw["specialized_agency"] == "한국철도기술연구원"
+    assert first.raw["agency_project_no"] == "PK11002B" and first.raw["orgs_named"] == [
+        "한국철도기술연구원",
+        "한국철도기술연구원",
+    ]
+    assert first.codes == ["제동디스크", "강화노반", "슬래브궤도", "포장궤도", "철도 교량"]
+    assert first.toc and "국내외 연구현황" in " ".join(first.toc)
+    assert "search_word" not in first.abstract and first.abstract.startswith("... 제동디스크")
+    assert second.doc_id == "ntis:REP-2012-0118227104" and second.orgs == []  # 고려대학교
+    assert second.raw["project_no"] == "1345147315" and second.pub_date.isoformat() == "2012-01-01"
     assert all(not d.authors for d in docs) and "NAME-REMOVED" not in str(
         [d.model_dump() for d in docs]
     )
 
 
 def test_ntis_report_merges_with_scienceon_report_of_same_project():
-    root = parse((FIX / "ntis_report_SYNTHETIC_manual.xml").read_bytes())
+    root = parse_response(REPORT_FIX.read_bytes())
     ntis = normalize_report(flatten(find_records(root, "HIT")[0]), INSTITUTIONS)
     scienceon = Document(
         doc_id="scienceon:CN123",
         source="scienceon",
         doc_type="internal_report",
-        title="철도 궤도 틀림 상시 감시 기술 개발 최종보고서",
+        title="철도 구성품 환경성 향상 기술개발",
         abstract="짧은 초록",
         pub_date=ntis.pub_date,
-        raw={"project_no": "1415171234"},
+        raw={"project_no": "1415119784"},
         text_basis="abstract",
     )
     kept = dedup([scienceon, ntis])
-    assert [d.doc_id for d in kept] == ["ntis:REP-2023-0115000001"]  # 초록이 긴 쪽
+    assert [d.doc_id for d in kept] == ["ntis:REP-2011-0115023251"]  # 초록이 긴 쪽
 
 
 # ── 오류 본문 판별 ────────────────────────────────────────
@@ -312,7 +406,7 @@ async def test_empty_record_tag_blocks_search_but_not_probe():
 
 async def test_report_source_uses_manual_parameters():
     reqs = []
-    body = (FIX / "ntis_report_SYNTHETIC_manual.xml").read_bytes()
+    body = httpx.Response(200, content=wrapped(REPORT_FIX), headers=JSON_CT)  # 실서버 꼴
     src = NtisReportSource(
         guarded([body], reqs),
         apprv_key=SecretStr(KEY),
@@ -332,7 +426,43 @@ async def test_report_source_uses_manual_parameters():
         and q["apprvKey"] == [KEY]
     )
     docs = [src.normalize(r) for r in raws]
-    assert [d.doc_id for d in docs] == ["ntis:REP-2023-0115000001", "ntis:REP-2021-0115000002"]
+    assert len(docs) == 10 and docs[0].doc_id == "ntis:REP-2011-0115023251"
+    assert docs[1].doc_id == "ntis:REP-2012-0118227104"
+    assert len(reqs) == 1  # 10건 < displayCount 100 → 다음 페이지 없음
+
+
+async def test_project_source_reads_wrapped_real_response_and_probe_is_ok():
+    """2026-10-27 `rra sources check` ParseError 재현 → 수정 뒤 ok. search 도 같은 본문을 읽는다."""
+    responses = [httpx.Response(200, content=wrapped(PROJECT_FIX), headers=JSON_CT)]
+    src, reqs = source_for(responses, display=100)
+    assert await src.probe() == {
+        "total": 1087,
+        "hits": 10,
+        "record_tag_matches": True,
+        "record_tag_candidates": ["HIT", "NAVIGATIONENTRY"],
+    }
+    assert "application/json" in reqs[0].headers["accept"]  # 한글 오류 문구 때문에 유지
+    src, _ = source_for(
+        [httpx.Response(200, content=wrapped(PROJECT_FIX), headers=JSON_CT)], display=100
+    )
+    raws = await src.search("철도 궤도", 50)
+    assert [r["ProjectNumber"] for r in raws][:3] == ["1615007833", "2610000650", "1711047418"]
+    assert len(raws) == 10 and "Manager/Name" in raws[0]  # 정규화가 읽지 않을 뿐 원본에는 있다
+    docs = [src.normalize(r) for r in raws]
+    assert all(not d.authors and "NAME-REMOVED" not in str(d.model_dump()) for d in docs)
+    assert sum("krri" in d.orgs for d in docs) == 7 and sum("korail" in d.orgs for d in docs) == 1
+
+
+async def test_sources_check_row_is_ok_for_the_recorded_response():
+    """진단 유스케이스 끝까지 — 가짜 클라이언트로 `rra sources check --source ntis` 행이 ok."""
+    from rra.application.usecases.diagnostics import CheckSources, SourceTarget
+
+    src, _ = source_for([httpx.Response(200, content=wrapped(PROJECT_FIX), headers=JSON_CT)])
+    rows = await CheckSources(
+        [SourceTarget("ntis", "www.ntis.go.kr", True, {"RRA_NTIS_KEY": True}, lambda: src)]
+    )()
+    assert rows[0]["roundtrip"] == "ok" and rows[0]["result"]["record_tag_matches"] is True
+    assert rows[0]["result"]["total"] == 1087 and KEY not in json.dumps(rows)
 
 
 # ── 성과검색·연관콘텐츠 ───────────────────────────────────
@@ -349,6 +479,8 @@ def test_normalize_outcome_and_related_shapes():
         "result_id": None,
         "registration_no": None,
         "project_no": None,
+        "doi": None,
+        "regist_type": None,
     }
     patent = normalize_outcome(
         "patent", {"ResultTitle/Korean": "B", "Registrant": "홍길동", "RegistNumber": "10-1"}
@@ -370,13 +502,9 @@ def test_normalize_outcome_and_related_shapes():
 async def test_insight_source_calls_both_collections_and_related_json():
     reqs = []
     responses = [
-        (FIX / "ntis_outcome_SYNTHETIC_rpaper.xml").read_bytes(),
-        (FIX / "ntis_outcome_SYNTHETIC_rpatent.xml").read_bytes(),
-        httpx.Response(
-            200,
-            content=(FIX / "ntis_related_SYNTHETIC.json").read_bytes(),
-            headers={"content-type": "application/json"},
-        ),
+        httpx.Response(200, content=wrapped(PAPER_FIX), headers=JSON_CT),
+        PATENT_FIX.read_bytes(),  # 날 XML 로 와도 같다
+        httpx.Response(200, content=wrapped(RELATED_FIX), headers=JSON_CT),  # JSON 안의 JSON
     ]
     src = NtisInsightSource(
         guarded(responses, reqs),
@@ -385,29 +513,57 @@ async def test_insight_source_calls_both_collections_and_related_json():
         outcome_path="/rndopen/openApi/public_result",
         related_path="/rndopen/openApi/ConnectionContent",
     )
-    outcomes = await src.outcomes("1415171234")
-    assert [o["kind"] for o in outcomes] == ["paper", "paper", "patent"]
-    assert (
-        outcomes[0]["title"] == "차축 가속도 기반 궤도 틀림 추정"
-        and outcomes[2]["venue"] == "한국철도공사"
+    outcomes = await src.outcomes("1615007833")
+    assert [o["kind"] for o in outcomes] == ["paper"] * 10 + ["patent"] * 2
+    assert outcomes[0]["title"].startswith("철도궤도 하부구조물 평가를 위한") and outcomes[0][
+        "venue"
+    ].startswith("한국지반환경공학회논문집")
+    assert outcomes[0]["result_id"] == "JNL-2015-0016669567" and outcomes[0]["year"] == "2015"
+    assert outcomes[1]["doi"] == "10.7843/kgs.2015.31.11.25"
+    assert outcomes[10]["venue"] == "한국철도기술연구원" and outcomes[10]["regist_type"] == "출원"
+    assert outcomes[10]["registration_no"] == "10-2015-0033088"
+    assert outcomes[11]["regist_type"] == "등록" and outcomes[11]["registration_no"].startswith(
+        "10-"
     )
-    assert "NAME-REMOVED" not in str(outcomes)
+    assert all(o["project_no"] == "1615007833" for o in outcomes)  # ProjectID 로 대조
+    assert "NAME-REMOVED" not in str(outcomes) and "Author" not in str(outcomes)
     q0, q1 = (parse_qs(urlsplit(str(r.url)).query) for r in reqs[:2])
     assert (
         q0["collection"] == ["rpaper"]
         and q0["addQuery"] == ["DBT=PAP"]
-        and q0["SRWR"] == ["1415171234"]
+        and q0["SRWR"] == ["1615007833"]
     )
     assert q1["collection"] == ["rpatent"] and q1["addQuery"] == ["DBT=PAT"]
-    related = await src.related("1415171234")
+    related = await src.related("1615007833")
     assert reqs[2].url.path == "/rndopen/openApi/ConnectionContent"
-    assert parse_qs(urlsplit(str(reqs[2].url)).query)["pjtId"] == ["1415171234"]
-    assert [r["project_no"] for r in related] == [
-        "1415199001",
-        "1711185678",
-        "1415171234",
-        "../bad",
+    assert parse_qs(urlsplit(str(reqs[2].url)).query)["pjtId"] == ["1615007833"]
+    assert [r["project_no"] for r in related][:3] == ["2610000277", "1615013189", "1615007523"]
+    assert len(related) == 10 and all(0 < r["score"] < 1 and r["rank"] for r in related)
+    assert related[0]["title"].startswith("신기술·신공법 대응 철도 형식승인")
+
+
+async def test_outcomes_of_another_project_are_filtered_out():
+    """성과 레코드의 ProjectID 가 조회 과제와 다르면 버린다 (검색이 번호를 본문에서 찾아 줄 때)."""
+    src = NtisInsightSource(
+        guarded([PAPER_FIX.read_bytes(), PATENT_FIX.read_bytes()], []),
+        apprv_key=SecretStr(KEY),
+        base_url="https://www.ntis.go.kr",
+        outcome_path="/rndopen/openApi/public_result",
+        related_path="/rndopen/openApi/ConnectionContent",
+    )
+    assert await src.outcomes("1415171234") == []
+
+
+def test_related_json_with_nan_and_double_wrapping():
+    inner = '{"exist": true, "items": [{"PJT_ID": "1", "KOR_PJT_NM": "t", "similarity_score": NaN, '
+    inner += '"rank": 2, "creat_dt": NaN}, {"PJT_ID": "2", "KOR_PJT_NM": "u", "similarity_score": '
+    inner += '0.5, "rank": 1}], "count": 2}'
+    payload = json.loads(unwrap_json_string(json.dumps(inner).encode()))
+    assert normalize_related(payload) == [
+        {"project_no": "1", "title": "t", "score": None, "rank": 2},  # NaN 점수는 없음으로
+        {"project_no": "2", "title": "u", "score": 0.5, "rank": 1},
     ]
+    assert json.loads(RELATED_FIX.read_text(encoding="utf-8"))["count"] == 10  # 녹화본은 푼 꼴
 
 
 async def test_insight_source_ip_error_raises():
@@ -461,13 +617,9 @@ async def test_insight_source_probe_counts_without_bodies():
     src = NtisInsightSource(
         guarded(
             [
-                (FIX / "ntis_outcome_SYNTHETIC_rpaper.xml").read_bytes(),
-                (FIX / "ntis_outcome_SYNTHETIC_rpatent.xml").read_bytes(),
-                httpx.Response(
-                    200,
-                    content=(FIX / "ntis_related_SYNTHETIC.json").read_bytes(),
-                    headers={"content-type": "application/json"},
-                ),
+                httpx.Response(200, content=wrapped(PAPER_FIX), headers=JSON_CT),
+                httpx.Response(200, content=wrapped(PATENT_FIX), headers=JSON_CT),
+                httpx.Response(200, content=wrapped(RELATED_FIX), headers=JSON_CT),
             ],
             reqs,
         ),
@@ -478,6 +630,6 @@ async def test_insight_source_probe_counts_without_bodies():
     )
     assert isinstance(src, ProbingSource) and src.source == "ntis_insights"
     result = await src.probe()
-    assert len(reqs) == 3 and result["probe_project_no"] == "1415171234"
-    assert isinstance(result["outcomes"], int) and isinstance(result["related"], int)
+    assert len(reqs) == 3 and result["probe_project_no"] == PROBE_PROJECT_NO == "1615007833"
+    assert result == {"probe_project_no": "1615007833", "outcomes": 12, "related": 10}
     assert KEY not in str(result)
