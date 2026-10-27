@@ -96,6 +96,8 @@ __all__ = [
     "build_ingest",
     "build_list_missing",
     "build_llm",
+    "build_ntis_insights",
+    "build_ntis_report_source",
     "build_ntis_source",
     "build_openalex_source",
     "build_policy_suggest",
@@ -302,6 +304,25 @@ def build_vision_snapshot(settings: Settings | None = None, *, snapshot: str | N
         Path(vcfg["snapshots_dir"]),
         snapshot,
         max_bytes=int(vcfg["filter"].get("max_bytes", 15728640)),
+    )
+
+
+def build_extract_attachment_images(
+    settings: Settings | None = None, *, snapshot: str | None = None
+):
+    """첨부 속 내장 이미지 추출(`rra vision extract`) — 격리 자식, 같은 해시 하나,
+    attachment_images.jsonl 에 기록."""
+    from rra.adapters.vision import ExtractAttachmentImages
+
+    settings = settings or load_settings()
+    acfg = vision_config(settings)["attachments"]
+    return ExtractAttachmentImages(
+        build_vision_snapshot(settings, snapshot=snapshot),
+        sandbox_limits(settings),
+        formats=frozenset(acfg["formats"]),
+        max_images_per_file=acfg["max_images_per_file"],
+        max_image_bytes=acfg["max_image_bytes"],
+        min_pixels=acfg["min_pixels"],
     )
 
 
@@ -668,6 +689,63 @@ def build_ntis_source(settings: Settings | None = None, *, transport=None, resol
     )
 
 
+def build_ntis_report_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """NtisReportSource (연구보고서 검색, doc_type report). 같은 RRA_NTIS_KEY (서비스별 활용신청은
+    따로)."""
+    from rra.adapters.sources.ntis import NtisReportSource
+
+    settings = settings or load_settings()
+    require_credentials(settings, "ntis")
+    cfg = source_config(settings, "ntis")
+    return NtisReportSource(
+        _guarded(settings, cfg, transport=transport, resolver=resolver),
+        apprv_key=settings.ntis_key,
+        base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
+        report_path=str(cfg.get("report_path", "/rndopen/openApi/rresearchpdf/")),
+        queries=list(cfg.get("report_queries") or cfg.get("queries") or ["철도"]),
+        institutions=institutions(settings),
+        search_field=str(cfg.get("search_field", "BI")),
+        display_count=int(cfg.get("display_count", 100)),
+        record_tag=str(cfg.get("record_tag") or "") or None,
+        per_query_limit=int(cfg["per_query_limit"]) if cfg.get("per_query_limit") else None,
+    )
+
+
+def build_ntis_insights(
+    settings: Settings | None = None, *, repo=None, transport=None, resolver=None
+):
+    """NtisProjectInsights 유스케이스 (성과검색·연관콘텐츠, 과제번호 파일 캐시). 키가 없으면 포트
+    없이(enabled=False)."""
+    from rra.adapters.persistence.file_cache import FileCache
+    from rra.application.usecases.ntis_insights import NtisProjectInsights
+
+    settings = settings or load_settings()
+    cfg = source_config(settings, "ntis")
+    insights = cfg.get("insights") or {}
+    source = None
+    if (
+        settings.ntis_key
+        and settings.ntis_key.get_secret_value().strip()
+        and insights.get("enabled", True)
+    ):
+        from rra.adapters.sources.ntis import NtisInsightSource
+
+        source = NtisInsightSource(
+            _guarded(settings, cfg, transport=transport, resolver=resolver),
+            apprv_key=settings.ntis_key,
+            base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
+            outcome_path=str(cfg.get("outcome_path", "/rndopen/openApi/public_result")),
+            related_path=str(cfg.get("related_path", "/rndopen/openApi/ConnectionContent")),
+            record_tag=str(cfg.get("record_tag") or "HIT"),
+            display_count=int(insights.get("max_items", 10)),
+        )
+    cache_dir = Path(str(insights.get("cache_dir", "data/cache/ntis")))
+    cache = FileCache(cache_dir, ttl_sec=float(insights.get("cache_ttl_days", 7)) * 86400)
+    return NtisProjectInsights(
+        source, source, cache=cache, repo=repo, max_projects=int(insights.get("max_projects", 3))
+    )
+
+
 def build_kipris_source(settings: Settings | None = None, *, transport=None, resolver=None):
     """KiprisPatentSource (KIPRIS Plus 자유검색). RRA_KIPRIS_KEY 없으면 MissingCredential."""
     from rra.adapters.sources.kipris import KiprisPatentSource
@@ -941,6 +1019,7 @@ _SOURCE_BUILDERS = {
     "own_docs": build_own_docs_source,
     "scienceon": build_scienceon_source,
     "ntis": build_ntis_source,
+    "ntis_reports": build_ntis_report_source,
     "kipris": build_kipris_source,
     "korail_web": build_korail_web_source,
     "molit": build_molit_source,
@@ -996,6 +1075,7 @@ def build_sources_check(
     builders = {
         "scienceon": build_scienceon_source,
         "ntis": build_ntis_source,
+        "ntis_reports": build_ntis_report_source,
         "kipris": build_kipris_source,
         "g2b": build_g2b_source,
     }
@@ -1003,8 +1083,11 @@ def build_sources_check(
     for name in names:
         if name not in builders:
             raise KeyError(f"연결 확인을 지원하지 않는 소스: {name} (가능: {list(builders)})")
-        host = urlsplit(str(source_config(settings, name).get("base_url", ""))).hostname or ""
-        creds = credential_status(settings, name)
+        cfg_name = (
+            "ntis" if name == "ntis_reports" else name
+        )  # 연구보고서는 과제검색 설정·키를 같이 쓴다
+        host = urlsplit(str(source_config(settings, cfg_name).get("base_url", ""))).hostname or ""
+        creds = credential_status(settings, cfg_name)
         ready = host in allowed and all(creds.values())
 
         def connect(_build=builders[name]):
@@ -1330,6 +1413,7 @@ def build_api(
         structure=build_structurer(settings, llm=llm),
         compare=build_comparer(settings, repo=repo, precheck=precheck),
         brief=build_briefer(settings, repo=repo, llm=llm),
+        ntis_insights=build_ntis_insights(settings, repo=repo),
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),

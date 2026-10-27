@@ -191,6 +191,22 @@ def vision_config(settings: Settings) -> dict[str, Any]:
         "store_dir": str(paths.get("store", "data/korail_web")),
         "sample_dir": str(paths.get("sample", "docs/ocr-sample")),
         "order_keywords": {k: list(v) for k, v in order.items() if isinstance(v, list)},
+        "attachments": {
+            "formats": [
+                str(x)
+                for x in (
+                    (cfg.get("attachments") or {}).get("formats")
+                    or ["hwpx", "hwp", "pdf", "pptx", "xlsx"]
+                )
+            ],
+            "max_images_per_file": int(
+                (cfg.get("attachments") or {}).get("max_images_per_file", 200)
+            ),
+            "max_image_bytes": int(
+                (cfg.get("attachments") or {}).get("max_image_bytes", 8 * 1024 * 1024)
+            ),
+            "min_pixels": int((cfg.get("attachments") or {}).get("min_pixels", 20_000)),
+        },
         "ocr": {
             "languages": [str(x) for x in (ocr.get("languages") or ["ko-KR", "en-US"])],
             "max_bytes": int(ocr.get("max_bytes", 15 * 1024 * 1024)),

@@ -30,6 +30,7 @@ PARSERS = {
     "xlsx": "rra.adapters.sources.alio.extract.spreadsheet:extract_xlsx",
     "xls": "rra.adapters.sources.alio.extract.spreadsheet:extract_xls",
     "ocr_image": "rra.adapters.vision._ocr_worker",  # macOS Vision OCR (P3, 이미지 바이트)
+    "embedded_images": "rra.adapters.vision._embedded_worker",  # 첨부 속 내장 이미지 (P3 확장)
 }
 TEST_PARSERS = {
     "_test_echo",

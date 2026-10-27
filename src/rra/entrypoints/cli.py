@@ -1886,6 +1886,23 @@ def _vision_plan_lines(summary: dict) -> list[str]:
     return lines
 
 
+def cmd_vision_extract(args: argparse.Namespace) -> int:
+    """첨부(hwpx·hwp·pdf·pptx·xlsx) 속 내장 이미지를 꺼내 스냅샷에 더한다 — read 전에 한 번."""
+    from rra.composition import build_extract_attachment_images, load_settings
+
+    use = build_extract_attachment_images(load_settings(), snapshot=args.snapshot)
+    report = asyncio.run(use(limit=args.limit))
+    if args.json:
+        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(
+            f"첨부 {report.attachments}개 중 파싱 {report.parsed}, 새 이미지 {report.images}장"
+            f"(중복 {report.duplicates}), 형식별 {report.by_ext}, 거부 {report.rejected}, "
+            f"건너뜀 {report.skipped}"
+        )
+    return EXIT_OK
+
+
 def cmd_vision_read(args: argparse.Namespace) -> int:
     from rra.composition import build_read_images, load_settings
 
@@ -2258,6 +2275,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     vis = sub.add_parser("vision", help="웹 이미지 판독 (P3): OCR 대조 + Argon, 캐시·상한")
     vis_sub = vis.add_subparsers(dest="vision_cmd", required=True)
+    ve = vis_sub.add_parser(
+        "extract", help="첨부 속 내장 이미지 추출 → attachment_images.jsonl (판독 전)"
+    )
+    ve.add_argument("--snapshot", help="data/korail_web/snapshots/<date> (기본: 최신)")
+    ve.add_argument("--limit", type=int, help="처리 첨부 수 상한 (시험용)")
+    ve.add_argument("--json", action="store_true")
+    ve.set_defaults(handler=cmd_vision_extract)
     vr = vis_sub.add_parser("read", help="스냅샷 이미지 판독 (--dry-run: 계획만, 호출 없음)")
     vr.add_argument("--snapshot", help="data/korail_web/snapshots/<date> (기본: 최신)")
     vr.add_argument("--dry-run", action="store_true", help="거르기·순서·예상 호출 수만 출력")

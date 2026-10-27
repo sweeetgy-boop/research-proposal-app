@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RESULT xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://www.ntis.go.kr/searchapi/schema/title.1.0.xsd">
+   <QUERYTRANSFORMS><ORIGINALQUERY>철도 궤도</ORIGINALQUERY></QUERYTRANSFORMS>
+   <COUNTLIST><COLCOUNT NAME="rresearchpdf">2</COLCOUNT></COUNTLIST>
+   <NAVIGATION />
+   <TOTALHITS>2</TOTALHITS>
+   <STARTPOSITION>1</STARTPOSITION>
+   <HITS>2</HITS>
+   <SEARCHTIME>0.01</SEARCHTIME>
+   <RESULTSET>
+      <HIT NO="1">
+         <TermSn>REP-2023-0115000001</TermSn>
+         <PublicationYm>202312</PublicationYm>
+         <ResearchPublicNo>TRKO202300000001</ResearchPublicNo>
+         <PublicationAgency>한국&lt;span class="search_word"&gt;철도&lt;/span&gt;공사</PublicationAgency>
+         <ResultTitle>
+            <Korean>&lt;span class="search_word"&gt;철도&lt;/span&gt; &lt;span class="search_word"&gt;궤도&lt;/span&gt; 틀림 상시 감시 기술 개발 최종보고서</Korean>
+            <English>Final report: continuous monitoring of track irregularity</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>1 연구목표ㅇ 영업 열차 탑재 센서로 &lt;span class="search_word"&gt;궤도&lt;/span&gt; 틀림을 상시 감지 2 연구내용ㅇ 차축 가속도 기반 추정 알고리즘 ...</Korean>
+            <English />
+         </Abstract>
+         <Keyword>
+            <Korean>&lt;span class="search_word"&gt;궤도&lt;/span&gt;틀림;가속도;상시감시;</Korean>
+            <English>track irregularity;acceleration;</English>
+         </Keyword>
+         <Contents>1장 서론;2장 센서 구성;3장 알고리즘;4장 검증</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://nrms.kisti.re.kr/sc/fullDvsSrch/pop_srchList.do?rpt_ctrl_no=RTTRKO000000000001</DocUrl>
+         <ProjectNumber>1415171234</ProjectNumber>
+         <ProjectTitle>철도 궤도 틀림 상시 감시 기술 개발</ProjectTitle>
+         <ManageAgency>한국철도공사</ManageAgency>
+         <Manager />
+      </HIT>
+      <HIT NO="2">
+         <TermSn>REP-2021-0115000002</TermSn>
+         <PublicationYear>2021</PublicationYear>
+         <ResearchPublicNo>TRKO202100000002</ResearchPublicNo>
+         <PublicationAgency>한국철도기술연구원</PublicationAgency>
+         <ResultTitle><Korean>고속철도 전차선 마모 예측 모델 개발</Korean><English /></ResultTitle>
+         <Abstract><Korean>팬터그래프 접촉력 데이터로 전차선 마모를 예측하는 모델을 개발하였다.</Korean><English /></Abstract>
+         <Keyword><Korean>전차선;마모;</Korean><English>catenary;wear;</English></Keyword>
+         <Contents />
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>http://nrms.kisti.re.kr/not-https</DocUrl>
+         <ProjectNumber>1711185678</ProjectNumber>
+         <ProjectTitle>고속철도 전차선 마모 예측 모델</ProjectTitle>
+         <ManageAgency>한국철도기술연구원</ManageAgency>
+         <Manager>NAME-REMOVED</Manager>
+      </HIT>
+   </RESULTSET>
+</RESULT>

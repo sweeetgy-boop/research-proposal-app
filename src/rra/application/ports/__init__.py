@@ -3,6 +3,7 @@ from .embedding import EmbeddingPort
 from .generation_slot import GenerationSlot
 from .llm import LLMPort, ModelListingPort
 from .maintenance import DatabaseMaintenancePort
+from .ntis import CachePort, ProjectOutcomePort, RelatedProjectPort
 from .prompt_library import PromptLibraryPort
 from .renderer import RendererPort
 from .repository import DocumentRepository
@@ -15,6 +16,7 @@ from .task_runner import TaskRunner
 __all__ = [
     "DatabaseMaintenancePort",
     "AcknowledgingSource",
+    "CachePort",
     "CatalogPort",
     "EmbeddingPort",
     "GenerationSlot",
@@ -22,6 +24,8 @@ __all__ = [
     "LLMPort",
     "ModelListingPort",
     "ProbingSource",
+    "ProjectOutcomePort",
+    "RelatedProjectPort",
     "PromptLibraryPort",
     "RendererPort",
     "RerankerPort",
