@@ -1,0 +1,18 @@
+{
+ "run_id": "20260101000000-00000002",
+ "count": 2,
+ "unsupported_numbers": 0,
+ "unresolved": [
+  {
+   "section": "strategy_alignment",
+   "code": "catalog_empty",
+   "severity": "warning",
+   "message": "선택지 목록(config)이 비어 있어 비워 둠",
+   "sentence": null
+  }
+ ],
+ "overflow": [],
+ "notes": [
+  "2-가-(3) 전략방향·전략과제: 전략체계 목록(korail_strategy.yaml)이 비어 있어 빈칸으로 나갑니다."
+ ]
+}
