@@ -17,10 +17,9 @@ test.describe("U9 사용성 흐름", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
 
-    // ① 간편 입력 (기본 모드) — 정책 근거 추천은 404 → 접힌 안내만
+    // ① 간편 입력 (기본 모드). 정책 근거 추천은 필수 4칸이 비어 있으면 버튼이 잠긴다
     await expect(page.getByRole("radio", { name: "간편 입력" })).toBeChecked();
-    await page.getByRole("button", { name: "추천 받기" }).click();
-    await expect(page.getByText("정책 근거 추천은 정책 자료 적재 뒤 열립니다")).toBeVisible();
+    await expect(page.getByRole("button", { name: "추천 받기" })).toBeDisabled();
     await page.getByLabel(/아이디어를 한두 문장으로/).fill("궤도 틀림이 반복 발생함. 검측 이력 기반으로 보수 우선순위를 정하고 싶음.");
     await page.getByLabel("가제 (선택)").fill("궤도 보수 우선순위");
     await page.getByRole("button", { name: "네 칸으로 나누기" }).click();
@@ -36,6 +35,11 @@ test.describe("U9 사용성 흐름", () => {
     await expect(page.getByRole("radio", { name: "상세 입력(4칸)" })).toBeChecked();
     await expect(page.getByLabel(/발생 원인/)).toHaveValue("다짐 효과가 오래 가지 않음");
     await expect(page.getByLabel(/가제/)).toHaveValue("궤도 보수 우선순위");
+    // 정책 근거 추천 — 엔드포인트가 없으면 접힌 안내, 있어도 가짜 저장소엔 정책 문서가 없어 "없음"
+    await page.getByRole("button", { name: "추천 받기" }).click();
+    await expect(
+      page.getByText(/정책 근거 추천은 정책 자료 적재 뒤 열립니다|추천할 문구가 없습니다/),
+    ).toBeVisible();
     await page.getByRole("button", { name: "유사과제 확인" }).click();
 
     // ② 유사과제·비교표

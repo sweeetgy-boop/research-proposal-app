@@ -13,9 +13,36 @@ export interface PolicySuggestion {
   url: string | null;
 }
 
+/** 서버 응답(PR #29): `{notice, count, suggestions[{doc_id,title,year,page,quote,url,policy_basis_text,…}]}`.
+ *  이전 가정 모양 `{items:[{document,…}]}` 도 받아들인다. */
 export interface PolicySuggestionsOut {
   notice?: string;
-  items: PolicySuggestion[];
+  count?: number;
+  suggestions?: Array<{
+    doc_id?: string;
+    title?: string;
+    year?: number | string | null;
+    page?: number | string | null;
+    quote?: string;
+    url?: string | null;
+    policy_basis_text?: string;
+  }>;
+  items?: PolicySuggestion[];
+}
+
+function normalizeItems(out: PolicySuggestionsOut | undefined): PolicySuggestion[] {
+  const raw = Array.isArray(out?.suggestions)
+    ? out.suggestions.map((s) => ({
+        document: s.title ?? s.doc_id ?? "",
+        year: s.year ?? null,
+        page: s.page ?? null,
+        quote: typeof s.policy_basis_text === "string" && s.policy_basis_text ? s.policy_basis_text : (s.quote ?? ""),
+        url: s.url ?? null,
+      }))
+    : Array.isArray(out?.items)
+      ? out.items
+      : [];
+  return raw.filter((i) => i && typeof i.quote === "string" && i.quote.length > 0);
 }
 
 export type PolicyProbe = { state: "ok"; items: PolicySuggestion[] } | { state: "unavailable" } | { state: "error"; error: unknown };
@@ -35,8 +62,7 @@ export function policySuggestionBody(req: ProposalRequest): Record<string, unkno
 export async function fetchPolicySuggestions(req: ProposalRequest): Promise<PolicyProbe> {
   try {
     const out = await request<PolicySuggestionsOut>("/v1/ideas/policy-suggestions", { method: "POST", body: policySuggestionBody(req) });
-    const items = Array.isArray(out?.items) ? out.items.filter((i) => i && typeof i.quote === "string") : [];
-    return { state: "ok", items };
+    return { state: "ok", items: normalizeItems(out) };
   } catch (e) {
     // 404·405(경로 없음 — SPA 정적 catch-all 은 GET 만 받는다)·503(꺼짐) → 미개방
     if (isApiError(e) && (e.status === 404 || e.status === 405 || e.status === 503)) return { state: "unavailable" };

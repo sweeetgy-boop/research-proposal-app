@@ -20,6 +20,8 @@ export function PolicySuggestions({ request, onPick }: { request: ProposalReques
     enabled: false, // 버튼으로만
   });
   const data = probe.data;
+  // 서버가 필수 4칸으로 검색한다 — 비어 있으면 422 라 부르지 않는다
+  const ready = Boolean(request.current_state && request.root_cause && request.limitation && request.goal);
   if (data?.state === "unavailable") {
     return (
       <p className="text-xs text-muted-foreground" role="status">
@@ -34,12 +36,13 @@ export function PolicySuggestions({ request, onPick }: { request: ProposalReques
           <BookMarked className="size-4" aria-hidden="true" />
           정책 근거 추천
         </h2>
-        <Button variant="outline" size="sm" onClick={() => probe.refetch()} disabled={probe.isFetching}>
+        <Button variant="outline" size="sm" onClick={() => probe.refetch()} disabled={probe.isFetching || !ready}>
           <RefreshCw className={probe.isFetching ? "animate-spin" : ""} aria-hidden="true" />
           {data ? "다시 받기" : "추천 받기"}
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">정책 자료에서 찾은 문구입니다(수집 자료, 비신뢰). 고른 것만 정책 근거 칸 뒤에 덧붙습니다 — 자동으로 넣지 않습니다.</p>
+      {!ready && <p className="text-xs text-muted-foreground">필수 4칸(현황·원인·한계·목표)을 채운 뒤 추천을 받을 수 있습니다.</p>}
       {probe.isFetching ? (
         <SkeletonBlock lines={2} />
       ) : data?.state === "error" ? (
