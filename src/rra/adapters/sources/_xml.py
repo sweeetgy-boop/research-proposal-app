@@ -20,6 +20,9 @@ MAX_FIELD_CHARS = 20_000
 # DTD 를 금지하므로 미리 정의된 5개 엔티티·숫자 참조만 엔티티다.
 # 그 밖의 `&이름;`(예: 실응답의 "R&DB;")도 맨 & 로 본다.
 _BARE_AMP = re.compile(rb"&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9A-Fa-f]+);)")
+# 태그가 아닌 맨 `<`(뒤가 공백·`<`·줄끝, 예: "동향조사 < <span …").
+# 태그 이름은 공백으로 시작할 수 없으므로 구조는 바뀌지 않는다.
+_BARE_LT = re.compile(rb"<(?=[\s<]|$)")
 
 
 class XmlResponseError(ValueError):
@@ -37,7 +40,7 @@ def repair_bare_ampersands(body: bytes) -> bytes:
     """텍스트 안의 맨 `&` 를 `&amp;` 로 — 이스케이프를 더할 뿐 구조는 바꾸지 않으므로 defusedxml 의
     보호(DTD 금지)에 영향이 없다. NTIS 연구보고서 검색은 `DocUrl` 의 `&cn=` 을 그대로 내보내
     (2026-10-27 실응답) 그대로는 ParseError 다."""
-    return _BARE_AMP.sub(b"&amp;", body)
+    return _BARE_LT.sub(b"&lt;", _BARE_AMP.sub(b"&amp;", body))
 
 
 def local(tag: object) -> str:
