@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,feat/overlap-sources,유사과제 판정 과제형 자료원만·관련 연구 분리(#TBD),,,8,,,,,,1119,120,2482,,,,,,,precheck 적중 5/10→9/10(골든셋 10, 상위5), 지연 on 1.84~2.09s(reranker 단독 1.65~2.0s), off 0.11~0.17s 7/10, Gemini 0회

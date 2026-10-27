@@ -147,3 +147,22 @@ async def test_find_similar_ranks_identical_text_first_and_skips_expired(loaded)
 async def test_hybrid_search_similarity_is_absent_or_a_unit_cosine(loaded):
     hits = await loaded.hybrid_search(["궤도의 틀림을 자동으로 감지한다"], k=10)
     assert all(c.similarity is None or 0.0 <= c.similarity <= 1.0 for c in hits)
+
+
+async def test_find_similar_sources_filter_keeps_only_those_sources(loaded):
+    """ADR 0028 — 유사과제 판정은 과제형 자료원만 찾는다. 필터 밖 문서는 아무리 비슷해도 안
+    나온다."""
+    query = "IMU based track geometry monitoring 궤도의 틀림을 자동으로 감지한다"
+    only_alio = await loaded.find_similar(query, k=5, sources=["alio"])
+    assert only_alio and {d.source for d, _ in only_alio} == {"alio"}
+    only_paper = await loaded.find_similar(query, k=5, sources=["openalex"])
+    assert only_paper and {d.source for d, _ in only_paper} == {"openalex"}
+    assert [s for _, s in only_paper] == sorted((s for _, s in only_paper), reverse=True)
+    assert await loaded.find_similar(query, k=5, sources=["kipris_kr"]) == []  # 없는 자료원
+    both = await loaded.find_similar(query, k=5, sources=["alio", "openalex"])
+    assert {d.doc_id for d, _ in both} == {d.doc_id for d, _ in only_alio} | {
+        d.doc_id for d, _ in only_paper
+    }
+    assert "ntis:old" not in [
+        d.doc_id for d, _ in await loaded.find_similar(query, k=5, sources=["ntis"])
+    ]

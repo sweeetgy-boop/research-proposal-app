@@ -84,6 +84,12 @@ _ORG_FILTER = (
     " AND EXISTS (SELECT 1 FROM document_orgs o WHERE o.doc_id = c.doc_id AND o.org IN ({orgs}))"
 )
 _SOURCE_FILTER = " AND d.source IN ({sources})"
+# find_similar(sources=…) 의 벡터 사전 필터 — 자료원에 속한 청크 rowid 부분집합 (값은 바인딩,
+# ADR 0028)
+_ROWIDS_OF_SOURCES = (
+    "SELECT c.id FROM chunks c JOIN documents d ON d.doc_id = c.doc_id "
+    "WHERE d.source IN ({sources})"
+)
 # 필터(orgs·sources)가 있으면 벡터 상위 목록을 필터 뒤에 다시 채워야 한다. 한국어 사내 기록이 상위를
 # 메우면(2026-10-26 골든셋 01: 상위 160 중 영어 논문 4) 자료원 하나를 고르려고 훨씬 더 받아야 하므로
 # 부족하면 4배씩 늘려 다시 받는다. 상한은 DoS 방지.
@@ -178,6 +184,7 @@ class SQLiteDocumentRepository:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         _secure_paths(self.db_path)
         self._lock = threading.RLock()
+        self._query_memo: tuple[str, list[float]] | None = None  # 마지막 질의 임베딩 (find_similar)
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._configure()
@@ -409,39 +416,73 @@ class SQLiteDocumentRepository:
             out.append(c.model_copy(update={"similarity": round(score, 6)}))
         return out
 
-    async def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]:
+    async def find_similar(
+        self, text: str, *, k: int = 10, sources: list[str] | None = None
+    ) -> list[tuple[Document, float]]:
         limit = _sql.clamp_k(k, max_k=self.max_k)
         query = _sql.clamp_query(text, max_chars=self.max_query_chars)
         if not query or self._vec_dim is None:
             return []
-        vector = (await self.embedding.embed_query([query]))[0]
-        return await asyncio.to_thread(self._find_similar_sync, vector, limit)
+        vector = await self._query_vector(query)
+        return await asyncio.to_thread(
+            self._find_similar_sync, vector, limit, self._clean_names(sources)
+        )
 
-    def _find_similar_sync(self, vector: list[float], limit: int) -> list[tuple[Document, float]]:
+    async def _query_vector(self, query: str) -> list[float]:
+        """같은 질의 글의 임베딩은 한 번만 — precheck 가 자료원별로 여러 번 찾는다(ADR 0028)."""
+        memo = self._query_memo
+        if memo is not None and memo[0] == query:
+            return memo[1]
+        vector = (await self.embedding.embed_query([query]))[0]
+        self._query_memo = (query, vector)
+        return vector
+
+    def _find_similar_sync(
+        self, vector: list[float], limit: int, sources: list[str] | None = None
+    ) -> list[tuple[Document, float]]:
+        """자료원 필터가 있으면 그 자료원의 청크 안에서만 KNN(사전 필터) — 과제형 자료원(own·alio·
+        ntis 과제·g2b)은 전체 색인의 일부라 상위 k×4 를 거르는 방식으로는 모자란다(ADR 0028)."""
+        allowed = set(sources or [])
+        fetch = limit * FETCH_MULTIPLIER
         with self._lock:
-            hits = self.backend.search(vector, limit * FETCH_MULTIPLIER)
-            best: dict[str, float] = {}
-            for rowid, score in hits:
-                if score <= self.min_similarity:
-                    continue
-                row = self.conn.execute(
-                    "SELECT doc_id FROM chunks WHERE id = ?", (rowid,)
-                ).fetchone()
-                if row is None:
-                    continue
-                doc_id = row["doc_id"]
-                if score > best.get(doc_id, -1.0):
-                    best[doc_id] = score
-            ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
-            today = self.today()
-            out: list[tuple[Document, float]] = []
-            for doc_id, score in ranked:
-                doc = self._get_document_sync(doc_id)
-                if doc is not None and doc.is_valid_on(today):  # 만료 문서는 precheck 에서 제외
-                    out.append((doc, score))
-                if len(out) >= limit:
-                    break
-            return out
+            if allowed:
+                marks = _sql.placeholders(len(allowed))
+                hits = self.backend.search_within(
+                    vector,
+                    fetch,
+                    _ROWIDS_OF_SOURCES.replace("{sources}", marks),
+                    tuple(sorted(allowed)),
+                )
+            else:
+                hits = self.backend.search(vector, fetch)
+            return self._rank_documents(hits, limit, allowed)
+
+    def _rank_documents(
+        self, hits: list[tuple[int, float]], limit: int, allowed: set[str]
+    ) -> list[tuple[Document, float]]:
+        best: dict[str, float] = {}
+        for rowid, score in hits:
+            if score <= self.min_similarity:
+                continue
+            row = self.conn.execute("SELECT doc_id FROM chunks WHERE id = ?", (rowid,)).fetchone()
+            if row is None:
+                continue
+            doc_id = row["doc_id"]
+            if score > best.get(doc_id, -1.0):
+                best[doc_id] = score
+        ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))
+        today = self.today()
+        out: list[tuple[Document, float]] = []
+        for doc_id, score in ranked:
+            doc = self._get_document_sync(doc_id)
+            if doc is None or not doc.is_valid_on(today):  # 만료 문서는 precheck 에서 제외
+                continue
+            if allowed and doc.source not in allowed:
+                continue
+            out.append((doc, score))
+            if len(out) >= limit:
+                break
+        return out
 
     # ── 내부 검색 ────────────────────────────────────────────────
     def _clean_names(self, names: list[str] | None) -> list[str]:
@@ -527,6 +568,7 @@ class SQLiteDocumentRepository:
                 self.conn.execute(f"DROP TABLE IF EXISTS {table}")  # noqa: S608  # nosec B608 - 상수
             self.conn.execute("DELETE FROM meta WHERE key IN ('embedding_dim', 'embedding_model')")
             self._vec_dim = None
+            self._query_memo = None
             self.index_model = None
             self.backend.create(dim)
             self._set_meta("embedding_dim", str(dim))

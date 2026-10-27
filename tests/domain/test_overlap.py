@@ -168,3 +168,12 @@ def test_national_rnd_threshold_and_label(own):
     assert alert.tier == "national_rnd" and alert.blocking and alert.own_detail is None
     assert tier_label("national_rnd") == "국가R&D 과제"
     assert "국가R&D 과제 0.80" in no_overlap_statement({"ntis": 3}, [])[-1]
+
+
+def test_judge_keeps_input_order_within_blocking_groups(docs, own):
+    """reranker 가 고른 순서를 유사도 재정렬로 버리지 않는다 (ADR 0028). 입력이 유사도 순이면
+    종전과 같다."""
+    low, high = docs[0].model_copy(update={"doc_id": "alio:low"}), docs[0]
+    alerts = judge([(low, 0.81), (high, 0.95), (docs[1], 0.50)], own=own)
+    assert [a.doc_id for a in alerts] == ["alio:low", "alio:1", "openalex:W1"]
+    assert [a.blocking for a in alerts] == [True, True, False]
