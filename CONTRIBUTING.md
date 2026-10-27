@@ -41,3 +41,22 @@ REST 스키마는 `docs/openapi.json` (`rra api schema` 로 생성), 세션 쿠�
 - 헥사고날 계층(`CLAUDE.md`, `docs/architecture.md` §1). `lint-imports` 계약 8건이 강제한다.
 - 새 기능은 domain → ports → usecase(fake 로 테스트) → adapter. 테스트는 LLM·임베딩·네트워크 없이 돌아야 한다(`tests/fakes.py`).
 - 키 값·원문은 로그·manifest·테스트 fixture 에 남기지 않는다(보안 D·I).
+
+## 병렬 작업 — 조각 파일과 공유 파일 (2026-10-27)
+
+여러 브랜치가 동시에 진행될 때 공유 파일의 충돌을 막는 규칙.
+
+- **공유 파일은 통합 담당(메인 세션)만 고친다**: `docs/openapi.json`, `docs/status.md`, `docs/history/timeline.md`·`metrics.csv`,
+  `README.md`, `docs/presentation*/`, `CONTRIBUTING.md`, `config/retrieval_mix.yaml`.
+- **작업 브랜치는 조각 파일만 쓴다**: `docs/history/timeline.d/<날짜>-<브랜치>.md`(연표 행), `docs/history/metrics.d/<브랜치>.csv`
+  (metrics.csv 와 같은 머리글), `docs/status.d/<브랜치>.md`(현황 행·납품 목록), `docs/history/decisions/`(새 ADR 파일만),
+  `docs/history/screens/`(새 캡처만), `docs/history/progress.d/<브랜치>.md`(30분마다 진행 메모). API 변경은 PR 본문
+  "프론트엔드 영향" 에 경로 목록으로 적는다.
+- **합칠 때** 통합 담당이 조각을 공유 파일에 모으고 `rra api schema` 로 `docs/openapi.json` 을 다시 만든다. 모은 조각 파일은
+  지우지 않고 남긴다(이력).
+- `config/*.yaml` 과 `composition.py` 는 최소한으로 고치고, 새 항목은 가능하면 새 파일·새 함수로 추가한다.
+- **무거운 작업은 한 번에 하나**(mlx 서버 사용·임베딩·재색인·대량 파싱·OCR·적재·측정): `tools/with_heavy_lock.py -- <명령>` 으로
+  `runs/.heavy.lock` 을 잡고 돌린다. mlx 서버는 한 번에 하나만 띄운다.
+- **테스트는 병렬**: `pytest -q -n auto`(pytest-xdist). 병렬에서 깨지는 테스트는 임시 디렉터리·포트·전역 상태를 분리해 고친다.
+  CI 는 backend-unit / backend-api, web-check / web-e2e 로 나눠 돌고, 보호 규칙의 필수 검사 이름 `backend`·`detect`·`web` 은
+  나눈 job 이 모두 통과해야 성공하는 모음 job 이다.

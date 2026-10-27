@@ -21,7 +21,7 @@ render = ["python-hwpx>=6.8", "defusedxml>=0.7"]
 adapters = ["research-proposal-app[persistence,embedding,sources,llm]"]
 api = ["fastapi>=0.111", "uvicorn>=0.30"]
 history = ["matplotlib>=3.8"]  # tools/history_charts.py (발표용 그래프) — 검사·운영에는 불필요
-dev = ["research-proposal-app[persistence,llm,mcp,sources,ui,render,api]", "pytest>=8", "pytest-asyncio>=0.23",
+dev = ["research-proposal-app[persistence,llm,mcp,sources,ui,render,api]", "pytest>=8", "pytest-asyncio>=0.23", "pytest-xdist>=3.5",
        "ruff>=0.5", "import-linter>=2.0", "bandit>=1.7", "pip-audit>=2.7", "pre-commit>=3.7"]
 ui = ["streamlit>=1.40"]
 
