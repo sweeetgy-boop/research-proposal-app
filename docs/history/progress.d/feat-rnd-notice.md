@@ -27,3 +27,12 @@
   실사이트 `--explore` 통과(KAIA 1,224건/10쪽 표시, IRIS 국토교통부 접수중 0·예정 1·마감 945). `--download` 백그라운드 시작(18:35).
 - 18:50 스크래치 DB 적재 dry run(`RRA_DB_PATH=<scratch> rra ingest --source rnd_notice --limit 3`): 3건·청크 293 — PDF 샌드박스 파싱·임베딩
   경로 확인. `rra notices match` 는 세 공고 모두 마감 지나 0건(valid_until 만료 규칙이 실제로 작동). `rra sources status` 에 공고 행·스냅샷 줄.
+- 19:35 `--download` 1차 완료: KAIA 83건·첨부 229개 808MB, **IRIS 0건**. 원인 2가지 — (1) 빈 `sorgnIdArr=`·`techFildArr=` 를 보내면 IRIS 가
+  0건을 돌려준다(curl 대조로 확인), (2) 접수예정 목록의 2022년 행에서 2년 경계 정지가 사이트 전체 루프를 끊어 마감 목록을 건너뛰었다.
+  → 부처 필터만 보내고, 경계 정지를 목록(상태)마다 따로 두도록 고침(`_consume`), 회귀 테스트 2건.
+- 19:50 재실행(같은 날 스냅샷에 이어 받기): IRIS 2년 안 79건 중 63건이 KAIA 와 같은 공고(키로 합침), IRIS 에만 16건. 최종 공고 99건,
+  중복 합침 63, 보류 0·오류 0. 상세 본문(인라인 공고문) 16건 저장, IRIS 첨부 40건은 이름만(post_download).
+
+## [자동 진행] 판단 (추가)
+- 같은 공고의 KAIA 레코드가 먼저 들어와 PDF 가 붙고 IRIS 는 `duplicate_of` 로만 남는다 — IRIS 인라인 본문은 중복 건에서는 저장하지
+  않는다(원 레코드의 PDF 공고문이 같은 내용). IRIS 에만 있는 16건은 인라인 본문으로 적재된다.

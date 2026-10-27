@@ -60,7 +60,10 @@ CONFIG = NoticeConfig.from_config(
                 "list_path": "/contents/retrieveBsnsAncmBtinSituList.do",
                 "view_path": "/contents/retrieveBsnsAncmView.do",
                 "ministry_code": "AR4004",
-                "statuses": ["ancmEnd"],
+                "statuses": [
+                    "ancmPre",
+                    "ancmEnd",
+                ],  # 예정 목록의 2022년 행이 마감 목록을 막으면 안 된다
                 "max_pages": 3,
             },
         },
@@ -144,7 +147,25 @@ class Site:
         if host == "www.iris.go.kr":
             if request.method == "POST":
                 form = parse_qs(request.content.decode())
-                assert form["blngGovdSeArr"] == ["AR4004"] and form["ancmPrg"] == ["ancmEnd"]
+                assert form["blngGovdSeArr"] == ["AR4004"] and form["ancmPrg"][0] in (
+                    "ancmPre",
+                    "ancmEnd",
+                )
+                assert "sorgnIdArr" not in form and "techFildArr" not in form  # 빈 Arr → 0건
+                if form["ancmPrg"] == ["ancmPre"]:  # 접수예정에 2년 밖 행 1건 (실사이트와 같음)
+                    old = {
+                        **IRIS_DUP,
+                        "ancmId": "001234",
+                        "ancmDe": "2022-01-14",
+                        "ancmTl": "옛 공고",
+                    }
+                    return httpx.Response(
+                        200,
+                        json={
+                            "listBsnsAncmBtinSitu": [old],
+                            "paginationInfo": {"totalPageCount": 1},
+                        },
+                    )
                 if form["pageIndex"] == ["1"]:
                     return httpx.Response(200, json=self.iris_json)
                 return httpx.Response(
@@ -178,6 +199,7 @@ async def test_download_writes_manifest_dedups_and_strips_pii(tmp_path):
     snap = SnapshotDir(tmp_path / "rnd_notice", "2026-10-27")
     recs = read_manifest(snap)
     assert report.notices == {"kaia": 10, "iris": 3} and report.duplicates == 1
+    assert "iris:001234" not in recs  # 2년 밖 행은 건너뛰고 다음 상태(마감) 목록은 계속 받는다
     kaia = recs[f"kaia:{KAIA_ID}"]
     assert kaia["deadline"] == "2026-08-18" and kaia["start"] == "2026-07-16"
     assert kaia["agency"] == "국토교통과학기술진흥원" and kaia["ministry"] == "국토교통부"

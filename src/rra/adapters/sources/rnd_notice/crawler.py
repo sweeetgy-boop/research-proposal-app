@@ -235,30 +235,27 @@ class RndNoticeCrawler:
                 return
             page += 1
 
-    async def _iris_pages(self, site: SiteSpec):
-        for status in site.statuses:
-            page = 1
-            while page <= site.max_pages:
-                form = {
-                    "pageIndex": page,
-                    "ancmPrg": status,
-                    "blngGovdSe": site.ministry_code or "",
-                    "blngGovdSeArr": site.ministry_code or "",
-                    "sorgnIdArr": "",
-                    "techFildArr": "",
-                    "bsnsTl": "",
-                }
-                _h, body = await self._request(site, site.list_url, form)
-                try:
-                    data = json.loads(body.decode("utf-8", "replace"))
-                except ValueError:
-                    logger.warning("rnd_notice.iris_bad_json status=%s page=%d", status, page)
-                    return
-                rows, _total, pages = parse_iris_list(data, site.view_url)
-                yield rows
-                if not rows or page >= pages:
-                    break
-                page += 1
+    async def _iris_pages(self, site: SiteSpec, status: str):
+        """한 공고 상태(접수중·예정·마감)의 쪽들.
+
+        상태마다 따로 돌려 2년 경계 정지가 다음 상태를 막지 않게 한다."""
+        page = 1
+        while page <= site.max_pages:
+            # 빈 *Arr 필드를 보내면 IRIS 가 0건을 돌려준다 — 부처 필터만 보낸다
+            form = {"pageIndex": page, "ancmPrg": status}
+            if site.ministry_code:
+                form["blngGovdSe"] = form["blngGovdSeArr"] = site.ministry_code
+            _h, body = await self._request(site, site.list_url, form)
+            try:
+                data = json.loads(body.decode("utf-8", "replace"))
+            except ValueError:
+                logger.warning("rnd_notice.iris_bad_json status=%s page=%d", status, page)
+                return
+            rows, _total, pages = parse_iris_list(data, site.view_url)
+            yield rows
+            if not rows or page >= pages:
+                break
+            page += 1
 
     async def explore(self) -> dict[str, Any]:
         """사이트별 전체 건수·첫 쪽 표본·robots 상태만 (내려받기 없음)."""
@@ -328,37 +325,18 @@ class RndNoticeCrawler:
             if not site.enabled or stored >= cap:
                 continue
             report.notices.setdefault(site.id, 0)
-            pages = self._kaia_pages(site) if site.id == "kaia" else self._iris_pages(site)
+            listings = (
+                [self._kaia_pages(site)]
+                if site.id == "kaia"
+                else [self._iris_pages(site, status) for status in site.statuses]
+            )
             try:
-                async for rows in pages:
-                    stop = False
-                    for row in rows:
-                        if stored >= cap:
-                            stop = True
-                            break
-                        posted = parse_date(row.posted)
-                        if posted is not None and posted < self.since:
-                            stop = True  # 오래된 공고부터는 더 보지 않는다 (최신순 목록)
-                            break
-                        native_id = f"{site.id}:{row.id}"
-                        if native_id in existing:
-                            continue
-                        try:
-                            rec = await self._one(site, row, snap, report, keys, previous)
-                        except Held as exc:
-                            held_rows.append((site, row))
-                            report.held.append(str(exc))
-                            continue
-                        except BlockedURL:
-                            report.robots_blocked += 1
-                            continue
-                        if rec is None:
-                            continue
-                        existing[native_id] = rec
-                        if not rec.get("duplicate_of"):
-                            stored += 1
-                            report.notices[site.id] += 1
-                    if stop:
+                for pages in listings:
+                    await self._consume(
+                        site, pages, snap, report, keys, previous, existing, held_rows, cap
+                    )
+                    stored = len([r for r in existing.values() if not r.get("duplicate_of")])
+                    if stored >= cap:
                         break
             except Held as exc:
                 report.held.append(str(exc))
@@ -367,6 +345,7 @@ class RndNoticeCrawler:
                 logger.warning(
                     "rnd_notice.list_failed site=%s error=%s", site.id, type(exc).__name__
                 )
+        stored = len([r for r in existing.values() if not r.get("duplicate_of")])
         # 보류 항목 1회 재시도
         for site, row in held_rows:
             if stored >= cap:
@@ -395,6 +374,51 @@ class RndNoticeCrawler:
             }
         )
         return report
+
+    async def _consume(
+        self,
+        site: SiteSpec,
+        pages,
+        snap: SnapshotDir,
+        report: CrawlReport,
+        keys: dict[str, str],
+        previous: Mapping[str, dict[str, Any]],
+        existing: dict[str, dict[str, Any]],
+        held_rows: list[tuple[SiteSpec, NoticeRow]],
+        cap: int,
+    ) -> None:
+        """한 목록(쪽 묶음)을 끝까지 — 2년 경계·상한에서 멈춘다."""
+        stored = len([r for r in existing.values() if not r.get("duplicate_of")])
+        async for rows in pages:
+            stop = False
+            for row in rows:
+                if stored >= cap:
+                    stop = True
+                    break
+                posted = parse_date(row.posted)
+                if posted is not None and posted < self.since:
+                    stop = True  # 오래된 공고부터는 더 보지 않는다 (최신순 목록)
+                    break
+                native_id = f"{site.id}:{row.id}"
+                if native_id in existing:
+                    continue
+                try:
+                    rec = await self._one(site, row, snap, report, keys, previous)
+                except Held as exc:
+                    held_rows.append((site, row))
+                    report.held.append(str(exc))
+                    continue
+                except BlockedURL:
+                    report.robots_blocked += 1
+                    continue
+                if rec is None:
+                    continue
+                existing[native_id] = rec
+                if not rec.get("duplicate_of"):
+                    stored += 1
+                    report.notices[site.id] += 1
+            if stop:
+                return
 
     async def _one(
         self,

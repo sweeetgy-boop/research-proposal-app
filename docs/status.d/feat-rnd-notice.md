@@ -22,7 +22,7 @@
 - **테스트** 20건 추가(`tests/adapters/rnd_notice`, `tests/domain/test_notices.py`, `tests/application/test_notice_match.py`,
   `tests/entrypoints/test_notices_entrypoints.py`; fixture `tests/fixtures/rnd_notice/` 는 담당자 이름·전화를 가짜 값으로 바꿈):
   `pytest -q` 1,515 통과·17 skip, `lint-imports` 8 kept, `ruff` 통과.
-- **스냅샷** `data/rnd_notice/snapshots/2026-10-27/` — SNAPSHOT_COUNTS (커밋 안 함). 스크래치 DB 적재 3건·청크 293 확인.
+- **스냅샷** `data/rnd_notice/snapshots/2026-10-27/` — 공고 99건(KAIA 83 + IRIS 16, 두 사이트에 함께 실린 63건은 한 문서로 합침), 첨부 229개 808MB(KAIA pdf·hwp; IRIS 첨부 40건은 이름만), 등록일 2024-10-30~2026-08-20 (완료, 2년 범위) (커밋 안 함). 스크래치 DB 적재 3건·청크 293 확인.
 
 ## 프론트엔드 영향 (docs/openapi.json 은 통합 세션이 `rra api schema` 로 갱신)
 - `POST /v1/ideas/notices` (본문 ProposalRequest) → `{notice, count, items:[{doc_id,title,agency,program,posted,deadline,days_left,url,
