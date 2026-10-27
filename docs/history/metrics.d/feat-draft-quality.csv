@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,bcaf367,초안 품질 강화 [Q],1494,,8,,,,,,1119,120,2482,151,,4,3,3,3,"final 조합 측정 전; all4 01 점수 4/3/3/3, 10건 all4 평균 178s, precheck 적중 9/10"
