@@ -105,7 +105,11 @@ CHOICE_EXAMPLE = (
 CORE_SECTIONS = frozenset({"tech_importance", "method"})
 EXEMPLAR_DROP = "exemplar_cited"  # Q4 본보기 문장을 그대로 베낀 경우
 SECTION_POOL_MULTIPLIER = 4  # Q3 섹션별 검색 후보 폭 (관련도 하한이 없을 때)
-MAX_FACTS_PER_DOC = 300  # P2-8 스냅샷에 고정하는 문서당 표 사실 상한 (state.json 크기)
+# P2-8 스냅샷에 고정하는 표 사실 상한 (state.json 크기·화면 폴링). 큰 시트(역별·시간대별 수만 칸)는
+# 일부만 들어간다 — 연도·단위가 있는 사실을 앞세운다. 전부 보려면 lint 시점 지연 조회(비동기 lint
+# 경로)가 필요 — 후속.
+MAX_FACTS_PER_DOC = 300
+MAX_SNAPSHOT_FACTS = 2000
 
 ComposeMode = Literal["llm", "skipped", "app"]
 
@@ -226,9 +230,18 @@ class GenerateProposal:
         if not isinstance(self.repo, TableFactRepository):
             return
         doc_ids = sorted({c.doc_id for c in snapshot.chunks} - set(snapshot.facts))
-        if doc_ids:
-            found = await self.repo.facts_for(doc_ids)
-            snapshot.facts.update({k: list(v)[:MAX_FACTS_PER_DOC] for k, v in found.items() if v})
+        if not doc_ids:
+            return
+        found = await self.repo.facts_for(doc_ids)
+        budget = MAX_SNAPSHOT_FACTS - sum(len(v) for v in snapshot.facts.values())
+        for doc_id in doc_ids:
+            facts = found.get(doc_id) or []
+            if not facts or budget <= 0:
+                continue
+            ranked = sorted(facts, key=lambda f: (f.year is None, f.unit is None))
+            kept = ranked[: min(MAX_FACTS_PER_DOC, budget)]
+            snapshot.facts[doc_id] = kept
+            budget -= len(kept)
 
     async def _fill_doc_types(self, snapshot: RetrievalSnapshot) -> None:
         """근거 구성 규칙용 doc_id → doc_type (규칙이 있을 때만, 문서마다 1회 조회)."""

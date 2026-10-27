@@ -66,6 +66,7 @@ def test_parse_number(cell, expected):
         ("23년", (2023, None)),
         ("FY2024", (2024, None)),
         ("2024년 계획", (2024, "계획")),
+        ("2025-02-01T00:00:00", (2025, "2월")),  # 시트의 날짜 머리글
         ("1850", None),  # 범위 밖
         ("2023 1,234", None),  # 데이터 줄
         ("매출액", None),
@@ -192,3 +193,29 @@ def test_vision_structure_rows_lists_and_dicts():
     assert facts[("영업이익", 2023)].unit == "억원" and facts[("영업이익", 2024)].value == 150
     assert facts_from_structure({"비전": "국민과 함께"}, doc_id="d") == []
     assert facts_from_structure({"cols": [], "rows": "x"}, doc_id="d") == []
+
+
+def test_long_text_cells_are_not_row_labels():
+    long = "코레일 승차권 예매 안내 " * 8 + "https://www.korail.com/ticket/m"
+    rows = [["구분", "건수"], [long, "12"], ["정상", "3"], ["a b c d e f g h", "1"] * 1]
+    facts = by_item(table_to_facts(ParsedTable(doc_id="d", rows=rows)))
+    assert ("정상 건수", None) in facts and len(facts) == 2
+    assert all(len(f.row_label or "") <= 120 for f in facts.values())
+
+
+def test_identifier_columns_and_date_cells_yield_no_values():
+    rows = [
+        ["계약명", "계약일자", "청구번호", "계약총금액"],
+        ["방수공사", "2025-05-08T00:00:00", "15172205", "392,684,562"],
+    ]
+    facts = table_to_facts(ParsedTable(doc_id="d", rows=rows))
+    assert [(f.item, f.value_text) for f in facts] == [("방수공사 계약총금액", "392,684,562")]
+
+
+def test_date_header_columns_become_year_and_month():
+    rows = [["노선", "2025-01-01T00:00:00", "2025-02-01T00:00:00"], ["분당선", "81,583", "79,000"]]
+    facts = table_to_facts(ParsedTable(doc_id="d", rows=rows, unit="명"))
+    assert [(f.item, f.year, f.col_label, f.unit) for f in facts] == [
+        ("분당선", 2025, "1월", "명"),
+        ("분당선", 2025, "2월", "명"),
+    ]

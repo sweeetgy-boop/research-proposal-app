@@ -12,7 +12,8 @@
 - 단위: 셀 접미(1,234만명 → 만명) > 열 머리글 괄호 "(억원)" > 행 라벨 괄호 "직원수(명)" >
   표 제목·각주 "(단위: 억원)" > 어댑터 기본값.
 - 항목: 행 라벨(숫자 아닌 앞쪽 셀들, 연번 열 제외). 열이 연도가 아니면 "행 라벨 열 라벨".
-- 머리글이 없는 열·연번(번호·No) 열·비어 있는 행 라벨은 사실을 내지 않는다.
+- 머리글이 없는 열·연번(번호·No) 열·식별자 열(번호·코드·전화·일자)·비어 있는 행 라벨은 사실을 내지
+  않는다. 날짜(ISO)·긴 문장 셀은 행 라벨에 넣지 않는다.
 - 본문 줄 표(`facts_from_lines`): "라벨 숫자 숫자 …" 꼴 줄이 위쪽 8줄 안의 연도 줄(또는 같은
   개수의 글자 라벨 줄)과 개수가 맞을 때만. PDF 텍스트는 셀이 줄 단위로 흩어지므로 이 조건을
   못 맞추면 아무것도 내지 않는다.
@@ -37,6 +38,7 @@ from rra.domain.models.table_fact import (
 )
 
 HEADER_SCAN = 15
+MAX_LABEL_CELL_CHARS = 60  # 이보다 긴 글자 셀은 라벨이 아니라 문장(비고·설명)으로 본다
 MAX_ROWS = 5000
 MAX_COLS = 64
 MAX_FACTS_PER_TABLE = 2000
@@ -61,6 +63,12 @@ _UNIT_NOTE = re.compile(r"단\s*위\s*[:：]\s*(?P<unit>[^\s)）,，/]{1,12})")
 _LABEL_TOKEN = re.compile(r"^[^\W\d_][\w·.\-]*(?:\([^\s()]{1,12}\))?$")
 _UNIT_PAREN = re.compile(rf"\(\s*(?P<unit>{UNIT_SUFFIXES})\s*\)")
 _SERIAL = re.compile(r"^(연\s*번|번\s*호|순\s*번|no\.?|seq\.?|#)$", re.IGNORECASE)
+# 식별자 열 — 숫자가 있어도 양이 아니다 (청구번호·우편번호·전화·코드·일자)
+_IDENTIFIER = re.compile(
+    r"(번\s*호|코\s*드|\bid\b|전\s*화|팩\s*스|우\s*편|일\s*자|일\s*시|날\s*짜|연락처|계좌)",
+    re.IGNORECASE,
+)
+_ISO_DATE = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-\d{2}")
 _YEAR_COLUMN = re.compile(r"^(연\s*도|년\s*도|구\s*분|연|년|year|fy)$", re.IGNORECASE)
 _WS = re.compile(r"\s+")
 _LINE_ROW = re.compile(
@@ -103,10 +111,17 @@ def parse_number(cell: Cell) -> Parsed | None:
 
 
 def year_of(cell: Cell) -> tuple[int, str | None] | None:
-    """머리글 셀의 연도 → (연도, 남은 라벨). "2023년 실적" → (2023, "실적")."""
+    """머리글 셀의 연도 → (연도, 남은 라벨). "2023년 실적" → (2023, "실적"), 날짜 머리글
+    "2025-02-01T00:00:00"(시트의 날짜 셀) → (2025, "2월")."""
     if cell is None:
         return None
     text = cell.strip()
+    m = _ISO_DATE.match(text)
+    if m:
+        year, month = int(m.group("year")), int(m.group("month"))
+        if YEAR_MIN <= year <= YEAR_MAX and 1 <= month <= 12:
+            return year, f"{month}월"
+        return None
     m = _YEAR4.match(text)
     if m:
         year = int(m.group("year"))
@@ -322,6 +337,8 @@ def _columns(labels: Sequence[str | None]) -> list[dict[str, Any]]:
                 info.update(year=yr[0], label=yr[1], skip=False)
             elif _SERIAL.match(label):
                 info["serial"] = True
+            elif _IDENTIFIER.search(label):
+                info["label"] = label  # 라벨은 남기되(행 라벨 구성용) 값은 내지 않는다
             elif _YEAR_COLUMN.match(label):
                 info.update(label=label, year_column=True, skip=True)
             else:
@@ -350,8 +367,8 @@ def _row_context(
                 break  # 첫 숫자 셀부터는 값
             continue  # 연번 등 앞쪽 숫자는 라벨이 아니다
         lab = _label(cell)
-        if lab is None:
-            continue
+        if lab is None or len(lab) > MAX_LABEL_CELL_CHARS or _ISO_DATE.match(lab):
+            continue  # 긴 글자 셀(설명문·URL)·날짜는 라벨이 아니다
         if columns[c]["year"] is not None:
             continue  # 연도 열의 글자("-"·"미정")는 라벨이 아니다
         if columns[c]["skip"] and not columns[c]["label"] and not columns[c]["serial"]:
@@ -360,7 +377,7 @@ def _row_context(
             row_year = year_of(cell)[0]  # type: ignore[index]
             continue
         labels.append(lab)
-    return (" ".join(labels) if labels else None), row_year
+    return (" ".join(labels)[:MAX_LABEL_CHARS] if labels else None), row_year
 
 
 def _item(row_label: str | None, col: dict[str, Any], row_year: int | None) -> str:
