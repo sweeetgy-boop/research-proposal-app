@@ -520,9 +520,14 @@ def test_generate_with_auto_review_exits_ok(run_env, capsys):
 
 
 def test_generate_lint_failure_exit_code(run_env, capsys):
+    # 빈 초안 금지(ADR 0027): 한 섹션만 실패하면 drafted(EXIT_OK) + 실패 경고. 전부 실패면 invalid
     run_env["use"]([_sentence("문제"), _sentence("근거 없음")])  # prior_work 근거 필수
+    assert cli.main(["generate", *GEN_ARGS]) == cli.EXIT_OK
+    assert "~ prior_work: generation_failed" in capsys.readouterr().out
+    run_env["use"](["자유 텍스트"] * 4)  # 두 섹션 모두 JSON 아님 (재요청 포함)
     assert cli.main(["generate", *GEN_ARGS]) == cli.EXIT_INVALID
-    assert "! prior_work: missing" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "~ problem: generation_failed" in out and "~ prior_work: generation_failed" in out
 
 
 def test_generate_interrupted_then_resume(run_env, capsys):

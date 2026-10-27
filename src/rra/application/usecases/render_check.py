@@ -26,6 +26,9 @@ STRATEGY_EMPTY = (
     "2-가-(3) 전략방향·전략과제: 전략체계 목록(korail_strategy.yaml)이 비어 있어 빈칸으로 나갑니다."
 )
 STRATEGY_UNCONFIRMED = "2-가-(3) 전략방향·전략과제: 전략이 확정되지 않아 빈칸으로 나갑니다."
+FAILED_SECTIONS = (
+    "생성 실패 섹션 {n}개({names})가 빈칸으로 나갑니다 — 초안 화면에서 다시 생성하십시오."
+)
 
 
 @dataclass(frozen=True)
@@ -62,8 +65,10 @@ def render_check(
     proposer: ProposerInfo | None,
     line_limits: Mapping[str, int],
     strategy_labels: Mapping[str, str],
+    failed_sections: Sequence[Any] = (),
 ) -> RenderCheck:
-    """problems: RunState.problems (LintProblem.model_dump()). strategy_labels: 전략과제 id→이름"""
+    """problems: RunState.problems (LintProblem.model_dump()). strategy_labels: 전략과제 id→이름.
+    failed_sections: RunState.failed_sections — 빈칸으로 나간다는 알림(렌더는 막지 않는다)."""
     unresolved = [LintProblem.model_validate(dict(p)) for p in problems]
     overflow: list[Overflow] = []
 
@@ -100,6 +105,9 @@ def render_check(
             overflow.append(Overflow(slot, len(value), limit, "line"))
 
     notes: list[str] = []
+    if failed_sections:
+        names = ", ".join(rules.titles.get(f.key, f.key) for f in failed_sections)
+        notes.append(FAILED_SECTIONS.format(n=len(failed_sections), names=names))
     if STRATEGY_KEY in rules.choices:
         if not strategy_labels:
             notes.append(STRATEGY_EMPTY)

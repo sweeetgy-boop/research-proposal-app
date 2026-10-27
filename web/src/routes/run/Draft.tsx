@@ -1,9 +1,12 @@
 import * as React from "react";
 import { Link, useSearchParams } from "react-router";
-import { AlertTriangle, BookOpen } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, BookOpen, RefreshCw } from "lucide-react";
 import { useRunContext } from "./useRunContext";
-import { useDraft, useDraftReview, useOutline, useSubmitCheck, useVersion } from "@/api/hooks";
-import type { Citation, DraftSection, Problem_, VersionSection } from "@/api/types";
+import { keys, useDraft, useDraftReview, useOutline, useSubmitCheck, useVersion } from "@/api/hooks";
+import type { Citation, DraftSection, FailedSection, Problem_, VersionSection } from "@/api/types";
+import { SectionRewrite } from "@/features/rewrite/SectionRewrite";
+import { useToast } from "@/components/ui/toast";
 import { EvidencePanel } from "@/features/evidence/EvidencePanel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
@@ -33,7 +36,16 @@ function toRows(sections: (DraftSection | VersionSection)[]): Row[] {
   return rows;
 }
 
-function SectionHeader({ section }: { section: DraftSection | VersionSection }) {
+function SectionHeader({
+  section,
+  failed,
+  onRegenerate,
+}: {
+  section: DraftSection | VersionSection;
+  /** 빈 초안 금지(ADR 0027): 로컬 작성 실패 → 빈칸 + "이 섹션 다시 생성" (현재 버전에서만) */
+  failed?: FailedSection;
+  onRegenerate?: (key: string) => void;
+}) {
   const choices = "choices" in section && section.choices && !Array.isArray(section.choices) ? section.choices : null;
   return (
     <div id={`sec-${section.key}`} className="mt-6 scroll-mt-24 border-b pb-1 first:mt-0">
@@ -50,10 +62,26 @@ function SectionHeader({ section }: { section: DraftSection | VersionSection }) 
           )}
         </p>
       )}
-      {section.sentences.length === 0 && (
-        <p className="mt-1 text-sm text-muted-foreground">
-          {CHOICE_SECTIONS.has(section.key) ? "(본문 없이 체크 칸으로만 들어갑니다)" : "문장이 없습니다 — 근거·입력이 부족해 빈칸으로 둡니다. 직접 수정에서 채울 수 있습니다."}
-        </p>
+      {failed ? (
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm" role="status">
+          <Badge variant="destructive">
+            <AlertTriangle className="mr-1 size-3" aria-hidden="true" />
+            생성 실패
+          </Badge>
+          <span className="text-muted-foreground">{failed.label} — 빈칸으로 두었습니다.</span>
+          {onRegenerate && (
+            <Button type="button" variant="outline" size="sm" onClick={() => onRegenerate(section.key)} aria-label={`${sectionTitle(section.key)} 이 섹션 다시 생성`}>
+              <RefreshCw aria-hidden="true" />
+              이 섹션 다시 생성
+            </Button>
+          )}
+        </div>
+      ) : (
+        section.sentences.length === 0 && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {CHOICE_SECTIONS.has(section.key) ? "(본문 없이 체크 칸으로만 들어갑니다)" : "문장이 없습니다 — 근거·입력이 부족해 빈칸으로 둡니다. 직접 수정에서 채울 수 있습니다."}
+          </p>
+        )
       )}
     </div>
   );
@@ -116,6 +144,9 @@ export default function Draft() {
   const [params, setParams] = useSearchParams();
   const [evidenceSid, setEvidenceSid] = React.useState<string | null>(() => params.get("evidence"));
   const submitCheck = useSubmitCheck(id);
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [regenerateKey, setRegenerateKey] = React.useState<string | null>(null);
   const strategyDraft = (submitCheck.data?.items ?? []).some((i) => i.key === "strategy_source" && i.source === "draft");
   const openEvidence = (sid: string) => {
     setEvidenceSid(sid);
@@ -146,6 +177,7 @@ export default function Draft() {
   }
   if (draft.error || !draft.data) return <ProblemBanner error={draft.error} onRetry={() => draft.refetch()} />;
   const d = draft.data;
+  const failedByKey = new Map<string, FailedSection>((d.failed_sections ?? []).map((f) => [f.key, f]));
   const sections: (DraftSection | VersionSection)[] = selected === null ? d.sections : (version.data?.sections ?? []);
   const rows = toRows(sections);
   const problemBySentence = new Map<string, string>();
@@ -162,7 +194,11 @@ export default function Draft() {
   const tabs = [{ id: "current", label: `현재 v${d.version}` }, ...versions.filter((v) => v !== d.version).map((v) => ({ id: String(v), label: `v${v}` }))];
 
   const renderRow = (row: Row) =>
-    row.kind === "header" ? <SectionHeader section={row.section} /> : <SentenceLine row={row} citations={d.citations} problem={problemBySentence.get(row.key)} onOpen={selected === null ? openEvidence : undefined} />;
+    row.kind === "header" ? (
+      <SectionHeader section={row.section} failed={selected === null ? failedByKey.get(row.section.key) : undefined} onRegenerate={selected === null ? setRegenerateKey : undefined} />
+    ) : (
+      <SentenceLine row={row} citations={d.citations} problem={problemBySentence.get(row.key)} onOpen={selected === null ? openEvidence : undefined} />
+    );
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -174,6 +210,14 @@ export default function Draft() {
           </Link>
         </div>
         <p className="text-xs text-muted-foreground">문장을 누르면 근거 원문·적합성을 보고 승인·교체·제외를 정할 수 있습니다 (현재 버전만).</p>
+        {failedByKey.size > 0 && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm" role="alert">
+            <p className="font-medium">생성 실패 섹션 {failedByKey.size}개 — 빈칸으로 두었습니다.</p>
+            <p className="mt-1 text-muted-foreground">
+              {[...failedByKey.values()].map((f) => `${sectionTitle(f.key)}(${f.label})`).join(", ")}. 섹션 머리의 [이 섹션 다시 생성]으로 로컬 모델에 다시 요청하거나 직접 수정에서 채우십시오.
+            </p>
+          </div>
+        )}
         <Tabs items={tabs} value={tab} onChange={setTab} label="초안 버전" />
         {tabs.map((t) => (
           <TabPanel key={t.id} id={t.id} active={t.id === tab}>
@@ -264,6 +308,19 @@ export default function Draft() {
           </div>
         </details>
       </aside>
+
+      <SectionRewrite
+        runId={id}
+        sectionKey={regenerateKey}
+        baseVersion={d.version}
+        dirty={d.flow.has_working}
+        onClose={() => setRegenerateKey(null)}
+        onApplied={(v) => {
+          setRegenerateKey(null);
+          toast(v === d.version ? "바뀐 내용이 없어 새 버전을 만들지 않았습니다." : `다시 생성한 섹션을 v${v} 으로 반영했습니다.`, "success");
+          qc.invalidateQueries({ queryKey: keys.run(id) });
+        }}
+      />
 
       <EvidencePanel
         runId={id}

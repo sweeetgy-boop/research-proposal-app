@@ -71,6 +71,13 @@ export interface FlowSummary {
   has_working: boolean;
 }
 
+/** 빈 초안 금지(ADR 0027): 로컬 작성이 실패해 빈칸으로 둔 섹션 — "이 섹션 다시 생성" 으로 채운다 */
+export interface FailedSection {
+  key: string;
+  reason: string; // fence | json | schema | choices_only | empty | dropped
+  label: string;
+}
+
 export interface RunState {
   run_id: string;
   status: RunStatus;
@@ -82,6 +89,7 @@ export interface RunState {
   steps: StepState[];
   draft_version: number;
   flow: FlowSummary;
+  failed_sections?: FailedSection[];
 }
 
 export interface RunList {
@@ -299,6 +307,7 @@ export interface DraftOut {
   versions: number[];
   review: ReviewSummary;
   flow: FlowSummary;
+  failed_sections?: FailedSection[];
 }
 
 export interface Score {

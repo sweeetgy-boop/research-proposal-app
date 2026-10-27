@@ -2,6 +2,7 @@
 
 항목마다 target(섹션 키 / 문장 id / 경로 힌트)을 붙여 화면이 바로 이동할 수 있게 한다.
 - required_sections: 필수 섹션이 모두 채워졌는가 (lint missing 오류)
+- failed_sections: 로컬 작성이 실패해 빈칸인 섹션 (ADR 0027, "다시 생성" 으로 채운다)
 - unresolved_alerts: 미해결 알림 수 (코드별 건수)
 - evidence_approval: 근거 승인 비율 (U1 판단, 대상 근거 수 대비 approve)
 - open_memos: 남은 Argon 메모 (open annotations)
@@ -83,6 +84,21 @@ def submit_check(
             len(missing),
             f"section:{missing[0]}" if missing else None,
             {"missing": missing},
+        )
+    )
+
+    failed = list(getattr(state, "failed_sections", None) or [])
+    items.append(
+        CheckItem(
+            "failed_sections",
+            "생성 실패 섹션",
+            not failed,
+            "다시 생성 필요: " + ", ".join(rules.titles.get(f.key, f.key) for f in failed)
+            if failed
+            else "없음",
+            len(failed),
+            f"section:{failed[0].key}" if failed else None,
+            {"failed": [{"key": f.key, "reason": f.reason} for f in failed]},
         )
     )
 
