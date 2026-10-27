@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from rra.application.ports import DocumentRepository, LLMPort, PromptLibraryPort
+from rra.application.ports.table_facts import TableFactRepository
 from rra.domain.models import (
     Chunk,
     Document,
@@ -104,6 +105,7 @@ CHOICE_EXAMPLE = (
 CORE_SECTIONS = frozenset({"tech_importance", "method"})
 EXEMPLAR_DROP = "exemplar_cited"  # Q4 본보기 문장을 그대로 베낀 경우
 SECTION_POOL_MULTIPLIER = 4  # Q3 섹션별 검색 후보 폭 (관련도 하한이 없을 때)
+MAX_FACTS_PER_DOC = 300  # P2-8 스냅샷에 고정하는 문서당 표 사실 상한 (state.json 크기)
 
 ComposeMode = Literal["llm", "skipped", "app"]
 
@@ -194,6 +196,7 @@ class GenerateProposal:
             snapshot = RetrievalSnapshot.of(query, chunks)
             snapshot.dropped_chunks = dropped
             await self._fill_doc_types(snapshot)
+            await self._fill_facts(snapshot)
             return snapshot
         hits = await self.repo.find_similar(query, k=max(self.overlap_k, self.exemplar_limit * 5))
         hits = overlap_candidates(hits)  # 정책·보도 자료원은 유사과제가 아니다 (retrieval_scope)
@@ -214,7 +217,18 @@ class GenerateProposal:
                 hits, limit=self.exemplar_limit, exclude=self.exemplar_exclude
             )
         await self._fill_doc_types(snapshot)
+        await self._fill_facts(snapshot)
         return snapshot
+
+    async def _fill_facts(self, snapshot: RetrievalSnapshot) -> None:
+        """P2-8 표 사실 — 검색 집합 문서의 사실을 스냅샷에 고정한다(수치 lint 근거). 저장소가 사실을
+        모르면(fake·옛 어댑터) 비워 둔다 = 종전 동작."""
+        if not isinstance(self.repo, TableFactRepository):
+            return
+        doc_ids = sorted({c.doc_id for c in snapshot.chunks} - set(snapshot.facts))
+        if doc_ids:
+            found = await self.repo.facts_for(doc_ids)
+            snapshot.facts.update({k: list(v)[:MAX_FACTS_PER_DOC] for k, v in found.items() if v})
 
     async def _fill_doc_types(self, snapshot: RetrievalSnapshot) -> None:
         """근거 구성 규칙용 doc_id → doc_type (규칙이 있을 때만, 문서마다 1회 조회)."""
@@ -272,6 +286,7 @@ class GenerateProposal:
                 picked = self.mix.top_up_scholarly(key, picked, ranked, snapshot.doc_types)
             if picked:
                 snapshot.section_chunks[key] = [c.chunk_id for c in picked]
+        await self._fill_facts(snapshot)  # 섹션 검색이 더한 문서의 표 사실
         return snapshot
 
     async def _top_up_sources(
@@ -698,6 +713,7 @@ class GenerateProposal:
             choice_options=self.choice_options(),
             chunk_texts=chunk_texts,
             evidence_skipped=self.evidence_skipped(snapshot) if snapshot else None,
+            facts=snapshot.facts if snapshot else None,
         )
         problems.extend(self.style_problems(draft.request, draft.sections))
         if self.schedule_metrics:
