@@ -109,6 +109,7 @@ def llm_config(
         )
     system_role = table.get("system_role", True)
     stop = [str(x) for x in (table.get("stop") or []) if str(x)]
+    rate = _rate_config(chosen, table.get("rate"))
     return {
         "stage": stage,
         "provider": chosen,
@@ -138,6 +139,51 @@ def llm_config(
             "backoff_sec": float(retries.get("backoff_sec", 0.5)),
             "max_backoff_sec": float(retries.get("max_backoff_sec", 8)),
         },
+        # 원격 provider 의 공유 호출 제한기 설정. None 이면 제한기 없음 (로컬 mlx)
+        "rate": rate,
+    }
+
+
+RATE_DEFAULT_PROVIDERS = ("gemini", "openai")
+RATE_DEFAULTS = {"concurrency": 4, "per_minute": 60}
+
+
+def _rate_config(provider: str, raw: Any) -> dict[str, int] | None:
+    if raw is None and provider not in RATE_DEFAULT_PROVIDERS:
+        return None
+    table = raw if isinstance(raw, dict) else {}
+    return {
+        "concurrency": max(1, int(table.get("concurrency", RATE_DEFAULTS["concurrency"]))),
+        "per_minute": max(0, int(table.get("per_minute", RATE_DEFAULTS["per_minute"]))),
+    }
+
+
+# ── 이미지 판독 (P3, config/vision.yaml) ───────────────────
+VISION_FILE = "vision.yaml"
+
+
+def vision_config(settings: Settings) -> dict[str, Any]:
+    """config/vision.yaml → 거르기·상한·경로·순서. 값 객체(ImageFilterConfig)는 domain 에서
+    만든다."""
+    cfg = read_config(VISION_FILE, settings)
+    paths = cfg.get("paths") or {}
+    order = cfg.get("order") or {}
+    ocr = cfg.get("ocr") or {}
+    return {
+        "filter": dict(cfg.get("filter") or {}),
+        "cap": int(cfg.get("cap", 2000)),
+        "snapshots_dir": str(paths.get("snapshots", "data/korail_web/snapshots")),
+        "store_dir": str(paths.get("store", "data/korail_web")),
+        "sample_dir": str(paths.get("sample", "docs/ocr-sample")),
+        "order_keywords": {k: list(v) for k, v in order.items() if isinstance(v, list)},
+        "ocr": {
+            "languages": [str(x) for x in (ocr.get("languages") or ["ko-KR", "en-US"])],
+            "max_bytes": int(ocr.get("max_bytes", 15 * 1024 * 1024)),
+            "max_pixels": int(ocr.get("max_pixels", 40_000_000)),
+            "timeout_sec": float(ocr.get("timeout_sec", 90)),
+        },
+        "image_max_bytes": int(cfg.get("image_max_bytes", 8 * 1024 * 1024)),
+        "sample_per_type": int(cfg.get("sample_per_type", 30)),
     }
 
 

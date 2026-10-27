@@ -53,6 +53,9 @@ class FakePromptLibrary:
     def recommend(self) -> str:
         return "RECOMMEND: 추천 0~5건 또는 사유, 자료·입력 안에서만, 한국어, JSON 객체 하나"
 
+    def vision(self) -> str:
+        return "VISION: 보이는 것만, 숫자 지어내기 금지, JSON 객체 하나"
+
     def structure(self) -> str:
         return "STRUCTURE: 자유 문장 → 필수 4칸, 문장에 없는 칸은 빈 값, 한국어, JSON 객체 하나"
 

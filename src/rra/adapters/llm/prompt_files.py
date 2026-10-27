@@ -14,6 +14,7 @@ PROMPT_PACKAGE = "rra.adapters.llm.prompts"
 REVIEW_NAME = "review"
 DIFFERENTIATE_NAME = "differentiate"
 RECOMMEND_NAME = "recommend"
+VISION_NAME = "vision"
 STRUCTURE_NAME = "structure"
 BRIEF_NAME = "brief"
 SYSTEM_NAME = "system"
@@ -65,6 +66,10 @@ class FilePromptLibrary:
 
     def recommend(self) -> str:
         return self._read(RECOMMEND_NAME)
+
+    def vision(self) -> str:
+        """이미지 판독(P3) 지시 — 보이는 것만 옮겨 적기, JSON 객체 하나."""
+        return self._read(VISION_NAME)
 
     def structure(self) -> str:
         return self._read(STRUCTURE_NAME)

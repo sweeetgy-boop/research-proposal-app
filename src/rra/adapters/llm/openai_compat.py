@@ -21,6 +21,7 @@ import httpx
 
 from rra.adapters.llm import _endpoint, _payload
 from rra.adapters.llm.errors import LLMAuthError, LLMError, LLMResponseInvalid, LLMTimeout
+from rra.adapters.llm.rate_limiter import RateLimiter, parse_retry_after
 
 JsonMode = Literal["auto", "native", "prompt"]
 
@@ -33,6 +34,7 @@ MAX_MODEL_ID_CHARS = 300
 RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 AUTH_STATUS = frozenset({401, 403})
 REASONING_EFFORTS = frozenset({"low", "medium", "high"})  # none 금지
+MAX_RETRY_AFTER_SEC = 300.0
 
 JSON_FALLBACK_INSTRUCTION = (
     "출력은 JSON 하나만 내보내십시오. 코드블록·설명·머리말·꼬리말을 붙이지 마십시오."
@@ -75,6 +77,7 @@ class OpenAICompatLLM:
         reasoning_effort: str | None = None,
         system_role: bool = True,
         stop: list[str] | None = None,
+        limiter: RateLimiter | None = None,
     ):
         if json_mode not in ("auto", "native", "prompt"):
             raise ValueError(f"json_mode 는 auto|native|prompt 중 하나입니다: {json_mode}")
@@ -88,6 +91,8 @@ class OpenAICompatLLM:
         self.reasoning_effort = reasoning_effort
         self.system_role = system_role  # model_profiles: False 면 system 을 user 앞에 붙인다
         self.stop = [s for s in (stop or []) if s]
+        # provider 별 공유 제한기(동시성·분당 상한·429 백오프). None 이면 제한 없음 (로컬 mlx)
+        self.limiter = limiter
         # 벤치·진단용 집계 (본문은 담지 않는다): 호출 수·폴백 횟수·usage 최대 토큰
         self.calls = 0
         self.fallbacks = 0
@@ -155,13 +160,30 @@ class OpenAICompatLLM:
             raise LLMError(
                 f"프롬프트 길이 {len(prompt)} > 상한 {self.prompt_max_chars}. 전송하지 않았습니다."
             )
+
+        def make(system_text: str | None) -> list[dict[str, Any]]:
+            return _payload.build_messages(prompt, system_text, system_role=self.system_role)
+
+        return await self._complete_with(
+            make, system=system, max_tokens=max_tokens, json_mode=json_mode
+        )
+
+    async def _complete_with(
+        self,
+        make_messages: Callable[[str | None], list[dict[str, Any]]],
+        *,
+        system: str | None,
+        max_tokens: int | None,
+        json_mode: bool,
+    ) -> str:
+        """메시지 공장만 다른 공용 경로 — 텍스트(complete)·이미지(vision_reader) 가 같이 쓴다."""
         limit = max(1, min(max_tokens or self.max_tokens, self.max_tokens_cap))
 
         self.calls += 1
         if json_mode and self._try_native():
             payload = _payload.build_payload(
                 model=self.model,
-                messages=_payload.build_messages(prompt, system, system_role=self.system_role),
+                messages=make_messages(system),
                 max_tokens=limit,
                 temperature=self.temperature,
                 native_json=True,
@@ -181,7 +203,7 @@ class OpenAICompatLLM:
         system_text = self._with_fallback(system) if json_mode else system
         payload = _payload.build_payload(
             model=self.model,
-            messages=_payload.build_messages(prompt, system_text, system_role=self.system_role),
+            messages=make_messages(system_text),
             max_tokens=limit,
             temperature=self.temperature,
             native_json=False,
@@ -217,18 +239,28 @@ class OpenAICompatLLM:
     def _redact(self, text: str) -> str:
         return _payload.redact(text, [self._api_key])
 
+    async def _post(self, payload: dict[str, Any]) -> httpx.Response:
+        if self.limiter is None:
+            return await self._client.post(self._url, json=payload, headers=self._headers)
+        async with self.limiter:  # 동시성·분당 상한·429 대기 (provider 공유)
+            return await self._client.post(self._url, json=payload, headers=self._headers)
+
     async def _request(self, payload: dict[str, Any]) -> Any:
         native = "response_format" in payload
         last: LLMError | None = None
+        extra_delay = 0.0
         for attempt in range(1, self.retry.attempts + 1):
+            extra_delay = 0.0
             try:
-                resp = await self._client.post(self._url, json=payload, headers=self._headers)
+                resp = await self._post(payload)
             except httpx.TimeoutException as exc:
                 last = LLMTimeout(f"LLM 응답 시간 초과 ({type(exc).__name__})")
             except httpx.TransportError as exc:
                 last = LLMError(f"LLM 서버에 연결하지 못했습니다 ({type(exc).__name__})")
             else:
                 if resp.status_code < 400:
+                    if self.limiter is not None:
+                        self.limiter.note_success()
                     try:
                         return resp.json()
                     except ValueError as exc:
@@ -246,7 +278,13 @@ class OpenAICompatLLM:
                 message = f"LLM 오류 {resp.status_code}: {body}"
                 if resp.status_code not in RETRYABLE_STATUS:
                     raise LLMError(message)  # 4xx 는 재시도하지 않는다
+                if resp.status_code == 429:  # Retry-After 존중 + 공유 백오프
+                    retry_after = parse_retry_after(resp.headers.get("Retry-After"))
+                    if self.limiter is not None:
+                        extra_delay = self.limiter.note_429(retry_after)
+                    elif retry_after is not None:
+                        extra_delay = min(retry_after, MAX_RETRY_AFTER_SEC)
                 last = LLMError(message)
             if attempt < self.retry.attempts:
-                await self._sleep(self.retry.delay(attempt))
+                await self._sleep(max(self.retry.delay(attempt), extra_delay))
         raise last or LLMError("LLM 호출에 실패했습니다.")
