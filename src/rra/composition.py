@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,7 @@ from rra.config_loader import (
     require_credentials,
     retention_days,
     review_policy,
+    section_checklists,
     security_config,
     served_model_aliases,
     source_config,
@@ -82,6 +84,9 @@ __all__ = [
     "build_prompt_library",
     "build_purge_runs",
     "build_renderer",
+    "build_reranker",
+    "build_outliner",
+    "build_clarifier",
     "build_repository",
     "build_run_manager",
     "build_scienceon_source",
@@ -92,6 +97,8 @@ __all__ = [
 ]
 
 LOCAL_USER = "local"  # stdio·CLI: 프로세스 소유자 = 사용자. 다중 사용자는 Step 10 (REST 인증)
+logger = logging.getLogger("rra.composition")
+_RERANKERS: dict[str, Any] = {}  # 모델 경로 → 인스턴스 (한 프로세스에 한 번만 올린다)
 
 
 # ── 임베딩·저장소·프롬프트·LLM ──────────────────────────────
@@ -193,7 +200,9 @@ def build_llm(
 
 
 def build_reviewer(settings: Settings | None = None, *, llm=None):
-    """검토 유스케이스(ReviewDraft). review 단계 LLM(gemini) 키가 없으면 None → 검토 건너뜀."""
+    """검토 유스케이스(ReviewDraft). review 단계 LLM(gemini) 키가 없으면 None → 검토 건너뜀.
+    Q5 체크리스트(config/templates/section_checklists.yaml)·additions(pipeline.additions)를
+    넣는다."""
     from rra.application.usecases.review_draft import ReviewDraft
 
     settings = settings or load_settings()
@@ -203,6 +212,7 @@ def build_reviewer(settings: Settings | None = None, *, llm=None):
         llm = build_llm(settings, stage="review")
     cfg = llm_config(settings, "review")
     policy = review_policy(settings)
+    pipeline = pipeline_config(settings)
     return ReviewDraft(
         llm,
         build_prompt_library(settings),
@@ -212,6 +222,46 @@ def build_reviewer(settings: Settings | None = None, *, llm=None):
         prompt_max_chars=cfg["prompt_max_chars"],
         provider=cfg["provider"],
         model=cfg["served_model"] or cfg["model"],
+        checklists=section_checklists(settings),
+        additions=pipeline.additions,
+    )
+
+
+def build_reranker(settings: Settings | None = None):
+    """Q8 RerankerPort 구현체(CrossEncoderReranker) — llm.yaml reranker 섹션. 모델 폴더가 없으면
+    경고만 남기고 None(reranker 없이 진행). 같은 경로는 한 프로세스에 한 번만 올린다."""
+    from rra.adapters.reranking import CrossEncoderReranker, RerankerUnavailable
+
+    settings = settings or load_settings()
+    cfg = read_config("llm.yaml", settings).get("reranker") or {}
+    path = str(cfg.get("model") or "~/models/bge-reranker-v2-m3")
+    if path in _RERANKERS:
+        return _RERANKERS[path]
+    try:
+        reranker = CrossEncoderReranker(
+            path,
+            max_length=int(cfg.get("max_length", 512)),
+            device=cfg.get("device") or None,
+            batch_size=int(cfg.get("batch_size", 16)),
+        )
+    except RerankerUnavailable as exc:
+        logger.warning("reranker.unavailable reason=%s", type(exc).__name__)
+        return None
+    _RERANKERS[path] = reranker
+    return reranker
+
+
+def build_outliner(settings: Settings | None = None, *, llm=None):
+    """Q2 섹션 설계도 유스케이스(OutlineSections) — outline 단계(로컬 모델)."""
+    from rra.application.usecases.outline import OutlineSections
+
+    settings = settings or load_settings()
+    rules = lint_rules(settings)
+    return OutlineSections(
+        llm if llm is not None else build_llm(settings, stage="outline"),
+        build_prompt_library(settings),
+        list(rules.order),
+        dict(rules.titles),
     )
 
 
@@ -574,26 +624,35 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
     return IngestSources(sources, repo, limit=limit, own=own_unit(settings))
 
 
-def build_precheck(settings: Settings | None = None, repo=None):
-    """PrecheckOverlap 유스케이스. repo 를 주면 그대로 쓴다(테스트·MCP 조립용)."""
+def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None):
+    """PrecheckOverlap 유스케이스. repo 를 주면 그대로 쓴다(테스트·MCP 조립용).
+    pipeline.reranker 가 켜져 있으면 Q8 reranker 로 k×4 를 다시 순위 매긴다."""
     from rra.application.usecases.precheck_overlap import PrecheckOverlap
 
     settings = settings or load_settings()
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
-    return PrecheckOverlap(repo, own=own_unit(settings), keywords=keyword_rule(settings))
+    if reranker is None and pipeline_config(settings).reranker:
+        reranker = build_reranker(settings)
+    return PrecheckOverlap(
+        repo, own=own_unit(settings), keywords=keyword_rule(settings), reranker=reranker
+    )
 
 
-def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
-    """GenerateProposal 유스케이스. repo·llm 을 주면 그대로 쓴다(테스트용)."""
+def build_generate(settings: Settings | None = None, *, repo=None, llm=None, reranker=None):
+    """GenerateProposal 유스케이스. repo·llm 을 주면 그대로 쓴다(테스트용).
+    [Q] 품질 단계(section_search·exemplars·rule_check·reranker)는 config/pipeline.yaml 을 따른다."""
     from rra.application.usecases.generate_proposal import GenerateProposal
 
     settings = settings or load_settings()
     rules = lint_rules(settings)
+    pipeline = pipeline_config(settings)
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
     if llm is None:
         llm = build_llm(settings, stage="compose")
+    if reranker is None and pipeline.reranker:
+        reranker = build_reranker(settings)
     return GenerateProposal(
         llm,
         repo,
@@ -605,6 +664,10 @@ def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
         check_overlap=True,
         keywords=keyword_rule(settings),
         relevance=relevance_floor(settings),
+        reranker=reranker,
+        section_search=pipeline.section_search,
+        exemplars=pipeline.exemplars,
+        rule_check=pipeline.rule_check,
     )
 
 
@@ -633,6 +696,7 @@ def build_run_manager(
     settings = settings or load_settings()
     root = Path(settings.runs_dir)
     compose_cfg = llm_config(settings, "compose")
+    pipeline = pipeline_config(settings)
     # manifest 에는 선언된 실제 모델명(served_model)을, 없으면 요청용 이름을 남긴다
     model = compose_cfg["served_model"] or compose_cfg["model"]
     if repo is None:
@@ -651,7 +715,8 @@ def build_run_manager(
         line_limits=render_slots(settings).get("line_limits") or {},
         reviewer=reviewer if reviewer is not None else build_reviewer(settings, llm=review_llm),
         review_auto=review_policy(settings)["auto"],
-        pipeline=pipeline_config(settings),
+        pipeline=pipeline,
+        outliner=build_outliner(settings, llm=llm) if pipeline.outline else None,
     )
 
 
@@ -802,12 +867,14 @@ def build_api(
     sessions = build_sessions(settings)
     static = static_dir if static_dir is not None else Path(settings.static_dir)
     precheck = build_precheck(settings, repo=repo)
+    pipeline = pipeline_config(settings)
     return create_app(
         manager=manager,
         precheck=precheck,
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
         recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         recommend_auto=recommend_policy(settings)["auto"],
+        clarify=build_clarifier(settings, llm=llm) if pipeline.clarify else None,
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
@@ -871,8 +938,15 @@ def build_differentiator(settings: Settings | None = None, *, repo=None, llm=Non
 
 
 def build_clarifier(settings: Settings | None = None, *, llm=None):
-    """③ 입력 보강 질문 유스케이스(Q1). [Q] 에서 채운다 — 지금은 None(질문 0개)."""
-    return None
+    """③ 입력 보강 질문 유스케이스(Q1, ClarifyInput) — clarify 단계(로컬 모델). 호출자는
+    pipeline.clarify 가 켜져 있을 때만 부른다(꺼져 있으면 질문 0개)."""
+    from rra.application.usecases.clarify_input import ClarifyInput
+
+    settings = settings or load_settings()
+    return ClarifyInput(
+        llm if llm is not None else build_llm(settings, stage="clarify"),
+        build_prompt_library(settings),
+    )
 
 
 def build_recommender(settings: Settings | None = None, *, repo=None, llm=None, precheck=None):
@@ -934,4 +1008,5 @@ def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
         recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         recommend_auto=recommend_policy(settings)["auto"],
+        clarify=build_clarifier(settings, llm=llm) if pipeline_config(settings).clarify else None,
     )

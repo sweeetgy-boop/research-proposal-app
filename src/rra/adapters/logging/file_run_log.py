@@ -103,6 +103,9 @@ TRANSFER_KEYS = frozenset(
         "kind",
         "applied",
         "applied_version",
+        "additions",  # Q5 추가 문장 제안 수
+        "candidates",  # Q7 {섹션: A|B}
+        "checklist_coverage",  # Q5 필수 요소 충족률
     }
 )
 STEP_KEYS = frozenset(

@@ -86,6 +86,8 @@ stages:
   differentiate: {provider: gemini, max_tokens: 2000}
   # 차별화 과제 추천(ADR 0012) = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
   recommend: {provider: gemini, max_tokens: 3000}
+  clarify:   {max_tokens: 400}                        # Q1 입력 보강 질문 = 로컬 모델
+  outline:   {max_tokens: 1500}                       # Q2 섹션 설계도 = 로컬 모델
 
 # 검토(review) 단계 정책
 review:
@@ -99,6 +101,12 @@ recommend:
 external_llm:
   include_internal: true     # 사내(internal) 근거·문장을 외부 검토 LLM 에 보낼지. false 면 "검토 제외"
 
+# Q8 cross-encoder reranker (pipeline.reranker 가 켜져 있을 때만 로드). 모델은 ~/models/ 에 두고 저장소에 넣지 않는다.
+# BAAI/bge-reranker-v2-m3: MIT 라이선스(업무 이용 허용). 하이브리드 상위 k×4 를 다시 순위 매긴다.
+reranker:
+  model: ~/models/bge-reranker-v2-m3
+  max_length: 512
+  device: mps
 embedding:
   model: intfloat/multilingual-e5-base
   device: mps

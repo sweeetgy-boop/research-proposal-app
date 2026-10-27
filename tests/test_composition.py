@@ -565,3 +565,34 @@ def test_available_sources_skip_missing_keys_but_reject_unknown_names():
     assert all("RRA_" in reason and "=" not in reason for _, reason in skipped)  # 변수 이름만
     with pytest.raises(KeyError):
         build_available_sources(["nope"], project_settings())
+
+
+# ── [Q] 품질 단계 조립 ─────────────────────────────────────
+def test_build_reranker_returns_none_when_model_folder_is_missing_and_caches_instances(tmp_path):
+    from rra import composition
+
+    missing = tmp_path / "no-such-model"
+    (tmp_path / "llm.yaml").write_text(
+        YAML + f"reranker: {{model: {missing}, max_length: 256, device: cpu}}\n", encoding="utf-8"
+    )
+    assert composition.build_reranker(settings_for(tmp_path)) is None
+    present = tmp_path / "present-model"
+    present.mkdir()
+    (tmp_path / "llm.yaml").write_text(
+        YAML + f"reranker: {{model: {present}, max_length: 256, device: cpu}}\n", encoding="utf-8"
+    )
+    first = composition.build_reranker(settings_for(tmp_path))
+    assert first is not None and not first.loaded and first.max_length == 256
+    assert composition.build_reranker(settings_for(tmp_path)) is first  # 한 프로세스에 한 번
+
+
+def test_build_clarifier_and_outliner_take_an_injected_llm():
+    from rra.application.usecases.clarify_input import ClarifyInput
+    from rra.application.usecases.outline import OutlineSections
+    from rra.composition import build_clarifier, build_outliner
+    from tests.fakes import FakeLLM
+
+    settings = Settings(_env_file=None, config_dir=ROOT_CONFIG)
+    assert isinstance(build_clarifier(settings, llm=FakeLLM()), ClarifyInput)
+    outliner = build_outliner(settings, llm=FakeLLM())
+    assert isinstance(outliner, OutlineSections) and "method" in outliner.section_keys

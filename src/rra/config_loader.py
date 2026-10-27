@@ -186,6 +186,16 @@ def review_policy(settings: Settings) -> dict[str, Any]:
     }
 
 
+def section_checklists(settings: Settings) -> dict[str, list[str]]:
+    """Q5 config/templates/section_checklists.yaml → {섹션: [필수 요소]} (없으면 빈 dict)."""
+    cfg = read_config("templates/section_checklists.yaml", settings)
+    out: dict[str, list[str]] = {}
+    for key, items in (cfg or {}).items():
+        if isinstance(items, list):
+            out[str(key)] = [str(x) for x in items if isinstance(x, str) and x.strip()]
+    return out
+
+
 def pipeline_config(settings: Settings):
     """config/pipeline.yaml → PipelineConfig (파일이 없으면 기본값). 모르는 키는 오류."""
     from rra.domain.models import PipelineConfig

@@ -161,6 +161,20 @@ class FileRunStore:
     def list_versions(self, user: str, run_id: str) -> list[int]:
         return self._numbers(self._run_dir(user, run_id) / "versions", "draft_v")
 
+    def save_outline(self, user: str, run_id: str, data: dict[str, Any]) -> None:
+        write_json(self._run_dir(user, run_id) / "outline.json", data)
+
+    def load_outline(self, user: str, run_id: str) -> dict[str, Any] | None:
+        path = self._run_dir(user, run_id) / "outline.json"
+        return read_json(path) if path.is_file() else None
+
+    def save_candidates(self, user: str, run_id: str, data: dict[str, Any]) -> None:
+        write_json(self._run_dir(user, run_id) / "candidates.json", data)
+
+    def load_candidates(self, user: str, run_id: str) -> dict[str, Any] | None:
+        path = self._run_dir(user, run_id) / "candidates.json"
+        return read_json(path) if path.is_file() else None
+
     def save_working(self, user: str, run_id: str, data: dict[str, Any]) -> None:
         write_json(self._run_dir(user, run_id) / "draft_working.json", data)
 

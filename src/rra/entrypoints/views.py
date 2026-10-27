@@ -140,6 +140,13 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
         "applied_ids": list(getattr(review, "applied_ids", []) or []),
         "applied_version": getattr(review, "applied_version", None),
         "score_delta": dict(getattr(review, "score_delta", {}) or {}),
+        # Q7 후보 선택 {섹션: {choice, reason, rejected, rejected_text}} / Q5 필수 요소 충족
+        "candidate_choices": {
+            k: {kk: clean(str(vv)) for kk, vv in v.items()}
+            for k, v in (getattr(review, "candidate_choices", {}) or {}).items()
+        },
+        "checklist": {k: dict(v) for k, v in (getattr(review, "checklist", {}) or {}).items()},
+        "checklist_coverage": getattr(review, "checklist_coverage", None),
         "status": review.status,
         "skipped_reason": review.skipped_reason,
         "created_at": review.created_at,
@@ -170,6 +177,8 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
                 "section": c.section,
                 "sentence": c.sentence,
                 "sentence_id": f"s:{c.section}:{c.sentence}" if c.sentence is not None else None,
+                "kind": getattr(c, "kind", "revision"),  # revision / addition(Q5 추가 문장)
+                "after": getattr(c, "after", None),
                 "issue_type": c.issue_type,
                 "comment": clean(c.comment),
                 "revised_text": clean(c.revised_text) if c.revised_text else None,

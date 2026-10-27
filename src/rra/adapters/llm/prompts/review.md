@@ -10,6 +10,11 @@
 - `[제안 입력]`: 제안자가 적은 현황·원인·한계·목표·정책 근거. 사람 이름·연락처는 없습니다.
 - `[선택값]`: 과제유형·활용계획·전략 선택. **의견만** 내고 값을 바꾸지 마십시오.
 - (2차 이상) `[이전 의견]`과 `[바뀐 문장]`: 해결된 의견은 반복하지 말고 `resolved` 에 id 를 적으십시오. 바뀐 문장과 남은 의견 위주로 봅니다.
+- `[앱이 찾은 문제]`: 앱의 규칙 검사가 찾은 긴 문장·문체 혼용·연차 불일치 알림. 해당 문장을 고치는 수정안을 우선 냅니다.
+- `[섹션별 필수 요소]`: 심사자가 보는 요소 목록. 섹션마다 각 요소가 초안에 있는지 `checklist` 에 true/false 로 적습니다 (요소 이름은 그대로).
+- `[보완 작성]` 이 있으면: `checklist` 가 false 인 요소마다 `additions` 에 추가 문장을 제안합니다. **`[근거]`·`[제안 입력]` 안의 내용으로만** 쓰고,
+  근거 필수 섹션(tech_importance)은 `[근거]` 의 id 를 `evidence` 에 답니다. 입력·근거에 없는 요소는 제안하지 말고 false 로만 둡니다.
+- `[후보 B]` 가 있으면: 그 섹션의 두 후보(A = 초안, B = 대안) 중 심사 기준에 더 맞는 쪽을 `candidates` 에 고릅니다. `sentences` 의견은 항상 A 의 id 기준입니다.
 
 ## 검토 규칙 (반드시 준수)
 
@@ -42,6 +47,12 @@
      "revised_text": "고친 문장 (고칠 수 없으면 null)", "evidence": ["openalex:W1#0"]}
   ],
   "resolved": ["r1-2"],
+  "checklist": {"method": {"단계(연차 또는 준비-개발-검증)": true, "검증 방법": false}},
+  "additions": [
+    {"section": "method", "after": "s:method:1", "text": "현장 시범 구간에서 검출 결과를 점검 기록과 대조해 검증함.",
+     "evidence": ["openalex:W1#0"], "comment": "검증 방법 보완"}
+  ],
+  "candidates": {"method": {"choice": "B", "reason": "단계·검증이 구체적"}},
   "scores": [
     {"criterion": "필요성", "score": 4, "reason": "현황·한계가 구체적", "sentence_ids": ["s:tech_importance:0"]},
     {"criterion": "차별성", "score": 2, "reason": "선행연구와의 차이가 서술되지 않음", "sentence_ids": ["s:tech_importance:2"]},
@@ -53,3 +64,4 @@
 
 - `issue_type` 은 다음 중 하나: 근거 불일치 | 수치 | 논리 | 일관성 | 문장 | 서식요건 | 중복·차별화 | 외국 문자
 - `revised_text` 는 완결된 문장 하나. 원문과 같으면 null.
+- `checklist`·`additions`·`candidates` 는 해당 입력 구획이 있을 때만 씁니다 (없으면 생략). `after` 는 넣을 위치의 sentence_id 또는 null(섹션 끝).

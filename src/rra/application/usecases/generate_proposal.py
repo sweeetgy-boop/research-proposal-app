@@ -30,7 +30,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from rra.application.ports import DocumentRepository, LLMPort, PromptLibraryPort
 from rra.domain.models import (
@@ -44,6 +44,7 @@ from rra.domain.models import (
     Sentence,
     StrategyCatalog,
 )
+from rra.domain.models.outline import Outline
 from rra.domain.models.selection import (
     STRATEGY_SOURCE,
     TASK_TYPES,
@@ -51,6 +52,8 @@ from rra.domain.models.selection import (
     UTILIZATION,
     UTILIZATION_SOURCE,
 )
+from rra.domain.rules import style
+from rra.domain.rules.exemplars import exemplar_ids, pick_exemplars
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.lint import (
@@ -75,7 +78,8 @@ from rra.domain.rules.relevance import (
     balance_sources,
     filter_chunks,
 )
-from rra.domain.rules.trust import enforce_section_evidence, wrap_untrusted
+from rra.domain.rules.section_search import section_queries
+from rra.domain.rules.trust import enforce_section_evidence, escape_untrusted, wrap_untrusted
 
 OVERLAP_SECTION = "overlap_review"
 _OVERLAP_TEXT_CHARS = 1500
@@ -84,6 +88,9 @@ DIFFERENTIATION_SECTIONS = frozenset({"objective", "method", OVERLAP_SECTION})
 CHOICE_EXAMPLE = (
     '{"choices": ["예시-id"], "sentences": [{"text": "예시 문장임.", "evidence": ["doc:예시#0"]}]}'
 )
+# Q7 두 후보를 쓰는 핵심 섹션 (기술적 중요도·연구방법) — 1차 검토가 고른다
+CORE_SECTIONS = frozenset({"tech_importance", "method"})
+EXEMPLAR_DROP = "exemplar_cited"  # Q4 본보기 과제를 근거로 달거나 문장을 그대로 베낀 경우
 
 ComposeMode = Literal["llm", "skipped", "app"]
 
@@ -125,6 +132,15 @@ class GenerateProposal:
     keywords: KeywordRule | None = None  # 차단에 키워드 조건을 더한다 (None 이면 유사도만)
     # 생성 근거의 관련도 하한 (이슈 #2). None 이면 검색 결과를 그대로 근거로 쓴다
     relevance: RelevanceFloor | None = None
+    # ── [Q] 품질 단계 — config/pipeline.yaml 로 켜고 조립(composition)이 넣는다 ──
+    reranker: Any | None = None  # Q8 RerankerPort: 하이브리드 후보를 cross-encoder 로 다시 순위
+    section_search: bool = False  # Q3 섹션별 맞춤 검색 (retrieve_sections)
+    section_k: int = 8  # 섹션 질의당 고르는 청크 수
+    exemplars: bool = False  # Q4 채택 과제 본보기 (구성·문체 참고, 인용 금지)
+    exemplar_limit: int = 2
+    exemplar_exclude: frozenset[str] = frozenset()  # 본보기에서 뺄 doc_id (골든셋 정답 과제 등)
+    rule_check: bool = True  # Q6 규칙 검사·자동 정리 (finalize, Argon 전)
+    max_sentence_chars: int = style.DEFAULT_MAX_SENTENCE_CHARS
 
     @property
     def template(self) -> str | None:
@@ -151,19 +167,59 @@ class GenerateProposal:
             dropped = {c.chunk_id: reason for c, reason in removed}
             extra, more = await self._top_up_sources(query, chunks)
             dropped.update({c.chunk_id: reason for c, reason in more})
-            chunks = balance_sources(chunks + extra, self.k, self.relevance.min_per_source)
+            pool = await self._rerank(query, chunks + extra)  # Q8: 자료원 보장 전에 다시 순위
+            chunks = balance_sources(pool, self.k, self.relevance.min_per_source)
         else:
-            chunks = chunks[: self.k]
-        if not self.check_overlap:
+            chunks = (await self._rerank(query, chunks))[: self.k]
+        if not self.check_overlap and not self.exemplars:
             snapshot = RetrievalSnapshot.of(query, chunks)
             snapshot.dropped_chunks = dropped
             return snapshot
-        hits = await self.repo.find_similar(query, k=self.overlap_k)
-        alerts = judge(hits, own=self.own, query=query, keywords=self.keywords)
-        extra = self._overlap_chunks(hits, alerts, chunks)
-        snapshot = RetrievalSnapshot.of(query, chunks + extra, alerts)
-        snapshot.uncollected = uncollected_sources(await self.repo.count_by_source())
+        hits = await self.repo.find_similar(query, k=max(self.overlap_k, self.exemplar_limit * 5))
+        if not self.check_overlap:
+            snapshot = RetrievalSnapshot.of(query, chunks)
+        else:
+            alerts = judge(
+                hits[: self.overlap_k], own=self.own, query=query, keywords=self.keywords
+            )
+            extra = self._overlap_chunks(hits, alerts, chunks)
+            snapshot = RetrievalSnapshot.of(query, chunks + extra, alerts)
+            snapshot.uncollected = uncollected_sources(await self.repo.count_by_source())
         snapshot.dropped_chunks = dropped
+        if self.exemplars:  # Q4: 유사도 순 후보에서 완료·수행 과제의 공개 요약을 본보기로
+            snapshot.exemplars = pick_exemplars(
+                hits, limit=self.exemplar_limit, exclude=self.exemplar_exclude
+            )
+        return snapshot
+
+    async def _rerank(self, query: str, chunks: list[Chunk]) -> list[Chunk]:
+        if self.reranker is None or not chunks:
+            return chunks
+        return list(await self.reranker.rerank(query, chunks))
+
+    async def retrieve_sections(
+        self, req: ProposalRequest, snapshot: RetrievalSnapshot, outline: Outline | None = None
+    ) -> RetrievalSnapshot:
+        """Q3 섹션별 맞춤 검색 — 섹션 질의(입력 칸 + 설계도 메시지)로 다시 검색해 섹션이 쓸 청크를
+        고른다. 새 청크는 스냅샷에 더해 근거 대조 집합에도 들어간다. 같은 관련도 하한·reranker."""
+        if not self.section_search:
+            return snapshot
+        queries = section_queries(req, self.section_keys, outline)
+        have = {c.chunk_id for c in snapshot.chunks}
+        multiplier = self.relevance.search_multiplier if self.relevance else 1
+        for key, query in queries.items():
+            found = list(await self.repo.hybrid_search([query], k=self.section_k * multiplier))
+            if self.relevance is not None:
+                found, _ = filter_chunks(
+                    found, query, self.relevance, self.keywords or KeywordRule()
+                )
+            picked = (await self._rerank(query, found))[: self.section_k]
+            for c in picked:
+                if c.chunk_id not in have:
+                    have.add(c.chunk_id)
+                    snapshot.chunks.append(c)
+            if picked:
+                snapshot.section_chunks[key] = [c.chunk_id for c in picked]
         return snapshot
 
     async def _top_up_sources(
@@ -235,8 +291,16 @@ class GenerateProposal:
 
     # ── compose ──────────────────────────────────────────
     async def compose_section(
-        self, key: str, req: ProposalRequest, snapshot: RetrievalSnapshot
+        self,
+        key: str,
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot,
+        *,
+        outline: Outline | None = None,
+        candidate: Section | None = None,
     ) -> ComposedSection:
+        """섹션 1개. outline(Q2)은 그 섹션 설계와 전체 요약을, candidate(Q7)는 이미 쓴 후보 A 를
+        주고 다른 구성의 후보 B 를 쓰게 한다. 본보기(Q4)는 스냅샷에 있으면 넣는다."""
         options = self.choice_options()
         if key in skipped_sections(req, self.rules, options) or key in self.evidence_skipped(
             snapshot
@@ -252,7 +316,15 @@ class GenerateProposal:
         system = self.prompts.system()
         instruction = self.prompts.section(key)
         spec = self.rules.choices.get(key)
-        prompt = self._prompt(key, instruction, req, snapshot, options.get(key) if spec else None)
+        prompt = self._prompt(
+            key,
+            instruction,
+            req,
+            snapshot,
+            options.get(key) if spec else None,
+            outline=outline,
+            candidate=candidate,
+        )
         raw = await self.llm.complete(prompt, system=system, json_mode=True)
         first = parsed = self._parse(key, raw, spec, options)
         retries = 0
@@ -276,6 +348,8 @@ class GenerateProposal:
         )
         section, lost = self._enforce_grounding(key, section, req)
         dropped.extend(lost)
+        section, copied = self._enforce_no_exemplar(key, section, snapshot)
+        dropped.extend(copied)
         digest = hashlib.sha256(f"{system}\x1f{instruction}".encode()).hexdigest()[:16]
         return ComposedSection(
             section=section,
@@ -301,11 +375,38 @@ class GenerateProposal:
         req: ProposalRequest,
         snapshot: RetrievalSnapshot,
         options: dict[str, str] | None,
+        *,
+        outline: Outline | None = None,
+        candidate: Section | None = None,
     ) -> str:
         parts = [
             f"[섹션: {key}]\n{instruction}",
             f"[제안 입력]\n{json.dumps(req.prompt_view(), ensure_ascii=False)}",
         ]
+        if outline is not None:  # Q2 설계도 — 앱이 검증한 값(근거 id 는 검색 집합 안)
+            plan = outline.plan(key)
+            if plan is not None:
+                parts.append(
+                    f"[이 섹션의 설계 — 핵심 메시지를 따라 쓴다]\n{plan.message}\n"
+                    f"우선 근거: {', '.join(plan.evidence) or '(지정 없음)'}\n"
+                    f"연결 섹션: {', '.join(plan.links) or '(없음)'}"
+                )
+            summary = outline.summary_text()
+            if summary:
+                parts.append(f"[전체 설계 요약 — 섹션 간 일관성 유지]\n{summary[:1200]}")
+        exemplar_rows = self._exemplar_rows(key, snapshot)
+        if exemplar_rows:  # Q4 본보기 — 구성·문체만. doc id 는 주지 않는다 (근거로 못 달게)
+            parts.append(
+                "[본보기 — 채택된 과제의 같은 항목 문장. 구성·문체·분량만 참고하고 내용·수치·"
+                "고유명은 절대 가져오지 않는다. 근거(evidence)로 쓰지 않는다]\n" + exemplar_rows
+            )
+        if candidate is not None:  # Q7 후보 B
+            listed = "\n".join(f"- {s.text}" for s in candidate.sentences)
+            parts.append(
+                "[후보 B 작성] 이 섹션의 두 번째 후보를 쓴다. 아래 후보 A 와 다른 전개 순서·다른 "
+                "근거 우선으로 쓰고, A 의 문장을 되풀이하지 않는다. 같은 형식으로 출력한다.\n"
+                f"후보 A:\n{listed}"
+            )
         # 선택지·판정표는 앱이 만든 값이다 (비신뢰 구획 밖). 문서 제목은 넣지 않는다.
         if options is not None:
             listed = "\n".join(f"- {oid}: {label}" for oid, label in options.items())
@@ -335,8 +436,44 @@ class GenerateProposal:
                 "[자료]\n(없음 — 이 섹션은 제안자 입력만 근거로 쓴다. evidence 는 빈 배열)"
             )
         else:
-            parts.append(f"[자료]\n{wrap_untrusted(snapshot.chunks)}")
+            parts.append(f"[자료]\n{wrap_untrusted(snapshot.chunks_for(key))}")
         return "\n\n".join(parts)
+
+    @staticmethod
+    def _exemplar_rows(key: str, snapshot: RetrievalSnapshot) -> str:
+        rows: list[str] = []
+        for i, ex in enumerate(snapshot.exemplars, 1):
+            sections = ex.get("sections") if isinstance(ex, dict) else None
+            texts = (sections or {}).get(key) if isinstance(sections, dict) else None
+            for t in texts or []:
+                if isinstance(t, str) and t.strip():
+                    rows.append(f"- (본보기 {i}) {escape_untrusted(t)}")
+        return "\n".join(rows)
+
+    def _enforce_no_exemplar(
+        self, key: str, section: Section, snapshot: RetrievalSnapshot
+    ) -> tuple[Section, list[str]]:
+        """Q4 인용 금지 검증 — 본보기 과제 id 를 근거로 달았거나 본보기 문장을 그대로 쓴 문장은
+        폐기."""
+        if not snapshot.exemplars:
+            return section, []
+        banned = exemplar_ids(snapshot.exemplars)
+        copied = {
+            _norm_text(t)
+            for ex in snapshot.exemplars
+            for texts in (ex.get("sections") or {}).values()
+            for t in texts
+            if isinstance(t, str)
+        }
+        kept: list[Sentence] = []
+        dropped: list[str] = []
+        for s in section.sentences:
+            cites = any(e.split("#", 1)[0] in banned for e in s.evidence)
+            if cites or _norm_text(s.text) in copied:
+                dropped.append(f"{key}: {EXEMPLAR_DROP} → 폐기: {s.text[:40]}")
+                continue
+            kept.append(s)
+        return section.model_copy(update={"sentences": kept}), dropped
 
     def _enforce_grounding(
         self, key: str, section: Section, req: ProposalRequest
@@ -370,6 +507,24 @@ class GenerateProposal:
         snapshot: RetrievalSnapshot,
         sections: list[Section],
     ) -> tuple[Draft, list[LintProblem]]:
+        """규칙 검사(Q6: 어미 통일·완전 중복 제거는 고치고, 긴 문장·문체 혼용·연차 불일치는 경고)
+        + lint. 돌려주는 Draft 의 sections 가 정리된 문장이다 (호출자는 이것을 저장한다)."""
+        findings: list[LintProblem] = []
+        if self.rule_check:
+            result = style.check_sections(
+                sections, constraints=req.constraints, max_chars=self.max_sentence_chars
+            )
+            sections = result.sections
+            findings = [
+                LintProblem(
+                    section=f.section,
+                    code=f.code,
+                    message=f.message,
+                    severity="warning",
+                    sentence=f.sentence,
+                )
+                for f in result.findings
+            ]
         draft = Draft(
             run_id=run_id,
             request=req,
@@ -385,10 +540,10 @@ class GenerateProposal:
             chunk_texts=chunk_texts,
             evidence_skipped=self.evidence_skipped(snapshot),
         )
-        return draft, problems
+        return draft, [*problems, *findings]
 
     async def __call__(self, req: ProposalRequest) -> Draft:
-        snapshot = await self.retrieve(req)
+        snapshot = await self.retrieve_sections(req, await self.retrieve(req))
         sections: list[Section] = []
         dropped: list[str] = []
         for key in self.section_keys:
@@ -399,3 +554,7 @@ class GenerateProposal:
         if has_errors(problems):
             raise DraftInvalid(problems, dropped)
         return draft
+
+
+def _norm_text(text: str) -> str:
+    return "".join(ch for ch in text if not ch.isspace() and ch not in ".。,")

@@ -157,6 +157,8 @@ def intake_form() -> None:
     ss["rra_request"] = req
     ss["rra_intake"] = worker.call(assistant.intake(req))
     ss["rra_run_id"] = None
+    ss.pop("rra_clarify", None)
+    ss.pop("rra_clarify_done", None)
     ss["rra_diff"] = ss["rra_intake"].differentiation  # 차단 알림이면 자동 제안, 아니면 None
 
 
@@ -330,10 +332,36 @@ def recommendation_panel() -> None:
             st.success("확정했습니다. 초안의 과제명·목적·방법·특이사항에 반영됩니다.")
 
 
-# ── 3. [초안 생성] → 진행 → 초안 ─────────────────────────
+# ── 3. (보강 질문) → [초안 생성] → 진행 → 초안 ─────────────
+def clarify_panel() -> None:
+    """Q1 입력 보강 질문 — 질문이 있으면 답하거나 건너뛴다. 답은 보충 정보로 초안에 들어간다."""
+    if assistant.clarify_usecase is None or ss.get("rra_clarify_done"):
+        return
+    if "rra_clarify" not in ss:
+        ss["rra_clarify"] = worker.call(assistant.clarify(ss["rra_request"]))
+    questions = ss["rra_clarify"]
+    if not questions:
+        ss["rra_clarify_done"] = True
+        return
+    st.markdown("**입력 보강 질문** — 답하면 초안이 더 구체적입니다. 건너뛸 수 있습니다.")
+    answers: dict[str, str] = {}
+    for i, q in enumerate(questions):
+        answers[q] = st.text_area(plain(q), key=f"clarify_{i}", max_chars=SLOT_MAX, height=70)
+    c1, c2 = st.columns(2)
+    if c1.button("답 반영", key="clarify_apply"):
+        ss["rra_request"] = assistant.apply_clarification(ss["rra_request"], answers)
+        ss["rra_clarify_done"] = True
+        st.rerun()
+    if c2.button("건너뛰기", key="clarify_skip"):
+        ss["rra_clarify_done"] = True
+        st.rerun()
+
+
 def generate_button(acknowledged: bool) -> None:
     res = ss["rra_intake"]
-    can = policy.may_generate(res.alerts, acknowledged=acknowledged)
+    clarify_panel()
+    pending = assistant.clarify_usecase is not None and not ss.get("rra_clarify_done")
+    can = policy.may_generate(res.alerts, acknowledged=acknowledged) and not pending
     if not st.button("초안 생성", key="generate_btn", type="primary", disabled=not can):
         return
     try:
@@ -602,6 +630,17 @@ def review_panel(view) -> None:
                 f"v{payload['applied_version']} 에 "
                 "자동 반영했습니다 (Argon 보완). 나머지 의견은 문장 메모로 남았습니다."
             )
+        if payload["candidate_choices"]:  # Q7
+            for key, pick in payload["candidate_choices"].items():
+                st.caption(
+                    f"후보 선택 {section_title(key, assistant.rules.titles)}: "
+                    f"{pick.get('choice')} — {pick.get('reason') or ''}"
+                )
+                if pick.get("rejected_text"):
+                    with st.expander(f"다른 후보 보기 ({pick.get('rejected')})"):
+                        st.markdown(plain(pick["rejected_text"]))
+        if payload["checklist_coverage"] is not None:  # Q5
+            st.caption(f"필수 요소 충족률 {payload['checklist_coverage']:.0%}")
         if payload["score_delta"]:
             st.caption(
                 "1차 대비 변화: "
@@ -630,6 +669,8 @@ def review_panel(view) -> None:
         for c in payload["comments"]:
             where = c["sentence_id"] or c["section"]
             mark = "수정안" if c["usable"] else ("폐기" if c["status"] == "discarded" else "의견")
+            if c.get("kind") == "addition":
+                mark = "추가 문장" if c["usable"] else "추가 문장(폐기)"
             st.markdown(
                 f"**{c['id']}** [{c['issue_type']}] {where} — {mark}: {plain(c['comment'])}"
             )

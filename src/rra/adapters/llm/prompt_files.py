@@ -14,6 +14,8 @@ PROMPT_PACKAGE = "rra.adapters.llm.prompts"
 REVIEW_NAME = "review"
 DIFFERENTIATE_NAME = "differentiate"
 RECOMMEND_NAME = "recommend"
+OUTLINE_NAME = "outline"
+CLARIFY_NAME = "clarify"
 SYSTEM_NAME = "system"
 JSON_FALLBACK_NAME = "json_fallback"
 SECTION_PREFIX = "section_"
@@ -63,6 +65,12 @@ class FilePromptLibrary:
 
     def recommend(self) -> str:
         return self._read(RECOMMEND_NAME)
+
+    def outline(self) -> str:
+        return self._read(OUTLINE_NAME)
+
+    def clarify(self) -> str:
+        return self._read(CLARIFY_NAME)
 
     # ── 부가 ───────────────────────────────────────────────
     def json_fallback(self) -> str:

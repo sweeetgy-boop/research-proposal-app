@@ -11,6 +11,7 @@ from .gap import (
     OverlapAlert,
     Tier,
 )
+from .outline import Outline, SectionPlan
 from .pipeline import PipelineConfig
 from .proposer import Person, ProposerInfo
 from .recommendation import (
@@ -53,6 +54,8 @@ __all__ = [
     "Budget",
     "Confirmation",
     "Annotation",
+    "Outline",
+    "SectionPlan",
     "PipelineConfig",
     "CriterionScore",
     "DraftVersion",
