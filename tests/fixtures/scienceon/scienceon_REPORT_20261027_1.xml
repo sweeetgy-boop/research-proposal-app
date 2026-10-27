@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaData>
+	<resultSummary>
+		<TotalCount>370</TotalCount>
+		<serviceDatatype>보고서</serviceDatatype>
+		<statusCode>200</statusCode>
+	</resultSummary>
+	<parameterData>
+		<client_id>REDACTED</client_id>
+		<token>REDACTED</token>
+		<session_id></session_id>
+		<searchQuery><![CDATA[{"BI": "철도 궤도"}]]></searchQuery>
+		<sortField></sortField>
+		<sortBy></sortBy>
+		<curPage>1</curPage>
+		<rowCount>10</rowCount>
+	</parameterData>
+	<recordList>
+		<record rownum="1">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO201900002138]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[대원대학교]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20190400]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2019]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[철도교량 단부 콘크리트궤도 사용성 검토 설계기법 및 프로그램 개발]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[철도교량 단부 콘크리트궤도에서는 정‧동적 작용력으로 인해 단부회전 및 단차가 발생하고 레일체결장치에 상향력 및 압축력이 발생하여 사용성 검토해야 함. 본 연구에서는 상향력 및 압축력에 영향을 주는 인자들 중 레일체결장치의 비선형 거동에 대한 검토를 수행하여 기존 철도설계지침(KR C-08090)의 레일체결장치 강성 적용방법을 보완하여 제시하였으며, 기존 철도교량 단부 콘크리트궤도 설계기법(단위하중법)을 단순화하고 설계오류를 최소화할 수 있는 설계기법(비선형해석법)을 제시하고 검증하였음. 또한, 철도교량 단부 콘크리트궤도 사용성 검토를 일괄적으로 수행하고, 중간 검토결과를 확인할 수 있는 Matlab기반의 알고리즘을 개발하여 검증하였고, 이를 바탕으로 GUI기반의 전용해석프로그램을 개발함.    (출처 : 요약서 3p)]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[252]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO201900002138]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201900002138]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201900002138&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[철도교량단부;콘크리트궤도;사용성;설계기법;소프트웨어;]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[Deck end of railway bridge;Concrete track;Serviceability;Design method;Software;]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1615009804]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[EI]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[국토교통부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[군산대학교,(주)글로텍]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[국토교통과학기술진흥원]]></item>
+		</record>
+		<record rownum="2">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO201400021676]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[(주)세명전기]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20140600]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2014]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[철도궤도용 통합 튜닝유니트 개발]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[Ⅲ. 과제개발내역  1. 개발목표  가. 개발 대상 개요 및 개발 필요성  ❍ 개발 대상 기술은 철도 궤도 회로용 임피던스 본드는 레일을 회로의 일부로 사용하여 선로와 함께 전기 회로를 구성하고 선로가 전동차 차축에 의해 레일양단을 단락여부로 전기 신호의 수신 여부로 열차가 선로를 점유했는지를 감지할 수 있도록 하는 궤도 회로용 장비임.  ❍ 이를 이용하여 신호기, 선로전환기, 연동장치 등 철도 신호 설비를 제어하여 열차들 간의 간격, 열차의 속도, 진행방향 등의 운행정보를 알 수 있어 열차의 안전 운행에 반드시 필요한 장치임.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[37]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO201400021676]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201400021676]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201400021676&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1425081495]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[EA]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[중소기업청]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[대구대학교]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[한국산학연협회]]></item>
+		</record>
+		<record rownum="3">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO201500000652]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[서울과학기술대학교 산학협력단]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20141000]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2014]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[콘크리트궤도가 부설된 철도교량상 장대레일 축력저감 및 단부 사용성 확보를 위한 한국형 횡단궤도시스템 개발]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구에서 연구한 횡단궤도시스템은 철도교량상 단부 궤도의 사용성 확보를 위해 교량 단부 궤도에 설치되는 신형식 궤도구조로써 철도교량상 궤도-교량 상호작용력(단부 부상력, 압축력)에 대한 궤도구성품의 안전성, 사용성 및 열차 주행안정성을 확보하기 위해 개발되었다. 저부에 포트받침을 설치하여 교량상판과 궤도구조를 구조적으로 분리시키는 시스템으로써 교량-궤도 상호작용력 저감에 매우 유리한 시스템으로 설계속도 및 대상교량의 경간장, 신축량 등에 따라 적절한 시스템 설계가 가능하여 모든 교량구간에 적용이 가능함을 실험 및 해석적으로 검증하였다. 또한 본 연구에서는 횡단궤도시스템의 주요특징을 서술하고 성능검증의 범위 및 방법을 제시하였으며 시스템 설계, 구조안정성 및 단부 궤도-교량 상호작용력 저감을 위한 횡단궤도시스템의 적용 효과를 분석하였고 현장시험시공이 가능하도록 호남고속철도 교량상 궤도표준도를 바탕으로 실시설계에 준하는 시스템 설계를 실시하여 횡단궤도시스템의 구성요소 설계결과와 조립성능시험결과를 비롯하여 시공 및 유지보수방안, 시스템 인터페이스 검토 등 종합결과를 제시하여 향후 현장시험시공을 위해 횡단궤도시스템의 구조적 성능 및 장기내구성능을 확인함으로써 철도시설로써의 시스템의 성능 및 적정성을 검증하였다.]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[The components of concrete track(rail and rail fastening system) in a railway bridge deck ends have been damaged and deteriorated by a track-bridge interaction force such as an uplift force and compression force owing to their structural flexural characteristics(bridge end rotation), calling for alternatives to improve the structural safety and serviceability. Transition tracks are an alternative for enhancing the long-term serviceability and durability of concrete track components in railway bridges. In this study, by considering the rail supporting distance and the distance between the bridge and the abutment, the behavior of concrete track installed on a railway bridge end deck and the bridge end rotation were analyzed. In order to analyze the track-bridge interaction, bridge and abutment specimens with concrete track structures were designed and used in laboratory testing and computer analysis. Further, the influence of bridge end rotation and rail supporting distance on the bridge deck ends of a concrete track on uplift forces currently employed in high-speed lines was assessed by performing field measurement data and the proposed prediction equation using actual vehicles running along the service line. As the results, at a constant fastening support distance, an increase in the bridge end rotation caused an increase in the displacement of the rail. Therefore, the displacement of the rail directly affects the rail and clip stress. Further, it is inferred that the results of multiple regression analysis obtained using measured data such as bridge end rotation, clip stress, and rail displacement can be used to predict the uplift force acting on concrete tracks in bridge deck ends by considering rail supporting distance, and the prediction equation should be of practical use for track maintenance. According to the change of the rail supporting distance, the empirical uplift force determined using finite element analysis and track-bridge interaction test was compared with the predicted uplift force using the dynamic bridge end rotation measured through field measurements. The study performed a comparison between theoretical (numerical) and experimental results, and the results contributed toward the development of simple prediction and evaluation methods for the maintenance of the in-serviced railway bridge deck ends. In the case that the clip stress, and track and bridge properties are known, the uplift force could be predicted using the proposed prediction equation and bridge end rotation, which can be measured through a relatively simple field test. In this study, to develop transition track to enhance the long term workability and durability of concrete track components in a railway bridge deck ends so as to improve the performance of concrete track. Therefore, a time-history analysis and a three-dimensional finite element method analysis were performed to consider the train speed and the effect of multiple loads of train and compared with the performance requirement and German standard for transition track. Also, two specimens with a normal concrete track and a transition track were fabricated to evaluate the effects of the application of the developed transition track, and static tests were conducted. From the results, the track-bridge interaction force acted on the track components (rail displacement, rail stress and clip stress) of the railway bridge deck end with the developed transition track were significantly reduced, compared with the specimen of non-transition track. In this study, the structural behavior of transition track such as the variation in static and dynamic displacements and dynamic properties (acceleration, natural freqeuncy and damping ratio) was assessed and compared by performing loading test and finite element analysis using actual vehicle impact loading. As a result, the analytical results reproduced the experimental results well within about 2-5% difference in the values. Further, we found that the static and dynamic behavior of transition track system is expected to satisfied the actual vehicle impact loading, and therefore it is inferred that the structural capacity of transition track system is proved. It is found that the structural behavior of the transition track system is expected to satisfy the actual vehicle impact loading, and the variation in the neutral axis and dynamic characteristics are not affected by the fatigue loading. Therefore, it is inferred that the structural capacity and long-term durability of the transition track system is proven.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[199]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO201500000652]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201500000652]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201500000652&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[철도교량 단부,궤도-교량 상호작용력,횡단궤도시스템,부상력,압축력]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[Railway bridge deck end,Track-bridge interaction forces,Transition track system,Uplift force,Compression force]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1615006701]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[국토교통부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[한국철도시설공단]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[국토교통과학기술진흥원]]></item>
+		</record>
+		<record rownum="4">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO202300028963]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[에스코알티에스]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20231000]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2023]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[일반철도 자갈궤도 급속개량을 위한 사전제작형 콘크리트궤도 기술 사업화]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[Conventional Railway Ballast Track for Fast Improvement Precast Concrete Slab Track of Technology Commercialization]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[연구개발 목표 및 내용  최종 목표  일반철도 교량/터널 자갈궤도의 급속개량 가능한 콘크리트궤도 기술 개발 및 사업화 추진  전체 내용  일반철도 교량, 터널에 부설된 노후 자갈궤도를 열차운행 지장없이 콘크리트궤도로 급속개량 가능한 궤도 기술 및 시공장비 개발    1단계  목표  교량/터널용 급속개량궤도 상세설계 및 시험부설 및 모니터링, 터널 급속시공 전용장비 개발/제작 및 형식승인  내용  ○ 일반철도 교량용 자갈궤도 급속개량 콘크리트궤도 기술 개발  - 일반철도 교량용 궤도시스템 상세설계  - 구조물 접속구간 상호작용 검토 및 설계  - 궤도받침 설계 및 성능검증  - 기존패널 및 STM장비 고도화, 곡선용 몰드 개발  - 국가철도공단 ‘철도시설성능검증’ 절차 추진  (3단계 : 설계적합성, 조립시험, 현장시험부설)  - 시험부설 궤도 주행안전성 현장계측 및 분석, 규격제정  - 국가철도공단 ‘철도시설성능검증’ 절차 진행 및 인증  ○ 일반철도 터널용 자갈궤도 급속개량 콘크리트궤도 기술 개발  - 일반철도 터널용 궤도시스템 기본설계  - 구조물 접속구간 상호작용 검토 및 설계  - 패널-구조물간 상호작용 검토 및 설계  - 터널용 신규패널 설계 및 제작  - 시제품 제작 및 성능시험  - 일반철도 터널용 급속개량 궤도시스템 상세설계  - 국가철도공단‘철도시설성능검증’인증을 위한 운행선 시험부설  ○ 운행선 급속 시공 전용장비 및 공법 개발  - 급속 경화 모르터 재료 설계  - 급속 경화 모르터 타설장비 설계  - 급속개량 궤도 시공공법 기술 도출 및 정립  - 급속 경화 모르터 개발 및 강도시험  - 급속 경화 모르터 타설장비 시제품 제작  - 철도안전법‘특수작업차’형식승인 시험 및 인증  - 운행선 시험부설을 통한 적용성 검증  ○ 궤도시스템 철도시설성능검증 추진  - 교량/터널 운행선 시험부설 Test-bed 후보지 조사 및 선정  - 철도시설성능검증 위원회 신청 및 보고서 작성  -‘교량용 급속개량 궤도’국가철도공단‘철도시설성능검증’진행 및 인증  -‘터널용 급속개량 궤도’국가철도공단‘철도시설성능검증’절차 진행 (설계적합성, 조립시험)    2단계  목표  터널용 궤도시스템 모니터링 및 성능인증, 교량용 궤도시스템 규격제정 및 기술계약 체결  내용  ○ 터널용 궤도시스템 국가철도공단‘철도시설성능검증’인증  - 시험부설 궤도 주행안전성 현장계측 및 분석, 성능인증  ○ 개발품 규격서 제정  - 교량용/터널용 궤도시스템 국가철도공단 철도규격서 제정  ○ 개발품 사업화  - 일반철도 교량구간 노후 자갈궤도 개량사업 설계반영 및 사업화  [연차별 연구개발 로드맵]    연구개발성과   현장시험부설 1건, 특허5건, 신규채용 2건, 논문 1건    연구개발성과 활용방안 및 기대효과  [연구성과 활용방안]  ○ 본 연구에서 개발하는 일반선 교량/터널용 사전제작형 궤도시스템과 급속시공 전용장비를 이용한 급속시공 공법 기술이 수요처 요구사항(국가철도공단 철도성능검증 인증, 차단시간 4시간 내 20m이상 시공)을 만족할 수 있도록 다음 4단계로 최종목표를 달성하여 ‘23년부터 개발기술의 사업화를 추진하겠음  ○ 수요처인 코레일에서는 노후 자갈궤도의 개량(자갈 → 콘크리트)을 통해 주요선구의 궤도 안전성을 확보하고, 운행중 발생되는 미세먼지를 저감하여 철도고객의 편의성과 유지관리 효율성을 제고하고자 작업여건이 열악한 일반철도 터널 및 교량구간이 포함된 노후된 자갈궤도를 개량하고자 철도시설 중장기 개량사업 투자계획을 수립하여 연차적으로 도상개량 사업을 계속 추진중에 있음  ○ 철도시설 중장기 개량사업을 추진함에 있어 기존 기술의 시간적인 제약 및 시공비 고가로 사업추진에 어려움을 겪고 있는 실정으로, 본 기술 적용 시 공사기간 단축 및 비용절감이 가능할 것으로 예상되어 코레일에서는 구매계획서를 제출, 연구개발 성공 시 즉시 개량사업 설계에 반영하여 본 연구개발 성과를 사업에 반영할 계획임  ○ 또한 국내 도시철도 운영기관, 국외 철도운영기관 노후 자갈궤도 개량 구간에 개발기술 적용이 가능함에 따라 사업화 확대를 위해 적극적인 기술홍보 및 설명회를 추진하고, 향후 추가 사업에 본 연구개발 성과를 활용할 계획임  ○ 아울러, 2026년 경부고속철도 1단계 구간(광명~동대구)의 노후 자갈궤도의 급속개량을 위한 국토부 현안사항 해결에 본 연구의 개발품을 적용 및 고도화함으로서 개발기간 단축 및 비용절감 등 고속선 자갈궤도 개량 장기개발계획 실현의 기반기술로 활용 가능함  [기대효과]  ○ 기술적 측면  - 세계최초 열차운행 지장없이 운행선에서 사전제작형 슬래브패널과 시공 전용장비를 이용하여 차단시간(4h) 내 20m 이상 급속시공 가능한 궤도기술력을 확보함으로써 국내 궤도분야 기술 경쟁력을 세계적 최고수준으로 향상  - 신규 궤도시스템 설계 및 시공 등 핵심기술 개발을 통한 중소기업 기술력 향상  - 궤도분야의 우수한 전문인력 양성으로 궤도 시공 및 설계분야 기술 수준 향상  - 도시철도에서 일반철도까지 노후 자갈궤도의 급속개량 핵심기술력 확보로 향후 경부 고속철도 개량 기반 확보  ○ 경제, 산업적 측면  - 기존선 노후 자갈궤도의 콘크리트궤도 급속개량으로 공사기간 및 공사비 절감   ⦁기존 개량기술 대비 시공속도 2배 향상, 공사비 최대 20% 절감 가능  ⦁코레일 중장기 계획에 따라 ’23~25‘년 기준 일반철도 터널/교량 구간 17km 개량 적용시 약 816억 수익 발생, 약 1,112명 고용창출 가능(직접+간접)  - 세계 최초 우수기술의 국외 철도 시장 진출을 통한 철도인프라 산업 신규시장 확보  - 궤도유지보수 생력화를 통한 유지보수 비용 절감(자갈궤도 대비 80% 저감)  ○ 사회적 측면  - 기존선 급속시공 기술 개발로 신속한 궤도개량 및 유지보수를 통한 양호한 궤도상태 관리가 가능하며, 철도차량 운행의 주행안전성 및 승차감 확보로 철도 이용 고객만족도 향상 가능  - 철도 미세먼지 발생원인 자갈궤도를 콘크리트궤도로 신속한 개량 추진으로 국민의 건강과 쾌적환 철도환경 서비스 제공 등 철도 미세먼지 신속한 해결로 정부의“그린 뉴딜 정책기여”  - 생력화를 통한 궤도유지보수 인력의 타 유지보수 분야 충원으로 철도 시설물 관리에 대한 대국민 신뢰도 향상 기대    (출처 : 요약문 5p)]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[116]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO202300028963]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO202300028963]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO202300028963&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[일반철도;자갈궤도;급속개량;사전제작형 슬래브패널;콘크리트궤도;]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[Conventional Railway;Ballast Track;Fast Improvement;Precast Slab Panel;Concrete Track;]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1615013294]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[EI]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[국토교통부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[삼표레일웨이,한국철도공사,한국철도기술연구원,서현기술단,투트랙]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[국토교통과학기술진흥원]]></item>
+		</record>
+		<record rownum="5">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO201900000021]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[한국철도기술연구원]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20181000]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2018]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[콘크리트궤도/철도교량의 신뢰도기반 설계법 개발 및 철도 토공노반설계/선형기준 개선]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[▪ 열차하중 및 환경하중 장기현장계측을 통한 D/B 구축 ▪ 철도교 설계기준 극한한계상태 하중조합 및 하중계수 개발 ▪ 철도교 설계기준 사용한계상태 하중조합 및 하중계수 개발 ▪ 철도교 한계상태설계법(안) 개발 ▪ 철도교 한계상태 설계가이드 개발 ▪ 연속철근 콘크리트궤도 구조해석 기법 및 응력예측식 제시 ▪ 콘크리트궤도 적용 하중모델 도출 ▪ 토공노반 재료분류법 개발 ▪ 탄성계수 기반 토공노반 설계지침 개발 ▪ 속도대역별 토공접속부 설계지침 개발 ▪ 토목섬유를 이용한 토공접속부 설계기준 개발 ▪ 지반공학적 특성을 감안한 TDR 시스템 개발 ▪ 노반 강성계수 획득을 위한 하이브리드 콘 관입기술 개발 ▪ 철도차량기술 발전을 반영한 선형 기준 개선  (출처 : 요약서 5p)]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[□ Purpose & Contents ○ Reliability-based railway bridge design standard development ○ Railway roadbed design standard considering domestic environment ○ Track geometry standard considering train technology advancement  □ Results ○ Reliability-based railway bridge design standard development - Ultimate limit state load combination for railway bridge design - Serviceability limit state load combination for railway bridge design - Reliability-based railway bridge design standard development and design guide - CRCT structural analysis method and failure mode - Temperature load and train load models for concrete track  ○ Railway roadbed design standard considering domestic environment - Development of soil classfication method - Development of elastic modulus-based roadbed design standard - Development of bridge-earthwork transition structure - Development of transition structure standard for geotextile - Development of TDR system - Development of hybrid cone penetration technology  ○ Track geometry standard considering train technology advancement - Transition curve standard - Horizontal and vertical alignment minimum length - Slope standard for passenger·freight line (V ≤ 250km/h)  □ Expected Contribution ○ Development of concrete track and railway bridge design standard - Application of railway bridge load combination and load factor to design practice - Practical use of developed standard for new railway bridge construction - Reliability level check for concrete track slab by using temperature model and train load dynamic amplification factor  ○ Development of railway roadbed design standard - Design considering domestic roadbed material properties and mechanical behavior - Design of transition zone for conventional railroad speed enhancement - Reduction of abutment size and pile considering earth pressure acting on abutment  ○ Reformation of track geometry standard - Revision of railway construction regulation  (출처 : SUMMARY 7p)]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[217]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO201900000021]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201900000021]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201900000021&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[철도교 설계기준;한계상태설계;철도 토공노반;접속부;선형기준;]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[Railway bridge design code;Limit state design;Railway roadbed;Transition structure;Track geometry standard;]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1615009235]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[EI]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[국토교통부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[한국철도시설공단,배재대학교,서울과학기술대학교,경희대학교]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[국토교통과학기술진흥원]]></item>
+		</record>
+		<record rownum="6">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO201600002097]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[한국철도기술연구원]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20151200]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2015]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[고속화에 대응한 철도 아스팔트 노반 및 궤도구조 개발]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[Development of Asphalt Roadbed and Track System suited to Speed Up]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구에서는 아스팔트콘크리트를 이용한 고속 대역에 적합한 신개념 노반 및 궤도 구조를 개발하고 철도 특성을 반영한 아스팔트콘크리트 개질제 및 혼합물 개발을 최종목표로 하고 있다. 당해연도는 4차년도 연구로서 3차년도에서 개발한 철도용 아스팔트 혼합물 및 배합설계법에 대한 공인인증시험기관으로부터의 성능검증, 현장적용성 평가 및 대량 생산 공정을 확립하였고 지속적인 개발품의 성능 개선을 실시하였다. 또한 개발된 아스팔트콘크리트 궤도의 구성품에 대한 정동적 휨시험 및 피로시험을 수행하고 조립 시험으로서 경사반복재하시험 및 궤광 수평변위 저항성능 시험을 수행하였다. 주요 연구 내용을 요약하면 다음과 같다. ○ 철도용 아스팔트 혼합물 및 배합설계법 공인인증기관 성능검증 ○ 광폭 침목과 슬래브 패널에 대해 공인인증기관으로부터 EN 13250-2/5에 의거한 정동적 휨강도시험과 피로시험을 통한 성능검증 ○ 수평변위 장치용 전단앵커 공시체에 대한 전단시험 수행 ○ 아스팔트콘크리트 궤도 조립시험으로서 경사하중 반복재하시험 및 종횡방향변위 저항성 시험 수행 ○ 확률적 LCC 분석 ○ 아스팔트콘크리트 궤도 설계법 개발 ○ 아스팔트콘크리트 궤도 인터페이스 분석 및 접속부 설계]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[Ⅳ. Research Product ○ Developlment of Asphalt Concrete Track according to Track System ▪ Established mass production system of railway asphalt mixtures - New production method by improving melting system - Determination of proper mixting time and temperature - Research on optimal delivery method to asphalt plant ① Asphalt binder modifier (ARM: railway asphalt modifier) ② Inject the modifier (ARM: weigh and inject) ③ Mix the modifier with asphalt binder (5 hours at 180℃) ④ Delivery to asphalt plant  ▪ Evaluation of field construction ability - Determination of optimal thickness of asphalt concrete trackbed to ensure appropriate density - Evlaution of compacting machine to reduce surface irregularity - Calibration of non-destructive density measuring device ① Spreading asphalt mixture by a finisher ② Compaction of base layer (three courses) ③ Compaction of intermediate layer (three courses) ④ Compaction of surface layer (three courses)  ▪ Material properties of asphalt concrete mixtures - Dynamic modulus of asphalt mixture for intermediate layer - Development of a linear-viscoelstic model using dynamic modulus mastercurve - Development of a linear viscoelastic creep model using creep tests  ○ Performance evaluation of a direct fastened asphalt concrte track bed ▪ Fatigue resistance, rutting resistance - Fitigue resistance: 4-Points Bending Beam Fatigue Test - Rutting (permanent deformation) resistance: FN(Flow Number) Test  ○ Visco-elastic properties of asphalt concrete  ○ Development of a wide sleeper for asphalt concrete trackbed ▪ Optimization - Optimization of a wide sleeper considering temperature load - Optimization of cross-section for transverse displacement stoppers  ○ Development of PST system for asphalt concrete track ▪ Slab panel - Development slab panel type asphalt concrete track - Manufactured a mold and prototype for slab type sleeper - Performance evaluation of components - Panel design for transient zone in asphalt concrete track  ○ Optimization and performance verification of a horizontal movement stopping device ▪ Optimization of a horizontal movement stopping device - Development of proper anchoring method - Maximization of resistance of horizontal movement - Outline of a horizontal movement stopping device ▪ Performance evluation of a horizontal movement stopping device - Improvement of horizontal resistance comparing with the existing method  ○ Performance evaluation of asphalt concrete track ▪ Test on horizontal movement resistance ▪ Inclined full-scale test: fatigue cracking - Testing conditions: max. Cant at 40℃ - Performance evaluation: earth pressure, displacement ▪ Full-scale test as a function of loading frequency and temperature - Performance evaluation: earth pressure, displacement, strain of asphalt layer  ○ Design for thickness of asphalt layers ▪ Numerical analysis on asphalt concrete track - Model wide sleeper section and panel type section using ABAQUS - Suggestion of design factors through numerical analysis - Perform numerical analysis on asphalt concrete structure ▪ Design chart for determination of asphalt concrete thickness - Development of design chart for thickness of asphalt conrete layer considering fatigue cracking and permanent deformation of asphalt and sublayers - Determine the optimal thickness of asphalt layer using the design chart - Development of catalog design method for asphalt concrete track  ○ Performance evaluation of interface and transient area in asphalt track ▪ Interface in asphalt concrete track - Applied transverse slope in curved area into reinforced soil layer and asphalt concrete trackbed in order to increase compactibility and homogeneous elasticity of asphalt concrete ▪ Performance evaluation of transient zone by numerical analysis]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[413]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO201600002097]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201600002097]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201600002097&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[아스팔트콘크리트 궤도,아스팔트콘크리트 도상,무도상 궤도,노반 설계법,아스팔트콘크리트 혼합물]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[asphalt concrete track,asphalt concrete trackbed,ballastless track,design for roadbed,asphalt mixture]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1711032773]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[미래창조과학부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[한국철도기술연구원]]></item>
+		</record>
+		<record rownum="7">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO201700000340]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[한국철도기술연구원]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20161200]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2016]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[고속화에 대응한 철도 아스팔트 노반 및 궤도구조 개발]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[Development of Asphalt Roadbed and Track System suited to Spdde Up]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구에서는 아스팔트콘크리트를 이용한 고속 대역에 적합한 신개념 노반 및 궤도 구조를 개발하고 철도 특성을 반영한 아스팔트콘크리트 개질제 및 혼합물 개발을 최종목표로 하고 있다 당해연도는 5차년도 연구로서 4차년도에서 개발한 철도용 아스팔트 혼합물 및 아스팔트콘크리트 궤도구조 등에 대해 철도시설공단 철도시설성능검증지침('2015)에 의거 2차에 걸친 철도시설성능검증위원회를 통해 경북선 백원역 구내 본선에 현장설치시험을 진행하였다 현장설치시험을 위해 아스팔트 혼합물, 광폭침목, 패널 및 궤도변위 저항장치 등 핵심기술에 대한 대량 생산체제 확립 및 공정 최적화를 수행하였다  ○ 철도용 아스팔트 혼합물 생산공정 최적화 및 제품화 공정확립  ○ 철도시설성능검증지침('2015)에 의거 철도시설 성능검증위원회 개최  ○ 경북선 백원역 구내 본선 현장설치 시험  ○ 광폭침목, 패널 및 궤도변위 저항장치 대량 생산 및 설치  ○ 아스팔트 콘크리트 궤도 경제성 분석  ○ 아스팔트콘크리트 궤도 설계법 개발  ○ 아스팔트콘크리트 궤도 인터페이스 분석 및 접속부 설계]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[IV. Research Results  o Development of Korean Asphalt Mixture  • Accurate Construction of Asphalt Concrete Track  • Korean Asphalt Mix Design for Trackbed - Hot Bin Type  - Suggestion of Mix Design  - Job Mix Formula  - Plant Production and Construction(Pavement)  - Field Construction of Asphalt Concrete as Track-Bed  • Development Fatigue Cracking Model for Asphalt Concrete Track System  - Indirect Tension Test  - Dynamic Modulus Test  - Optimal Thickness of Asphalt Trackbed by FEM Analysis  o Development of Slab Panel for Asphalt Track  • Manufactuing Mold for Panel  • Manufacture of Panel for Test-Bed   [Starting Production and Commercial Production of Slab Pane]  o Development of Wide Sleeper  • Manufacture of Wide Sleeper Mold for Field Construction  [Mold for Wide Sleepers]  • Wide Sleeper Installation after Manufacturing   [Attachment of Geotextile to Wide Sleepers and Manufacturing]]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[518]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO201700000340]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201700000340]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201700000340&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[아스팔트콘크리트 궤도;아스팔트콘크리트 도상;무도상 궤도;노반 설계법;아스팔트콘크리트 혼합물;]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[asphalt concrete track;asphalt concrete trackbed;ballastless track;design for roadbed;asphalt mixture;]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1711047418]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[EI]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[미래창조과학부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[이엔이건설(주),(주)태명실업,군산대학교,삼표레일웨이,임진에스티,한국석유공업(주),KRTC]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[한국철도기술연구원]]></item>
+		</record>
+		<record rownum="8">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO201400003220]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[한국철도기술연구원]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20131200]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2013]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[고속화에 대응한 철도 아스팔트 노반 및 궤도구조 개발]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[Development of Asphalt Roadbed and Track System suited to Speed Up]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구에서는 아스팔트를 이용한 고속 대역에 적합한 신개념의 노반 및 궤도 구조를 개발을 최종목표로 하고 있다. 당해연도에는 철도 특성을 반영한 아스팔트 혼합물 및 배합설계법을 개발하고 아스팔트 노반 직결궤도 성능평가 및 아스팔트 궤도 침목과 패널의 상세설계와 시작품 평가를 수행하였다. 주요 연구내용은 다음과 같다. ○ 철도용 아스팔트 개발을 위하여 아스팔트 궤도종류에 따른 혼합물과 배합설계법을 개발하고 1차년도에 개발한 개질제를 검증·보완 ○ 아스팔트 노반에 대한 콘크리트 패널 또는 침목의 수평방향 저항력 확보를 위한 아스팔트 궤도구조별 전단키를 개발, 전단저항 시험을 통한 성능평가를 수행하고 전단키와 그 시공방법에 대한 특허출원 및 등록을 완료하였으며, 아스팔트 노반과 침목 및 패널 사이의 마찰력 증가와 고르지 못한 표면에서 발생할 수 있는 응력집중 현상을 방지하기 위하여 부설하는 토목섬유의 성능평가와 마찰시험을 수행 ○ 유도상 아스팔트 노반의 적용성과 성능평가를 위하여 실대형 실험과 모형토조 시험 결과를 분석하고 수치해석 결과와 비교분석하여 유도상 아스팔트 노반과 강화노반의 최적두께를 결정 ○ 아스팔트 노반 직결궤도용 침목에 대한 상세설계를 실시하고 안전성 평가를 위한 구조해석을 실시하여 여러 가지 타입의 침목 및 패널 시제품을 제작하여 정·동적 휨강도 시험을 수행하여 침목의 성능을 평가 ○ 궤도 하부구조 및 아스팔트 노반 재료 물성 정량화 및 역학적 특성을 평가하고 공용성 모형을 개발하여 아스팔트 노반 및 궤도구조의 설계로직 개발 ○ 타 궤도 구조와의 경쟁력 확보방안 도출을 위해 초기비용, 유지관리비용, 해체폐기비용을 고려한 궤도종류별 LCC 분석을 수행하여 경제성을 비교·분석]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[Ⅳ. Research Outcome 1. Development of asphalt mixture for different track strucure 가. Suggestions of technical requirements including characteristics and commonality level of modified asphalt for new tracks ● Characteristics and commonality levels of modified asphalt have been suggested for meeting the requirements of asphalt roadbed for new tracks. ● The uses of modified asphalt with commonality levels of PG 64-22 and PG 76-22 have been suggested. Note that this modified asphalt is a mix of straight asphalt(AP-5) and 1.5∼5wt% of SBS. 나. Development of modified asphalt binder ● Characteristics of asphalt modifier for each track systems have been investigated These included dissolution rate, ductility, elastic resilience, commonality in high temperature and so on. ● Characteristics of ARMA(Chemical Additive and Rubber Modified Asphalt) binder for the ballastless track that adopted a direct interface between asphalt roadbed and sleepers have been investigated. 다. Development of asphalt mixture ● Asphalt mix design methods for each ballastless tracks have been suggested STE-R23 was suggested for the ballastless track with track concrete layer on the top of asphalt roadbed. STE-R2 and ARMA were suggested for the ballastless track adopting a direct interface between asphalt roadbed and sleepers. ● Characteristics of the asphalt mixture have been investigated. These included the resistance to moisture, resistance to plastic deformation, shear bond strength, low temperature behaviour. 2. Investigation into the ballasted track 가. Small-scale model tests for investigating into the ballasted track ● The behaviour of asphalt roadbed have been investigated using the measurements of pressure, displacement, and strains obtained from the model tests. ● Development of simple design algorithm for the interface between track and asphalt roadbed has been developed based on the assumption of permanent deformation. 나. Numerical analyses for investigating into the ballasted asphalt track 다. Design of the asphalt thickness for the ballasted track taking into account economic feasibility ● Numerical analyses have been carried out for investigating mechanistic characteristics of the track using GEOTRACK and KENTRACK. ● 3D numerical analyses have been carried out for investigating into design life of the asphalt roadbed using train load of a KTX. ● Design of asphalt thickness has been carried out using LCC analyses. 3. Development of the ballastless asphalt tracks 가. Investigation into the geotextile for asphalt roadbed  나. Development of wide sleepers for ballastless track adopting a direct interface between asphalt roadbed and sleepers ● Design of wide sleepers has been carried out. ● Design of cross-section using structural analyses has been carried out. ● Parametric study of asphalt thickness has been carried using numerical analyses. ● Shear key has been developed for wide sleepers. 다. Development of concrete panel for asphalt roadbed ● Design of concrete panel has been carried out. ● Longitudinal and horizontal flexural stresses have been investigated using structural analyses. ● A prototype of the panel has been fabricated and tests have been carried out. ● Shear key has been developed for the panel. 라. Full-scall tests for investigating into the ballastless track adopting a direct interface between asphalt roadbed and sleepers ● Movements of the ballastless track have been investigated in response to static and dynamic loadings. ● Design life of the ballastless track has been investigated using strain measurements at the bottom of asphalt roadbed layer. 4. Design method of asphalt track 가. Laboratory tests for investigating into characteristics of the asphalt mix properties ● Characteristics of asphalt binder, aggregates, and the mixture have been investigated. 나. Physical experiments investigating into the characteristics of asphalt roadbed for characterizing material properties ● Resonant column tests have been carried out for investigating into the shear modulus(G), shear strain(γ), damping ratio(D) ● Relationship between the results of plate loading test and resonant column test has been investigated. ● The results of plate loading tests have been investigated based on recalculated strain influence factor with PLAXIS program. 다. Development of a algorithm for design method of asphalt track 5. Economic appraisal using probabilistic LCC analyses ● Probabilistic LCC analyses have been performed in this year in order to improve the uncertainty associated with the use of definite LCC　analyses carried out in the first year. ● Application of input values for LCC analysis based on 1 km of single railway line including initial cost, diagnosis cost, repairing cost and maintenance cost with replacement cost, and discarding cost. ● The economic appraisal carried out in this year suggested that possible cost saving is 871,311 thousand won (24.59%) if adopting asphalt track in favour of ballasted track, on the other hand the possible cost saving is 38.948 thousand won (1.44%) in favour of concrete slab track. ● The economic appraisal carried out in this year suggested that even though initial cost for asphalt track is higher than the initial cost for ballasted track, by the time of a thirteenth year and onward asphalt track will have become more economical than ballasted track.]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[521]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO201400003220]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201400003220]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201400003220&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[아스팔트 궤도,아스팔트 노반,무도상궤도,노반설계법,아스팔트 혼합물]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[asphalt track,asphalt roadbed,ballastless track,design for roadbed,asphalt mixture]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1711006089]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[미래창조과학부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[한국철도기술연구원]]></item>
+		</record>
+		<record rownum="9">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO201700007173]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[한국철도기술연구원]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20121200]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2012]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[고속화에 대응한 철도 아스팔트 노반 및 궤도구조 개발]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[A development of railway asphalt roadbed and track system corresponding to high-speed trains]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[본 연구는 철도망 확충과 고속화를 지향하는 국가시책에 부응할 수 있는 신개념 아스팔트 노반 및 궤도구조 개발을 최종 목표로 하고 있다. 총 연구기간 5년 중 당해연도는 1차년도 연구로서 궤도구조별 아스팔트 혼합물 성능정립, 개질제설계, 아스팔트 노반 직결궤도 시작품제작 및 아스팔트 노반상 콘크리트 궤도상세설계를 수행하였다. 주요 연구내용은 다음과 같다.  ○ 철도용 아스팔트 혼합물 개발을 위해 저온영역의 온도둔감성 및 고온영역의 균열저항성 개선을 목표로 한 개질제 개발과 궤도종류별 아스팔트 혼합물 배합설계를 통해 각 궤도 구조별 목표 성능 및 공용성 등급을 제안  ○ 수치해석을 통한 최적 아스팔트 노반 설계 및 실대형 시험을 통한 노반거동분석 결과, 유도상 아스팔트 노반이 기존 유도상 궤도에 비해 우수한 성능을 가지고 있음을 확인함.  ○ 궤도 구조별(직결궤도, PST궤도 등) 3차원 유한요소 해석을 통한 동적 거동예측, 재료 실험을 통한 콘크리트 비선형 모델 개발 및 최적화 설계과정을 통한 궤도 구조 단면 최적화 수행  ○ 평면곡선, 종곡선 및 캔트 등을 사전에 설정할 수 있는 3차원 입체형상의 분리형, 일체형 프리캐스트 패널을 개발하여 시작품을 제작, 시험부설함. 이를 통해 승차감과 시공 정밀도 향상, 공기단축을 통한 건설비 저감이 가능함.  ○ 열차 주행 시 안정성 및 종․횡저항력 확보를 위한 아스팔트 노반과 상부구조의 결합방법 및 전단앵커를 개발, 시작품 제작을 완료함.  ○ 아스팔트 궤도의 성능설계를 위한 노반구조 설계법 기초로직(안)을 수립하고 실내시험을 통한 노반재료 설계입력변수를 확립하였으며, 재료별 영구변형모델과 소성변형모델 및 피로모델을 분석함.    ( 출처 : 요약서 6p )]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[Ⅳ. Research Outcome  1. Asphalt Mixture Design in Application for Railway Roadbed  가. Suggestion for target performance and commonality level of modified asphalt material depending on a track system  • The bearing layer’s penetration (50/70) of asphalt specified in the German pavement guideline (ZTV Asphalt-StB 07) is similar to the one in AP-5 of the country.  • The use of PG 64-22, PG 70-22 is suggested based on the modification from AP-5 and SBS combined (1-3wt%).    나. Development of modified asphalt binder  • Implementation of Penetration test, Dynamic Shear Rheometer(DSR), and Bending Beam Rheometer(BBR)  • One level enhanced; PG 70 for ballast and slab tracks, and PG 76 for direct-fastened track.    다. Development for an asphalt mixture  • Compaction test to improve asphalt content (Marshall compactor, Gyratory Compactor)    라. CRM mofidied asphalt concrete  • Comparison and analysis of wet- and dry-types of asphalt concrete production method with modified materials added in.  • Mixture evaluation by using Marshall compactor (wet- and dry-types)  • Mixture evaluation by using Gyratory compactor (wet- and dry-types)    2. Performance evaluation of ballast asphalt roadbed  가. Determination of cross section for ballast asphalt roadbed test through numerical analysis using the GEOTRACK program  나. Behavior analysis of asphalt reinforced roadbed by numerical analysis  다. Cyclic loading full-scale test  • Behavior analysis of roadbed layer under moving train loads by instrumenting soil pressure cell, settlement measurement, accelerometer, strain gage, thermometer  • Verification for asphalt roadbed role through comparison and analysis of the experimental and numerical results.  라. Validity check of numerical parameters by correlation with experimental results.    3. Asphalt Roadbed Track  가. Development of a wide sleeper for asphalt roadbed  • Application of a wide sleeper for minimizing stresses (underneath the sleeper) on asphalt roadbed layer and reinforced road layer.  • Sleeper design for displacement and stress in allowable limit.  • Investigation of displacement and stress on asphalt (reinforced) roadbed varying the width underneath the sleeper and the thickness.  • Suggestion on a sleeper configuration  • Suggestion on a shear reinforcement device for safety ensurance under loads in both the longitudinal and transverse directions.    나. Applicability check of concrete track on asphalt roadbed  • Application of the impact factor specified in “Design Criteria for Railroad”  • Application of load combination specified in Geman standard (DIN Expert Report 101)  • Computation of the maximum flexural tensile stress (in longitudinal and transverse directions) of track structure by MSC Software Marc 2010  • Computation of longitudinal/transverse reinforcement amount  • Check on fatigue load and roadbed pressure    다. Design for precast concrete slab  • Structural stability check using 3-D finite element analysis  • Evaluation on behavior of precast concrete slab depending on cross sectional area of rebar  • Trial product of asphalt roadbed direct-fastened track  • Field installation of asphalt track    4. LCC analysis of asphalt track system  가. Domestic LCC analysis  • Application of characteristic value based on single-track length of 1km with the input data of initial cost (including construction, plan, design, construction supervision), maintenance cost (including inspection, repair/retrofit, replacement), and disassembly cost.  • Asphalt track is analyzed to have a LCC reduction of 310,000천원(10.7%) with respect to ballast track, and 48,135천원(1.82%) with respect of concrete track.  • While asphalt track requires more initial cost, compared with ballast track, the cumulative expense is analyzed to be reversed in the 21th year.    나. Foreign LCC analysis  • German track company(Rail. One) performed a LCC analysis with ballast track, asphalt track(GETRAC A3), and concrete track(RHEDA 2000) considering the initial cost in the superstructure and track construction.  • The German LCC analysis showed that the LCC cost for RHEDA-2000 and GETRAC A3 would become identical in the 35∼37th year after construction, and after then the ballastless track would become more economical.    5. Numerical analysis of asphalt track  가. 3-D FE analysis of asphalt track interface  • Dynamic analysis of interface using FE analysis program(LUSAS)  • Interface behavior evaluation of concrete slab displacement and stress subjected to wheel loads    나. Desigh check of PST  • 3-D Full Modeling analysis  • Structural safety evaluation on slab track depending on design methods    6. Design method for asphalt roadbed track  가. Laboratory test for property quantization of asphalt roadbed materials  나. Laboratory and field tests for property quantization of track substructure  • Characteristic evaluation on the roadbed permanent strain through cyclic triaxial tests  • Determination of the resilient modulus(ER) through full-scale cyclic triaxial test  • Determination of the shear modulus(G) and damping ratio(D) through mid-size resonant tests  다. Development of a potential logic for asphalt track design method    ( 출처 : SUMMARY 24p )]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO201700007173]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201700007173]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO201700007173&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[아스팔트 궤도;아스팔트 노반;무도상궤도;노반설계법;아스팔트 혼합물;]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[asphalt track;asphalt roadbed;ballastless track;design for roadbed;asphalt mixture;]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1415125780]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[P0]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[미래창조과학부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[금호석유화학(주),이엔이건설(주),(주)태명실업,경희대학교,배재대학교,서해종합엔지니어링,강릉원주대학교,삼표이앤씨(주),한국석유공업(주),화성궤도(주),서울과학기술대학교]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[한국철도기술연구원]]></item>
+		</record>
+		<record rownum="10">
+			<item metaCode="CN" metaName="CN"><![CDATA[TRKO202600019622]]></item>
+			<item metaCode="DBCode" metaName="DB코드"><![CDATA[TRKO]]></item>
+			<item metaCode="Publisher" metaName="발행기관"><![CDATA[(주)에이티에스]]></item>
+			<item metaCode="Pubdate" metaName="발행년월(일)"><![CDATA[20231200]]></item>
+			<item metaCode="Pubyear" metaName="발행년"><![CDATA[2023]]></item>
+			<item metaCode="Title" metaName="보고서제목"><![CDATA[철도선로의 저진동 궤도(Low Vibration Track)용 방진패드 국산화 개발]]></item>
+			<item metaCode="Title2" metaName="보고서제목2"><![CDATA[Development of the isolation pad for Low Vibration Track of Railway Lines]]></item>
+			<item metaCode="Abstract" metaName="초록"><![CDATA[□ 연구개발 목표 및 내용  ■ 최종 목표  철도선로 LVT용 방진패드 국산화 개발    ■ 전체 내용  전기동차전용(도시철도용) 저진동궤도용 침목패드 배합 설계/제작/시험    ■ 1단계  ○ 목표  - 발포고무 원재료 최적 배합 설계, 제작 및 발포 제조기술 개발  - LVT용 발포고무 방진패드 개발품에 대하여 철도규격기준 동등 이상의 성능 만족  ○ 내용  [주관연구개발기관((주)에이티에스) 개발 내용 및 방법]  * 원재료 최적 배합 분석  - 소재별 발포 특성 연구  - 고무 배합 조성에 따른 발포율 연구  - 원재료 최적 배합 설계 및 제작  * 외산 패드 분석  - 외산 패드 물성 분석  - 외산 패드 손상 메커니즘 분석  - 개발품과 외산 패드 재료 성능 비교 분석  * LVT 발포고무 패드 개발  - 발포고무패드 시제품 제작 및 재료 시험  - 패드 금형 설계 및 제작  - 철도규격서 성능 기준에 만족하는 LVT 발포고무 개발  - 발포고무 제작 기법 매뉴얼 개발    [공동연구개발기관(한국화학융합시험연구원) 개발 내용 및 방법]  * 신뢰성 실증  - 시제품 성능 시험 및 Feedback  - 철도용품 공사규격서에서 요구되고 있는 피로시험에 의한 내구성 평가  - 피로시험 후 정적스프링정수 변화 측정  - 동적스프링정수 시험 및 분석  - 개발품과 외산 패드 물리적 성능 비교 분석  * 품질 및 내환경 평가  - 기본 품질 및 내환경 성능 시험  - 저온, 고온, 노화 상태에서의 정적스프링정수 통합 검토  - 성능평가 결과 기반 배합설계 지원    (출처 : 요약문 2p)]]></item>
+			<item metaCode="Abstract2" metaName="초록2"><![CDATA[]]></item>
+			<item metaCode="Author" metaName="저자"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="Contributors" metaName="참여연구자명"><![CDATA[NAME-REMOVED]]></item>
+			<item metaCode="PageInfo" metaName="페이지정보"><![CDATA[57]]></item>
+			<item metaCode="FulltextURL" metaName="원문URL"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIFullTextView?keyValue=05787966&dbt=TRKO&cn=TRKO202600019622]]></item>
+			<item metaCode="ContentURL" metaName="ScienceON상세링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO202600019622]]></item>
+			<item metaCode="MobileURL" metaName="ScienceON모바일링크"><![CDATA[http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=05787966&target=REPORT&cn=TRKO202600019622&type=mobile]]></item>
+			<item metaCode="Keyword" metaName="주제어"><![CDATA[저진동궤도;철도선로;도시철도;방진패드;STEDEF 궤도;]]></item>
+			<item metaCode="Keyword2" metaName="주제어2"><![CDATA[Low Vibration Track;Railway;Urban Railway;Isolation Pad;STEDEF Track;]]></item>
+			<item metaCode="Pjn" metaName="연구과제번호"><![CDATA[1425177002]]></item>
+			<item metaCode="Lang" metaName="사용언어"><![CDATA[한국어]]></item>
+			<item metaCode="STCMajorCode" metaName="과학기술분류코드(대)"><![CDATA[EA]]></item>
+			<item metaCode="ManagingAgency" metaName="주관부처"><![CDATA[중소벤처기업부]]></item>
+			<item metaCode="CoResearchOrg" metaName="공동연구기관명"><![CDATA[한국화학융합시험연구원]]></item>
+			<item metaCode="CollaboratingOrg" metaName="협동연구기관명"><![CDATA[]]></item>
+			<item metaCode="ResearchMngAgency" metaName="연구관리전문기관"><![CDATA[중소기업기술정보진흥원]]></item>
+		</record>
+	</recordList>
+</MetaData>

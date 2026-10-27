@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -76,6 +77,15 @@ from rra.domain.rules.relevance import (
     filter_chunks,
 )
 from rra.domain.rules.retrieval_scope import overlap_candidates
+from rra.domain.rules.rewrite import merge_candidate
+from rra.domain.rules.schedule import (
+    METRIC_SECTIONS,
+    SCHEDULE_SECTION,
+    metric_instruction,
+    research_period_months,
+    schedule_instruction,
+    schedule_problems,
+)
 from rra.domain.rules.trust import enforce_section_evidence, wrap_untrusted
 
 OVERLAP_SECTION = "overlap_review"
@@ -126,6 +136,10 @@ class GenerateProposal:
     keywords: KeywordRule | None = None  # 차단에 키워드 조건을 더한다 (None 이면 유사도만)
     # 생성 근거의 관련도 하한 (이슈 #2). None 이면 검색 결과를 그대로 근거로 쓴다
     relevance: RelevanceFloor | None = None
+    # U6 제약에 연구기간이 있으면 연구방법에 추진일정(개월), 기대효과에 성과지표·측정 방법을
+    # 요구하고
+    # 일정 합이 기간을 넘으면 경고. config/usability.yaml schedule_metrics
+    schedule_metrics: bool = True
 
     @property
     def template(self) -> str | None:
@@ -250,10 +264,67 @@ class GenerateProposal:
                 section = Section(key=key, sentences=sentences)
                 return ComposedSection(section, [], None, None, "app")
 
+        return await self._compose_llm(key, req, snapshot, options)
+
+    async def rewrite_section(
+        self,
+        key: str,
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot,
+        current: Section,
+        notes: Mapping[str, str] | None = None,
+    ) -> ComposedSection:
+        """U3 섹션 하나 다시 쓰기 — 같은 지시·같은 스냅샷 근거로 LLM 1회. 제안자가 고친 문장
+        (proposer_edit·proposer_input·app)은 보존해 후보에 원래 자리로 끼워 넣고, 선택값은 그대로.
+        notes: 보완 질문에 대한 제안자 답({요소: 답}) — 지시문 뒤에 [제안자 보완 메모] 로."""
+        options = self.choice_options()
+        if key in skipped_sections(req, self.rules, options) or key in self.evidence_skipped(
+            snapshot
+        ):
+            return ComposedSection(Section(key=key, sentences=[]), [], None, None, "skipped")
+        if key == OVERLAP_SECTION and snapshot.overlap_checked:
+            raise ValueError(
+                "특이사항(유사과제 검토 결과)은 앱이 쓰는 섹션이라 다시 쓰지 않습니다."
+            )
+        keep = [
+            s.text
+            for s in current.sentences
+            if s.origin in ("proposer_edit", "proposer_input", "proposer", "app")
+        ]
+        composed = await self._compose_llm(key, req, snapshot, options, notes=notes, keep=keep)
+        merged = merge_candidate(current, composed.section.sentences)
+        return ComposedSection(
+            section=merged,
+            dropped=composed.dropped,
+            prompt_hash=composed.prompt_hash,
+            parse=composed.parse,
+            ungrounded=composed.ungrounded,
+            retries=composed.retries,
+            first_parse=composed.first_parse,
+        )
+
+    async def _compose_llm(
+        self,
+        key: str,
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot,
+        options: dict[str, dict[str, str]],
+        *,
+        notes: Mapping[str, str] | None = None,
+        keep: Sequence[str] = (),
+    ) -> ComposedSection:
         system = self.prompts.system()
         instruction = self.prompts.section(key)
         spec = self.rules.choices.get(key)
-        prompt = self._prompt(key, instruction, req, snapshot, options.get(key) if spec else None)
+        prompt = self._prompt(
+            key,
+            instruction,
+            req,
+            snapshot,
+            options.get(key) if spec else None,
+            notes=notes,
+            keep=keep,
+        )
         raw = await self.llm.complete(prompt, system=system, json_mode=True)
         first = parsed = self._parse(key, raw, spec, options)
         retries = 0
@@ -302,11 +373,30 @@ class GenerateProposal:
         req: ProposalRequest,
         snapshot: RetrievalSnapshot,
         options: dict[str, str] | None,
+        *,
+        notes: Mapping[str, str] | None = None,
+        keep: Sequence[str] = (),
     ) -> str:
         parts = [
             f"[섹션: {key}]\n{instruction}",
             f"[제안 입력]\n{json.dumps(req.prompt_view(), ensure_ascii=False)}",
         ]
+        if notes:  # U3 보완 질문에 대한 제안자 답 — 제안자 입력과 같은 신뢰 수준
+            parts.append(
+                "[제안자 보완 메모 — 제안자가 보완 질문에 답한 내용. 반영한다]\n"
+                + json.dumps(dict(notes), ensure_ascii=False)
+            )
+        if keep:  # U3 다시 쓰기: 제안자가 고친 문장은 앱이 보존한다 — 중복해서 쓰지 않는다
+            parts.append(
+                "[보존 문장 — 제안자가 직접 쓴 문장. 앱이 그대로 둔다. 같은 내용을 다시 쓰지 말 것]"
+                "\n" + json.dumps(list(keep), ensure_ascii=False)
+            )
+        if self.schedule_metrics:  # U6
+            period = research_period_months(req.constraints)
+            if period is not None and key == SCHEDULE_SECTION:
+                parts.append(schedule_instruction(period))
+            if period is not None and key in METRIC_SECTIONS:
+                parts.append(metric_instruction())
         # 선택지·판정표는 앱이 만든 값이다 (비신뢰 구획 밖). 문서 제목은 넣지 않는다.
         if options is not None:
             listed = "\n".join(f"- {oid}: {label}" for oid, label in options.items())
@@ -378,15 +468,22 @@ class GenerateProposal:
             retrieved_ids=snapshot.retrieved_ids,
             template=self.template,
         )
-        chunk_texts = {c.chunk_id: c.text for c in snapshot.chunks}
+        return draft, self.lint_draft(draft, snapshot)
+
+    def lint_draft(self, draft: Draft, snapshot: RetrievalSnapshot | None) -> list[LintProblem]:
+        """규칙 검사 전부 — lint(rules.yaml) + U6 일정 초과 경고. 생성(finalize)과 버전 저장이
+        같은 판정을 쓴다."""
+        chunk_texts = {c.chunk_id: c.text for c in snapshot.chunks} if snapshot else {}
         problems = lint(
             draft,
             self.rules,
             choice_options=self.choice_options(),
             chunk_texts=chunk_texts,
-            evidence_skipped=self.evidence_skipped(snapshot),
+            evidence_skipped=self.evidence_skipped(snapshot) if snapshot else None,
         )
-        return draft, problems
+        if self.schedule_metrics:
+            problems.extend(schedule_problems(draft))
+        return problems
 
     async def __call__(self, req: ProposalRequest) -> Draft:
         snapshot = await self.retrieve(req)

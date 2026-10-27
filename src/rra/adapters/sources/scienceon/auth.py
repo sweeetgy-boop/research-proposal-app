@@ -1,15 +1,18 @@
 """ScienceON API Gateway 인증 — accounts 암호화(순수) + TokenManager(발급·갱신·만료).
 
-흐름 (공개 서드파티 가이드 기준, 첫 실응답으로 확인할 것):
-  GET /tokenrequest.do?client_id=<ID>&accounts=<enc>   → access(2시간) · refresh(2주)
-  GET /tokenrequest.do?refreshToken=<RT>&client_id=<ID> → access 재발급
-  enc = urlsafe_b64(AES-256-CBC(PKCS7({"datetime":"YYYYMMDDHHMMSS","mac_address":"AA-BB-.."}),
-                                key=인증키 32바이트, iv=고정 16바이트))
+흐름 (API Gateway 공식 가이드 "API 인증 안내" + 2026-10-27 실응답으로 확인):
+  GET /tokenrequest.do?client_id=<ID>&accounts=<enc>
+    → JSON {access_token, access_token_expire, refresh_token, refresh_token_expire, issued_at}
+  GET /tokenrequest.do?refresh_token=<RT>&client_id=<ID>  → access 재발급 (이름이 refresh_token)
+  enc = urlsafe_b64(AES-256-CBC(PKCS7({"mac_address":"AA-BB-..","datetime":"YYYYMMDDHHMMSS"}),
+                                key=인증키 32자, iv=고정 16바이트))   — 표준 base64 도 서버가 받는다
+  client_id 는 64자, 인증키는 32자 (둘이 바뀌면 복호화 실패 → XML E5001 내부 서버 오류).
+  토큰 오류는 JSON(E4005~E4108) 또는 XML(MetaData/errorDetail/errorCode) 로 온다.
 
 보안 D:
 - 키·MAC·토큰은 SecretStr 로 받아 요청 파라미터를 만드는 순간에만 꺼낸다. 로그·예외 메시지에 없음.
 - 토큰은 메모리에만 둔다 (디스크 캐시 없음). ingest 한 번에 발급 1회가 기본.
-- client_id·accounts·refreshToken·token 은 _base.SECRET_PARAMS 로 오류 메시지에서 제거된다.
+- client_id·accounts·refresh_token·token 은 _base.SECRET_PARAMS 로 오류 메시지에서 제거된다.
 """
 
 from __future__ import annotations
@@ -31,7 +34,9 @@ FIXED_IV = b"jvHJ1EFA0IXBrxxz"
 ACCESS_TTL_SEC = 2 * 3600
 REFRESH_TTL_SEC = 14 * 24 * 3600
 EXPIRY_MARGIN_SEC = 120  # 만료 직전 토큰으로 긴 페이지 요청을 보내지 않도록
-TOKEN_TYPES = frozenset({"application/json", "text/json", "text/plain", "text/html"})
+TOKEN_TYPES = frozenset(
+    {"application/json", "text/json", "text/plain", "text/html", "text/xml", "application/xml"}
+)
 _MAC = re.compile(r"^([0-9A-F]{2})([:-]?)([0-9A-F]{2})(?:\2[0-9A-F]{2}){4}$")
 
 
@@ -55,9 +60,12 @@ def encrypt_accounts(auth_key: str, mac: str, now: datetime) -> str:
 
     key = auth_key.encode("utf-8")
     if len(key) != 32:
-        raise ValueError("ScienceON 인증키는 32바이트여야 합니다.")
+        raise ValueError(
+            f"ScienceON 인증키는 32자여야 합니다 (지금 {len(key)}바이트). client_id 는 64자 — "
+            ".env 의 RRA_SCIENCEON_CLIENT_ID 와 RRA_SCIENCEON_KEY 가 서로 바뀌지 않았는지 확인."
+        )
     plain = json.dumps(
-        {"datetime": now.strftime("%Y%m%d%H%M%S"), "mac_address": normalize_mac(mac)},
+        {"mac_address": normalize_mac(mac), "datetime": now.strftime("%Y%m%d%H%M%S")},
         separators=(",", ":"),
     ).encode("utf-8")
     padder = padding.PKCS7(128).padder()
@@ -75,13 +83,15 @@ class _Token:
 
 
 def parse_token_response(data: Any, now: float) -> _Token:
-    """토큰 응답(JSON) → _Token. 만료 시각 필드가 없으면 문서화된 수명(2시간·2주)을 쓴다."""
+    """토큰 응답(JSON) → _Token. 만료는 문서화된 수명(2시간·2주)을 쓴다 (서버 만료 문자열은 KST
+      벽시계라
+    로컬 시계와 비교하지 않는다)."""
     if not isinstance(data, dict):
         raise ScienceOnAuthError("토큰 응답이 JSON 객체가 아닙니다.")
     access = data.get("access_token") or data.get("accessToken")
     if not isinstance(access, str) or not access:
         code = data.get("errorCode") or data.get("error_code") or data.get("code") or "unknown"
-        raise ScienceOnAuthError(f"토큰 발급 실패 (code={str(code)[:20]})")
+        raise ScienceOnAuthError(f"토큰 발급 실패 (code={_safe_code(code)})")
     refresh = data.get("refresh_token") or data.get("refreshToken")
     return _Token(
         access=access,
@@ -89,6 +99,24 @@ def parse_token_response(data: Any, now: float) -> _Token:
         refresh=refresh if isinstance(refresh, str) and refresh else None,
         refresh_until=now + REFRESH_TTL_SEC,
     )
+
+
+def _safe_code(code: Any) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]", "", str(code))[:20] or "unknown"
+
+
+def _xml_error_code(body: bytes) -> str:
+    """XML 오류 본문(MetaData/errorDetail/errorCode) 에서 코드만 꺼낸다. 본문은 메시지에 넣지
+    않는다.
+    """
+    from rra.adapters.sources import _xml
+
+    try:
+        root = _xml.parse(body)
+    except _xml.XmlResponseError:
+        return "unknown"
+    # errorDetail/errorCode 가 resultSummary/statusCode 보다 뒤에 오므로 따로 찾는다
+    return _safe_code(_xml.first_text(root, "errorCode") or _xml.first_text(root, "statusCode"))
 
 
 class TokenManager:
@@ -147,7 +175,7 @@ class TokenManager:
         return self._token.access
 
     async def _refresh(self, refresh: str) -> str:
-        data = await self._get({"refreshToken": refresh, "client_id": self.client_id})
+        data = await self._get({"refresh_token": refresh, "client_id": self.client_id})
         fresh = parse_token_response(data, self._clock())
         if fresh.refresh is None and self._token:  # refresh 응답이 refresh 토큰을 안 줄 수 있다
             fresh.refresh, fresh.refresh_until = self._token.refresh, self._token.refresh_until
@@ -157,6 +185,8 @@ class TokenManager:
 
     async def _get(self, params: dict[str, str]) -> Any:
         body = await self._client.get_bytes(self._url, params, accept_types=TOKEN_TYPES)
+        if body.lstrip().startswith(b"<"):  # 게이트웨이는 복호화 실패 등을 XML 오류로 돌려준다
+            raise ScienceOnAuthError(f"토큰 발급 실패 (code={_xml_error_code(body)})")
         try:
             return json.loads(body)
         except ValueError:

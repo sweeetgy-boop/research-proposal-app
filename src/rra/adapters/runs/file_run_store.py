@@ -38,6 +38,7 @@ from rra.domain.models import (
     RunState,
     Section,
     StepRecord,
+    UsageRecord,
 )
 from rra.domain.models.run import is_valid_run_id
 
@@ -179,6 +180,38 @@ class FileRunStore:
     def load_recommendations(self, user: str, run_id: str) -> dict[str, Any] | None:
         path = self._run_dir(user, run_id) / "recommendations.json"
         return read_json(path) if path.is_file() else None
+
+    # ── U3 다시 쓰기 후보·보완 메모 / U8 usage ─────────────────
+    def _rewrite_path(self, user: str, run_id: str, key: str) -> Path:
+        if not _SECTION.match(key):
+            raise ValueError("section key 형식이 올바르지 않습니다.")
+        return ensure_dir(self._run_dir(user, run_id) / "rewrites") / f"rewrite_{key}.json"
+
+    def save_rewrite(self, user: str, run_id: str, key: str, data: dict[str, Any]) -> None:
+        write_json(self._rewrite_path(user, run_id, key), data)
+
+    def load_rewrite(self, user: str, run_id: str, key: str) -> dict[str, Any] | None:
+        path = self._rewrite_path(user, run_id, key)
+        return read_json(path) if path.is_file() else None
+
+    def clear_rewrite(self, user: str, run_id: str, key: str) -> None:
+        path = self._rewrite_path(user, run_id, key)
+        if path.is_file():
+            path.unlink()
+
+    def save_notes(self, user: str, run_id: str, data: dict[str, Any]) -> None:
+        write_json(self._run_dir(user, run_id) / "proposer_notes.json", data)
+
+    def load_notes(self, user: str, run_id: str) -> dict[str, Any] | None:
+        path = self._run_dir(user, run_id) / "proposer_notes.json"
+        return read_json(path) if path.is_file() else None
+
+    def save_usage(self, user: str, run_id: str, usage: UsageRecord) -> None:
+        write_json(self._run_dir(user, run_id) / "usage.json", usage.model_dump(mode="json"))
+
+    def load_usage(self, user: str, run_id: str) -> UsageRecord | None:
+        path = self._run_dir(user, run_id) / "usage.json"
+        return UsageRecord.model_validate(read_json(path)) if path.is_file() else None
 
     def save_review(self, user: str, run_id: str, review: ReviewRound) -> None:
         n = self._number(review.round, "차수")
