@@ -27,7 +27,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
-from rra.application.ports import RunBusy, RunNotFound
+from rra.application.ports import RunBusy, RunNotFound, TableFactRepository
 from rra.application.ports.renderer import RenderRejected
 from rra.application.services import (
     ConfirmRejected,
@@ -77,6 +77,7 @@ from rra.entrypoints.views import (
     differentiation_payload,
     draft_payload,
     evidence_items_payload,
+    facts_payload,
     policy_suggestions_payload,
     recommendation_preview_payload,
     recommendations_payload,
@@ -489,6 +490,20 @@ def create_app(
         orgs: str | None = Query(default=None, max_length=400),
     ) -> dict[str, Any]:
         return await _search(q, k, (orgs or "").split(",") if orgs else None)
+
+    @app.get(f"/{API_VERSION}/facts")
+    async def facts_get(
+        q: str = Query(min_length=1, max_length=200),
+        k: int = Query(default=DEFAULT_K, ge=1, le=MAX_K),
+    ) -> dict[str, Any]:
+        """표 사실(P2-8) 항목 검색. 전부 비신뢰 — 표에서 파싱·판독한 값이다."""
+        if not isinstance(repo, TableFactRepository):
+            raise HTTPException(503, "표 사실 저장소가 없습니다.")
+        query = q.strip()
+        if not query:
+            raise HTTPException(422, "검색어가 비어 있습니다.")
+        facts = await repo.search_facts(query, k=k)
+        return {"notice": UNTRUSTED_NOTICE, "facts": facts_payload(list(facts), clean=_clean)}
 
     # ── run ─────────────────────────────────────────────
     @app.post(f"/{API_VERSION}/runs", status_code=202)
