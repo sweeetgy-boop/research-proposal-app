@@ -28,7 +28,7 @@
 ## 작업 방식
 - 새 기능은 domain → ports → usecase(fake로 테스트 통과) → adapter 순서.
 - 어댑터 normalize()는 순수 함수, tests/fixtures 원본 응답으로 테스트.
-- 커밋 전: `pytest -q && lint-imports && ruff check src tests`
+- 커밋 전: `pytest -q -n auto && lint-imports && ruff check src tests`
 - 임베딩·LLM 호출 없이 테스트가 돌아야 함 (tests/fakes.py 사용).
 
 ## 개발 환경
@@ -109,6 +109,14 @@
   precheck). 선택 → `apply_recommendation` 미리보기 → 확정 입력으로 생성. run 에 recommendations.json 복사, manifest 는 전송
   기록+chosen. 진입점 `rra recommend`·REST `/v1/precheck/recommendations(/{id}/apply)`·MCP `rra_recommend`·Streamlit 카드.
   경과 기록은 `docs/history/`(PR 마다 timeline·metrics·ADR·screens, CONTRIBUTING 규칙).
+- 초안 품질 강화 [Q](2026-10-27, architecture §4.15, ADR 0013): `config/pipeline.yaml` 8 단계 — Q1 clarify(`usecases/clarify_input`,
+  `request.supplement`), Q2 outline(`usecases/outline`, `domain/rules/outline`, step `outline`, outline.json), Q3 section_search
+  (`domain/rules/section_search`, `retrieve_sections`, `snapshot.section_chunks/chunks_for`), Q4 exemplars(`domain/rules/exemplars`,
+  인용·베끼기 폐기 `exemplar_cited`), Q5 additions(`section_checklists.yaml`, `ReviewComment.kind=addition`, `origin=argon_addition`),
+  Q6 rule_check(`domain/rules/style`, finalize 자동 정리 + `STYLE_CODES` 경고 → 1차 검토 `[앱이 찾은 문제]`), Q7 two_candidates
+  (`CORE_SECTIONS`, candidates.json, `candidate_choices`, B 선택 시 `candidate_replaced`), Q8 reranker(`ports/reranker`,
+  `adapters/reranking`, `~/models/bge-reranker-v2-m3` Apache-2.0, 없으면 경고 후 생략). 측정 `rra eval`(`usecases/evaluate`,
+  `build_eval`, `data/eval/`, `docs/eval-<날짜>.md`). 기본값은 측정 뒤 효과 있는 것만 켠다.
 - 2026-10-26 판단 반영(A): 엑셀 4개 과제는 부서 무관 own 티어(`OWN_RECORD_SOURCES`, 알림 세부 institute/company,
   `tier_label`), 그 출처는 `unlisted_department` 경고 없음, visibility 는 엑셀·공시용 요약문 public(일반 요약만 internal),
   generic_terms 14개 추가. 차별화 제안 자동 실행은 차단 알림일 때만(근접은 요청 시), REST `RunIn.differentiation_transfer`.

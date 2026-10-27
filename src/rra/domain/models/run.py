@@ -163,10 +163,22 @@ class RetrievalSnapshot(BaseModel):
     chunks: list[Chunk]
     overlap: list[OverlapAlert] = Field(default_factory=list)
     overlap_checked: bool = False  # False 면 유사과제 판정을 하지 않은 것 ("없음"과 구분)
+    # Q3 섹션별 맞춤 검색 결과 — 섹션 키 → 그 섹션이 쓸 chunk_id (chunks 안). 비면 기본 집합
+    section_chunks: dict[str, list[str]] = Field(default_factory=dict)
+    # 섹션별 검색이 더한 chunk_id — 섹션 검색이 없는 섹션(제목·선택형)은 이것을 빼고 기본 집합만
+    # (전부 주면 프롬프트가 3배로 커져 7B 가 JSON 을 못 지킨다, 2026-10-27 측정 3단계)
+    section_added: list[str] = Field(default_factory=list)
+    # Q4 채택 과제 본보기 — 구성·문체 참고용(인용 금지). {doc_id, status, sections: {key: [문장]}}
+    exemplars: list[dict[str, Any]] = Field(default_factory=list)
+    # 근거 구성 규칙(retrieval_mix)용 doc_id → doc_type. 비면 규칙을 적용하지 않는다(옛 스냅샷)
+    doc_types: dict[str, str] = Field(default_factory=dict)
     # retrieve 시점에 한 건도 적재되지 않았던 자료원. None = 확인하지 않음 (이전 스냅샷)
     uncollected: list[str] | None = None
     # 관련도 하한(domain/rules/relevance.py)에 걸려 근거에서 뺀 청크 id → 이유. 이전 스냅샷은 빈 값
     dropped_chunks: dict[str, str] = Field(default_factory=dict)
+    # U5 제안자가 브리핑에서 고른 우선 근거(doc_id·chunk_id, 검색 집합 안의 것만). 섹션 검색이
+    # 있으면 이 id 의 청크를 앞세운다. 이전 스냅샷은 빈 값
+    priority_ids: list[str] = Field(default_factory=list)
 
     @classmethod
     def of(
@@ -196,3 +208,12 @@ class RetrievalSnapshot(BaseModel):
             | {c.doc_id for c in self.chunks}
             | {a.doc_id for a in self.overlap}
         )
+
+    def chunks_for(self, key: str) -> list[Chunk]:
+        """섹션이 쓸 근거 — 섹션별 검색 결과가 있으면 그것(+ 유사과제 보탬 청크), 없으면 전체."""
+        ids = self.section_chunks.get(key)
+        if not ids:
+            added = set(self.section_added)
+            return [c for c in self.chunks if c.chunk_id not in added]
+        wanted = set(ids)
+        return [c for c in self.chunks if c.chunk_id in wanted or c.chunk_id.endswith("#overlap")]

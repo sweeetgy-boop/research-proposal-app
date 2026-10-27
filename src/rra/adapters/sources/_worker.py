@@ -29,6 +29,7 @@ PARSERS = {
     "txt": "rra.adapters.sources.alio.extract.text",
     "xlsx": "rra.adapters.sources.alio.extract.spreadsheet:extract_xlsx",
     "xls": "rra.adapters.sources.alio.extract.spreadsheet:extract_xls",
+    "ocr_image": "rra.adapters.vision._ocr_worker",  # macOS Vision OCR (P3, 이미지 바이트)
 }
 TEST_PARSERS = {
     "_test_echo",

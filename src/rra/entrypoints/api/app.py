@@ -37,39 +37,56 @@ from rra.application.services import (
 )
 from rra.application.services.run_manager import (
     EditRejected,
+    FeatureDisabled,
+    FeedbackRejected,
     FinalizeRejected,
+    RewriteRejected,
     WorkingRejected,
 )
 from rra.domain.models import ProposalRequest, ProposerInfo
 from rra.domain.models.proposer import Person
 from rra.domain.models.request import validation_message
-from rra.domain.models.review import EditRequest
+from rra.domain.models.review import EditRequest, EvidenceDecisionRequest
 from rra.domain.models.run import ACTIVE, is_valid_run_id
+from rra.domain.rules import agent_policy as policy
 from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
 from rra.domain.rules.recommendation import apply_recommendation
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
+    FeedbackIn,
     FinalizeIn,
     RecommendationApplyIn,
     RevertIn,
+    RewriteApplyIn,
     RunIn,
     SearchIn,
+    SectionAnswersIn,
     SessionIn,
+    StructureIn,
+    StructureMergeIn,
     WorkingIn,
 )
 from rra.entrypoints.views import (
     alerts_payload,
+    brief_payload,
     chunks_payload,
+    comparison_payload,
     diff_payload,
     differentiation_payload,
     draft_payload,
+    evidence_items_payload,
+    policy_suggestions_payload,
     recommendation_preview_payload,
     recommendations_payload,
     render_check_payload,
     review_payload,
+    rewrite_payload,
     run_state_payload,
+    structure_payload,
+    submit_check_payload,
+    usage_payload,
     version_payload,
     versions_payload,
 )
@@ -208,11 +225,16 @@ def create_app(
     recommend: Any | None = None,
     recommend_auto: bool = True,
     clarify: Any | None = None,
+    structure: Any | None = None,
+    compare: Any | None = None,
+    brief: Any | None = None,
     on_shutdown: Callable[[], Any] | None = None,
     session_auth: SessionAuth | None = None,
     static_dir: Path | None = None,
     sse_poll_sec: float = 1.0,
     fake_mode: bool = False,
+    snapshot_status: Callable[[], dict[str, Any]] | None = None,
+    policy_suggest: Any | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api()."""
 
@@ -245,6 +267,10 @@ def create_app(
     @app.exception_handler(ValidationError)
     async def _validation(_req: Request, exc: ValidationError) -> JSONResponse:
         return problem_response(422, validation_message(exc))
+
+    @app.exception_handler(FeatureDisabled)
+    async def _disabled(_req: Request, exc: FeatureDisabled) -> JSONResponse:
+        return problem_response(503, str(exc))
 
     @app.exception_handler(RequestValidationError)
     async def _request_validation(_req: Request, exc: RequestValidationError) -> JSONResponse:
@@ -296,17 +322,27 @@ def create_app(
     @app.get(f"/{API_VERSION}/sources/status")
     async def sources_status() -> dict[str, Any]:
         status = await repo.source_status()
-        return {
-            "sources": [
-                {
-                    "source": s,
-                    "label": SOURCE_LABELS.get(s, s),
-                    "count": int(status.get(s, {}).get("count", 0)),
-                    "last_ingested": status.get(s, {}).get("last_ingested"),
-                }
-                for s in ALL_SOURCES
-            ]
-        }
+        rows = [
+            {
+                "source": s,
+                "label": SOURCE_LABELS.get(s, s),
+                "count": int(status.get(s, {}).get("count", 0)),
+                "last_ingested": status.get(s, {}).get("last_ingested"),
+            }
+            for s in ALL_SOURCES
+        ]
+        if snapshot_status is not None:  # 공사 홈페이지 자료: <수집일> 기준 스냅샷
+            snap = snapshot_status()
+            for row in rows:
+                if row["source"] == "korail_web":
+                    row["snapshot"] = snap.get("snapshot")
+                    row["snapshot_items"] = int(snap.get("items") or 0)
+                    row["snapshot_label"] = (
+                        f"공사 홈페이지 자료: {snap['snapshot']} 기준 스냅샷"
+                        if snap.get("snapshot")
+                        else "공사 홈페이지 자료: 스냅샷 없음"
+                    )
+        return {"sources": rows}
 
     recommendation_sessions = RecommendationSessions()
 
@@ -327,6 +363,20 @@ def create_app(
         if recommend is not None and recommend_auto:
             out["recommendations"] = await _recommend(req, alerts)
         return out
+
+    @app.post(f"/{API_VERSION}/ideas/policy-suggestions")
+    async def policy_suggestions_route(req: ProposalRequest) -> dict[str, Any]:
+        """① 입력 → 정책(policy) 문서 문구 3~5개.
+
+        제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음)."""
+        if policy_suggest is None:
+            raise HTTPException(503, "정책 근거 추천이 꺼져 있습니다.")
+        suggestions = await policy_suggest(req)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            "suggestions": policy_suggestions_payload(suggestions, clean=_clean),
+            "count": len(suggestions),
+        }
 
     @app.post(f"/{API_VERSION}/precheck/clarify")
     async def clarify_route(req: ProposalRequest) -> dict[str, Any]:
@@ -378,6 +428,46 @@ def create_app(
             "differentiation": differentiation_payload(proposal, clean=_clean),
         }
 
+    @app.post(f"/{API_VERSION}/precheck/comparison")
+    async def comparison_route(req: ProposalRequest) -> dict[str, Any]:
+        """U4 차별성 비교표 — precheck 상위 5건 × (연구목표·연구방법·적용범위·기대성과·차별화 방향).
+        기존 과제 칸은 요약·초록의 제목 기반 추출만, 제목뿐이면 "정보 없음(제목 기준)". 양식 밖."""
+        if compare is None:
+            raise HTTPException(503, "차별성 비교표가 꺼져 있습니다 (usability.yaml comparison).")
+        alerts = await precheck(req)
+        table = await compare(req, alerts)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            **alerts_payload(alerts, clean=_clean),
+            "comparison": comparison_payload(table, clean=_clean),
+        }
+
+    @app.post(f"/{API_VERSION}/precheck/brief")
+    async def brief_route(req: ProposalRequest) -> dict[str, Any]:
+        """U5 선행연구 브리핑 — 검색 상위 논문·보고서 10건의 한 줄 요약·연도별 건수·키워드·연구 공백
+        후보(근거 안에서만, 후보일 뿐). LLM 1회 (stage brief: Gemini, 키 없으면 로컬)."""
+        if brief is None:
+            raise HTTPException(503, "선행연구 브리핑을 쓸 수 없습니다 (꺼짐 또는 LLM 없음).")
+        result = await brief(req)
+        return {"notice": UNTRUSTED_NOTICE, **brief_payload(result, clean=_clean)}
+
+    @app.post(f"/{API_VERSION}/ideas/structure")
+    async def structure_route(body: StructureIn) -> dict[str, Any]:
+        """U2 간편 입력 — 자유 문장을 필수 4칸(현황·원인·한계·목표)으로 나누고, 빈 칸마다 보완 질문.
+        서버는 본문을 저장하지 않는다."""
+        if structure is None:
+            raise HTTPException(503, "간편 입력을 쓸 수 없습니다 (꺼짐 또는 LLM 없음).")
+        result = await structure(body.text, title=body.title)
+        return {"notice": UNTRUSTED_NOTICE, **structure_payload(result, clean=_clean)}
+
+    @app.post(f"/{API_VERSION}/ideas/structure/merge")
+    async def structure_merge_route(body: StructureMergeIn) -> dict[str, Any]:
+        """U2 보완 답 합치기 (순수, LLM 없음) → 4칸 미리보기 + 남은 질문. 확정은 POST /v1/runs."""
+        from rra.domain.rules.structure import merge_answers, structured
+
+        fields = merge_answers(body.fields, body.answers)
+        return {"notice": UNTRUSTED_NOTICE, **structure_payload(structured(fields), clean=_clean)}
+
     async def _search(query: str, k: int, orgs: list[str] | None) -> dict[str, Any]:
         query = query.strip()
         if not query:
@@ -404,6 +494,10 @@ def create_app(
     @app.post(f"/{API_VERSION}/runs", status_code=202)
     async def submit_route(body: RunIn) -> dict[str, Any]:
         req = body.request()
+        if not body.acknowledged:  # 차단 경보는 담당자가 확인해야 생성한다 (may_generate)
+            alerts = await precheck(req)
+            if not policy.may_generate(alerts, acknowledged=False):
+                raise HTTPException(409, "차단 유사과제 있음 — acknowledged=true 확인 뒤 생성.")
         recommendations = None
         if body.recommendation_id is not None:
             session = recommendation_sessions.get(body.recommendation_id)
@@ -421,6 +515,7 @@ def create_app(
                 differentiation=body.transfer_record(),
                 recommendations=recommendations,
                 chosen_recommendation=body.recommendation_index,
+                priority_evidence=body.priority_evidence,
             )
         except QueueFull as exc:
             raise HTTPException(429, str(exc)) from exc
@@ -762,6 +857,134 @@ def create_app(
                 "x-rra-check": json.dumps(check, ensure_ascii=True),
             },
         )
+
+    # ── U1 근거 원문·판단 ─────────────────────────────
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/sentences/{{sid}}/evidence")
+    async def sentence_evidence_route(run_id: str, sid: str) -> dict[str, Any]:
+        """U1 문장의 근거마다 원문 발췌·문서 메타(자료원·발행기관·연도·수집일)·근거 수준
+        (원문/공개 요약/초록/제목/이미지 판독, 세부 확인 필요)·Argon 적합성·제안자 판단."""
+        rid = _run_id(run_id)
+        try:
+            items = await manager.sentence_evidence(user, rid, sid)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return {
+            "run_id": rid,
+            "sentence_id": sid,
+            "notice": UNTRUSTED_NOTICE,
+            "evidence": evidence_items_payload(items, clean=_clean),
+        }
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/evidence-decisions")
+    async def evidence_decisions_route(
+        run_id: str, body: EvidenceDecisionRequest
+    ) -> dict[str, Any]:
+        """U1 제안자 근거 판단(approve·replace·exclude) → 새 버전. replace 는 검색 집합 안의 id 만.
+        base_version 이 다르면 409."""
+        rid = _run_id(run_id)
+        try:
+            version = await manager.decide_evidence(user, rid, body)
+            state = await manager.status(user, rid)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"run_id": rid, "status": state.status, **version_payload(version, clean=_clean)}
+
+    # ── U3 섹션별 AI 다시 쓰기·보완 질문 ─────────────────
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/sections/{{key}}/rewrite")
+    async def rewrite_route(run_id: str, key: str) -> dict[str, Any]:
+        """U3 섹션 하나를 로컬 모델로 다시 쓴 후보 (반영 전, 현재 문장과 나란히). 제안자가 고친
+        문장은 보존, 선택값 불변. 반영은 …/rewrite/apply."""
+        rid = _run_id(run_id)
+        try:
+            view = await manager.rewrite_section(user, rid, key)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except RewriteRejected as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except RunBusy as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"run_id": rid, "notice": UNTRUSTED_NOTICE, **rewrite_payload(view, clean=_clean)}
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/sections/{{key}}/rewrite/apply")
+    async def rewrite_apply_route(run_id: str, key: str, body: RewriteApplyIn) -> dict[str, Any]:
+        """U3 후보 반영 → 새 버전(origin edit, note "AI 다시 쓰기"). chosen 은 후보 문장 번호."""
+        rid = _run_id(run_id)
+        try:
+            version = await manager.apply_rewrite(
+                user, rid, key, chosen=body.chosen, base_version=body.base_version, note=body.note
+            )
+            state = await manager.status(user, rid)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except (RewriteRejected, EditRejected) as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"run_id": rid, "status": state.status, **version_payload(version, clean=_clean)}
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/sections/{{key}}/questions")
+    async def section_questions_route(run_id: str, key: str) -> dict[str, Any]:
+        """U3 섹션 체크리스트(section_checklists.yaml)에서 빠진 요소 → 보완 질문 + 저장된 답."""
+        rid = _run_id(run_id)
+        try:
+            out = await manager.section_questions(user, rid, key)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return {"run_id": rid, **out}
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/sections/{{key}}/answers")
+    async def section_answers_route(
+        run_id: str, key: str, body: SectionAnswersIn
+    ) -> dict[str, Any]:
+        """U3 보완 질문의 답을 제안자 입력으로 저장 — 다음 다시 쓰기 프롬프트에 들어간다."""
+        rid = _run_id(run_id)
+        try:
+            merged = await manager.save_section_answers(user, rid, key, body.answers)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return {"run_id": rid, "section": key, "answers": merged}
+
+    # ── U7 제출 전 점검 · U8 측정·만족도 ───────────────────
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/submit-check")
+    async def submit_check_route(run_id: str) -> dict[str, Any]:
+        """U7 제출 전 점검 — 필수 섹션·미해결 알림(코드별)·근거 승인 비율·남은 메모·최종 검토 이후
+        수정·선택형 확정·칸 길이·전략 목록 출처·검토 상태. 항목마다 target 으로 이동."""
+        rid = _run_id(run_id)
+        try:
+            check = await manager.submit_check(user, rid)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        return {"run_id": rid, **submit_check_payload(check, titles=_titles(), clean=_clean)}
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/usage")
+    async def usage_route(run_id: str) -> dict[str, Any]:
+        """U8 run 의 측정 기록 (단계 시간·근거 판단 비율·다시 쓰기 횟수·HWPX 성공·만족도)."""
+        rid = _run_id(run_id)
+        try:
+            record = await manager.usage(user, rid)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        return {"run_id": rid, "usage": usage_payload(record)}
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/feedback")
+    async def feedback_route(run_id: str, body: FeedbackIn) -> dict[str, Any]:
+        """U8 만족도 1~5 + 한 줄 (마무리 뒤에만, 개인정보 금지)."""
+        rid = _run_id(run_id)
+        try:
+            record = await manager.feedback(user, rid, body.score, body.comment)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except FeedbackRejected as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except ValidationError as exc:
+            raise HTTPException(422, validation_message(exc)) from exc
+        return {"run_id": rid, "usage": usage_payload(record)}
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/reopen")
     async def reopen_route(run_id: str) -> dict[str, Any]:

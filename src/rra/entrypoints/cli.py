@@ -340,6 +340,189 @@ _STATUS_TEXT = {
 }
 
 
+# ── U2 간편 입력 · U4 비교표 · U5 브리핑 ──────────────────────
+def cmd_structure(args: argparse.Namespace) -> int:
+    """U2 자유 문장 → 필수 4칸 + 보완 질문 (로컬 모델 1회). 저장하지 않는다."""
+    from rra.composition import build_structurer, load_settings
+    from rra.entrypoints.views import structure_payload
+
+    settings = load_settings()
+    structure = build_structurer(settings)
+    if structure is None:
+        _eprint("간편 입력이 꺼져 있습니다 (config/usability.yaml quick_input).")
+        return EXIT_USAGE
+
+    async def run():
+        try:
+            return await structure(args.text, title=args.title or "")
+        finally:
+            await structure.llm.aclose()
+
+    payload = structure_payload(asyncio.run(run()), clean=lambda t: _safe(t, 2000))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    for key, label in payload["labels"].items():
+        print(f"{label}: {payload['fields'].get(key) or '(비어 있음)'}")
+    if payload["questions"]:
+        print("\n보완 질문 (답은 generate --<칸> 으로 보충하거나 건너뛸 수 있음):")
+        for i, q in enumerate(payload["questions"], 1):
+            print(f" {i}. [{q['label']}] {q['question']}")
+    else:
+        print("\n필수 4칸이 모두 채워졌습니다 — 그대로 generate 에 쓸 수 있습니다.")
+    return EXIT_OK
+
+
+def cmd_compare(args: argparse.Namespace) -> int:
+    """U4 차별성 비교표 — precheck 상위 5건 × 항목 (LLM 없음, 화면·API 표만)."""
+    from rra.composition import build_comparer, build_precheck, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.entrypoints.views import comparison_payload
+
+    try:
+        req = ProposalRequest(**_read_slots(args), differentiation=args.differentiation or "")
+    except ValidationError as exc:
+        _eprint(validation_message(exc))
+        return EXIT_USAGE
+    settings = load_settings()
+    precheck = build_precheck(settings)
+    compare = build_comparer(settings, repo=getattr(precheck, "repo", None), precheck=precheck)
+    if compare is None:
+        _eprint("차별성 비교표가 꺼져 있습니다 (config/usability.yaml comparison).")
+        return EXIT_USAGE
+    table = asyncio.run(compare(req))
+    payload = comparison_payload(table, clean=lambda t: _safe(t, 400))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    cols = [payload["proposal"], *payload["projects"]]
+    print(f"[차별성 비교표] 유사과제 {len(payload['projects'])}건 (양식 밖 — 화면·API 표)")
+    print(
+        " 열: 제안 | " + " | ".join(f"{c['doc_id']} {c['title'][:24]}" for c in payload["projects"])
+    )
+    for aspect in payload["aspects"]:
+        print(f"\n■ {aspect['label']}")
+        for c in cols:
+            name = "제안" if c["doc_id"] is None else c["doc_id"]
+            print(f"  - {name}: {c['cells'].get(aspect['key'], '')[:160]}")
+    return EXIT_OK
+
+
+def cmd_brief(args: argparse.Namespace) -> int:
+    """U5 선행연구 브리핑 — 검색 상위 논문·보고서 10건 한 줄 요약·연도·키워드·연구 공백 후보."""
+    from rra.composition import build_briefer, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.entrypoints.views import brief_payload
+
+    try:
+        req = ProposalRequest(**_read_slots(args))
+    except ValidationError as exc:
+        _eprint(validation_message(exc))
+        return EXIT_USAGE
+    settings = load_settings()
+    brief = build_briefer(settings)
+    if brief is None:
+        _eprint("선행연구 브리핑이 꺼져 있습니다 (config/usability.yaml brief).")
+        return EXIT_USAGE
+
+    async def run():
+        try:
+            return await brief(req)
+        finally:
+            await brief.llm.aclose()
+
+    payload = brief_payload(asyncio.run(run()), clean=lambda t: _safe(t, 400))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    where = (
+        "로컬 모델(대체)"
+        if payload["fallback_local"]
+        else f"{payload['provider']}/{payload['model']}"
+    )
+    print(f"[선행연구 브리핑] {len(payload['items'])}건 ({where})")
+    if payload["skipped_reason"]:
+        print(f"  건너뜀: {payload['skipped_reason']}")
+    for i, item in enumerate(payload["items"], 1):
+        year = item["year"] or "미상"
+        summary = item["summary"] or "(요약 없음 — 검증 실패 또는 모델 미응답)"
+        print(f" {i:>2}. [{year}] {item['chunk_id']} {item['title'][:50]}\n     {summary}")
+    print("\n연도별: " + ", ".join(f"{y} {n}건" for y, n in payload["years"].items()))
+    print("키워드: " + (", ".join(payload["keywords"]) or "-"))
+    print(f"\n{payload['gap_label']}:")
+    for g in payload["gaps"] or []:
+        print(f"  - {g['text']}  [{', '.join(g['evidence'])}]")
+    if not payload["gaps"]:
+        print("  (없음)")
+    print(
+        "\n고른 항목의 id 는 generate --priority-evidence 또는 POST /v1/runs priority_evidence 로."
+    )
+    return EXIT_OK
+
+
+def _or_dash(value) -> str:
+    return "-" if value is None else str(value)
+
+
+def cmd_usage_report(args: argparse.Namespace) -> int:
+    """U8 runs/ 의 usage.json 집계."""
+    from rra.composition import build_usage_report, load_settings
+
+    report = build_usage_report(load_settings())()
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if not report.get("runs"):
+        print("기록된 run 이 없습니다.")
+        return EXIT_OK
+    print(f"[시범운영 측정] run {report['runs']}건")
+    print(f"  평균 총 시간: {report['avg_total_seconds'] or '-'}초")
+    for k, v in (report.get("avg_step_seconds") or {}).items():
+        print(f"    - {k}: {v}초")
+    print("  필수 요소 충족률 평균: " + _or_dash(report.get("checklist_coverage_avg")))
+    ratios = report.get("evidence_ratio_avg")
+    if ratios:
+        print(
+            f"  근거 판단 비율 평균 (판단한 run {report['evidence_decided_runs']}건): "
+            f"승인 {ratios['approve']}, 교체 {ratios['replace']}, 제외 {ratios['exclude']}"
+        )
+    print(f"  AI 다시 쓰기 반영: {report['rewrites_total']}회")
+    print(f"  HWPX 성공 {report['hwpx_success']}건 / 실패 {report['hwpx_failed']}건")
+    print(
+        f"  만족도: 평균 {_or_dash(report.get('satisfaction_avg'))} "
+        f"({report['satisfaction_count']}건) 분포 {report['satisfaction_distribution']}"
+    )
+    return EXIT_OK
+
+
+def cmd_runs_submit_check(args: argparse.Namespace) -> int:
+    """U7 제출 전 점검 체크리스트."""
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.entrypoints.views import submit_check_payload
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.submit_check(LOCAL_USER, args.run_id), mgr.generate.rules.titles
+        finally:
+            await mgr.generate.llm.aclose()
+
+    check, titles = asyncio.run(run())
+    payload = submit_check_payload(check, titles=titles, clean=lambda t: _safe(t, 300))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    verdict = "통과" if payload["ok"] else f"확인 필요 {payload['failing']}건"
+    print(f"[제출 전 점검] {verdict} — run {args.run_id}")
+    for item in payload["items"]:
+        mark = "✔" if item["ok"] else "!"
+        target = f"  → {item['target']}" if item.get("target") else ""
+        print(f" {mark} {item['label']}: {item['detail']}{target}")
+    return EXIT_OK
+
+
 # ── search ────────────────────────────────────────────────
 def cmd_search(args: argparse.Namespace) -> int:
     from rra.composition import (
@@ -415,6 +598,129 @@ def cmd_llm_bench(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ── eval (Q9 초안 품질 강화 효과 측정) ─────────────────────
+QUALITY_STEPS = (
+    "clarify",
+    "outline",
+    "section_search",
+    "exemplars",
+    "rule_check",
+    "additions",
+    "two_candidates",
+    "reranker",
+)
+
+
+def _eval_pipeline(settings, args: argparse.Namespace):
+    """--pipeline none|all|default 에 --on/--off 를 덮어쓴 PipelineConfig."""
+    from rra.composition import pipeline_config
+    from rra.domain.models import PipelineConfig
+
+    base = pipeline_config(settings)
+    if args.pipeline == "none":
+        values = {k: False for k in QUALITY_STEPS}
+    elif args.pipeline == "all":
+        values = {k: True for k in QUALITY_STEPS}
+    else:
+        values = {k: getattr(base, k) for k in QUALITY_STEPS}
+    for name in _csv(args.on):
+        values[name] = True
+    for name in _csv(args.off):
+        values[name] = False
+    unknown = set(values) - set(QUALITY_STEPS)
+    if unknown:
+        raise ValueError(f"모르는 단계: {sorted(unknown)} (가능: {list(QUALITY_STEPS)})")
+    return PipelineConfig(
+        **values,
+        draft_review=not args.no_review,
+        draft_review_retries=base.draft_review_retries,
+    )
+
+
+def _csv(value: str | None) -> list[str]:
+    return [x.strip() for x in (value or "").split(",") if x.strip()]
+
+
+def cmd_eval(args: argparse.Namespace) -> int:
+    """골든셋으로 ③ 흐름(precheck → 생성 → v1 → 1차 검토 → v2)을 돌려 지표 JSON 을 남기거나
+    (--label), JSON 들을 비교표(docs/eval-<날짜>.md "초안 품질 강화 비교")로 합친다(--report)."""
+    from rra.entrypoints.views import eval_markdown
+
+    if args.report:
+        results = [json.loads(Path(p).read_text(encoding="utf-8")) for p in args.report]
+        out = Path(args.out or f"docs/eval-{time.strftime('%Y-%m-%d')}.md")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        text = eval_markdown(results, date=time.strftime("%Y-%m-%d"))
+        if out.exists() and args.append:
+            out.write_text(out.read_text(encoding="utf-8").rstrip() + "\n\n" + text, "utf-8")
+        else:
+            out.write_text(text, encoding="utf-8")
+        print(f"저장: {out} (구성 {len(results)}개)")
+        return EXIT_OK
+    if not args.label:
+        _eprint("--label <이름> (측정 실행) 또는 --report <json…> (표 작성) 중 하나가 필요합니다.")
+        return EXIT_USAGE
+    import yaml
+
+    from rra.composition import build_eval, load_settings
+    from rra.domain.models import ProposalRequest
+
+    settings = load_settings()
+    try:
+        pipeline = _eval_pipeline(settings, args)
+    except ValueError as exc:
+        _eprint(str(exc))
+        return EXIT_USAGE
+    only = set(_csv(args.only))
+    golden = [
+        p
+        for p in sorted(Path(args.golden).glob("*.yaml"))
+        if not only or any(p.stem.startswith(o) for o in only)
+    ]
+    if not golden:
+        _eprint(f"골든셋이 없습니다: {args.golden}")
+        return EXIT_USAGE
+    ideas, expected = [], {}
+    for p in golden:
+        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+        exp = data.pop("expected_similar", None)
+        if exp is not None:
+            expected[p.stem] = [str(x) for x in (exp or [])]
+        ideas.append((p.stem, ProposalRequest(**data)))
+    runs_dir = Path(args.runs_dir or f"data/eval/runs/{args.label}")
+
+    async def run():
+        ev = build_eval(
+            settings, label=args.label, pipeline=pipeline, runs_dir=runs_dir, expected=expected
+        )
+        try:
+            return await ev(ideas)
+        finally:
+            await ev.manager.generate.llm.aclose()
+
+    result = asyncio.run(run())
+    out = Path(args.out or f"data/eval/{args.label}.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    t = result.totals()
+    print(
+        f"[{result.label}] 켠 단계 {[k for k, v in result.pipeline.items() if v is True]} — "
+        f"알림 v1 {t['v1_alerts']}→v2 {t['v2_alerts']}, "
+        f"문장 {t['sentences_v1']}→{t['sentences_v2']}, "
+        f"무관 인용 {t['irrelevant_citations']}, 논문 인용 {t['paper_citations']}, "
+        f"점수합 {t['score_sum']}, 충족률 {t['checklist_coverage']}, "
+        f"precheck 적중 {t['precheck_hits']}/{t['precheck_known']}, "
+        f"평균 {t['seconds_avg']}s, Gemini {t['gemini_calls']}회, RSS {result.max_rss_mb or '-'}MB"
+    )
+    for i in result.ideas:
+        print(
+            f"  {i.name}: {i.status} v1 알림 {i.v1_alerts} v2 알림 {i.v2_alerts} "
+            f"점수 {i.scores} 반영 {i.applied}+{i.additions_applied} {i.seconds}s run {i.run_id}"
+        )
+    print(f"저장: {out}")
+    return EXIT_OK
+
+
 # ── DB 유지보수 ───────────────────────────────────────────
 def cmd_reindex(args: argparse.Namespace) -> int:
     """모든 청크를 설정된 임베딩 모델로 다시 색인 (모델·차원이 바뀌었을 때)."""
@@ -434,6 +740,8 @@ def cmd_db_backup(args: argparse.Namespace) -> int:
     _, backup = build_db_maintenance(load_settings())
     report = asyncio.run(backup(args.out, keep=args.keep))
     print(f"백업: {report.path} (보관 {len(report.kept)}벌, 삭제 {len(report.removed)}벌)")
+    for extra in report.extras:
+        print(f"  + {extra.name}")
     return EXIT_OK
 
 
@@ -554,6 +862,168 @@ def _warning_line(w) -> str:
         code=_safe(w.code, 40), detail=_safe(w.detail, 40), doc_id=_safe(w.doc_id, 64)
     )
     return f"[경고] {text}"
+
+
+# ── policy-suggest (정책 근거 추천) ────────────────────────
+def cmd_policy_suggest(args: argparse.Namespace) -> int:
+    """① 입력 → 정책 문서 문구 3~5개.
+
+    --pick N 이면 그 문구를 policy_basis 에 붙인 입력(JSON)을 출력한다."""
+    from rra.composition import build_policy_suggest, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.domain.rules.policy_phrases import apply_policy_suggestion
+    from rra.entrypoints.views import policy_suggestions_payload
+
+    settings = load_settings()
+    fields = _read_slots(args)
+    fields["policy_basis"] = getattr(args, "policy_basis", "") or ""
+    try:
+        req = ProposalRequest(**fields)
+    except ValidationError as exc:
+        _eprint(f"입력 오류: {validation_message(exc)}")
+        return EXIT_USAGE
+    suggestions = asyncio.run(build_policy_suggest(settings)(req))
+    rows = policy_suggestions_payload(suggestions, clean=_safe)
+    if args.pick is not None:
+        if not (1 <= args.pick <= len(suggestions)):
+            _eprint(f"--pick 은 1~{len(suggestions)} 사이여야 합니다.")
+            return EXIT_USAGE
+        chosen = apply_policy_suggestion(req, suggestions[args.pick - 1])
+        print(json.dumps(chosen.model_dump(), ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if args.json:
+        print(json.dumps({"suggestions": rows}, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if not rows:
+        print("정책 문서에서 고를 문구가 없습니다 (korail_web 적재 전이거나 관련 문서 없음).")
+        return EXIT_OK
+    for i, r in enumerate(rows, 1):
+        where = ", ".join(p for p in (str(r["year"]) if r["year"] else "", r["page"] or "") if p)
+        print(f"{i}. {r['title']}{' (' + where + ')' if where else ''} — {r['url'] or ''}")
+        print(f"   “{r['quote']}”  [키워드 {', '.join(r['keywords']) or '-'}]")
+    print("고른 번호를 --pick N 으로 주면 policy_basis 에 붙인 입력을 돌려줍니다 (자동 삽입 없음).")
+    return EXIT_OK
+
+
+# ── crawl (공사 홈페이지 스냅샷) ───────────────────────────
+def cmd_crawl_korail(args: argparse.Namespace) -> int:
+    """`rra crawl korail --explore | --download [--incremental]`. 예약 실행 없음 (사람이 돌린다)."""
+    from rra.composition import build_korail_web_crawler, load_settings
+
+    settings = load_settings()
+    crawler = build_korail_web_crawler(settings)
+
+    async def run():
+        try:
+            if args.explore:
+                return await crawler.explore()
+            return await crawler.download(incremental=bool(args.incremental))
+        finally:
+            await crawler.aclose()
+
+    result = asyncio.run(run())
+    if args.explore:
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return EXIT_OK
+        print(
+            f"탐색 {result['date']} {result['base_url']} robots "
+            f"{'비어 있음(제한 없음)' if result['robots_empty'] else '있음'}"
+        )
+        for m in result["menus"]:
+            if m.get("held") or m.get("blocked"):
+                print(
+                    f"- {_safe(m['path'], 60)}: {'보류' if m.get('held') else '차단'} "
+                    f"{_safe(m.get('held') or m.get('blocked'), 80)}"
+                )
+                continue
+            if m["kind"] == "contents":
+                print(
+                    f"- {_safe(m['path'], 60)}: 본문 {m.get('chars', 0):,}자, "
+                    f"첨부 {m.get('attachments', 0)}"
+                    f"{' ' + str(m.get('attachment_kinds')) if m.get('attachment_kinds') else ''}, "
+                    f"이미지 {m.get('images', 0)}"
+                )
+            else:
+                print(
+                    f"- {_safe(m['path'], 60)}: {m.get('posts') or '?'}건 / "
+                    f"{m.get('pages') or '?'}쪽, {m.get('earliest') or '?'} ~ "
+                    f"{m.get('latest') or '?'}, "
+                    f"1쪽 첨부 {m.get('attachment_kinds_page1')}"
+                    f"{' (since ' + m['since'] + ')' if m.get('since') else ''}"
+                )
+        return EXIT_OK
+    data = result.to_dict()
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    else:
+        total = sum(data["items"].values())
+        carried = sum(data["carried"].values())
+        print(
+            f"스냅샷 {data['snapshot']}{' (증분)' if data['incremental'] else ''}: 항목 {total:,}건"
+            f"(이어 적음 {carried:,}), 파일 {data['files']:,}, 이미지 {data['images']:,}, "
+            f"{data['bytes'] / 1024 / 1024:,.1f}MB, 건너뜀 {data['skipped_files']}, "
+            f"삭제 표시 {data['removed']}, "
+            f"보류 {len(data['held'])}, robots 차단 {data['robots_blocked']}"
+        )
+        for menu, n in data["items"].items():
+            print(f"- {_safe(menu, 40)}: {n:,}건 (이어 적음 {data['carried'].get(menu, 0):,})")
+        for url in data["held"]:
+            _eprint(f"[보류] {_safe(url, 160)}")
+    return EXIT_ERROR if data["held"] else EXIT_OK
+
+
+# ── strategy (전략체계 초안·확정) ───────────────────────────
+def cmd_strategy_draft(args: argparse.Namespace) -> int:
+    """공사 홈페이지 "중장기 경영목표" 표 → korail_strategy.draft.yaml (basis: text)."""
+    import yaml
+
+    from rra.composition import build_strategy_drafter, load_settings
+    from rra.config_loader import STRATEGY_DRAFT_FILE, korail_web_config
+
+    settings = load_settings()
+    cfg = korail_web_config(settings)
+    key = str(
+        args.key
+        or next((m["key"] for m in cfg.get("menus") or [] if m.get("id") == "mgmt_goal"), "1900")
+    )
+    draft = asyncio.run(build_strategy_drafter(settings)(key, time.strftime("%Y-%m-%d")))
+    url = str(draft["directions"][0]["source"]["url"]) if draft["directions"] else ""
+    out = Path(args.out) if args.out else Path(settings.config_dir) / STRATEGY_DRAFT_FILE
+    out.parent.mkdir(parents=True, exist_ok=True)
+    header = (
+        "# 전략체계 초안 — 공사 홈페이지 ‘중장기 경영목표’ 표에서 자동 추출\n"
+        "# (rra strategy draft, basis: text). 사람이 확인한 뒤 `rra strategy promote` 로\n"
+        "# korail_strategy.yaml 에 복사한다. 항목을 지어내지 않는다.\n"
+    )
+    out.write_text(
+        header + yaml.safe_dump(draft, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+    tasks = sum(len(d["tasks"]) for d in draft["directions"])
+    print(
+        f"초안 저장: {out} — 전략방향 {len(draft['directions'])}개, 전략과제 {tasks}개 "
+        f"(출처 {_safe(url, 80)})"
+    )
+    return EXIT_OK
+
+
+def cmd_strategy_promote(args: argparse.Namespace) -> int:
+    """초안 → 확정 파일 복사 (백업 유지) + strategy.yaml source: confirmed. 사람만 실행한다."""
+    from rra.application.usecases.strategy_catalog import promote_strategy
+    from rra.composition import load_settings
+    from rra.config_loader import STRATEGY_DRAFT_FILE, STRATEGY_FILE
+
+    settings = load_settings()
+    base = Path(settings.config_dir)
+    report = promote_strategy(
+        base / STRATEGY_DRAFT_FILE, base / STRATEGY_FILE, base / "strategy.yaml"
+    )
+    print(
+        f"확정: {report.target} (전략방향 {report.directions}, 전략과제 {report.tasks})"
+        + (f", 백업 {report.backup.name}" if report.backup else "")
+    )
+    return EXIT_OK
 
 
 # ── alio ──────────────────────────────────────────────────
@@ -741,7 +1211,10 @@ def cmd_generate(args: argparse.Namespace) -> int:
                 state = await mgr.resume(LOCAL_USER, args.resume, on_step=on_step)
             else:
                 request = req or await mgr.load_request(LOCAL_USER, args.reuse_input)
-                state = await mgr.submit(LOCAL_USER, request, on_step=on_step)
+                priority = _csv(getattr(args, "priority_evidence", None)) or None
+                state = await mgr.submit(
+                    LOCAL_USER, request, on_step=on_step, priority_evidence=priority
+                )
             started["run_id"] = state.run_id
             _eprint(f"[run {state.run_id}] 시작 — 다른 생성이 진행 중이면 끝날 때까지 기다립니다.")
             final = await mgr.wait(LOCAL_USER, state.run_id)
@@ -1308,6 +1781,46 @@ def cmd_sources_check(args: argparse.Namespace) -> int:
     return EXIT_OK if all(r["roundtrip"] == "ok" for r in results) else EXIT_ERROR
 
 
+def cmd_sources_status(args: argparse.Namespace) -> int:
+    """자료원별 적재 건수·최근 적재일 + 공사 홈페이지 스냅샷 날짜."""
+    from rra.composition import (
+        build_embedding,
+        build_korail_web_source,
+        build_repository,
+        load_settings,
+    )
+    from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
+
+    settings = load_settings()
+    repo = build_repository(build_embedding(settings), settings)
+    status = asyncio.run(repo.source_status())
+    snap = build_korail_web_source(settings).status()
+    rows = [
+        {
+            "source": s,
+            "label": SOURCE_LABELS.get(s, s),
+            "count": int(status.get(s, {}).get("count", 0)),
+            "last_ingested": status.get(s, {}).get("last_ingested"),
+        }
+        for s in ALL_SOURCES
+    ]
+    if args.json:
+        print(
+            json.dumps({"sources": rows, "korail_web_snapshot": snap}, ensure_ascii=False, indent=2)
+        )
+        return EXIT_OK
+    for r in rows:
+        print(f"- {r['label']}: {r['count']:,}건, 최근 적재 {r['last_ingested'] or '-'}")
+    if snap.get("snapshot"):
+        print(
+            f"공사 홈페이지 자료: {snap['snapshot']} 기준 스냅샷 (항목 {snap.get('items', 0):,}건, "
+            f"삭제 표시 {snap.get('removed', 0)})"
+        )
+    else:
+        print("공사 홈페이지 자료: 스냅샷 없음 (rra crawl korail --download)")
+    return EXIT_OK
+
+
 def _record_tag_hints(r: dict) -> list[str]:
     """NTIS·KIPRIS 레코드 태그 진단 — probe 후보와 설정값을 대조해 다음 할 일을 알려 준다."""
     from rra.composition import load_settings, source_config
@@ -1329,6 +1842,110 @@ def _record_tag_hints(r: dict) -> list[str]:
     if configured not in candidates and result.get("record_tag_matches") is False:
         return [f"설정된 record_tag {configured!r} 가 응답에 없습니다 — 후보 {safe} 로 바꾸세요."]
     return [f"record_tag {configured!r} 확인됨."]
+
+
+# ── vision (P3 이미지 판독) ───────────────────────────────
+def _vision_plan_lines(summary: dict) -> list[str]:
+    f, p = summary["filter"], summary["plan"]
+    reasons = ", ".join(f"{k} {v}" for k, v in f.items() if k not in ("kept", "excluded"))
+    lines = [
+        f"스냅샷 {summary['snapshot']} — 거르기: 유지 {f['kept']} / 제외 {f['excluded']} "
+        f"({reasons or '없음'})",
+        f"판독 계획: 대상 {p['planned']}건, 캐시 {p['cached']}건, "
+        f"예상 호출 {p['expected_calls']}건 (상한 {p['cap']}), OCR 만 {p['ocr_only']}건",
+        "순서 그룹: " + ", ".join(f"{k} {v}" for k, v in p["groups"].items()),
+    ]
+    return lines
+
+
+def cmd_vision_read(args: argparse.Namespace) -> int:
+    from rra.composition import build_read_images, load_settings
+
+    usecase = build_read_images(
+        load_settings(), snapshot=args.snapshot, cap=args.cap, with_reader=not args.ocr_only
+    )
+    if usecase.ocr is None:
+        _eprint("OCR 없음 — macOS Vision(ocrmac) 을 쓸 수 없어 수치 대조 없이 진행합니다.")
+    if usecase.reader is None and not args.ocr_only:
+        _eprint("판독기 없음 — RRA_GEMINI_API_KEY 가 없어 OCR 만 합니다.")
+    report = asyncio.run(usecase(dry_run=args.dry_run, limit=args.limit))
+    summary = report.summary()
+    if args.json:
+        payload = {**summary, "ocr_only_hashes": report.ocr_only_hashes}
+        if not args.dry_run:
+            payload["results"] = [
+                {
+                    "sha256": r.sha256,
+                    "status": r.status,
+                    "cached": r.cached,
+                    "image_type": r.reading.image_type if r.reading else None,
+                    "unconfirmed_numbers": r.unconfirmed_numbers,
+                    "ocr_error": r.ocr_error,
+                    "vision_error": r.vision_error,
+                }
+                for r in report.results
+            ]
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    for line in _vision_plan_lines(summary):
+        print(line)
+    if args.dry_run:
+        print("dry-run: 호출하지 않았습니다.")
+        return EXIT_OK
+    print(
+        f"결과: {summary['status']} / 실제 호출 {summary['calls']}건 / 미확인 수치 "
+        f"{summary['unconfirmed_numbers']}건 / {summary['elapsed_sec']}초"
+    )
+    if report.ocr_only_hashes:
+        print(f"상한으로 OCR 만 한 이미지 {len(report.ocr_only_hashes)}건 (다음 실행에서 이어서):")
+        for h in report.ocr_only_hashes[:20]:
+            print(f"  {h}")
+    return EXIT_OK
+
+
+def cmd_vision_sample(args: argparse.Namespace) -> int:
+    from rra.application.usecases.vision_sample import build_sample
+    from rra.composition import build_read_images, load_settings, vision_config
+
+    settings = load_settings()
+    vcfg = vision_config(settings)
+    usecase = build_read_images(settings, snapshot=args.snapshot, with_reader=not args.cached_only)
+    report = asyncio.run(usecase(limit=args.limit))
+    sample = build_sample(report.results, per_type=args.per_type or vcfg["sample_per_type"])
+    out = Path(args.out or vcfg["sample_dir"])
+    out.mkdir(parents=True, exist_ok=True)
+    for name, content in sample.files().items():
+        (out / name).write_text(content, encoding="utf-8")
+    print(sample.markdown())
+    print(
+        f"표본 {sum(len(v) for v in sample.entries.values())}건 → {out}/ "
+        f"(실제 호출 {report.calls}건)"
+    )
+    return EXIT_OK
+
+
+def cmd_vision_ingest(args: argparse.Namespace) -> int:
+    from rra.composition import build_ingest_image_readings, load_settings
+
+    usecase = build_ingest_image_readings(load_settings(), snapshot=args.snapshot)
+    report = asyncio.run(usecase(dry_run=args.dry_run, limit=args.limit))
+    summary = report.summary()
+    if args.json:
+        print(json.dumps({**summary, "doc_ids": report.doc_ids}, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    skipped = ", ".join(f"{k} {v}" for k, v in summary["skipped"].items()) or "없음"
+    print(
+        f"스냅샷 {summary['snapshot']} — 판독 결과 {summary['results']}건 → "
+        f"문서 {summary['documents']}건 / 청크 {summary['chunks']}건 "
+        f"(페이지 문서 {summary['pages_found']}건, 건너뜀: {skipped})"
+    )
+    if summary["removed_personal"]:
+        print(
+            "개인정보 제거: "
+            + ", ".join(f"{k} {v}" for k, v in summary["removed_personal"].items())
+        )
+    print("dry-run: 적재하지 않았습니다." if args.dry_run else "적재했습니다.")
+    return EXIT_OK
 
 
 # ── mcp ───────────────────────────────────────────────────
@@ -1439,6 +2056,45 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("--json", action="store_true", help="JSON 으로 출력")
     diff.set_defaults(handler=cmd_differentiate)
 
+    ps = sub.add_parser(
+        "policy-suggest", help="① 입력 → 정책 문서 문구 3~5개 추천 (LLM 없음, 자동 삽입 없음)"
+    )
+    for slot in SLOTS:
+        ps.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    ps.add_argument("--policy-basis", dest="policy_basis", default="", help="이미 적은 정책 근거")
+    ps.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    ps.add_argument(
+        "--pick", type=int, default=None, help="고른 번호 → policy_basis 에 붙인 입력 출력"
+    )
+    ps.add_argument("--json", action="store_true")
+    ps.set_defaults(handler=cmd_policy_suggest)
+    st = sub.add_parser("structure", help="U2 자유 문장 → 필수 4칸 + 보완 질문 (로컬 모델)")
+    st.add_argument("--text", required=True, help="아이디어 1~2문장")
+    st.add_argument("--title", default="", help="가제 (선택)")
+    st.add_argument("--json", action="store_true")
+    st.set_defaults(handler=cmd_structure)
+
+    cmp_ = sub.add_parser("compare", help="U4 차별성 비교표 (precheck 상위 5건, LLM 없음)")
+    for slot in SLOTS:
+        cmp_.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    cmp_.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    cmp_.add_argument("--differentiation", default="", help="제안자가 정한 차별화 방향")
+    cmp_.add_argument("--json", action="store_true")
+    cmp_.set_defaults(handler=cmd_compare)
+
+    br = sub.add_parser("brief", help="U5 선행연구 브리핑 (Gemini, 키 없으면 로컬)")
+    for slot in SLOTS:
+        br.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    br.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    br.add_argument("--json", action="store_true")
+    br.set_defaults(handler=cmd_brief)
+
+    usage = sub.add_parser("usage", help="U8 시범운영 측정 기록")
+    usage_sub = usage.add_subparsers(dest="usage_cmd", required=True)
+    ur = usage_sub.add_parser("report", help="runs/ 의 usage.json 집계")
+    ur.add_argument("--json", action="store_true")
+    ur.set_defaults(handler=cmd_usage_report)
+
     search = sub.add_parser("search", help="수집 문서 하이브리드 검색")
     search.add_argument("query")
     search.add_argument("--orgs", help="쉼표로 구분 (예: korail,krri)")
@@ -1454,6 +2110,21 @@ def build_parser() -> argparse.ArgumentParser:
     lb.add_argument("--report", nargs="*", help="합칠 결과 JSON 들 → docs/llm-bench-<날짜>.md")
     lb.add_argument("--baseline", help="--report 에 적을 기준 모델 이름")
     lb.set_defaults(handler=cmd_llm_bench)
+    ev = sub.add_parser(
+        "eval", help="골든셋으로 초안 품질 강화 효과 측정 (JSON 저장 / --report 로 비교표)"
+    )
+    ev.add_argument("--label", help="이 구성의 이름 (예: baseline, all, minus-outline)")
+    ev.add_argument("--pipeline", choices=["none", "all", "default"], default="default")
+    ev.add_argument("--on", help="켤 단계 (쉼표 구분)")
+    ev.add_argument("--off", help="끌 단계 (쉼표 구분)")
+    ev.add_argument("--no-review", action="store_true", help="Argon 1차 검토 없이 (Gemini 0회)")
+    ev.add_argument("--golden", default="tests/golden", help="아이디어 yaml 폴더")
+    ev.add_argument("--only", help="골든셋 이름 접두어 (쉼표 구분, 예: 01,02)")
+    ev.add_argument("--runs-dir", help="run 저장 폴더 (기본 data/eval/runs/<label>)")
+    ev.add_argument("--out", help="JSON(실행) 또는 Markdown(--report) 경로")
+    ev.add_argument("--report", nargs="*", help="합칠 결과 JSON 들 → docs/eval-<날짜>.md")
+    ev.add_argument("--append", action="store_true", help="--report: 기존 문서 끝에 덧붙인다")
+    ev.set_defaults(handler=cmd_eval)
     ri = sub.add_parser("reindex", help="모든 청크를 설정 임베딩 모델로 재색인")
     ri.set_defaults(handler=cmd_reindex)
     db = sub.add_parser("db", help="DB 유지보수")
@@ -1484,7 +2155,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--source",
         default="openalex",
         help="쉼표로 구분 (openalex, alio, alio_summary, own_projects, own_docs, scienceon, ntis, "
-        "kipris)",
+        "kipris, korail_web, molit)",
     )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
     ingest.add_argument(
@@ -1508,6 +2179,70 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis,kipris)")
     chk.add_argument("--json", action="store_true")
     chk.set_defaults(handler=cmd_sources_check)
+    sst = src_sub.add_parser(
+        "status", help="자료원별 적재 건수·최근 적재일, 공사 홈페이지 스냅샷 날짜"
+    )
+    sst.add_argument("--json", action="store_true")
+    sst.set_defaults(handler=cmd_sources_status)
+
+    crawl = sub.add_parser("crawl", help="공개 웹 자료 스냅샷 수집 (예약 실행 없음)")
+    crawl_sub = crawl.add_subparsers(dest="crawl_cmd", required=True)
+    ck = crawl_sub.add_parser(
+        "korail", help="공사 홈페이지(info.korail.com) — config/korail_web.yaml 메뉴를 2초 간격으로"
+    )
+    mode = ck.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--explore", action="store_true", help="메뉴별 건수·기간·첨부 형식만 조사")
+    mode.add_argument(
+        "--download", action="store_true", help="data/korail_web/snapshots/<오늘>/ 에 저장"
+    )
+    ck.add_argument(
+        "--incremental",
+        action="store_true",
+        help="이전 스냅샷과 같은 항목은 다시 받지 않고, 사라진 항목은 '원본 삭제됨' 으로 표시",
+    )
+    ck.add_argument("--json", action="store_true")
+    ck.set_defaults(handler=cmd_crawl_korail)
+
+    strat = sub.add_parser("strategy", help="전략체계 목록 — 초안 추출·확정")
+    strat_sub = strat.add_subparsers(dest="strategy_cmd", required=True)
+    sd = strat_sub.add_parser(
+        "draft", help="공사 홈페이지 중장기 경영목표 표 → korail_strategy.draft.yaml"
+    )
+    sd.add_argument("--key", help="contents.do key (기본: korail_web.yaml 의 mgmt_goal)")
+    sd.add_argument("--out", help="저장 경로 (기본 config/templates/korail_strategy.draft.yaml)")
+    sd.set_defaults(handler=cmd_strategy_draft)
+    sp = strat_sub.add_parser(
+        "promote", help="초안을 korail_strategy.yaml 로 (백업 유지, 사람만 실행)"
+    )
+    sp.set_defaults(handler=cmd_strategy_promote)
+
+    vis = sub.add_parser("vision", help="웹 이미지 판독 (P3): OCR 대조 + Argon, 캐시·상한")
+    vis_sub = vis.add_subparsers(dest="vision_cmd", required=True)
+    vr = vis_sub.add_parser("read", help="스냅샷 이미지 판독 (--dry-run: 계획만, 호출 없음)")
+    vr.add_argument("--snapshot", help="data/korail_web/snapshots/<date> (기본: 최신)")
+    vr.add_argument("--dry-run", action="store_true", help="거르기·순서·예상 호출 수만 출력")
+    vr.add_argument("--limit", type=int, help="처리 이미지 수 상한 (시험용)")
+    vr.add_argument("--cap", type=int, help="Argon 호출 상한 (기본 vision.yaml cap)")
+    vr.add_argument("--ocr-only", action="store_true", help="Argon 없이 OCR 만")
+    vr.add_argument("--json", action="store_true")
+    vr.set_defaults(handler=cmd_vision_read)
+    vs = vis_sub.add_parser("sample", help="측정 표본: 종류별 원본·OCR·Argon 나란히 + 요약표")
+    vs.add_argument("--snapshot")
+    vs.add_argument("--out", help="출력 폴더 (기본 vision.yaml paths.sample = docs/ocr-sample)")
+    vs.add_argument("--limit", type=int)
+    vs.add_argument("--per-type", type=int, help="종류별 표본 수 (기본 30)")
+    vs.add_argument(
+        "--cached-only", action="store_true", help="Argon 호출 없이 캐시·OCR 결과만으로"
+    )
+    vs.set_defaults(handler=cmd_vision_sample)
+    vi = vis_sub.add_parser(
+        "ingest", help="판독 캐시(OCR·Argon) → DB 적재 (호출 없음, basis=image_vision)"
+    )
+    vi.add_argument("--snapshot")
+    vi.add_argument("--dry-run", action="store_true", help="적재하지 않고 문서·청크 수만")
+    vi.add_argument("--limit", type=int)
+    vi.add_argument("--json", action="store_true")
+    vi.set_defaults(handler=cmd_vision_ingest)
 
     alio = sub.add_parser("alio", help="알리오 공시 보고서 카탈로그·filedrop 관리")
     alio_sub = alio.add_subparsers(dest="alio_cmd", required=True)
@@ -1535,6 +2270,11 @@ def build_parser() -> argparse.ArgumentParser:
     once.add_argument("--resume", metavar="RUN_ID", help="중단된 run 을 이어서 생성")
     once.add_argument(
         "--reuse-input", metavar="RUN_ID", help="기존 run(이전 양식 포함)의 입력으로 새로 생성"
+    )
+    gen.add_argument(
+        "--priority-evidence",
+        dest="priority_evidence",
+        help="U5 브리핑에서 고른 근거 id (쉼표) — 검색 집합 안의 것만 우선 근거로",
     )
     gen.add_argument("--json", action="store_true", help="JSON 으로 출력")
     gen.set_defaults(handler=cmd_generate)
@@ -1631,6 +2371,10 @@ def build_parser() -> argparse.ArgumentParser:
     ro = runs_sub.add_parser("reopen", help="마무리된 run 다시 열기 → editing")
     ro.add_argument("run_id")
     ro.set_defaults(handler=cmd_runs_reopen)
+    rsc = runs_sub.add_parser("submit-check", help="U7 제출 전 점검 체크리스트")
+    rsc.add_argument("run_id")
+    rsc.add_argument("--json", action="store_true")
+    rsc.set_defaults(handler=cmd_runs_submit_check)
     rp = runs_sub.add_parser("purge", help="보존 기간(security.yaml retention_days) 지난 run 삭제")
     rp.add_argument("--dry-run", action="store_true", help="지울 대상만 보여 주고 삭제하지 않는다")
     rp.add_argument("--json", action="store_true")

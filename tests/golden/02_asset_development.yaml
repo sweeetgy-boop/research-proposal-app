@@ -7,3 +7,4 @@ goal: 자산 유형별 수익 모델과 해외 철도회사 사례를 비교해 
 constraints: 공개 자료와 사내 자산 목록만 사용, 6개월.
 policy_basis: ""
 beneficiaries: 자산개발처
+expected_similar: ['alio:sum-e570e7fd006c1e28']

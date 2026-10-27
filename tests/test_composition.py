@@ -257,14 +257,20 @@ def test_generate_is_wired_with_the_relevance_floor():
     assert gen.relevance == relevance_floor(settings) == RelevanceFloor()
 
 
-def test_strategy_catalog_template_is_empty_until_filled():
+def test_strategy_catalog_uses_draft_until_promoted():
+    """strategy.yaml source: draft — 공사 홈페이지에서 뽑은 초안(15 전략과제)이 선택지가 되고
+    초안 표시가 붙는다. 확정 파일(korail_strategy.yaml)은 아직 비어 있다."""
     from rra.composition import build_generate, strategy_catalog
+    from rra.config_loader import STRATEGY_FILE, read_config
 
     settings = Settings(_env_file=None)
-    assert strategy_catalog(settings).options() == {}
+    catalog = strategy_catalog(settings)
+    assert catalog.status == "draft" and catalog.label == "전략체계 초안(확인 전)"
+    assert len(catalog.options()) == 15 and len(catalog.directions) == 5
+    assert read_config(STRATEGY_FILE, settings).get("directions") in (None, [])
     gen = build_generate(settings, repo=object(), llm=object())
     assert gen.check_overlap and gen.section_keys == gen.rules.order
-    assert gen.choice_options()["strategy_alignment"] == {}
+    assert gen.choice_options()["strategy_alignment"] == catalog.options()
     assert list(gen.choice_options()["task_type"]) == ["basic", "applied", "development"]
 
 
@@ -343,10 +349,11 @@ def test_scienceon_wiring_uses_rate_limit_policy():
 
     src = build_scienceon_source(project_settings(**SCIENCEON_KEYS))
     assert src.client.min_interval == pytest.approx(1.0)  # 초당 1회
-    assert src.client.max_requests == 40 and src.max_consecutive_429 == 2
+    assert src.client.max_requests == 48 and src.max_consecutive_429 == 2  # 토큰 1 + 13×3 + 여유
     assert src.client.max_backoff_sec == 30
     assert "apigateway.kisti.re.kr" in src.client.allowed
-    assert src.targets == ["ARTI", "REPORT"]
+    assert src.targets == ["ARTI", "REPORT", "PATENT"]
+    assert src.row_count == 100 and src.per_query_limit == 80 and len(src.queries) == 13
     assert "CID-1" not in repr(src) and "CID-1" not in repr(src.tokens)
 
 
@@ -402,7 +409,7 @@ async def test_sources_check_wiring_reports_without_values():
     sci, ntis = rows
     assert sci["roundtrip"] == "ok" and sci["result"] == {
         "auth": "ok",
-        "totals": {"ARTI": 7, "REPORT": 7},
+        "totals": {"ARTI": 7, "REPORT": 7, "PATENT": 7},
     }
     assert ntis["roundtrip"] == "skipped" and ntis["credentials"] == {"RRA_NTIS_KEY": False}
     import json as _json
@@ -565,3 +572,34 @@ def test_available_sources_skip_missing_keys_but_reject_unknown_names():
     assert all("RRA_" in reason and "=" not in reason for _, reason in skipped)  # 변수 이름만
     with pytest.raises(KeyError):
         build_available_sources(["nope"], project_settings())
+
+
+# ── [Q] 품질 단계 조립 ─────────────────────────────────────
+def test_build_reranker_returns_none_when_model_folder_is_missing_and_caches_instances(tmp_path):
+    from rra import composition
+
+    missing = tmp_path / "no-such-model"
+    (tmp_path / "llm.yaml").write_text(
+        YAML + f"reranker: {{model: {missing}, max_length: 256, device: cpu}}\n", encoding="utf-8"
+    )
+    assert composition.build_reranker(settings_for(tmp_path)) is None
+    present = tmp_path / "present-model"
+    present.mkdir()
+    (tmp_path / "llm.yaml").write_text(
+        YAML + f"reranker: {{model: {present}, max_length: 256, device: cpu}}\n", encoding="utf-8"
+    )
+    first = composition.build_reranker(settings_for(tmp_path))
+    assert first is not None and not first.loaded and first.max_length == 256
+    assert composition.build_reranker(settings_for(tmp_path)) is first  # 한 프로세스에 한 번
+
+
+def test_build_clarifier_and_outliner_take_an_injected_llm():
+    from rra.application.usecases.clarify_input import ClarifyInput
+    from rra.application.usecases.outline import OutlineSections
+    from rra.composition import build_clarifier, build_outliner
+    from tests.fakes import FakeLLM
+
+    settings = Settings(_env_file=None, config_dir=ROOT_CONFIG)
+    assert isinstance(build_clarifier(settings, llm=FakeLLM()), ClarifyInput)
+    outliner = build_outliner(settings, llm=FakeLLM())
+    assert isinstance(outliner, OutlineSections) and "method" in outliner.section_keys

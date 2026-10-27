@@ -79,13 +79,33 @@ openalex:
 # 키는 여기 두지 않는다. .env 의 RRA_SCIENCEON_* · RRA_NTIS_KEY 에서만 온다 (보안 D).
 scienceon:
   base_url: https://apigateway.kisti.re.kr   # 호스트는 security.yaml allowed_domains 에 있어야 함
-  targets: [ARTI, REPORT]   # ARTI 국내논문 · REPORT 보고서
-  search_field: BI          # searchQuery 필드 (첫 실응답으로 확인)
-  queries: [철도 궤도, 철도 차량 유지보수, 전차선, 철도 신호]
-  row_count: 50
+  targets: [ARTI, REPORT, PATENT]   # ARTI 국내논문 · REPORT 국내연구보고서 · PATENT 특허(한국, 발명자 항목 없음)
+  search_field: BI          # 전체 필드 (2026-10-27 실응답 확인). 공백 = 같은 필드 안 AND, | = OR, ! = NOT
+  # 철도 분야 질의 13개 (openalex.queries 분야와 같은 순서, 한국어). 2026-10-27 총건수(ARTI/REPORT/PATENT):
+  #   철도 궤도 틀림 1,858/370/911 · 궤도 검측 119/47/44 · 철도차량 차륜 325/115/412 · 철도 신호 열차제어 207/78/148 ·
+  #   전차선 643/195/1,173 · 철도 유지보수 1,054/471/628 · 철도 안전 사고 883/271/386 · 철도 수요 예측 273/181/2 ·
+  #   철도역 승객 18/6/9 · 철도 자산관리 67/22/3 · 철도 에너지 탄소 54/92/9 · 철도 화물 물류 271/88/17 · 열차 운행계획 268/182/21
+  # 질의당 per_query_limit 까지만(정확도순) → 한 (질의, target) 에 1페이지 = 요청 39회 + 토큰 1회.
+  #   예상 적재(중복 제거 전): ARTI ≈ 940 · REPORT ≈ 870 · PATENT ≈ 590, 합 ≈ 2,400. 같은 CN 은 한 번만.
+  queries:
+    - 철도 궤도 틀림         # 궤도
+    - 궤도 검측              # 궤도검측
+    - 철도차량 차륜          # 차량
+    - 철도 신호 열차제어     # 신호
+    - 전차선                 # 전력
+    - 철도 유지보수          # 유지보수
+    - 철도 안전 사고         # 안전
+    - 철도 수요 예측         # 수송수요
+    - 철도역 승객            # 역사
+    - 철도 자산관리          # 자산관리
+    - 철도 에너지 탄소       # 탄소중립
+    - 철도 화물 물류         # 화물
+    - 열차 운행계획          # 운영
+  row_count: 100            # 가이드 최대 100
+  per_query_limit: 80       # (질의, target) 당 최대 건수. 1,000~2,000 건으로 줄이려면 50 또는 PATENT 제외
   # 레이트리밋 — 과거 429 이력이 있어 보수적으로
   rate_limit: 1             # 초당 요청 수 (토큰 요청 포함)
-  max_requests_per_run: 40  # ingest 1회당 요청 예산. 다 쓰면 모은 만큼만 적재
+  max_requests_per_run: 48  # ingest 1회당 요청 예산(토큰 1 + 13×3 페이지 = 40, 재시도 여유 8). 다 쓰면 모은 만큼만 적재
   max_consecutive_429: 2    # 재시도까지 소진한 429 가 연속 N회면 이 run 에서 중단
   retries: 3
   max_backoff_sec: 30       # Retry-After 가 이보다 길면 재시도하지 않고 중단

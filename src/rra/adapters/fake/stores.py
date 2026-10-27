@@ -91,6 +91,11 @@ class InMemoryRunStore:
         self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
         self._recommendations: dict[tuple[str, str], dict[str, Any]] = {}
         self._working: dict[tuple[str, str], dict[str, Any]] = {}
+        self._outlines: dict[tuple[str, str], dict[str, Any]] = {}
+        self._candidates: dict[tuple[str, str], dict[str, Any]] = {}
+        self.rewrites: dict[tuple[str, str], dict[str, Any]] = {}
+        self.notes: dict[tuple[str, str], dict[str, Any]] = {}
+        self.usage: dict[tuple[str, str], Any] = {}
         self.claimed: set[tuple[str, str]] = set()
         self._seq = 0
 
@@ -156,6 +161,18 @@ class InMemoryRunStore:
     def list_versions(self, user, run_id):
         return sorted(self.versions.get(self._key(user, run_id), {}))
 
+    def save_outline(self, user, run_id, data):
+        self._outlines[(user, run_id)] = dict(data)
+
+    def load_outline(self, user, run_id):
+        return self._outlines.get((user, run_id))
+
+    def save_candidates(self, user, run_id, data):
+        self._candidates[(user, run_id)] = dict(data)
+
+    def load_candidates(self, user, run_id):
+        return self._candidates.get((user, run_id))
+
     def save_working(self, user, run_id, data):
         self._working[(user, run_id)] = dict(data)
 
@@ -170,6 +187,27 @@ class InMemoryRunStore:
 
     def load_recommendations(self, user, run_id):
         return self._recommendations.get((user, run_id))
+
+    def save_rewrite(self, user, run_id, key, data):
+        self.rewrites.setdefault(self._key(user, run_id), {})[key] = dict(data)
+
+    def load_rewrite(self, user, run_id, key):
+        return self.rewrites.get(self._key(user, run_id), {}).get(key)
+
+    def clear_rewrite(self, user, run_id, key):
+        self.rewrites.get(self._key(user, run_id), {}).pop(key, None)
+
+    def save_notes(self, user, run_id, data):
+        self.notes[self._key(user, run_id)] = dict(data)
+
+    def load_notes(self, user, run_id):
+        return self.notes.get(self._key(user, run_id))
+
+    def save_usage(self, user, run_id, usage):
+        self.usage[self._key(user, run_id)] = usage.model_copy(deep=True)
+
+    def load_usage(self, user, run_id):
+        return self.usage.get(self._key(user, run_id))
 
     def save_review(self, user, run_id, review):
         self.reviews.setdefault(self._key(user, run_id), {})[review.round] = review

@@ -21,6 +21,8 @@ from rra.settings import Settings
 DEFAULT_STAGE = "compose"
 TEMPLATE = "proposal_korail"
 STRATEGY_FILE = "templates/korail_strategy.yaml"
+STRATEGY_DRAFT_FILE = "templates/korail_strategy.draft.yaml"
+STRATEGY_SOURCES = ("draft", "confirmed")
 SLOTS_FILE = f"templates/{TEMPLATE}.slots.yaml"
 FORM_FILE = f"templates/{TEMPLATE}.hwpx"
 
@@ -62,6 +64,16 @@ def retention_days(settings: Settings, default: int = 180) -> int:
 
 def source_config(settings: Settings, name: str) -> dict[str, Any]:
     return read_config("sources.yaml", settings).get(name) or {}
+
+
+def molit_config(settings: Settings) -> dict[str, Any]:
+    """국토교통부 정책자료 수집 설정 (config/molit.yaml)."""
+    return read_config("molit.yaml", settings)
+
+
+def korail_web_config(settings: Settings) -> dict[str, Any]:
+    """공사 홈페이지 스냅샷 수집 설정 (config/korail_web.yaml). 없으면 빈 dict."""
+    return read_config("korail_web.yaml", settings)
 
 
 # ── LLM ────────────────────────────────────────────────────
@@ -109,6 +121,7 @@ def llm_config(
         )
     system_role = table.get("system_role", True)
     stop = [str(x) for x in (table.get("stop") or []) if str(x)]
+    rate = _rate_config(chosen, table.get("rate"))
     return {
         "stage": stage,
         "provider": chosen,
@@ -138,6 +151,51 @@ def llm_config(
             "backoff_sec": float(retries.get("backoff_sec", 0.5)),
             "max_backoff_sec": float(retries.get("max_backoff_sec", 8)),
         },
+        # 원격 provider 의 공유 호출 제한기 설정. None 이면 제한기 없음 (로컬 mlx)
+        "rate": rate,
+    }
+
+
+RATE_DEFAULT_PROVIDERS = ("gemini", "openai")
+RATE_DEFAULTS = {"concurrency": 4, "per_minute": 60}
+
+
+def _rate_config(provider: str, raw: Any) -> dict[str, int] | None:
+    if raw is None and provider not in RATE_DEFAULT_PROVIDERS:
+        return None
+    table = raw if isinstance(raw, dict) else {}
+    return {
+        "concurrency": max(1, int(table.get("concurrency", RATE_DEFAULTS["concurrency"]))),
+        "per_minute": max(0, int(table.get("per_minute", RATE_DEFAULTS["per_minute"]))),
+    }
+
+
+# ── 이미지 판독 (P3, config/vision.yaml) ───────────────────
+VISION_FILE = "vision.yaml"
+
+
+def vision_config(settings: Settings) -> dict[str, Any]:
+    """config/vision.yaml → 거르기·상한·경로·순서. 값 객체(ImageFilterConfig)는 domain 에서
+    만든다."""
+    cfg = read_config(VISION_FILE, settings)
+    paths = cfg.get("paths") or {}
+    order = cfg.get("order") or {}
+    ocr = cfg.get("ocr") or {}
+    return {
+        "filter": dict(cfg.get("filter") or {}),
+        "cap": int(cfg.get("cap", 2000)),
+        "snapshots_dir": str(paths.get("snapshots", "data/korail_web/snapshots")),
+        "store_dir": str(paths.get("store", "data/korail_web")),
+        "sample_dir": str(paths.get("sample", "docs/ocr-sample")),
+        "order_keywords": {k: list(v) for k, v in order.items() if isinstance(v, list)},
+        "ocr": {
+            "languages": [str(x) for x in (ocr.get("languages") or ["ko-KR", "en-US"])],
+            "max_bytes": int(ocr.get("max_bytes", 15 * 1024 * 1024)),
+            "max_pixels": int(ocr.get("max_pixels", 40_000_000)),
+            "timeout_sec": float(ocr.get("timeout_sec", 90)),
+        },
+        "image_max_bytes": int(cfg.get("image_max_bytes", 8 * 1024 * 1024)),
+        "sample_per_type": int(cfg.get("sample_per_type", 30)),
     }
 
 
@@ -201,6 +259,41 @@ def pipeline_config(settings: Settings):
     return PipelineConfig(**(cfg or {}))
 
 
+def usability_config(settings: Settings):
+    """config/usability.yaml → UsabilityConfig (파일이 없으면 기본값 = 전부 켬). 모르는 키 오류."""
+    from rra.domain.models import UsabilityConfig
+
+    cfg = read_config("usability.yaml", settings) or {}
+    known = set(UsabilityConfig.model_fields)
+    unknown = set(cfg) - known
+    if unknown:
+        raise ValueError(f"config/usability.yaml 에 모르는 키: {sorted(unknown)}")
+    return UsabilityConfig(**cfg)
+
+
+def section_checklists(settings: Settings) -> dict[str, list[dict[str, Any]]]:
+    """config/templates/section_checklists.yaml → {섹션: [{element, question, keywords[]}]}.
+    파일이 없으면 빈 dict (U3 보완 질문 없음)."""
+    data = read_config("templates/section_checklists.yaml", settings) or {}
+    out: dict[str, list[dict[str, Any]]] = {}
+    for key, items in (data.get("sections") or {}).items():
+        rows = []
+        for item in items or []:
+            if not isinstance(item, dict) or not item.get("element"):
+                continue
+            rows.append(
+                {
+                    "element": str(item["element"]),
+                    "question": str(
+                        item.get("question") or f"{item['element']} 을(를) 적어 주십시오."
+                    ),
+                    "keywords": [str(k) for k in (item.get("keywords") or []) if str(k)],
+                }
+            )
+        out[str(key)] = rows
+    return out
+
+
 def recommend_policy(settings: Settings) -> dict[str, Any]:
     """llm.yaml 의 recommend 정책 (기본: auto=true — precheck 뒤 자동 1회)."""
     cfg = read_config("llm.yaml", settings)
@@ -251,12 +344,50 @@ def keyword_rule(settings: Settings) -> KeywordRule:
 
 
 def relevance_floor(settings: Settings) -> RelevanceFloor:
-    """생성 근거의 관련도 하한 (config/overlap.yaml `evidence_floor`). 없으면 도메인 기본값."""
+    """생성 근거의 관련도 하한 (config/overlap.yaml `evidence_floor`). 없으면 도메인 기본값.
+    출처별 최소 보장(min_per_source)은 config/retrieval_mix.yaml 이 있으면 그 값이 우선한다."""
     cfg = read_config("overlap.yaml", settings).get("evidence_floor") or {}
     if not isinstance(cfg, dict):
         raise ValueError("overlap.yaml evidence_floor 는 매핑이어야 합니다.")
     keys = ("min_similarity", "min_keyword_hits", "min_per_source", "search_multiplier")
-    return RelevanceFloor.model_validate({k: cfg[k] for k in keys if k in cfg})
+    values = {k: cfg[k] for k in keys if k in cfg}
+    mix = _retrieval_mix_raw(settings)
+    if mix is not None and "min_per_source" in mix:
+        values["min_per_source"] = mix["min_per_source"]
+    return RelevanceFloor.model_validate(values)
+
+
+def _retrieval_mix_raw(settings: Settings) -> dict[str, Any] | None:
+    if not (Path(settings.config_dir) / "retrieval_mix.yaml").is_file():
+        return None
+    cfg = read_config("retrieval_mix.yaml", settings)
+    if not isinstance(cfg, dict):
+        raise ValueError("retrieval_mix.yaml 은 매핑이어야 합니다.")
+    return cfg
+
+
+def retrieval_mix(settings: Settings):
+    """config/retrieval_mix.yaml → RetrievalMix (파일이 없으면 None = 규칙 없음)."""
+    from rra.domain.rules.retrieval_mix import RetrievalMix, SectionMix
+
+    cfg = _retrieval_mix_raw(settings)
+    if cfg is None:
+        return None
+    sections = {}
+    for key, item in (cfg.get("sections") or {}).items():
+        if not isinstance(item, dict):
+            raise ValueError(f"retrieval_mix.yaml sections.{key} 는 매핑이어야 합니다.")
+        sections[str(key)] = SectionMix(
+            allow=tuple(str(x) for x in (item.get("allow") or [])),
+            min_scholarly=int(item.get("min_scholarly", 0)),
+        )
+    return RetrievalMix(
+        min_per_source=int(cfg.get("min_per_source", 6)),
+        section_min_per_source=int(cfg.get("section_min_per_source", 2)),
+        scholarly=tuple(str(x) for x in (cfg.get("scholarly") or ["paper", "report", "patent"])),
+        sections=sections,
+        overlap_exclude=tuple(str(x) for x in (cfg.get("overlap_exclude") or [])),
+    )
 
 
 # ── 양식 ───────────────────────────────────────────────────
@@ -268,11 +399,25 @@ def lint_rules(settings: Settings) -> LintRules:
     return LintRules.model_validate(data)
 
 
+def strategy_source(settings: Settings) -> str:
+    """config/strategy.yaml `source`: draft(초안 파일 사용) | confirmed(확정 파일, 기본)."""
+    value = str(read_config("strategy.yaml", settings).get("source") or "confirmed")
+    if value not in STRATEGY_SOURCES:
+        raise ValueError(f"config/strategy.yaml source 는 draft|confirmed 중 하나: {value!r}")
+    return value
+
+
 def strategy_catalog(settings: Settings) -> StrategyCatalog:
-    """코레일 전략체계 (config/templates/korail_strategy.yaml). 파일이 없거나 비면 빈 목록."""
-    data = read_config(STRATEGY_FILE, settings)
+    """코레일 전략체계. strategy.yaml source 가 draft 면 korail_strategy.draft.yaml(status=draft),
+    confirmed 면 korail_strategy.yaml. 파일이 없거나 비면 빈 목록."""
+    status = strategy_source(settings)
+    data = read_config(STRATEGY_DRAFT_FILE if status == "draft" else STRATEGY_FILE, settings)
     return StrategyCatalog.model_validate(
-        {"source": data.get("source") or "", "directions": data.get("directions") or []}
+        {
+            "source": data.get("source") or "",
+            "status": status,
+            "directions": data.get("directions") or [],
+        }
     )
 
 

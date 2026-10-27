@@ -1,0 +1,73 @@
+# 공사 홈페이지(회사소개 사이트 info.korail.com) 스냅샷 수집 설정 — `rra crawl korail` (레인 A, 2026-10-27).
+# 예약 실행 없음. 호스트는 security.yaml allowed_domains 에 있어야 한다. 스냅샷은 data/korail_web/ (커밋 금지).
+# www.korail.com 은 승차권 SPA(봇 보호층) 라 수집하지 않는다 — 같은 내용을 서버 렌더로 주는 info.korail.com 만.
+base_url: https://info.korail.com
+site_path: /info
+user_agent: "RRA research-proposal-app (internal research use) +https://github.com/sweeetgy-boop/research-proposal-app"
+min_interval_sec: 2          # 같은 호스트 요청 간격 (동시 1)
+snapshot_dir: data/korail_web
+max_file_mb: 50
+max_pages_per_board: 700
+attachment_types: [pdf, hwp, hwpx, xlsx, xls, docx, pptx]   # zip 은 받지 않는다 (보안 B)
+# kind: contents(단일 페이지) | board(게시판 selectBbsNttList) | preinfo(사전정보공표)
+# doc_type: policy(경영·전략·ESG·정책·현황) | korail_news(보도자료)
+# since: 그 날짜 이전 게시글은 받지 않는다. attachment_images: false 면 사진 첨부는 이름만 기록 (자동 판단 (1)).
+menus:
+  # 경영목표·전략·비전
+  - {id: mgmt_value,    kind: contents, key: 716,  path: "공사소개 > 일반현황 > 경영가치체계", doc_type: policy}
+  - {id: mgmt_goal,     kind: contents, key: 1900, path: "ESG경영 > 경영공시 > 일반항목 > 중장기 경영목표", doc_type: policy}
+  - {id: history,       kind: contents, key: 717,  path: "공사소개 > 일반현황 > 공사연혁", doc_type: policy}
+  # 경영공시 (알리오 링크 목록 페이지)
+  - {id: disclosure_general, kind: contents, key: 1623, path: "ESG경영 > 경영공시 > 일반항목", doc_type: policy}
+  - {id: disclosure_ops,     kind: contents, key: 1624, path: "ESG경영 > 경영공시 > 기관운영", doc_type: policy}
+  - {id: disclosure_biz,     kind: contents, key: 1625, path: "ESG경영 > 경영공시 > 주요사업 및 경영성과", doc_type: policy}
+  - {id: disclosure_eval,    kind: contents, key: 1626, path: "ESG경영 > 경영공시 > 대내외 평가", doc_type: policy}
+  # ESG·환경·안전·동반성장·윤리·사회공헌
+  - {id: esg_system,    kind: contents, key: 2250, path: "ESG경영 > ESG경영 > ESG경영 추진체계", doc_type: policy}
+  - {id: esg_decl,      kind: contents, key: 2255, path: "ESG경영 > ESG경영 > ESG경영선언", doc_type: policy}
+  - {id: esg_reports,   kind: board, bbs_no: 699,  key: 2254, path: "ESG경영 > ESG경영 > 지속가능경영보고서", doc_type: policy}
+  - {id: esg_bond,      kind: board, bbs_no: 1098, key: 3475, path: "ESG경영 > ESG경영 > ESG채권", doc_type: policy}
+  - {id: env_system,    kind: contents, key: 799,  path: "ESG경영 > 환경경영 > 환경경영체계", doc_type: policy}
+  - {id: env_vision,    kind: contents, key: 800,  path: "ESG경영 > 환경경영 > 비전 및 전략", doc_type: policy}
+  - {id: env_kpi,       kind: contents, key: 808,  path: "ESG경영 > 환경경영 > 환경성과지표", doc_type: policy}
+  - {id: env_reports,   kind: board, bbs_no: 346,  key: 810,  path: "ESG경영 > 환경경영 > 환경경영보고서", doc_type: policy}
+  - {id: env_soil,      kind: contents, key: 3316, path: "ESG경영 > 환경경영 > 토양환경 모니터링", doc_type: policy}
+  - {id: safety_policy, kind: contents, key: 769,  path: "ESG경영 > 철도안전 > 안전방침 및 예산", doc_type: policy}
+  - {id: safety_sms,    kind: contents, key: 771,  path: "ESG경영 > 철도안전 > 철도안전관리체계", doc_type: policy}
+  - {id: safety_osh,    kind: contents, key: 1480, path: "ESG경영 > 철도안전 > 산업안전보건", doc_type: policy}
+  - {id: safety_emerg,  kind: contents, key: 969,  path: "ESG경영 > 철도안전 > 비상대응", doc_type: policy}
+  - {id: safety_docs,   kind: board, bbs_no: 982,  key: 2987, path: "ESG경영 > 동반성장 > 안전 자료", doc_type: policy}
+  - {id: winwin,        kind: contents, key: 793,  path: "ESG경영 > 동반성장 > 추진체계", doc_type: policy}
+  - {id: winwin_guide,  kind: contents, key: 2973, path: "ESG경영 > 동반성장 > 공사, 용역 계약 길잡이", doc_type: policy}
+  - {id: contract_rules, kind: board, bbs_no: 978, key: 2981, path: "ESG경영 > 동반성장 > 규정 자료", doc_type: policy}
+  - {id: ethics,        kind: contents, key: 781,  path: "ESG경영 > 준법·윤리/인권경영 > 준법·윤리경영", doc_type: policy}
+  - {id: human_rights,  kind: contents, key: 785,  path: "ESG경영 > 준법·윤리/인권경영 > 인권경영", doc_type: policy}
+  - {id: human_docs,    kind: board, bbs_no: 405,  key: 1521, path: "ESG경영 > 준법·윤리/인권경영 > 인권경영 자료실", doc_type: policy, attachment_images: false}
+  - {id: social,        kind: contents, key: 789,  path: "ESG경영 > 사회공헌 > 추진체계", doc_type: policy}
+  # 정보공개 — 정책 자료실에 해당 (사전정보공표)
+  - {id: preinfo,       kind: preinfo, key: 746,   path: "정보공개 > 사전정보공표 > 사전정보공개목록", doc_type: policy}
+  - {id: preinfo_freq,  kind: contents, key: 2490, path: "정보공개 > 사전정보공표 > 자주찾는 사전정보공개목록", doc_type: policy}
+  # 주요사업 현황·통계 (현황 근거)
+  - {id: biz_pax,       kind: contents, key: 855,  path: "주요사업 > 여객수송 > 사업소개", doc_type: policy}
+  - {id: biz_pax_ops,   kind: contents, key: 1612, path: "주요사업 > 여객수송 > 여객열차 운영정보", doc_type: policy}
+  - {id: biz_metro,     kind: contents, key: 861,  path: "주요사업 > 광역수송 > 사업소개", doc_type: policy}
+  - {id: biz_metro_ops, kind: contents, key: 1446, path: "주요사업 > 광역수송 > 광역열차 운영정보", doc_type: policy}
+  - {id: biz_stat,      kind: contents, key: 866,  path: "주요사업 > 광역수송 > 수송통계", doc_type: policy}
+  - {id: biz_stat_docs, kind: board, bbs_no: 425,  key: 867,  path: "주요사업 > 광역수송 > 통계자료", doc_type: policy}
+  - {id: biz_freight,   kind: contents, key: 870,  path: "주요사업 > 물류수송 > 사업소개", doc_type: policy}
+  - {id: biz_freight_ops, kind: contents, key: 871, path: "주요사업 > 물류수송 > 수송현황 및 자원", doc_type: policy}
+  - {id: biz_asset,     kind: contents, key: 875,  path: "주요사업 > 자산개발 > 사업소개", doc_type: policy}
+  - {id: biz_asset_stat, kind: contents, key: 876, path: "주요사업 > 자산개발 > 자산 현황", doc_type: policy}
+  - {id: biz_newbiz,    kind: board, bbs_no: 1070, key: 3214, path: "주요사업 > 자산개발 > 신사업자료실", doc_type: policy}
+  - {id: biz_overseas,  kind: contents, key: 887,  path: "주요사업 > 해외사업 > 사업소개", doc_type: policy}
+  - {id: biz_overseas_stat, kind: contents, key: 890, path: "주요사업 > 해외사업 > 사업현황", doc_type: policy}
+  - {id: biz_maint_rs,  kind: contents, key: 1461, path: "주요사업 > 유지보수 > 차량유지보수", doc_type: policy}
+  - {id: biz_maint_fac, kind: contents, key: 894,  path: "주요사업 > 유지보수 > 시설유지보수", doc_type: policy}
+  - {id: biz_maint_track, kind: contents, key: 1641, path: "주요사업 > 유지보수 > 선로시설 현황", doc_type: policy}
+  - {id: biz_maint_civil, kind: contents, key: 1303, path: "주요사업 > 유지보수 > 토목시설 현황", doc_type: policy}
+  - {id: biz_maint_bldg, kind: contents, key: 1541, path: "주요사업 > 유지보수 > 건축시설 현황", doc_type: policy}
+  - {id: biz_maint_elec, kind: contents, key: 899,  path: "주요사업 > 유지보수 > 전기유지보수", doc_type: policy}
+  # 홍보센터
+  - {id: brochure,      kind: board, bbs_no: 427,  key: 913,  path: "홍보센터 > 홍보 > 기업브로슈어", doc_type: policy}
+  - {id: press,         kind: board, bbs_no: 199,  key: 911,  path: "홍보센터 > 홍보 > 보도자료", doc_type: korail_news,
+     since: "2021-10-27", attachment_images: false}

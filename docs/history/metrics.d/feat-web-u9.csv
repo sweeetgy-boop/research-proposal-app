@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,feat/web-u9,웹 U9 U1~U8 화면(#TBD),,,8,,,,,,,,,,,,,,,web: vitest 50(13 파일)·Playwright 10·axe 0(새 8 화면)·초기 JS 111.6KB gzip(전체 ≈184KB)·CSS 21.4KB·Lighthouse /login 100/100/100; backend entrypoints+adapters 779 통과

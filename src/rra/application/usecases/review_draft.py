@@ -15,6 +15,12 @@
 출력: JSON 객체만 파싱. 문장별 의견의 revised_text 는 5-4 검증(evidence 범위 → foreign_script → 근거
 필수/금지 → grounding(정책명 등) → numbers)을 거쳐, 실패하면 status=discarded(원문 유지, comment 는
 그대로).
+[Q] 1차 검토 추가 입력·출력:
+- Q5 섹션별 필수 요소 체크리스트(checklists) → 출력 checklist {섹션: {요소: true/false}}.
+  additions=True 면 빠진 요소마다 추가 문장 제안(additions) → kind="addition" 의견(같은 검증,
+  after = 넣을 위치).
+- Q7 핵심 섹션 후보 B(ctx.candidates) → 출력 candidates {섹션: {choice: "A"|"B", reason}}.
+- Q6 앱이 찾은 문제(ctx.app_findings) 는 "[앱이 찾은 문제]" 로 함께 보낸다.
 LLM 출력은 비신뢰 텍스트 — 구획 태그 무력화·길이 상한·id 대조만 거쳐 저장한다.
 """
 
@@ -23,6 +29,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 from rra.application.ports import LLMPort, PromptLibraryPort
 from rra.domain.models import (
@@ -35,6 +42,7 @@ from rra.domain.models import (
     ReviewRound,
     ReviewTransfer,
     Section,
+    Sentence,
     StrategyCatalog,
 )
 from rra.domain.models.review import (
@@ -49,6 +57,7 @@ from rra.domain.models.review import (
     sentence_id,
 )
 from rra.domain.models.selection import STRATEGY_SOURCE
+from rra.domain.rules.evidence import parse_support
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.lint import LintRules
@@ -66,6 +75,8 @@ DISCARD_NUMBER = "unsupported_number"
 DISCARD_EMPTY = "empty_or_unchanged"
 MAX_COMMENTS = 400
 MAX_SECTION_COMMENT = 50
+MAX_ADDITIONS = 60
+MAX_ADDITIONS_PER_SECTION = 4
 
 
 class ReviewParseFailed(RuntimeError):
@@ -96,6 +107,8 @@ class ReviewContext:
     # (1차 의견과 그 뒤 제안자가 바꾼 문장을 함께 보고 4개 기준 점수와 1차 대비 변화를 낸다)
     kind: str = "draft"
     app_findings: tuple[str, ...] = ()  # Q6 규칙 검사가 찾은 문제 (1차 검토에 "앱이 찾은 문제" 로)
+    # Q7 핵심 섹션의 후보 B (초안에 든 것이 A). 1차 검토가 고른다 — 호출 수는 늘지 않는다
+    candidates: Mapping[str, Section] = field(default_factory=dict)
 
 
 @dataclass
@@ -108,6 +121,12 @@ class ReviewDraft:
     prompt_max_chars: int = 100_000
     provider: str | None = None
     model: str | None = None
+    # Q5 섹션별 필수 요소 (config/templates/section_checklists.yaml, 항목은 요소 이름 문자열 또는
+    # {element, question, keywords} — U3 와 같은 파일). 비면 체크리스트 없음
+    checklists: Mapping[str, list[Any]] = field(default_factory=dict)
+    additions: bool = False  # Q5 빠진 요소 추가 문장 제안을 받을지 (1차 검토만)
+    # U1 근거 적합성 — 1차 검토 때 문장마다 support(지지·부분·불일치)를 함께 요청 (추가 호출 없음)
+    support: bool = True
 
     # ── 진입 ─────────────────────────────────────────────
     async def __call__(self, ctx: ReviewContext) -> ReviewRound:
@@ -117,8 +136,12 @@ class ReviewDraft:
         inputs = self.build_inputs(ctx, sections, excluded, internal_docs)
         raw_items: list[dict] = []
         section_items: list[dict] = []
+        addition_items: list[dict] = []
         resolved_raw: list[str] = []
         score_items: list[dict] = []
+        checklist_raw: dict = {}
+        candidate_raw: dict = {}
+        support_items: list = []
         for item in inputs:
             data = parse_object(
                 await self.llm.complete(item.prompt, system=self.prompts.review(), json_mode=True)
@@ -127,13 +150,22 @@ class ReviewDraft:
                 raise ReviewParseFailed("검토 응답이 JSON 객체가 아닙니다.")
             raw_items.extend(x for x in _as_list(data.get("sentences")) if isinstance(x, dict))
             section_items.extend(x for x in _as_list(data.get("sections")) if isinstance(x, dict))
+            addition_items.extend(x for x in _as_list(data.get("additions")) if isinstance(x, dict))
             resolved_raw.extend(
                 str(x) for x in _as_list(data.get("resolved")) if isinstance(x, str)
             )
+            if isinstance(data.get("checklist"), dict):
+                checklist_raw.update(data["checklist"])
+            if isinstance(data.get("candidates"), dict):
+                candidate_raw.update(data["candidates"])
             if not score_items:  # 분할 호출이면 첫 호출(초안 전체 또는 첫 섹션)의 채점만 쓴다
                 score_items = [x for x in _as_list(data.get("scores")) if isinstance(x, dict)]
+            support_items.extend(_as_list(data.get("support")))
         sent_ids = {sid for item in inputs for sid in item.sentence_ids}
+        support = parse_support(support_items, sent_ids) if self._wants_support(ctx) else {}
         comments = self._comments(ctx, sections, raw_items, section_items, sent_ids)
+        if self.additions and ctx.kind == "draft":
+            comments.extend(self._additions(ctx, sections, addition_items, start_no=len(comments)))
         scores = parse_scores(score_items, sent_ids)
         comments.extend(
             score_comments(
@@ -163,7 +195,13 @@ class ReviewDraft:
             excluded_sentences=sorted(excluded),
             transfer=transfer,
             scores=scores,
+            checklist=parse_checklist(checklist_raw, self.checklists, {s.key for s in sections}),
+            candidate_choices=parse_candidate_choices(candidate_raw, set(ctx.candidates)),
+            support=support,
         )
+
+    def _wants_support(self, ctx: ReviewContext) -> bool:
+        return self.support and ctx.kind == "draft"
 
     # ── 전송 범위 ─────────────────────────────────────────
     def _excluded(self, sections: list[Section], internal_docs: set[str]) -> set[str]:
@@ -242,6 +280,42 @@ class ReviewDraft:
             parts.append(
                 "[앱이 찾은 문제 — 규칙 검사]\n"
                 + json.dumps(list(ctx.app_findings), ensure_ascii=False)
+            )
+        present = {s.key for s in sections}
+        checklist = {
+            k: checklist_names(v) for k, v in self.checklists.items() if k in present and v
+        }
+        if checklist:
+            parts.append(
+                "[섹션별 필수 요소 — 각 요소가 초안에 있는지 checklist 에 true/false 로 적는다]\n"
+                + json.dumps(checklist, ensure_ascii=False)
+            )
+            if self.additions and ctx.kind == "draft":
+                parts.append(
+                    "[보완 작성] 빠진 요소(false)마다 additions 에 추가 문장을 제안한다 — "
+                    '{"section": 섹션 키, "after": 넣을 위치의 sentence_id 또는 null(섹션 끝), '
+                    '"text": 완결된 문장 하나(개조식), "evidence": [근거 id]}. '
+                    "근거 필수 섹션(tech_importance)은 [근거] 의 id 를 반드시 단다. 새 사실·수치·"
+                    "정책명은 쓰지 않는다. 입력·근거에 없는 요소는 제안하지 않고 false 로만 둔다."
+                )
+        if ctx.candidates and ctx.kind == "draft":
+            alt = {
+                key: [{"text": s.text, "evidence": list(s.evidence)} for s in sec.sentences]
+                for key, sec in ctx.candidates.items()
+                if key in present
+            }
+            if alt:
+                parts.append(
+                    "[후보 B — 핵심 섹션의 대안] 초안에 든 것이 후보 A 다. 섹션마다 A·B 중 더 나은 "
+                    '쪽을 candidates 에 {"섹션": {"choice": "A" 또는 "B", "reason": 한 줄}} 로 '
+                    "고른다. sentences 의견은 항상 초안(A) 의 sentence_id 기준으로 낸다.\n"
+                    + json.dumps(alt, ensure_ascii=False)
+                )
+        if self._wants_support(ctx):
+            parts.append(
+                "[근거 적합성 — 모든 문장] evidence 가 있는 문장마다 support 를 낸다: "
+                "지지(근거가 문장을 뒷받침) | 부분(일부만) | 불일치(근거와 다르거나 근거에 없음). "
+                '출력의 "support": [{"sentence_id": "...", "support": "지지"}] 에 적는다.'
             )
         if ctx.previous is not None:
             prev = [
@@ -368,6 +442,79 @@ class ReviewDraft:
                 )
         return comments
 
+    def _additions(
+        self,
+        ctx: ReviewContext,
+        sections: list[Section],
+        items: list[dict],
+        *,
+        start_no: int,
+    ) -> list[ReviewComment]:
+        """Q5 추가 문장 제안 → kind=addition 의견. 수정안과 같은 검증(실패하면 discarded)."""
+        by_key = {s.key: s for s in sections}
+        allowed_ids = set(ctx.snapshot.retrieved_ids)
+        chunk_texts = {c.chunk_id: c.text for c in ctx.snapshot.chunks}
+        doc_texts: dict[str, list[str]] = {}
+        for c in ctx.snapshot.chunks:
+            doc_texts.setdefault(c.doc_id, []).append(c.text)
+        existing = {
+            _norm(s.text) for sec in sections for s in sec.sentences
+        }  # 이미 있는 문장과 같으면 폐기
+        per_section: dict[str, int] = {}
+        out: list[ReviewComment] = []
+        n = start_no
+        blank = Sentence(text="", evidence=[])
+        for item in items[:MAX_ADDITIONS]:
+            key = str(item.get("section", ""))
+            sec = by_key.get(key)
+            if sec is None or key in self.rules.choices:
+                continue
+            if per_section.get(key, 0) >= MAX_ADDITIONS_PER_SECTION:
+                continue
+            text = _clean_text(item.get("text"), MAX_REVISED_CHARS)
+            after: int | None = None
+            parsed = parse_sentence_id(str(item.get("after") or ""))
+            if parsed is not None and parsed[0] == key and parsed[1] < len(sec.sentences):
+                after = parsed[1]
+            evidence = [
+                normalize_evidence_id(str(e))
+                for e in _as_list(item.get("evidence"))
+                if isinstance(e, str)
+            ]
+            evidence = list(dict.fromkeys(e for e in evidence if e))
+            n += 1
+            per_section[key] = per_section.get(key, 0) + 1
+            comment = ReviewComment(
+                id=f"r{ctx.round_no}-{n}",
+                section=key,
+                sentence=None,
+                kind="addition",
+                after=after,
+                issue_type=_issue_type(item.get("issue_type", "서식요건")),
+                comment=_clean_text(item.get("comment") or item.get("reason"), MAX_COMMENT_CHARS)
+                or "빠진 요소 보완",
+                revised_text=text or None,
+                evidence=evidence,
+            )
+            if not text or _norm(text) in existing:
+                out.append(
+                    comment.model_copy(
+                        update={"status": "discarded", "discard_reason": DISCARD_EMPTY}
+                    )
+                )
+                continue
+            reason = self._check(
+                key, text, evidence, allowed_ids, blank, ctx.request, chunk_texts, doc_texts
+            )
+            if reason:
+                comment = comment.model_copy(
+                    update={"status": "discarded", "discard_reason": reason}
+                )
+            else:
+                existing.add(_norm(text))
+            out.append(comment)
+        return out
+
     def _check(
         self,
         key: str,
@@ -432,6 +579,53 @@ def parse_scores(items: list[dict], sent_ids: set[str]) -> list[CriterionScore]:
             sentence_ids=[sid for sid in dict.fromkeys(ids) if sid in sent_ids][:20],
         )
     return [found[c] for c in CRITERIA if c in found]
+
+
+def checklist_names(items: Iterable[Any]) -> list[str]:
+    """체크리스트 항목 → 요소 이름 (문자열 또는 {element: …} 둘 다 받는다)."""
+    out: list[str] = []
+    for x in items:
+        name = x.get("element") if isinstance(x, Mapping) else x
+        if isinstance(name, str) and name.strip():
+            out.append(name.strip())
+    return out
+
+
+def parse_checklist(
+    raw: Mapping[str, Any], checklists: Mapping[str, list[Any]], present: set[str]
+) -> dict[str, dict[str, bool]]:
+    """LLM 의 checklist → {섹션: {요소: bool}} (앱이 보낸 섹션·요소만, 값은 bool 로)."""
+    out: dict[str, dict[str, bool]] = {}
+    for key, items in raw.items():
+        if key not in present or key not in checklists or not isinstance(items, Mapping):
+            continue
+        known = set(checklist_names(checklists[key]))
+        picked = {str(name): bool(value) for name, value in items.items() if str(name) in known}
+        if picked:
+            out[str(key)] = picked
+    return out
+
+
+def parse_candidate_choices(
+    raw: Mapping[str, Any], candidate_keys: set[str]
+) -> dict[str, dict[str, str]]:
+    """LLM 의 candidates → {섹션: {choice: A|B, reason}} (후보가 있는 섹션만, 모르는 값은 버림)."""
+    out: dict[str, dict[str, str]] = {}
+    for key, item in raw.items():
+        if key not in candidate_keys or not isinstance(item, Mapping):
+            continue
+        choice = str(item.get("choice", "")).strip().upper()
+        if choice not in ("A", "B"):
+            continue
+        out[str(key)] = {
+            "choice": choice,
+            "reason": _clean_text(item.get("reason"), MAX_REASON_CHARS),
+        }
+    return out
+
+
+def _norm(text: str) -> str:
+    return "".join(ch for ch in text if not ch.isspace() and ch not in ".。,")
 
 
 def internal_doc_ids(chunks: Iterable[Chunk]) -> set[str]:

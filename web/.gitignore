@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.lighthouseci/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+coverage/
+.env
+.env.*
+*.tsbuildinfo

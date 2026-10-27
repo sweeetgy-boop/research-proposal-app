@@ -155,6 +155,7 @@ def make_assistant(
     differentiate=_DEFAULT,
     recommend=_DEFAULT,
     recommend_auto: bool = True,
+    clarify=None,
 ) -> ProposalAssistant:
     repo = InMemoryRepository()
     repo.seed(DOCS, CHUNKS)
@@ -193,4 +194,17 @@ def make_assistant(
         differentiate=FakeDifferentiate() if differentiate is _DEFAULT else differentiate,
         recommend=FakeRecommend() if recommend is _DEFAULT else recommend,
         recommend_auto=recommend_auto,
+        clarify=clarify,
     )
+
+
+class FakeClarify:
+    """Q1 보강 질문 유스케이스 페이크 — 정해진 질문을 돌려준다. LLM 없음."""
+
+    def __init__(self, questions: list[str] | None = None):
+        self.questions = list(questions if questions is not None else ["대상 노선은?"])
+        self.calls: list = []
+
+    async def __call__(self, req):
+        self.calls.append(req)
+        return list(self.questions)

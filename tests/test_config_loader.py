@@ -350,3 +350,64 @@ def test_project_overlap_yaml_floor_equals_the_golden_measurement():
     from rra.domain.rules.relevance import RelevanceFloor
 
     assert relevance_floor(project_settings()) == RelevanceFloor()
+
+
+def test_retrieval_mix_loads_sections_and_overrides_min_per_source(tmp_path):
+    from rra.config_loader import relevance_floor, retrieval_mix
+    from rra.settings import Settings
+
+    (tmp_path / "overlap.yaml").write_text(
+        "evidence_floor: {min_similarity: 0.5, min_per_source: 9}\n", encoding="utf-8"
+    )
+    settings = Settings(_env_file=None, config_dir=tmp_path)
+    assert retrieval_mix(settings) is None and relevance_floor(settings).min_per_source == 9
+    (tmp_path / "retrieval_mix.yaml").write_text(
+        "min_per_source: 4\nsection_min_per_source: 1\nscholarly: [paper]\n"
+        "sections:\n  method: {allow: [paper, rnd_project], min_scholarly: 2}\n"
+        "overlap_exclude: [policy]\n",
+        encoding="utf-8",
+    )
+    mix = retrieval_mix(settings)
+    assert mix.min_per_source == 4 and relevance_floor(settings).min_per_source == 4
+    assert mix.sections["method"].allow == ("paper", "rnd_project")
+    assert mix.sections["method"].min_scholarly == 2 and mix.overlap_exclude == ("policy",)
+    assert mix.scholarly == ("paper",)
+
+
+def test_retrieval_mix_from_repo_config_covers_core_sections():
+    from pathlib import Path
+
+    from rra.config_loader import retrieval_mix
+    from rra.settings import Settings
+
+    mix = retrieval_mix(Settings(_env_file=None, config_dir=Path(__file__).parents[1] / "config"))
+    assert mix is not None and mix.sections["tech_importance"].min_scholarly >= 2
+    assert mix.sections["method"].min_scholarly >= 2 and "policy" in mix.overlap_exclude
+    assert "paper" in mix.sections["tech_importance"].allow
+
+
+# ── U1~U8 usability.yaml · section_checklists.yaml ───────────
+def test_usability_config_defaults_on_and_rejects_unknown_keys(tmp_path):
+    from rra.config_loader import section_checklists, usability_config
+
+    cfg = usability_config(settings_for(tmp_path))  # 파일 없음 → 전부 켬
+    assert cfg.evidence_view and cfg.brief and cfg.strategy_source == "confirmed"
+    (tmp_path / "usability.yaml").write_text(
+        "brief: false\nstrategy_source: draft\n", encoding="utf-8"
+    )
+    cfg = usability_config(settings_for(tmp_path))
+    assert not cfg.brief and cfg.evidence_view and cfg.strategy_source == "draft"
+    (tmp_path / "usability.yaml").write_text("nope: true\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="모르는 키"):
+        usability_config(settings_for(tmp_path))
+    assert section_checklists(settings_for(tmp_path)) == {}
+
+
+def test_shipped_usability_and_checklists_load():
+    from rra.config_loader import llm_config, section_checklists, usability_config
+
+    cfg = usability_config(project_settings())
+    assert len(cfg.enabled()) == 12
+    lists = section_checklists(project_settings())
+    assert "method" in lists and all(r["question"] and r["keywords"] for r in lists["method"])
+    assert llm_config(project_settings(), "brief")["provider"] == "gemini"

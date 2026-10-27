@@ -1,6 +1,9 @@
-# PR 과 main push 마다 backend(uv·pytest·lint-imports·ruff)와 web(npm ci·lint·typecheck·test).
-# 비밀 키 없이 돈다 — 키·실물 양식·사내 데이터가 필요한 테스트는 skipif 로 건너뛴다(.env 없음, data/ 없음).
-# web/ 가 없으면 web job 은 건너뛴다. main 보호 규칙 "Require status checks" 에는 job 이름 backend·web 을 건다.
+# PR 과 main push 마다 backend 와 web 을 검사한다. 비밀 키 없이 돈다 — 키·실물 양식·사내 데이터가 필요한 테스트는
+# skipif 로 건너뛴다(.env 없음, data/ 없음). web/ 가 없으면 web 계열 job 은 건너뛴다.
+#
+# 병렬 구조(2026-10-27): backend 는 단위·계약(backend-unit) / API·통합(backend-api) 두 job, web 은 lint·typecheck·단위
+# (web-check) / e2e(web-e2e) 두 job 으로 나눠 동시에 돈다. main 보호 규칙의 필수 검사 이름 backend·detect·web 은
+# 바꾸지 않는다 — 그 이름의 job 은 나눈 job 이 모두 성공해야 성공하는 "모음 job" 이다(needs + 결과 검사).
 name: ci
 
 on:
@@ -15,6 +18,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  HF_HUB_OFFLINE: "1"        # 모델을 내려받지 않는다 (테스트는 fake 임베딩·fake LLM)
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
   detect:
     runs-on: ubuntu-latest
@@ -26,11 +33,9 @@ jobs:
         run: |
           if [ -f web/package.json ]; then echo "web=true" >> "$GITHUB_OUTPUT"; else echo "web=false" >> "$GITHUB_OUTPUT"; fi
 
-  backend:
+  backend-unit:
+    # 단위·계약: domain·application·adapters·contracts·조립·설정 + lint-imports + ruff
     runs-on: ubuntu-latest
-    env:
-      HF_HUB_OFFLINE: "1"        # 모델을 내려받지 않는다 (테스트는 fake 임베딩·fake LLM)
-      PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -41,14 +46,44 @@ jobs:
         run: |
           uv venv --python 3.12 .venv
           uv pip install --python .venv/bin/python -e ".[dev]"
-      - name: pytest
-        run: .venv/bin/python -m pytest -q -p no:cacheprovider
+      - name: pytest (unit·contracts, parallel)
+        run: >-
+          .venv/bin/python -m pytest -q -p no:cacheprovider -n auto
+          tests/domain tests/application tests/adapters tests/contracts tests/deploy
+          tests/test_composition.py tests/test_config_loader.py tests/test_record_fixture_tool.py
       - name: lint-imports
         run: .venv/bin/lint-imports
       - name: ruff
         run: .venv/bin/ruff check src tests
 
-  web:
+  backend-api:
+    # API·통합: entrypoints(REST·CLI·MCP·Streamlit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Python 3.12 venv + dev extras
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv/bin/python -e ".[dev]"
+      - name: pytest (entrypoints, parallel)
+        run: .venv/bin/python -m pytest -q -p no:cacheprovider -n auto tests/entrypoints
+
+  backend:
+    # 모음 job — 보호 규칙의 필수 검사 이름. 나눈 job 이 모두 success 일 때만 성공한다.
+    needs: [backend-unit, backend-api]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: all backend jobs passed?
+        run: |
+          echo "backend-unit=${{ needs.backend-unit.result }} backend-api=${{ needs.backend-api.result }}"
+          test "${{ needs.backend-unit.result }}" = "success" && test "${{ needs.backend-api.result }}" = "success"
+
+  web-check:
     needs: detect
     if: needs.detect.outputs.web == 'true'
     runs-on: ubuntu-latest
@@ -66,3 +101,53 @@ jobs:
       - run: npm run lint --if-present
       - run: npm run typecheck --if-present
       - run: npm test --if-present -- --run
+
+  web-e2e:
+    # Playwright e2e — 백엔드 가짜 모드(RRA_FAKE_LLM=1)가 web/dist 를 서빙. 모델·키·DB 없음.
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Python venv (api·render·llm·persistence 만 — 가짜 모드)
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv/bin/python -e ".[api,render,llm,persistence,mcp]"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - run: npm run e2e
+        working-directory: web
+        env:
+          CI: "1"
+          RRA_BIN: .venv/bin/rra
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 7
+
+  web:
+    # 모음 job — 보호 규칙의 필수 검사 이름. web/ 가 없으면(skipped) 성공으로 본다.
+    needs: [detect, web-check, web-e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: all web jobs passed (or no web/)?
+        run: |
+          echo "detect.web=${{ needs.detect.outputs.web }} web-check=${{ needs.web-check.result }} web-e2e=${{ needs.web-e2e.result }}"
+          if [ "${{ needs.detect.outputs.web }}" != "true" ]; then echo "no web/ — skip"; exit 0; fi
+          test "${{ needs.web-check.result }}" = "success" && test "${{ needs.web-e2e.result }}" = "success"

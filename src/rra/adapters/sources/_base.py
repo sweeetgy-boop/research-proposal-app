@@ -165,6 +165,8 @@ class GuardedClient:
         resolver: Resolver = resolves_private,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         clock: Callable[[], float] = time.monotonic,
+        user_agent: str = USER_AGENT,
+        accept: str = "application/json",
     ):
         self.allowed = {d.strip().lower().rstrip(".") for d in allowed if d.strip()}
         self.max_redirects = max_redirects
@@ -183,7 +185,7 @@ class GuardedClient:
             timeout=timeout,
             transport=transport,
             follow_redirects=False,
-            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            headers={"User-Agent": user_agent, "Accept": accept},
         )
 
     def __repr__(self) -> str:
@@ -208,6 +210,16 @@ class GuardedClient:
         except ValueError as exc:
             raise FetchError(f"JSON 파싱 실패: {safe}") from exc
 
+    async def get_raw(
+        self, url: str, params: dict[str, Any] | None = None
+    ) -> tuple[dict[str, str], bytes, str]:
+        """HTML·파일 공용 GET — (응답 헤더(소문자 키), 본문, 비밀 제거된 최종 URL).
+
+        content-type 검사는 호출자가 한다 (웹 페이지 크롤러처럼 여러 형식을 받는 어댑터용).
+        크기 상한·허용목록·리다이렉트 검사는 get_json 과 같다."""
+        headers, body, safe = await self._get(url, params)
+        return {k.lower(): v for k, v in headers.items()}, body, safe
+
     async def get_bytes(
         self,
         url: str,
@@ -215,23 +227,31 @@ class GuardedClient:
         *,
         accept_types: Iterable[str],
     ) -> bytes:
-        """파일 다운로드. content-type 이 accept_types 에 없으면 FetchError. 크기 상한 동일."""
+        """파일 다운로드. content-type 이 accept_types 에 없으면 FetchError. 크기 상한 동일.
+
+        Accept 헤더도 accept_types 로 보낸다 (application/json 만 보내면 XML API 가 406 을 준다).
+        """
         accepted = {t.lower() for t in accept_types}
-        headers, body, safe = await self._get(url, params)
+        accept = ", ".join(sorted(accepted)) + ", */*;q=0.1"
+        headers, body, safe = await self._get(url, params, headers={"Accept": accept})
         ctype = headers.get("content-type", "").split(";")[0].strip().lower()
         if ctype not in accepted:
             raise FetchError(f"허용되지 않은 content-type({ctype or '없음'}): {safe}")
         return body
 
     async def _get(
-        self, url: str, params: dict[str, Any] | None
+        self,
+        url: str,
+        params: dict[str, Any] | None,
+        *,
+        headers: dict[str, str] | None = None,
     ) -> tuple[httpx.Headers, bytes, str]:
         """재시도·상태 코드 처리 공통 경로. (헤더, 본문, 비밀 제거된 최종 URL)."""
         target = httpx.URL(url, params=params) if params else httpx.URL(url)
         attempt = 0
         while True:
             try:
-                status, headers, body, final = await self._fetch(target)
+                status, headers, body, final = await self._fetch(target, headers)
             except httpx.TransportError as exc:
                 if attempt >= self.retries:
                     safe = strip_secrets(str(target))
@@ -254,7 +274,9 @@ class GuardedClient:
                 raise FetchError(f"HTTP {status}: {safe}")
             return headers, body, safe
 
-    async def _fetch(self, target: httpx.URL) -> tuple[int, httpx.Headers, bytes, httpx.URL]:
+    async def _fetch(
+        self, target: httpx.URL, headers: dict[str, str] | None = None
+    ) -> tuple[int, httpx.Headers, bytes, httpx.URL]:
         for _ in range(self.max_redirects + 1):
             check_url(str(target), self.allowed, resolver=self._resolver)
             if self.max_requests is not None and self.requests_made >= self.max_requests:
@@ -263,7 +285,7 @@ class GuardedClient:
                 )
             await self._throttle()
             self.requests_made += 1
-            async with self._client.stream("GET", target) as resp:
+            async with self._client.stream("GET", target, headers=headers) as resp:
                 if resp.has_redirect_location:
                     target = target.join(resp.headers["location"])
                     continue  # 다음 hop 도 check_url 을 다시 거친다

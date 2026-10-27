@@ -14,7 +14,12 @@ def tier_text(tier: str, own_detail: str | None = None) -> str:
     return TIER.get(tier, tier)
 
 
-BASIS = {"summary": "공개 요약", "abstract": "초록·과제요약", "full_text": "원문"}
+BASIS = {
+    "summary": "공개 요약",
+    "abstract": "초록·과제요약",
+    "full_text": "원문",
+    "image_vision": "이미지 판독",  # 웹 이미지 OCR 대조 + Argon 판독 — 원본 링크는 raw.image.url
+}
 PROBLEM = {
     "missing": "필수 섹션 비어 있음",
     "too_long": "분량 초과",

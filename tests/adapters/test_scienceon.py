@@ -21,6 +21,7 @@ from rra.adapters.sources.scienceon.auth import (
     normalize_mac,
 )
 from rra.adapters.sources.scienceon.client import ScienceOnError
+from rra.adapters.sources.scienceon.normalize import normalize_record
 
 BASE = "https://apigateway.kisti.re.kr"
 KEY = "0123456789abcdef0123456789abcdef"  # 32바이트 테스트 키 (실제 키 아님)
@@ -59,7 +60,7 @@ def test_accounts_roundtrip_and_format():
 
 
 def test_auth_key_must_be_32_bytes():
-    with pytest.raises(ValueError, match="32바이트"):
+    with pytest.raises(ValueError, match="32자"):
         encrypt_accounts("short", MAC, datetime(2026, 1, 1))
 
 
@@ -81,7 +82,7 @@ class Gateway:
         if path == "/tokenrequest.do":
             if self.issue_error:
                 return httpx.Response(200, json={"errorCode": self.issue_error})
-            if "refreshToken" in q:
+            if "refresh_token" in q:  # 가이드: 재발급 파라미터 이름은 refresh_token
                 if not self.refresh_ok:
                     return httpx.Response(200, json={"errorCode": "E4104"})
                 return httpx.Response(200, json={"access_token": "ACCESS-R"})
@@ -183,7 +184,9 @@ def page(n, total, start=0, code=None):
     )
 
 
-def source_for(gw, *, targets=("ARTI",), row_count=2, max_requests=None, strikes=2):
+def source_for(
+    gw, *, targets=("ARTI",), row_count=2, max_requests=None, strikes=2, per_query_limit=None
+):
     client = client_for(gw, max_requests=max_requests, retries=0)
     return ScienceOnSource(
         client,
@@ -193,7 +196,109 @@ def source_for(gw, *, targets=("ARTI",), row_count=2, max_requests=None, strikes
         queries=["궤도"],
         row_count=row_count,
         max_consecutive_429=strikes,
+        per_query_limit=per_query_limit,
     )
+
+
+async def test_token_xml_error_body_gives_code_only():
+    """복호화 실패(키·client_id 가 바뀐 경우)는 JSON 이 아니라 XML E5001 로 온다."""
+    xml = (
+        "<MetaData><resultSummary><statusCode>500</statusCode></resultSummary>"
+        "<errorDetail><errorCode>E5001</errorCode><errorMessage>x</errorMessage></errorDetail></MetaData>"
+    )
+
+    def handler(request):
+        return httpx.Response(200, content=xml.encode(), headers={"content-type": "text/xml"})
+
+    with pytest.raises(ScienceOnAuthError, match="E5001"):
+        await tokens_for(client_for(handler)).token()
+
+
+async def test_refresh_uses_refresh_token_param_name():
+    clock = Clock()
+    gw = Gateway()
+    tm = tokens_for(client_for(gw), clock)
+    await tm.token()
+    clock.t += 2 * 3600
+    await tm.token()
+    q = parse_qs(urlsplit(str(gw.requests[-1].url)).query)
+    assert "refresh_token" in q and "refreshToken" not in q
+
+
+async def test_search_sends_xml_accept_header():
+    gw = Gateway([page(1, 1)])
+    await source_for(gw).search(None, 10)
+    assert "text/xml" in gw.requests[-1].headers["accept"]
+
+
+async def test_per_query_limit_caps_pages_per_query_and_target():
+    gw = Gateway([page(2, 10), page(2, 10, start=2), page(2, 10, start=20), page(2, 10, start=22)])
+    src = source_for(gw, targets=("ARTI", "REPORT"), per_query_limit=3)
+    raws = await src.search(None, 100)
+    # ARTI 는 3건에서 끊고(2페이지째 1건만) REPORT 로 넘어간다. 총건수 10 이어도 더 넘기지 않는다
+    assert [r["CN"] for r in raws] == ["CN0", "CN1", "CN2", "CN20", "CN21", "CN22"]
+    assert len(gw.requests) == 5  # 토큰 1 + ARTI 2페이지 + REPORT 2페이지
+
+
+# ── 정규화 (실응답 metaCode, tests/fixtures/scienceon 으로 확정) ─────────
+def test_normalize_drops_person_names_keeps_institutions():
+    doc = normalize_record(
+        {
+            "target": "ARTI",
+            "CN": "JAKO2011",
+            "Title": "궤도 논문",
+            "Author": "홍길동;김철수;",
+            "Affiliation": "한국철도공사 철도연구원;서울과학기술대학교 철도전문대학원",
+            "Publisher": "한국철도학회",
+            "Pubdate": "20110626",
+            "DOI": "https://doi.org/10.7782/jksr.2011.14.3.248",
+            "ContentURL": "http://click.ndsl.kr/servlet/OpenAPIDetailView?keyValue=1",
+            "Lang": "한국어",
+        },
+        [{"tag": "korail", "name": "한국철도공사"}],
+    )
+    assert doc.authors == [] and "홍길동" not in str(doc.model_dump())
+    assert doc.raw["orgs_named"][:2] == [
+        "한국철도공사 철도연구원",
+        "서울과학기술대학교 철도전문대학원",
+    ]
+    assert doc.orgs == ["korail"]
+    assert doc.doi == "10.7782/jksr.2011.14.3.248"
+    assert doc.pub_date.isoformat() == "2011-06-26" and doc.url.startswith("http://click.ndsl.kr/")
+    assert doc.doc_type == "paper" and doc.lang == "ko"
+
+
+def test_normalize_report_pubdate_with_zero_month_and_patent_fields():
+    report = normalize_record(
+        {
+            "target": "REPORT",
+            "CN": "TRKO2019",
+            "Title": "보고서",
+            "Pubdate": "20190400",
+            "Pjn": "16",
+        }
+    )
+    assert report.doc_type == "internal_report" and report.pub_date.isoformat() == "2019-04-01"
+    assert report.raw["project_no"] == "16"
+    patent = normalize_record(
+        {
+            "target": "PATENT",
+            "CN": "KOR1020177029671",
+            "Title": "레일 체결장치",
+            "Applicants": "팬드롤 리미티드;홍길동",
+            "ApplNum": "10-2017-7029671",
+            "ApplDate": "20171016",
+            "IPC": "E01B-001/00;E01B-029/00;",
+            "PatentStatus": "등록",
+            "Nation": "ko",
+        }
+    )
+    assert patent.doc_type == "patent" and patent.application_no == "1020177029671"
+    assert patent.raw["orgs_named"] == ["팬드롤 리미티드"] and "홍길동" not in str(
+        patent.model_dump()
+    )
+    assert patent.codes == ["E01B-001/00", "E01B-029/00"] and patent.raw["status"] == "등록"
+    assert patent.pub_date.isoformat() == "2017-10-16"
 
 
 async def test_pages_until_total_and_sends_expected_params():
@@ -249,3 +354,33 @@ async def test_dtd_in_response_is_rejected():
 
     with pytest.raises(XmlResponseError):
         await source_for(Gateway([evil])).search(None, 10)
+
+
+async def test_search_skips_a_target_with_server_error_and_keeps_the_rest():
+    """한 (target, 질의) 의 서버 오류(code=500)는 그 조합만 건너뛴다 — 모은 것은 적재한다."""
+    from rra.adapters.sources.scienceon.client import ScienceOnError, ScienceOnSource
+
+    src = object.__new__(ScienceOnSource)
+    src.targets, src.queries = ["ARTI", "PATENT"], ["철도 궤도", "전차선"]
+    src.per_query_limit, src.row_count, src.max_consecutive_429 = 10, 10, 2
+    calls = []
+
+    async def page(target, q, page_no):
+        calls.append((target, q))
+        if target == "PATENT" and q == "철도 궤도":
+            raise ScienceOnError("ScienceON 오류 (code=500)")
+        return [{"target": target, "CN": f"{target}-{q}"}], 1
+
+    src._page = page
+    rows = await ScienceOnSource.search(src, None, 100)
+    assert [r["CN"] for r in rows] == ["ARTI-철도 궤도", "ARTI-전차선", "PATENT-전차선"]
+    assert len(calls) == 4
+
+    async def always_fail(target, q, page_no):
+        raise ScienceOnError("ScienceON 오류 (code=500)")
+
+    src._page = always_fail
+    import pytest
+
+    with pytest.raises(ScienceOnError, match="code=500"):  # 전부 실패면 첫 오류를 그대로
+        await ScienceOnSource.search(src, None, 100)

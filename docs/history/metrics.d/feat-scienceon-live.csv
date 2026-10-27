@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,(feat/scienceon-live),ScienceON 실연결(레인 B),1251,911,8,3422,4261,8145,5321,151,,,,,,,,,,ScienceON 실호출 ARTI 1858·REPORT 370·PATENT 911(철도 궤도), fixture 30건(3 target×10), 드라이런 5건 16 s, 질의 13개 예상 ≈2400건

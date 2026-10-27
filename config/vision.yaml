@@ -1,0 +1,42 @@
+# 이미지 판독 (P3) — 한국철도공사 누리집 크롤 스냅샷의 이미지를 OCR(대조) + Argon(판독) 으로 글로 옮긴다.
+# 설계: docs/architecture.md (P3 이미지 판독), manifest 형식: docs/vision-manifest.md.
+# 비용 규칙: 같은 sha256 은 한 번만 부른다(캐시, 실패 포함). cap 을 넘는 이미지는 OCR 만 하고 목록에 남긴다.
+
+cap: 2000                     # 한 번의 `rra vision read` 가 보낼 최대 Argon 호출 수 (캐시 적중은 세지 않는다)
+image_max_bytes: 8388608      # Argon 에 보낼 이미지 바이트 상한 (8MB, base64 data URL)
+sample_per_type: 30           # `rra vision sample` 이미지 종류별 표본 수
+
+paths:
+  snapshots: data/korail_web/snapshots     # <date>/manifest.jsonl + 이미지 파일 (크롤 레인이 쓴다, 미커밋)
+  store: data/korail_web                   # ocr/<sha>.json · vision_cache/<sha>.json · vision_log.jsonl (미커밋)
+  sample: docs/ocr-sample                  # 측정 harness 출력 (종류별 json + summary.md)
+
+# 거르기 — 로고·배너·아이콘·버튼·글자 없는 홍보 사진 (domain/rules/image_filter.py 기본값과 같다)
+filter:
+  min_width: 120
+  min_height: 80
+  min_pixels: 20000
+  max_aspect: 5.0              # 가로/세로 비가 이보다 크면 띠·배너
+  max_repeat_pages: 3          # 같은 해시가 이보다 많은 페이지에 실리면 공통 장식(머리글·바닥글)
+  max_bytes: 15728640
+  name_patterns: [logo, icon, ico_, btn, button, banner, bnr, bg_, _bg, background, sprite, bullet, blt_,
+                  arrow, arr_, dot, blank, spacer, line, divider, sns, facebook, instagram, youtube, twitter,
+                  kakao, favicon, loading, pixel, tracking, qr]
+  alt_patterns: [로고, 배너, 아이콘, 버튼, 바로가기, logo, banner, icon, button, 사진, 이미지 없음]
+  skip_mime: [image/svg+xml, image/gif]
+  skip_ext: [.svg, .gif, .ico]
+
+# 처리 순서 — 경영목표·전략·비전 > ESG·정책 > 통계 > 보도자료 > 기타. manifest 의 order_group 이 있으면 그 값이 우선.
+# 없으면 page_url·page_title·alt·caption·path 에 아래 키워드가 있는지로 판정한다.
+order:
+  strategy: [비전, 경영목표, 경영전략, 전략체계, 전략과제, 미션, 핵심가치, vision, strategy]
+  esg_policy: [esg, 정책, 윤리, 안전경영, 환경, 사회공헌, 인권, 준법, 지속가능]
+  statistics: [통계, 실적, 현황, 지표, 수송, 경영공시, 재무, statistics]
+  press: [보도자료, 뉴스, news, press, 홍보]
+
+# 대조용 OCR (macOS Vision, 격리 자식 프로세스). macOS 가 아니거나 ocrmac 이 없으면 "OCR 없음" 으로 계속.
+ocr:
+  languages: [ko-KR, en-US]
+  max_bytes: 15728640
+  max_pixels: 40000000
+  timeout_sec: 90

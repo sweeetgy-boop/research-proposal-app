@@ -1,0 +1,9 @@
+{
+  "source": "scienceon",
+  "query": "철도 궤도",
+  "target": "PATENT",
+  "rows": 10,
+  "status": 200,
+  "content_type": "application/xml;charset=UTF-8",
+  "recorded_at": "20261027"
+}

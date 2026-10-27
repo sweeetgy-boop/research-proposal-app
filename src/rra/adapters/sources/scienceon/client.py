@@ -1,4 +1,4 @@
-"""ScienceON 수집 — SourcePort. 국내 논문(ARTI)·보고서(REPORT) 메타데이터.
+"""ScienceON 수집 — SourcePort. 국내 논문(ARTI)·보고서(REPORT)·특허(PATENT) 메타데이터.
 
 레이트리밋 (429 이력):
 - GuardedClient: 최소 간격(rate_limit, 기본 초당 1회), 429 재시도,
@@ -7,14 +7,19 @@
   예산을 다 쓰면 모은 만큼만 돌려준다.
 - 순차 실행(동시성 1). 레이트 상태는 프로세스 안에만 있다 — ingest 는 한 번에 하나.
 
-응답 형식(가이드 기준, 첫 실응답으로 확인): MetaData / resultSummary / TotalCount,
-recordList / record / item[@metaCode]. 본문 오류 코드는 errorCode 요소로 온다고 가정한다.
+응답 형식(2026-10-27 실응답으로 확인): MetaData / resultSummary / TotalCount·statusCode,
+parameterData(client_id·token 이 그대로 들어 있다 — 녹화 도구가 REDACTED 처리),
+recordList / record[@rownum] / item[@metaCode]. 오류는 errorDetail / errorCode.
+Accept 헤더에 text/xml 이 없으면 406.
+질의당 상한(per_query_limit): 한 (질의, target) 에서 이 건수까지만 페이지를 넘긴다 — 예산을 13개
+질의에 나눠 쓰기 위해서다 (OpenAlex per_query_limit 과 같은 뜻). rowCount 최대 100(가이드).
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from rra.adapters.sources import _xml
@@ -50,6 +55,8 @@ class ScienceOnSource:
         search_field: str = "BI",
         row_count: int = 50,
         max_consecutive_429: int = 2,
+        per_query_limit: int | None = None,
+        institutions: Sequence[Mapping[str, Any]] = (),
     ):
         self.client = client
         self.tokens = tokens
@@ -59,6 +66,8 @@ class ScienceOnSource:
         self.search_field = search_field if search_field.isalnum() else "BI"
         self.row_count = max(1, min(row_count, 100))
         self.max_consecutive_429 = max(1, max_consecutive_429)
+        self.per_query_limit = per_query_limit if per_query_limit and per_query_limit > 0 else None
+        self.institutions = list(institutions)
 
     def __repr__(self) -> str:
         return f"ScienceOnSource(targets={self.targets!r})"
@@ -72,10 +81,18 @@ class ScienceOnSource:
         queries = [query] if query else list(self.queries)
         out: list[dict[str, Any]] = []
         strikes = 0
+        failed: list[
+            tuple[str, str, ScienceOnError]
+        ] = []  # 서버 오류로 건너뛴 (target, 질의, 예외)
+        attempted = 0
         for q in queries:
             for target in self.targets:
                 page = 1
-                while len(out) < limit:
+                got = 0
+                attempted += 1
+                while len(out) < limit and (
+                    self.per_query_limit is None or got < self.per_query_limit
+                ):
                     try:
                         records, total = await self._page(target, q, page)
                     except RequestBudgetExceeded:
@@ -87,11 +104,26 @@ class ScienceOnSource:
                         if strikes >= self.max_consecutive_429:
                             raise  # 차단기: 이 run 에서는 더 두드리지 않는다
                         break  # 다음 target/질의로
+                    except ScienceOnError as exc:
+                        # 한 질의·target 의 서버 오류(2026-10-27 적재에서 code=500)로 run 전체를
+                        # 버리지 않는다 — 그 조합만 건너뛰고 모은 것은 적재한다
+                        failed.append((target, q, exc))
+                        logger.warning(
+                            "scienceon.target_failed target=%s error=%s", target, type(exc).__name__
+                        )
+                        break
                     strikes = 0
+                    if self.per_query_limit is not None:
+                        records = records[: self.per_query_limit - got]
+                    got += len(records)
                     out.extend(records)
                     if len(records) < self.row_count or page * self.row_count >= total:
                         break
                     page += 1
+        if failed:
+            logger.warning("scienceon.targets_skipped n=%d of=%d", len(failed), attempted)
+            if not out and len(failed) >= attempted:
+                raise failed[0][2]  # 전부 실패 — 첫 오류(코드 포함)를 그대로 올린다
         return out[:limit]
 
     async def probe(self) -> dict[str, Any]:
@@ -143,4 +175,4 @@ class ScienceOnSource:
         raise ScienceOnError("ScienceON 토큰 갱신 후에도 만료 응답")
 
     def normalize(self, raw: dict[str, Any]) -> Document:
-        return normalize_record(raw)
+        return normalize_record(raw, self.institutions)
