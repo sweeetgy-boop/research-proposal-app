@@ -269,6 +269,18 @@ async def test_incremental_carries_unchanged_marks_removed_and_never_deletes(tmp
     assert latest_snapshot(tmp_path / "korail_web").day == "2026-10-28"
 
 
+async def test_incremental_same_day_resumes_without_refetching(tmp_path):
+    """중단된 당일 실행을 --incremental 로 이어 가면 받은 게시글은 다시 받지 않고 중복 기록도 없다."""
+    site = Site()
+    await make(tmp_path, site, [PRESS]).download()
+    views = sum(1 for u in site.requests if "selectBbsNttView" in u)
+    report = await make(tmp_path, site, [PRESS]).download(incremental=True)
+    assert sum(1 for u in site.requests if "selectBbsNttView" in u) == views
+    assert report.carried["press"] == 10
+    lines = SnapshotDir(tmp_path / "korail_web", "2026-10-27").manifest.read_text().splitlines()
+    assert len(lines) == 10
+
+
 async def test_pdf_probe_flags_missing_text_layer(tmp_path):
     site = Site()
 

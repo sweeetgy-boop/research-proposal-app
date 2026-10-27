@@ -66,6 +66,11 @@ def source_config(settings: Settings, name: str) -> dict[str, Any]:
     return read_config("sources.yaml", settings).get(name) or {}
 
 
+def molit_config(settings: Settings) -> dict[str, Any]:
+    """국토교통부 정책자료 수집 설정 (config/molit.yaml)."""
+    return read_config("molit.yaml", settings)
+
+
 def korail_web_config(settings: Settings) -> dict[str, Any]:
     """공사 홈페이지 스냅샷 수집 설정 (config/korail_web.yaml). 없으면 빈 dict."""
     return read_config("korail_web.yaml", settings)

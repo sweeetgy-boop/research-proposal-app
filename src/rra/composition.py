@@ -25,6 +25,7 @@ from rra.config_loader import (
     lint_rules,
     llm_config,
     llm_key_present,
+    molit_config,
     own_unit,
     pipeline_config,
     read_config,
@@ -69,6 +70,7 @@ __all__ = [
     "build_kipris_source",
     "build_korail_web_crawler",
     "build_korail_web_source",
+    "build_molit_source",
     "build_strategy_drafter",
     "build_own_docs_source",
     "build_own_projects_source",
@@ -547,6 +549,26 @@ def build_strategy_drafter(settings: Settings | None = None, *, transport=None, 
     return draft
 
 
+def build_molit_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """MolitPolicySource — config/molit.yaml 질의로 국토교통부 정책자료 철도 계획 문서 (P2-1)."""
+    from rra.adapters.sources.molit import MolitPolicySource
+
+    settings = settings or load_settings()
+    cfg = molit_config(settings)
+    client = _guarded(settings, cfg, transport=transport, resolver=resolver)
+    client._client.headers["Accept"] = "text/html,application/xhtml+xml,*/*;q=0.8"
+    return MolitPolicySource(
+        client,
+        base_url=str(cfg.get("base_url") or "https://www.molit.go.kr"),
+        list_path=str(cfg.get("list_path") or "/USR/policyData/m_34681/lst.jsp"),
+        queries=[str(q) for q in cfg.get("queries") or ["철도"]],
+        store_dir=Path(str(cfg.get("store_dir") or "data/molit")),
+        limits=sandbox_limits(settings),
+        max_pages=int(cfg.get("max_pages", 5)),
+        max_file_bytes=int(float(cfg.get("max_file_mb", 50)) * 1024 * 1024),
+    )
+
+
 def build_korail_web_source(settings: Settings | None = None):
     """KorailWebSource — 최신 스냅샷(data/korail_web/snapshots/<날짜>/) → Document.
     첨부는 샌드박스 파싱."""
@@ -572,6 +594,7 @@ _SOURCE_BUILDERS = {
     "ntis": build_ntis_source,
     "kipris": build_kipris_source,
     "korail_web": build_korail_web_source,
+    "molit": build_molit_source,
 }
 SOURCE_NAMES = tuple(_SOURCE_BUILDERS)
 

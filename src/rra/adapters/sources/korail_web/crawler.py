@@ -342,7 +342,8 @@ class KorailWebCrawler:
         day = today_str(self._today())
         snap = SnapshotDir(self.root, day)
         snap.ensure()
-        prev = latest_snapshot(self.root, before=day) if incremental else None
+        # 증분: 직전 스냅샷(같은 날 것이 있으면 그것 — 중단된 실행을 이어 간다)
+        prev = latest_snapshot(self.root) if incremental else None
         prev_items = read_manifest(prev) if prev is not None else {}
         index = load_index(self.root)
         report = CrawlReport(snapshot=day, incremental=incremental)
@@ -425,9 +426,10 @@ class KorailWebCrawler:
             names = [a.get("name", "") for a in prev.get("attachments", [])]
             # 목록만으로 아는 서명: 제목·게시일·파일 종류. 같으면 상세를 다시 받지 않는다
             if prev.get("list_signature") == _list_sig(row) and not prev.get("removed"):
-                snap.append_manifest(
-                    {**prev, "carried_from": prev.get("snapshot", ""), "snapshot": snap.day}
-                )
+                if prev.get("snapshot") != snap.day:  # 같은 날 스냅샷을 이어 갈 때는 이미 적혀 있다
+                    snap.append_manifest(
+                        {**prev, "carried_from": prev.get("snapshot", ""), "snapshot": snap.day}
+                    )
                 report.items[menu.id] += 1
                 report.carried[menu.id] = report.carried.get(menu.id, 0) + 1
                 _ = names

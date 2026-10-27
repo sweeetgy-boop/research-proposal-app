@@ -16,7 +16,7 @@ from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.policy_phrases import pick_quote, rank
 from rra.domain.rules.retrieval_scope import POLICY_DOC_TYPES
 
-POLICY_SOURCES = ["korail_web"]
+POLICY_SOURCES = ["korail_web", "molit"]
 
 
 class PolicySuggest:

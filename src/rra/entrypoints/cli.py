@@ -1701,7 +1701,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--source",
         default="openalex",
         help="쉼표로 구분 (openalex, alio, alio_summary, own_projects, own_docs, scienceon, ntis, "
-        "kipris, korail_web)",
+        "kipris, korail_web, molit)",
     )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
     ingest.add_argument(
