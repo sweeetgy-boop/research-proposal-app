@@ -12,3 +12,4 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-26,8050d25,A 판단 반영(#15),1163,831,8,2682,3473,7781,3949,146,1119,120,20,,,,,,,
 2026-10-26,24330c9,CI(#17),1157,831,8,2682,3473,7783,3949,146,1119,120,20,,,,,,,깨끗한 클론(.env·data 없음) 1157/18 skip
 2026-10-26,e10466e,OpenAlex 코퍼스(#18),1178,844,8,2724,3531,7883,3964,146,1119,120,2482,145,,3,2,3,3,run eb7290ee(min_per_source 6)·9381fdcd 는 4/2/2/3
+2026-10-27,feat/web,웹 프론트엔드(#TBD),,,8,,,,,,1119,120,2482,,,,,,,web: vitest 33·Playwright e2e 8·Lighthouse 100/100/100·CLS 0·axe 0·초기 JS 110.6KB gzip(전체 ≈167KB)·CSS 21.2KB
