@@ -134,9 +134,11 @@ async def test_resume_keeps_the_original_evidence_set_even_if_db_changed(repo, r
     repo.seed([], [Chunk(chunk_id="new:1#0", doc_id="new:1", ordinal=0, text="새 자료")])
     await mgr.resume(USER, st.run_id)
     done = await mgr.wait(USER, st.run_id)
-    # 스냅샷에 없던 id 는 인용할 수 없다 → 근거 필수 섹션이 비어 invalid
-    assert done.status == "invalid"
-    assert {p["code"] for p in done.problems} == {"missing"}
+    # 스냅샷에 없던 id 는 인용할 수 없다 → 근거 필수 섹션이 빈칸. 빈 초안 금지(ADR 0027)로 run 은
+    # drafted 로 남고 실패 섹션 목록(dropped)·경고로 알린다
+    assert done.status == "drafted"
+    assert {p["code"] for p in done.problems} == {"generation_failed"}
+    assert [(f.key, f.reason) for f in done.failed_sections] == [("prior_work", "dropped")]
     assert done.step("section:prior_work").dropped == 1
 
 
@@ -150,8 +152,15 @@ async def test_lint_failure_is_a_state_not_an_exception(repo, req):
     ]
     mgr, _ = build(repo, FakeLLM(answers))
     final = await run_to_end(mgr, req)
-    assert final.status == "invalid"
-    assert {"section": "problem", "code": "missing"}.items() <= final.problems[0].items()
+    assert final.status == "drafted"  # 빈 초안 금지(ADR 0027): 한 섹션 실패는 경고 + 실패 목록
+    assert {"section": "problem", "code": "generation_failed", "severity": "warning"}.items() <= (
+        final.problems[0].items()
+    )
+    # prior_work 는 근거 없는 문장("x")이 전부 폐기된 것 — 함께 실패 목록에 남는다
+    assert [(f.key, f.reason) for f in final.failed_sections] == [
+        ("problem", "json"),
+        ("prior_work", "dropped"),
+    ]
     assert (
         final.step("section:problem").retries == 1 and final.step("section:background").retries == 0
     )
@@ -423,3 +432,51 @@ async def test_run_log_is_recorded_at_start_each_section_and_end(repo, req):
 
     for _, m in log.records:
         check_manifest(m)  # 파일 어댑터의 허용목록을 전부 통과한다
+
+
+# ── 빈 초안 금지 (ADR 0027) ─────────────────────────────────
+async def test_partial_failure_keeps_the_run_drafted_with_failed_sections(repo, req):
+    """한 섹션의 로컬 작성이 두 번 다 깨져도 성공한 섹션은 초안으로 남고(drafted), 실패 섹션은
+    빈칸 + 목록·사유. missing 오류는 generation_failed 경고로 바뀐다. manifest 에도 키·사유만."""
+    broken = '```\n[{"text": "문제", "evidence": []'  # 잘린 JSON — 재요청도 같은 응답
+    answers = [sentence("배경"), broken, broken, sentence("선행", ["alio:1#0"]), sentence("목표")]
+    log = FakeRunLog()
+    mgr, store = build(repo, FakeLLM(answers), log=log)
+    final = await run_to_end(mgr, req)
+    assert final.status == "drafted"
+    assert [(f.key, f.reason) for f in final.failed_sections] == [("problem", "json")]
+    codes = {(p["section"], p["code"], p["severity"]) for p in final.problems}
+    assert ("problem", "generation_failed", "warning") in codes
+    assert not any(p["severity"] == "error" for p in final.problems)
+    assert store.load_version(USER, final.run_id, 1) is not None  # v1 저장 → 검토·편집 가능
+    view = await mgr.get_draft(USER, final.run_id)
+    assert [s.key for s in view.sections if not s.sentences] == ["problem"]
+    manifest = log.records[-1][1]
+    assert manifest["failed_sections"] == [{"key": "problem", "reason": "json"}]
+    assert manifest["status"] == "drafted"
+    check = await mgr.render_check(USER, final.run_id)
+    assert any("생성 실패 섹션 1개" in n for n in check.notes)
+    assert any(p.code == "generation_failed" for p in check.unresolved)
+
+
+async def test_every_section_failing_is_still_invalid(repo, req):
+    broken = "```python\n[]\n```"
+    mgr, _ = build(repo, FakeLLM([broken] * 8))
+    final = await run_to_end(mgr, req)
+    assert final.status == "invalid"
+    assert {f.key for f in final.failed_sections} == set(KEYS)
+
+
+async def test_empty_required_section_counts_as_failed_and_rewrite_clears_it(repo, req):
+    answers = [sentence("배경"), "[]", sentence("선행", ["alio:1#0"]), sentence("목표")]
+    mgr, store = build(repo, FakeLLM(answers))
+    final = await run_to_end(mgr, req)
+    assert final.status == "drafted"
+    assert [(f.key, f.reason) for f in final.failed_sections] == [("problem", "empty")]
+    # U3 다시 쓰기로 채우면 실패 목록에서 빠지고 경고도 사라진다
+    mgr.generate.llm.responses.append(sentence("문제 다시 씀"))
+    await mgr.rewrite_section(USER, final.run_id, "problem")
+    version = await mgr.apply_rewrite(USER, final.run_id, "problem")
+    state = await mgr.status(USER, final.run_id)
+    assert version.version == 2 and state.failed_sections == []
+    assert not any(p["code"] == "generation_failed" for p in state.problems)

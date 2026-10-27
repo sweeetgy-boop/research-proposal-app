@@ -15,6 +15,7 @@ from typing import Any
 
 from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
+from rra.domain.rules.draft_failures import reason_label
 from rra.domain.rules.overlap import STATUS_LABELS, tier_label
 
 
@@ -102,12 +103,22 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
         "versions": list(getattr(view, "versions", []) or []),
         "review": review_summary(state, getattr(view, "review", None)),
         "flow": flow_summary(state, getattr(view, "has_working", False)),
+        # 빈 초안 금지(ADR 0027): 로컬 작성이 실패해 빈칸으로 둔 섹션 — 화면은 "다시 생성" 버튼
+        "failed_sections": failed_sections_payload(state),
         # 전략체계 목록의 출처 — draft 면 2-가-(3) 선택지가 확인 전 초안이라는 뜻
         "strategy_source": getattr(view, "strategy_status", "confirmed"),
         "strategy_label": STRATEGY_DRAFT_LABEL
         if getattr(view, "strategy_status", "confirmed") == "draft"
         else None,
     }
+
+
+def failed_sections_payload(state: Any) -> list[dict[str, str]]:
+    """RunState.failed_sections → [{key, reason, label}] (사유 설명은 앱 문구, 원문 없음)."""
+    return [
+        {"key": f.key, "reason": f.reason, "label": reason_label(f.reason)}
+        for f in getattr(state, "failed_sections", None) or []
+    ]
 
 
 def flow_summary(state: Any, has_working: bool = False) -> dict[str, Any]:
@@ -777,6 +788,7 @@ def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
         "steps": [{"name": s.name, "status": s.status, "error": s.error} for s in state.steps],
         "draft_version": state.draft_version,
         "flow": flow_summary(state),
+        "failed_sections": failed_sections_payload(state),
     }
 
 

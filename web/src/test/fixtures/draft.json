@@ -447,5 +447,6 @@
   "stale_edits": 0,
   "stale": false,
   "has_working": false
- }
+ },
+ "failed_sections": []
 }

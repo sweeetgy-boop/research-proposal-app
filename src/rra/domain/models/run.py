@@ -102,6 +102,13 @@ class StepRecord(BaseModel):
     retries: int = 0  # section 만: 형식 교정 재요청 횟수
 
 
+class FailedSection(BaseModel):
+    """로컬 작성이 실패해 빈칸으로 남긴 섹션 (rules/draft_failures.py). 원문 없음."""
+
+    key: str
+    reason: str  # fence | json | schema | choices_only | empty | dropped
+
+
 class RunState(BaseModel):
     run_id: str
     user: str
@@ -133,6 +140,9 @@ class RunState(BaseModel):
     recommendations: dict[str, Any] | None = None
     # 자료 범위 — public 이면 검색·근거에서 visibility=internal 을 뺀다 (공용 계정, 레인 A)
     scope: Literal["all", "public"] = "all"
+    # 빈 초안 금지(ADR 0027): 로컬 작성이 실패해 빈칸으로 둔 섹션·사유. 다시 생성·수정으로
+    # 채우면 뺀다
+    failed_sections: list[FailedSection] = Field(default_factory=list)
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

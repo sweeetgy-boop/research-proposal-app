@@ -1,0 +1,1 @@
+| 2026-10-28 | [F1] 빈 초안 금지 — 일부 섹션의 로컬 작성이 실패해도 run 은 drafted(실패 섹션은 빈칸 + `failed_sections` 목록·사유, `generation_failed` 경고), 전부 실패일 때만 invalid. REST·render/submit-check·웹 "이 섹션 다시 생성" 버튼(U3 재사용)·Streamlit 목록 | 저녁 골든셋 측정 01·02·06·10 두 번 모두 invalid(빈 초안) — 원인 표: JSON 깨짐 11·펜스 2·**빈 문장 목록이 ok 로 통과 10**(02·05·10), 코퍼스 증가로 섹션 [자료] 글자 2.1× | #TBD | 내일 시범에 빈 초안을 주지 않기 위한 안전한 변경 먼저 |
