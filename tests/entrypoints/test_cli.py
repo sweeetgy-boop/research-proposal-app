@@ -1191,3 +1191,137 @@ def test_eval_pipeline_presets_and_overrides(monkeypatch):
     assert cli._eval_pipeline(None, args(on="reranker,exemplars")).exemplars
     with pytest.raises(ValueError, match="모르는 단계"):
         cli._eval_pipeline(None, args(on="bogus"))
+
+
+# ── 자료원 IP 확인 (레인 I) ───────────────────────────────
+IP_NOTICE = "현재 IP 203.0.113.9 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. 활용신청에 추가하세요"
+
+
+def test_sources_check_prints_registered_ips_and_notice(monkeypatch, capsys):
+    async def fake_run():
+        return [
+            {
+                "source": "ntis",
+                "credentials": {"RRA_NTIS_KEY": True},
+                "host": "www.ntis.go.kr",
+                "host_allowed": True,
+                "roundtrip": "NtisIpBlocked",
+                "error": "NTIS 오류: 접근 허용 IP가 아닙니다.",
+                "ip_restricted": True,
+                "registered_ips": ["59.0.166.199", "59.0.251.250"],
+                "current_ip": "203.0.113.9",
+                "ip_registered": False,
+                "ip_notice": IP_NOTICE,
+            },
+            {
+                "source": "scienceon",
+                "credentials": {"RRA_SCIENCEON_MAC": True},
+                "host": "apigateway.kisti.re.kr",
+                "host_allowed": True,
+                "roundtrip": "ok",
+                "result": {"auth": "ok"},
+                "ip_restricted": False,
+                "registered_ips": [],
+                "current_ip": None,
+                "ip_registered": None,
+                "ip_notice": None,
+            },
+        ]
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_sources_check", lambda settings, names: fake_run)
+    assert cli.main(["sources", "check"]) == cli.EXIT_ERROR
+    out = capsys.readouterr().out
+    assert "등록 IP: 59.0.166.199, 59.0.251.250 / 현재 공인 IP: 203.0.113.9" in out
+    assert f"[안내] {IP_NOTICE}" in out
+    assert "IP 제한 없음" in out
+
+
+def test_sources_check_prints_lookup_failure_as_diagnostic(monkeypatch, capsys):
+    async def fake_run():
+        return [
+            {
+                "source": "ntis",
+                "credentials": {"RRA_NTIS_KEY": True},
+                "host": "www.ntis.go.kr",
+                "host_allowed": True,
+                "roundtrip": "ok",
+                "result": {"total": 1},
+                "ip_restricted": True,
+                "registered_ips": ["59.0.166.199"],
+                "current_ip": None,
+                "ip_lookup_error": "FetchError",
+                "ip_registered": None,
+                "ip_notice": None,
+            }
+        ]
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_sources_check", lambda settings, names: fake_run)
+    assert cli.main(["sources", "check"]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "현재 공인 IP: 확인 실패 (FetchError)" in out and "[안내]" not in out
+
+
+def test_sources_check_explains_rejection_despite_registration(monkeypatch, capsys):
+    """2026-10-27 실호출: 현재 IP 가 등록 목록에 있는데도 NTIS 가 거부 → 안내 + 확인 항목."""
+
+    async def fake_run():
+        return [
+            {
+                "source": "ntis",
+                "credentials": {"RRA_NTIS_KEY": True},
+                "host": "www.ntis.go.kr",
+                "host_allowed": True,
+                "roundtrip": "NtisIpBlocked",
+                "error": "NTIS 오류: 접근 허용 IP가 아닙니다.",
+                "ip_restricted": True,
+                "registered_ips": ["59.0.166.199", "59.0.251.250"],
+                "current_ip": "59.0.251.250",
+                "ip_registered": True,
+                "ip_notice": "현재 IP 59.0.251.250 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. "
+                "활용신청에 추가하세요",
+            }
+        ]
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_sources_check", lambda settings, names: fake_run)
+    assert cli.main(["sources", "check"]) == cli.EXIT_ERROR
+    out = capsys.readouterr().out
+    assert "[안내] 현재 IP 59.0.251.250 가 NTIS 국가R&D 과제 등록 IP 에 없습니다" in out
+    assert "등록 목록에는 있으나 API 가 거부했습니다" in out
+
+
+def _ingest_with_report(monkeypatch, report):
+    class Src:
+        source = "ntis"
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_sources", lambda names, settings: [Src()])
+    monkeypatch.setattr(
+        "rra.composition.build_available_sources", lambda names, settings: ([Src()], [])
+    )
+
+    async def run(query):
+        return report
+
+    monkeypatch.setattr(
+        "rra.composition.build_ingest", lambda settings, sources, limit: run
+    )
+
+
+def test_ingest_ip_blocked_source_is_skipped_only_with_skip_unavailable(monkeypatch, capsys):
+    from rra.application.usecases.ingest_sources import IngestReport
+
+    report = IngestReport(failed={"ntis": "NtisIpBlocked"}, unavailable={"ntis": IP_NOTICE})
+    _ingest_with_report(monkeypatch, report)
+    assert cli.main(["ingest", "--source", "ntis", "--skip-unavailable"]) == cli.EXIT_OK
+    captured = capsys.readouterr()
+    assert f"[ntis] 건너뜀(IP 거부): {IP_NOTICE}" in captured.err
+    assert "실패" not in captured.out
+    _ingest_with_report(monkeypatch, report)
+    assert cli.main(["ingest", "--source", "ntis"]) == cli.EXIT_ERROR  # 플래그 없으면 실패
+    assert IP_NOTICE in capsys.readouterr().err

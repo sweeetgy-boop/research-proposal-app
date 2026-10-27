@@ -149,6 +149,8 @@ class NtisInsights(BaseModel):
 
     projects: list[ProjectInsight] = Field(default_factory=list)
     recommended: list[RelatedProject] = Field(default_factory=list)
+    # API 가 호출 IP 를 거부해 조회를 건너뛴 경우의 안내 문구 (레인 I). 평소 None.
+    unavailable: str | None = None
 
 
 def merge_recommended(

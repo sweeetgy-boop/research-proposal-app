@@ -101,3 +101,69 @@ async def test_disabled_when_no_ports():
 async def test_max_projects(max_projects):
     uc = NtisProjectInsights(FakeOutcomes(), None, max_projects=max_projects)
     assert len((await uc(ALERTS)).projects) == min(max_projects, 2)
+
+
+# ── IP 거부 (레인 I) ───────────────────────────────────────
+from rra.domain.rules.source_ip import SourceIpBlocked  # noqa: E402
+
+
+class BlockedOutcomes:
+    def __init__(self):
+        self.calls = []
+
+    async def outcomes(self, project_no):
+        self.calls.append(project_no)
+        raise SourceIpBlocked("NTIS 오류: 접근 허용 IP가 아닙니다.")
+
+
+class FakePublicIp:
+    async def current_ip(self):
+        return "203.0.113.9"
+
+    async def aclose(self):
+        pass
+
+
+class DictAvailability:
+    def __init__(self):
+        self.data = {}
+
+    def record(self, source, notice):
+        if notice is None:
+            self.data.pop(source, None)
+        else:
+            self.data[source] = notice
+
+    def notice(self, source):
+        return self.data.get(source)
+
+    def notices(self):
+        return dict(self.data)
+
+
+async def test_ip_blocked_skips_remaining_calls_and_reports_notice(caplog):
+    outcomes, related, store = BlockedOutcomes(), FakeRelated(), DictAvailability()
+    uc = NtisProjectInsights(
+        outcomes, related, cache=DictCache(), public_ip=FakePublicIp(), availability=store
+    )
+    with caplog.at_level("WARNING", logger="rra.ntis_insights"):
+        result = await uc([alert("ntis:1415100001"), alert("ntis:1415100002", sim=0.84)])
+    notice = "현재 IP 203.0.113.9 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. 활용신청에 추가하세요"
+    assert result.unavailable == notice
+    assert outcomes.calls == ["1415100001"] and related.calls == []  # 거부 뒤 더 두드리지 않는다
+    assert [p.error for p in result.projects] == ["SourceIpBlocked", "SourceIpBlocked"]
+    assert result.recommended == []
+    assert store.data == {"ntis": notice}
+    assert any(notice in r.getMessage() for r in caplog.records)
+    # 다음 호출이 정상이면 해제된다
+    ok = NtisProjectInsights(FakeOutcomes(), FakeRelated(), cache=DictCache(), availability=store)
+    assert (await ok([alert("ntis:1415100001")])).unavailable is None
+    assert store.data == {}
+
+
+def test_payload_carries_unavailable():
+    from rra.domain.rules.ntis_insights import NtisInsights
+    from rra.entrypoints.views import ntis_insights_payload
+
+    assert ntis_insights_payload(NtisInsights())["unavailable"] is None
+    assert ntis_insights_payload(NtisInsights(unavailable="안내"))["unavailable"] == "안내"

@@ -41,6 +41,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "project_no": ("ProjectNumber",),
 }
 MAX_ITEMS = 10
+PROBE_PROJECT_NO = "1415171234"  # 연결 확인용 과제번호 (형식만 맞으면 된다 — 빈 결과도 정상 응답)
 
 
 def normalize_outcome(kind: str, raw: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -97,7 +98,12 @@ def normalize_related(payload: Any) -> list[dict[str, Any]]:
 
 
 class NtisInsightSource:
-    """성과검색 + 연관콘텐츠 — 두 포트를 한 객체가 구현한다 (같은 키·같은 클라이언트)."""
+    """성과검색 + 연관콘텐츠 — 두 포트를 한 객체가 구현한다 (같은 키·같은 클라이언트).
+
+    ProbingSource 도 된다 (`rra sources check --source ntis_insights`): 성과검색(rpaper·rpatent)·
+    연관콘텐츠를 과제번호 하나로 1회씩 불러 IP·키 수락 여부를 본다 (레인 I)."""
+
+    source = "ntis_insights"
 
     def __init__(
         self,
@@ -117,6 +123,16 @@ class NtisInsightSource:
 
     async def aclose(self) -> None:
         await self.api.aclose()
+
+    async def probe(self) -> dict[str, Any]:
+        """연결 확인 — 성과검색 2회(논문·특허) + 연관콘텐츠 1회. 건수만 (본문·키 없음)."""
+        outcomes = await self.outcomes(PROBE_PROJECT_NO)
+        related = await self.related(PROBE_PROJECT_NO)
+        return {
+            "probe_project_no": PROBE_PROJECT_NO,
+            "outcomes": len(outcomes),
+            "related": len(related),
+        }
 
     async def outcomes(self, project_no: str) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []

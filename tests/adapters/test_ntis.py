@@ -435,3 +435,49 @@ def test_file_cache_roundtrip_and_ttl(tmp_path):
     assert cache.get("outcomes:1") is None
     (tmp_path / "ntis" / "broken.json").write_text("{not json", encoding="utf-8")
     assert cache.get("x") is None
+
+
+async def test_ip_error_is_a_source_ip_blocked_subtype_and_key_errors_are_not():
+    """레인 I: IP 거부 본문은 NtisIpBlocked(SourceIpBlocked) — 호출자가 그 자료원만 건너뛴다."""
+    from rra.adapters.sources.ntis import NtisIpBlocked
+    from rra.domain.rules.source_ip import SourceIpBlocked
+
+    src, _ = source_for([IP_ERROR])
+    with pytest.raises(NtisIpBlocked) as info:
+        await src.probe()
+    assert isinstance(info.value, SourceIpBlocked) and isinstance(info.value, NtisError)
+    assert KEY not in str(info.value)
+    src, _ = source_for(["<error>유효한 인증키가 아닙니다.</error>"])
+    with pytest.raises(NtisError) as info:
+        await src.probe()
+    assert not isinstance(info.value, SourceIpBlocked)
+
+
+async def test_insight_source_probe_counts_without_bodies():
+    """레인 I: `rra sources check --source ntis_insights` — 성과 2회 + 연관 1회, 건수만."""
+    from rra.application.ports import ProbingSource
+
+    reqs = []
+    src = NtisInsightSource(
+        guarded(
+            [
+                (FIX / "ntis_outcome_SYNTHETIC_rpaper.xml").read_bytes(),
+                (FIX / "ntis_outcome_SYNTHETIC_rpatent.xml").read_bytes(),
+                httpx.Response(
+                    200,
+                    content=(FIX / "ntis_related_SYNTHETIC.json").read_bytes(),
+                    headers={"content-type": "application/json"},
+                ),
+            ],
+            reqs,
+        ),
+        apprv_key=SecretStr(KEY),
+        base_url="https://www.ntis.go.kr",
+        outcome_path="/rndopen/openApi/public_result",
+        related_path="/rndopen/openApi/ConnectionContent",
+    )
+    assert isinstance(src, ProbingSource) and src.source == "ntis_insights"
+    result = await src.probe()
+    assert len(reqs) == 3 and result["probe_project_no"] == "1415171234"
+    assert isinstance(result["outcomes"], int) and isinstance(result["related"], int)
+    assert KEY not in str(result)
