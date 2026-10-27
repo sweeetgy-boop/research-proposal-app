@@ -63,3 +63,21 @@ def test_fix_false_only_reports():
     out = style.check_sections([sec("분석한다.", "분석한다.")], fix=False)
     assert [s.text for s in out.sections[0].sentences] == ["분석한다.", "분석한다."]
     assert out.fixed == [] and all(f.code == style.MIXED_STYLE for f in out.findings)
+
+
+def test_trim_sections_cuts_trailing_sentences_to_the_limit_and_keeps_app_sentences():
+    from rra.domain.models import Section, Sentence
+    from rra.domain.rules.style import SECTION_TRIMMED, trim_sections
+
+    long = Section(key="overlap_review", sentences=[Sentence(text="가" * 60) for _ in range(5)])
+    short = Section(key="method", sentences=[Sentence(text="짧음.")])
+    app = Section(
+        key="utilization",
+        sentences=[Sentence(text="나" * 60), Sentence(text="앱 확정", origin="app")],
+    )
+    out, findings = trim_sections([long, short, app], {"overlap_review": 150, "utilization": 50})
+    assert len(out[0].sentences) == 2 and len(out[0].text) <= 150
+    assert out[1] is short and out[2] is app  # 앱 문장은 자르지 않는다
+    assert [(f.section, f.code) for f in findings] == [("overlap_review", SECTION_TRIMMED)]
+    single = Section(key="overlap_review", sentences=[Sentence(text="다" * 300)])
+    assert trim_sections([single], {"overlap_review": 150})[0][0] is single  # 문장 하나면 그대로

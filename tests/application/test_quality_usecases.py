@@ -298,3 +298,39 @@ async def test_precheck_excludes_overlap_exclude_types():
     assert [a.doc_id for a in await PrecheckOverlap(r, mix=mix)(REQ)] == ["own:1"]
     rr = FakeReranker()
     assert [a.doc_id for a in await PrecheckOverlap(r, mix=mix, reranker=rr)(REQ)] == ["own:1"]
+
+
+async def test_format_retry_uses_the_compact_prompt_without_outline_or_exemplars():
+    r = repo()
+    r.similar = [(EXEMPLAR, 0.93)]
+    llm = FakeLLM(["글로 쓴 답(형식 오류)", '[{"text": "두 번째는 JSON 임.", "evidence": []}]'])
+    g = gen(llm, r, exemplars=True, check_overlap=False, k=3)
+    snap = await g.retrieve(REQ)
+    outline = Outline(sections=[SectionPlan(key="method", message="이력 분석")])
+    composed = await g.compose_section("method", REQ, snap, outline=outline)
+    assert composed.retries == 1 and [s.text for s in composed.section.sentences] == [
+        "두 번째는 JSON 임."
+    ]
+    assert "[본보기" in llm.calls[0] and "[이 섹션의 설계" in llm.calls[0]
+    assert "[본보기" not in llm.calls[1] and "[이 섹션의 설계" not in llm.calls[1]
+    assert "[형식 교정" in llm.calls[1]
+
+
+def test_finalize_trims_sections_over_the_form_limit_instead_of_failing():
+    from rra.domain.rules.lint import LintRules
+
+    rules = LintRules(
+        template="t", sections=KEYS, required_sections=["title"], max_chars={"utilization": 100}
+    )
+    g = GenerateProposal(FakeLLM(), repo(), FakePromptLibrary(), rules, KEYS, k=2)
+    snap = RetrievalSnapshot.of("q", CHUNKS[:1])
+    sections = [
+        Section(key="title", sentences=[Sentence(text="제목")]),
+        Section(key="method", sentences=[]),
+        Section(key="utilization", sentences=[Sentence(text="가" * 60) for _ in range(4)]),
+    ]
+    draft, problems = g.finalize("r", REQ, snap, sections)
+    assert len(draft.section("utilization").sentences) == 1
+    assert not any(p.code == "too_long" for p in problems)
+    assert [p.code for p in problems if p.section == "utilization"] == ["section_trimmed"]
+    assert all(p.severity == "warning" for p in problems if p.code == "section_trimmed")

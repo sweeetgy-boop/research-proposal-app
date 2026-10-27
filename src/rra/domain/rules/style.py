@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from rra.domain.models import Section, Sentence
@@ -18,6 +19,7 @@ LONG_SENTENCE = "long_sentence"
 MIXED_STYLE = "mixed_style"
 PERIOD_MISMATCH = "period_mismatch"
 DUPLICATE_SENTENCE = "duplicate_sentence"
+SECTION_TRIMMED = "section_trimmed"  # 칸 길이 상한을 넘은 섹션의 뒤 문장을 잘라냄 (경고)
 DEFAULT_MAX_SENTENCE_CHARS = 180
 
 # 서술형 종결 → 개조식 (보수적으로 흔한 꼴만)
@@ -158,3 +160,32 @@ def check_sections(
             kept.append(s.model_copy(update={"text": text}) if text != s.text else s)
         out.append(sec.model_copy(update={"sentences": kept}))
     return StyleResult(sections=out, fixed=fixed, findings=findings)
+
+
+def trim_sections(
+    sections: list[Section], max_chars: Mapping[str, int]
+) -> tuple[list[Section], list[StyleFinding]]:
+    """칸 길이 상한(rules.yaml max_chars)을 넘는 섹션은 뒤 문장부터 잘라 상한 안으로 — 전체 run 이
+    invalid 가 되는 것보다 뒤 문장을 버리는 쪽이 되돌리기 쉽다(버린 수는 경고로). 앱 확정 문장은
+    자르지 않는다. 첫 문장 하나만으로 상한을 넘으면 그대로 둔다(lint 가 too_long 으로 알린다)."""
+    out: list[Section] = []
+    findings: list[StyleFinding] = []
+    for sec in sections:
+        limit = max_chars.get(sec.key)
+        kept = list(sec.sentences)
+        removed = 0
+        while limit and len(" ".join(s.text for s in kept)) > limit and len(kept) > 1:
+            if kept[-1].origin == "app":
+                break
+            kept.pop()
+            removed += 1
+        if removed:
+            findings.append(
+                StyleFinding(
+                    sec.key, SECTION_TRIMMED, f"칸 상한 {limit}자를 넘어 뒤 문장 {removed}개를 뺌"
+                )
+            )
+            out.append(sec.model_copy(update={"sentences": kept}))
+        else:
+            out.append(sec)
+    return out, findings

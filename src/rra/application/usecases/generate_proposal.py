@@ -436,8 +436,13 @@ class GenerateProposal:
         if not parsed.ok:  # 스키마·JSON 오류 1회 재요청 — 오류 요약을 붙여 같은 섹션을 다시 묻는다
             retries = 1
             hint = correction_hint(parsed, choice_section=spec is not None)
+            # 재요청은 기본 프롬프트로(설계도·본보기·후보·메모 없이) — 긴 지시가 붙을수록 7B 가 JSON
+            # 대신 글을 쓴다(2026-10-27 측정: 제목·활용계획에서 반복)
+            compact = self._prompt(
+                key, instruction, req, snapshot, options.get(key) if spec else None
+            )
             raw2 = await self.llm.complete(
-                f"{prompt}\n\n[형식 교정 — 직전 응답은 형식 오류였음]\n{hint}",
+                f"{compact}\n\n[형식 교정 — 직전 응답은 형식 오류였음]\n{hint}",
                 system=system,
                 json_mode=True,
             )
@@ -661,10 +666,16 @@ class GenerateProposal:
     ) -> tuple[Draft, list[LintProblem]]:
         """규칙 검사(Q6: 어미 통일·완전 중복 제거는 고치고, 긴 문장·문체 혼용·연차 불일치는 경고)
         + lint. 돌려주는 Draft 의 sections 가 정리된 문장이다 (호출자는 이것을 저장한다)."""
+        trimmed: list[LintProblem] = []
         if self.rule_check:
             sections = style.check_sections(
                 sections, constraints=req.constraints, max_chars=self.max_sentence_chars
             ).sections
+            sections, cuts = style.trim_sections(sections, self.rules.max_chars)
+            trimmed = [
+                LintProblem(section=f.section, code=f.code, message=f.message, severity="warning")
+                for f in cuts
+            ]
         draft = Draft(
             run_id=run_id,
             request=req,
@@ -672,7 +683,7 @@ class GenerateProposal:
             retrieved_ids=snapshot.retrieved_ids,
             template=self.template,
         )
-        return draft, self.lint_draft(draft, snapshot)
+        return draft, [*self.lint_draft(draft, snapshot), *trimmed]
 
     def lint_draft(self, draft: Draft, snapshot: RetrievalSnapshot | None) -> list[LintProblem]:
         """규칙 검사 전부 — lint(rules.yaml) + Q6 문체·길이·연차 경고 + U6 일정 초과 경고.
