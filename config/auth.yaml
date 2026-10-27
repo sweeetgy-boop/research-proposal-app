@@ -18,4 +18,4 @@ lockout:                      # 무차별 대입 방지 (프로세스 메모리,
   global_window_sec: 600
   global_delay_sec: 2
 
-# 접속자 IP: security.yaml trust_cf_connecting_ip (레인 W) 가 true 이고 peer 가 127.0.0.1 일 때만 CF-Connecting-IP
+# 접속자 IP: config/api.yaml trust_cf_connecting_ip (레인 W) 가 true 이고 peer 가 127.0.0.1 일 때만 CF-Connecting-IP

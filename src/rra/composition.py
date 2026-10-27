@@ -18,6 +18,7 @@ from rra.config_loader import (
     KEYED_SOURCES,
     MissingCredential,
     allowed_domains,
+    api_config,
     auth_config,
     credential_status,
     data_location,
@@ -1470,10 +1471,19 @@ def api_middlewares(
     )
 
     limits = input_limits(settings)
+    api = api_config(settings)
     outer_to_inner = [
         (SecurityHeadersMiddleware, {}),
         (BodyLimitMiddleware, {"max_bytes": int(limits.get("api_max_body_bytes", 64 * 1024))}),
-        (TokenAuthMiddleware, {"token": token, "sessions": sessions}),
+        (
+            TokenAuthMiddleware,
+            {
+                "token": token,
+                "sessions": sessions,
+                "public_origin": api["public_origin"],
+                "trust_cf": api["trust_cf_connecting_ip"],
+            },
+        ),
     ]
     return list(reversed(outer_to_inner))
 
@@ -1578,6 +1588,7 @@ def build_api(
     sse_poll_sec: float = 1.0,
 ):
     """FastAPI 앱. 토큰이 없으면 ApiTokenMissing (G: 인증 필수). RRA_FAKE_LLM=1 이면 가짜 부품."""
+    from rra.adapters.security import client_ip
     from rra.entrypoints.api import create_app
     from rra.entrypoints.api.app import SessionAuth
 
@@ -1629,12 +1640,14 @@ def build_api(
         login=build_login(settings),
         auth_limits=auth["limits"],
         trust_cf=auth["trust_cf_connecting_ip"],
+        client_ip=client_ip,
         guest_services=guest_services,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
         query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
         on_shutdown=manager.generate.llm.aclose,
         session_auth=SessionAuth(token, sessions),
+        public_origin=api_config(settings)["public_origin"],
         static_dir=static,
         sse_poll_sec=sse_poll_sec,
         fake_mode=fake is not None,

@@ -6,10 +6,13 @@
 - SecurityHeadersMiddleware: CSP(API 는 default-src 'none', SPA 는 'self' 만·인라인 없음)·
   X-Frame-Options·Referrer-Policy·nosniff·no-store.
 - 오류 응답은 전부 application/problem+json (problem()).
-CORS 미들웨어는 아예 넣지 않는다 (동일 출처만). 파일 업로드 엔드포인트는 없다.
+- client_ip / access_user_hash: 역프록시(Cloudflare Tunnel) 뒤 접속자 IP(CF-Connecting-IP 는
+  trust_cf 이고 peer 가 127.0.0.1 일 때만)·Access 사용자 이메일 해시(앞 12자, 원문 없음).
+CORS 미들웨어는 아예 넣지 않는다 (동일 출처만. 역프록시 공개 주소는 public_origin 으로 Origin
+검사에만 허용). 파일 업로드 엔드포인트는 없다.
 """
 
-from rra.adapters.security.client_ip import client_ip
+from rra.adapters.security.client_ip import access_user_hash, client_ip
 from rra.adapters.security.middleware import (
     API_CSP,
     AUTH_HEADER,
@@ -19,6 +22,7 @@ from rra.adapters.security.middleware import (
     BodyLimitMiddleware,
     SecurityHeadersMiddleware,
     TokenAuthMiddleware,
+    origin_allowed,
     problem,
 )
 from rra.adapters.security.sessions import COOKIE_NAME, CSRF_HEADER, Session, SessionStore
@@ -36,6 +40,8 @@ __all__ = [
     "Session",
     "SessionStore",
     "TokenAuthMiddleware",
+    "access_user_hash",
     "client_ip",
+    "origin_allowed",
     "problem",
 ]

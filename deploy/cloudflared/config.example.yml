@@ -1,0 +1,19 @@
+# Cloudflare Tunnel 설정 초안 — ~/.cloudflared/config.yml 로 복사해 쓴다 (docs/deploy-exposure.md §5, 2026-10-27).
+# 비밀 없음: 터널 자격은 `cloudflared tunnel create rra` 가 만드는 ~/.cloudflared/<TUNNEL_ID>.json 에만 있고
+# 이 저장소에 커밋하지 않는다. <TUNNEL_ID> 두 곳을 실제 터널 UUID 로 바꾼다.
+#
+# 앱(rra api)·mlx 는 그대로 127.0.0.1 바인딩. 이 터널은 아웃바운드 연결만 쓰고 포트를 열지 않는다.
+# Access(이메일 일회용 코드) 가 켜진 뒤에만 이 터널을 올린다 — 아니면 공개 주소가 된다.
+tunnel: <TUNNEL_ID>
+credentials-file: /Users/chan/.cloudflared/<TUNNEL_ID>.json
+
+# 같은 호스트의 로컬 서비스로 보낸다. Host 헤더는 그대로 전달된다(앱의 public_origin 과 일치해야 세션 쿠키 Secure).
+ingress:
+  - hostname: rra.ai-edu-lab.co.kr
+    service: http://127.0.0.1:8000
+    originRequest:
+      connectTimeout: 10s
+      noTLSVerify: false
+  # 기존 터널에 더할 때: 위 한 묶음(hostname → service)을 이 404 규칙 **앞**에 넣고 서비스를 재시작한다.
+  # 마지막 규칙은 반드시 catch-all 404 — 나머지 호스트 이름은 전부 거부.
+  - service: http_status:404

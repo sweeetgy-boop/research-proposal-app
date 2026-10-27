@@ -458,9 +458,7 @@ class RunManager:
                         self._ensure_done(state, section_step(key))
                         continue
                     current = self._begin(state, section_step(key))
-                    composed = await gen.compose_section(
-                        key, req, snapshot, outline=outline
-                    )
+                    composed = await gen.compose_section(key, req, snapshot, outline=outline)
                     self.store.save_section(user, run_id, composed.section)
                     if want_b and key in CORE_SECTIONS and composed.mode == "llm":
                         # Q7 후보 B — 같은 섹션을 다른 구성으로 한 번 더. 1차 검토가 고른다
