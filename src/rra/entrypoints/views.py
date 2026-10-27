@@ -477,6 +477,8 @@ def ntis_insights_payload(insights: Any, *, clean: Callable[[str], str] = _same)
             }
             for r in insights.recommended
         ],
+        # IP 거부로 조회를 건너뛴 경우의 안내 (레인 I). 평소 None.
+        "unavailable": getattr(insights, "unavailable", None),
     }
 
 

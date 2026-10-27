@@ -189,3 +189,80 @@ async def test_broken_warning_source_does_not_block_ingest(docs):
 
     report = await IngestSources([Broken("alio", [as_raw(docs[0])])], RecordingRepository())()
     assert report.stored == 1 and report.warnings == []
+
+
+# ── IP 거부 (레인 I) ───────────────────────────────────────
+from rra.domain.rules.source_ip import SourceIpBlocked  # noqa: E402
+
+
+class BlockedSource(FakeSource):
+    async def search(self, query, limit):
+        self.calls.append((query, limit))
+        raise SourceIpBlocked("NTIS 오류: 접근 허용 IP가 아닙니다.")
+
+
+class FakePublicIp:
+    def __init__(self, ip=None, error=None):
+        self.ip, self.error, self.calls, self.closed = ip, error, 0, False
+
+    async def current_ip(self):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        return self.ip
+
+    async def aclose(self):
+        self.closed = True
+
+
+class DictAvailability:
+    def __init__(self):
+        self.data = {}
+
+    def record(self, source, notice):
+        if notice is None:
+            self.data.pop(source, None)
+        else:
+            self.data[source] = notice
+
+    def notice(self, source):
+        return self.data.get(source)
+
+    def notices(self):
+        return dict(self.data)
+
+
+async def test_ip_blocked_source_is_skipped_with_notice_and_others_continue(docs, caplog):
+    ok = FakeSource("openalex", [as_raw(docs[1])])
+    repo = RecordingRepository()
+    ip, store = FakePublicIp("203.0.113.9"), DictAvailability()
+    store.record("openalex", "옛 안내")
+    with caplog.at_level("WARNING", logger="rra.ingest"):
+        report = await IngestSources(
+            [BlockedSource("ntis", []), ok], repo, public_ip=ip, availability=store
+        )()
+    notice = "현재 IP 203.0.113.9 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. 활용신청에 추가하세요"
+    assert report.failed == {"ntis": "SourceIpBlocked"} and report.unavailable == {"ntis": notice}
+    assert report.stored == 1 and "ntis" not in report.fetched
+    assert store.data == {"ntis": notice}  # 정상 소스는 해제, 거부 소스는 기록
+    assert ip.calls == 1 and ip.closed
+    assert any(notice in r.getMessage() for r in caplog.records)
+    assert "접근 허용 IP" not in "".join(r.getMessage() for r in caplog.records)  # 본문 아님
+
+
+async def test_ip_blocked_without_lookup_marks_ip_unknown(docs):
+    report = await IngestSources(
+        [BlockedSource("ntis", [])], InMemoryRepository(), public_ip=FakePublicIp(error=OSError())
+    )()
+    assert report.unavailable["ntis"].startswith("현재 IP (확인 실패) 가 NTIS")
+    report = await IngestSources([BlockedSource("ntis", [])], InMemoryRepository())()
+    assert report.unavailable["ntis"].startswith("현재 IP (확인 실패) 가 NTIS")
+
+
+async def test_other_failures_are_not_unavailable(docs):
+    report = await IngestSources(
+        [FakeSource("openalex", [], fail=True)],
+        InMemoryRepository(),
+        availability=DictAvailability(),
+    )()
+    assert report.failed == {"openalex": "RuntimeError"} and report.unavailable == {}
