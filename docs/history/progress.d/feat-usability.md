@@ -7,5 +7,5 @@
   설계 선택: 근거 제외(exclude)는 문장의 근거 id 를 지우지 않고 판단만 남김(근거 필수 섹션의 error 가 아니라 warning 유지);
   replace 는 검색 집합 id 로만. 다시 쓰기 후보는 rewrites/rewrite_<key>.json 에 두고 apply 때 버전 생성.
   제안자 보완 답·우선 근거 id 는 proposer_notes.json(제안자 입력 보관). U5 brief 는 llm.yaml stages.brief(gemini) 추가.
-- 남은 일: Streamlit 패널(웹 레인과 겹쳐 생략), MCP 도구(선택, 생략), 문서 조각(status.d·timeline.d·ADR 0016).
-- 문서 조각 작성: status.d·timeline.d·metrics.d·ADR 0016. 마무리 검사 재실행 뒤 커밋.
+- 남은 일: Streamlit 패널(웹 레인과 겹쳐 생략), MCP 도구(선택, 생략), 문서 조각(status.d·timeline.d·ADR 0017).
+- 문서 조각 작성: status.d·timeline.d·metrics.d·ADR 0017. 마무리 검사 재실행 뒤 커밋.

@@ -1,4 +1,4 @@
-## feat/usability — 사용자 관점 검토 반영 U1~U8 (2026-10-27, ADR 0016)
+## feat/usability — 사용자 관점 검토 반영 U1~U8 (2026-10-27, ADR 0017)
 
 규모: 테스트 1,292 통과·18 skip (+53), import-linter 8 kept, ruff 통과. 설정 `config/usability.yaml`(`UsabilityConfig`,
 `config_loader.usability_config`) — 항목별 켜고 끔, 기본 전부 켬. 끄면 해당 REST 는 503(`FeatureDisabled`), CLI 는 사용법 오류.
