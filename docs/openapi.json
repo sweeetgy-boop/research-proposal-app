@@ -134,6 +134,47 @@
         }
       }
     },
+    "/v1/ideas/policy-suggestions": {
+      "post": {
+        "summary": "Policy Suggestions Route",
+        "description": "① 입력 → 정책(policy) 문서 문구 3~5개.\n\n제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음).",
+        "operationId": "policy_suggestions_route_v1_ideas_policy_suggestions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Policy Suggestions Route V1 Ideas Policy Suggestions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/precheck/clarify": {
       "post": {
         "summary": "Clarify Route",

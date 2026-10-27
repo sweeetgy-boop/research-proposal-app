@@ -80,6 +80,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ideas/policy-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Policy Suggestions Route
+         * @description ① 입력 → 정책(policy) 문서 문구 3~5개.
+         *
+         *     제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음).
+         */
+        post: operations["policy_suggestions_route_v1_ideas_policy_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/precheck/clarify": {
         parameters: {
             query?: never;
@@ -1401,6 +1423,41 @@ export interface operations {
         };
     };
     precheck_route_v1_precheck_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    policy_suggestions_route_v1_ideas_policy_suggestions_post: {
         parameters: {
             query?: never;
             header?: never;
