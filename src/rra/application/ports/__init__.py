@@ -1,3 +1,4 @@
+from .auth import AuthStorePort, BudgetExhausted, DailyBudgetPort
 from .catalog import CatalogPort
 from .embedding import EmbeddingPort
 from .generation_slot import GenerationSlot
@@ -15,6 +16,9 @@ from .table_facts import CorpusAccessPort, TableFactRepository, TableSourcePort
 from .task_runner import TaskRunner
 
 __all__ = [
+    "AuthStorePort",
+    "BudgetExhausted",
+    "DailyBudgetPort",
     "DatabaseMaintenancePort",
     "AcknowledgingSource",
     "CachePort",

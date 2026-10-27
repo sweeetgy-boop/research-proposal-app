@@ -62,6 +62,35 @@ def input_limits(settings: Settings) -> dict[str, Any]:
     return security_config(settings).get("input_limits") or {}
 
 
+def auth_config(settings: Settings) -> dict[str, Any]:
+    """config/auth.yaml (비밀 아님) — 공용 계정 자료 범위·일일 상한·잠금 정책·저장소 경로."""
+    raw = read_config("auth.yaml", settings)
+    guest = raw.get("guest") or {}
+    limits = raw.get("limits") or {}
+    lockout = raw.get("lockout") or {}
+    return {
+        "store_dir": data_location(settings, "auth", cfg=raw),
+        "include_internal": bool(guest.get("include_internal", False)),
+        "limits": {
+            "guest_runs_per_day": int(limits.get("guest_runs_per_day", 10)),
+            "staff_runs_per_day": int(limits.get("staff_runs_per_day", 20)),
+        },
+        "lockout": {k: v for k, v in lockout.items() if isinstance(v, int | float)},
+        "trust_cf_connecting_ip": bool(
+            security_config(settings).get("trust_cf_connecting_ip", False)
+        ),
+    }
+
+
+def llm_budget(settings: Settings) -> dict[str, Any]:
+    """외부(gemini) LLM 일일 전체 호출 상한 — llm.yaml budget. limit 0 이면 상한 없음."""
+    raw = read_config("llm.yaml", settings).get("budget") or {}
+    return {
+        "limit": int(raw.get("gemini_daily_calls", 300)),
+        "path": data_location(settings, "llm_budget", cfg=raw),
+    }
+
+
 def retention_days(settings: Settings, default: int = 180) -> int:
     """I. runs/ 보존 기간 (security.yaml retention_days). 0 이하는 거부."""
     days = int(security_config(settings).get("retention_days", default))
@@ -200,6 +229,13 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
     ),
     "eval": (lambda s: {}, "", "data/eval"),
     "bench": (lambda s: {}, "", "data/bench"),
+    # 로그인 저장소(secret·staff.json·guest.json, 레인 A)·외부 LLM 일일 예산 카운터
+    "auth": (lambda s: read_config("auth.yaml", s), "store_dir", "data/auth"),
+    "llm_budget": (
+        lambda s: read_config("llm.yaml", s).get("budget") or {},
+        "counter",
+        "data/cache/llm_budget.json",
+    ),
 }
 DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
 

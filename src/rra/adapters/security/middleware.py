@@ -8,6 +8,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from rra.adapters.security.sessions import COOKIE_NAME, CSRF_HEADER, SessionStore
+from rra.domain.rules.auth_policy import admin_principal
 
 AUTH_HEADER = "x-rra-token"  # 또는 Authorization: Bearer <token>
 # API 응답: 아무것도 싣지 않는다. SPA(web/dist) 응답: 같은 출처의 스크립트·스타일만, 인라인 없음.
@@ -159,6 +160,7 @@ class TokenAuthMiddleware:
         presented = self._presented(scope)
         if bool(self.token) and bool(presented) and secrets.compare_digest(presented, self.token):
             scope.setdefault("state", {})["rra_auth"] = "token"
+            scope["state"]["rra_principal"] = admin_principal()  # 관리 토큰 = 관리자
             await self.app(scope, receive, send)
             return
         session = self.sessions.get(_cookie(scope, COOKIE_NAME)) if self.sessions else None
@@ -176,6 +178,7 @@ class TokenAuthMiddleware:
             return
         scope.setdefault("state", {})["rra_auth"] = "session"
         scope["state"]["rra_session_id"] = session.id
+        scope["state"]["rra_principal"] = session.who
         await self.app(scope, receive, send)
 
 

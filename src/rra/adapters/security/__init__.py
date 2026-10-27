@@ -9,6 +9,7 @@
 CORS 미들웨어는 아예 넣지 않는다 (동일 출처만). 파일 업로드 엔드포인트는 없다.
 """
 
+from rra.adapters.security.client_ip import client_ip
 from rra.adapters.security.middleware import (
     API_CSP,
     AUTH_HEADER,
@@ -35,5 +36,6 @@ __all__ = [
     "Session",
     "SessionStore",
     "TokenAuthMiddleware",
+    "client_ip",
     "problem",
 ]

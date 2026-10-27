@@ -18,6 +18,7 @@ from rra.config_loader import (
     KEYED_SOURCES,
     MissingCredential,
     allowed_domains,
+    auth_config,
     credential_status,
     data_location,
     data_locations,
@@ -27,6 +28,7 @@ from rra.config_loader import (
     keyword_rule,
     korail_web_config,
     lint_rules,
+    llm_budget,
     llm_config,
     llm_key_present,
     molit_config,
@@ -222,7 +224,60 @@ def build_llm(
     """
     from rra.adapters.llm import OpenAICompatLLM
 
-    return _build_openai_compat(OpenAICompatLLM, settings, stage=stage, provider=provider)
+    settings = settings or load_settings()
+    llm = _build_openai_compat(OpenAICompatLLM, settings, stage=stage, provider=provider)
+    if llm.provider == "gemini":  # 일일 전체 호출 상한 (레인 A) — 모든 gemini 단계가 같은 카운터
+        budget = build_review_budget(settings)
+        if budget is not None:
+            from rra.adapters.llm.daily_budget import BudgetedLLM
+
+            llm = BudgetedLLM(llm, budget)
+    return llm
+
+
+_BUDGETS: dict[tuple[str, int], Any] = {}
+
+
+def build_review_budget(settings: Settings | None = None):
+    """외부 LLM 일일 예산 카운터(FileDailyBudget). limit 0 이면 None(상한 없음). 같은 경로·상한은
+    프로세스 안에서 하나를 공유한다."""
+    from rra.adapters.llm.daily_budget import FileDailyBudget
+
+    settings = settings or load_settings()
+    cfg = llm_budget(settings)
+    if cfg["limit"] <= 0:
+        return None
+    key = (str(cfg["path"]), cfg["limit"])
+    if key not in _BUDGETS:
+        _BUDGETS[key] = FileDailyBudget(cfg["path"], cfg["limit"])
+    return _BUDGETS[key]
+
+
+# ── 로그인 (레인 A) ─────────────────────────────────────
+def build_auth_store(settings: Settings | None = None):
+    """AuthStorePort 구현체 — <data_dir>/auth (config/auth.yaml store_dir)."""
+    from rra.adapters.auth import FileAuthStore
+
+    settings = settings or load_settings()
+    return FileAuthStore(auth_config(settings)["store_dir"])
+
+
+def build_login(settings: Settings | None = None, *, store=None):
+    """로그인 유스케이스 — 잠금 정책은 auth.yaml lockout."""
+    from rra.application.usecases.login import Login
+    from rra.domain.rules.auth_policy import LockoutPolicy, LoginGuard
+
+    settings = settings or load_settings()
+    cfg = auth_config(settings)
+    known = {k: v for k, v in cfg["lockout"].items() if k in LockoutPolicy.__dataclass_fields__}
+    return Login(store or build_auth_store(settings), guard=LoginGuard(LockoutPolicy(**known)))
+
+
+def public_repository(repo):
+    """공용 계정용 — visibility=internal 을 뺀 저장소 (application/services/scoped_repository)."""
+    from rra.application.services.scoped_repository import PublicOnlyRepository
+
+    return PublicOnlyRepository(repo)
 
 
 def _build_openai_compat(
@@ -1355,8 +1410,18 @@ def build_run_manager(
         repo = build_repository(build_embedding(settings), settings)
     if llm is None:
         llm = build_llm(settings, stage="compose")
+    generate = build_generate(settings, repo=repo, llm=llm, pipeline=pipeline)
+    generate_public = None
+    if not auth_config(settings)["include_internal"]:  # 공용 계정 run 은 internal 제외 (레인 A)
+        generate_public = build_generate(
+            settings,
+            repo=public_repository(repo),
+            llm=llm,
+            reranker=generate.reranker,
+            pipeline=pipeline,
+        )
     return RunManager(
-        build_generate(settings, repo=repo, llm=llm, pipeline=pipeline),
+        generate,
         store or FileRunStore(root),
         FlockSlot(root / ".generate.lock"),
         run_log or FileRunLog(root),
@@ -1373,6 +1438,8 @@ def build_run_manager(
         outliner=build_outliner(settings, llm=llm) if pipeline.outline else None,
         usability=usability_config(settings),
         checklists=section_checklists(settings),
+        generate_public=generate_public,
+        review_budget=build_review_budget(settings),
     )
 
 
@@ -1541,6 +1608,10 @@ def build_api(
     static = static_dir if static_dir is not None else Path(settings.static_dir)
     precheck = build_precheck(settings, repo=repo)
     pipeline = pipeline_config(settings)
+    auth = auth_config(settings)
+    guest_services = None
+    if not auth["include_internal"]:  # 공용 계정용 — internal 을 뺀 저장소로 같은 유스케이스
+        guest_services = build_scoped_services(settings, public_repository(repo), llm=llm)
     return create_app(
         manager=manager,
         precheck=precheck,
@@ -1555,6 +1626,10 @@ def build_api(
         brief=build_briefer(settings, repo=repo, llm=llm),
         ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
+        login=build_login(settings),
+        auth_limits=auth["limits"],
+        trust_cf=auth["trust_cf_connecting_ip"],
+        guest_services=guest_services,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
         query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
@@ -1566,6 +1641,23 @@ def build_api(
         snapshot_status=build_korail_web_source(settings).status,
         notice_snapshot_status=build_rnd_notice_source(settings).status,
     )
+
+
+def build_scoped_services(settings: Settings, repo, *, llm=None) -> dict[str, Any]:
+    """공용 계정(guest)용 서비스 묶음 — 같은 유스케이스를 internal 제외 저장소로 조립 (레인 A).
+    키는 create_app 의 인자 이름과 같다."""
+    precheck = build_precheck(settings, repo=repo)
+    return {
+        "repo": repo,
+        "precheck": precheck,
+        "policy_suggest": build_policy_suggest(settings, repo=repo),
+        "notice_match": build_notice_match(settings, repo=repo),
+        "differentiate": build_differentiator(settings, repo=repo, llm=llm),
+        "recommend": build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
+        "compare": build_comparer(settings, repo=repo, precheck=precheck),
+        "brief": build_briefer(settings, repo=repo, llm=llm),
+        "ntis_insights": None if settings.fake_llm else build_ntis_insights(settings, repo=repo),
+    }
 
 
 def build_api_schema(settings: Settings | None = None) -> dict[str, Any]:
