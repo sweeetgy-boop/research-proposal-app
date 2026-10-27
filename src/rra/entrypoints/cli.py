@@ -765,9 +765,12 @@ def cmd_auth(args: argparse.Namespace) -> int:
     `rra auth status`.
     사번·비밀번호는 getpass 로만 받고 출력·기록하지 않는다. 저장은 <data_dir>/auth (700/600)."""
     from rra.composition import build_auth_store, load_settings
-    from rra.domain.rules.auth_policy import valid_guest_id, valid_staff_no
+    from rra.config_loader import auth_config
+    from rra.domain.rules.auth_policy import valid_guest_id, valid_password, valid_staff_no
 
-    store = build_auth_store(load_settings())
+    settings = load_settings()
+    store = build_auth_store(settings)
+    auth_cfg = auth_config(settings)
     group = args.auth_cmd
     if group == "status":
         info = store.status()
@@ -810,8 +813,9 @@ def cmd_auth(args: argparse.Namespace) -> int:
         if not first or first != second:
             _eprint("비밀번호가 비어 있거나 두 입력이 다릅니다.")
             return EXIT_USAGE
-        if len(first) < 8:
-            _eprint("비밀번호는 8자 이상이어야 합니다.")
+        min_len = int(auth_cfg.get("min_password_length", 8))
+        if not valid_password(first, min_len):
+            _eprint(f"비밀번호는 {min_len}자 이상이어야 합니다.")
             return EXIT_USAGE
         store.set_guest(guest_id, first)
         print(f"공용 계정을 설정했습니다 (아이디 {guest_id}).")

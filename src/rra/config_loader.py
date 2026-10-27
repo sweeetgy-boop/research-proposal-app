@@ -72,6 +72,7 @@ def auth_config(settings: Settings) -> dict[str, Any]:
     return {
         "store_dir": data_location(settings, "auth", cfg=raw),
         "include_internal": bool(guest.get("include_internal", False)),
+        "min_password_length": int(guest.get("min_password_length", 8)),
         "limits": {
             "guest_runs_per_day": int(limits.get("guest_runs_per_day", 10)),
             "staff_runs_per_day": int(limits.get("staff_runs_per_day", 20)),
