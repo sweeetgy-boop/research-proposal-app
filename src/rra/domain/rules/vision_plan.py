@@ -38,8 +38,9 @@ DEFAULT_GROUP_KEYWORDS: dict[OrderGroup, tuple[str, ...]] = {
         "준법",
         "지속가능",
     ),
-    "statistics": ("통계", "실적", "현황", "지표", "수송", "경영공시", "재무", "statistics"),
-    "press": ("보도자료", "뉴스", "news", "press", "홍보"),
+    "statistics": ("통계", "실적", "현황", "지표", "수송", "재무", "statistics"),
+    "brochure": ("브로슈어", "brochure", "리플릿", "홍보물"),
+    "press": ("보도자료", "뉴스", "news", "press"),
 }
 DEFAULT_CAP = 2000
 

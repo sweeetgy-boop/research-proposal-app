@@ -15,9 +15,18 @@ from pydantic import BaseModel, Field
 IMAGE_TYPES = ("체계도·조직도·흐름도", "표", "그래프", "글자 이미지", "기타")
 ImageType = Literal["체계도·조직도·흐름도", "표", "그래프", "글자 이미지", "기타"]
 ReadStatus = Literal["argon", "ocr_only", "failed", "skipped"]
-# 처리 순서 그룹 — 경영목표·전략·비전 > ESG·정책 > 통계 > 보도자료 > 기타 (config/vision.yaml order)
-OrderGroup = Literal["strategy", "esg_policy", "statistics", "press", "other"]
-ORDER_GROUPS: tuple[OrderGroup, ...] = ("strategy", "esg_policy", "statistics", "press", "other")
+# 처리 순서 그룹 — 경영목표·전략·비전 > ESG·정책(사전정보공표·경영공시) > 통계 > 브로슈어
+# > 보도자료 > 기타
+# (config/vision.yaml order)
+OrderGroup = Literal["strategy", "esg_policy", "statistics", "brochure", "press", "other"]
+ORDER_GROUPS: tuple[OrderGroup, ...] = (
+    "strategy",
+    "esg_policy",
+    "statistics",
+    "brochure",
+    "press",
+    "other",
+)
 
 MAX_TEXT_CHARS = 20_000
 MAX_TITLE_CHARS = 300
@@ -42,6 +51,8 @@ class ImageItem(BaseModel):
     order_group: OrderGroup | None = None  # manifest 가 주면 우선, 없으면 page_url·title 로 판정
     source: str = "korail_web"
     repeat_pages: int = 1  # 같은 sha256 이 실린 페이지 수 (manifest 전체에서 센다)
+    # 첨부 속 내장 이미지면 원본 위치: {name: 첨부 파일명, sha256: 첨부 해시, where: 쪽·슬라이드 등}
+    attachment: dict[str, Any] | None = None
     trust: Literal["untrusted"] = "untrusted"
 
 

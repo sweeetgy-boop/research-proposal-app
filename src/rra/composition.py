@@ -302,6 +302,25 @@ def build_vision_snapshot(settings: Settings | None = None, *, snapshot: str | N
     )
 
 
+def build_extract_attachment_images(
+    settings: Settings | None = None, *, snapshot: str | None = None
+):
+    """첨부 속 내장 이미지 추출(`rra vision extract`) — 격리 자식, 같은 해시 하나,
+    attachment_images.jsonl 에 기록."""
+    from rra.adapters.vision import ExtractAttachmentImages
+
+    settings = settings or load_settings()
+    acfg = vision_config(settings)["attachments"]
+    return ExtractAttachmentImages(
+        build_vision_snapshot(settings, snapshot=snapshot),
+        sandbox_limits(settings),
+        formats=frozenset(acfg["formats"]),
+        max_images_per_file=acfg["max_images_per_file"],
+        max_image_bytes=acfg["max_image_bytes"],
+        min_pixels=acfg["min_pixels"],
+    )
+
+
 def build_read_images(
     settings: Settings | None = None,
     *,
