@@ -853,6 +853,11 @@ export interface components {
             recommendation_id?: string | null;
             /** Recommendation Index */
             recommendation_index?: number | null;
+            /**
+             * Acknowledged
+             * @default false
+             */
+            acknowledged: boolean;
         };
         /** SearchIn */
         SearchIn: {

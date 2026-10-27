@@ -539,6 +539,7 @@ def test_generate_interrupted_then_resume(run_env, capsys):
     resumed = json.loads(capsys.readouterr().out)
     assert resumed["status"] == "drafted"
     assert resumed["sections"][1]["sentences"][0] == {
+        "sentence_id": "s:prior_work:0",
         "text": "선행",
         "evidence": ["alio:1#0"],
         "source": "retrieved",

@@ -45,6 +45,7 @@ export default function Clarify() {
         differentiation_transfer: idea.differentiationTransfer,
         recommendation_id: idea.recommendationIndex !== null ? idea.recommendationId : null,
         recommendation_index: idea.recommendationIndex,
+        acknowledged: idea.acknowledged, // 차단 경보 확인 — 서버도 같은 게이트(409)를 둔다
       };
       return submitRun.mutateAsync(body);
     },

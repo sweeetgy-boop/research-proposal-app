@@ -56,7 +56,7 @@
 | A | [C] 공사 홈페이지 탐색·내려받기 → [P2] 수집처 확장 탐색·내려받기, [P] 코드·fixture | feat/policy-crawl (../rra-wt/feat-policy-crawl) | 시작 10:58 | [P] 적재·[P3] 판독은 내려받기 뒤(대기열) |
 | B | [S] ScienceON 1~2단계(실호출 검증·fixture·매핑) | feat/scienceon-live (../rra-wt/feat-scienceon-live) | 시작 10:58 | 3단계 적재는 대기열 |
 | C | [U] 백엔드 U1~U8(가짜 LLM 테스트까지) | feat/usability (../rra-wt/feat-usability) | 시작 10:58 | U9·U10 은 합친 뒤 |
-| (미배정) | [P3] 이미지 판독 코드·fixture → 판독(Argon 2,000회 별도), [P] 적재, [P2] 적재, [Z] | feat/policy-vision | 대기 | 레인 A 내려받기 |
+| D | [P3] 이미지 판독 코드·fixture·OCR 어댑터·Argon 이미지 입력·공용 Gemini 호출 제한기(코드 먼저) → 판독은 레인 A 내려받기 뒤 | feat/policy-vision (../rra-wt/feat-policy-vision) | 시작 11:15 | 판독·OCR·적재는 레인 A 내려받기·대기열 |
 
 ## 대기열 (무거운 작업, 한 번에 하나 — mlx·임베딩·재색인·대량 파싱·OCR·적재·측정)
 
@@ -80,6 +80,9 @@ Gemini 상한: 이미지 판독 2,000회(별도), 그 외 오늘 추가 작업 8
 | 11:07 | [Q] Q9 2단계 중단 | all2·minus-additions 에서 골든셋 01·03 이 invalid(제목·기술적 중요도·활용계획 등 빈칸). 원인 2건: (1) Q4 "인용 금지" 가 검색 근거에도 든 본보기 doc 을 인용한 문장까지 폐기해 섹션이 통째로 사라짐, (2) 제목·선택형 프롬프트에 설계 요약이 들어가 Qwen 이 JSON 대신 긴 글을 씀(raw 1,597~2,689자). 수정: 본보기는 베끼기만 폐기(doc 인용 허용), 제목·선택형엔 설계 요약·본보기 제외, 요약 600자. 2단계 결과(baseline-02·all2·minus-additions)는 참고용으로만 남김 |
 | 11:00~11:10 | 통합 | PR #24 병합(pytest-xdist·CI 분할 backend-unit/api·web-check/e2e + 모음 job·heavy lock·조각 규칙). xdist 수집 불일치 1건(zip 바이트 id) 수정. feat/draft-quality 에 main 병합 |
 | 11:12 | [Q] Q9 3단계 시작 | all3(골든셋 3, Argon) → local-none/local-all/local-minus-{exemplars,outline,section_search,rule_check,reranker}(01·02, Argon 없이) → minus-additions/minus-two_candidates(Argon). heavy lock 사용. Gemini 예정 9회 |
+
+| 11:05~11:14 | 통합 [0] | `config/retrieval_mix.yaml`(섹션별 허용 doc_type·논문·보고서·특허 최소 보장·유사과제 판정 제외, 출처별 최소 보장 우선), 스냅샷 doc_types, DocType report, reranker 기본 켬 + ADR 0013 Q8 결정, architecture §4.16. 테스트 1,285 통과 |
+| 11:15 | 레인 D 시작 | [P3] 코드·fixture(장식 거르기·OCR·Argon 이미지 판독·캐시·신뢰도 규칙·배지·공용 Gemini 제한기) |
 
 ## 판단 기록
 - [H] 배경 메모 중 저장소에 근거가 없는 항목(팀 구성·54초·DRM·.env 흰 화면·8501 충돌·웹 React 결정)은 "(대화 기록 기준, 미검증)" 으로 표시. 팀원 이름은 개인정보라 기록하지 않음.

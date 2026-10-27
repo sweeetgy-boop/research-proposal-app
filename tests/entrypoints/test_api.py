@@ -652,6 +652,8 @@ async def test_precheck_route_attaches_differentiation_when_blocking_and_run_rec
             },
         }
         r = await c.post("/v1/runs", json=payload, headers=AUTH)
+        assert r.status_code == 409 and "acknowledged" in r.json()["detail"]  # 서버도 게이트
+        r = await c.post("/v1/runs", json={**payload, "acknowledged": True}, headers=AUTH)
         assert r.status_code == 202, r.text
         run_id = r.json()["run_id"]
         await assistant.manager.wait(assistant.user, run_id)

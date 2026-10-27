@@ -2155,6 +2155,11 @@
               }
             ],
             "title": "Recommendation Index"
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "title": "Acknowledged",
+            "default": false
           }
         },
         "type": "object",

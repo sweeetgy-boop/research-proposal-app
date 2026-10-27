@@ -70,12 +70,13 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
                 "key": sec.key,
                 "sentences": [
                     {
+                        "sentence_id": f"s:{sec.key}:{i}",  # 편집·검토·근거 API 가 쓰는 id
                         "text": clean(sent.text),
                         "evidence": sent.evidence,
                         "source": _source(sent),
                         "origin": sent.origin,  # 로컬 작성 / Argon 보완 / Argon 추가 / 제안자 수정
                     }
-                    for sent in sec.sentences
+                    for i, sent in enumerate(sec.sentences)
                 ],
                 "choices": _choices(sec, view),
             }
