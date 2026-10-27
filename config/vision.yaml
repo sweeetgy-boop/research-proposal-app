@@ -26,13 +26,22 @@ filter:
   skip_mime: [image/svg+xml, image/gif]
   skip_ext: [.svg, .gif, .ico]
 
-# 처리 순서 — 경영목표·전략·비전 > ESG·정책 > 통계 > 보도자료 > 기타. manifest 의 order_group 이 있으면 그 값이 우선.
-# 없으면 page_url·page_title·alt·caption·path 에 아래 키워드가 있는지로 판정한다.
+# 처리 순서 — 경영목표·전략·비전 > ESG·사전정보공표(경영공시·정책) > 통계 > 브로슈어 > 보도자료 > 기타.
+# manifest 의 order_group 이 있으면 그 값이 우선. 없으면 page_url·page_title(메뉴 경로 포함)·alt·caption·path 의 키워드로 판정.
 order:
-  strategy: [비전, 경영목표, 경영전략, 전략체계, 전략과제, 미션, 핵심가치, vision, strategy]
-  esg_policy: [esg, 정책, 윤리, 안전경영, 환경, 사회공헌, 인권, 준법, 지속가능]
-  statistics: [통계, 실적, 현황, 지표, 수송, 경영공시, 재무, statistics]
-  press: [보도자료, 뉴스, news, press, 홍보]
+  strategy: [비전, 경영목표, 경영전략, 전략체계, 전략과제, 경영가치체계, 미션, 핵심가치, vision, strategy]
+  esg_policy: [esg, 정책, 윤리, 안전경영, 환경, 사회공헌, 인권, 준법, 지속가능, 사전정보, 경영공시]
+  statistics: [통계, 실적, 현황, 지표, 수송, 재무, statistics]
+  brochure: [브로슈어, brochure, 리플릿, 홍보물]
+  press: [보도자료, 뉴스, news, press]
+
+# 첨부 속 내장 이미지(hwpx BinData·hwp BinData·pdf·pptx media·xlsx media) — `rra vision extract` 가 꺼내
+# images/attachments/<sha>.<ext> 에 저장하고 attachment_images.jsonl 에 기록한다(같은 해시는 하나).
+attachments:
+  formats: [hwpx, hwp, pdf, pptx, xlsx]
+  max_images_per_file: 200
+  max_image_bytes: 8388608
+  min_pixels: 20000
 
 # 대조용 OCR (macOS Vision, 격리 자식 프로세스). macOS 가 아니거나 ocrmac 이 없으면 "OCR 없음" 으로 계속.
 ocr:

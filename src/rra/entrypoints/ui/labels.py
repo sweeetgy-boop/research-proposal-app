@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import re
 
-TIER = {"own": "사내(철도연구원)", "domestic_rail": "국내 철도기관", "external": "외부"}
+TIER = {
+    "own": "사내(철도연구원)",
+    "national_rnd": "국가R&D 과제",
+    "domestic_rail": "국내 철도기관",
+    "external": "외부",
+}
 OWN_DETAIL = {"institute": "사내(철도연구원)", "company": "사내(공사)"}
 
 

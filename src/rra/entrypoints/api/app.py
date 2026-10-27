@@ -78,6 +78,7 @@ from rra.entrypoints.views import (
     draft_payload,
     evidence_items_payload,
     facts_payload,
+    ntis_insights_payload,
     policy_suggestions_payload,
     recommendation_preview_payload,
     recommendations_payload,
@@ -236,6 +237,7 @@ def create_app(
     fake_mode: bool = False,
     snapshot_status: Callable[[], dict[str, Any]] | None = None,
     policy_suggest: Any | None = None,
+    ntis_insights: Any | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api()."""
 
@@ -364,6 +366,17 @@ def create_app(
         if recommend is not None and recommend_auto:
             out["recommendations"] = await _recommend(req, alerts)
         return out
+
+    @app.post(f"/{API_VERSION}/precheck/ntis-outcomes")
+    async def ntis_outcomes_route(req: ProposalRequest) -> dict[str, Any]:
+        """② NTIS 부가 조회 — 유사과제 알림의 NTIS 과제(상위 3건) 주요 성과(참고용) + 연관 과제
+        추천(우리 검색에
+        없던 것만 `ntis_recommended`). 캐시(과제번호)·호출 간격은 어댑터. 키가 없으면 503."""
+        if ntis_insights is None or not getattr(ntis_insights, "enabled", True):
+            raise HTTPException(503, "NTIS 부가 조회가 꺼져 있습니다 (RRA_NTIS_KEY 없음).")
+        alerts = await precheck(req)
+        insights = await ntis_insights(alerts)
+        return {"notice": UNTRUSTED_NOTICE, **ntis_insights_payload(insights, clean=_clean)}
 
     @app.post(f"/{API_VERSION}/ideas/policy-suggestions")
     async def policy_suggestions_route(req: ProposalRequest) -> dict[str, Any]:
