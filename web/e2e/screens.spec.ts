@@ -16,6 +16,8 @@ test("모든 화면 캡처", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/login");
   await shot(page, 1, "login");
+  await page.getByRole("tab", { name: "그 외 사용자(아이디·비밀번호)" }).click();
+  await shot(page, 23, "login-guest");
   await login(page);
   await fillIdea(page);
   await shot(page, 2, "idea");

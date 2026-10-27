@@ -37,6 +37,7 @@ from rra.application.ports import (
     RunStorePort,
     TaskRunner,
 )
+from rra.application.ports.auth import BudgetExhausted, DailyBudgetPort
 from rra.application.ports.renderer import RenderRejected
 from rra.application.usecases.generate_proposal import CORE_SECTIONS, GenerateProposal
 from rra.application.usecases.outline import OutlineSections
@@ -83,6 +84,7 @@ from rra.domain.models.run import (
     section_step,
 )
 from rra.domain.rules import review_flow
+from rra.domain.rules.auth_policy import daily_limit_reached
 from rra.domain.rules.checklist import clean_answers, coverage, missing_elements
 from rra.domain.rules.evidence import (
     DecisionRejected,
@@ -130,6 +132,14 @@ __all__ = [
     "RunNotFound",
     "RunNotResumable",
 ]
+
+
+class DailyLimitReached(RuntimeError):
+    """사용자별 일일 생성 상한 (레인 A: 공용 계정 10건·직원 20건)."""
+
+
+class ReviewBudgetExhausted(RuntimeError):
+    """외부 검토 LLM 일일 전체 상한 초과 — 검토 없이 진행한다."""
 
 
 class QueueFull(RuntimeError):
@@ -284,8 +294,13 @@ class RunManager:
         outliner: OutlineSections | None = None,
         usability: UsabilityConfig | None = None,
         checklists: Mapping[str, list[dict[str, Any]]] | None = None,
+        generate_public: GenerateProposal | None = None,
+        review_budget: DailyBudgetPort | None = None,
     ):
         self.usability = usability or UsabilityConfig()  # U1~U8 켜기/끄기
+        # 공용 계정 run(scope=public)용 — internal 을 뺀 저장소로 조립된 같은 유스케이스
+        self.generate_public = generate_public
+        self.review_budget = review_budget  # 외부 검토 LLM 일일 상한 (None 이면 상한 없음)
         self.checklists: dict[str, list[dict[str, Any]]] = dict(checklists or {})
         self.generate = generate
         self.reviewer = reviewer  # None 이면 검토를 건너뛴다 (review_skipped)
@@ -314,8 +329,13 @@ class RunManager:
         recommendations: RecommendationResult | None = None,
         chosen_recommendation: int | None = None,
         priority_evidence: list[str] | None = None,
+        scope: str = "all",
+        daily_limit: int | None = None,
     ) -> RunState:
         """queued 로 저장하고 백그라운드 실행을 시작한 뒤 즉시 돌려준다.
+
+        scope: "public" 이면 검색·근거에서 visibility=internal 을 뺀다 (공용 계정).
+        daily_limit: 이 사용자의 오늘 생성 건수 상한 (None 이면 없음). 넘으면 DailyLimitReached.
 
         priority_evidence: U5 브리핑에서 고른 우선 근거 id — retrieve 뒤 검색 집합 안의 것만
         snapshot.priority_ids 에 남기고 그 청크를 앞세운다 (proposer_notes.json 에 보관).
@@ -325,12 +345,17 @@ class RunManager:
         recommendations: 차별화 과제 추천 결과 — 전체는 run 의 recommendations.json 에 복사하고
         manifest 에는 전송 기록 + 고른 추천 index(chosen) 만 남긴다.
         """
-        active = [s for s in self.list_runs(user) if s.status in ACTIVE]
+        mine = self.list_runs(user, limit=1000)
+        active = [s for s in mine if s.status in ACTIVE]
         if len(active) >= self.max_queued:
             raise QueueFull(
                 f"대기·실행 중인 생성이 {len(active)}건입니다 (상한 {self.max_queued})."
             )
+        today = self._clock()[:10]
+        if daily_limit_reached([s.created_at for s in mine], today, daily_limit):
+            raise DailyLimitReached(f"오늘 생성 상한 {daily_limit}건에 이르렀습니다.")
         state = self.store.create(user, req, self._plan(), self._clock())
+        state.scope = "public" if scope == "public" else "all"
         state.model = self.model
         state.template = self.generate.template
         state.differentiation = dict(differentiation) if differentiation else None
@@ -403,10 +428,11 @@ class RunManager:
                     state.status = "failed"  # 저장된 입력이 깨짐 — 재개해도 소용없다
                     return state
 
+                gen = self._generate_for(state)
                 snapshot = self.store.load_snapshot(user, run_id)
                 if snapshot is None:
                     current = self._begin(state, RETRIEVE)
-                    snapshot = await self.generate.retrieve(req)
+                    snapshot = await gen.retrieve(req)
                     snapshot = self._prioritize(user, run_id, snapshot)
                     self.store.save_snapshot(user, run_id, snapshot)
                     self._finish(
@@ -421,7 +447,7 @@ class RunManager:
 
                 outline = await self._outline_step(user, run_id, state, req, snapshot, on_step)
                 if self.pipeline.section_search and not snapshot.section_chunks:
-                    snapshot = await self.generate.retrieve_sections(req, snapshot, outline)
+                    snapshot = await gen.retrieve_sections(req, snapshot, outline)
                     self.store.save_snapshot(user, run_id, snapshot)  # 재개 때 다시 하지 않는다
 
                 sections = self.store.load_sections(user, run_id)
@@ -432,13 +458,11 @@ class RunManager:
                         self._ensure_done(state, section_step(key))
                         continue
                     current = self._begin(state, section_step(key))
-                    composed = await self.generate.compose_section(
-                        key, req, snapshot, outline=outline
-                    )
+                    composed = await gen.compose_section(key, req, snapshot, outline=outline)
                     self.store.save_section(user, run_id, composed.section)
                     if want_b and key in CORE_SECTIONS and composed.mode == "llm":
                         # Q7 후보 B — 같은 섹션을 다른 구성으로 한 번 더. 1차 검토가 고른다
-                        alt = await self.generate.compose_section(
+                        alt = await gen.compose_section(
                             key, req, snapshot, outline=outline, candidate=composed.section
                         )
                         if alt.section.sentences:
@@ -510,9 +534,13 @@ class RunManager:
                     wants_review = self.pipeline.draft_review and self.review_auto
                     if wants_review and self.reviewer is None:
                         self._skip_review(user, run_id, state, "no_review_llm")
+                    elif wants_review and self._budget_exhausted():
+                        self._skip_review(user, run_id, state, "budget")
                     elif not wants_review:
                         self._skip_review(user, run_id, state, "disabled")
-                    auto_review = wants_review and self.reviewer is not None
+                    auto_review = (
+                        wants_review and self.reviewer is not None and not self._budget_exhausted()
+                    )
                 self._finish(state, current, on_step, dropped=fixed)
                 current = None
                 return state
@@ -648,6 +676,32 @@ class RunManager:
     def list_runs(self, user: str, limit: int = 50) -> list[RunState]:
         return [self._normalize(s) for s in self.store.list_runs(user, limit)]
 
+    def list_all_runs(self, limit: int = 50) -> list[RunState]:
+        """관리자용 — 모든 사용자의 run (최근 순). 소유자는 state.user."""
+        out: list[RunState] = []
+        for owner in self.store.list_users():
+            out.extend(self.list_runs(owner, limit))
+        out.sort(key=lambda s: s.run_id, reverse=True)
+        return out[:limit]
+
+    def find_owner(self, run_id: str) -> str | None:
+        """관리자용 — run_id 의 소유자 키. 없으면 None."""
+        for owner in self.store.list_users():
+            try:
+                self.store.load_state(owner, run_id)
+            except (RunNotFound, ValueError):
+                continue
+            return owner
+        return None
+
+    def _generate_for(self, state: RunState) -> GenerateProposal:
+        if state.scope == "public" and self.generate_public is not None:
+            return self.generate_public
+        return self.generate
+
+    def _budget_exhausted(self) -> bool:
+        return self.review_budget is not None and self.review_budget.exhausted()
+
     def _plan(self) -> list[str]:
         return plan_steps(
             self.generate.section_keys,
@@ -722,6 +776,12 @@ class RunManager:
             self._skip_review(user, run_id, state, "no_review_llm")
             self._save(state)
             return state
+        if self._budget_exhausted():  # 일일 상한 — 검토 없이 진행 (화면 알림은 flow 요약으로)
+            if state.status not in ("drafted", "running", "editing"):
+                raise InvalidTransition(review_flow.hint(state.status, "finish_draft_review"))
+            self._skip_review(user, run_id, state, "budget")
+            self._save(state)
+            return state
         nxt = review_flow.start_draft_review(state.status)  # 불가면 InvalidTransition
         return await self._launch_review(user, run_id, state, nxt, kind="draft")
 
@@ -738,6 +798,15 @@ class RunManager:
         if self.reviewer is None:
             raise InvalidTransition(
                 "검토 LLM 이 없습니다 (review_skipped) — 바로 마무리할 수 있습니다."
+            )
+        if self._budget_exhausted():
+            review_flow.transition(state.status, "start_final_review")  # 상태 검사만
+            state.review_skipped = True  # 검토 없이 마무리할 수 있게
+            state.review_error = "BudgetExhausted"
+            self._save(state)
+            raise ReviewBudgetExhausted(
+                "외부 검토 LLM 의 오늘 호출 상한을 넘어 검토 없이 진행합니다 — "
+                "바로 마무리할 수 있습니다."
             )
         nxt = review_flow.transition(state.status, "start_final_review")
         return await self._launch_review(user, run_id, state, nxt, kind="final")
@@ -761,8 +830,9 @@ class RunManager:
         return state
 
     def _skip_review(self, user: str, run_id: str, state: RunState, reason: str) -> None:
-        """1차 검토를 돌리지 않음 — v1 로 진행. reason: no_review_llm | disabled | failed."""
-        if reason == "no_review_llm":  # 검토 LLM 이 없을 때만 ⑤ 없이 ⑥ 으로 갈 수 있다
+        """1차 검토를 돌리지 않음 — v1 로 진행.
+        reason: no_review_llm | budget | disabled | failed."""
+        if reason in ("no_review_llm", "budget"):  # 검토를 할 수 없을 때는 ⑤ 없이 ⑥ 으로
             state.review_skipped = True
         state.draft_review_skipped = reason
         try:
@@ -903,13 +973,16 @@ class RunManager:
                 state.review_from = None
                 return state
         except Exception as exc:  # 검토 실패 — 검토 전 상태로 (초안은 그대로)
+            over_budget = isinstance(exc, BudgetExhausted)
             if kind == "draft":
                 state.status = review_flow.transition("draft_reviewing", "fail_draft_review")
-                self._skip_review(user, run_id, state, "failed")
+                self._skip_review(user, run_id, state, "budget" if over_budget else "failed")
             else:
                 state.status = review_flow.transition(
                     "final_reviewing", "fail_final_review", previous=state.review_from
                 )
+                if over_budget:
+                    state.review_skipped = True
             state.review_error = type(exc).__name__
             state.review_from = None
             logger.warning(

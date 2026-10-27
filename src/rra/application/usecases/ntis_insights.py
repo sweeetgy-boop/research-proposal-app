@@ -100,9 +100,7 @@ class NtisProjectInsights:
             recommended = kept
         if targets and self._blocked is None:
             self._record(None)  # 정상 호출이 있었으면 이전 차단 안내를 해제한다
-        return NtisInsights(
-            projects=projects, recommended=recommended, unavailable=self._blocked
-        )
+        return NtisInsights(projects=projects, recommended=recommended, unavailable=self._blocked)
 
     async def _cached(
         self, key: str, port: Any, method: str, project_no: str

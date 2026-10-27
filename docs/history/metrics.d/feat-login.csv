@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,TBD,feat login,1723,1337,8,,,,,,,,,,,,,,,사번·공용 계정 로그인·run 소유자 격리·일일 상한·예산 — 테스트 +26

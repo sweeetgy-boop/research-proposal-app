@@ -1,9 +1,9 @@
-import { Database, FilePlus2, ListOrdered, LogOut, Search } from "lucide-react";
+import { Database, FilePlus2, ListOrdered, LogOut, Search, UserRound } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { Stepper } from "./Stepper";
-import { useLoggedIn } from "@/auth/useSession";
+import { useLoggedIn, useSessionLabel } from "@/auth/useSession";
 import { logout } from "@/api/endpoints";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +39,7 @@ const NAV = [
 
 export function Layout() {
   const loggedIn = useLoggedIn();
+  const sessionLabel = useSessionLabel();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const step = stepFromPath(pathname);
@@ -78,6 +79,15 @@ export function Layout() {
           </nav>
           <div className="order-2 ml-auto flex items-center gap-1 sm:order-3 sm:ml-0">
             <ThemeToggle />
+            {loggedIn && sessionLabel && (
+              <span
+                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground"
+                aria-label={`로그인 종류: ${sessionLabel}`}
+              >
+                <UserRound className="size-3.5" aria-hidden="true" />
+                {sessionLabel}
+              </span>
+            )}
             {loggedIn && (
               <Button variant="ghost" size="sm" onClick={onLogout} aria-label="로그아웃">
                 <LogOut aria-hidden="true" />

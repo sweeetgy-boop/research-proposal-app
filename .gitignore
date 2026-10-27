@@ -1,5 +1,6 @@
 .env
 /data/
+/data/auth/
 /runs/
 .venv*/
 __pycache__/

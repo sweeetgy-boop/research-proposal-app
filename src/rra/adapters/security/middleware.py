@@ -10,6 +10,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from rra.adapters.security.client_ip import access_user_hash, client_ip
 from rra.adapters.security.sessions import COOKIE_NAME, CSRF_HEADER, SessionStore
+from rra.domain.rules.auth_policy import admin_principal
 
 log = logging.getLogger("rra.api.auth")
 
@@ -200,6 +201,7 @@ class TokenAuthMiddleware:
         presented = self._presented(scope)
         if bool(self.token) and bool(presented) and secrets.compare_digest(presented, self.token):
             state["rra_auth"] = "token"
+            state["rra_principal"] = admin_principal()  # 관리 토큰 = 관리자
             await self.app(scope, receive, send)
             return
         session = self.sessions.get(_cookie(scope, COOKIE_NAME)) if self.sessions else None
@@ -224,6 +226,7 @@ class TokenAuthMiddleware:
                 return
         state["rra_auth"] = "session"
         state["rra_session_id"] = session.id
+        state["rra_principal"] = session.who
         await self.app(scope, receive, send)
 
     async def _reject(
