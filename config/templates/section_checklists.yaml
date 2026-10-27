@@ -1,26 +1,46 @@
-# Q5 섹션별 필수 요소 체크리스트 — 1차·최종 검토 프롬프트에 넣어 빠진 요소를 찾고(additions 제안), 충족률을 센다.
-# 키는 proposal_korail.rules.yaml sections 와 같아야 한다. 항목은 심사자가 보는 요소.
-tech_importance:
-  - 기존 기술·선행연구의 한계
-  - 본 과제의 기술적 차별점
-  - 국내외 동향 근거(논문·과제 인용)
-objective:
-  - 달성할 목표의 구체적 서술
-  - 목표 수준 또는 범위(대상 노선·설비·지표)
-method:
-  - 단계(연차 또는 준비-개발-검증)
-  - 데이터(수집 대상·출처)
-  - 검증 방법
-  - 일정·산출물
-expected_management:
-  - 정량 효과(비용·시간·건수 등 근거 있는 값)
-  - 정성 효과
-  - 수혜 부서·대상
-expected_technology:
-  - 확보 기술·표준·특허 등 기술적 성과
-  - 기존 기술 대비 향상 지점
-expected_standing:
-  - 대외 위상(학술·산업·정책) 효과
-utilization:
-  - 활용 주체 부서와 시점
-  - 실용화 계획
+# U3 섹션별 필수 요소 체크리스트 — 빠진 요소마다 보완 질문을 낸다 (domain/rules/checklist.py).
+# keywords 중 하나라도 섹션 본문에 있으면 그 요소는 "있음". 비우면 element 이름으로 찾는다.
+# 답은 run 의 proposer_notes.json(제안자 입력)에 저장되어 다음 "AI 다시 쓰기" 프롬프트에 들어간다.
+sections:
+  objective:
+    - element: 연구 목표
+      question: 이 연구로 무엇을 어느 수준까지 이루려 합니까? (한 문장)
+      keywords: [목표, 목적]
+    - element: 적용 범위
+      question: 적용 대상(노선·설비·차량·업무)과 범위는 무엇입니까?
+      keywords: [대상, 범위, 노선, 설비, 구간]
+  method:
+    - element: 단계별 추진
+      question: 연구를 몇 단계로 나누고 단계마다 무엇을 합니까? (기간이 있으면 개월로)
+      keywords: [1차년도, 2차년도, 단계, 개월, 1단계, 2단계]
+    - element: 산출물
+      question: 단계마다 나오는 산출물(보고서·프로그램·시제품·기준안)은 무엇입니까?
+      keywords: [산출물, 보고서, 프로그램, 시제품, 기준안, 매뉴얼]
+    - element: 검증 방법
+      question: 결과를 어떻게 검증합니까? (현장 시험·비교·시뮬레이션 등)
+      keywords: [검증, 시험, 실증, 평가, 비교, 시뮬레이션]
+    - element: 현장 제약
+      question: 현장 적용 때 고려할 운영 제약(열차 운행·야간 작업·안전)은 무엇입니까?
+      keywords: [제약, 운행, 야간, 안전, 현장]
+  expected_management:
+    - element: 활용 주체
+      question: 이 효과를 누가(어느 부서가) 언제 활용합니까?
+      keywords: [처, 부서, 관제, 본부, 사업소, 활용]
+    - element: 성과지표
+      question: 효과를 무엇으로 재고(지표) 어떻게 측정합니까?
+      keywords: [지표, 측정, 절감, 단축, 향상, 감소]
+  expected_technology:
+    - element: 기술 효과
+      question: 어떤 기술이 새로 확보되거나 개선됩니까?
+      keywords: [기술, 확보, 개선, 개발, 정확도]
+    - element: 성과지표
+      question: 기술 효과를 무엇으로 재고 어떻게 측정합니까?
+      keywords: [지표, 측정, 정확도, 비율]
+  expected_standing:
+    - element: 대외 효과
+      question: 대외적으로(이용객·정부·학계·산업계) 어떤 위상 변화를 기대합니까?
+      keywords: [대외, 위상, 이용객, 정부, 학계, 산업]
+  utilization:
+    - element: 실용화 계획
+      question: 연구 결과를 어떤 형태(프로그램·매뉴얼·규정)로 언제 현장에 적용합니까?
+      keywords: [실용화, 적용, 배포, 반영, 프로그램, 매뉴얼]

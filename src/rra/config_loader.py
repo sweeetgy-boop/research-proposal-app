@@ -109,6 +109,7 @@ def llm_config(
         )
     system_role = table.get("system_role", True)
     stop = [str(x) for x in (table.get("stop") or []) if str(x)]
+    rate = _rate_config(chosen, table.get("rate"))
     return {
         "stage": stage,
         "provider": chosen,
@@ -138,6 +139,51 @@ def llm_config(
             "backoff_sec": float(retries.get("backoff_sec", 0.5)),
             "max_backoff_sec": float(retries.get("max_backoff_sec", 8)),
         },
+        # 원격 provider 의 공유 호출 제한기 설정. None 이면 제한기 없음 (로컬 mlx)
+        "rate": rate,
+    }
+
+
+RATE_DEFAULT_PROVIDERS = ("gemini", "openai")
+RATE_DEFAULTS = {"concurrency": 4, "per_minute": 60}
+
+
+def _rate_config(provider: str, raw: Any) -> dict[str, int] | None:
+    if raw is None and provider not in RATE_DEFAULT_PROVIDERS:
+        return None
+    table = raw if isinstance(raw, dict) else {}
+    return {
+        "concurrency": max(1, int(table.get("concurrency", RATE_DEFAULTS["concurrency"]))),
+        "per_minute": max(0, int(table.get("per_minute", RATE_DEFAULTS["per_minute"]))),
+    }
+
+
+# ── 이미지 판독 (P3, config/vision.yaml) ───────────────────
+VISION_FILE = "vision.yaml"
+
+
+def vision_config(settings: Settings) -> dict[str, Any]:
+    """config/vision.yaml → 거르기·상한·경로·순서. 값 객체(ImageFilterConfig)는 domain 에서
+    만든다."""
+    cfg = read_config(VISION_FILE, settings)
+    paths = cfg.get("paths") or {}
+    order = cfg.get("order") or {}
+    ocr = cfg.get("ocr") or {}
+    return {
+        "filter": dict(cfg.get("filter") or {}),
+        "cap": int(cfg.get("cap", 2000)),
+        "snapshots_dir": str(paths.get("snapshots", "data/korail_web/snapshots")),
+        "store_dir": str(paths.get("store", "data/korail_web")),
+        "sample_dir": str(paths.get("sample", "docs/ocr-sample")),
+        "order_keywords": {k: list(v) for k, v in order.items() if isinstance(v, list)},
+        "ocr": {
+            "languages": [str(x) for x in (ocr.get("languages") or ["ko-KR", "en-US"])],
+            "max_bytes": int(ocr.get("max_bytes", 15 * 1024 * 1024)),
+            "max_pixels": int(ocr.get("max_pixels", 40_000_000)),
+            "timeout_sec": float(ocr.get("timeout_sec", 90)),
+        },
+        "image_max_bytes": int(cfg.get("image_max_bytes", 8 * 1024 * 1024)),
+        "sample_per_type": int(cfg.get("sample_per_type", 30)),
     }
 
 
@@ -186,16 +232,6 @@ def review_policy(settings: Settings) -> dict[str, Any]:
     }
 
 
-def section_checklists(settings: Settings) -> dict[str, list[str]]:
-    """Q5 config/templates/section_checklists.yaml → {섹션: [필수 요소]} (없으면 빈 dict)."""
-    cfg = read_config("templates/section_checklists.yaml", settings)
-    out: dict[str, list[str]] = {}
-    for key, items in (cfg or {}).items():
-        if isinstance(items, list):
-            out[str(key)] = [str(x) for x in items if isinstance(x, str) and x.strip()]
-    return out
-
-
 def pipeline_config(settings: Settings):
     """config/pipeline.yaml → PipelineConfig (파일이 없으면 기본값). 모르는 키는 오류."""
     from rra.domain.models import PipelineConfig
@@ -209,6 +245,41 @@ def pipeline_config(settings: Settings):
     if unknown:
         raise ValueError(f"config/pipeline.yaml 에 모르는 키: {sorted(unknown)}")
     return PipelineConfig(**(cfg or {}))
+
+
+def usability_config(settings: Settings):
+    """config/usability.yaml → UsabilityConfig (파일이 없으면 기본값 = 전부 켬). 모르는 키 오류."""
+    from rra.domain.models import UsabilityConfig
+
+    cfg = read_config("usability.yaml", settings) or {}
+    known = set(UsabilityConfig.model_fields)
+    unknown = set(cfg) - known
+    if unknown:
+        raise ValueError(f"config/usability.yaml 에 모르는 키: {sorted(unknown)}")
+    return UsabilityConfig(**cfg)
+
+
+def section_checklists(settings: Settings) -> dict[str, list[dict[str, Any]]]:
+    """config/templates/section_checklists.yaml → {섹션: [{element, question, keywords[]}]}.
+    파일이 없으면 빈 dict (U3 보완 질문 없음)."""
+    data = read_config("templates/section_checklists.yaml", settings) or {}
+    out: dict[str, list[dict[str, Any]]] = {}
+    for key, items in (data.get("sections") or {}).items():
+        rows = []
+        for item in items or []:
+            if not isinstance(item, dict) or not item.get("element"):
+                continue
+            rows.append(
+                {
+                    "element": str(item["element"]),
+                    "question": str(
+                        item.get("question") or f"{item['element']} 을(를) 적어 주십시오."
+                    ),
+                    "keywords": [str(k) for k in (item.get("keywords") or []) if str(k)],
+                }
+            )
+        out[str(key)] = rows
+    return out
 
 
 def recommend_policy(settings: Settings) -> dict[str, Any]:

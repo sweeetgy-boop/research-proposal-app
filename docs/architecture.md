@@ -1271,3 +1271,20 @@ class RunManager:
 | 2026-10-13 | 7B 전환 보정, 유사과제 차단 키워드 조건, Streamlit 화면·규칙 기반 Agent(§4.2) |
 | 2026-10-23 | 구조 검토 6항목 반영(§4.3: 필수 슬롯 단일화, `config_loader`·`diagnostics` 분리, `_Lazy` 제거, 포트 비동기화, `TaskRunner`), Step 8 HWPX 렌더러·Step 9 run_log 이동·`runs purge`·Step 10 REST·보안 미들웨어·launchd(§4.4, §9.2). import-linter 계약 6→8. `.gitignore` `runs/`→`/runs/`(그동안 `src/rra/adapters/runs/` 가 커밋되지 않던 문제 수정). 이 문서 §1·§2·§3·§8 를 코드와 맞춤 |
 
+
+### 4.17 웹 이미지 판독 (2026-10-27, P3, ADR 0018)
+
+누리집 크롤 스냅샷(`data/korail_web/snapshots/<date>/manifest.jsonl`, 형식 `docs/vision-manifest.md`)의 이미지를
+글로 옮겨 `text_basis="image_vision"` 문서로 적재한다. 흐름(`usecases/read_images.py`):
+거르기(`domain/rules/image_filter.py`: 크기·비율·이름/alt 패턴·반복 해시·형식) → 순서·예산(`vision_plan.py`:
+경영목표·전략·비전 > ESG·정책 > 통계 > 보도자료, 캐시 제외, `cap` 초과는 OCR 만) → OCR(`adapters/vision/ocr_mac.py`,
+macOS Vision·ocrmac 을 `_sandbox` 자식에서, 없으면 `OcrUnavailable` → "OCR 없음") → Argon(`adapters/llm/vision_reader.py`,
+OpenAI 호환 image_url data URL, 프롬프트 `prompts/vision.md`, JSON 만) → 신뢰도(`vision_trust.py`: JSON 객체만, 수치는
+OCR 에도 있을 때만 확인, 나머지는 "[판독 확인 필요]" 표식·수치 근거 제외) → 적재 준비(`link_image_readings.py`:
+페이지 본문이 이김, `privacy.py` 로 전화·이메일·이름 제거, 이미지 1건 = 문서 1건 `<source>:img:<sha16>`, `raw.image`
+에 url·page_url·image_type·status·unconfirmed_numbers) → `rra vision ingest`.
+캐시는 해시별(`data/korail_web/ocr/`, `vision_cache/`, 실패 포함 — 같은 해시는 다시 부르지 않는다), 기록
+`vision_log.jsonl`(hash·url·time·status·provider·model — 키·본문 없음). 공용 Gemini 제한기
+(`adapters/llm/rate_limiter.py`: provider 당 동시 4·분당 60·429 지수 백오프+Retry-After, 프로세스 내)는
+`build_llm`·`build_vision_reader` 가 같은 provider 에 같은 객체를 붙인다. 설정 `config/vision.yaml`, `llm.yaml stages.vision`·
+`providers.gemini.rate`. 측정 `rra vision sample`(종류별 30건 나란히 + 구조화 성공률·숫자 대조 통과율·장당 시간·호출 수).

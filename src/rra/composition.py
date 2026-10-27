@@ -41,6 +41,8 @@ from rra.config_loader import (
     served_model_aliases,
     source_config,
     strategy_catalog,
+    usability_config,
+    vision_config,
 )
 from rra.settings import Settings, load_settings
 
@@ -62,6 +64,7 @@ __all__ = [
     "own_unit",
     "read_config",
     "strategy_catalog",
+    "usability_config",
     # 조립
     "build_alio_catalog",
     "build_alio_catalog_fetcher",
@@ -73,6 +76,8 @@ __all__ = [
     "build_own_projects_source",
     "build_api",
     "build_assistant",
+    "build_briefer",
+    "build_comparer",
     "build_differentiator",
     "build_embedding",
     "build_eval",
@@ -95,6 +100,8 @@ __all__ = [
     "build_served_model_check",
     "build_sources",
     "build_sources_check",
+    "build_structurer",
+    "build_usage_report",
     "sandbox_limits",
 ]
 
@@ -170,9 +177,21 @@ def build_llm(
     보안 C: 원격 provider(gemini·openai)는 base_url 호스트가 allowed_domains 에 있어야 한다.
     보안 D: 키는 provider 별 Settings 필드(SecretStr)에서만. 없으면 LLMUnavailable (변수 이름만).
     """
+    from rra.adapters.llm import OpenAICompatLLM
+
+    return _build_openai_compat(OpenAICompatLLM, settings, stage=stage, provider=provider)
+
+
+def _build_openai_compat(
+    cls, settings: Settings | None, *, stage: str, provider: str | None, **extra
+):
+    """OpenAI 호환 어댑터 공용 조립 — 텍스트(build_llm)·이미지(build_vision_reader). 원격 provider
+    는
+    provider 별 공유 호출 제한기(rate)를 붙인다 (프로세스 내, adapters/llm/rate_limiter)."""
     import httpx
 
-    from rra.adapters.llm import OpenAICompatLLM, RetryPolicy
+    from rra.adapters.llm import RetryPolicy
+    from rra.adapters.llm.rate_limiter import limiter_for
 
     settings = settings or load_settings()
     cfg = llm_config(settings, stage, provider=provider)
@@ -182,7 +201,8 @@ def build_llm(
     key = (
         getattr(settings, cfg["api_key_field"]).get_secret_value() if cfg["api_key_field"] else None
     )
-    return OpenAICompatLLM(
+    limiter = limiter_for(cfg["provider"], **cfg["rate"]) if cfg.get("rate") else None
+    return cls(
         cfg["base_url"],
         cfg["model"],
         provider=cfg["provider"],
@@ -198,7 +218,118 @@ def build_llm(
         json_mode=cfg["json_mode"],
         timeout=httpx.Timeout(**cfg["timeout"]),
         retry=RetryPolicy(**cfg["retry"]),
+        limiter=limiter,
+        **extra,
     )
+
+
+# ── 이미지 판독 (P3) ───────────────────────────────────────
+def build_vision_reader(settings: Settings | None = None):
+    """VisionReaderPort (stage=vision, 기본 gemini). 키가 없으면 LLMUnavailable."""
+    from rra.adapters.llm.vision_reader import OpenAICompatVisionReader
+
+    settings = settings or load_settings()
+    vcfg = vision_config(settings)
+    return _build_openai_compat(
+        OpenAICompatVisionReader,
+        settings,
+        stage="vision",
+        provider=None,
+        max_image_bytes=vcfg["image_max_bytes"],
+    )
+
+
+def build_vision_ocr(settings: Settings | None = None):
+    """OcrPort — macOS Vision (격리 자식). 엔진이 없으면 None 을 돌려주고 파이프라인은
+    'OCR 없음' 으로 간다."""
+    from dataclasses import replace
+
+    from rra.adapters.vision import MacVisionOcr, ocr_available
+
+    settings = settings or load_settings()
+    if not ocr_available():
+        return None
+    ocr_cfg = vision_config(settings)["ocr"]
+    limits = replace(sandbox_limits(settings), timeout_sec=ocr_cfg["timeout_sec"])
+    return MacVisionOcr(
+        limits=limits,
+        languages=tuple(ocr_cfg["languages"]),
+        max_bytes=ocr_cfg["max_bytes"],
+        max_pixels=ocr_cfg["max_pixels"],
+    )
+
+
+def build_vision_store(settings: Settings | None = None):
+    from rra.adapters.vision import FileVisionStore
+
+    settings = settings or load_settings()
+    return FileVisionStore(Path(vision_config(settings)["store_dir"]))
+
+
+def build_vision_snapshot(settings: Settings | None = None, *, snapshot: str | None = None):
+    from rra.adapters.vision import SnapshotImages
+
+    settings = settings or load_settings()
+    vcfg = vision_config(settings)
+    return SnapshotImages(
+        Path(vcfg["snapshots_dir"]),
+        snapshot,
+        max_bytes=int(vcfg["filter"].get("max_bytes", 15728640)),
+    )
+
+
+def build_read_images(
+    settings: Settings | None = None,
+    *,
+    snapshot: str | None = None,
+    cap: int | None = None,
+    with_reader: bool = True,
+    reader=None,
+    ocr=None,
+    store=None,
+):
+    """ReadImages 유스케이스. 판독기 키가 없으면 OCR 만 (reader=None). with_reader=False 는
+    dry-run·시험용."""
+    from rra.application.usecases.read_images import ReadImages
+    from rra.domain.rules.image_filter import ImageFilterConfig
+    from rra.domain.rules.vision_plan import group_keywords
+
+    settings = settings or load_settings()
+    vcfg = vision_config(settings)
+    if reader is None and with_reader:
+        try:
+            reader = build_vision_reader(settings)
+        except LLMUnavailable:
+            reader = None
+    if ocr is None:
+        ocr = build_vision_ocr(settings)
+    prompts = build_prompt_library(settings)
+    stage = llm_config(settings, "vision")
+    return ReadImages(
+        build_vision_snapshot(settings, snapshot=snapshot),
+        store or build_vision_store(settings),
+        ocr=ocr,
+        reader=reader,
+        prompt=prompts.vision(),
+        system=prompts.system(),
+        filter_config=ImageFilterConfig.from_dict(vcfg["filter"]),
+        cap=cap if cap is not None else vcfg["cap"],
+        keywords=group_keywords(vcfg["order_keywords"]),
+        max_tokens=stage["max_tokens"],
+    )
+
+
+def build_ingest_image_readings(
+    settings: Settings | None = None, *, snapshot: str | None = None, repo=None, store=None
+):
+    """판독 캐시 → DB 적재 (Argon 호출 없음). repo 를 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.ingest_image_readings import IngestImageReadings
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    reader = build_read_images(settings, snapshot=snapshot, with_reader=False, store=store)
+    return IngestImageReadings(reader, repo)
 
 
 def build_reviewer(settings: Settings | None = None, *, llm=None, pipeline=None):
@@ -224,6 +355,7 @@ def build_reviewer(settings: Settings | None = None, *, llm=None, pipeline=None)
         prompt_max_chars=cfg["prompt_max_chars"],
         provider=cfg["provider"],
         model=cfg["served_model"] or cfg["model"],
+        support=usability_config(settings).evidence_support,
         checklists=section_checklists(settings),
         additions=pipeline.additions,
     )
@@ -484,6 +616,8 @@ def build_scienceon_source(settings: Settings | None = None, *, transport=None, 
         search_field=str(cfg.get("search_field", "BI")),
         row_count=int(cfg.get("row_count", 50)),
         max_consecutive_429=int(cfg.get("max_consecutive_429", 2)),
+        per_query_limit=int(cfg["per_query_limit"]) if cfg.get("per_query_limit") else None,
+        institutions=institutions(settings),
     )
 
 
@@ -718,6 +852,7 @@ def build_generate(
         exemplars=pipeline.exemplars,
         rule_check=pipeline.rule_check,
         mix=retrieval_mix(settings),
+        schedule_metrics=usability_config(settings).schedule_metrics,
     )
 
 
@@ -772,6 +907,8 @@ def build_run_manager(
         review_auto=review_policy(settings)["auto"],
         pipeline=pipeline,
         outliner=build_outliner(settings, llm=llm) if pipeline.outline else None,
+        usability=usability_config(settings),
+        checklists=section_checklists(settings),
     )
 
 
@@ -930,6 +1067,9 @@ def build_api(
         recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         recommend_auto=recommend_policy(settings)["auto"],
         clarify=build_clarifier(settings, llm=llm) if pipeline.clarify else None,
+        structure=build_structurer(settings, llm=llm),
+        compare=build_comparer(settings, repo=repo, precheck=precheck),
+        brief=build_briefer(settings, repo=repo, llm=llm),
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),
@@ -951,6 +1091,15 @@ def build_api_schema(settings: Settings | None = None) -> dict[str, Any]:
         update={"fake_llm": True, "api_token": SecretStr("schema-only-not-a-token")}
     )
     return build_api(schema_settings).openapi()
+
+
+def build_usage_report(settings: Settings | None = None, *, store=None):
+    """UsageReport — runs/ 의 usage.json 집계 (`rra usage report`). store 를 주면 그대로(테스트)."""
+    from rra.adapters.runs import FileRunStore
+    from rra.application.usecases.usage_report import UsageReport
+
+    settings = settings or load_settings()
+    return UsageReport(store or FileRunStore(Path(settings.runs_dir)))
 
 
 def build_purge_runs(settings: Settings | None = None, *, clock=None):
@@ -989,6 +1138,73 @@ def build_differentiator(settings: Settings | None = None, *, repo=None, llm=Non
         provider=cfg["provider"],
         model=cfg["served_model"] or cfg["model"],
         fallback_local=fallback,
+    )
+
+
+def _stage_or_local(settings: Settings, stage: str) -> tuple[str, bool]:
+    """단계 키가 없으면 compose(로컬)로 — (실제 단계, fallback_local)."""
+    try:
+        available = llm_available(settings, stage=stage)
+    except KeyError:
+        available = False
+    return (stage, False) if available else ("compose", True)
+
+
+def build_structurer(settings: Settings | None = None, *, llm=None):
+    """U2 간편 입력(StructureIdea) — compose(로컬) 모델. usability.quick_input 이 꺼지면 None."""
+    from rra.application.usecases.structure_idea import StructureIdea
+
+    settings = settings or load_settings()
+    if not usability_config(settings).quick_input:
+        return None
+    cfg = llm_config(settings, "compose")
+    if llm is None:
+        llm = build_llm(settings, stage="compose")
+    return StructureIdea(
+        llm,
+        build_prompt_library(settings),
+        provider=cfg["provider"],
+        model=cfg["served_model"] or cfg["model"],
+    )
+
+
+def build_comparer(settings: Settings | None = None, *, repo=None, precheck=None):
+    """U4 차별성 비교표(CompareProjects) — LLM 없음. usability.comparison 이 꺼지면 None."""
+    from rra.application.usecases.compare_projects import CompareProjects
+
+    settings = settings or load_settings()
+    if not usability_config(settings).comparison:
+        return None
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return CompareProjects(repo, precheck=precheck or build_precheck(settings, repo=repo))
+
+
+def build_briefer(settings: Settings | None = None, *, repo=None, llm=None):
+    """U5 선행연구 브리핑(BriefPriorWork) — stage brief(기본 gemini), 키 없으면 compose(로컬)로
+    fallback_local=True. usability.brief 가 꺼지면 None. llm 을 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.brief_prior_work import BriefPriorWork
+
+    settings = settings or load_settings()
+    if not usability_config(settings).brief:
+        return None
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    stage, fallback = _stage_or_local(settings, "brief")
+    cfg = llm_config(settings, stage)
+    if llm is None:
+        llm = build_llm(settings, stage=stage)
+    generate = build_generate(settings, repo=repo, llm=llm)  # retrieve 만 쓴다
+    return BriefPriorWork(
+        llm,
+        build_prompt_library(settings),
+        repo,
+        retrieve=generate.retrieve,
+        include_internal=review_policy(settings)["include_internal"],
+        provider=cfg["provider"],
+        model=cfg["served_model"] or cfg["model"],
+        fallback_local=fallback,
+        keywords=keyword_rule(settings),
     )
 
 

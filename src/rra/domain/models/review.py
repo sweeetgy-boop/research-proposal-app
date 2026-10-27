@@ -63,6 +63,11 @@ AnnotationKind = Literal["opinion", "discarded", "section"]
 MAX_MEMO_CHARS = 200
 MAX_COMMENT_CHARS = 2000
 MAX_REVISED_CHARS = 4000
+# U1 근거 적합성 — Argon 1차 검토가 문장마다 내는 판정 (추가 호출 없음)
+SUPPORT_VALUES: tuple[str, ...] = ("지지", "부분", "불일치")
+SUPPORT_MISMATCH = "불일치"
+# U1 제안자 근거 판단 — replace 는 이번 run 검색 집합 안의 id 로만
+DecisionAction = Literal["approve", "replace", "exclude"]
 
 
 def sentence_id(section: str, index: int) -> str:
@@ -169,6 +174,25 @@ class ReviewTransfer(BaseModel):
     calls: int = 0  # 길이 상한으로 섹션 단위로 나눈 호출 수
 
 
+class EvidenceDecision(BaseModel):
+    """문장 하나의 근거 id 하나에 대한 제안자 판단. replacement 는 replace 일 때 새 근거 id."""
+
+    sentence_id: str
+    evidence_id: str
+    action: DecisionAction = "approve"
+    replacement: str | None = Field(default=None, max_length=200)
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.sentence_id, self.evidence_id)
+
+
+class EvidenceDecisionRequest(BaseModel):
+    decisions: list[EvidenceDecision] = Field(default_factory=list, max_length=500)
+    note: str = Field(default="", max_length=MAX_MEMO_CHARS)
+    base_version: int | None = Field(default=None, ge=1)
+
+
 class ReviewRound(BaseModel):
     round: int = Field(ge=1)  # 1 = 1차(draft) 검토, 2.. = 최종 검토 (final_round = round - 1)
     kind: ReviewKind = "draft"
@@ -197,6 +221,9 @@ class ReviewRound(BaseModel):
     def checklist_coverage(self) -> float | None:
         items = [v for sec in self.checklist.values() for v in sec.values()]
         return (sum(1 for v in items if v) / len(items)) if items else None
+
+    # U1 근거 적합성 — 문장 id → 지지|부분|불일치 (보낸 문장 안에서만). 이전 차수 파일은 빈 값
+    support: dict[str, str] = Field(default_factory=dict)
 
     @property
     def final_round(self) -> int | None:
@@ -233,6 +260,8 @@ class DraftVersion(BaseModel):
     changed_sections: list[str] = Field(default_factory=list)  # 이전 버전과 달라진 섹션
     alerts: int = 0  # 저장 시점의 lint 알림 수
     annotations: list[Annotation] = Field(default_factory=list)  # 문장 메모 (Argon 의견)
+    # U1 제안자 근거 판단 — 버전에 붙어 다음 버전으로 이어진다 (replace 뒤에는 새 id 기준)
+    evidence_decisions: list[EvidenceDecision] = Field(default_factory=list)
 
     @property
     def sentence_count(self) -> int:

@@ -7,8 +7,26 @@ overlap.tier_of 가 orgs 의 korail·kr 로 domestic_rail 티어를 정하므로
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
+
+_ORG_HINT = re.compile(
+    r"(주식회사|㈜|\(주\)|유한회사|회사|공사|공단|연구원|연구소|대학교|대학|산학협력단|법인|재단|협회|"
+    r"조합|청|부|원|센터|기관|Inc|Corp|Ltd|LLC|GmbH|Co\.|University|Institute)",
+    re.IGNORECASE,
+)
+
+
+def is_organization(name: str) -> bool:
+    """기관으로 보이는 이름(출원인·수행기관). 2~4자 한글만이면 개인으로 본다. KIPRIS·ScienceON 공용.
+
+    (출원인·저자 등 사람 이름을 걸러 낼 때 쓴다.)
+    """
+    name = name.strip()
+    if not name or re.fullmatch(r"[가-힣]{2,4}", name):
+        return False
+    return bool(_ORG_HINT.search(name)) or len(name) >= 8
 
 
 def _squash(name: str) -> str:

@@ -163,6 +163,8 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
             }
             for s in getattr(review, "scores", []) or []
         ],
+        # U1 근거 적합성 — 문장 id → 지지|부분|불일치 (1차 검토만, 값은 허용 목록 안)
+        "support": dict(getattr(review, "support", {}) or {}),
         "transfer": {
             "provider": review.transfer.provider,
             "model": review.transfer.model,
@@ -217,6 +219,11 @@ def version_payload(version: Any, *, clean: Callable[[str], str] = _same) -> dic
                 "status": a.status,
             }
             for a in getattr(version, "annotations", []) or []
+        ],
+        # U1 제안자 근거 판단 (문장 id × 근거 id → approve|replace|exclude)
+        "evidence_decisions": [
+            {"sentence_id": d.sentence_id, "evidence_id": d.evidence_id, "action": d.action}
+            for d in getattr(version, "evidence_decisions", []) or []
         ],
         "sections": [
             {
@@ -453,6 +460,198 @@ def recommendation_preview_payload(
         "request": {
             k: (clean(v) if isinstance(v, str) else v) for k, v in after.model_dump().items()
         },
+    }
+
+
+# ── U1·U3·U7·U8 ───────────────────────────────────────────
+def evidence_items_payload(
+    items: list[Any], *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """EvidenceItem → dict. 발췌·제목은 수집 자료(비신뢰)."""
+    return [
+        {
+            "evidence_id": i.evidence_id,
+            "doc_id": i.doc_id,
+            "chunk_id": i.chunk_id,
+            "text": clean(i.text),
+            "title": clean(i.title) if i.title else None,
+            "source": i.source,
+            "source_label": i.source_label,
+            "orgs": list(i.orgs),
+            "year": i.year,
+            "ingested_at": i.ingested_at,
+            "basis": i.basis,
+            "basis_label": i.basis_label,
+            "needs_check": i.needs_check,
+            "needs_check_label": "세부 확인 필요" if i.needs_check else None,
+            "support": i.support,
+            "decision": i.decision,
+            "in_snapshot": i.in_snapshot,
+            "trust": "untrusted",
+        }
+        for i in items
+    ]
+
+
+def rewrite_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """RewriteView → dict. 후보 문장은 LLM 출력(비신뢰)."""
+
+    def sent(x):
+        return None if x is None else {**x, "text": clean(x["text"])}
+
+    return {
+        "section": view.section,
+        "created_at": view.created_at,
+        "dropped": len(view.dropped),
+        "rows": [
+            {"index": r["index"], "current": sent(r["current"]), "candidate": sent(r["candidate"])}
+            for r in view.rows
+        ],
+        "candidate": [
+            {
+                "index": i,
+                "text": clean(s.text),
+                "evidence": list(s.evidence),
+                "origin": s.origin,
+                "source": _source(s),
+            }
+            for i, s in enumerate(view.candidate.sentences)
+        ],
+        "choices": list(view.candidate.choices),
+    }
+
+
+def submit_check_payload(
+    check: Any, *, titles: dict[str, str] | None = None, clean: Callable[[str], str] = _same
+) -> dict[str, Any]:
+    """SubmitCheck → dict. 항목마다 target(section:<key> | sentence:<sid> | route:<hint>)."""
+    names = titles or {}
+    return {
+        "ok": check.ok,
+        "failing": len(check.failing),
+        "items": [
+            {
+                "key": i.key,
+                "label": i.label,
+                "ok": i.ok,
+                "detail": clean(i.detail),
+                "count": i.count,
+                "target": i.target,
+                "target_label": (
+                    names.get(i.target.split(":", 1)[1], i.target.split(":", 1)[1])
+                    if i.target and i.target.startswith("section:")
+                    else None
+                ),
+                **{k: v for k, v in i.extra.items()},
+            }
+            for i in check.items
+        ],
+    }
+
+
+def usage_payload(record: Any) -> dict[str, Any] | None:
+    """UsageRecord → dict. 개인정보·본문 없음 (한 줄 소감은 길이 제한된 제안자 입력)."""
+    if record is None:
+        return None
+    return {
+        "run_id": record.run_id,
+        "step_seconds": dict(record.step_seconds),
+        "total_seconds": record.total_seconds,
+        "checklist_coverage": record.checklist_coverage,
+        "evidence": {**record.evidence.model_dump(), "ratios": record.evidence.ratios()},
+        "rewrites": record.rewrites,
+        "hwpx_success": record.hwpx_success,
+        "satisfaction": (
+            {
+                "score": record.satisfaction.score,
+                "comment": record.satisfaction.comment,
+                "recorded_at": record.satisfaction.recorded_at,
+            }
+            if record.satisfaction
+            else None
+        ),
+        "updated_at": record.updated_at,
+    }
+
+
+def structure_payload(idea: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """StructuredIdea → dict. 칸 글은 LLM 출력(비신뢰) → clean. 서버는 저장하지 않는다."""
+    from rra.domain.models.structure import FIELD_LABELS
+
+    return {
+        "fields": {k: clean(v) for k, v in idea.fields.items()},
+        "labels": dict(FIELD_LABELS),
+        "questions": [
+            {
+                "field": q.field,
+                "label": FIELD_LABELS.get(q.field, q.field),
+                "question": q.question,
+                "reason": q.reason,
+            }
+            for q in idea.questions
+        ],
+        "skip_allowed": idea.skip_allowed,
+        "complete": idea.complete,
+        "provider": idea.provider,
+        "model": idea.model,
+        "parse_failed": idea.parse_failed,
+    }
+
+
+def comparison_payload(table: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """ComparisonTable → dict. 기존 과제 칸은 수집 자료(비신뢰) → clean."""
+
+    def col(c):
+        return {
+            "doc_id": c.doc_id,
+            "title": clean(c.title),
+            "tier": c.tier,
+            "similarity": c.similarity,
+            "blocking": c.blocking,
+            "basis": c.basis,
+            "title_only": c.title_only,
+            "cells": {k: clean(v) for k, v in c.cells.items()},
+        }
+
+    return {
+        "aspects": list(table.aspects),
+        "proposal": col(table.proposal),
+        "projects": [col(c) for c in table.projects],
+    }
+
+
+def brief_payload(brief: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """PriorWorkBrief → dict. 요약·공백 후보는 LLM 출력(비신뢰) → clean."""
+    return {
+        "skipped_reason": brief.skipped_reason,
+        "provider": brief.provider,
+        "model": brief.model,
+        "fallback_local": brief.fallback_local,
+        "transfer": {
+            "public_doc_ids": list(brief.public_doc_ids),
+            "internal_doc_ids": list(brief.internal_doc_ids),
+            "excluded_doc_ids": list(brief.excluded_doc_ids),
+            "calls": brief.calls,
+        },
+        "items": [
+            {
+                "doc_id": i.doc_id,
+                "chunk_id": i.chunk_id,
+                "title": clean(i.title),
+                "source": i.source,
+                "doc_type": i.doc_type,
+                "year": i.year,
+                "basis": i.basis,
+                "summary": clean(i.summary),
+                "summary_missing": i.summary_missing,
+            }
+            for i in brief.items
+        ],
+        "years": dict(brief.years),
+        "keywords": list(brief.keywords),
+        "gap_label": brief.gap_label,
+        "gaps": [{"text": clean(g.text), "evidence": list(g.evidence)} for g in brief.gaps],
+        "discarded": [dict(d) for d in brief.discarded],
     }
 
 

@@ -37,4 +37,11 @@ class PromptLibraryPort(Protocol):
 
     def clarify(self) -> str:
         """Q1 입력 보강 질문 시스템 프롬프트 — 빠진 정보만 최대 3개, JSON 객체."""
+
+    def structure(self) -> str:
+        """U2 간편 입력 시스템 프롬프트 — 자유 문장 → 필수 4칸, 없는 칸은 빈 값, JSON 객체."""
+        ...
+
+    def brief(self) -> str:
+        """U5 선행연구 브리핑 시스템 프롬프트 — 구획별 한 줄 요약·연구 공백 후보, JSON 객체."""
         ...

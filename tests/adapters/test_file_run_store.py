@@ -357,3 +357,48 @@ def test_versions_and_reviews_round_trip_and_never_overwrite_other_numbers(store
         store.load_review("local", rid, 10_001)
     with pytest.raises(RunNotFound):
         store.list_versions("local", "20260101000000-deadbeef")
+
+
+# ── U3·U8 rewrite·notes·usage 파일 ─────────────────────────
+def test_rewrite_notes_usage_roundtrip(tmp_path):
+    from rra.adapters.runs import FileRunStore
+    from rra.domain.models import ProposalRequest, UsageRecord
+    from rra.domain.models.usage import Satisfaction
+
+    store = FileRunStore(tmp_path)
+    req = ProposalRequest(current_state="a", root_cause="b", limitation="c", goal="d")
+    state = store.create("local", req, ["retrieve"], "2026-01-01T00:00:00+00:00")
+    rid = state.run_id
+    assert store.load_rewrite("local", rid, "method") is None
+    store.save_rewrite("local", rid, "method", {"candidate": {"key": "method", "sentences": []}})
+    assert store.load_rewrite("local", rid, "method")["candidate"]["key"] == "method"
+    assert (tmp_path / "local" / rid / "rewrites" / "rewrite_method.json").is_file()
+    store.clear_rewrite("local", rid, "method")
+    assert store.load_rewrite("local", rid, "method") is None
+    with pytest.raises(ValueError):
+        store.save_rewrite("local", rid, "../x", {})
+    assert store.load_notes("local", rid) is None
+    store.save_notes("local", rid, {"answers": {"method": {"산출물": "보고서"}}})
+    assert store.load_notes("local", rid)["answers"]["method"] == {"산출물": "보고서"}
+    assert store.load_usage("local", rid) is None
+    store.save_usage(
+        "local",
+        rid,
+        UsageRecord(run_id=rid, rewrites=1, satisfaction=Satisfaction(score=3, comment="ok")),
+    )
+    loaded = store.load_usage("local", rid)
+    assert loaded.rewrites == 1 and loaded.satisfaction.score == 3
+    path = tmp_path / "local" / rid / "usage.json"
+    assert path.is_file() and (path.stat().st_mode & 0o777) == 0o600
+
+
+def test_manifest_usage_allows_counts_only():
+    from rra.adapters.logging import check_manifest
+
+    check_manifest(
+        {"usage": {"rewrites": 1, "decisions": 2, "hwpx_success": True, "satisfaction_score": 4}}
+    )
+    with pytest.raises(ValueError, match="usage"):
+        check_manifest({"usage": {"rewrites": 1, "comment": "한 줄 소감"}})
+    with pytest.raises(ValueError, match="versions"):
+        check_manifest({"versions": [{"version": 1, "evidence_decisions": [{"x": 1}]}]})

@@ -384,3 +384,30 @@ def test_retrieval_mix_from_repo_config_covers_core_sections():
     assert mix is not None and mix.sections["tech_importance"].min_scholarly >= 2
     assert mix.sections["method"].min_scholarly >= 2 and "policy" in mix.overlap_exclude
     assert "paper" in mix.sections["tech_importance"].allow
+
+
+# ── U1~U8 usability.yaml · section_checklists.yaml ───────────
+def test_usability_config_defaults_on_and_rejects_unknown_keys(tmp_path):
+    from rra.config_loader import section_checklists, usability_config
+
+    cfg = usability_config(settings_for(tmp_path))  # 파일 없음 → 전부 켬
+    assert cfg.evidence_view and cfg.brief and cfg.strategy_source == "confirmed"
+    (tmp_path / "usability.yaml").write_text(
+        "brief: false\nstrategy_source: draft\n", encoding="utf-8"
+    )
+    cfg = usability_config(settings_for(tmp_path))
+    assert not cfg.brief and cfg.evidence_view and cfg.strategy_source == "draft"
+    (tmp_path / "usability.yaml").write_text("nope: true\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="모르는 키"):
+        usability_config(settings_for(tmp_path))
+    assert section_checklists(settings_for(tmp_path)) == {}
+
+
+def test_shipped_usability_and_checklists_load():
+    from rra.config_loader import llm_config, section_checklists, usability_config
+
+    cfg = usability_config(project_settings())
+    assert len(cfg.enabled()) == 12
+    lists = section_checklists(project_settings())
+    assert "method" in lists and all(r["question"] and r["keywords"] for r in lists["method"])
+    assert llm_config(project_settings(), "brief")["provider"] == "gemini"

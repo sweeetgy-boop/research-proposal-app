@@ -57,6 +57,7 @@ from rra.domain.models.review import (
     sentence_id,
 )
 from rra.domain.models.selection import STRATEGY_SOURCE
+from rra.domain.rules.evidence import parse_support
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.lint import LintRules
@@ -120,9 +121,12 @@ class ReviewDraft:
     prompt_max_chars: int = 100_000
     provider: str | None = None
     model: str | None = None
-    # Q5 섹션별 필수 요소 (config/templates/section_checklists.yaml). 비면 체크리스트 없음
-    checklists: Mapping[str, list[str]] = field(default_factory=dict)
+    # Q5 섹션별 필수 요소 (config/templates/section_checklists.yaml, 항목은 요소 이름 문자열 또는
+    # {element, question, keywords} — U3 와 같은 파일). 비면 체크리스트 없음
+    checklists: Mapping[str, list[Any]] = field(default_factory=dict)
     additions: bool = False  # Q5 빠진 요소 추가 문장 제안을 받을지 (1차 검토만)
+    # U1 근거 적합성 — 1차 검토 때 문장마다 support(지지·부분·불일치)를 함께 요청 (추가 호출 없음)
+    support: bool = True
 
     # ── 진입 ─────────────────────────────────────────────
     async def __call__(self, ctx: ReviewContext) -> ReviewRound:
@@ -137,6 +141,7 @@ class ReviewDraft:
         score_items: list[dict] = []
         checklist_raw: dict = {}
         candidate_raw: dict = {}
+        support_items: list = []
         for item in inputs:
             data = parse_object(
                 await self.llm.complete(item.prompt, system=self.prompts.review(), json_mode=True)
@@ -155,7 +160,9 @@ class ReviewDraft:
                 candidate_raw.update(data["candidates"])
             if not score_items:  # 분할 호출이면 첫 호출(초안 전체 또는 첫 섹션)의 채점만 쓴다
                 score_items = [x for x in _as_list(data.get("scores")) if isinstance(x, dict)]
+            support_items.extend(_as_list(data.get("support")))
         sent_ids = {sid for item in inputs for sid in item.sentence_ids}
+        support = parse_support(support_items, sent_ids) if self._wants_support(ctx) else {}
         comments = self._comments(ctx, sections, raw_items, section_items, sent_ids)
         if self.additions and ctx.kind == "draft":
             comments.extend(self._additions(ctx, sections, addition_items, start_no=len(comments)))
@@ -190,7 +197,11 @@ class ReviewDraft:
             scores=scores,
             checklist=parse_checklist(checklist_raw, self.checklists, {s.key for s in sections}),
             candidate_choices=parse_candidate_choices(candidate_raw, set(ctx.candidates)),
+            support=support,
         )
+
+    def _wants_support(self, ctx: ReviewContext) -> bool:
+        return self.support and ctx.kind == "draft"
 
     # ── 전송 범위 ─────────────────────────────────────────
     def _excluded(self, sections: list[Section], internal_docs: set[str]) -> set[str]:
@@ -271,7 +282,9 @@ class ReviewDraft:
                 + json.dumps(list(ctx.app_findings), ensure_ascii=False)
             )
         present = {s.key for s in sections}
-        checklist = {k: list(v) for k, v in self.checklists.items() if k in present and v}
+        checklist = {
+            k: checklist_names(v) for k, v in self.checklists.items() if k in present and v
+        }
         if checklist:
             parts.append(
                 "[섹션별 필수 요소 — 각 요소가 초안에 있는지 checklist 에 true/false 로 적는다]\n"
@@ -298,6 +311,12 @@ class ReviewDraft:
                     "고른다. sentences 의견은 항상 초안(A) 의 sentence_id 기준으로 낸다.\n"
                     + json.dumps(alt, ensure_ascii=False)
                 )
+        if self._wants_support(ctx):
+            parts.append(
+                "[근거 적합성 — 모든 문장] evidence 가 있는 문장마다 support 를 낸다: "
+                "지지(근거가 문장을 뒷받침) | 부분(일부만) | 불일치(근거와 다르거나 근거에 없음). "
+                '출력의 "support": [{"sentence_id": "...", "support": "지지"}] 에 적는다.'
+            )
         if ctx.previous is not None:
             prev = [
                 {
@@ -562,15 +581,25 @@ def parse_scores(items: list[dict], sent_ids: set[str]) -> list[CriterionScore]:
     return [found[c] for c in CRITERIA if c in found]
 
 
+def checklist_names(items: Iterable[Any]) -> list[str]:
+    """체크리스트 항목 → 요소 이름 (문자열 또는 {element: …} 둘 다 받는다)."""
+    out: list[str] = []
+    for x in items:
+        name = x.get("element") if isinstance(x, Mapping) else x
+        if isinstance(name, str) and name.strip():
+            out.append(name.strip())
+    return out
+
+
 def parse_checklist(
-    raw: Mapping[str, Any], checklists: Mapping[str, list[str]], present: set[str]
+    raw: Mapping[str, Any], checklists: Mapping[str, list[Any]], present: set[str]
 ) -> dict[str, dict[str, bool]]:
     """LLM 의 checklist → {섹션: {요소: bool}} (앱이 보낸 섹션·요소만, 값은 bool 로)."""
     out: dict[str, dict[str, bool]] = {}
     for key, items in raw.items():
         if key not in present or key not in checklists or not isinstance(items, Mapping):
             continue
-        known = set(checklists[key])
+        known = set(checklist_names(checklists[key]))
         picked = {str(name): bool(value) for name, value in items.items() if str(name) in known}
         if picked:
             out[str(key)] = picked

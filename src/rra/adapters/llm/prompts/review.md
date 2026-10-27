@@ -53,6 +53,7 @@
      "evidence": ["openalex:W1#0"], "comment": "검증 방법 보완"}
   ],
   "candidates": {"method": {"choice": "B", "reason": "단계·검증이 구체적"}},
+  "support": [{"sentence_id": "s:method:0", "support": "지지"}],
   "scores": [
     {"criterion": "필요성", "score": 4, "reason": "현황·한계가 구체적", "sentence_ids": ["s:tech_importance:0"]},
     {"criterion": "차별성", "score": 2, "reason": "선행연구와의 차이가 서술되지 않음", "sentence_ids": ["s:tech_importance:2"]},
@@ -65,3 +66,5 @@
 - `issue_type` 은 다음 중 하나: 근거 불일치 | 수치 | 논리 | 일관성 | 문장 | 서식요건 | 중복·차별화 | 외국 문자
 - `revised_text` 는 완결된 문장 하나. 원문과 같으면 null.
 - `checklist`·`additions`·`candidates` 는 해당 입력 구획이 있을 때만 씁니다 (없으면 생략). `after` 는 넣을 위치의 sentence_id 또는 null(섹션 끝).
+- `support` (1차 검토, `[근거 적합성]` 지시가 있을 때): `evidence` 가 있는 **모든 문장**에 대해
+  지지 | 부분 | 불일치 중 하나. 의견이 없는 문장도 빠뜨리지 않습니다. 추가 호출은 없습니다.

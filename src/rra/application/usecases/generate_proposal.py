@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -79,6 +80,15 @@ from rra.domain.rules.relevance import (
     filter_chunks,
 )
 from rra.domain.rules.retrieval_mix import RetrievalMix
+from rra.domain.rules.rewrite import merge_candidate
+from rra.domain.rules.schedule import (
+    METRIC_SECTIONS,
+    SCHEDULE_SECTION,
+    metric_instruction,
+    research_period_months,
+    schedule_instruction,
+    schedule_problems,
+)
 from rra.domain.rules.section_search import section_queries
 from rra.domain.rules.trust import enforce_section_evidence, escape_untrusted, wrap_untrusted
 
@@ -145,6 +155,10 @@ class GenerateProposal:
     max_sentence_chars: int = style.DEFAULT_MAX_SENTENCE_CHARS
     # 근거 구성 규칙(config/retrieval_mix.yaml): 섹션별 허용 doc_type·논문 최소 보장·유사과제 제외
     mix: RetrievalMix | None = None
+    # U6 제약에 연구기간이 있으면 연구방법에 추진일정(개월), 기대효과에 성과지표·측정 방법을
+    # 요구하고
+    # 일정 합이 기간을 넘으면 경고. config/usability.yaml schedule_metrics
+    schedule_metrics: bool = True
 
     @property
     def template(self) -> str | None:
@@ -349,6 +363,59 @@ class GenerateProposal:
                 section = Section(key=key, sentences=sentences)
                 return ComposedSection(section, [], None, None, "app")
 
+        return await self._compose_llm(
+            key, req, snapshot, options, outline=outline, candidate=candidate
+        )
+
+    async def rewrite_section(
+        self,
+        key: str,
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot,
+        current: Section,
+        notes: Mapping[str, str] | None = None,
+    ) -> ComposedSection:
+        """U3 섹션 하나 다시 쓰기 — 같은 지시·같은 스냅샷 근거로 LLM 1회. 제안자가 고친 문장
+        (proposer_edit·proposer_input·app)은 보존해 후보에 원래 자리로 끼워 넣고, 선택값은 그대로.
+        notes: 보완 질문에 대한 제안자 답({요소: 답}) — 지시문 뒤에 [제안자 보완 메모] 로."""
+        options = self.choice_options()
+        if key in skipped_sections(req, self.rules, options) or key in self.evidence_skipped(
+            snapshot
+        ):
+            return ComposedSection(Section(key=key, sentences=[]), [], None, None, "skipped")
+        if key == OVERLAP_SECTION and snapshot.overlap_checked:
+            raise ValueError(
+                "특이사항(유사과제 검토 결과)은 앱이 쓰는 섹션이라 다시 쓰지 않습니다."
+            )
+        keep = [
+            s.text
+            for s in current.sentences
+            if s.origin in ("proposer_edit", "proposer_input", "proposer", "app")
+        ]
+        composed = await self._compose_llm(key, req, snapshot, options, notes=notes, keep=keep)
+        merged = merge_candidate(current, composed.section.sentences)
+        return ComposedSection(
+            section=merged,
+            dropped=composed.dropped,
+            prompt_hash=composed.prompt_hash,
+            parse=composed.parse,
+            ungrounded=composed.ungrounded,
+            retries=composed.retries,
+            first_parse=composed.first_parse,
+        )
+
+    async def _compose_llm(
+        self,
+        key: str,
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot,
+        options: dict[str, dict[str, str]],
+        *,
+        outline: Outline | None = None,
+        candidate: Section | None = None,
+        notes: Mapping[str, str] | None = None,
+        keep: Sequence[str] = (),
+    ) -> ComposedSection:
         system = self.prompts.system()
         instruction = self.prompts.section(key)
         spec = self.rules.choices.get(key)
@@ -360,6 +427,8 @@ class GenerateProposal:
             options.get(key) if spec else None,
             outline=outline,
             candidate=candidate,
+            notes=notes,
+            keep=keep,
         )
         raw = await self.llm.complete(prompt, system=system, json_mode=True)
         first = parsed = self._parse(key, raw, spec, options)
@@ -414,6 +483,8 @@ class GenerateProposal:
         *,
         outline: Outline | None = None,
         candidate: Section | None = None,
+        notes: Mapping[str, str] | None = None,
+        keep: Sequence[str] = (),
     ) -> str:
         parts = [
             f"[섹션: {key}]\n{instruction}",
@@ -444,6 +515,22 @@ class GenerateProposal:
                 "근거 우선으로 쓰고, A 의 문장을 되풀이하지 않는다. 같은 형식으로 출력한다.\n"
                 f"후보 A:\n{listed}"
             )
+        if notes:  # U3 보완 질문에 대한 제안자 답 — 제안자 입력과 같은 신뢰 수준
+            parts.append(
+                "[제안자 보완 메모 — 제안자가 보완 질문에 답한 내용. 반영한다]\n"
+                + json.dumps(dict(notes), ensure_ascii=False)
+            )
+        if keep:  # U3 다시 쓰기: 제안자가 고친 문장은 앱이 보존한다 — 중복해서 쓰지 않는다
+            parts.append(
+                "[보존 문장 — 제안자가 직접 쓴 문장. 앱이 그대로 둔다. 같은 내용을 다시 쓰지 말 것]"
+                "\n" + json.dumps(list(keep), ensure_ascii=False)
+            )
+        if self.schedule_metrics:  # U6
+            period = research_period_months(req.constraints)
+            if period is not None and key == SCHEDULE_SECTION:
+                parts.append(schedule_instruction(period))
+            if period is not None and key in METRIC_SECTIONS:
+                parts.append(metric_instruction())
         # 선택지·판정표는 앱이 만든 값이다 (비신뢰 구획 밖). 문서 제목은 넣지 않는다.
         if options is not None:
             listed = "\n".join(f"- {oid}: {label}" for oid, label in options.items())
@@ -574,22 +661,10 @@ class GenerateProposal:
     ) -> tuple[Draft, list[LintProblem]]:
         """규칙 검사(Q6: 어미 통일·완전 중복 제거는 고치고, 긴 문장·문체 혼용·연차 불일치는 경고)
         + lint. 돌려주는 Draft 의 sections 가 정리된 문장이다 (호출자는 이것을 저장한다)."""
-        findings: list[LintProblem] = []
         if self.rule_check:
-            result = style.check_sections(
+            sections = style.check_sections(
                 sections, constraints=req.constraints, max_chars=self.max_sentence_chars
-            )
-            sections = result.sections
-            findings = [
-                LintProblem(
-                    section=f.section,
-                    code=f.code,
-                    message=f.message,
-                    severity="warning",
-                    sentence=f.sentence,
-                )
-                for f in result.findings
-            ]
+            ).sections
         draft = Draft(
             run_id=run_id,
             request=req,
@@ -597,15 +672,23 @@ class GenerateProposal:
             retrieved_ids=snapshot.retrieved_ids,
             template=self.template,
         )
-        chunk_texts = {c.chunk_id: c.text for c in snapshot.chunks}
+        return draft, self.lint_draft(draft, snapshot)
+
+    def lint_draft(self, draft: Draft, snapshot: RetrievalSnapshot | None) -> list[LintProblem]:
+        """규칙 검사 전부 — lint(rules.yaml) + Q6 문체·길이·연차 경고 + U6 일정 초과 경고.
+        생성(finalize)과 버전 저장이 같은 판정을 쓴다."""
+        chunk_texts = {c.chunk_id: c.text for c in snapshot.chunks} if snapshot else {}
         problems = lint(
             draft,
             self.rules,
             choice_options=self.choice_options(),
             chunk_texts=chunk_texts,
-            evidence_skipped=self.evidence_skipped(snapshot),
+            evidence_skipped=self.evidence_skipped(snapshot) if snapshot else None,
         )
-        return draft, [*problems, *findings]
+        problems.extend(self.style_problems(draft.request, draft.sections))
+        if self.schedule_metrics:
+            problems.extend(schedule_problems(draft))
+        return problems
 
     async def __call__(self, req: ProposalRequest) -> Draft:
         snapshot = await self.retrieve_sections(req, await self.retrieve(req))

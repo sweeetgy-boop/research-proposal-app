@@ -198,6 +198,7 @@ async def test_without_review_llm_the_run_is_drafted_with_v1_and_records_the_ski
             "sentences": 5,
             "alerts": 0,
             "open_annotations": 0,
+            "decisions": 0,
         }
     ]
     # 건너뛴 뒤에는 최종 검토 없이 바로 마무리 가능(review_skipped)
