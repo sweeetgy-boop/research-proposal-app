@@ -213,6 +213,11 @@ class KorailWebCrawler:
                     await self._sleep(BACKOFF_SEC[attempt])
         raise Held(strip_secrets(url))
 
+    async def fetch_contents(self, key: str) -> tuple[str, str]:
+        """콘텐츠 페이지 하나 (html, url) — `rra strategy draft` 가 중장기 경영목표 표를 읽을 때."""
+        url = self.config.url("contents.do", key=key)
+        return await self._fetch_html(url), url
+
     async def _fetch_html(self, url: str) -> str:
         _headers, body = await self._fetch(url)
         return body.decode("utf-8", "replace")

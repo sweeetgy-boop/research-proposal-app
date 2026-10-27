@@ -11,6 +11,7 @@ from rra.adapters.sources.korail_web.crawler import (
     MenuSpec,
 )
 from rra.adapters.sources.korail_web.source import KorailWebSource, normalize_korail_item
+from rra.adapters.sources.korail_web.strategy import strategy_draft_from_html
 
 __all__ = [
     "CrawlConfig",
@@ -19,4 +20,5 @@ __all__ = [
     "KorailWebSource",
     "MenuSpec",
     "normalize_korail_item",
+    "strategy_draft_from_html",
 ]

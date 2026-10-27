@@ -626,6 +626,68 @@ def cmd_crawl_korail(args: argparse.Namespace) -> int:
     return EXIT_ERROR if data["held"] else EXIT_OK
 
 
+# ── strategy (전략체계 초안·확정) ───────────────────────────
+def cmd_strategy_draft(args: argparse.Namespace) -> int:
+    """공사 홈페이지 "중장기 경영목표" 표 → korail_strategy.draft.yaml (basis: text)."""
+    import yaml
+
+    from rra.composition import build_korail_web_crawler, load_settings
+    from rra.config_loader import STRATEGY_DRAFT_FILE, korail_web_config
+
+    settings = load_settings()
+    cfg = korail_web_config(settings)
+    key = str(
+        args.key
+        or next((m["key"] for m in cfg.get("menus") or [] if m.get("id") == "mgmt_goal"), "1900")
+    )
+    crawler = build_korail_web_crawler(settings)
+
+    async def run():
+        try:
+            return await crawler.fetch_contents(key)
+        finally:
+            await crawler.aclose()
+
+    from rra.adapters.sources.korail_web import strategy_draft_from_html  # noqa: PLC0415
+
+    html, url = asyncio.run(run())
+    draft = strategy_draft_from_html(html, url=url, snapshot=time.strftime("%Y-%m-%d"))
+    out = Path(args.out) if args.out else Path(settings.config_dir) / STRATEGY_DRAFT_FILE
+    out.parent.mkdir(parents=True, exist_ok=True)
+    header = (
+        "# 전략체계 초안 — 공사 홈페이지 ‘중장기 경영목표’ 표에서 자동 추출\n"
+        "# (rra strategy draft, basis: text). 사람이 확인한 뒤 `rra strategy promote` 로\n"
+        "# korail_strategy.yaml 에 복사한다. 항목을 지어내지 않는다.\n"
+    )
+    out.write_text(
+        header + yaml.safe_dump(draft, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+    tasks = sum(len(d["tasks"]) for d in draft["directions"])
+    print(
+        f"초안 저장: {out} — 전략방향 {len(draft['directions'])}개, 전략과제 {tasks}개 "
+        f"(출처 {_safe(url, 80)})"
+    )
+    return EXIT_OK
+
+
+def cmd_strategy_promote(args: argparse.Namespace) -> int:
+    """초안 → 확정 파일 복사 (백업 유지) + strategy.yaml source: confirmed. 사람만 실행한다."""
+    from rra.application.usecases.strategy_catalog import promote_strategy
+    from rra.composition import load_settings
+    from rra.config_loader import STRATEGY_DRAFT_FILE, STRATEGY_FILE
+
+    settings = load_settings()
+    base = Path(settings.config_dir)
+    report = promote_strategy(
+        base / STRATEGY_DRAFT_FILE, base / STRATEGY_FILE, base / "strategy.yaml"
+    )
+    print(
+        f"확정: {report.target} (전략방향 {report.directions}, 전략과제 {report.tasks})"
+        + (f", 백업 {report.backup.name}" if report.backup else "")
+    )
+    return EXIT_OK
+
+
 # ── alio ──────────────────────────────────────────────────
 def cmd_alio_catalog(args: argparse.Namespace) -> int:
     from rra.composition import build_alio_catalog, build_alio_catalog_fetcher, load_settings
@@ -1641,6 +1703,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ck.add_argument("--json", action="store_true")
     ck.set_defaults(handler=cmd_crawl_korail)
+
+    strat = sub.add_parser("strategy", help="전략체계 목록 — 초안 추출·확정")
+    strat_sub = strat.add_subparsers(dest="strategy_cmd", required=True)
+    sd = strat_sub.add_parser(
+        "draft", help="공사 홈페이지 중장기 경영목표 표 → korail_strategy.draft.yaml"
+    )
+    sd.add_argument("--key", help="contents.do key (기본: korail_web.yaml 의 mgmt_goal)")
+    sd.add_argument("--out", help="저장 경로 (기본 config/templates/korail_strategy.draft.yaml)")
+    sd.set_defaults(handler=cmd_strategy_draft)
+    sp = strat_sub.add_parser(
+        "promote", help="초안을 korail_strategy.yaml 로 (백업 유지, 사람만 실행)"
+    )
+    sp.set_defaults(handler=cmd_strategy_promote)
 
     alio = sub.add_parser("alio", help="알리오 공시 보고서 카탈로그·filedrop 관리")
     alio_sub = alio.add_subparsers(dest="alio_cmd", required=True)

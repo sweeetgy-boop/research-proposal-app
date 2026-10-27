@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.overlap import tier_label
 
@@ -100,6 +101,11 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
         "versions": list(getattr(view, "versions", []) or []),
         "review": review_summary(state, getattr(view, "review", None)),
         "flow": flow_summary(state, getattr(view, "has_working", False)),
+        # 전략체계 목록의 출처 — draft 면 2-가-(3) 선택지가 확인 전 초안이라는 뜻
+        "strategy_source": getattr(view, "strategy_status", "confirmed"),
+        "strategy_label": STRATEGY_DRAFT_LABEL
+        if getattr(view, "strategy_status", "confirmed") == "draft"
+        else None,
     }
 
 

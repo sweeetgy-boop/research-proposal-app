@@ -257,14 +257,20 @@ def test_generate_is_wired_with_the_relevance_floor():
     assert gen.relevance == relevance_floor(settings) == RelevanceFloor()
 
 
-def test_strategy_catalog_template_is_empty_until_filled():
+def test_strategy_catalog_uses_draft_until_promoted():
+    """strategy.yaml source: draft — 공사 홈페이지에서 뽑은 초안(15 전략과제)이 선택지가 되고 초안 표시가 붙는다.
+    확정 파일(korail_strategy.yaml)은 아직 비어 있다."""
     from rra.composition import build_generate, strategy_catalog
+    from rra.config_loader import STRATEGY_FILE, read_config
 
     settings = Settings(_env_file=None)
-    assert strategy_catalog(settings).options() == {}
+    catalog = strategy_catalog(settings)
+    assert catalog.status == "draft" and catalog.label == "전략체계 초안(확인 전)"
+    assert len(catalog.options()) == 15 and len(catalog.directions) == 5
+    assert read_config(STRATEGY_FILE, settings).get("directions") in (None, [])
     gen = build_generate(settings, repo=object(), llm=object())
     assert gen.check_overlap and gen.section_keys == gen.rules.order
-    assert gen.choice_options()["strategy_alignment"] == {}
+    assert gen.choice_options()["strategy_alignment"] == catalog.options()
     assert list(gen.choice_options()["task_type"]) == ["basic", "applied", "development"]
 
 

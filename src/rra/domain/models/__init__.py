@@ -29,7 +29,7 @@ from .review import (
     ReviewTransfer,
 )
 from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
-from .selection import Confirmation, StrategyCatalog
+from .selection import STRATEGY_DRAFT_LABEL, Confirmation, StrategyCatalog, StrategyStatus
 
 __all__ = [
     "CatalogEntry",
@@ -66,7 +66,9 @@ __all__ = [
     "RecommendationResult",
     "ProposalRequest",
     "ProposerInfo",
+    "STRATEGY_DRAFT_LABEL",
     "StrategyCatalog",
+    "StrategyStatus",
     "RetrievalSnapshot",
     "RunState",
     "RunStatus",
