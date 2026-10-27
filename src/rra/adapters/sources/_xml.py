@@ -16,6 +16,8 @@ from defusedxml.ElementTree import fromstring
 
 _SPACES = re.compile(r"\s+")
 MAX_FIELD_CHARS = 20_000
+# 엔티티가 아닌 맨 `&` (예: NTIS 연구보고서 DocUrl 의 `?dbt=TRKO&cn=…`). 엔티티 꼴은 그대로.
+_BARE_AMP = re.compile(rb"&(?!(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#x[0-9A-Fa-f]+);)")
 
 
 class XmlResponseError(ValueError):
@@ -27,6 +29,13 @@ def parse(body: bytes) -> Any:
         return fromstring(body, forbid_dtd=True)
     except Exception as exc:  # ParseError·DTDForbidden 등
         raise XmlResponseError(f"XML 파싱 실패 ({type(exc).__name__})") from None
+
+
+def repair_bare_ampersands(body: bytes) -> bytes:
+    """텍스트 안의 맨 `&` 를 `&amp;` 로 — 이스케이프를 더할 뿐 구조는 바꾸지 않으므로 defusedxml 의
+    보호(DTD 금지)에 영향이 없다. NTIS 연구보고서 검색은 `DocUrl` 의 `&cn=` 을 그대로 내보내
+    (2026-10-27 실응답) 그대로는 ParseError 다."""
+    return _BARE_AMP.sub(b"&amp;", body)
 
 
 def local(tag: object) -> str:

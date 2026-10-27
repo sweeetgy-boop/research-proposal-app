@@ -1,0 +1,10 @@
+{
+  "source": "ntis_insights",
+  "query": "1615007833",
+  "target": null,
+  "rows": 10,
+  "status": 200,
+  "content_type": "application/json;charset=UTF-8",
+  "json_wrapped": true,
+  "recorded_at": "20261027"
+}
