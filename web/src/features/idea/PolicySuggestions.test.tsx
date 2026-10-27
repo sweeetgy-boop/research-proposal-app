@@ -6,7 +6,13 @@ import { formatPolicyQuote } from "@/api/policySuggestions";
 import { emptyRequest } from "@/lib/validation";
 
 afterEach(() => vi.unstubAllGlobals());
-const req = { ...emptyRequest(), goal: "검측 이력 기반 보수 우선순위 산정" };
+const req = {
+  ...emptyRequest(),
+  current_state: "궤도 틀림 반복",
+  root_cause: "노반 침하",
+  limitation: "임계치 초과만 보수",
+  goal: "검측 이력 기반 보수 우선순위 산정",
+}; // 필수 4칸이 차야 [추천 받기] 가 열린다
 
 describe("정책 근거 추천", () => {
   it("문구 형식", () => {
@@ -33,4 +39,11 @@ describe("정책 근거 추천", () => {
     expect(await screen.findByText(POLICY_UNAVAILABLE)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "추천 받기" })).toBeNull();
   });
+});
+
+
+test("필수 4칸이 비면 추천 받기 버튼이 잠긴다", () => {
+  renderWithProviders(<PolicySuggestions request={{ ...emptyRequest(), goal: "목표만" }} onPick={() => undefined} />);
+  expect(screen.getByRole("button", { name: "추천 받기" })).toBeDisabled();
+  expect(screen.getByText(/필수 4칸/)).toBeInTheDocument();
 });
