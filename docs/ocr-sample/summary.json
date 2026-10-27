@@ -1,0 +1,50 @@
+[
+  {
+    "image_type": "체계도·조직도·흐름도",
+    "count": 61,
+    "structure_rate": 98.4,
+    "number_rate": 75.3,
+    "sec_per_image": 13.59,
+    "calls": 0
+  },
+  {
+    "image_type": "표",
+    "count": 79,
+    "structure_rate": 100.0,
+    "number_rate": 92.2,
+    "sec_per_image": 16.65,
+    "calls": 0
+  },
+  {
+    "image_type": "그래프",
+    "count": 33,
+    "structure_rate": 100.0,
+    "number_rate": 71.3,
+    "sec_per_image": 16.57,
+    "calls": 0
+  },
+  {
+    "image_type": "글자 이미지",
+    "count": 342,
+    "structure_rate": 0.0,
+    "number_rate": 80.2,
+    "sec_per_image": 10.61,
+    "calls": 0
+  },
+  {
+    "image_type": "기타",
+    "count": 1500,
+    "structure_rate": 0.0,
+    "number_rate": 58.8,
+    "sec_per_image": 9.69,
+    "calls": 0
+  },
+  {
+    "image_type": "(OCR 만)",
+    "count": 1988,
+    "structure_rate": 0.0,
+    "number_rate": null,
+    "sec_per_image": 0.04,
+    "calls": 0
+  }
+]

@@ -1,0 +1,795 @@
+[
+  {
+    "sha256": "ffdb82b343de8cb9680e26141648fc65fa2f39cb4e4c9fbde8b64b2de0bc4734",
+    "path": "images/ff/ffdb82b343de8cb9680e26141648fc65fa2f39cb4e4c9fbde8b64b2de0bc4734.png",
+    "url": "https://info.korail.com/downloadContentsFile.do?key=2255&fileNo=527",
+    "page_url": "https://info.korail.com/info/contents.do?key=2255",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "한국철도 ESG경영 선언문\n한국철도는 공기업으로서 사회적책임을 다하고 지속가능\n경영을 실천하기 위하여 친환경, 상생, 신뢰를 바탕으로\nESG경영을 추진해 나갈 것을 선언한다.\n하나. 한국철도는 2050탄소중립을 선도하고 철도중심\n국가교통체계의 핵심기업으로 도약한다.\n하나. 한국철도는 국민과 근로자의 안전을 보호하고,\n지역균형발전과 동반성장으로 사회적가치를 실현하는\n포용기업으로 발전한다.\n하나. 한국철도공사는 투명한 기업운영으로 국민신뢰를\n제고하고 공정과 윤리를 바탕으로 자랑스러운 국민\n기업으로 성장한다.\n2022년 3월 29일",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "한국철도 ESG경영 선언문",
+      "text": "한국철도 ESG경영 선언문\n한국철도는 공기업으로서 사회적책임을 다하고 지속가능\n경영을 실천하기 위하여 친환경, 상생, 신뢰를 바탕으로\nESG경영을 추진해 나갈 것을 선언한다.\n하나. 한국철도는 2050탄소중립을 선도하고 철도중심\n국가교통체계의 핵심기업으로 도약한다.\n하나. 한국철도는 국민과 근로자의 안전을 보호하고,\n지역균형발전과 동반성장으로 사회적가치를 실현하는\n포용기업으로 발전한다.\n하나. 한국철도공사는 투명한 기업운영으로 국민신뢰를\n제고하고 공정과 윤리를 바탕으로 자랑스러운 국민\n기업으로 성장한다.\n2022년 3월 29일",
+      "structure": {},
+      "summary": "2022년 3월 29일 발표된 한국철도 ESG경영 선언문으로, 친환경, 상생, 신뢰를 바탕으로 한 ESG경영 추진 및 2050탄소중립 선도, 안전 보호와 사회적가치 실현, 투명한 기업운영과 공정·윤리 기반 성장을 다짐하는 내용을 담고 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2050",
+      "2022년",
+      "3월",
+      "29일"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.91
+  },
+  {
+    "sha256": "78ba0eb27786d433badef8da06ee76997f1f5867fa7cbf3b71d09b6dc5594ecb",
+    "path": "images/78/78ba0eb27786d433badef8da06ee76997f1f5867fa7cbf3b71d09b6dc5594ecb.png",
+    "url": "https://info.korail.com/DATA/bbs/699/20260305021528215_MeGl.png",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=26933",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2025\n코레일\n지속가능경영보고서\n100\n00000",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "2025 코레일 지속가능경영보고서",
+      "text": "2025\n코레일\n지속가능경영보고서\nKORAIL",
+      "structure": {},
+      "summary": "2025 코레일 지속가능경영보고서의 표지 이미지로, 상단에 보고서 제목과 하단에 KORAIL 로고가 표시되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2025"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.135
+  },
+  {
+    "sha256": "720e92e34c413a1e8a6912a1ecea7ec7b5ac5902c3513c59452a81358606a143",
+    "path": "images/72/720e92e34c413a1e8a6912a1ecea7ec7b5ac5902c3513c59452a81358606a143.jpg",
+    "url": "https://info.korail.com/DATA/bbs/699/20231130105350675_Jb7x.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=19633",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "ESG\nKORAIL\nLINK\nKOREA\nConnecting the People,\nthe World and the Future\nKORAIL\nKORAIL Sustainability Report 2023",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "KORAIL Sustainability Report 2023",
+      "text": "Link\nConnecting the People,\nthe World and the Future\nKORAIL\nKORAIL Sustainability Report 2023\nESG\nKORAIL\nLINK\nKOREA\nKORAIL",
+      "structure": {},
+      "summary": "KORAIL Sustainability Report 2023 표지 이미지로, 선 그래픽으로 표현된 'Link' 글자와 'Connecting the People, the World and the Future KORAIL', 'ESG KORAIL LINK KOREA' 문구가 적혀 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2023"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.087
+  },
+  {
+    "sha256": "e34f2459166eb5de57e80f1950bc540ca450c259fc940e265e0c92637c6e26f3",
+    "path": "images/e3/e34f2459166eb5de57e80f1950bc540ca450c259fc940e265e0c92637c6e26f3.jpg",
+    "url": "https://info.korail.com/DATA/bbs/699/20231130103227146_QCbC.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=19537",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "발간등록번호\n미래전략-02-23117-01\n사람• 세상 • 미래를 잇는\n대한민국 철도\n2023 한국철도공사\n지속가능경영보고서\nESG\nKORAIL\nLINK\nKOREA\nKORAIL",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "사람·세상·미래를 잇는 대한민국 철도 2023 한국철도공사 지속가능경영보고서",
+      "text": "발간등록번호\n미래전략-02-23117-01\n사람·세상·미래를 잇는\n대한민국 철도\n2023 한국철도공사\n지속가능경영보고서\nLinK\nESG\nKORAIL\nLINK\nKOREA\nKORAIL",
+      "structure": {},
+      "summary": "발간등록번호 미래전략-02-23117-01인 2023 한국철도공사 지속가능경영보고서 표지 이미지입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2023"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.721
+  },
+  {
+    "sha256": "2ab64b03f2c68801c55236d8a7838f7cae82d8fbff960c5dcaf40129c98274a1",
+    "path": "images/2a/2ab64b03f2c68801c55236d8a7838f7cae82d8fbff960c5dcaf40129c98274a1.png",
+    "url": "https://info.korail.com/DATA/bbs/699/20230110012424873_7C38.png",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=16575",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2020 유엔글로벌콤팩트 이행보고서\n12020 UN Global Compact Communication on Progress)\n2021. 11\nKO RAIL 한국철도",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "2020 유엔글로벌콤팩트 이행보고서",
+      "text": "2020 유엔글로벌콤팩트 이행보고서\n(2020 UN Global Compact Communication on Progress)\n2021. 11\nKORAIL 한국철도",
+      "structure": {},
+      "summary": "한국철도(KORAIL)의 2020 유엔글로벌콤팩트 이행보고서(2021. 11) 표지 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2020",
+      "2021",
+      "11"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.112
+  },
+  {
+    "sha256": "c09984e8834a557a50f6a3f49f6f70c6771da63374a206f435fbef42e00fe2c7",
+    "path": "images/c0/c09984e8834a557a50f6a3f49f6f70c6771da63374a206f435fbef42e00fe2c7.jpg",
+    "url": "https://info.korail.com/site/info/images/contents/cts808_image03.jpg",
+    "page_url": "https://info.korail.com/info/contents.do?key=808",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "CO2\n탄소발자국 000g\n환경부\n탄소",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "",
+      "text": "CO2\n탄소발자국 000g\n환경부\n저탄소",
+      "structure": {},
+      "summary": "환경부의 탄소발자국 000g 및 저탄소 표기가 있는 CO2 마크 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "00"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.616
+  },
+  {
+    "sha256": "8b7e9ba469f81eabd25b4f6fd6d4a2ee7018a46065a1314e3a08a9f45fa1a1ae",
+    "path": "images/8b/8b7e9ba469f81eabd25b4f6fd6d4a2ee7018a46065a1314e3a08a9f45fa1a1ae.png",
+    "url": "https://info.korail.com/DATA/bbs/346/20231116113029081_GAQx.png",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=19421",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2022년 환경경영보고서\n한국철도공사\n[환경경영처]",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "2022년 환경경영보고서",
+      "text": "2022년 환경경영보고서\n한국철도공사\n[환경경영처]",
+      "structure": {},
+      "summary": "한국철도공사 환경경영처의 2022년 환경경영보고서 표지 이미지입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2022년"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.514
+  },
+  {
+    "sha256": "d94eadff241da785ad1d92dbad5b775d5468bd3d5536985463631776c7baf854",
+    "path": "images/d9/d94eadff241da785ad1d92dbad5b775d5468bd3d5536985463631776c7baf854.jpg",
+    "url": "https://info.korail.com/DATA/bbs/346/20211107020615105_kItl.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12556",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2019년 환경경영보고서\n한국철도공사\n[환경경영처]",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "2019년 환경경영보고서",
+      "text": "2019년 환경경영보고서\n한국철도공사\n[환경경영처]",
+      "structure": {},
+      "summary": "한국철도공사 환경경영처의 2019년 환경경영보고서 표지 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2019년"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 3.716
+  },
+  {
+    "sha256": "8658098a78b6677bd8573758b334bc641fee814a7198da351d2afe98d63727ca",
+    "path": "images/86/8658098a78b6677bd8573758b334bc641fee814a7198da351d2afe98d63727ca.jpg",
+    "url": "https://info.korail.com/DATA/bbs/346/20211107014721743_KSxn.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12538",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "세계 : 흑민철도\nGreen\nLife Of\nRailway\nYearning!\n2009 한국철도공사 환경경영보고서\nEnvironmental Annual Report\n저탄소 녹색성장시대!\nKTX가 불러온 시간혁명을 넘어 녹색혁명으로\n'세계1등 국민철도 를 향해 달려가겠습니다.",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "2009 한국철도공사 환경경영보고서",
+      "text": "세계 1 등\n국민철도\nGreen\nLife Of\nRailway\nYearning!\n2009 한국철도공사 환경경영보고서\nEnvironmental Annual Report\n저탄소 녹색성장시대!\nKTX가 불러온 시간혁명을 넘어 녹색혁명으로\n'세계1등 국민철도'를 향해 달려가겠습니다.\nKTX-산천",
+      "structure": {},
+      "summary": "2009 한국철도공사 환경경영보고서(Environmental Annual Report)의 표지 이미지로, 'Green Life Of Railway Yearning!' 문구와 함께 저탄소 녹색성장시대에 맞춰 '세계1등 국민철도'를 향해 달려가겠다는 다짐이 적혀 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2009",
+      "1"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.405
+  },
+  {
+    "sha256": "a1d530ae5b7c5c08874e714964149379655749db6bb7c41ffcd1117c82b1bce4",
+    "path": "images/a1/a1d530ae5b7c5c08874e714964149379655749db6bb7c41ffcd1117c82b1bce4.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000013/1._윤리경영_소개_이미지_1.png",
+    "page_url": "https://info.korail.com/info/contents.do?key=781",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "갑질 #\n성비위 ₩\n부정부패 휴",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "",
+      "text": "갑질 무\n성비위 무\n부정부패 무",
+      "structure": {},
+      "summary": "네 명의 인물 캐릭터 위에 각각 갑질, 성비위, 부정부패가 없음을 나타내는 세 개의 말풍선이 그려진 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 10.256
+  },
+  {
+    "sha256": "60e26f048b1ec6f2c035f6158dcc6a17fb1b15b8fc34b19ee9646828256e60a5",
+    "path": "images/60/60e26f048b1ec6f2c035f6158dcc6a17fb1b15b8fc34b19ee9646828256e60a5.png",
+    "url": "https://info.korail.com/site/info/images/contents/cts781_slogan01.png",
+    "page_url": "https://info.korail.com/info/contents.do?key=781",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "한국철도' 윤리의 물결\neLk Wave\nte K wave: Ethics Korail Wave",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "한국철도 윤리의 새 물결 e-K wave",
+      "text": "한국철도 윤리의 새 물결\ne-K wave\n*e-K wave : Ethics Korail Wave",
+      "structure": {},
+      "summary": "한국철도 윤리의 새 물결을 뜻하는 'e-K wave(Ethics Korail Wave)' 문구가 적힌 글자 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.204
+  },
+  {
+    "sha256": "c841f8c4e8fe1821edcd7eb8227045585e10198a2698245cdea128e7c0be7fd4",
+    "path": "images/c8/c841f8c4e8fe1821edcd7eb8227045585e10198a2698245cdea128e7c0be7fd4.png",
+    "url": "https://info.korail.com/site/info/images/contents/cts785_slogan01.png",
+    "page_url": "https://info.korail.com/info/contents.do?key=785",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "사람을 최우선으로하는 인권친화경영 실현\nh-K Waves\n1hE wave: Human Rights Korail Wave",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "사람을 최우선으로 하는 인권친화경영 실현",
+      "text": "사람을 최우선으로 하는 인권친화경영 실현\nh-K wave\n*h-K wave : Human Rights Korail Wave",
+      "structure": {},
+      "summary": "사람을 최우선으로 하는 인권친화경영 실현이라는 문구와 함께 h-K wave(Human Rights Korail Wave)를 나타낸 글자 이미지입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 10.797
+  },
+  {
+    "sha256": "5600f7cf12c91bd3c9425533d77ab8354e6832daa3ae06b3fcde4e09e7811161",
+    "path": "images/56/5600f7cf12c91bd3c9425533d77ab8354e6832daa3ae06b3fcde4e09e7811161.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000015/e-레터.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=22373&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "괴롭힘 CUT! 성희롱 OUT!\n사랑하는 철도 가족 여러분~\n먼저, 지금 이 순간에도 자신의 자리에서 묵묵히 맡은 바 일에\n최선을 다해주고 계시는 모든 인직원 여러분들께 깊은 간사의 말씀을 드리며.\n다가오는 무더운 여름에 건강관리 주의하시기 바랍니다.\n최근, 우리 사회는 지속가능한 미래를 위한 ESG 경영의 지속적인 확산과\n더불어, 기업의 윤리, 인권경 또한, 그 중요성이 더욱 증가하고 있습니다.\n공공기관의 비위행위에 대해서 국민의 눈 높이는 더욱 엄격해 지고있으며,\n정부는 관련 법률 제.개정, 표준화된 가이드라인 배포와 평가 강화 등\n윤리•인권경영 강화를 더욱 강도 높게 추진하고 있습니다.\n이에 우리 모두는 공공기관 임직원으로서 높은 윤리의식을 바탕으로\n공적인 영역에서나 사적인 경역에서 윤리미션인 3후(법과 사규의 엄청 준수, 상호\n존중과 배려의 실천, 청렴활동 실천)과 7 (갑질과 부당관 근절, 부패햄위 근절,\n혐오와 차별금지>을 적극 실천해야 합니다.\n위계적이고 수직적인 조직문화에서 비롯된 괴롭힘과 성희롱 등 일체의\n인권침해 행위를 근절하고 직원 모두가 상호존중하고 배려하는 안전하고\n행복한 일터만 들가를 위해 모든 임직원이 동참하여야합니다.\n나와 동료, 그리고 이해관계자의 인권을 존중하고 공정과 소통의 가치를 지향할 때\n국민에게 신뢰를 얻는 한국철도가 될 수 있을 것입니다.\n직원 한 사람 한 사람이 우리 공사를 대표한다는 마음가짐으로 높은\n윤리의식과 올바른 행동으로 더욱 건강한 한국철도를 만들어갑시다.\n모두의 가정에 사랑과 행복이 충만하길 기원드리며....\n2024.63. 한국철도공사 사장 한문의 한문회",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "사랑하는 철도가족 여러분~!",
+      "text": "괴롭힘 OUT! 성희롱 OUT!\n사랑하는 철도가족 여러분~!\n먼저, 지금 이 순간에도 자신의 자리에서 묵묵히 맡은 바 일에\n최선을 다해주고 계시는 모든 임직원 여러분들께 깊은 감사의 말씀을 드리며,\n다가오는 무더운 여름에 건강관리 주의하시기 바랍니다.\n최근, 우리 사회는 지속가능한 미래를 위한 ESG경영의 지속적인 확산과\n더불어, 기업의 윤리·인권경영 또한, 그 중요성이 더욱 증가하고 있습니다.\n공공기관의 비위행위에 대해서 국민의 눈 높이는 더욱 엄격해 지고있으며,\n정부는 관련 법률 제·개정, 표준화된 가이드라인 배포와 평가 강화 등\n윤리·인권경영 강화를 더욱 강도높게 추진하고 있습니다.\n이에 우리 모두는 공공기관 임직원으로서 높은 윤리의식을 바탕으로\n공적인 영역에서나 사적인 영역에서 윤리미션인 3行(법과 사규의 엄정 준수, 상호\n존중과 배려의 실천, 청렴활동 실천)과 3不(갑질과 부당관행 근절, 부패행위 근절,\n혐오와 차별금지)을 적극 실천해야 합니다.\n위계적이고 수직적인 조직문화에서 비롯된 괴롭힘과 성희롱 등 일체의\n인권침해 행위를 근절하고 직원 모두가 상호존중하고 배려하는 안전하고\n행복한 일터만들기를 위해 모든 임직원이 동참하여야합니다.\n나와 동료, 그리고 이해관계자의 인권을 존중하고 공정과 소통의 가치를 지향할 때,\n국민에게 신뢰를 얻는 한국철도가 될 수 있을 것입니다.\n직원 한 사람 한 사람이 우리 공사를 대표한다는 마음가짐으로 높은\n윤리의식과 올바른 행동으로 더욱 건강한 한국철도를 만들어갑시다.\n모두의 가정에 사랑과 행복이 충만하길 기원드리며....\n2024.6.3. 한국철도공사 사장 한문희\nE-letter",
+      "structure": {},
+      "summary": "2024년 6월 3일 한국철도공사 한문희 사장이 임직원들에게 윤리미션인 3행(行)과 3불(不)의 적극적인 실천 및 괴롭힘·성희롱 등 인권침해 행위 근절을 통한 윤리·인권경영 동참을 당부하는 서한문입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "3",
+      "3일"
+    ],
+    "unconfirmed_numbers": [
+      "2024.6",
+      "2024년",
+      "6월"
+    ],
+    "elapsed_sec": 22.111
+  },
+  {
+    "sha256": "5cc645341378c8ba4d89b30b28c9b3d804d50bdafd02f72e469dfdc1aa227c51",
+    "path": "images/5c/5cc645341378c8ba4d89b30b28c9b3d804d50bdafd02f72e469dfdc1aa227c51.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000015/2023년도_인권경영보고서_표지.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=21076&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "RAIL\n한국철도\n2023년도 한국철도 인권경영보고서\n2024. 2.\n한국철도 공사\n※ 작성 : 한국철도 인권센터",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "2023년도 한국철도 인권경영보고서",
+      "text": "KORAIL\n한국철도\n2023년도 한국철도 인권경영보고서\n2024. 2.\n한국철도공사\n※ 작성 : 한국철도 인권센터",
+      "structure": {},
+      "summary": "한국철도공사(작성: 한국철도 인권센터)의 2024년 2월자 2023년도 한국철도 인권경영보고서 표지 이미지입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2023년도",
+      "2024",
+      "2",
+      "2024년",
+      "2월"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 10.411
+  },
+  {
+    "sha256": "ac99ad4fb97c66e0662718e300c62ab202272384c8d650d59af72b6e789718b5",
+    "path": "images/ac/ac99ad4fb97c66e0662718e300c62ab202272384c8d650d59af72b6e789718b5.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000014/스토킹_예방_지침_제정_이유_및_주요내용.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=20768&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "「스토킹 예방 지침』 제정 이유 및 주요내용\n1. 제정 이유\n• 직장 내 스토킹 예방 및 피해자 보호를 위해 공공기관 등은 스토킹\n방지를 위한 자체 예방 지침 마련이 의무화 됨\n* (법적 근거) 「스토킹방지 및 피해자 보호 등에 관한 법률」 제5조제3항\n• 또한, 스토킹 예방 업무 및 사건처리의 근거를 명확히 정하기 위함\n2. 주요 내용\n• 스토킹 피해자 보호 의무 명시(안 제7조제3항, 제2조제2항, 제8조제7항)\n- 고풍상담원은 스토킹 피해자와 상담 후 피해자의 명시적인 반대가\n없는 경우 피해자와 피해내용을 사장 및 소속기관장에게 보고해야 합\n- 사장 및 소속기관장은 스토킹 행위자에게 '피해자에 대한 접근금지\n피해자의 근무 장소 및 일정 파악 금지 등 준수사항을 고지해야 함\n- 사장 및 소속기관장은 스토킹 피해자 보호를 위해 피해자의 명시적인\n반대가 없는 경우 수사기관에 협조요청 할 수 있음\n• 스토킹 예방교육 및 사건처리 근거 마련(안 제4조제2항. 제5조제1항)\n- 스토킹 예방교육은 4대 폭력 예방교육 계획과 통합 수립 운영함\n- 스토킹 사건처리는 기존의 성희롱 고풍상담창구와 통합 운영함",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "「스토킹 예방 지침」 제정 이유 및 주요내용",
+      "text": "「스토킹 예방 지침」 제정 이유 및 주요내용\n1. 제정 이유\nㅇ 직장 내 스토킹 예방 및 피해자 보호를 위해 공공기관 등은 스토킹 방지를 위한 자체 예방 지침 마련이 의무화 됨\n* (법적 근거) 「스토킹방지 및 피해자 보호 등에 관한 법률」 제5조제3항\nㅇ 또한, 스토킹 예방 업무 및 사건처리의 근거를 명확히 정하기 위함\n2. 주요 내용\nㅇ 스토킹 피해자 보호 의무 명시(안 제7조제3항, 제8조제2항, 제8조제7항)\n- 고충상담원은 스토킹 피해자와 상담 후 피해자의 명시적인 반대가 없는 경우 피해자와 피해내용을 사장 및 소속기관장에게 보고해야 함\n- 사장 및 소속기관장은 스토킹 행위자에게 '피해자에 대한 접근금지, 피해자의 근무 장소 및 일정 파악 금지 등' 준수사항을 고지해야 함\n- 사장 및 소속기관장은 스토킹 피해자 보호를 위해 피해자의 명시적인 반대가 없는 경우 수사기관에 협조요청 할 수 있음\nㅇ 스토킹 예방교육 및 사건처리 근거 마련(안 제4조제2항, 제5조제1항)\n- 스토킹 예방교육은 4대 폭력 예방교육 계획과 통합 수립·운영함\n- 스토킹 사건처리는 기존의 성희롱 고충상담창구와 통합 운영함",
+      "structure": {},
+      "summary": "직장 내 스토킹 예방 및 피해자 보호를 위한 「스토킹 예방 지침」의 제정 이유(법적 의무화 및 업무·사건처리 근거 마련)와 주요 내용(피해자 보호 의무 명시, 예방교육 및 사건처리 근거 마련)을 설명한 문서임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "1",
+      "5",
+      "3",
+      "2",
+      "7",
+      "8",
+      "4",
+      "4대"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 8.214
+  },
+  {
+    "sha256": "81a9be4e805e2b07c9f9f258fef3b51334bbac68245214f98cb6dd81e76db47f",
+    "path": "images/81/81a9be4e805e2b07c9f9f258fef3b51334bbac68245214f98cb6dd81e76db47f.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000012/인권경영보고서_01_1.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=19123&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=2",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "KORAIL\n한국철도\n- 인권경영 보고 및 평가 지침을 적용한\n2022년도 한국철도 인권경영보고서\n2022. 12.\n한국철도공사\n※ 작성 : 미래전략실 윤리경영처",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "2022년도 한국철도 인권경영보고서",
+      "text": "KORAIL\n한국철도\n- 인권경영 보고 및 평가 지침을 적용한 -\n2022년도 한국철도 인권경영보고서\n2022. 12.\n한국철도공사\n※ 작성 : 미래전략실 윤리경영처",
+      "structure": {},
+      "summary": "한국철도공사 미래전략실 윤리경영처에서 2022년 12월에 작성한 '2022년도 한국철도 인권경영보고서' 표지 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2022년도",
+      "2022",
+      "12",
+      "2022년",
+      "12월"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.337
+  },
+  {
+    "sha256": "37ff52d4d365d6b3a08cecea86e7e696dedfc07ad71d907381101de38216054b",
+    "path": "images/37/37ff52d4d365d6b3a08cecea86e7e696dedfc07ad71d907381101de38216054b.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000012/인권경영보고서_02.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=19123&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=2",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "목 차\nI. 인권경영 추진 체계 및 인권정책선언\nII. 인권영향평가\n• 6\nI. 구제절차 ..\n•........... 72\nIV. 인권경영 교육\n............. 76\nV. 종합적 평가, 공개의 원칙 및 소통 •••••••••• 77",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "목 차",
+      "text": "목 차\nⅠ. 인권경영 추진 체계 및 인권정책선언 ············ 1\nⅡ. 인권영향평가 ························································· 6\nⅢ. 구제절차 ································································ 72\nⅣ. 인권경영 교육 ······················································ 76\nⅤ. 종합적 평가, 공개의 원칙 및 소통 ··············· 77",
+      "structure": {},
+      "summary": "인권경영 추진 체계 및 인권정책선언, 인권영향평가, 구제절차, 인권경영 교육, 종합적 평가, 공개의 원칙 및 소통으로 구성된 5개 항목의 목차와 각 항목의 시작 쪽수를 나타낸 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "6",
+      "72",
+      "76",
+      "77"
+    ],
+    "unconfirmed_numbers": [
+      "1",
+      "5개"
+    ],
+    "elapsed_sec": 6.131
+  },
+  {
+    "sha256": "aaa554fd40de14a869889711ddfefe90d411933f7ea95336a81bf73c735572cb",
+    "path": "images/aa/aaa554fd40de14a869889711ddfefe90d411933f7ea95336a81bf73c735572cb.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000009/한국철도공사_인권헌장_전문.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=18077&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=2",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "한국철도공사 인권헌장\n한국철도공사는 사람 • 세상 • 미래를 이어주는 철도전문기업으로서\n안전하고 편리한 철도서비스를 제공하기 위해 노력하며.\n모든 경영활동에서 인간의 존엄과 가치를 중시하는 인권경영을 적극 실천하여\n사회적 책임을 다하고, 이해관계자들과 더불어 지속가능한 발전을 추구한다.\n이를 위해 우리는 임직원이 지켜야 할 행동과 가치판단의 기준으로 다음과\n같이 인권경영을 선언하며 그 실천을 다짐한다.\n하나, 우리는 UN인권선언, 국제인권조약 등 인권에 대한 국제 및 국내 규범을 지지하고\n준수한다.\n하나, 우리는 임직원을 포함한 모든 이해 관계자에 대하여 성별, 연령, 장애, 출신 지역,\n인종, 종교, 사회적 신분 등을 이유로 차별하지 않는다.\n하나, 우리는 노동조합의 조직과 활동을 존중하며 결사 및 단체교섭의 자유를 보장한다.\n하나, 우리는 모든 형태의 강제노동 및 아동노동을 금지한다.\n하나, 우리는 안전하고 위생적인 근무환경을 조성하여 산업안전 및 건강권을 보장한다.\n하나, 우리는 국내외 환경관련 법규를 준수하고 환경보호와 오염방지를 위해 노력한다.\n하나, 우리는 고객의 정보접근권을 보장하며 업무상 수집한 개인정보 등 이해관계자의\n정보를 보호한다.\n하나, 우리는 계열사, 협력사를 포함한 모든 이해관계자로 하여금 인권보호 • 인권존중\n책임이 실천될 수 있도록 노력한다.\n하나, 우리는 현지 주민의 인권을 존중하고 보호하며 이동권 보장 등 국민을 위한 보편적\n대중교통서비스 제공을 노력한다.\n하나, 우리는 공사의 경영활동에서 발생하는 인권침해를 사전에 예방하며 신속하고\n적절한 구제조치를 제공한다.\n제정 2019.01.18. 미래제44호 | 개정 2023.02.13. 미래 제01호",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "한국철도공사 인권헌장",
+      "text": "한국철도공사 인권헌장\n한국철도공사는 사람·세상·미래를 이어주는 철도전문기업으로서\n안전하고 편리한 철도서비스를 제공하기 위해 노력하며,\n모든 경영활동에서 인간의 존엄과 가치를 중시하는 인권경영을 적극 실천하여\n사회적 책임을 다하고, 이해관계자들과 더불어 지속가능한 발전을 추구한다.\n이를 위해 우리는 임직원이 지켜야 할 행동과 가치판단의 기준으로 다음과\n같이 인권경영을 선언하며 그 실천을 다짐한다.\n하나, 우리는 UN인권선언, 국제인권조약 등 인권에 대한 국제 및 국내 규범을 지지하고\n준수한다.\n하나, 우리는 임직원을 포함한 모든 이해 관계자에 대하여 성별, 연령, 장애, 출신 지역,\n인종, 종교, 사회적 신분 등을 이유로 차별하지 않는다.\n하나, 우리는 노동조합의 조직과 활동을 존중하며 결사 및 단체교섭의 자유를 보장한다.\n하나, 우리는 모든 형태의 강제노동 및 아동노동을 금지한다.\n하나, 우리는 안전하고 위생적인 근무환경을 조성하여 산업안전 및 건강권을 보장한다.\n하나, 우리는 국내외 환경관련 법규를 준수하고 환경보호와 오염방지를 위해 노력한다.\n하나, 우리는 고객의 정보접근권을 보장하며 업무상 수집한 개인정보 등 이해관계자의\n정보를 보호한다.\n하나, 우리는 계열사, 협력사를 포함한 모든 이해관계자로 하여금 인권보호 · 인권존중\n책임이 실천될 수 있도록 노력한다.\n하나, 우리는 현지 주민의 인권을 존중하고 보호하며 이동권 보장 등 국민을 위한 보편적\n대중교통서비스 제공을 노력한다.\n하나, 우리는 공사의 경영활동에서 발생하는 인권침해를 사전에 예방하며 신속하고\n적절한 구제조치를 제공한다.\n제정 2019.01.18. 미래 제44호 | 개정 2023.02.13. 미래 제01호",
+      "structure": {},
+      "summary": "한국철도공사가 모든 경영활동에서 인권경영을 실천하기 위해 임직원이 지켜야 할 행동과 가치판단의 기준을 선언한 인권헌장이다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2019.01",
+      "44",
+      "2023.02",
+      "01"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 7.881
+  },
+  {
+    "sha256": "c1f2f765ccf625de6069d821b6e6099897be77efa55ba5e253462056ce447359",
+    "path": "images/c1/c1f2f765ccf625de6069d821b6e6099897be77efa55ba5e253462056ce447359.jpg",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000009/한국철도_CI_상하조합_2.jpg",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=18076&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=2",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Ki\n2RAIL\n한국철도",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "",
+      "text": "KORAIL\n한국철도",
+      "structure": {},
+      "summary": "'KORAIL'과 '한국철도' 문구가 적힌 로고 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 11.541
+  },
+  {
+    "sha256": "ccf463f7d594e81eb919373c37111418701c3d2365a97216cb628ed4384eef5e",
+    "path": "images/cc/ccf463f7d594e81eb919373c37111418701c3d2365a97216cb628ed4384eef5e.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000009/인권슬로건_공모작_주요_키워드.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=18075&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=2",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "따뜻..소중\n편리 존엄 공정\n공감\n신뢰\n발전\n2 친화 인정\n4g 칭찬\n자% 따뜻 믿음\n웃음\n행몬\n배려\n정당 전화 양호\n환호\n.. 인정 배려\n신뢰 정시절 소중희망\n평등 &만족사랑 친절수평\n•따뜻...\n향상\n화합\n편리 향상 임 신뢰\n향상\n배려펑등\n배려\n만족\n> 공정 수\n인정\n안족\n\" 청렴\n소중 웃음 의\n련 자유\n소통사와 2충",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "",
+      "text": "따뜻 소중\n발전\n편리 존엄 공정 양호\n공감 칭찬 신뢰 친화 인정\n발전 배려\n칭찬 행복 존경 청렴\n소중\n자유 따뜻 믿음 정당 친화 양호\n웃음 환호 따뜻\n환호 만족 칭찬 수평 친절 행복 사랑\n믿음 신뢰\n평등 향상 만족 사랑 친절 따뜻 소통 공감 친절 화합\n존엄 신뢰 환호 정당 친절 행복 공감 웃음 소중 희망\n화합 행복 인정 친화 평등 공정 따뜻 평등 안전 친절 희망\n믿음 인정 배려 화합 믿음 자유\n향상 희망 편리 향상 존엄 신뢰 배려 친화 양호\n화합 배려 행복 평등 배려\n양호 만족\n향상 친화 공정 수평\n수평 공감\n친화 칭찬 소통 존경 신뢰 존엄 정당\n믿음 편리 소통 칭찬 평등\n따뜻 자유 존경 공감 환호\n양호 발전 희망 환호 화합 편리 웃음 신뢰 웃음 소통\n인정 정당 공정 배려\n화합 만족 존엄 소중 소중 청렴\n수평 인정 청렴 소통 사랑 환호 존경 발전\n사랑 행복 만족 희망\n존경 청렴 청렴 발전 수평\n소중 웃음 희망 공감 사랑 공정 자유\n친절 편리 자유 소통 향상 존경 정당",
+      "structure": {},
+      "summary": "배려, 행복, 사랑, 평등, 소중, 공감, 신뢰, 친절, 소통 등의 단어들이 원형으로 배치된 워드클라우드 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 9.24
+  },
+  {
+    "sha256": "0cfbd127f84f658d85b8d392b342daed6e9bd0688dc05f9155295fafbff62144",
+    "path": "images/0c/0cfbd127f84f658d85b8d392b342daed6e9bd0688dc05f9155295fafbff62144.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000009/기후위기와_인권_포스터1.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=17747&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=3",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "기후위기, 인권의 이름으로\n기후변화로 인한 폭우, 폭염, 태풍과 바이러스 창궐에 대해 정부\n의 '사후' 대응만 성토할 것이 아니라, 온실가스 배출에 대한 '사\n전' 책임을 추궁할 수 있어야 한다. 기후위기를 제대로 된 인권문\n제로 보려면 애초에 기후위기를 발생시킨 근본원인, 즉 온실가\n스 배출 자체에 대한 책임을 물어야 한다. 온실가스 배출이 인권\n유린 행위임을 깨닫고, 인권의 이름으로 온실가스 감축을 국가\n와 기업에 명령'할 수 있어야 하는 것이다.\n개별적 공정성의 요구를 넘어 구조적 공정성에 대한 요구로 분\n노가 확장되어야 한다. 그런 시각을 가지려면 특별한 인권 감수\n성이 필요하다. 보통사람들의 의식과 행동의 변화도 필요하다.\n익숙한 편리함과 결별하겠다는 지향, 체제전환에 따르는 혼란과\n리스크를 감당하겠다는 의지. 탄소체제를 조금이라도 더 연명시\n키려는 기득권 세력의 감언이설을 꿰뚫어 보는 민주시민 의식이\n있어야 한다.\n글 조효제 교수(한국성공회대학교)\n기후화 위기를 알리고 환경권에 대한 경각심을 높이기 위한 연중 캠페인입니다",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "기후위기, 인권의 이름으로",
+      "text": "기후위기, 인권의 이름으로\n기후변화로 인한 폭우, 폭염, 태풍과 바이러스 창궐에 대해 정부\n의 '사후' 대응만 성토할 것이 아니라, 온실가스 배출에 대한 '사\n전' 책임을 추궁할 수 있어야 한다. 기후위기를 제대로 된 인권문\n제로 보려면 애초에 기후위기를 발생시킨 근본원인, 즉 온실가\n스 배출 자체에 대한 책임을 물어야 한다. 온실가스 배출이 인권\n유린 행위임을 깨닫고, 인권의 이름으로 온실가스 감축을 국가\n와 기업에 '명령'할 수 있어야 하는 것이다.\n개별적 공정성의 요구를 넘어 구조적 공정성에 대한 요구로 분\n노가 확장되어야 한다. 그런 시각을 가지려면 특별한 인권 감수\n성이 필요하다. 보통사람들의 의식과 행동의 변화도 필요하다.\n익숙한 편리함과 결별하겠다는 지향, 체제전환에 따르는 혼란과\n리스크를 감당하겠다는 의지, 탄소체제를 조금이라도 더 연명시\n키려는 기득권 세력의 감언이설을 꿰뚫어 보는 민주시민 의식이\n있어야 한다.\n글 조효제 교수(한국성공회대학교)\n기후변화 위기를 알리고 환경권에 대한 경각심을 높이기 위한 연중 캠페인입니다",
+      "structure": {},
+      "summary": "기후위기를 인권문제로 바라보고 온실가스 배출 자체에 대한 사전 책임을 묻고 감축을 요구해야 하며, 이를 위해 구조적 공정성에 대한 요구와 시민들의 의식 및 행동 변화가 필요하다는 조효제 교수(한국성공회대학교)의 글이 담긴 캠페인 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 7.994
+  },
+  {
+    "sha256": "feba7f904ca1fe01b9eace6a8b3370a93060c4765ce96d1d2985bfe381b4b896",
+    "path": "images/fe/feba7f904ca1fe01b9eace6a8b3370a93060c4765ce96d1d2985bfe381b4b896.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000009/2022_양성평등주간_기념이미지.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=17746&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=3",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2022 양성평등주간 기념\n사람도 바퀴처럼\n공평한 크기를 갖게 되는 날,\n우리는 \"더 바르게\" 나아갈 수 있습니다.\nKORAIL\n한국철도\nKTA 산천\nSANCHEON UN",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "2022 양성평등주간 기념",
+      "text": "2022 양성평등주간 기념\nKORAIL 한국철도\n사람도 바퀴처럼\n공평한 크기를 갖게 되는 날,\n우리는 “더 바르게” 나아갈 수 있습니다.\n08\nKTX 산천\nSANCHEON",
+      "structure": {},
+      "summary": "2022 양성평등주간 기념 한국철도(KORAIL) 이미지로, KTX 산천 열차의 바퀴를 남녀 기호로 표현하고 '사람도 바퀴처럼 공평한 크기를 갖게 되는 날, 우리는 “더 바르게” 나아갈 수 있습니다.'라는 문구가 적혀 있습니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2022"
+    ],
+    "unconfirmed_numbers": [
+      "08"
+    ],
+    "elapsed_sec": 7.259
+  },
+  {
+    "sha256": "681589bc2693f07d72a8ffc5c32f2f652df5b836216a751c9128f5a027552c81",
+    "path": "images/68/681589bc2693f07d72a8ffc5c32f2f652df5b836216a751c9128f5a027552c81.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000002/image_6.png",
+    "page_url": "https://info.korail.com/info/selectInfoRelWebDetail.do?infoRelNo=94&infoRelDetailNo=178&infoRelCategory=IRTYP4&searchKrwd=&key=746&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "KORAIL\n한국철도공사 고객의 소리 신청 서비스는 로그인 후 이용하실 수 있습니다.",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "",
+      "text": "KORAIL\n한국철도공사 고객의 소리 신청 서비스는 로그인 후 이용하실 수 있습니다.",
+      "structure": {},
+      "summary": "한국철도공사 고객의 소리 신청 서비스는 로그인 후 이용할 수 있다는 안내 문구와 KORAIL 로고 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.968
+  },
+  {
+    "sha256": "5de2d81f225fadf0ced09294132460c2ecd8db8a986cf5789e77d97798b939c1",
+    "path": "images/attachments/5de2d81f225fadf0ced09294132460c2ecd8db8a986cf5789e77d97798b939c1.png",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "KORAL\n한국철도의 기조 철도안전의 기본\n장 안전하게!\n『부터 안전하게!\n『같이 안전하게!\n<어제, 광역, 블루>\n선출원을 확인 불지\n학업협의 정지\n#지작방 확전 철저",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "가장 안전하게! 나부터 안전하게! 다같이 안전하게!",
+      "text": "KORAIL\n한국철도의 기초 철도안전의 기본\n가장 안전하게!\n나부터 안전하게!\n다같이 안전하게!\n<여객, 광역, 물류>\n영업분야\n로컬관제·수송원\n지적확인 환호응답 철저\n신호·진로 확인 철저\n작업협의 철저\n무선교신 철저\n안전보호구 착용 철저\n유치차량 확인 철저",
+      "structure": {},
+      "summary": "한국철도공사(KORAIL) 영업분야(여객, 광역, 물류) 로컬관제·수송원을 대상으로 한 안전 수칙(지적확인 환호응답 철저, 신호·진로 확인 철저, 작업협의 철저, 무선교신 철저, 안전보호구 착용 철저, 유치차량 확인 철저) 안내 이미지임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.884
+  },
+  {
+    "sha256": "1c30d7acf9025e2758733807c3f3af407324c82aa6de80adcda5ea61e362f2a5",
+    "path": "images/attachments/1c30d7acf9025e2758733807c3f3af407324c82aa6de80adcda5ea61e362f2a5.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "알리페이- 위챗 철도습치권 예매 서비스\n150*:15ㅠ\n3120ㅠ# 12규\n150위 이상 전기서 12위엔 출산\n초전도 x KORAL X C 5EET",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "알리페이 · 위챗 철도승차권 예매 서비스",
+      "text": "알리페이 · 위챗 철도승차권 예매 서비스\n알리페이 · 위챗 미니프로그램으로 승차권 구매 시 할인\nALIPAY\n150 위안 이상 결제 시 15위안 할인\n2023\nWeChat Pay\n120 위안 이상 결제 시 12위안 할인\n2023\nALIPAY X KORAIL X WeChat Pay",
+      "structure": {},
+      "summary": "알리페이와 위챗 미니프로그램으로 코레일 철도승차권 구매 시 할인 혜택을 안내하는 포스터입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "150",
+      "15",
+      "12"
+    ],
+    "unconfirmed_numbers": [
+      "2023",
+      "120"
+    ],
+    "elapsed_sec": 5.997
+  },
+  {
+    "sha256": "6fe912b2834de2808e7ce03e0d122ed53b3eab07a98eddd3f0a01c8da096f77e",
+    "path": "images/attachments/6fe912b2834de2808e7ce03e0d122ed53b3eab07a98eddd3f0a01c8da096f77e.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "한국철도공사 승차권\n진위확인 OPEN API\n서비스 제공",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "한국철도공사 승차권 진위확인 OPEN API 서비스 제공",
+      "text": "KORAIL\n한국철도공사 승차권\n진위확인 OPEN API\n서비스 제공\n정상사용\n취소사용\nKTX",
+      "structure": {},
+      "summary": "한국철도공사(KORAIL)의 승차권 진위확인 OPEN API 서비스 제공을 안내하는 이미지임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 7.103
+  },
+  {
+    "sha256": "4aa02d111237ed538108dbd9176a5656fe83a95f268895df692791cb16b23604",
+    "path": "images/attachments/4aa02d111237ed538108dbd9176a5656fe83a95f268895df692791cb16b23604.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "CHG Emission Verification Opinion\nKOREAN STANDARDS ASSOCIATION",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "GHG Emission Verification Opinion",
+      "text": "GHG Emission Verification Opinion\nKOREA RAILROAD\nVerification Scope\nVerification Standards and Guidelines\nLevel of Assurance\nVerification Conclusion\n2022 Emissions(Scope1, Scope2)\nYear Scope 1 Scope 2 Total\n2022\nKOREAN STANDARDS ASSOCIATION",
+      "structure": {},
+      "summary": "KOREAN STANDARDS ASSOCIATION에서 발급한 KOREA RAILROAD의 온실가스 배출량 검증 의견서(GHG Emission Verification Opinion) 이미지이나, 해상도가 낮아 본문과 표의 세부 숫자를 정확히 판독하기 어렵습니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [
+      "2022",
+      "1",
+      "2"
+    ],
+    "elapsed_sec": 10.854
+  },
+  {
+    "sha256": "13bcddc7ed8b2f9819714bcfabef2bb3ee348349346db3e37f4717f730327dba",
+    "path": "images/attachments/13bcddc7ed8b2f9819714bcfabef2bb3ee348349346db3e37f4717f730327dba.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "초 창 장\n한국철도공사\n위 기관은 재난 및 안전관리하게 발전을\n위하여 노력하였으며, 특히 2023년\n재난대응 안전한국훈련 추진에 이바지한\n공로가 모으로 이에 표창합니다.\n2024된\n2¾ 82\n탱왕인 전부관은 이 상",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "표창장",
+      "text": "제 23-9561 호\n표창장\n한국철도공사\n위 기관은 재난 및 안전관리체계 발전을 위하여 노력하였으며, 특히 2023년 재난대응 안전한국훈련 추진에 이바지한 공로가 크므로 이에 표창합니다.\n2024년 2월 8일\n행정안전부장관 이 상 민",
+      "structure": {},
+      "summary": "2024년 2월 8일 행정안전부장관이 2023년 재난대응 안전한국훈련 추진에 이바지한 공로로 한국철도공사에 수여한 표창장임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2023년",
+      "2024년",
+      "2월"
+    ],
+    "unconfirmed_numbers": [
+      "23",
+      "8일"
+    ],
+    "elapsed_sec": 6.638
+  },
+  {
+    "sha256": "2a0f7c865bde63cf9173b95754ae796a500f1052cc52a633620454dc4e1f4424",
+    "path": "images/attachments/2a0f7c865bde63cf9173b95754ae796a500f1052cc52a633620454dc4e1f4424.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "증서\n현장계선주문\n한국철도공사 호남차량정비단\nRU Ready\n위 분입소는 산업표준화 및 품질경영혁신\n화장으로 2023년도 전국품질분임조경전대회\n에서 우수한 선적을 거두었기에 이 중서부\n트립니다.\n2023년 11월 22일\n산업동상자원부장관\n방\n문",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "증 서",
+      "text": "제2023-증분-270호\n증 서\n현장개선부문 한국철도공사 호남차량정비단\n동 상 R U Ready\n위 분임조는 산업표준화 및 품질경영혁신\n활동으로 2023년도 전국품질분임조경진대회\n에서 우수한 성적을 거두었기에 이 증서를\n드립니다.\n2023년 11월 22일\n산업통상자원부장관\n방 문 규\n산업통상자원부장관인",
+      "structure": {},
+      "summary": "2023년 11월 22일 산업통상자원부장관이 2023년도 전국품질분임조경진대회 현장개선부문에서 한국철도공사 호남차량정비단 R U Ready 분임조에 수여한 동상 증서입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2023",
+      "2023년도",
+      "2023년",
+      "11월",
+      "22일"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 13.461
+  },
+  {
+    "sha256": "c78e2c9de707a3ea866128b8e0506f4c4d444827523cf89d3c0660a312fed4bb",
+    "path": "images/attachments/c78e2c9de707a3ea866128b8e0506f4c4d444827523cf89d3c0660a312fed4bb.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "가족친화인증서\n‡ 그 .: 아과부도구와\n소세제: 대전광에서 동구 중성& 100\n유효기간 : 3021,12.01- 2004.11.00\n유 기준은 가족친화 사회한 성의 2장 추산에 2업 경품, 7:54\n시1항에 바가 우수한 가족친화정성 운영해제를 구축하고\n가족진과세도를 분명함으로서 군도자지 일 • 생품 군정을\n지용하고 국가경쟁력 성상이 기여하겠기에 가족전하기준\n으로 선출합니다.\n2021년 15월 16%\n여성가족부",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "글자 이미지",
+      "title": "가족친화인증서",
+      "text": "가족친화인증서\n기 관 명 : 한국철도공사\n소 재 지 : 대전광역시 동구 중앙로 240\n유효기간 : 2021.12.01 ~ 2024.11.30\n위 기관은 「가족친화 사회환경의 조성 촉진에 관한 법률」 제15조\n제1항에 따라 우수한 가족친화경영 운영체제를 구축하고\n가족친화제도를 운영함으로써 근로자의 일 · 생활 균형을\n지원하고 국가경쟁력 향상에 기여하였기에 가족친화기관\n으로 인증합니다.\n2021년 12월 16일\n여성가족부장관",
+      "structure": {},
+      "summary": "2021년 12월 16일 여성가족부장관이 한국철도공사를 가족친화기관으로 인증한 인증서(유효기간 2021.12.01 ~ 2024.11.30)입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "15",
+      "1",
+      "2021년"
+    ],
+    "unconfirmed_numbers": [
+      "240",
+      "2021.12",
+      "2024.11",
+      "12월",
+      "16일"
+    ],
+    "elapsed_sec": 5.85
+  }
+]

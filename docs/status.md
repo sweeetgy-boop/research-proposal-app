@@ -70,13 +70,21 @@
 
 | 항목 | 상태 |
 |---|---|
-| ScienceON·NTIS·KIPRIS API 키 → 실응답 녹화 → FIELDS 매핑·record_tag 확정 (`external-apis.md` 신청처) | 대기 (skip 3건) |
+| ScienceON 키 | 2026-10-27 15:48 사람이 .env 를 맞바꿔 실호출 auth ok(ARTI 1,858·REPORT 370·PATENT 911). Mac mini 의 .env 도 같은 값인지 확인 |
+| NTIS | **해결(19:01)** — 등록 IP 반영으로 4개 서비스 실호출 ok, 파서 확정(#50). 남은 일: 운영 전 공인 IP 고정(IP 가 바뀌면 활용신청 서버 IP·`sources.yaml registered_ips` 갱신), 나머지 11개 질의 총건수·골든셋 임계치(0.80) 확인 | 적재 뒤 `rra precheck` 로 national_rnd 알림 확인 |
+| KIPRIS API 키 → 실응답 녹화 → FIELDS·record_tag 확정 | 대기. 특허는 ScienceON PATENT 가 기본(ADR 0016)이라 선택 |
+| `RRA_DATA_GO_KR_KEY` (나라장터 입찰공고정보서비스, 공공데이터포털 자동승인) | 대기 — 반영 뒤 `rra sources check --source g2b` → 녹화 → `rra ingest --source g2b` (`docs/status.d/feat-policy-sources.md`) |
+| `.env RRA_DATA_DIR` | `RRA_DATA_DIR=/Users/chan/projects/research-proposal-app/data` 명시 권장(Mac mini 는 그 경로). 기본값도 원 저장소 data/ 를 찾는다(#42) |
+| 감사원 수집용 Playwright | `uv pip install playwright && .venv/bin/playwright install chromium` (선택 의존성, pyproject 미추가) |
+| 용어 후보 검토 (`config/*.candidates.yaml`, 미커밋) | `rra terms candidates` 결과를 보고 generic_terms 만 overlap.yaml 에 옮길지 결정 — 자동 반영 없음(이슈 #11 댓글) |
+| 전략체계 초안 → 확정 (`rra strategy promote`, `config/strategy.yaml source: draft`) | 초안 `korail_strategy.draft.yaml`(5 방향·15 과제, 출처 주석) 확인 뒤 사람이 실행 |
 | 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건). 공시용 요약문은 P2 에서 own_docs 로 적재됨 |
-| `config/templates/korail_strategy.yaml` 전략체계 목록 | 비어 있음 → 2-가-(3) 빈칸 |
+| `config/templates/korail_strategy.yaml` 전략체계 목록(확정본) | 비어 있음 — 확정 전까지 앱은 초안을 쓰고 "전략체계 초안(확인 전)" 라벨 표시 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
-| 웹 프론트엔드 `web/dist` | 동료가 별도 진행. API 변경 시 `openapi.json` 갱신·PR 에 "프론트엔드 영향" 기재. CI `web` job 은 `web/` 이 생기면 자동으로 돈다 |
+| 시범 계정 등록(`rra auth`) | `rra auth staff add`(사번, 한 명씩)·`rra auth guest set --id korail`(비밀번호 2회)·`rra auth status`. `data/auth/secret` 은 백업에 포함(잃으면 run 소유권 단절). 절차 `docs/status.d/feat-login.md` |
+| 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
 | `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
-| 운영 공개 방식(Tailscale/Cloudflare) 결정 | 보류(#14 댓글): 시범(팀 3명) Tailscale / 확대(사내·산학연) Cloudflare Access 검토, 공사 정보보안 규정 확인 후 결정 |
+| 운영 공개 방식 | 시범 결정: Cloudflare Tunnel + Access + 앱 로그인(ADR 0024, #45). 막힌 점: ai-edu-lab.co.kr DNS 가 Gabia → 존 이전 또는 Tailscale 대체(`docs/deploy-exposure.md` §5). 터널·Access 는 사람 작업 |
 
 ### 3.3 나중 (P7, 이슈만)
 
@@ -104,6 +112,21 @@ CI(`gh pr checks --watch`) 통과 뒤 자동 병합(`--merge --delete-branch`), 
 | [1] | `chore/collab` | CI 워크플로·CODEOWNERS·PR 템플릿·CONTRIBUTING | 완료 2026-10-26 | #17 |
 | [2] | `feat/openalex-rail-corpus` | OpenAlex 철도 코퍼스 2,482건·근거 출처 다양성·generate 종료 코드 | 완료 2026-10-26 | #18 |
 | [3] | `docs/status-corpus-ci` | 이 문서 갱신([1]·[2] 결과, CI, 보호 규칙) | 완료 2026-10-26 | #19 |
+| [H] | `docs/history` | 개발 경과 기록(연표·수치·ADR·교훈·구조도·그래프·캡처), CONTRIBUTING 규칙 | 완료 2026-10-27 | #20 |
+| [R] | `feat/project-recommendations` | 차별화 과제 추천(0~5건, 검증·자기 중복 경고·미리보기), ADR 0012 | 완료 2026-10-27 | #21 |
+| [E] | `feat/draft-pipeline` | 2중 작성·직접 수정·최종 검토·버전 관리(ADR 0011), pipeline.yaml | 완료 2026-10-27 | #22 |
+| [W] | `feat/web` | 웹 프론트엔드 11화면·DraftEditor·e2e·Lighthouse 100·axe 0 (ADR 0015) | 완료 2026-10-27 | #23 |
+| 병렬 | `chore/parallel-ci` | pytest-xdist, CI 분할(backend-unit/api·web-check/e2e + 모음 job), 무거운 작업 락, 조각 파일 규칙 | 완료 2026-10-27 | #24 |
+| [S] | `feat/scienceon-live` | ScienceON 실호출·fixture·매핑, 특허 기본 자료원(ADR 0016); 3단계 적재 2,045건 | 완료 2026-10-27 | #25 |
+| 수정 | `fix/ci-e2e-path` | CI web-e2e 백엔드 경로 | 완료 2026-10-27 | #26 |
+| [U] | `feat/usability` | 사용 편의성 U1~U8 백엔드(REST 14경로, usability.yaml, ADR 0017) | 완료 2026-10-27 | #27 |
+| [P3] | `feat/policy-vision` | 웹 이미지 판독(거르기·OCR·Argon·캐시·신뢰도 규칙·공용 Gemini 제한기, ADR 0018) — 코드; 판독·적재는 대기열 | 완료 2026-10-27 | #28 |
+| [C]·[P]·[P2-1] | `feat/policy-crawl` | 공사 홈페이지·국토부 크롤러·스냅샷·적재 어댑터·전략체계 초안·정책 근거 추천(ADR 0019) | 완료 2026-10-27 | #29 |
+| U9 | `feat/web-u9` | 사용 편의성 웹 반영(간편 입력·정책 근거·비교표·브리핑·근거 패널·다시 쓰기·제출 전 점검·만족도) | 완료 2026-10-27 | #30 |
+| [Q] | `feat/draft-quality` | 초안 품질 강화 8가지 + `rra eval` 측정 + 기본값 결정(ADR 0013), retrieval_mix.yaml, 골든셋 10건, acknowledged 게이트 | 완료 2026-10-27 | #31 |
+| [5] | `fix/eval-findings` | 측정 결함 수정(JSON 찌꺼기 관용 파싱) | 완료 2026-10-27 | #32 |
+| [6] | `docs/presentation-kit` | 발표 자료 원천 묶음 | 완료 2026-10-27 | #33 |
+| [Z] | `docs/final-2026-10-27` | 이 문서·history·presentation-kit 갱신, 최종 점검 | 진행 2026-10-27 | — |
 
 ## 5. 병합 결과·실제 확인 (2026-10-26)
 
@@ -146,3 +169,32 @@ CI backend pass(1분), detect pass, web skipping. 깨끗한 클론(.env·data �
 `.env RRA_OPENALEX_MAILTO` 값(polite pool), `config/templates/korail_strategy.yaml` 전략체계 목록, 연구과제 공고문
 (`data/inbox/notice/`), Mac mini 에 launchd 4종 실제 등록(`deploy/README.md` 설치 순서) + 첫 `rra ingest --source openalex --full`,
 main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기면 CODEOWNERS 의 동료 TODO 채우기.
+
+## 6. 2026-10-27 추가 작업 결과 (레인 병렬, 조각은 `docs/status.d/`·`docs/history/*.d/`)
+
+| 영역 | 결과 | 상세 |
+|---|---|---|
+| 초안 품질 강화 [Q] | 8가지를 `config/pipeline.yaml` 로 켜고 끄며 측정(`rra eval`, 구성 16개) 뒤 기본값: section_search·additions·reranker·rule_check 켬 / clarify·outline·exemplars·two_candidates 끔. 결정 조합은 같은 코퍼스 기준 대비 점수 +1.5/run·충족률 +0.06·시간 +13%. precheck reranker 적중 9/10·순위 1.7→1.4 | `docs/eval-2026-10-27.md`, ADR 0013, `docs/status.d/feat-draft-quality.md` |
+| 근거 구성 규칙 | `config/retrieval_mix.yaml` — 섹션별 허용 doc_type·논문·보고서·특허 최소 보장·유사과제 판정 제외(정책·보도·통계) | architecture §4.16 |
+| ScienceON [S] | 실호출 검증·fixture·매핑, 적재 2,045건(논문 888·보고서 588·특허 569). 특허 기본 자료원은 ScienceON(ADR 0016). **.env 의 client_id·인증키가 서로 바뀌어 있음(사람 확인)** | `docs/status.d/feat-scienceon-live.md` |
+| 공사 홈페이지·국토부 [C]·[P]·[P2-1] | info.korail.com 50개 메뉴 스냅샷(www.korail.com 은 SPA·봇 보호라 제외, 보도자료 5년, 50MB 초과 13건 보류), 크롤러·적재 어댑터·전략체계 초안(5 방향·15 과제)·정책 근거 추천·국토부 판 추적. 적재·측정은 대기열 | `docs/korail-web-crawl.md`, ADR 0019, `docs/status.d/feat-policy-crawl.md` |
+| 이미지 판독 [P3] | 거르기·macOS OCR(샌드박스)·Argon 이미지 입력·해시 캐시·신뢰도 규칙(OCR 교집합 수치만)·공용 Gemini 제한기·표본 도구 — 코드·fixture 83건. 실판독은 대기열 | ADR 0018, `docs/status.d/feat-policy-vision.md` |
+| 사용 편의성 [U] | U1~U8 백엔드(REST 14경로·CLI 5·usability.yaml)와 U9 웹 반영(8화면 추가, vitest 51·e2e 9) | ADR 0017, `docs/status.d/feat-usability.md`·`feat-web-u9.md` |
+| 웹 [W] | Vite+React+TS SPA 11화면 + U9, Lighthouse 100/100/100(/login), axe 0, 초기 JS 111.6KB gzip | ADR 0015, `web/README.md` |
+| 병렬 검사 | pytest-xdist(1,495 테스트 ≈10s), CI backend-unit/api·web-check/e2e + 모음 job, heavy lock, 조각 파일 규칙 | CONTRIBUTING |
+| NTIS 실연결 [N] | 4개 서비스(과제·성과·연구보고서·연관콘텐츠) 실호출 전부 `접근 허용 IP가 아닙니다` → 합성 fixture 로 어댑터·매핑·`national_rnd` 티어("국가R&D 과제", 0.80)·보고서 합침(과제번호+제목+연도)·`POST /v1/precheck/ntis-outcomes` 완성(#35). 적재는 IP 반영 뒤 | ADR 0020, `docs/status.d/feat-ntis-live.md` |
+| 웹 ② NTIS 카드 [W] | national_rnd 알림이 있으면 '주요 성과(참고용)'·'NTIS 추천'(외부 링크·미검증) 표시, 503 은 한 줄 안내(#39). 발견한 reranker 동시 호출 크래시는 서버 잠금으로(#41) | `docs/status.d/feat-web-ntis.md` |
+| [P2] 보류 자료원 [E] | g2b 나라장터 API(키 대기, procurement 티어 '발주 용역'·'용역으로 진행 중/예정'), bai 감사원(Playwright 공개 화면 조작, 철도 55건), datago 공공데이터포털 파일 16개(키 없음), mofe 기재부 경영평가 10건, 판 추적 모호 처리(#37) | ADR 0021, `docs/status.d/feat-policy-sources.md` |
+| 표 구조화·용어 후보 [F] | table_facts(migration 005, `rra facts extract|search`, `GET /v1/facts`) 로 수치 lint 가 인용 문서의 표 칸을 근거로 인정; `rra terms candidates` 는 후보 파일만(자동 반영 없음, 이슈 #11)(#36). xlsx·xls 첨부는 시트 본문으로 적재(#40) | ADR 0022, `docs/status.d/feat-table-facts-terms.md` |
+| R&D 공고 [G] | `rnd_notice`(KAIA 주·IRIS 보조, 공고 99건), 마감일=valid_until, 담당자 PII 제거, `rra notices match`·`POST /v1/ideas/notices`, 정책 근거 후보에 포함·유사과제 판정 제외(#38). NTIS 공고는 robots 금지 | ADR 0023, `docs/status.d/feat-rnd-notice.md` |
+| 첨부 내장 이미지 [P3] | HWPX·HWP·PDF·PPTX·XLSX 내장 이미지를 격리 워커로 추출(같은 해시 하나, 원본 위치 메타, brochure 순서 그룹)(#34) — 판독 대상 196장 → 4,003장(Argon 2,000 + OCR 2,003) | `docs/overnight-2026-10-27.md` 15:27 |
+| 데이터 위치 고정 | 모든 실행 데이터(DB·스냅샷·캐시·inbox·eval·bench·backups)는 원 저장소 `data/` 절대 경로(`RRA_DATA_DIR`, 기본값은 git common dir 의 부모/data) — 레인 worktree 는 데이터를 갖지 않는다(#42). 계기: worktree 삭제로 미커밋 스냅샷 손실 → 재수집 | CONTRIBUTING "데이터 위치", `docs/status.d/feat-data-dir.md` |
+| 사진 거르기·병렬 판독 [P3] | Argon 전 OCR 결과로 사진 제외(글자 < 20·숫자/도형 신호 없음·줄 ≤ 2, 전략·ESG·통계 그룹 면제)(#43) → 4,003장 중 사진 1,570·Argon 2,000·OCR 만 364(캐시 69). 판독 병렬 4(#44) 로 분당 8 → 29장. 실판독 17:40 종료: 성공 1,903·실패 166(OCR 텍스트만)·미확인 수치 2,414. 사진 표본 30장 `docs/ocr-sample/excluded/photo_sample.json` | `docs/overnight-2026-10-27.md` 17:43, `docs/status.d/feat-photo-filter.md` |
+| 브라우저 접속 준비 [W] | `config/api.yaml`(public_origin·trust_cf_connecting_ip), 쿠키 Secure·Origin 검사·`client_ip`·이메일 해시 로그, cloudflared 설정 초안·`com.rra.tunnel.plist`·절차(#45). **터널 미기동·Access 미확인** — DNS 가 Gabia(Cloudflare 아님)·cloudflared 미설치 → 사람 6단계 또는 Tailscale 대체 | ADR 0024, `docs/deploy-exposure.md` §5, `docs/status.d/feat-tunnel.md` |
+
+| 자료원 IP 확인 [I] | `sources.yaml` 자료원별 `ip_restricted`·`registered_ips`(NTIS 2개), `rra sources check` 가 공인 IP(api.ipify.org) 를 대조해 "현재 IP … 등록 IP 에 없습니다" 안내, IP 거부 응답은 그 자료원만 건너뜀(ingest·사전 점검 NTIS 성과) + 웹 `/sources`·`rra sources status` 안내(#46). 실호출: ScienceON ok, NTIS 는 현재 IP 59.0.251.250 이 목록에 있어도 거부 → NTIS 쪽 반영 확인 | ADR 0025, `docs/status.d/feat-source-ip.md` |
+| 로그인 [A] | 직원 사번(HMAC-SHA256, `data/auth/` 700/600·원문 없음)·공용 아이디·비밀번호(scrypt)·관리 토큰 3종, run 소유자 가명 격리(남의 run 404, 관리자는 전부, 옛 run 은 관리자만), 공용 계정 internal 제외, 사용자별 일일 상한(공용 10·직원 20)·잠금(계정 5회·IP 20회/10분·전체 50회 지연), Gemini 일일 300회 상한(소진 시 검토 없이 진행+알림), `rra auth` CLI(getpass), 웹 로그인 두 탭(#48). **사람: 사번 등록·공용 계정 설정** | ADR 0026, `docs/status.d/feat-login.md` |
+| DB migration 006 | 이미지 판독 적재가 `documents.text_basis` CHECK(002, image_vision 없음) 로 실패 → 표 재생성 migration(rowid 보존, FK OFF, 인덱스 5개 복원), 저장소 open 때 자동 적용(#47). 운영 DB 사본 검증 8,406건·integrity ok. 판독 결과 적재는 006 적용 뒤 재실행 | `docs/status.d/fix-image-vision-basis.md` |
+| NTIS 실연결 확정 [R] | 19:01 부터 NTIS 가 응답(공인 IP 59.0.166.199 등록 반영). ParseError 원인은 Accept json → XML 을 JSON 문자열로 감쌈(unwrap) + 보고서 DocUrl 맨 &. 실응답 fixture 6종(이름 제거)·FIELDS·record_tag HIT 확정, per_query_limit 결함 수정(#50). `sources check` ntis·ntis_reports·ntis_insights ok. 적재(ntis 2,000·ntis_reports 1,500)는 19:3x 실행 | `docs/status.d/feat-ntis-live2.md`, `docs/external-apis.md` |
+| 시범 운영 준비 [D] | launchd com.rra.{mlx,api,backup,ingest} 등록(19:01), healthz·401·보안 헤더 확인, 시범 흐름 1회 실측 227초(생성 155), `max_queued_runs` 6, `docs/pilot-guide.md`(#52). 외부 주소·사번·공용 계정은 사람 작업(`docs/final-check-2026-10-27.md` 맨 위). NTIS 보고서 파싱 수정 2건(#51·#53) | `docs/final-check-2026-10-27.md` |
+보류·미착수: g2b 실호출(키)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).

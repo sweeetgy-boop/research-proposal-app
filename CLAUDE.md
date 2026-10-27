@@ -117,6 +117,11 @@
   (`CORE_SECTIONS`, candidates.json, `candidate_choices`, B 선택 시 `candidate_replaced`), Q8 reranker(`ports/reranker`,
   `adapters/reranking`, `~/models/bge-reranker-v2-m3` Apache-2.0, 없으면 경고 후 생략). 측정 `rra eval`(`usecases/evaluate`,
   `build_eval`, `data/eval/`, `docs/eval-<날짜>.md`). 기본값은 측정 뒤 효과 있는 것만 켠다.
+- 2026-10-27 추가(병렬 레인, PR #23~#33): 웹 SPA `web/`(Vite+React+TS, U9 포함; `web/README.md`), pytest-xdist(`pytest -q -n auto`)·CI 분할·
+  `tools/with_heavy_lock.py`·조각 파일 규칙(CONTRIBUTING), ScienceON 실연결·적재(2,045건, 특허 기본 자료원 ADR 0016; `.env` client_id·key 가
+  서로 바뀌어 있음 — 사람 확인), 사용 편의성 U1~U8(`config/usability.yaml`, ADR 0017), 이미지 판독(`rra vision`, ADR 0018, `config/vision.yaml`),
+  공사 홈페이지·국토부 수집(`rra crawl korail`, `adapters/sources/korail_web/`·`molit/`, 전략체계 초안 `korail_strategy.draft.yaml` +
+  `config/strategy.yaml source: draft`, `rra strategy promote`, `rra policy-suggest`, ADR 0019), 측정 결함 수정(JSON 관용 파싱). 현황 docs/status.md §6.
 - 2026-10-26 판단 반영(A): 엑셀 4개 과제는 부서 무관 own 티어(`OWN_RECORD_SOURCES`, 알림 세부 institute/company,
   `tier_label`), 그 출처는 `unlisted_department` 경고 없음, visibility 는 엑셀·공시용 요약문 public(일반 요약만 internal),
   generic_terms 14개 추가. 차별화 제안 자동 실행은 차단 알림일 때만(근접은 요청 시), REST `RunIn.differentiation_transfer`.
@@ -129,6 +134,23 @@
   전송 범위는 검토와 동일, `transfer()` → manifest `differentiation`), `ProposalRequest.differentiation` 은 목적·방법·
   특이사항 프롬프트에 `[제안자가 정한 차별화 방향]` 으로 들어간다. 진입점: `rra differentiate`, `POST /v1/precheck/differentiate`,
   MCP `rra_differentiate`(쓰기 서버), Streamlit [차별화 제안 받기]. `rra llm-check` 기본 프롬프트의 `[]` 응답은 의도된 출력.
+- 2026-10-27 오후 일괄(레인 병렬, 조각 파일 규칙은 CONTRIBUTING): **데이터 위치** 모든 실행 데이터는 원 저장소 `data/` 절대 경로
+  (`RRA_DATA_DIR`, `config_loader.resolve_data_dir`·`data_path`·`data_locations`, #42) — worktree 는 데이터를 갖지 않는다.
+  공사 홈페이지 `korail_web`(크롤·첨부·xlsx 시트 본문·내장 이미지 #34·#40), 이미지 판독 `adapters/vision`(거르기·OCR·사진 거르기
+  `domain/rules/photo_filter` #43·병렬 `concurrency` #44·신뢰도 규칙, `rra vision extract|read|sample|ingest`; `sample` 은
+  `--cached-only` 로 — 아니면 캐시 없는 항목을 다시 호출한다), NTIS 4 서비스(`adapters/sources/ntis`, 티어 `national_rnd`, 서버 IP 등록 필요, #35; 실응답 확정 #50 — 응답은 Accept json 이면
+  JSON 문자열로 감싼 XML(`unwrap_json_string`), record_tag HIT, fixture 는 실응답·이름 제거), [P2] g2b(키)·bai(Playwright)·datago·mofe(#37), `rnd_notice` KAIA·IRIS 공고(#38), `table_facts`·용어 후보(#36, migration 005),
+  `config/retrieval_mix.yaml`(섹션별 doc_type·최소 보장), reranker 잠금(#41). **브라우저 접속**(#45, ADR 0024): `config/api.yaml`
+  (`public_origin`·`trust_cf_connecting_ip`), `adapters/security/client_ip.py`(CF-Connecting-IP 는 peer 127.0.0.1 일 때만), Origin 검사,
+  cloudflared 설정 초안·`com.rra.tunnel.plist` — 터널·Access 는 사람 작업(`docs/deploy-exposure.md` §5).
+  **로그인**(#48, ADR 0026): `domain/models/principal.py`·`domain/rules/auth_policy.py`(가명 `staff:<HMAC 12자>`·`guest:<아이디>`, 잠금·일일 상한),
+  `adapters/auth/file_store.py`(`data/auth/` 700/600, 사번 HMAC·비밀번호 scrypt, 원문 없음), `config/auth.yaml`, `POST /v1/session {kind: token|staff|guest}`,
+  run 소유자 격리(남의 run 404, 관리자 토큰은 전부), 공용 계정은 `PublicOnlyRepository` 로 internal 제외, Gemini 일일 상한 `llm.yaml budget`
+  (`adapters/llm/daily_budget.py`), `rra auth staff|guest|status`(getpass). **자료원 IP**(#46, ADR 0025): `sources.yaml registered_ips`,
+  `domain/rules/source_ip.py`, IP 거부 응답은 그 자료원만 건너뜀 + `cache/source_availability.json` 안내.
+- 시범 운영(2026-10-28, 3명, [D]): launchd com.rra.{mlx,api,backup,ingest} 등록(`deploy/README.md` §2), `max_queued_runs` 6(사용자별),
+  동료 안내 `docs/pilot-guide.md`, 준비 상태·사람 할 일은 `docs/final-check-2026-10-27.md` 맨 위. 외부 주소는 DNS 가 Gabia 라 터널 미기동
+  (Tailscale 대체 가능). 실측: 한 건 227초(생성 155 + 최종 검토 15), precheck 38~56초(자동 추천 Gemini 포함), 7B JSON 실패 4/10.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 

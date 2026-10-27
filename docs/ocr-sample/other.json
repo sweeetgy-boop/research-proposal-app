@@ -1,0 +1,724 @@
+[
+  {
+    "sha256": "8735b138f779416689276ad45e41115cd4048fc0d37d74e1a1adee6d821916ad",
+    "path": "images/attachments/8735b138f779416689276ad45e41115cd4048fc0d37d74e1a1adee6d821916ad.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=22276",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=911&bbsNo=199&nttNo=22748&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=67",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "가\nHasther\n'가치 감사, Another Insight! 비전 선포\n42\nkerglt!",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "'가치 감사, Another Insight!' 비전 선포",
+      "text": "'가치 감사, Another Insight!' 비전 선포\n9월 23일(월) KORAIL 사실\n소화기\n가 치 감 사\nAnother Insight!",
+      "structure": {},
+      "summary": "'가치 감사, Another Insight!' 비전 선포 현수막 앞에서 관계자들이 '가치 감사', 'Another Insight!' 문구를 들고 촬영한 단체 사진입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [
+      "9월",
+      "23일"
+    ],
+    "elapsed_sec": 4.319
+  },
+  {
+    "sha256": "745285abfc7f86f71e4e2dd4507d94b37bcf36757d4be06acae05cc26250729d",
+    "path": "images/74/745285abfc7f86f71e4e2dd4507d94b37bcf36757d4be06acae05cc26250729d.png",
+    "url": "https://info.korail.com/DATA/bbs/699/20260305021708192_RCgp.png",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=26935",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2025\nKORAIL\nSustainability Report\n...",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "2025 KORAIL Sustainability Report",
+      "text": "2025\nKORAIL\nSustainability Report\nKORAIL",
+      "structure": {},
+      "summary": "2025 KORAIL Sustainability Report 표지 이미지입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2025"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.962
+  },
+  {
+    "sha256": "8d417364e9c7ae148fb057ad063e2c63324542d9f10a0ab870e53a641c2b95f8",
+    "path": "images/8d/8d417364e9c7ae148fb057ad063e2c63324542d9f10a0ab870e53a641c2b95f8.png",
+    "url": "https://info.korail.com/DATA/bbs/699/20250408094355625_ORHt.png",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "KORAIL, Leading the Standards\nin Railway Mobility!\n2024 KORAIL ESG•Sustainability Report\nESG\nKORAIL\nCONNECTING\nKOREA\nKARAIL",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "KORAIL, Leading the Standards in Railway Mobility!",
+      "text": "KORAIL, Leading the Standards\nin Railway Mobility!\n2024 KORAIL ESG·Sustainability Report\nE\nESG\nKORAIL\nCONNECTING\nKOREA\nS\nG\nKORAIL",
+      "structure": {},
+      "summary": "2024 KORAIL ESG·Sustainability Report의 표지 이미지로, 'KORAIL, Leading the Standards in Railway Mobility!'라는 문구와 함께 E, S, G 글자 및 철도·친환경 관련 일러스트가 포함되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2024"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 15.087
+  },
+  {
+    "sha256": "1030528d635832a6a88fcb3f08560c742c8bbe23e021df48f403635150b74dae",
+    "path": "images/10/1030528d635832a6a88fcb3f08560c742c8bbe23e021df48f403635150b74dae.png",
+    "url": "https://info.korail.com/DATA/bbs/699/20250408094107733_GYgd.png",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24360",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "발간등록번호\n기획조정-02-24079-01\n철도표준을 선도하는\n모빌리티 기업, 코레일!\n2024 한국철도공사 ESC 지속가능경영보고서\nKOREA\nYNI7\n기VoY\nESG\nKO\nRAIL",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "철도표준을 선도하는 모빌리티 기업, 코레일!",
+      "text": "발간등록번호\n기획조정-02-24079-01\n철도표준을 선도하는\n모빌리티 기업, 코레일!\n2024 한국철도공사 ESG·지속가능경영보고서\nE\nESG\nKORAIL\nLINK\nKOREA\nS\nG\nKORAIL",
+      "structure": {},
+      "summary": "2024 한국철도공사 ESG·지속가능경영보고서 표지 이미지로, '철도표준을 선도하는 모빌리티 기업, 코레일!'이라는 문구와 발간등록번호가 포함되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2024"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 13.075
+  },
+  {
+    "sha256": "2beaf1496bcbb7ed11290f6299e9749d7c2358a244940a12ec02b18cb27e6e52",
+    "path": "images/2b/2beaf1496bcbb7ed11290f6299e9749d7c2358a244940a12ec02b18cb27e6e52.jpg",
+    "url": "https://info.korail.com/site/info/images/contents/cts799_photo.jpg",
+    "page_url": "https://info.korail.com/info/contents.do?key=799",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "산을 배경으로 강 위에 놓인 두 개의 철교 중 앞쪽 철교를 달리고 있는 열차의 모습이며, 이미지 내에 텍스트는 없음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.946
+  },
+  {
+    "sha256": "c5a417d840805d5aad2e991bcb610ee5464e620c9792f2da49299e42d4a227a9",
+    "path": "images/c5/c5a417d840805d5aad2e991bcb610ee5464e620c9792f2da49299e42d4a227a9.jpg",
+    "url": "https://info.korail.com/site/info/images/contents/cts808_image01.jpg",
+    "page_url": "https://info.korail.com/info/contents.do?key=808",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "친환경\n환경부",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "친환경\n환경부",
+      "structure": {},
+      "summary": "환경부의 친환경 로고 이미지로, 초록색 나뭇잎과 원 안에 '친환경'과 '환경부'가 적혀 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 3.57
+  },
+  {
+    "sha256": "b9c0f18aa9851dbef70d2e42685729bb3c1b47999b870d1893addf3e084ec63e",
+    "path": "images/b9/b9c0f18aa9851dbef70d2e42685729bb3c1b47999b870d1893addf3e084ec63e.jpg",
+    "url": "https://info.korail.com/site/info/images/contents/cts808_image02.jpg",
+    "page_url": "https://info.korail.com/info/contents.do?key=808",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Good\nRecycled",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "Good\nRecycled",
+      "structure": {},
+      "summary": "녹색 테두리와 파란색 점이 있는 마크 안에 'Good Recycled'라는 영문 문구가 적혀 있는 로고 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 7.842
+  },
+  {
+    "sha256": "fac41c2dde7037964e9767f1c133dea8ed07a6da651c46f6852d8d2449f99024",
+    "path": "images/fa/fac41c2dde7037964e9767f1c133dea8ed07a6da651c46f6852d8d2449f99024.jpg",
+    "url": "https://info.korail.com/DATA/bbs/346/20211107020543021_lkOl.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12554",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "발간등록번호\n안전경영-02-19100-01\n2018 한국철도공사 환경경영보고서\nEnvircnmental Annual Report\n미세먼지\n걱정없는 환경\n코레일이\n만들어 갑니다\nThe Frontier of Climate Change Actaptation\nKORAL\n한국철도공사",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "2018 한국철도공사 환경경영보고서",
+      "text": "발간등록번호\n안전경영-02-19100-01\n2018 한국철도공사 환경경영보고서\nEnvironmental Annual Report\n미세먼지\n걱정없는 환경\n코레일이\n만들어 갑니다\nThe Frontier of Climate Change Adaptation\nKORAIL\n한국철도공사",
+      "structure": {},
+      "summary": "2018 한국철도공사 환경경영보고서의 표지 이미지로, 발간등록번호(안전경영-02-19100-01)와 '미세먼지 걱정없는 환경 코레일이 만들어 갑니다'라는 문구가 적혀 있습니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2018"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.211
+  },
+  {
+    "sha256": "a51df7942ba0a0a83cb60b5eae97a1325c337065fe6ffb75dc6123e841ed1fbb",
+    "path": "images/a5/a51df7942ba0a0a83cb60b5eae97a1325c337065fe6ffb75dc6123e841ed1fbb.jpg",
+    "url": "https://info.korail.com/DATA/bbs/346/20211107020446603_RjOL.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12552",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "발간등록번호\n안전혁신-02-18217-01\n2017 한국철도공사 환경경영보고서\nEmvironmental Annual Report\n행복한 환경\n코레일이 만들어 갑니다\nThe Frontier of Climate Change Adaptation\nK\nRAIL\n한국철도공사",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "2017 한국철도공사 환경경영보고서",
+      "text": "발간등록번호\n안전혁신-02-18217-01\n2017 한국철도공사 환경경영보고서\nEnvironmental Annual Report\n행복한 환경\n코레일이 만들어 갑니다\nThe Frontier of Climate Change Adaptation\nKORAIL\n한국철도공사",
+      "structure": {},
+      "summary": "2017 한국철도공사 환경경영보고서 표지 이미지로, 발간등록번호(안전혁신-02-18217-01)와 '행복한 환경 코레일이 만들어 갑니다'라는 문구가 적혀 있습니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2017"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 7.649
+  },
+  {
+    "sha256": "8b589b1824769883a1f9f5c72c61210cf16521b14fcafe262aa6594574af2c71",
+    "path": "images/8b/8b589b1824769883a1f9f5c72c61210cf16521b14fcafe262aa6594574af2c71.jpg",
+    "url": "https://info.korail.com/DATA/bbs/346/20211107015905993_ekZt.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12548",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "2015 코레일 환경경영보고서\nEnvironmental Annual Report\n대한인권원한경\n코레일이 함께합니다\nThe Frontier of Climate Change Adaptation'\nKIN 산천\nKORAIL",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "2015 코레일 환경경영보고서",
+      "text": "2015 코레일 환경경영보고서\nEnvironmental Annual Report\n대한민국의 푸른환경,\n코레일이 함께합니다\nThe Frontier of Climate Change Adaptation\n10\nKTX 산천\nSANCHEON\nKORAIL",
+      "structure": {},
+      "summary": "2015 코레일 환경경영보고서(Environmental Annual Report)의 표지 이미지로, '대한민국의 푸른환경, 코레일이 함께합니다'라는 문구와 함께 KTX 산천 열차 모습이 담겨 있습니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2015"
+    ],
+    "unconfirmed_numbers": [
+      "10"
+    ],
+    "elapsed_sec": 5.069
+  },
+  {
+    "sha256": "50e0dad5a9ef5b9950480d01e95737e685fbdda56cb9bc103bb4b5764bb8fe07",
+    "path": "images/50/50e0dad5a9ef5b9950480d01e95737e685fbdda56cb9bc103bb4b5764bb8fe07.jpg",
+    "url": "https://info.korail.com/DATA/bbs/346/20211107014948358_p7WP.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12540",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "한국철도공사 환경경잉보고서\nCvear Loader\nKORAIL\n고객, 환경, 미래와 소통하는 국민기업\nKORAIL\n한국철도공사",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "한국철도공사 환경경영보고서",
+      "text": "한국철도공사 환경경영보고서\n2011 Environmental Annual Report\nGreen Leader\nKORAIL\n고객, 환경, 미래와 소통하는 국민기업\nKTX산천\nKORAIL\n한국철도공사",
+      "structure": {},
+      "summary": "2011년 한국철도공사 환경경영보고서의 표지 이미지로, 'Green Leader KORAIL 고객, 환경, 미래와 소통하는 국민기업'이라는 문구와 함께 자연 속을 달리는 KTX산천 열차의 모습이 담겨 있습니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [
+      "2011",
+      "2011년"
+    ],
+    "elapsed_sec": 6.472
+  },
+  {
+    "sha256": "7d4d24e2458c1040e3f6f739a55c4b534cd1295dbb75e7e34de75b38f67ec2c8",
+    "path": "images/7d/7d4d24e2458c1040e3f6f739a55c4b534cd1295dbb75e7e34de75b38f67ec2c8.jpg",
+    "url": "https://info.korail.com/DATA/bbs/346/20211107014518993_DOZZ.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=12536",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "푸 마음, 녹 색질 수\n2008 한국철도공사 환경경영보고서| Ervironmental Anryal Report\nKORAIL",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "푸른마음, 녹색질주",
+      "text": "푸른마음, 녹색질주\n2008 한국철도공사 환경경영보고서 | Environmental Annual Report\nECO\nRAIL\n2015\nKORAIL",
+      "structure": {},
+      "summary": "'푸른마음, 녹색질주'라는 제목이 적힌 2008 한국철도공사 환경경영보고서(Environmental Annual Report)의 표지 이미지입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2008"
+    ],
+    "unconfirmed_numbers": [
+      "2015"
+    ],
+    "elapsed_sec": 5.176
+  },
+  {
+    "sha256": "77dcf9d4dd59e6300c95f6441422d1d0f506d63655121483ca88289b795b2e2d",
+    "path": "images/77/77dcf9d4dd59e6300c95f6441422d1d0f506d63655121483ca88289b795b2e2d.jpg",
+    "url": "https://info.korail.com/DATA/bbs/346/20211104011041931_K0hQ.jpg",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=11662",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "Together with\nGreen Network\n2007 Environmental Annual Report| 코레일 환경경영보고서\n만나세요, 코레일\nKORAIL",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "Together with Green Network",
+      "text": "Together with\nGreen Network\n2007 Environmental Annual Report | 코레일 환경경영보고서\n만나세요, 코레일\nKORAIL",
+      "structure": {},
+      "summary": "'Together with Green Network'라는 문구와 코레일 로고가 포함된 2007 코레일 환경경영보고서 표지 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [
+      "2007"
+    ],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 6.061
+  },
+  {
+    "sha256": "b4cb6bc03dc01f83d757be1ef8d64b3810ec5bfc4b54add0f722804ecd8e5bbb",
+    "path": "images/b4/b4cb6bc03dc01f83d757be1ef8d64b3810ec5bfc4b54add0f722804ecd8e5bbb.jpg",
+    "url": "https://info.korail.com/site/info/images/contents/cts769_photo.jpg",
+    "page_url": "https://info.korail.com/info/contents.do?key=769",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "수도권광역본부",
+      "structure": {},
+      "summary": "안전모와 보호구를 착용한 작업자가 야간에 불꽃을 튀기며 절단 장비를 사용해 작업하는 모습을 담은 사진임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 6.079
+  },
+  {
+    "sha256": "f09a514136ff7eb231504955af2b16d5d62765b36dbd0756a50c9a2497934edb",
+    "path": "images/f0/f09a514136ff7eb231504955af2b16d5d62765b36dbd0756a50c9a2497934edb.jpg",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000012/CEO_kimtaeseung.jpg",
+    "page_url": "https://info.korail.com/info/contents.do?key=769",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "필기체로 작성된 서명 이미지로, 정확한 글자를 판독하기 어려움.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 6.092
+  },
+  {
+    "sha256": "fdaa15fe0374c4cbd82ed28606e074dad8c22c4e6a4afc83c7ff57ea8b0ed41b",
+    "path": "images/fd/fdaa15fe0374c4cbd82ed28606e074dad8c22c4e6a4afc83c7ff57ea8b0ed41b.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000016/22222.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=22385&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=1",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "공공기관 인권경영 확산 워크숍",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "공공기관 인권경영 확산 워크숍",
+      "text": "KORAIL 한국철도\n공공기관 인권경영 확산 워크숍\n국가인권위원회\n일시 : 2024. 5. 16.(목) 13시\n장소 : 한국철도공사 3층 대회의실",
+      "structure": {},
+      "summary": "공공기관 인권경영 확산 워크숍 현수막 앞에서 참석자들이 단체 기념 촬영을 하고 있는 사진입니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [
+      "2024",
+      "5",
+      "16",
+      "13",
+      "3"
+    ],
+    "elapsed_sec": 5.459
+  },
+  {
+    "sha256": "323339fed2e4b04ab58b8a39a5d099fc880cbecb56c0bed67759a5a74be5de03",
+    "path": "images/32/323339fed2e4b04ab58b8a39a5d099fc880cbecb56c0bed67759a5a74be5de03.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000009/홍보동영상.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=17744&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=3",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "저마다의 빛p로 마주\n국가인권위원의 KPAL 입국으로",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "저마다의 빛깔로 마주",
+      "text": "저마다의 빛깔로 마주\n국가인권위원회\nKORAIL 한국철도",
+      "structure": {},
+      "summary": "야외에서 다양한 사람들이 함께 미소 짓고 있는 모습과 수어 통역 화면이 담긴 이미지로, 상단에 '저마다의 빛깔로 마주'라는 문구와 하단에 국가인권위원회 및 KORAIL 한국철도 로고가 표시되어 있음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 6.532
+  },
+  {
+    "sha256": "5a829e53f00b75ffa5426de4c67002cd4dfb3e0a6aff8c115aef6d735c5f3f06",
+    "path": "images/5a/5a829e53f00b75ffa5426de4c67002cd4dfb3e0a6aff8c115aef6d735c5f3f06.png",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000009/MjAyMzAyMjAxNDA3MDUyMjFfRFQ3UUFXVDM=.png",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=17744&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=3",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "협으의 차발을 남이\n저마다의 빛낄르\n다음\nHappy Togothor\nin Diversity\n3e KORALL Da%%",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "혐오와 차별을 넘어 저마다의 빛깔로 마·주",
+      "text": "혐오와 차별을 넘어\n저마다의 빛깔로\n마·주\nHappy Together\nin Diversity\n국가인권위원회\nKORAIL 한국철도",
+      "structure": {},
+      "summary": "두 사람이 마주 보고 있는 일러스트와 함께 '혐오와 차별을 넘어 저마다의 빛깔로 마·주', 'Happy Together in Diversity' 문구 및 국가인권위원회, KORAIL 한국철도 로고가 표시된 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.38
+  },
+  {
+    "sha256": "484821b5c4ce6f7aa197833e2f3f8bd444f4a6ec18ed68d36afd455ecdf82a98",
+    "path": "images/48/484821b5c4ce6f7aa197833e2f3f8bd444f4a6ec18ed68d36afd455ecdf82a98.jpg",
+    "url": "https://info.korail.com/crosseditor_u/binary/images/000003/Live_Together_%EC%B1%8C%EB%A6%B0%EC%A7%80.jpg",
+    "page_url": "https://info.korail.com/info/selectBbsNttView.do?key=1521&bbsNo=405&nttNo=17742&searchCtgry=&searchCnd=all&searchKrwd=&integrDeptCode=&pageIndex=3",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "KORALL\n한국철도\n#Live\nTogether\n한국철도농사",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "KORAIL\n한국철도\n#Live\nTogether\nUnited against Racism\n© UNESCO\nKTX\n한국고속철도\nRAIL\n한국철도공사",
+      "structure": {},
+      "summary": "정장을 입은 인물이 태극기와 한국철도공사 깃발, KTX 모형 앞에서 'KORAIL 한국철도', '#Live Together United against Racism' 문구가 적힌 피켓을 들고 있는 사진임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 6.75
+  },
+  {
+    "sha256": "895489af565b1d917458169373d2034bbd5960c8c7a33856fee812e4508243e5",
+    "path": "images/attachments/895489af565b1d917458169373d2034bbd5960c8c7a33856fee812e4508243e5.png",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=26935",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=26935",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "교량 위를 달리는 열차의 모습을 담은 배경 사진으로, 판독 가능한 텍스트가 없음.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 34.131
+  },
+  {
+    "sha256": "425afb000611c638c5c0ae095600365f1b30707a3dd132752e4d6f6c367f315d",
+    "path": "images/attachments/425afb000611c638c5c0ae095600365f1b30707a3dd132752e4d6f6c367f315d.png",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=26935",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=26935",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "글자나 도표 없이 검은색 불규칙한 선들이 그려진 이미지임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.388
+  },
+  {
+    "sha256": "ba07b94257d945b2895cea7efe3a143a19fe9f34baddde4dcd8cf5cc6d53b18f",
+    "path": "images/attachments/ba07b94257d945b2895cea7efe3a143a19fe9f34baddde4dcd8cf5cc6d53b18f.png",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=26935",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=26935",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "JI",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "흰색 배경에 불규칙한 검은색 선과 점들이 그려진 이미지로, 식별 가능한 글자나 수치는 없습니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 3.762
+  },
+  {
+    "sha256": "43906b3efb766b63debbd8de2a90ea04d0a01fbf1780418f237b5a4d318c6ad0",
+    "path": "images/attachments/43906b3efb766b63debbd8de2a90ea04d0a01fbf1780418f237b5a4d318c6ad0.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "사장 한 문 회",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "사 장 한 문 희",
+      "structure": {},
+      "summary": "'사 장 한 문 희'라고 적힌 명패가 놓인 책상 앞에 정장을 입고 팔짱을 낀 인물이 서 있는 사진임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 3.51
+  },
+  {
+    "sha256": "6bae0c20944553cd3478c9c03c66cba53f42dd8ccb4e1d8d47e9a2160fba8af1",
+    "path": "images/attachments/6bae0c20944553cd3478c9c03c66cba53f42dd8ccb4e1d8d47e9a2160fba8af1.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "사장",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "사 장 한",
+      "structure": {},
+      "summary": "책상 위 모니터 뒷면과 '사 장 한'이라는 글자 일부가 보이는 명패 사진입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.265
+  },
+  {
+    "sha256": "df3a747309aa394385dcaff7bf222f3f3d87788105eb2d369d2f509507d359e3",
+    "path": "images/attachments/df3a747309aa394385dcaff7bf222f3f3d87788105eb2d369d2f509507d359e3.png",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "선로 위를 달리는 열차를 위에서 내려다본 푸른색 톤의 배경 사진입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.397
+  },
+  {
+    "sha256": "906b61693dcff8647f49b21992d56138fea10a0cebdd370a6f40a174fb888efe",
+    "path": "images/attachments/906b61693dcff8647f49b21992d56138fea10a0cebdd370a6f40a174fb888efe.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "선로를 달리는 열차의 모습을 위에서 촬영한 사진임.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 4.418
+  },
+  {
+    "sha256": "4acc079e70560ccbff5f7965994a3d5937588a975994d270e8ecaf446fc9e302",
+    "path": "images/attachments/4acc079e70560ccbff5f7965994a3d5937588a975994d270e8ecaf446fc9e302.png",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "어린이보호구역",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "어린이보호구역해제",
+      "structure": {},
+      "summary": "고가 선로 위를 달리는 열차의 흐릿한 배경 사진이며, 하단 구조물에 어린이보호구역해제 표지판이 보임.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 6.682
+  },
+  {
+    "sha256": "d8fd34f51d8ac6e2c1ade1197f8105069bbc9fd1ed36f9b35af028d9da5c9b24",
+    "path": "images/attachments/d8fd34f51d8ac6e2c1ade1197f8105069bbc9fd1ed36f9b35af028d9da5c9b24.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "KTX",
+      "structure": {},
+      "summary": "고가 선로 위를 달리는 KTX 열차의 사진이며, 차량 측면에 로고와 번호 등 작은 글씨가 있으나 흐려서 정확히 식별하기 어렵습니다.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 29.771
+  },
+  {
+    "sha256": "5b8ecbf3df948494f2e8a22e22502ad5c436145935ba97de78803a8b953432ac",
+    "path": "images/attachments/5b8ecbf3df948494f2e8a22e22502ad5c436145935ba97de78803a8b953432ac.png",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "글자가 없는 매우 흐릿한 회색조 배경 이미지(철골 구조물 또는 계단 형태)입니다.",
+      "uncertain": false,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 6.682
+  },
+  {
+    "sha256": "bab2efb6c3e6c04a2903980e47997e9e2866d831fae02815d74c596de692fa86",
+    "path": "images/attachments/bab2efb6c3e6c04a2903980e47997e9e2866d831fae02815d74c596de692fa86.jpg",
+    "url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "page_url": "https://info.korail.com/info/downloadBbsFile.do?atchmnflNo=24362",
+    "status": "argon",
+    "cached": true,
+    "ocr_text": "",
+    "ocr_error": null,
+    "argon": {
+      "image_type": "기타",
+      "title": "",
+      "text": "",
+      "structure": {},
+      "summary": "야간 철도 선로 현장에서 노란색 작업 차량 옆으로 안전모와 안전조끼를 착용한 세 명이 걷고 있는 사진임. 차량 측면에 글자와 숫자가 일부 보이나 해상도가 낮아 정확히 판독할 수 없음.",
+      "uncertain": true,
+      "trust": "untrusted"
+    },
+    "vision_error": null,
+    "confirmed_numbers": [],
+    "unconfirmed_numbers": [],
+    "elapsed_sec": 5.163
+  }
+]

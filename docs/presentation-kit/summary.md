@@ -9,14 +9,16 @@ Gemini Argon 1차 검토로 보완 → v2, 문장마다 근거 id) → ④ 제�
 ⑥ HWPX 양식 출력. 판단은 규칙(agent_policy), LLM 은 작성·검토에만. 헥사고날 구조, 보안 규칙 A~J, 모든 외부 전송은 manifest 에
 doc_id 단위로 기록.
 
-**결과 수치.** (갱신: `docs/history/metrics.csv` 마지막 행과 맞춘다)
-- 검증: 테스트 1,277건(LLM·임베딩 없이, 2026-10-27 [Q]), import 계약 8건, CI backend 통과. 웹은 [3] 뒤 Lighthouse·axe 수치 추가.
-- 자료: own 1,119 / alio 120(공시 요약) / openalex 2,482.
-- 생성: 12개 섹션 105~145초(Qwen 7B, 2026-10-26), JSON 형식 성공률 96.5%(교정 재요청 포함), Argon 1차 검토 ~36초.
-- 품질: 무관한 입력 인용 0건(관련도 하한 0.79), 근거 구성 alio 9/own 6/openalex 6(출처 다양성),
-  1차 검토 자동 반영 — 골든셋 01 에서 의견 24건 중 검증 통과 수정안 14건 반영·폐기 0(2026-10-27).
-- 초안 품질 강화 8가지 효과·기본값: `docs/eval-2026-10-27.md` "초안 품질 강화 비교"(측정 뒤 채움).
+**결과 수치.** (2026-10-27, `docs/history/metrics.csv` 마지막 행 기준)
+- 검증: 테스트 1,495건(LLM·임베딩 없이, `pytest -n auto` 약 10초), import 계약 8건, CI backend-unit/api·web-check/e2e 통과.
+  웹 Vitest 51·Playwright e2e 9·Lighthouse(/login) 100/100/100·axe 위반 0·초기 JS 111.6KB gzip.
+- 자료: own 1,119 / alio 120 / openalex 2,482 / scienceon 2,045(논문 888·보고서 588·특허 569) + 공사 홈페이지 스냅샷(info.korail.com,
+  2026-10-27 기준 — 적재 건수는 `docs/final-check-2026-10-27.md`).
+- 생성: 12개 섹션 ≈ 2분(결정 파이프라인, Qwen 7B), Argon 1차 검토 ≈ 30초. 초안 품질 강화 8가지 측정(구성 16개) 뒤 기본값
+  section_search·additions·reranker·rule_check — 같은 코퍼스 기준 대비 점수 +1.5/run·필수 요소 충족률 +0.06·시간 +13%(docs/eval-2026-10-27.md).
+- 품질: precheck reranker 적중 9/10 유지·평균 정답 순위 1.7→1.4(지연 1.5~1.95s), 무관한 입력 인용 0건, 1차 검토 자동 반영(골든셋 01: 수정안 14건 반영·폐기 0).
+- 사용 편의성: 근거 바로보기·판단, 간편 입력, 섹션 다시 쓰기·보완 질문, 비교표, 선행연구 브리핑, 제출 전 점검, 시범운영 측정 — 백엔드·웹 모두 반영(ADR 0017).
 - 차별화 과제 추천 실측: 골든셋 01 추천 2건, 02 1건(+1 정책명 폐기), 03 0건+사유(ADR 0012).
 
-**남은 과제.** 외부 자료원 키(KIPRIS·NTIS·ScienceON), 전략체계 목록·공고문 투입, Mac mini 운영 등록·공개 방식 결정,
-골든셋 피드백 루프(이슈 #10), 용어사전(#11), reranker 임계치 재조정(#12). 자세한 것은 `limitations.md`.
+**남은 과제.** 전략체계 초안 확정(`rra strategy promote`), ScienceON .env 키 맞바꾸기, NTIS·KIPRIS 키(선택), 공고문 투입, Mac mini 운영 등록·공개 방식 결정,
+이미지 판독·공사 자료 적재 결과 검증, 골든셋 피드백 루프(이슈 #10), 용어사전(#11), 유사과제 임계치 재조정(#12). 자세한 것은 `limitations.md`.

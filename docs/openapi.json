@@ -28,9 +28,28 @@
       }
     },
     "/v1/session": {
+      "get": {
+        "summary": "Session Get",
+        "description": "현재 로그인 종류만 (가명 ID·사번 없음) + 열려 있는 로그인 방식.",
+        "operationId": "session_get_v1_session_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Session Get V1 Session Get"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "summary": "Session Login",
-        "description": "토큰 → httpOnly·SameSite=Strict 세션 쿠키 + CSRF 토큰. 토큰은 본문으로만.",
+        "description": "로그인 → httpOnly·SameSite=Strict 세션 쿠키 + CSRF 토큰. 본문 kind:\ntoken(관리 토큰) | staff(사번) | guest(아이디·비밀번호). 값은 본문으로만(URL·로그 금지).\n실패 메시지는 종류를 가리지 않고 하나. 잠금·지연은 usecases.login.",
         "operationId": "session_login_v1_session_post",
         "requestBody": {
           "content": {
@@ -3283,20 +3302,73 @@
       },
       "SessionIn": {
         "properties": {
-          "token": {
+          "kind": {
             "type": "string",
-            "maxLength": 512,
-            "minLength": 1,
+            "enum": [
+              "token",
+              "staff",
+              "guest"
+            ],
+            "title": "Kind",
+            "default": "token"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Token"
+          },
+          "staff_no": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff No"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "token"
-        ],
         "title": "SessionIn",
-        "description": "POST /v1/session — 관리 토큰으로 세션 쿠키를 받는다. 토큰은 본문으로만 (URL·로그 금지)."
+        "description": "POST /v1/session — 세션 쿠키를 받는다. kind: token(관리 토큰) | staff(사번) | guest(아이디·\n비밀번호). 값은 본문으로만 (URL·로그 금지). 옛 본문 `{token}` 은 kind=token 으로 본다."
       },
       "StructureIn": {
         "properties": {

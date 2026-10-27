@@ -12,3 +12,28 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-26,8050d25,A 판단 반영(#15),1163,831,8,2682,3473,7781,3949,146,1119,120,20,,,,,,,
 2026-10-26,24330c9,CI(#17),1157,831,8,2682,3473,7783,3949,146,1119,120,20,,,,,,,깨끗한 클론(.env·data 없음) 1157/18 skip
 2026-10-26,e10466e,OpenAlex 코퍼스(#18),1178,844,8,2724,3531,7883,3964,146,1119,120,2482,145,,3,2,3,3,run eb7290ee(min_per_source 6)·9381fdcd 는 4/2/2/3
+2026-10-27,39867c4,웹 프론트엔드(#23),,,8,,,,,,1119,120,2482,,,,,,,web: vitest 33·Playwright e2e 8·Lighthouse 100/100/100·CLS 0·axe 0·초기 JS 110.6KB gzip(전체 ≈167KB)·CSS 21.2KB
+2026-10-27,17580ab,ScienceON 실연결(레인 B),1251,911,8,3422,4261,8145,5321,151,,,,,,,,,,ScienceON 실호출 ARTI 1858·REPORT 370·PATENT 911(철도 궤도), fixture 30건(3 target×10), 드라이런 5건 16 s, 질의 13개 예상 ≈2400건
+2026-10-27,596360e,feat/usability U1~U8,1292,951,8,4580,5330,8079,5988,169,,,,,,,,,,사용자 관점 검토 반영(ADR 0017) — 테스트 +53(1,239→1,292)·18 skip
+2026-10-27,3ebe6eb,feat/policy-crawl,1300,,8,,,,,,,,,,,,,,,korail_web 스냅샷 229항목·207파일·654MB(적재 전, 진행 중); molit 어댑터; 전략체계 초안 15과제
+2026-10-27,47c7f27,웹 U9 U1~U8 화면(#30),,,8,,,,,,,,,,,,,,,web: vitest 50(13 파일)·Playwright 10·axe 0(새 8 화면)·초기 JS 111.6KB gzip(전체 ≈184KB)·CSS 21.4KB·Lighthouse /login 100/100/100; backend entrypoints+adapters 779 통과
+2026-10-27,bcaf367,초안 품질 강화 [Q],1494,,8,,,,,,1119,120,2482,131,,3,3,3,3,"final(01~03) 점수 10.5/run vs baseline3 9.0, 충족률 0.77 vs 0.71, 131s vs 116s; all4 10건 평균 178s; precheck 적중 9/10"
+2026-10-27,c5f05f5,2026-10-27 합침(#23~#32),1495,,8,,,,,,1119,120,2482,131,,3,3,3,3,"scienceon 2045(논문 888·보고서 588·특허 569) 추가; Q9 final 10.5/run; precheck 9/10; 웹 vitest 51·e2e 9·Lighthouse 100"
+2026-10-27,044b2b9,[P3] 첨부 내장 이미지(#34),1502,1150,8,,,,,,,,,,,,,,,추출 장수는 적재 뒤 overnight 기록
+2026-10-27,(feat/ntis-live),NTIS 실연결(레인 N)(#35),1522,1173,8,6381,7517,11893,6795,223,,,,,,,,,,NTIS 실호출 4건 모두 IP 차단(HTTP 200 error 0.13~0.52 s); 합성 fixture 과제3·보고서2·성과3·연관4; 드라이런 NtisError; 적재 예상 과제≤1950·보고서≤1950(26회/소스)
+2026-10-27,feat/table-facts-terms,표 구조화·용어 후보(#36),1572,,8,,,,,,,,,,,,,,,"scratch dry-run(레인 A 스냅샷 2026-10-27): 표 2094장→사실 48253건/문서 32건(모두 미적재 xlsx), 사실 없는 표 2035장, pdf 사실 2건, 단위 있음 46%, 연도 있음 23%, 샌드박스 거부 1, 59초; 새 테스트 72"
+2026-10-27,,feat/policy-sources(#37),1519,,8,,,,,,,,,,,,,,,bai 스냅샷 55항목·파일 40개·82.5MB(적재 전); 어댑터 g2b(키 대기)·bai·mofe·datago(16 데이터셋); Tier procurement
+2026-10-27,,feat/rnd-notice(#38),1515,,8,,,,,,,,,,,,,,,rnd_notice 스냅샷 공고 99건(KAIA 83 + IRIS 16· 두 사이트에 함께 실린 63건은 한 문서로 합침)· 첨부 229개 808MB(KAIA pdf·hwp; IRIS 첨부 40건은 이름만)· 등록일 2024-10-30~2026-08-20 (완료· 2년 범위) (적재 전); KAIA 1224건·IRIS 국토교통부 945건 탐색
+2026-10-27,(feat/web-ntis),웹 ② NTIS 과제 카드(레인 W)(#39),1530,1181,8,6398,7525,12483,6823,226,,,,,,,,,,web: Vitest 56(14 파일, +5)·Playwright 11(+1 ntis.spec)·axe 0; ② 화면 주요 성과(참고용)·NTIS 추천(외부 링크) 가짜 모드 e2e; Precheck 청크 gzip 6.9KB
+2026-10-27,f1b69fc,fix xlsx 시트 본문(#40),,1252,8,,,,,,,,,,,,,,,korail_web xlsx·xls 첨부 61건 적재 가능
+2026-10-27,7790e4a,fix reranker lock(#41),,1274,8,,,,,,,,,,,,,,,reranker 동시 호출 직렬화
+2026-10-27,ddfba9e,feat data-dir(#42),1670,1289,8,,,,,,,,,,,,,,,RRA_DATA_DIR·worktree 데이터 금지(tests/test_data_dir.py 15)
+2026-10-27,bf9589f,[P3] 사진 거르기(#43),1667,1280,8,,,,,,,,,,,,,,,사진 제외 1570/4003(brochure 286·press 543·other 741) — Argon 대상 2000·OCR 만 364
+2026-10-27,deb5e69,[P3] 판독 병렬 4(#44),1677,,8,,,,,,,,,,,,,,,Argon 분당 8 → 29장; 2000장 80분
+2026-10-27,3b6b298,feat tunnel(#45),1696,,8,,,,,,,,,,,,,,,Cloudflare Tunnel+Access 준비(코드·plist·절차) — 터널 미기동
+2026-10-27,(feat/source-ip),자료원 IP 확인 [I](#46),1729,1329,8,7578,8105,15723,7236,262,,,,,,,,,,web Vitest 58; 실호출 ScienceON ok·NTIS 3 대상 NtisIpBlocked(공인 IP 59.0.251.250 는 등록 목록에 있음); cache/source_availability.json
+2026-10-27,(feat/login),로그인 사번·공용 계정 [A](#48),1756,1337,8,,,,,,,,,,,,,,,테스트 +26; web Vitest 59(axe 0)·Playwright 13(두 로그인 경로); data/auth 700/600·git 추적 없음
+2026-10-27,(fix/image-vision-basis),fix text_basis image_vision CHECK(#47),,,8,,,,,,,,,,,,,,,migration 006 표 재생성(rowid 보존·FK OFF); 운영 DB 사본 8406건 보존·integrity ok; 테스트 +3
+2026-10-27,(feat/ntis-live2),NTIS 실응답 확정 [R](#50),1770,1383,8,7768,8388,16334,7487,272,,,,,,,,,,ParseError 원인=Accept json → XML 을 JSON 문자열로 감쌈(unwrap) + 보고서 DocUrl 맨 &; 실응답 fixture 6종(과제 20·보고서 10·성과 12·연관 10, 이름 NAME-REMOVED); sources check ntis/ntis_reports/ntis_insights ok(1087/202/12·10); NTIS 호출 17회
+2026-10-27,(fix/ntis-bare-amp),NTIS 보고서 파싱 수정(#51 #53),1772,,8,,,,,,,,,,,,,,,R&DB; 엔티티·공백 앞 < 이스케이프
+2026-10-27,(feat/pilot-prep),시범 준비 [D](#52),1756,,8,,,,,,,,,,227,,,,,시범 흐름 1회(골든셋 04): precheck 56s·생성 155s·최종 검토 15s·HWPX 0.2s; 골든셋 10건 평균 180s
