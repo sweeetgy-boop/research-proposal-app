@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,feat/table-facts-terms,표 구조화·용어 후보(#TBD),1572,,8,,,,,,,,,,,,,,,"scratch dry-run(레인 A 스냅샷 2026-10-27): 표 2094장→사실 48253건/문서 32건(모두 미적재 xlsx), 사실 없는 표 2035장, pdf 사실 2건, 단위 있음 46%, 연도 있음 23%, 샌드박스 거부 1, 59초; 새 테스트 72"
