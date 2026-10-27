@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | 문제 | 제안서 한 건에 드는 일(유사과제 확인·근거 수집·12개 섹션·양식), 중복 과제 탈락 | `summary.md` |
 | 2 | 목표와 범위 | 기획서 Ⅰ 범위 12개·Ⅱ 핵심 기능 7개 중 완료 현황 | `docs/status.md §1` |
-| 3 | 전체 흐름 ①~⑥ | 아이디어 입력 → 유사과제 확인·과제 추천 → 초안 생성(로컬 작성+Argon 1차 검토) → 직접 수정 → 최종 검토 → HWPX | `history/diagrams/03-six-step-flow.svg`, ADR 0011 |
+| 3 | 전체 흐름 ①~⑥ | 아이디어 입력 → 유사과제 확인·과제 추천 → 초안 생성(로컬 작성+Argon 1차 검토) → 직접 수정 → 최종 검토 → HWPX | `history/diagrams/02-six-step-flow.svg`, ADR 0011 |
 | 4 | 구조 | 헥사고날 4계층·import 계약 8건·포트/어댑터, 조립 지점 하나 | `history/diagrams/01-hexagonal-layers.svg`, ADR 0001 |
 | 5 | 자료 | 사내 과제 1,119·공시 요약 120·OpenAlex 2,482, SQLite FTS5+벡터(RRF), 관련도 하한·출처 다양성 | `metrics.csv`, ADR 0005·0010 |
 | 6 | 유사과제 판정 | 유사도 AND 공유 키워드, 기관별 임계치, 차단/근접, 차별화 제안·과제 추천 | ADR 0004·0012, `screens/` |
