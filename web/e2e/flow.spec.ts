@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { createRun, fillIdea, login, subnav } from "./helpers";
+import { createRun, detailMode, fillIdea, login, subnav } from "./helpers";
 
 test.describe("전체 흐름 ①→⑥", () => {
   test("아이디어 → 유사과제(추천 0건) → 보강 질문 없음 → 생성 → 초안 → 수정 → 버전 비교 → 최종 검토 → HWPX 내려받기 → 다시 열기", async ({ page }) => {
     await login(page);
 
-    // ① 입력 검증: 빈 제출
+    // ① 입력 검증: 빈 제출 (상세 입력)
+    await detailMode(page);
     await page.getByRole("button", { name: "유사과제 확인" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "필수 슬롯이 비었습니다" })).toBeVisible();
 
@@ -63,6 +64,8 @@ test.describe("전체 흐름 ①→⑥", () => {
     await page.getByRole("button", { name: "유사과제 확인" }).click();
     await expect(page.getByText("추천 0건")).toBeVisible();
     await page.getByRole("button", { name: "원래 아이디어로 진행" }).click();
+    await expect(page).toHaveURL(/\/new\/brief$/);
+    await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
     await expect(page).toHaveURL(/\/new\/clarify$/);
     await expect(page.getByText("보강 질문 없음")).toBeVisible();
   });
@@ -71,6 +74,7 @@ test.describe("전체 흐름 ①→⑥", () => {
     await login(page);
     await fillIdea(page);
     await page.getByRole("button", { name: "유사과제 확인" }).click();
+    await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();
     await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
     await expect(page.getByRole("button", { name: "건너뛰고 생성" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "초안 생성 시작" })).toBeVisible();

@@ -1,5 +1,6 @@
 /** 정책 근거 추천 — 다른 레인이 만드는 `POST /v1/ideas/policy-suggestions` 의 클라이언트. 모양이 바뀌면 이 파일만 고친다.
- *  아직 main 에 없을 수 있어 404/503 을 "미개방" 으로 돌려준다(화면은 짧은 안내만). */
+ *  아직 main 에 없을 수 있어 404/405/503 을 "미개방" 으로 돌려준다(화면은 짧은 안내만). 호출은 제안자가 버튼을 눌렀을 때만
+ *  (화면을 열 때마다 4xx 를 받으면 브라우저 콘솔 오류가 남아 CSP e2e 가 깨진다). */
 import { isApiError } from "./client";
 import { request } from "./client";
 import type { ProposalRequest } from "./types";
@@ -37,7 +38,8 @@ export async function fetchPolicySuggestions(req: ProposalRequest): Promise<Poli
     const items = Array.isArray(out?.items) ? out.items.filter((i) => i && typeof i.quote === "string") : [];
     return { state: "ok", items };
   } catch (e) {
-    if (isApiError(e) && (e.status === 404 || e.status === 503)) return { state: "unavailable" };
+    // 404·405(경로 없음 — SPA 정적 catch-all 은 GET 만 받는다)·503(꺼짐) → 미개방
+    if (isApiError(e) && (e.status === 404 || e.status === 405 || e.status === 503)) return { state: "unavailable" };
     return { state: "error", error: e };
   }
 }

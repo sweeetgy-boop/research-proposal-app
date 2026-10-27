@@ -7,7 +7,9 @@ import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { UntrustedText } from "@/components/UntrustedText";
 
-/** ① 정책 근거 추천 — 다른 레인의 엔드포인트. 404/503 이면 영역을 접고 한 줄 안내만.
+export const POLICY_UNAVAILABLE = "정책 근거 추천은 정책 자료 적재 뒤 열립니다.";
+
+/** ① 정책 근거 추천 — 다른 레인의 엔드포인트. 제안자가 [추천 받기]를 누를 때 한 번 부르고, 404/405/503 이면 영역을 접고 한 줄 안내만.
  *  고른 문구는 제안자가 눌렀을 때만 정책 근거 칸 뒤에 덧붙는다(자동 반영 없음). */
 export function PolicySuggestions({ request, onPick }: { request: ProposalRequest; onPick: (text: string) => void }) {
   const probe = useQuery({
@@ -15,12 +17,13 @@ export function PolicySuggestions({ request, onPick }: { request: ProposalReques
     queryFn: () => fetchPolicySuggestions(request),
     staleTime: 5 * 60_000,
     retry: false,
+    enabled: false, // 버튼으로만
   });
   const data = probe.data;
   if (data?.state === "unavailable") {
     return (
-      <p className="text-xs text-muted-foreground" role="note">
-        정책 근거 추천은 정책 자료 적재 뒤 열립니다.
+      <p className="text-xs text-muted-foreground" role="status">
+        {POLICY_UNAVAILABLE}
       </p>
     );
   }
@@ -33,11 +36,11 @@ export function PolicySuggestions({ request, onPick }: { request: ProposalReques
         </h2>
         <Button variant="outline" size="sm" onClick={() => probe.refetch()} disabled={probe.isFetching}>
           <RefreshCw className={probe.isFetching ? "animate-spin" : ""} aria-hidden="true" />
-          다시 받기
+          {data ? "다시 받기" : "추천 받기"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">정책 자료에서 찾은 문구입니다(수집 자료, 비신뢰). 고른 것만 정책 근거 칸 뒤에 덧붙습니다.</p>
-      {probe.isPending ? (
+      <p className="text-xs text-muted-foreground">정책 자료에서 찾은 문구입니다(수집 자료, 비신뢰). 고른 것만 정책 근거 칸 뒤에 덧붙습니다 — 자동으로 넣지 않습니다.</p>
+      {probe.isFetching ? (
         <SkeletonBlock lines={2} />
       ) : data?.state === "error" ? (
         <ProblemBanner error={data.error} onRetry={() => probe.refetch()} />

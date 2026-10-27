@@ -22,6 +22,8 @@ test("모든 화면 캡처", async ({ page }) => {
   await page.getByRole("button", { name: "유사과제 확인" }).click();
   await expect(page).toHaveURL(/precheck/);
   await shot(page, 3, "precheck");
+  await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();
+  await expect(page).toHaveURL(/brief/);
   await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
   await expect(page.getByText("보강 질문 없음")).toBeVisible();
   await shot(page, 4, "clarify");
