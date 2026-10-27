@@ -6,6 +6,11 @@ I/O 라이브러리 객체(httpx·sqlite·모델)는 만들지 않는다. 돌려
 
 from __future__ import annotations
 
+import logging
+import shutil
+import subprocess  # nosec B404 - git rev-parse 만, 인자 고정·shell 없음
+from collections.abc import Callable, Mapping
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +30,9 @@ STRATEGY_DRAFT_FILE = "templates/korail_strategy.draft.yaml"
 STRATEGY_SOURCES = ("draft", "confirmed")
 SLOTS_FILE = f"templates/{TEMPLATE}.slots.yaml"
 FORM_FILE = f"templates/{TEMPLATE}.hwpx"
+
+
+logger = logging.getLogger(__name__)
 
 
 # ── 원시 읽기 ──────────────────────────────────────────────
@@ -82,6 +90,134 @@ def rnd_notice_config(settings: Settings) -> dict[str, Any]:
 def korail_web_config(settings: Settings) -> dict[str, Any]:
     """공사 홈페이지 스냅샷 수집 설정 (config/korail_web.yaml). 없으면 빈 dict."""
     return read_config("korail_web.yaml", settings)
+
+
+# ── 데이터 폴더 (RRA_DATA_DIR) ───────────────────────────────
+# 모든 실행 데이터(DB·크롤 스냅샷·캐시·vision_cache·inbox)는 레인 worktree 가 아니라 원 저장소의
+# data/ 절대 경로에 둔다. worktree 를 지우면 그 안의 미커밋 데이터가 같이 사라지기 때문이다.
+DATA_DIR_NAME = "data"
+_GIT_TIMEOUT_SEC = 5
+_announced: set[Path] = set()
+
+
+@lru_cache(maxsize=16)
+def _git_repo_root(cwd: str) -> Path | None:
+    """`git rev-parse --git-common-dir` → 원 저장소 루트. 연결 worktree 에서도 본 체크아웃의
+    `.git` 을 돌려주므로 그 부모가 원 저장소다. git 이 없거나 저장소 밖이면 None."""
+    git = shutil.which("git")
+    if git is None:
+        return None
+    try:
+        proc = subprocess.run(  # nosec B603 - 절대 경로 실행 파일, 고정 인자, shell 없음  # noqa: S603
+            [git, "rev-parse", "--git-common-dir"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=_GIT_TIMEOUT_SEC,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    common = Path(proc.stdout.strip())
+    if not common.is_absolute():
+        common = Path(cwd) / common
+    common = common.resolve()
+    if common.name != ".git":  # bare 저장소·서브모듈 — 어디가 루트인지 단정하지 않는다
+        return None
+    return common.parent
+
+
+def resolve_data_dir(settings: Settings | None = None, *, cwd: Path | None = None) -> Path:
+    """데이터 폴더 절대 경로. RRA_DATA_DIR(settings.data_dir) > 원 저장소/data > cwd/data.
+    처음 정해질 때 경로 한 줄만 로그에 남긴다(값·비밀 없음)."""
+    base = Path(cwd or Path.cwd()).resolve()
+    override = settings.data_dir if settings is not None else None
+    if override is not None:
+        path = Path(override).expanduser()
+        if not path.is_absolute():
+            path = base / path
+        path = path.resolve()
+    else:
+        root = _git_repo_root(str(base))
+        path = (root if root is not None else base) / DATA_DIR_NAME
+    if path not in _announced:
+        _announced.add(path)
+        logger.info("데이터 폴더: %s", path)
+    return path
+
+
+def data_path(settings: Settings | None, rel: str | Path, *, only_prefixed: bool = False) -> Path:
+    """데이터 경로를 데이터 폴더 기준 절대 경로로. 절대 경로는 그대로.
+    상대 경로는 앞의 `data/` 를 떼고 데이터 폴더 아래로 옮긴다
+    (`data/korail_web` → <data_dir>/korail_web).
+    only_prefixed=True 면 `data/` 로 시작하는 상대 경로만 옮기고 나머지 상대 경로(runs 등)는
+    그대로 둔다."""
+    path = Path(rel).expanduser()
+    if path.is_absolute():
+        return path
+    parts = path.parts
+    if parts and parts[0] == DATA_DIR_NAME:
+        return resolve_data_dir(settings).joinpath(*parts[1:])
+    if only_prefixed:
+        return path
+    return resolve_data_dir(settings) / path
+
+
+# 데이터 위치 표 — 키: (설정을 읽는 함수, yaml 키, 기본값). composition 의 build_* 와 worktree 보호
+# 테스트가 같은 표를 쓴다. 새 데이터 경로는 여기에 더한다 — 소스에 "data/…" 리터럴을 두지 않는다.
+_DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, str]] = {
+    "alio_catalog": (lambda s: source_config(s, "alio"), "catalog_dir", "data/catalog"),
+    "alio_inbox": (lambda s: source_config(s, "alio"), "inbox_dir", "data/inbox/alio"),
+    "alio_summary_inbox": (
+        lambda s: source_config(s, "alio").get("summary") or {},
+        "inbox_dir",
+        "data/inbox/alio_summary",
+    ),
+    "own_projects_inbox": (lambda s: source_config(s, "own"), "projects_inbox", "data/inbox/own"),
+    "own_docs_inbox": (lambda s: source_config(s, "own"), "docs_inbox", "data/inbox/own_docs"),
+    "ntis_cache": (
+        lambda s: source_config(s, "ntis").get("insights") or {},
+        "cache_dir",
+        "data/cache/ntis",
+    ),
+    "korail_web": (korail_web_config, "snapshot_dir", "data/korail_web"),
+    "rnd_notice": (rnd_notice_config, "snapshot_dir", "data/rnd_notice"),
+    "bai": (lambda s: read_config("bai.yaml", s), "snapshot_dir", "data/bai"),
+    "molit": (molit_config, "store_dir", "data/molit"),
+    "mofe": (lambda s: read_config("mofe.yaml", s), "store_dir", "data/mofe"),
+    "datago": (lambda s: read_config("datago.yaml", s), "store_dir", "data/datago"),
+    "vision_store": (
+        lambda s: read_config(VISION_FILE, s).get("paths") or {},
+        "store",
+        "data/korail_web",
+    ),
+    "vision_snapshots": (
+        lambda s: read_config(VISION_FILE, s).get("paths") or {},
+        "snapshots",
+        "data/korail_web/snapshots",
+    ),
+    "eval": (lambda s: {}, "", "data/eval"),
+    "bench": (lambda s: {}, "", "data/bench"),
+}
+DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
+
+
+def data_location(settings: Settings, key: str, *, cfg: Mapping[str, Any] | None = None) -> Path:
+    """표의 한 항목을 데이터 폴더 기준 절대 경로로. cfg 를 주면 그 매핑에서 읽는다(이미 읽은
+    yaml)."""
+    if key == "db":
+        return data_path(settings, settings.db_path)
+    loader, field, default = _DATA_LOCATIONS[key]
+    table = cfg if cfg is not None else (loader(settings) or {})
+    value = table.get(field) if field else None
+    return data_path(settings, value or default)
+
+
+def data_locations(settings: Settings) -> dict[str, Path]:
+    """composition 이 쓰는 모든 데이터 경로 {키: 절대 경로}. 진단·보호 테스트용."""
+    return {key: data_location(settings, key) for key in DATA_LOCATION_KEYS}
 
 
 # ── LLM ────────────────────────────────────────────────────
@@ -192,8 +328,8 @@ def vision_config(settings: Settings) -> dict[str, Any]:
     return {
         "filter": dict(cfg.get("filter") or {}),
         "cap": int(cfg.get("cap", 2000)),
-        "snapshots_dir": str(paths.get("snapshots", "data/korail_web/snapshots")),
-        "store_dir": str(paths.get("store", "data/korail_web")),
+        "snapshots_dir": str(data_location(settings, "vision_snapshots", cfg=paths)),
+        "store_dir": str(data_location(settings, "vision_store", cfg=paths)),
         "sample_dir": str(paths.get("sample", "docs/ocr-sample")),
         "order_keywords": {k: list(v) for k, v in order.items() if isinstance(v, list)},
         "attachments": {

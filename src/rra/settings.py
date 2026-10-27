@@ -17,7 +17,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="RRA_", env_file=".env", extra="ignore")
 
-    db_path: Path = Path("data/rra.sqlite")
+    # 모든 실행 데이터(DB·스냅샷·캐시·inbox)의 뿌리. 비우면 config_loader.resolve_data_dir 가
+    # 원 저장소(git common dir 의 부모)/data 를 쓴다 — 레인 worktree 안에 데이터를 남기지 않는다.
+    data_dir: Path | None = None
+    db_path: Path = Path("data/rra.sqlite")  # 상대 경로는 data_dir 기준으로 다시 맞춘다
     runs_dir: Path = Path("runs")
     config_dir: Path = Path("config")
 

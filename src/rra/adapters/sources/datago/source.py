@@ -43,7 +43,7 @@ class DataGoKrFileSource:
         *,
         datasets: Sequence[Mapping[str, Any]],
         base_url: str = "https://www.data.go.kr",
-        store_dir: Path = Path("data/datago"),
+        store_dir: Path,
         limits: SandboxLimits,
         institutions: Sequence[Mapping[str, Any]] = (),
         max_file_bytes: int = 50 * 1024 * 1024,
