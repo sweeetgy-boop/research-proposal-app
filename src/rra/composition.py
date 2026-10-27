@@ -18,6 +18,7 @@ from rra.config_loader import (
     KEYED_SOURCES,
     MissingCredential,
     allowed_domains,
+    api_config,
     credential_status,
     data_location,
     data_locations,
@@ -1403,10 +1404,19 @@ def api_middlewares(
     )
 
     limits = input_limits(settings)
+    api = api_config(settings)
     outer_to_inner = [
         (SecurityHeadersMiddleware, {}),
         (BodyLimitMiddleware, {"max_bytes": int(limits.get("api_max_body_bytes", 64 * 1024))}),
-        (TokenAuthMiddleware, {"token": token, "sessions": sessions}),
+        (
+            TokenAuthMiddleware,
+            {
+                "token": token,
+                "sessions": sessions,
+                "public_origin": api["public_origin"],
+                "trust_cf": api["trust_cf_connecting_ip"],
+            },
+        ),
     ]
     return list(reversed(outer_to_inner))
 
@@ -1560,6 +1570,7 @@ def build_api(
         query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
         on_shutdown=manager.generate.llm.aclose,
         session_auth=SessionAuth(token, sessions),
+        public_origin=api_config(settings)["public_origin"],
         static_dir=static,
         sse_poll_sec=sse_poll_sec,
         fake_mode=fake is not None,

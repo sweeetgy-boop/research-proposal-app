@@ -1,9 +1,10 @@
-"""deploy/launchd plist 4종 — 라벨·바인딩·비밀 없음·일정·백업 보관 7벌·야간 적재 옵션 (파일만)."""
+"""deploy/launchd plist 5종 — 라벨·바인딩·비밀 없음·일정·백업 7벌·야간 적재·터널 (파일만)."""
 
 import plistlib
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).parents[2]
 PLISTS = {
@@ -11,8 +12,11 @@ PLISTS = {
     "com.rra.mlx": ROOT / "deploy/launchd/com.rra.mlx.plist",
     "com.rra.backup": ROOT / "deploy/launchd/com.rra.backup.plist",
     "com.rra.ingest": ROOT / "deploy/launchd/com.rra.ingest.plist",
+    "com.rra.tunnel": ROOT / "deploy/launchd/com.rra.tunnel.plist",
 }
+TUNNEL_EXAMPLE = ROOT / "deploy/cloudflared/config.example.yml"
 SECRET_NAMES = ("TOKEN", "KEY", "MAC", "CLIENT_ID", "PASSWORD")
+PUBLIC_HOST = "rra.ai-edu-lab.co.kr"
 
 
 def load(name):
@@ -65,3 +69,30 @@ async def test_backup_keep_seven_leaves_exactly_seven(tmp_path):
         report = await backup(tmp_path, keep=7)
     assert len(report.kept) == 7 and len(list(tmp_path.glob("rra-*.sqlite"))) == 7
     assert report.removed and all(not p.exists() for p in report.removed)
+
+
+def test_tunnel_plist_runs_named_tunnel_from_config_without_secrets():
+    """터널 plist: `cloudflared tunnel --config …/config.yml run rra`, 상시, 비밀 없음."""
+    data = load("com.rra.tunnel")
+    args = data["ProgramArguments"]
+    assert args[0].endswith("/cloudflared") and args[1] == "tunnel" and args[-2:] == ["run", "rra"]
+    assert args[args.index("--config") + 1].endswith("/.cloudflared/config.yml")
+    assert "--token" not in args and not any(".json" in a or "cert.pem" in a for a in args)
+    assert "--url" not in args  # quick tunnel(임의 공개 주소) 금지 — 이름 있는 터널만
+    assert data["KeepAlive"] == {"SuccessfulExit": False} and data["RunAtLoad"] is True
+    text = PLISTS["com.rra.tunnel"].read_text(encoding="utf-8")
+    assert "0.0." + "0.0" not in text  # 모든 인터페이스 바인딩 문자열 금지
+
+
+def test_tunnel_example_config_routes_public_host_to_loopback_only():
+    """config.example.yml: 공개 호스트 1개 → 127.0.0.1:8000, 마지막은 404, ID 는 자리표시자."""
+    text = TUNNEL_EXAMPLE.read_text(encoding="utf-8")
+    cfg = yaml.safe_load(text)
+    assert cfg["tunnel"] == "<TUNNEL_ID>" and "<TUNNEL_ID>.json" in cfg["credentials-file"]
+    rules = cfg["ingress"]
+    assert rules[-1] == {"service": "http_status:404"}
+    named = [r for r in rules[:-1] if "hostname" in r]
+    assert [r["hostname"] for r in named] == [PUBLIC_HOST]
+    assert all(r["service"].startswith("http://127.0.0.1:") for r in named)
+    assert "8501" not in text  # Streamlit 은 공개하지 않는다
+    assert "api_token" not in text.lower() and "-----BEGIN" not in text
