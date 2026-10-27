@@ -439,7 +439,7 @@ class GenerateProposal:
             # 재요청은 기본 프롬프트로(설계도·본보기·후보·메모 없이) — 긴 지시가 붙을수록 7B 가 JSON
             # 대신 글을 쓴다(2026-10-27 측정: 제목·활용계획에서 반복)
             compact = self._prompt(
-                key, instruction, req, snapshot, options.get(key) if spec else None
+                key, instruction, req, snapshot, options.get(key) if spec else None, compact=True
             )
             raw2 = await self.llm.complete(
                 f"{compact}\n\n[형식 교정 — 직전 응답은 형식 오류였음]\n{hint}",
@@ -490,6 +490,7 @@ class GenerateProposal:
         candidate: Section | None = None,
         notes: Mapping[str, str] | None = None,
         keep: Sequence[str] = (),
+        compact: bool = False,  # 형식 교정 재요청용 — 설계도·본보기·후보 없이 기본 지시만
     ) -> str:
         parts = [
             f"[섹션: {key}]\n{instruction}",
@@ -507,7 +508,7 @@ class GenerateProposal:
             summary = outline.summary_text()
             if summary:
                 parts.append(f"[전체 설계 요약 — 섹션 간 일관성 유지]\n{summary[:600]}")
-        exemplar_rows = self._exemplar_rows(key, snapshot)
+        exemplar_rows = "" if compact else self._exemplar_rows(key, snapshot)
         if exemplar_rows:  # Q4 본보기 — 구성·문체만. doc id 는 주지 않는다 (근거로 못 달게)
             parts.append(
                 "[본보기 — 채택된 과제의 같은 항목 문장. 구성·문체·분량만 참고하고 내용·수치·"
