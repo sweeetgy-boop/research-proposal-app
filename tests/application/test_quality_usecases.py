@@ -146,7 +146,7 @@ async def test_precheck_with_reranker_widens_then_reranks_and_keeps_similarity()
 
 
 # ── Q4 본보기 ──────────────────────────────────────────────
-async def test_exemplars_are_picked_in_retrieve_and_cited_or_copied_sentences_are_dropped():
+async def test_exemplars_are_picked_in_retrieve_and_copied_sentences_are_dropped():
     r = repo()
     r.similar = [(EXEMPLAR, 0.93)]
     llm = FakeLLM(
@@ -155,7 +155,7 @@ async def test_exemplars_are_picked_in_retrieve_and_cited_or_copied_sentences_ar
                 [
                     {"text": "이력을 분석해 열화를 예측함.", "evidence": ["openalex:W1#0"]},
                     {"text": "검측 이력을 분석함.", "evidence": []},  # 본보기 문장 그대로
-                    {"text": "본보기를 근거로 씀.", "evidence": ["own:ex#0"]},  # 본보기 doc 인용
+                    {"text": "본보기 과제를 근거로 씀.", "evidence": ["own:ex#0"]},  # 인용은 허용
                 ],
                 ensure_ascii=False,
             )
@@ -165,8 +165,11 @@ async def test_exemplars_are_picked_in_retrieve_and_cited_or_copied_sentences_ar
     snap = await g.retrieve(REQ)
     assert snap.exemplars[0]["doc_id"] == "own:ex" and not snap.overlap_checked
     composed = await g.compose_section("method", REQ, snap)
-    assert [s.text for s in composed.section.sentences] == ["이력을 분석해 열화를 예측함."]
-    assert sum(EXEMPLAR_DROP in d for d in composed.dropped) == 2
+    assert [s.text for s in composed.section.sentences] == [
+        "이력을 분석해 열화를 예측함.",
+        "본보기 과제를 근거로 씀.",  # 검색 근거에 든 본보기 doc 인용은 막지 않는다
+    ]
+    assert sum(EXEMPLAR_DROP in d for d in composed.dropped) == 1
     assert (
         "[본보기" in llm.calls[0]
         and "own:ex" not in llm.calls[0].split("[본보기")[1].split("[자료]")[0]

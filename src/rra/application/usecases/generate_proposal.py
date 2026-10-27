@@ -53,7 +53,7 @@ from rra.domain.models.selection import (
     UTILIZATION_SOURCE,
 )
 from rra.domain.rules import style
-from rra.domain.rules.exemplars import exemplar_ids, pick_exemplars
+from rra.domain.rules.exemplars import pick_exemplars
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.lint import (
@@ -390,7 +390,8 @@ class GenerateProposal:
             f"[섹션: {key}]\n{instruction}",
             f"[제안 입력]\n{json.dumps(req.prompt_view(), ensure_ascii=False)}",
         ]
-        if outline is not None:  # Q2 설계도 — 앱이 검증한 값(근거 id 는 검색 집합 안)
+        prose = options is None and key != "title"  # 제목·선택형은 설계 요약·본보기를 넣지 않는다
+        if outline is not None and prose:  # Q2 설계도 — 앱이 검증한 값(근거 id 는 검색 집합 안)
             plan = outline.plan(key)
             if plan is not None:
                 parts.append(
@@ -400,7 +401,7 @@ class GenerateProposal:
                 )
             summary = outline.summary_text()
             if summary:
-                parts.append(f"[전체 설계 요약 — 섹션 간 일관성 유지]\n{summary[:1200]}")
+                parts.append(f"[전체 설계 요약 — 섹션 간 일관성 유지]\n{summary[:600]}")
         exemplar_rows = self._exemplar_rows(key, snapshot)
         if exemplar_rows:  # Q4 본보기 — 구성·문체만. doc id 는 주지 않는다 (근거로 못 달게)
             parts.append(
@@ -460,11 +461,14 @@ class GenerateProposal:
     def _enforce_no_exemplar(
         self, key: str, section: Section, snapshot: RetrievalSnapshot
     ) -> tuple[Section, list[str]]:
-        """Q4 인용 금지 검증 — 본보기 과제 id 를 근거로 달았거나 본보기 문장을 그대로 쓴 문장은
-        폐기."""
+        """Q4 인용 금지 검증 — 본보기 문장을 그대로 쓴 문장은 폐기한다.
+
+        본보기 과제가 검색 근거에도 들어 있으면 그 doc 을 근거로 인용하는 것은 막지 않는다 — 가장
+        관련 있는 사내 기록이라 막으면 문장이 통째로 사라진다(2026-10-27 측정 2단계에서 title·
+        overlap_review 까지 빈칸이 되어 invalid). 본보기 id 는 프롬프트에 주지 않으므로 "본보기로서"
+        인용할 길은 없다."""
         if not snapshot.exemplars:
             return section, []
-        banned = exemplar_ids(snapshot.exemplars)
         copied = {
             _norm_text(t)
             for ex in snapshot.exemplars
@@ -475,8 +479,7 @@ class GenerateProposal:
         kept: list[Sentence] = []
         dropped: list[str] = []
         for s in section.sentences:
-            cites = any(e.split("#", 1)[0] in banned for e in s.evidence)
-            if cites or _norm_text(s.text) in copied:
+            if _norm_text(s.text) in copied:
                 dropped.append(f"{key}: {EXEMPLAR_DROP} → 폐기: {s.text[:40]}")
                 continue
             kept.append(s)

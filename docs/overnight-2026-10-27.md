@@ -43,6 +43,40 @@
 | 10:10~10:25 | [Q] Q9 도구 | `rra eval`(EvaluateQuality, --pipeline none/all/default, --on/--off, --no-review, --report 비교표). 테스트 1,277 통과. 커밋 |
 | 10:26 | [Q] Q9 측정 1 | baseline(모두 끔)·all(모두 켬) × 골든셋 3, Argon 1차 검토 포함(Gemini 6회 예정) 백그라운드 시작 |
 
+| 10:33 | [Q] Q9 측정 1 결과 | baseline(모두 끔): 01 v1 알림 1→v2 1·점수 4/2/3/3·193s, 03 알림 8→5·점수 3/2/2/2, 02 는 tech_importance JSON 형식 오류 2회로 invalid(품질 단계와 무관). all(모두 켬): 01 알림 5→2·점수 4/3/3/3·반영 10+추가 3·238s, 03 알림 7→4·후보 B 선택 1, 02 는 title 형식 오류로 invalid. **발견한 결함 2건**: 본보기(Q4)가 0건(공시 요약의 "■ 연구목적 ◦" 꼴을 파서가 못 읽음), 섹션별 검색(Q3)이 한국어 질의로 논문을 전부 밀어내 논문 인용 6→0. 둘 다 고침(파서 확장, 섹션 근거에도 자료원 섞임 유지) → all 재측정(all2)을 2단계에 넣음 |
+| 10:40 | [Q] Q8 precheck 적중 | 골든셋 10건(기존 3 + [4] 초안 7) precheck 정답 적중: reranker 없이 9/10, 있이 9/10(03 은 둘 다 주차 안내 과제에 차단 — 기존 판정 특성). 평균 정답 순위 1.7 → 1.4(10 은 3위 → 1위, 01·05·10 의 상위 5 가 전부 같은 주제로 바뀜). 지연: k×4(40건) 2.0~2.4s 로 상한 초과 → k×3(30건) 1.5~1.95s. 정답 목록은 두 모드의 상위 5 제목을 보고 같은 주제의 사내 기록을 더해 넓혔다(기록: data/eval/precheck_hits*.json) |
+| 10:45 | [Q] Q9 측정 2 시작 | baseline-02 재시도, all2, minus-additions·minus-two_candidates(Argon 포함, 골든셋 3), local-none/local-all/local-minus-{outline,section_search,exemplars,rule_check,reranker}(01·02, Argon 없이). Gemini 예정 10회 |
+
+## 레인 현황 (2026-10-27 10:56 추가 지시 — 통합 담당 = 메인 세션, 서브에이전트 최대 4)
+
+| 레인 | 작업 | 브랜치 / 워크트리 | 상태 | 대기 중인 의존 |
+|---|---|---|---|---|
+| 통합 | [0] 정리(Q8 기본 켬·회귀 테스트·retrieval_mix.yaml), pytest-xdist·CI 분할, CONTRIBUTING 조각 규칙, Q9 2단계 결론, PR 합치기·공유 파일 반영 | feat/draft-quality → 이후 chore/parallel-ci, feat/retrieval-mix | 진행 | Q9 2단계(대기열) |
+| 웹 | [3] 웹 프론트엔드 → U9(U1~U8 합침 뒤) | feat/web (../rra-web) | [3] 완료 → PR #23 CI 통과 → 병합 11:00. 화면 11·Vitest 33·e2e 8·Lighthouse 100/100/100·axe 0·초기 JS gzip 110.6KB | U9 ← U1~U8·[3] 합침 |
+| A | [C] 공사 홈페이지 탐색·내려받기 → [P2] 수집처 확장 탐색·내려받기, [P] 코드·fixture | feat/policy-crawl (../rra-wt/feat-policy-crawl) | 시작 10:58 | [P] 적재·[P3] 판독은 내려받기 뒤(대기열) |
+| B | [S] ScienceON 1~2단계(실호출 검증·fixture·매핑) | feat/scienceon-live (../rra-wt/feat-scienceon-live) | 시작 10:58 | 3단계 적재는 대기열 |
+| C | [U] 백엔드 U1~U8(가짜 LLM 테스트까지) | feat/usability (../rra-wt/feat-usability) | 시작 10:58 | U9·U10 은 합친 뒤 |
+| (미배정) | [P3] 이미지 판독 코드·fixture → 판독(Argon 2,000회 별도), [P] 적재, [P2] 적재, [Z] | feat/policy-vision | 대기 | 레인 A 내려받기 |
+
+## 대기열 (무거운 작업, 한 번에 하나 — mlx·임베딩·재색인·대량 파싱·OCR·적재·측정)
+
+| 순서 | 작업 | 상태 |
+|---|---|---|
+| 1 | Q9 2단계 빼기 실험(9개 구성) | 진행 중 10:45~ |
+| 2 | [S] 3단계 ScienceON 적재 1,000~2,000건 | 대기(레인 B 1~2단계 뒤) |
+| 3 | [P] 공사 홈페이지 스냅샷 적재 | 대기(레인 A 내려받기 뒤) |
+| 4 | [P3] 대조용 OCR | 대기 |
+| 5 | [P2] 확장 수집처 적재 | 대기 |
+| 6 | 재색인 | 대기 |
+| 7 | U10·골든셋 측정(10건) | 대기([S]·[P]·[P2] 적재 뒤) |
+| 8 | 보류 재시도분 적재·재측정 | 대기 |
+
+Gemini 상한: 이미지 판독 2,000회(별도), 그 외 오늘 추가 작업 80회(사용 0). 이전 야간 지시분(Q9)은 120회 상한 안에서 계속(누계 아래 표).
+
+| 11:05 | [3] 완료 | 서브에이전트 보고: 화면 11개·DraftEditor·Vitest 33·Playwright e2e 8·Lighthouse 100/100/100(/login)·axe 0(7화면)·초기 JS gzip 110.6KB. 미재현: 추천 ≥1·보강 질문 ≥1·키 없음 경로는 가짜 모드가 못 만듦(UI 는 구현). 백엔드 간극: main 의 build_api 가 clarify 를 안 넘김([Q] 에서 수정), POST /v1/runs 에 acknowledged 없음, 응답 스키마 없음, draft 문장 sentence_id 없음 → 통합 작업에서 처리. 검사 재확인 뒤 PR |
+
+| 11:00 | [3] 병합 | PR #23 병합. 통합: chore/parallel-ci(pytest-xdist·CI 분할·heavy lock·조각 규칙) PR 생성 |
+
 ## 판단 기록
 - [H] 배경 메모 중 저장소에 근거가 없는 항목(팀 구성·54초·DRM·.env 흰 화면·8501 충돌·웹 React 결정)은 "(대화 기록 기준, 미검증)" 으로 표시. 팀원 이름은 개인정보라 기록하지 않음.
 - [H] Mermaid SVG 는 `npx @mermaid-js/mermaid-cli`(puppeteer, 저장소 밖 캐시)로 렌더. 02 는 edge 라벨의 따옴표 때문에 실패 → 따옴표 제거.
@@ -69,3 +103,4 @@
 | [R] 실측 3차 (골든셋 3, 1회는 네트워크 실패로 0) | 3 | 10 |
 | [R] 실측 4차 (골든셋 3, warn) | 3 | 13 |
 | [E] 실제 흐름 확인 (골든셋 01 생성 + 1차 검토) | 1 | 14 |
+| [Q] Q9 측정 1 (baseline 2 + all 2; 02 는 invalid 라 검토 없음) | 4 | 18 |
