@@ -18,7 +18,7 @@ from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.numbers import unsupported_numbers
 from rra.domain.rules.trust import escape_untrusted
 
-MIN_CHARS = 8
+MIN_CHARS = 5  # 이보다 짧은 칸("짧음" 같은 한 어절)은 다시 묻는다
 MAX_QUESTIONS = 4
 QUESTIONS: dict[str, str] = {
     "current_state": "지금 현장에서 어떤 문제가 어떻게 나타나고 있습니까? (대상·빈도·영향)",
