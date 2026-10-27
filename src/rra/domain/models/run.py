@@ -163,8 +163,11 @@ class RetrievalSnapshot(BaseModel):
     chunks: list[Chunk]
     overlap: list[OverlapAlert] = Field(default_factory=list)
     overlap_checked: bool = False  # False 면 유사과제 판정을 하지 않은 것 ("없음"과 구분)
-    # Q3 섹션별 맞춤 검색 결과 — 섹션 키 → 그 섹션이 쓸 chunk_id (chunks 안). 비면 전체를 쓴다
+    # Q3 섹션별 맞춤 검색 결과 — 섹션 키 → 그 섹션이 쓸 chunk_id (chunks 안). 비면 기본 검색 집합을 쓴다
     section_chunks: dict[str, list[str]] = Field(default_factory=dict)
+    # 섹션별 검색이 더한 chunk_id — 섹션 검색이 없는 섹션(제목·선택형 등)은 이것을 빼고 기본 집합만 본다
+    # (전부 주면 프롬프트가 3배로 커져 7B 가 JSON 을 못 지킨다, 2026-10-27 측정 3단계)
+    section_added: list[str] = Field(default_factory=list)
     # Q4 채택 과제 본보기 — 구성·문체 참고용(인용 금지). {doc_id, status, sections: {key: [문장]}}
     exemplars: list[dict[str, Any]] = Field(default_factory=list)
     # 근거 구성 규칙(retrieval_mix)용 doc_id → doc_type. 비면 규칙을 적용하지 않는다(옛 스냅샷)
@@ -207,6 +210,7 @@ class RetrievalSnapshot(BaseModel):
         """섹션이 쓸 근거 — 섹션별 검색 결과가 있으면 그것(+ 유사과제 보탬 청크), 없으면 전체."""
         ids = self.section_chunks.get(key)
         if not ids:
-            return list(self.chunks)
+            added = set(self.section_added)
+            return [c for c in self.chunks if c.chunk_id not in added]
         wanted = set(ids)
         return [c for c in self.chunks if c.chunk_id in wanted or c.chunk_id.endswith("#overlap")]

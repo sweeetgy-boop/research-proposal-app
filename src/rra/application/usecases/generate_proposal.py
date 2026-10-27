@@ -238,6 +238,7 @@ class GenerateProposal:
                 if c.chunk_id not in have:
                     have.add(c.chunk_id)
                     snapshot.chunks.append(c)
+                    snapshot.section_added.append(c.chunk_id)
             await self._fill_doc_types(snapshot)
             if self.mix is not None:
                 ranked = self.mix.filter(key, ranked, snapshot.doc_types)
