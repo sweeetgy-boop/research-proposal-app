@@ -104,6 +104,21 @@ CI(`gh pr checks --watch`) 통과 뒤 자동 병합(`--merge --delete-branch`), 
 | [1] | `chore/collab` | CI 워크플로·CODEOWNERS·PR 템플릿·CONTRIBUTING | 완료 2026-10-26 | #17 |
 | [2] | `feat/openalex-rail-corpus` | OpenAlex 철도 코퍼스 2,482건·근거 출처 다양성·generate 종료 코드 | 완료 2026-10-26 | #18 |
 | [3] | `docs/status-corpus-ci` | 이 문서 갱신([1]·[2] 결과, CI, 보호 규칙) | 완료 2026-10-26 | #19 |
+| [H] | `docs/history` | 개발 경과 기록(연표·수치·ADR·교훈·구조도·그래프·캡처), CONTRIBUTING 규칙 | 완료 2026-10-27 | #20 |
+| [R] | `feat/project-recommendations` | 차별화 과제 추천(0~5건, 검증·자기 중복 경고·미리보기), ADR 0012 | 완료 2026-10-27 | #21 |
+| [E] | `feat/draft-pipeline` | 2중 작성·직접 수정·최종 검토·버전 관리(ADR 0011), pipeline.yaml | 완료 2026-10-27 | #22 |
+| [W] | `feat/web` | 웹 프론트엔드 11화면·DraftEditor·e2e·Lighthouse 100·axe 0 (ADR 0015) | 완료 2026-10-27 | #23 |
+| 병렬 | `chore/parallel-ci` | pytest-xdist, CI 분할(backend-unit/api·web-check/e2e + 모음 job), 무거운 작업 락, 조각 파일 규칙 | 완료 2026-10-27 | #24 |
+| [S] | `feat/scienceon-live` | ScienceON 실호출·fixture·매핑, 특허 기본 자료원(ADR 0016); 3단계 적재 2,045건 | 완료 2026-10-27 | #25 |
+| 수정 | `fix/ci-e2e-path` | CI web-e2e 백엔드 경로 | 완료 2026-10-27 | #26 |
+| [U] | `feat/usability` | 사용 편의성 U1~U8 백엔드(REST 14경로, usability.yaml, ADR 0017) | 완료 2026-10-27 | #27 |
+| [P3] | `feat/policy-vision` | 웹 이미지 판독(거르기·OCR·Argon·캐시·신뢰도 규칙·공용 Gemini 제한기, ADR 0018) — 코드; 판독·적재는 대기열 | 완료 2026-10-27 | #28 |
+| [C]·[P]·[P2-1] | `feat/policy-crawl` | 공사 홈페이지·국토부 크롤러·스냅샷·적재 어댑터·전략체계 초안·정책 근거 추천(ADR 0019) | 완료 2026-10-27 | #29 |
+| U9 | `feat/web-u9` | 사용 편의성 웹 반영(간편 입력·정책 근거·비교표·브리핑·근거 패널·다시 쓰기·제출 전 점검·만족도) | 완료 2026-10-27 | #30 |
+| [Q] | `feat/draft-quality` | 초안 품질 강화 8가지 + `rra eval` 측정 + 기본값 결정(ADR 0013), retrieval_mix.yaml, 골든셋 10건, acknowledged 게이트 | 완료 2026-10-27 | #31 |
+| [5] | `fix/eval-findings` | 측정 결함 수정(JSON 찌꺼기 관용 파싱) | 완료 2026-10-27 | #32 |
+| [6] | `docs/presentation-kit` | 발표 자료 원천 묶음 | 완료 2026-10-27 | #33 |
+| [Z] | `docs/final-2026-10-27` | 이 문서·history·presentation-kit 갱신, 최종 점검 | 진행 2026-10-27 | — |
 
 ## 5. 병합 결과·실제 확인 (2026-10-26)
 
@@ -146,3 +161,18 @@ CI backend pass(1분), detect pass, web skipping. 깨끗한 클론(.env·data �
 `.env RRA_OPENALEX_MAILTO` 값(polite pool), `config/templates/korail_strategy.yaml` 전략체계 목록, 연구과제 공고문
 (`data/inbox/notice/`), Mac mini 에 launchd 4종 실제 등록(`deploy/README.md` 설치 순서) + 첫 `rra ingest --source openalex --full`,
 main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기면 CODEOWNERS 의 동료 TODO 채우기.
+
+## 6. 2026-10-27 추가 작업 결과 (레인 병렬, 조각은 `docs/status.d/`·`docs/history/*.d/`)
+
+| 영역 | 결과 | 상세 |
+|---|---|---|
+| 초안 품질 강화 [Q] | 8가지를 `config/pipeline.yaml` 로 켜고 끄며 측정(`rra eval`, 구성 16개) 뒤 기본값: section_search·additions·reranker·rule_check 켬 / clarify·outline·exemplars·two_candidates 끔. 결정 조합은 같은 코퍼스 기준 대비 점수 +1.5/run·충족률 +0.06·시간 +13%. precheck reranker 적중 9/10·순위 1.7→1.4 | `docs/eval-2026-10-27.md`, ADR 0013, `docs/status.d/feat-draft-quality.md` |
+| 근거 구성 규칙 | `config/retrieval_mix.yaml` — 섹션별 허용 doc_type·논문·보고서·특허 최소 보장·유사과제 판정 제외(정책·보도·통계) | architecture §4.16 |
+| ScienceON [S] | 실호출 검증·fixture·매핑, 적재 2,045건(논문 888·보고서 588·특허 569). 특허 기본 자료원은 ScienceON(ADR 0016). **.env 의 client_id·인증키가 서로 바뀌어 있음(사람 확인)** | `docs/status.d/feat-scienceon-live.md` |
+| 공사 홈페이지·국토부 [C]·[P]·[P2-1] | info.korail.com 50개 메뉴 스냅샷(www.korail.com 은 SPA·봇 보호라 제외, 보도자료 5년, 50MB 초과 13건 보류), 크롤러·적재 어댑터·전략체계 초안(5 방향·15 과제)·정책 근거 추천·국토부 판 추적. 적재·측정은 대기열 | `docs/korail-web-crawl.md`, ADR 0019, `docs/status.d/feat-policy-crawl.md` |
+| 이미지 판독 [P3] | 거르기·macOS OCR(샌드박스)·Argon 이미지 입력·해시 캐시·신뢰도 규칙(OCR 교집합 수치만)·공용 Gemini 제한기·표본 도구 — 코드·fixture 83건. 실판독은 대기열 | ADR 0018, `docs/status.d/feat-policy-vision.md` |
+| 사용 편의성 [U] | U1~U8 백엔드(REST 14경로·CLI 5·usability.yaml)와 U9 웹 반영(8화면 추가, vitest 51·e2e 9) | ADR 0017, `docs/status.d/feat-usability.md`·`feat-web-u9.md` |
+| 웹 [W] | Vite+React+TS SPA 11화면 + U9, Lighthouse 100/100/100(/login), axe 0, 초기 JS 111.6KB gzip | ADR 0015, `web/README.md` |
+| 병렬 검사 | pytest-xdist(1,495 테스트 ≈10s), CI backend-unit/api·web-check/e2e + 모음 job, heavy lock, 조각 파일 규칙 | CONTRIBUTING |
+
+보류·미착수: P2-2 안전 통계(키 필요)·P2-4 감사원(JS·robots)·P2-6 발주 용역(POST 폼)·P2 우선순위 2 전부, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구.
