@@ -1,8 +1,8 @@
 """표 → 사실 적재 (P2-8). 적재(ingest) 뒤에 돈다 — 문서 doc_id 는 자료원 어댑터와 같은 규칙으로
 만든다.
 
-- TableSourcePort 가 낸 표마다 `table_to_facts`(순수) → 문서별로 모아 `replace_facts`(통째 교체,
-  멱등).
+- TableSourcePort 가 낸 표마다 `facts_of`(순수, 격자·본문 줄) → 문서별로 모아 `replace_facts`
+  (통째 교체, 멱등).
 - 문서가 아직 저장소에 없으면(missing_doc) 사실은 그대로 넣고 건수·id 를 보고한다 — 수치 lint 는
   검색 집합에 든 문서의 사실만 쓰므로 해가 없고, 나중에 문서가 적재되면 바로 연결된다.
 - dry_run 이면 저장하지 않고 건수만.
@@ -16,7 +16,7 @@ from typing import Any
 from rra.application.ports import DocumentRepository
 from rra.application.ports.table_facts import TableFactRepository, TableSourcePort
 from rra.domain.models import TableFact
-from rra.domain.rules.table_facts import table_to_facts
+from rra.domain.rules.table_facts import facts_of
 
 MAX_REPORTED_IDS = 20
 
@@ -63,7 +63,7 @@ class ExtractTableFacts:
         per_doc: dict[str, list[TableFact]] = {}
         for table in await self.source.tables(limit=limit):
             report.tables += 1
-            found = table_to_facts(table)
+            found = facts_of(table)
             if not found:
                 report.empty_tables += 1
                 continue

@@ -222,6 +222,17 @@ def _all_years(cells: Sequence[Cell]) -> bool:
 
 
 # ── 격자 → 사실 ───────────────────────────────────────────
+def facts_of(table: ParsedTable) -> list[TableFact]:
+    """ParsedTable 하나 → 사실. 격자(rows)면 table_to_facts, 본문 줄(lines)이면 facts_from_lines."""
+    if table.rows:
+        return table_to_facts(table)
+    if table.lines:
+        return facts_from_lines(
+            table.lines, doc_id=table.doc_id, page=table.page, unit=table.unit, basis=table.basis
+        )
+    return []
+
+
 def table_to_facts(table: ParsedTable) -> list[TableFact]:
     rows = [list(r[:MAX_COLS]) for r in table.rows[:MAX_ROWS]]
     idx = header_index(rows)

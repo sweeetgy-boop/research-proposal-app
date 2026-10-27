@@ -45,7 +45,9 @@ class ParsedTable(BaseModel):
     """어댑터 → 규칙. rows 는 문자열 격자(빈 칸 None). title·notes 는 단위 탐지에만 쓴다."""
 
     doc_id: str = Field(min_length=1, max_length=200)
-    rows: list[list[str | None]]
+    rows: list[list[str | None]] = Field(default_factory=list)
+    # 격자가 아니라 본문 줄(PDF 텍스트·문서 body)이면 lines 에 — 규칙은 정렬된 숫자 줄만 사실로 본다
+    lines: list[str] = Field(default_factory=list)
     page: int | None = Field(default=None, ge=1)
     sheet: str | None = Field(default=None, max_length=MAX_LABEL_CHARS)
     title: str | None = Field(default=None, max_length=300)
