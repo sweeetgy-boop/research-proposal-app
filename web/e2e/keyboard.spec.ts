@@ -16,6 +16,11 @@ test("키보드만으로 로그인 → 입력 → 유사과제 확인 → 다음
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/new$/);
 
+  // 입력 방식 라디오: 화살표로 상세 입력(4칸) 선택
+  await page.getByRole("radio", { name: "간편 입력" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("radio", { name: "상세 입력(4칸)" })).toBeChecked();
+
   await page.getByLabel(/현재 상황·문제/).focus();
   await page.keyboard.type("궤도 틀림이 반복 발생함");
   await page.keyboard.press("Tab");
@@ -34,9 +39,12 @@ test("키보드만으로 로그인 → 입력 → 유사과제 확인 → 다음
   await expect(page).toHaveURL(/precheck/);
 
   // 포커스 링이 보이는지: 포커스된 요소의 outline 이 none 이 아니어야 한다
-  await page.getByRole("button", { name: /다음: 보강 질문/ }).focus();
+  await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).focus();
   const outline = await page.evaluate(() => getComputedStyle(document.activeElement as Element).outlineStyle);
   expect(outline).not.toBe("none");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/brief/);
+  await page.getByRole("button", { name: /다음: 보강 질문/ }).focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/clarify/);
 

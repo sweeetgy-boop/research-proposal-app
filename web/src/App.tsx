@@ -9,6 +9,7 @@ const Login = lazy(() => import("@/routes/Login"));
 const Idea = lazy(() => import("@/routes/Idea"));
 const Precheck = lazy(() => import("@/routes/Precheck"));
 const Clarify = lazy(() => import("@/routes/Clarify"));
+const Brief = lazy(() => import("@/routes/Brief"));
 const Runs = lazy(() => import("@/routes/Runs"));
 const RunLayout = lazy(() => import("@/routes/run/RunLayout"));
 const Progress = lazy(() => import("@/routes/run/Progress"));
@@ -17,6 +18,7 @@ const Edit = lazy(() => import("@/routes/run/Edit"));
 const Versions = lazy(() => import("@/routes/run/Versions"));
 const FinalReview = lazy(() => import("@/routes/run/FinalReview"));
 const Finalize = lazy(() => import("@/routes/run/Finalize"));
+const SubmitCheck = lazy(() => import("@/routes/run/SubmitCheck"));
 const Search = lazy(() => import("@/routes/Search"));
 const Sources = lazy(() => import("@/routes/Sources"));
 
@@ -38,6 +40,7 @@ export default function App() {
             <Route index element={<Navigate to="/new" replace />} />
             <Route path="/new" element={<Idea />} />
             <Route path="/new/precheck" element={<Precheck />} />
+            <Route path="/new/brief" element={<Brief />} />
             <Route path="/new/clarify" element={<Clarify />} />
             <Route path="/runs" element={<Runs />} />
             <Route path="/runs/:id" element={<RunLayout />}>
@@ -46,6 +49,7 @@ export default function App() {
               <Route path="edit" element={<Edit />} />
               <Route path="versions" element={<Versions />} />
               <Route path="final-review" element={<FinalReview />} />
+              <Route path="submit-check" element={<SubmitCheck />} />
               <Route path="finalize" element={<Finalize />} />
             </Route>
             <Route path="/search" element={<Search />} />

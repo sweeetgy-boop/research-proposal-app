@@ -1,8 +1,10 @@
 import * as React from "react";
 import { Navigate, useNavigate } from "react-router";
 import { ShieldAlert } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { differentiate, recommend } from "@/api/endpoints";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { comparison, differentiate, recommend } from "@/api/endpoints";
+import { isApiError } from "@/api/client";
+import { ComparisonTable } from "@/features/idea/ComparisonTable";
 import type { RecommendationPreview } from "@/api/types";
 import { updateIdea, updateRequest, useIdea } from "@/features/idea/store";
 import { AlertsTable } from "@/features/idea/AlertsTable";
@@ -20,6 +22,20 @@ export default function Precheck() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const pre = idea.precheck;
+
+  // U4 차별성 비교표 — 입력이 바뀌면 다시 받는다 (LLM 없음)
+  const cmp = useQuery({
+    queryKey: ["comparison", idea.request],
+    queryFn: () => comparison(idea.request),
+    enabled: !!pre,
+    staleTime: Infinity,
+    retry: false,
+  });
+  const recFor = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of pre?.recommendations?.recommendations ?? []) for (const d of r.compared_with) if (!m.has(d)) m.set(d, r.index);
+    return m;
+  }, [pre]);
 
   const recommendM = useMutation({
     mutationFn: () => recommend(idea.request),
@@ -85,7 +101,7 @@ export default function Precheck() {
     toast(`추천 ${index + 1}번을 입력에 반영했습니다. 가제·목표를 확인한 뒤 진행하십시오.`, "success");
   };
 
-  const next = () => navigate("/new/clarify");
+  const next = () => navigate("/new/brief");
 
   return (
     <div className="space-y-8">
@@ -119,6 +135,15 @@ export default function Precheck() {
         <AlertsTable alerts={pre.alerts} />
       </section>
 
+      <ComparisonTable
+        data={cmp.data?.comparison}
+        loading={cmp.isPending}
+        error={isApiError(cmp.error) && cmp.error.status === 503 ? null : cmp.error}
+        unavailable={isApiError(cmp.error) && cmp.error.status === 503}
+        onRetry={() => cmp.refetch()}
+        recommendationFor={recFor}
+      />
+
       <ProblemBanner error={differentiateM.error} />
       <DifferentiationPanel
         diff={pre.differentiation}
@@ -150,7 +175,7 @@ export default function Precheck() {
           ← 입력 고치기
         </Button>
         <Button onClick={next} disabled={!gateOk} aria-disabled={!gateOk}>
-          다음: 보강 질문 →
+          다음: 선행연구 브리핑 →
         </Button>
       </div>
     </div>

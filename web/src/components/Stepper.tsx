@@ -2,12 +2,12 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const FLOW_STEPS = [
-  { n: 1, label: "아이디어 입력" },
-  { n: 2, label: "유사과제 확인" },
-  { n: 3, label: "초안 생성" },
-  { n: 4, label: "직접 수정" },
-  { n: 5, label: "최종 검토" },
-  { n: 6, label: "최종 마무리" },
+  { n: 1, label: "아이디어 입력", hint: "간편·상세, 정책 근거" },
+  { n: 2, label: "유사과제 확인", hint: "추천·비교표·브리핑" },
+  { n: 3, label: "초안 생성", hint: "근거 패널" },
+  { n: 4, label: "직접 수정", hint: "다시 쓰기·보완 질문" },
+  { n: 5, label: "최종 검토", hint: "제출 전 점검" },
+  { n: 6, label: "최종 마무리", hint: "다운로드" },
 ] as const;
 
 const CIRCLED = ["①", "②", "③", "④", "⑤", "⑥"];
@@ -37,6 +37,7 @@ export function Stepper({ current, className }: { current: number | null; classN
                 )}
                 <span className="sr-only">{`${s.n}단계${state === "done" ? " 완료" : state === "current" ? " 진행 중" : ""}: `}</span>
                 {s.label}
+                <span className="sr-only"> ({s.hint})</span>
               </span>
               {i < FLOW_STEPS.length - 1 && <span aria-hidden="true" className="h-px w-2 bg-border sm:w-4" />}
             </li>

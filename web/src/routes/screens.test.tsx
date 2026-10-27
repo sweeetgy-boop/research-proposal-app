@@ -55,7 +55,7 @@ describe("유사과제 확인", () => {
     const { container } = renderWithProviders(<Precheck />, { route: "/new/precheck" });
     expect(screen.getByRole("heading", { name: /유사과제 1건/ })).toBeInTheDocument();
     expect(screen.getByText("추천 0건")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /다음: 보강 질문/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /다음: 선행연구 브리핑/ })).toBeEnabled();
     await expectNoA11yViolations(container);
   });
 
@@ -64,7 +64,7 @@ describe("유사과제 확인", () => {
     const pre = { ...(precheckFx as PrecheckOut), blocking: true, alerts: (precheckFx as PrecheckOut).alerts.map((a) => ({ ...a, blocking: true })) };
     updateIdea({ precheck: pre, request: { ...emptyRequest(), current_state: "a", root_cause: "b", limitation: "c", goal: "d" } });
     renderWithProviders(<Precheck />, { route: "/new/precheck" });
-    const next = screen.getByRole("button", { name: /다음: 보강 질문/ });
+    const next = screen.getByRole("button", { name: /다음: 선행연구 브리핑/ });
     expect(next).toBeDisabled();
     await userEvent.click(screen.getByLabelText(/차단 경보를 확인했고/));
     expect(next).toBeEnabled();

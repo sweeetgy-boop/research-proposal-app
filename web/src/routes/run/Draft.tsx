@@ -1,9 +1,11 @@
 import * as React from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { AlertTriangle, BookOpen } from "lucide-react";
 import { useRunContext } from "./useRunContext";
-import { useDraft, useDraftReview, useOutline, useVersion } from "@/api/hooks";
-import type { Citation, DraftSection, VersionSection } from "@/api/types";
+import { useDraft, useDraftReview, useOutline, useSubmitCheck, useVersion } from "@/api/hooks";
+import type { Citation, DraftSection, Problem_, VersionSection } from "@/api/types";
+import { EvidencePanel } from "@/features/evidence/EvidencePanel";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -34,7 +36,7 @@ function toRows(sections: (DraftSection | VersionSection)[]): Row[] {
 function SectionHeader({ section }: { section: DraftSection | VersionSection }) {
   const choices = "choices" in section && section.choices && !Array.isArray(section.choices) ? section.choices : null;
   return (
-    <div className="mt-6 border-b pb-1 first:mt-0">
+    <div id={`sec-${section.key}`} className="mt-6 scroll-mt-24 border-b pb-1 first:mt-0">
       <h3 className="text-base font-semibold">{sectionTitle(section.key)}</h3>
       {choices && (
         <p className="mt-1 text-sm">
@@ -57,16 +59,36 @@ function SectionHeader({ section }: { section: DraftSection | VersionSection }) 
   );
 }
 
-function SentenceLine({ row, citations, problem }: { row: Extract<Row, { kind: "sentence" }>; citations: Citation[]; problem?: string }) {
+function SentenceLine({
+  row,
+  citations,
+  problem,
+  onOpen,
+}: {
+  row: Extract<Row, { kind: "sentence" }>;
+  citations: Citation[];
+  problem?: string;
+  /** 현재 버전일 때만 — 문장을 누르면 근거 패널 */
+  onOpen?: (sid: string) => void;
+}) {
   return (
-    <div className="flex gap-2 py-1.5">
+    <div id={`sent-${row.key}`} className="flex scroll-mt-24 gap-2 py-1.5">
       <span className="w-6 shrink-0 pt-0.5 text-right text-xs tabular-nums text-muted-foreground" aria-hidden="true">
         {row.index + 1}
       </span>
       <div className="min-w-0 flex-1">
-        <UntrustedText as="p" text={row.text} />
+        {onOpen ? (
+          <UntrustedText as="p" text={row.text} className="cursor-pointer rounded hover:bg-accent/60" onClick={() => onOpen(row.key)} />
+        ) : (
+          <UntrustedText as="p" text={row.text} />
+        )}
         <div className="mt-1 flex flex-wrap items-center gap-1">
           <OriginBadge origin={row.origin} />
+          {onOpen && (
+            <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => onOpen(row.key)} aria-label={`${sectionTitle(row.section)} 문장 ${row.index + 1} 근거 ${row.evidence.length}건 보기`}>
+              근거 {row.evidence.length}건 보기
+            </Button>
+          )}
           {row.source === "proposer_input" && row.evidence.length === 0 && row.section !== "title" && <Badge variant="outline">근거 없음</Badge>}
           {problem && (
             <Badge variant="warning">
@@ -91,6 +113,28 @@ export default function Draft() {
   const [tab, setTab] = React.useState<string>("current");
   const selected = tab === "current" ? null : Number(tab);
   const version = useVersion(id, selected);
+  const [params, setParams] = useSearchParams();
+  const [evidenceSid, setEvidenceSid] = React.useState<string | null>(() => params.get("evidence"));
+  const submitCheck = useSubmitCheck(id);
+  const strategyDraft = (submitCheck.data?.items ?? []).some((i) => i.key === "strategy_source" && i.source === "draft");
+  const openEvidence = (sid: string) => {
+    setEvidenceSid(sid);
+    setTab("current");
+  };
+  const closeEvidence = () => {
+    setEvidenceSid(null);
+    if (params.has("evidence")) {
+      params.delete("evidence");
+      setParams(params, { replace: true });
+    }
+  };
+  // 제출 전 점검 → section:<key> 앵커로 들어오면 스크롤 (가상화 전이면 DOM 에 있다)
+  React.useEffect(() => {
+    if (!window.location.hash || draft.isPending) return;
+    const el = document.getElementById(window.location.hash.slice(1));
+    el?.scrollIntoView({ block: "start" });
+    (el as HTMLElement | null)?.focus?.();
+  }, [draft.isPending]);
 
   if (draft.isPending) {
     return (
@@ -105,13 +149,20 @@ export default function Draft() {
   const sections: (DraftSection | VersionSection)[] = selected === null ? d.sections : (version.data?.sections ?? []);
   const rows = toRows(sections);
   const problemBySentence = new Map<string, string>();
+  const problemsBySentence = new Map<string, Problem_[]>();
   const sectionProblems = d.problems.filter((p) => p.sentence === null);
-  for (const p of d.problems) if (p.sentence !== null) problemBySentence.set(`s:${p.section}:${p.sentence}`, p.message);
+  for (const p of d.problems)
+    if (p.sentence !== null) {
+      const sid = `s:${p.section}:${p.sentence}`;
+      if (!problemBySentence.has(sid)) problemBySentence.set(sid, p.message);
+      problemsBySentence.set(sid, [...(problemsBySentence.get(sid) ?? []), p]);
+    }
+  const evidenceRow = evidenceSid ? rows.find((r) => r.kind === "sentence" && r.key === evidenceSid) : undefined;
 
   const tabs = [{ id: "current", label: `현재 v${d.version}` }, ...versions.filter((v) => v !== d.version).map((v) => ({ id: String(v), label: `v${v}` }))];
 
   const renderRow = (row: Row) =>
-    row.kind === "header" ? <SectionHeader section={row.section} /> : <SentenceLine row={row} citations={d.citations} problem={problemBySentence.get(row.key)} />;
+    row.kind === "header" ? <SectionHeader section={row.section} /> : <SentenceLine row={row} citations={d.citations} problem={problemBySentence.get(row.key)} onOpen={selected === null ? openEvidence : undefined} />;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -122,6 +173,7 @@ export default function Draft() {
             직접 수정 →
           </Link>
         </div>
+        <p className="text-xs text-muted-foreground">문장을 누르면 근거 원문·적합성을 보고 승인·교체·제외를 정할 수 있습니다 (현재 버전만).</p>
         <Tabs items={tabs} value={tab} onChange={setTab} label="초안 버전" />
         {tabs.map((t) => (
           <TabPanel key={t.id} id={t.id} active={t.id === tab}>
@@ -212,6 +264,17 @@ export default function Draft() {
           </div>
         </details>
       </aside>
+
+      <EvidencePanel
+        runId={id}
+        sentenceId={evidenceSid}
+        sentenceText={evidenceRow && evidenceRow.kind === "sentence" ? evidenceRow.text : undefined}
+        citations={d.citations}
+        problems={evidenceSid ? problemsBySentence.get(evidenceSid) ?? [] : []}
+        baseVersion={d.version}
+        strategyDraft={strategyDraft}
+        onClose={closeEvidence}
+      />
     </div>
   );
 }
