@@ -120,6 +120,9 @@ def link_readings(
     pages = pages or {}
     report = LinkReport()
     for r in results:
+        if r.status == "photo":  # 사진은 적재하지 않는다 — alt·캡션은 vision_log 메타에만
+            report.skipped[r.sha256] = "photo"
+            continue
         page = pages.get(r.item.page_doc_id or "") or pages.get(r.item.page_url or "")
         text = compose_text(r)
         if not text.strip():

@@ -44,6 +44,7 @@ def test_cached_hashes_do_not_consume_budget_and_cap_sends_rest_to_ocr_only():
         "cached": 2,
         "expected_calls": 2,
         "ocr_only": 2,
+        "photos": 0,
         "cap": 2,
         "groups": {"strategy": 6},
     }

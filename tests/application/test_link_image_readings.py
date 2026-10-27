@@ -115,3 +115,12 @@ def test_unknown_source_without_page_is_skipped_not_raised():
     assert ok.documents[0].source == "korail_web"  # 크롤 레인이 추가한 자료원은 통과
     out2 = link_readings([result(data, TABLE_READING, source="own")], {})
     assert out2.documents[0].source == "own" and out2.documents[0].orgs == ["korail"]
+
+
+def test_photo_results_are_not_ingested():
+    from rra.application.usecases.link_image_readings import link_readings
+    from rra.domain.models.vision import ImageItem, ImageReadResult
+
+    it = ImageItem(sha256="a" * 64, path="p.jpg", alt="행사 사진")
+    out = link_readings([ImageReadResult(sha256="a" * 64, status="photo", item=it)])
+    assert out.documents == [] and out.skipped == {"a" * 64: "photo"}

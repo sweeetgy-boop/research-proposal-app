@@ -10,7 +10,7 @@ dry-run 은 이 계획(판독 예정 수·예상 호출 수·OCR 만 할 목록)
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 
 from rra.domain.models.vision import ORDER_GROUPS, ImageItem, OrderGroup
@@ -77,6 +77,7 @@ class VisionPlan:
     cached: list[ImageItem] = field(default_factory=list)  # 호출 없이 캐시로 끝나는 것
     to_call: list[ImageItem] = field(default_factory=list)  # Argon 호출 예정
     ocr_only: list[ImageItem] = field(default_factory=list)  # 상한 초과 → OCR 만
+    photos: list[ImageItem] = field(default_factory=list)  # OCR 로 사진 판정 → Argon 안 보냄
     cap: int = DEFAULT_CAP
     groups: dict[str, int] = field(default_factory=dict)
 
@@ -90,6 +91,7 @@ class VisionPlan:
             "cached": len(self.cached),
             "expected_calls": self.expected_calls,
             "ocr_only": len(self.ocr_only),
+            "photos": len(self.photos),
             "cap": self.cap,
             "groups": dict(self.groups),
         }
@@ -102,9 +104,11 @@ def plan(
     cap: int = DEFAULT_CAP,
     keywords: dict[OrderGroup, tuple[str, ...]] | None = None,
     limit: int | None = None,
+    is_photo: Callable[[ImageItem, OrderGroup], bool] | None = None,
 ) -> VisionPlan:
     """거르기를 통과한 항목을 순서대로 세우고 예산을 배분한다. limit 는 처리 항목 수
-    상한(테스트·시험용)."""
+    상한(테스트·시험용). is_photo(item, group) 가 참이면 사진 — 순서에는 남지만 Argon 예산에서
+    빠지고 OCR 만 목록에도 넣지 않는다(메타만 남긴다)."""
     cached = set(cached_hashes)
     rank = {g: i for i, g in enumerate(ORDER_GROUPS)}
     tagged = [(classify_group(it, keywords), it) for it in items]
@@ -118,6 +122,8 @@ def plan(
         out.groups[group] = out.groups.get(group, 0) + 1
         if it.sha256 in cached:
             out.cached.append(it)
+        elif is_photo is not None and is_photo(it, group):
+            out.photos.append(it)
         elif len(out.to_call) < out.cap:
             out.to_call.append(it)
         else:
