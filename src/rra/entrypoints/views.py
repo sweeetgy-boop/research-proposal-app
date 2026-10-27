@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.overlap import tier_label
 
@@ -101,6 +102,11 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
         "versions": list(getattr(view, "versions", []) or []),
         "review": review_summary(state, getattr(view, "review", None)),
         "flow": flow_summary(state, getattr(view, "has_working", False)),
+        # 전략체계 목록의 출처 — draft 면 2-가-(3) 선택지가 확인 전 초안이라는 뜻
+        "strategy_source": getattr(view, "strategy_status", "confirmed"),
+        "strategy_label": STRATEGY_DRAFT_LABEL
+        if getattr(view, "strategy_status", "confirmed") == "draft"
+        else None,
     }
 
 
@@ -356,6 +362,31 @@ def render_check_lines(payload: dict[str, Any]) -> list[str]:
         lines.append(f" - 칸 길이 초과({kind}): {o['label']} {o['chars']}자 > {o['limit']}자")
     lines.extend(f" - {n}" for n in payload["notes"])
     return lines
+
+
+def policy_suggestions_payload(
+    suggestions: list[Any], *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """정책 근거 추천 — 제안자가 고를 목록.
+
+    policy_basis_text 는 고른 뒤 칸에 넣을 문자열(자동 삽입 없음)."""
+    from rra.domain.rules.policy_phrases import policy_basis_text
+
+    return [
+        {
+            "doc_id": s.doc_id,
+            "title": clean(s.title),
+            "year": s.year,
+            "page": clean(s.page) if s.page else None,
+            "quote": clean(s.quote),
+            "url": s.url,
+            "menu_path": clean(s.menu_path) if s.menu_path else None,
+            "keywords": list(s.keywords),
+            "similarity": s.similarity,
+            "policy_basis_text": clean(policy_basis_text(s)),
+        }
+        for s in suggestions
+    ]
 
 
 def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) -> dict[str, Any]:

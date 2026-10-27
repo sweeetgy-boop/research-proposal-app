@@ -21,6 +21,8 @@ from rra.settings import Settings
 DEFAULT_STAGE = "compose"
 TEMPLATE = "proposal_korail"
 STRATEGY_FILE = "templates/korail_strategy.yaml"
+STRATEGY_DRAFT_FILE = "templates/korail_strategy.draft.yaml"
+STRATEGY_SOURCES = ("draft", "confirmed")
 SLOTS_FILE = f"templates/{TEMPLATE}.slots.yaml"
 FORM_FILE = f"templates/{TEMPLATE}.hwpx"
 
@@ -62,6 +64,16 @@ def retention_days(settings: Settings, default: int = 180) -> int:
 
 def source_config(settings: Settings, name: str) -> dict[str, Any]:
     return read_config("sources.yaml", settings).get(name) or {}
+
+
+def molit_config(settings: Settings) -> dict[str, Any]:
+    """국토교통부 정책자료 수집 설정 (config/molit.yaml)."""
+    return read_config("molit.yaml", settings)
+
+
+def korail_web_config(settings: Settings) -> dict[str, Any]:
+    """공사 홈페이지 스냅샷 수집 설정 (config/korail_web.yaml). 없으면 빈 dict."""
+    return read_config("korail_web.yaml", settings)
 
 
 # ── LLM ────────────────────────────────────────────────────
@@ -387,11 +399,25 @@ def lint_rules(settings: Settings) -> LintRules:
     return LintRules.model_validate(data)
 
 
+def strategy_source(settings: Settings) -> str:
+    """config/strategy.yaml `source`: draft(초안 파일 사용) | confirmed(확정 파일, 기본)."""
+    value = str(read_config("strategy.yaml", settings).get("source") or "confirmed")
+    if value not in STRATEGY_SOURCES:
+        raise ValueError(f"config/strategy.yaml source 는 draft|confirmed 중 하나: {value!r}")
+    return value
+
+
 def strategy_catalog(settings: Settings) -> StrategyCatalog:
-    """코레일 전략체계 (config/templates/korail_strategy.yaml). 파일이 없거나 비면 빈 목록."""
-    data = read_config(STRATEGY_FILE, settings)
+    """코레일 전략체계. strategy.yaml source 가 draft 면 korail_strategy.draft.yaml(status=draft),
+    confirmed 면 korail_strategy.yaml. 파일이 없거나 비면 빈 목록."""
+    status = strategy_source(settings)
+    data = read_config(STRATEGY_DRAFT_FILE if status == "draft" else STRATEGY_FILE, settings)
     return StrategyCatalog.model_validate(
-        {"source": data.get("source") or "", "directions": data.get("directions") or []}
+        {
+            "source": data.get("source") or "",
+            "status": status,
+            "directions": data.get("directions") or [],
+        }
     )
 
 

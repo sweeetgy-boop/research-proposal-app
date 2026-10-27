@@ -80,6 +80,7 @@ from rra.domain.rules.relevance import (
     filter_chunks,
 )
 from rra.domain.rules.retrieval_mix import RetrievalMix
+from rra.domain.rules.retrieval_scope import overlap_candidates
 from rra.domain.rules.rewrite import merge_candidate
 from rra.domain.rules.schedule import (
     METRIC_SECTIONS,
@@ -195,7 +196,8 @@ class GenerateProposal:
             await self._fill_doc_types(snapshot)
             return snapshot
         hits = await self.repo.find_similar(query, k=max(self.overlap_k, self.exemplar_limit * 5))
-        if self.mix is not None:  # 정책·보도·통계 문서는 과제가 아니다 — 판정 후보에서 뺀다
+        hits = overlap_candidates(hits)  # 정책·보도 자료원은 유사과제가 아니다 (retrieval_scope)
+        if self.mix is not None:  # doc_type 기준 제외(retrieval_mix.overlap_exclude)
             hits = self.mix.overlap_candidates(hits, lambda d: d.doc_type)
         if not self.check_overlap:
             snapshot = RetrievalSnapshot.of(query, chunks)

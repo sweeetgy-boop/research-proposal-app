@@ -765,6 +765,8 @@ def confirm_panel(payload: dict, view, run_id: str) -> None:
         if not options:
             st.caption(f"{label}: 선택지 목록이 비어 있어 확정할 수 없습니다.")
             continue
+        if key == "strategy_alignment" and payload.get("strategy_label"):
+            st.caption(f"{payload['strategy_label']} — 확정 전 목록입니다.")
         current = choices["confirmed"] if choices["confirmed"] is not None else choices["proposed"]
         default = [c["id"] for c in current if c["id"] in options]
         wkey = f"choice_{key}_{run_id}"

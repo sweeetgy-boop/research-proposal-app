@@ -245,6 +245,7 @@ class DraftView:
     review: ReviewRound | None = None  # 최신 검토 차수 (없으면 None)
     reviews: list[int] = field(default_factory=list)
     has_working: bool = False  # 저장하지 않은 임시 편집(draft_working.json)이 있다
+    strategy_status: str = "confirmed"  # draft 면 화면·API 에 "전략체계 초안(확인 전)" 표시
 
 
 def _utcnow() -> str:
@@ -700,6 +701,7 @@ class RunManager:
             review=self.store.load_review(user, run_id, reviews[-1]) if reviews else None,
             reviews=reviews,
             has_working=self.store.load_working(user, run_id) is not None,
+            strategy_status=self.generate.strategy.status,
         )
 
     # ── ③ Argon 1차 검토 → v2 / ⑤ 최종 검토 ─────────────────

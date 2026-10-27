@@ -12,6 +12,7 @@ from rra.application.ports import DocumentRepository
 from rra.domain.models import OverlapAlert, ProposalRequest
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.overlap import OwnUnit, judge
+from rra.domain.rules.retrieval_scope import overlap_candidates
 
 
 class PrecheckOverlap:
@@ -31,11 +32,13 @@ class PrecheckOverlap:
     async def __call__(self, req: ProposalRequest) -> list[OverlapAlert]:
         query = req.search_text()
         if self.reranker is None:
-            hits = list(await self.repo.find_similar(query, k=self.k))
+            hits = overlap_candidates(await self.repo.find_similar(query, k=self.k))
             if self.mix is not None:
                 hits = self.mix.overlap_candidates(hits, lambda d: d.doc_type)
         else:
-            wide = list(await self.repo.find_similar(query, k=self.k * self.rerank_multiplier))
+            wide = overlap_candidates(
+                await self.repo.find_similar(query, k=self.k * self.rerank_multiplier)
+            )
             if self.mix is not None:
                 wide = self.mix.overlap_candidates(wide, lambda d: d.doc_type)
             hits = list(await self.reranker.rerank_documents(query, wide, k=self.k))

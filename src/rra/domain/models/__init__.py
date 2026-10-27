@@ -15,6 +15,7 @@ from .gap import (
 )
 from .outline import Outline, SectionPlan
 from .pipeline import PipelineConfig
+from .policy import MAX_SUGGESTIONS, MIN_SUGGESTIONS, PolicySuggestion
 from .proposer import Person, ProposerInfo
 from .recommendation import (
     MAX_RECOMMENDATIONS,
@@ -33,7 +34,7 @@ from .review import (
     ReviewTransfer,
 )
 from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
-from .selection import Confirmation, StrategyCatalog
+from .selection import STRATEGY_DRAFT_LABEL, Confirmation, StrategyCatalog, StrategyStatus
 from .structure import FollowUp, StructuredIdea
 from .usability import UsabilityConfig
 from .usage import EvidenceCounts, Satisfaction, UsageRecord
@@ -69,7 +70,10 @@ __all__ = [
     "Annotation",
     "Outline",
     "SectionPlan",
+    "MAX_SUGGESTIONS",
+    "MIN_SUGGESTIONS",
     "PipelineConfig",
+    "PolicySuggestion",
     "CriterionScore",
     "DraftVersion",
     "EvidenceDecision",
@@ -86,7 +90,9 @@ __all__ = [
     "RecommendationResult",
     "ProposalRequest",
     "ProposerInfo",
+    "STRATEGY_DRAFT_LABEL",
     "StrategyCatalog",
+    "StrategyStatus",
     "UsabilityConfig",
     "RetrievalSnapshot",
     "RunState",
