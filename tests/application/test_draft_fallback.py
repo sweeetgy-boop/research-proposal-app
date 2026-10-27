@@ -187,3 +187,22 @@ async def test_run_manager_records_fallback_in_state_step_and_manifest(req, repo
         {"key": "prior_work", "provider": "gemini", "model": "gemini-4-argon", "reason": "empty"}
     ]
     assert payload["failed_sections"] == []
+
+
+async def test_all_sentences_dropped_is_retried_with_the_reasons_then_fallback(req, repo):
+    """재측정 10 의 task_type 꼴: 파싱은 ok 인데 검증(근거 범위·고유명)에서 전부 폐기 → 폐기 사유를
+    붙여 교정 재요청 → 그래도 폐기면 대체 작성."""
+    outside = js("스냅샷 밖 인용", ["ntis:nope#0"])
+    local = FakeLLM([outside, outside])
+    remote = FakeLLM([js("대체", ["alio:1#0"])])
+    uc = make(local, repo, remote)
+    composed = await uc.compose_section("prior_work", req, await uc.retrieve(req))
+    assert composed.retries == 1
+    assert "검증에서 전부 폐기됐음" in local.calls[1] and "근거 불일치" in local.calls[1]
+    assert composed.fallback is not None and composed.fallback["reason"] == "dropped"
+    assert composed.section.sentences[0].text == "대체"
+    # 대체 작성 없이 두 번 다 폐기되면 실패 섹션(dropped) — 첫 결과·폐기 사유를 남긴다
+    uc = make(FakeLLM([outside, outside]), repo, None)
+    composed = await uc.compose_section("prior_work", req, await uc.retrieve(req))
+    assert composed.section.sentences == [] and composed.retries == 1
+    assert composed.parse.ok and len(composed.dropped) == 1 and composed.fallback_error is None

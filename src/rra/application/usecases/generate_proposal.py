@@ -73,7 +73,7 @@ from rra.domain.rules.llm_output import (
     EMPTY_HINT,
     ParseResult,
     correction_hint,
-    is_empty_result,
+    dropped_hint,
     parse_choice_section,
     parse_sentences,
 )
@@ -485,13 +485,14 @@ class GenerateProposal:
         required = key in self.rules.required_sections
         raw = await self.llm.complete(prompt, system=system, json_mode=True)
         first = parsed = self._parse(key, raw, spec, options)
+        section, dropped, lost = self._validate(key, parsed, snapshot.retrieved_ids, req, snapshot)
         retries = 0
-        empty = is_empty_result(parsed, required=required)
-        if not parsed.ok or empty:
-            # 스키마·JSON 오류(또는 필수 섹션의 빈 문장 목록) 1회 재요청 — 오류 요약을 붙여 같은
-            # 섹션을 다시 묻는다
+        if self._bad(parsed, section, required):
+            # 스키마·JSON 오류, 필수 섹션의 빈 문장 목록, 검증(근거·고유명)에서 전부 폐기 —
+            # 1회 재요청.
+            # 오류 요약을 붙여 같은 섹션을 다시 묻는다
             retries = 1
-            hint = EMPTY_HINT if empty else correction_hint(parsed, choice_section=spec is not None)
+            hint = self._hint(parsed, dropped, choice_section=spec is not None)
             # 재요청은 기본 프롬프트로(설계도·본보기·후보·메모 없이) — 긴 지시가 붙을수록 7B 가 JSON
             # 대신 글을 쓴다(2026-10-27 측정: 제목·활용계획에서 반복)
             compact = self._prompt(
@@ -503,21 +504,22 @@ class GenerateProposal:
                 json_mode=True,
             )
             second = self._parse(key, raw2, spec, options)
-            if (second.ok and not is_empty_result(second, required=required)) or (
+            section2, dropped2, lost2 = self._validate(
+                key, second, snapshot.retrieved_ids, req, snapshot
+            )
+            if not self._bad(second, section2, required) or (
                 second.status == "choices_only" and not parsed.choices
             ):
-                parsed = second  # 두 번째도 실패하면 첫 결과로 기존처럼 처리한다
-            elif second.ok and parsed.ok:
-                parsed = second if second.choices or not parsed.choices else parsed
+                parsed, section, dropped, lost = second, section2, dropped2, lost2
+            elif second.ok and parsed.ok and second.choices and not parsed.choices:
+                parsed, section, dropped, lost = second, section2, dropped2, lost2
+            # 두 번째도 실패하면 첫 결과로 기존처럼 처리한다
 
-        allowed_ids = snapshot.retrieved_ids
         fallback: dict[str, Any] | None = None
         fallback_error: str | None = None
-        if (not parsed.ok or is_empty_result(parsed, required=required)) and (
-            self.fallback_llm is not None
-        ):
+        if self._bad(parsed, section, required) and self.fallback_llm is not None:
             # 대체 작성(ADR 0027) — 로컬 2회 실패 뒤에만. 전송 범위는 검토와 같다.
-            reason = parsed.status if not parsed.ok else "empty"
+            reason = self._failure_reason(parsed, section)
             shown = self._fallback_chunks(key, snapshot)
             compact = self._prompt(
                 key,
@@ -536,14 +538,15 @@ class GenerateProposal:
                 fallback_error = type(exc).__name__
             else:
                 third = self._parse(key, raw3, spec, options)
-                if third.ok and not is_empty_result(third, required=required):
-                    parsed = third
-                    # 보안 A: 대체 작성 문장의 근거 id 는 "보여 준 청크" 집합과 대조한다
-                    allowed_ids = (
-                        {c.chunk_id for c in shown}
-                        | {c.doc_id for c in shown}
-                        | {a.doc_id for a in snapshot.overlap}
-                    )
+                # 보안 A: 대체 작성 문장의 근거 id 는 "보여 준 청크" 집합과 대조한다
+                shown_ids = (
+                    {c.chunk_id for c in shown}
+                    | {c.doc_id for c in shown}
+                    | {a.doc_id for a in snapshot.overlap}
+                )
+                section3, dropped3, lost3 = self._validate(key, third, shown_ids, req, snapshot)
+                if not self._bad(third, section3, required):
+                    parsed, section, dropped, lost = third, section3, dropped3, lost3
                     internal = internal_doc_ids(snapshot.chunks)
                     fallback = {
                         "provider": self.fallback_provider,
@@ -558,7 +561,7 @@ class GenerateProposal:
                         "calls": 1,
                     }
                 else:
-                    fallback_error = third.status if not third.ok else "empty"
+                    fallback_error = self._failure_reason(third, section3)
             logger.warning(
                 "compose.fallback section=%s reason=%s result=%s",
                 key,
@@ -566,16 +569,6 @@ class GenerateProposal:
                 "ok" if fallback else fallback_error,
             )
 
-        section, dropped = enforce_section_evidence(
-            Section(key=key, sentences=parsed.sentences, choices=parsed.choices),
-            allowed_ids,
-            evidence_required=key in self.rules.evidence_required,
-            evidence_forbidden=key in self.rules.evidence_forbidden,
-        )
-        section, lost = self._enforce_grounding(key, section, req)
-        dropped.extend(lost)
-        section, copied = self._enforce_no_exemplar(key, section, snapshot)
-        dropped.extend(copied)
         digest = hashlib.sha256(f"{system}\x1f{instruction}".encode()).hexdigest()[:16]
         return ComposedSection(
             section=section,
@@ -588,6 +581,46 @@ class GenerateProposal:
             fallback=fallback,
             fallback_error=fallback_error,
         )
+
+    def _validate(
+        self,
+        key: str,
+        parsed: ParseResult,
+        allowed_ids: set[str],
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot,
+    ) -> tuple[Section, list[str], list[str]]:
+        """파싱 결과 → 근거 범위(보안 A)·입력 고유명·본보기 인용 검증을 거친 섹션과 폐기 사유."""
+        section, dropped = enforce_section_evidence(
+            Section(key=key, sentences=parsed.sentences, choices=parsed.choices),
+            allowed_ids,
+            evidence_required=key in self.rules.evidence_required,
+            evidence_forbidden=key in self.rules.evidence_forbidden,
+        )
+        section, lost = self._enforce_grounding(key, section, req)
+        dropped.extend(lost)
+        section, copied = self._enforce_no_exemplar(key, section, snapshot)
+        dropped.extend(copied)
+        return section, dropped, lost
+
+    @staticmethod
+    def _bad(parsed: ParseResult, section: Section, required: bool) -> bool:
+        """실패 = 파싱 오류, 또는 필수 섹션인데 검증 뒤 문장이 0 (빈 목록·전부 폐기)."""
+        return not parsed.ok or (required and not section.sentences)
+
+    @staticmethod
+    def _failure_reason(parsed: ParseResult, section: Section) -> str:
+        if not parsed.ok:
+            return parsed.status
+        return "dropped" if parsed.sentences and not section.sentences else "empty"
+
+    @staticmethod
+    def _hint(parsed: ParseResult, dropped: Sequence[str], *, choice_section: bool) -> str:
+        if not parsed.ok:
+            return correction_hint(parsed, choice_section=choice_section)
+        if parsed.sentences and dropped:  # 전부 폐기 — 폐기 사유를 그대로 알려 준다
+            return dropped_hint(dropped)
+        return EMPTY_HINT
 
     def _fallback_chunks(self, key: str, snapshot: RetrievalSnapshot) -> list[Chunk]:
         """대체 작성에 보여 줄 청크 — 섹션 [자료] 와 같되, 검토 정책이 internal 제외면 뺀다."""

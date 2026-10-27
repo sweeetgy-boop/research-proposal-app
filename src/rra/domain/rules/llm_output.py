@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -207,6 +207,22 @@ def is_empty_result(result: ParseResult, *, required: bool) -> bool:
     """파싱은 됐지만 문장이 0 — 필수 섹션이면 실패로 본다(2026-10-27 측정 02·05·10 의 원인:
     7B 가 `{"choices": [...]}` 나 `[]` 만 내고 ok 로 통과해 missing → invalid)."""
     return required and result.ok and not result.sentences
+
+
+DROPPED_HINT_MAX = 3
+
+
+def dropped_hint(dropped: Sequence[str]) -> str:
+    """검증에서 문장이 전부 폐기됐을 때의 교정 문구 — 폐기 사유(근거 id 범위 밖·입력에 없는 고유명·
+    본보기 베끼기)를 그대로 알려 준다. 2026-10-28 재측정 10 의 task_type 이 이 꼴이었다."""
+    reasons = "; ".join(str(d)[:120] for d in list(dropped)[:DROPPED_HINT_MAX])
+    return (
+        "직전 응답의 문장이 검증에서 전부 폐기됐음: "
+        + reasons
+        + ". evidence 는 [자료] 구획 id 만 쓰고, 입력·자료에 없는 고유명(기관·정책·제품명)은 "
+        "쓰지 말 것. "
+        "문장을 1개 이상 다시 쓸 것."
+    )
 
 
 def parse_object(raw: str) -> dict[str, Any] | None:

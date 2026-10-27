@@ -124,6 +124,7 @@ async def test_resume_keeps_the_original_evidence_set_even_if_db_changed(repo, r
             sentence("배경"),
             sentence("문제"),
             sentence("새 문서 인용", ["new:1#0"]),
+            sentence("새 문서 인용", ["new:1#0"]),  # 전부 폐기 → 교정 재요청도 같은 답
             sentence("목표"),
         ],
         fail_at={2},
@@ -147,7 +148,8 @@ async def test_lint_failure_is_a_state_not_an_exception(repo, req):
         sentence("배경"),
         "자유 텍스트",
         "재요청도 자유 텍스트",
-        sentence("x"),
+        sentence("x"),  # prior_work: 근거 없음 → 폐기 → 교정 재요청
+        sentence("x2"),  # 재요청도 근거 없음 → 폐기 (실패 섹션 dropped)
         sentence("y"),
     ]
     mgr, _ = build(repo, FakeLLM(answers))
