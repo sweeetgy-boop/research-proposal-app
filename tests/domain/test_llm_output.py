@@ -259,3 +259,20 @@ def test_sentence_shape_leniency_wrapper_and_single_object():
     assert parse_sentences('{"sentences": "아님"}').status == "schema"
     assert parse_sentences('{"other": 1}').status == "schema"
     assert parse_sentences('[{"text": 1}]').status == "schema"
+
+
+def test_salvage_rescues_json_with_short_junk_around_it_but_not_prose():
+    from rra.domain.rules.llm_output import parse_object, parse_sentences
+
+    tail = parse_sentences('[{"text": "문장임.", "evidence": []}]}')  # 7B 가 붙이는 꼬리 '}'
+    assert tail.ok and tail.lenient and [s.text for s in tail.sentences] == ["문장임."]
+    head = parse_sentences('답: [{"text": "문장임.", "evidence": []}]')
+    assert head.ok and head.lenient
+    assert parse_object('{"a": 1}\n]') == {"a": 1}
+    prose = parse_sentences("설명이 아주 깁니다. " * 20 + '[{"text": "문장임.", "evidence": []}]')
+    assert prose.status == "json"  # 긴 머리말 속 JSON 은 살리지 않는다
+    trailing = parse_sentences(
+        '[{"text": "문장임.", "evidence": []}] 그리고 긴 설명이 이어집니다 ' * 3
+    )
+    assert trailing.status == "json"
+    assert parse_sentences("정말 JSON 아님").status == "json"

@@ -107,15 +107,43 @@ def _unwrap(text: str) -> str | None:
     return inner
 
 
-def _load(raw: str) -> tuple[ParseStatus, object, int]:
+SALVAGE_PREFIX_CHARS = 200  # 이 길이 안에서 JSON 이 시작하고
+SALVAGE_SUFFIX_CHARS = 20  # JSON 뒤에 이 길이 이하의 찌꺼기만 있으면 살린다 ("]}" 같은 꼬리)
+
+
+def _salvage(body: str) -> object | None:
+    """JSON 앞뒤에 짧은 찌꺼기가 붙은 응답에서 첫 JSON 값 하나를 건진다 (관용 처리, lenient).
+
+    7B 가 배열 뒤에 '}' 를 하나 더 붙이거나 짧은 머리말을 다는 일이 잦다(2026-10-27 측정에서
+    섹션 JSON 실패의 주된 꼴). 긴 설명문 속에 JSON 이 묻힌 것은 살리지 않는다(지시 불이행)."""
+    starts = [i for i in (body.find("["), body.find("{")) if i >= 0]
+    if not starts:
+        return None
+    start = min(starts)
+    if start > SALVAGE_PREFIX_CHARS:
+        return None
+    try:
+        value, end = json.JSONDecoder().raw_decode(body, start)
+    except ValueError:
+        return None
+    if len(body[end:].strip()) > SALVAGE_SUFFIX_CHARS:
+        return None
+    return value
+
+
+def _load(raw: str) -> tuple[ParseStatus, object, int, bool]:
+    """→ (상태, 값, 지운 태그 조각 수, 관용 처리 여부)."""
     body = _unwrap((raw or "").strip())
     if body is None:
-        return "fence", None, 0
+        return "fence", None, 0, False
     body, stripped = strip_doc_fragments(body)
     try:
-        return "ok", json.loads(body), stripped
+        return "ok", json.loads(body), stripped, False
     except ValueError:
-        return "json", None, stripped
+        value = _salvage(body)
+        if value is not None:
+            return "ok", value, stripped, True
+        return "json", None, stripped, False
 
 
 def _sentences(data: object, *, unwrap: bool = False) -> tuple[list[Sentence] | None, bool]:
@@ -139,10 +167,11 @@ def _sentences(data: object, *, unwrap: bool = False) -> tuple[list[Sentence] | 
 
 def parse_sentences(raw: str) -> ParseResult:
     n = len(raw or "")
-    status, data, stripped = _load(raw)
+    status, data, stripped, salvaged = _load(raw)
     if status != "ok":
         return ParseResult(status, n, stripped=stripped)
     sentences, lenient = _sentences(data, unwrap=True)
+    lenient = lenient or salvaged
     if sentences is None:
         return ParseResult("schema", n, stripped=stripped, lenient=lenient)
     return ParseResult("ok", n, sentences, stripped=stripped, lenient=lenient)
@@ -170,7 +199,7 @@ def correction_hint(result: ParseResult, *, choice_section: bool) -> str:
 
 def parse_object(raw: str) -> dict[str, Any] | None:
     """JSON 객체 하나만 수용 (검토 응답). 펜스 하나는 벗긴다. 그 외는 None — 폐기."""
-    status, data, _ = _load(raw)
+    status, data, _, _ = _load(raw)
     return data if status == "ok" and isinstance(data, dict) else None
 
 
@@ -178,7 +207,7 @@ def parse_choice_section(
     raw: str, allowed: Collection[str], *, min_n: int = 1, max_n: int = 1
 ) -> ParseResult:
     n = len(raw or "")
-    status, data, stripped = _load(raw)
+    status, data, stripped, salvaged = _load(raw)
     if status != "ok":
         return ParseResult(status, n, stripped=stripped)
     if not isinstance(data, dict):
@@ -198,4 +227,4 @@ def parse_choice_section(
         if choices:
             return ParseResult("choices_only", n, [], choices, stripped=stripped)
         return ParseResult("schema", n, stripped=stripped)
-    return ParseResult("ok", n, sentences, choices, stripped=stripped)
+    return ParseResult("ok", n, sentences, choices, stripped=stripped, lenient=salvaged)
