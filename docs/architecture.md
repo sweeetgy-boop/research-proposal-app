@@ -723,6 +723,23 @@ Argon 점수(필요성·차별성·실현가능성·기대효과)는 이전 run 
   → `docs/eval-<날짜>.md` "초안 품질 강화 비교"(`views.eval_markdown`). 결정 규칙은 ADR 0013.
 - manifest `review.transfers[]` 에 `additions`·`candidates`·`checklist_coverage` 만 추가(허용목록). 본문·의견 원문은 없음.
 
+### 4.16 근거 구성 규칙 `config/retrieval_mix.yaml` (2026-10-27)
+
+자료원이 늘어나면(policy·korail_news·statistics·audit·procurement·rnd_notice·ScienceON) 한국어 질의는 짧은 사내 기록·정책 문서를
+앞세워 논문·보고서·특허가 밀린다(2026-10-26 OpenAlex, 2026-10-27 Q3 섹션별 검색에서 재발). 그래서 **섹션별 허용 doc_type 과
+자료원별 최소 보장을 config 한 곳**에 둔다. 규칙은 `domain/rules/retrieval_mix.py`(RetrievalMix, 순수), 로더
+`config_loader.retrieval_mix`(파일이 없으면 None = 규칙 없음).
+- `min_per_source`: 전체 검색의 출처별 최소 보장(`overlap.yaml evidence_floor` 보다 우선). `section_min_per_source`: 섹션별 검색(Q3).
+- `sections.<키>.allow`: 그 섹션 프롬프트 `[자료]` 에 넣을 doc_type(`GenerateProposal.chunks_for`). 걸러서 0건이면 전부로 되돌리고,
+  doc_type 을 모르는 청크(옛 스냅샷)는 거르지 않는다. `min_scholarly`: 논문·보고서·특허(`scholarly`) 최소 건수 — 섹션별 검색 뒤
+  모자라면 후보 순위에서 보탠다(`top_up_scholarly`). 기술적 중요도·연구방법은 2.
+- `overlap_exclude`: 유사과제 판정(precheck·generate retrieve)에서 뺄 doc_type — 정책·보도·통계·감사·공고는 과제가 아니다.
+  발주 용역(procurement)은 판정에 들어간다("용역" 구분, [P2]).
+- 스냅샷 `RetrievalSnapshot.doc_types`(doc_id → doc_type)는 retrieve 때 저장소에서 채운다(규칙이 있을 때만).
+- 회귀 테스트: `tests/domain/test_retrieval_mix.py`, `tests/application/test_quality_usecases.py`(섹션별 검색 뒤 논문 최소 2·허용 밖
+  제외·precheck 제외), `tests/test_config_loader.py`. 새 자료원을 적재할 때마다 골든셋 01 로 섹션별 근거 구성을 확인해 기록한다.
+- 새 자료원의 doc_type 은 [P]·[P2] 레인이 추가하며, 규칙 행은 통합 담당이 이 파일에 모은다.
+
 ### 4.5 저장소(DB) 결정 (2026-10-26)
 
 **SQLite 유지.** 단일 Mac mini, 사용자 수 명, 문서 수십만 청크까지는 SQLite(FTS5 + sqlite-vec, WAL,
