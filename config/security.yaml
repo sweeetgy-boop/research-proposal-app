@@ -9,6 +9,8 @@ allowed_domains:
   - generativelanguage.googleapis.com   # Gemini OpenAI 호환 엔드포인트 (검토 LLM)
   - info.korail.com   # 공사 홈페이지(회사소개) 스냅샷 수집 — rra crawl korail (레인 A)
   - www.molit.go.kr   # 국토교통부 정책자료(철도 계획) — rra ingest --source molit (P2-1)
+  - www.kaia.re.kr    # 국토교통과학기술진흥원 사업공고 — rra crawl rnd-notice (P2-7)
+  - www.iris.go.kr    # 범부처 통합연구지원시스템 사업공고(국토교통부 필터) — rra crawl rnd-notice (P2-7)
 
 # B. 파일 상한
 file_limits:

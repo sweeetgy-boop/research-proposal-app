@@ -1288,3 +1288,14 @@ OCR 에도 있을 때만 확인, 나머지는 "[판독 확인 필요]" 표식·�
 (`adapters/llm/rate_limiter.py`: provider 당 동시 4·분당 60·429 지수 백오프+Retry-After, 프로세스 내)는
 `build_llm`·`build_vision_reader` 가 같은 provider 에 같은 객체를 붙인다. 설정 `config/vision.yaml`, `llm.yaml stages.vision`·
 `providers.gemini.rate`. 측정 `rra vision sample`(종류별 30건 나란히 + 구조화 성공률·숫자 대조 통과율·장당 시간·호출 수).
+
+### 4.18 정부 R&D 사업공고 `rnd_notice` (2026-10-27, P2-7, ADR 0023)
+
+국토교통 분야 정부 R&D 공고·RFP 를 KAIA 사업공고(GET, PDF 공고문)와 IRIS 사업공고(국토교통부 필터, 공개 POST 검색 폼 → JSON,
+인라인 공고문)에서 스냅샷으로 받는다(`adapters/sources/rnd_notice/`, `rra crawl rnd-notice`, `data/rnd_notice/snapshots/<날짜>/`,
+탐색 표 docs/korail-web-crawl.md §5). NTIS 는 robots 전면 금지라 수집하지 않는다. 규칙은 `domain/rules/notices.py`: 같은 공고는
+제목(공고번호·기호 제거)+기관+공고일 키로 한 문서(`raw.notice.also_in`), 접수 마감일 = `valid_until`(만료 공고는 저장소 규칙으로
+검색·precheck 제외), 담당자 이름·전화·이메일은 저장 전 제거. 쓰임은 정책 근거 추천 후보(`POLICY_DOC_TYPES`)와 공고문 대조
+(`usecases/notice_match.py` — 접수 중 상위 3건, LLM 없음, 자동 삽입 없음, `rra notices match`, `POST /v1/ideas/notices`)뿐이며
+유사과제 판정·기술적 중요도 근거에서는 뺀다(`retrieval_scope`, `NON_OVERLAP_SOURCES`, retrieval_mix `overlap_exclude`). #13(공고
+요건 대조)은 이 목록에서 고른 `rnd_notice:<key>` 를 notice_id 로 이어 쓴다.

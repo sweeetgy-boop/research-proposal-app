@@ -87,3 +87,23 @@
 | P2-6 연구용역 공고 (`ebid.korail.com`) | 프레임셋 + POST 폼(`torForm`, `__EventTarget`, TouchEn 키보드보안) 로 목록 조회, GET 은 "총 0 건". robots 는 오류 페이지로 307. | 보류. 대안: 공공데이터포털 나라장터 입찰공고정보 API(`apis.data.go.kr`, 키 필요, 이미 allowed_domains) 로 `procurement` 수집 — overlap.yaml 새 키·"용역으로 진행 중/예정" 상태는 미구현 |
 | P2-10 판 추적 | `domain/rules/editions.py` — 제목의 "제N차" 로 계획 가족을 묶고 최신만 현행. 차수가 없거나 등록일을 모르면 둘 다 현행(모호하면 유지). | 구현(molit 에 적용) |
 | P2-3·5·7·8·9 | 미착수 | — |
+
+## 5. P2-7 국토교통 분야 정부 R&D 공고·RFP (레인 G, 2026-10-27)
+
+탐색은 GET/POST 각 1~4회(2초 간격), 상세·첨부는 표본 1건씩. `rnd_notice` 자료원(doc_type `rnd_notice`, visibility public,
+`valid_until` = 접수 마감일 → 저장소의 만료 규칙(`sqlite_repo._VALID`)으로 마감 지난 공고는 검색·precheck 에서 빠진다).
+
+| 수집처 | robots·이용조건 | 목록 구조 | 최근 2년 건수 | 첨부(RFP) | 마감일 | 상태 |
+|---|---|---|---|---|---|---|
+| KAIA 사업공고 > 국토교통R&D 공고 (`www.kaia.re.kr/KAIA/contents/K30101000000.do`) | `Allow: /`. 저작권정책: 공공누리 제3유형(출처표시·변경금지, 게시물별 확인) | **GET** `?page=N`(10건/쪽, 최신순), 열 = 번호·제목·사업명·공고기간·등록일. 상세 `?schM=view&id=<20자리>`, 본문은 PDF 뷰어(iframe)뿐 | 전체 1,224건(2005~), 11쪽≈2023-07 → 2년 ≈ 80~100건(8~10쪽) | `/afile/fileDownload/<id>` octet-stream + Content-Disposition 이름. 공고문 pdf 0.1~0.3MB, 안내서 pdf 1~3MB, 서식 zip 33MB(받지 않음) | 목록·상세 "공고기간" (시작 ~ 마감) | **구현** — 주 수집처 |
+| IRIS 사업공고 (`www.iris.go.kr/contents/retrieveBsnsAncmBtinSituListView.do`) | `/wklounge/…`·`/sysadmn/…` 만 Disallow(사업공고 경로 허용). 저작권 안내 페이지 없음(개인정보처리방침·이용안내만) → 정부 공고문 출처 표시 | JS 템플릿 + **공개 검색 폼 POST** `/contents/retrieveBsnsAncmBtinSituList.do` → JSON(`listBsnsAncmBtinSitu`, `paginationInfo`). 필터 `ancmPrg`(ancmIng 접수중·ancmPre 예정·ancmEnd 마감), `blngGovdSe`+`blngGovdSeArr`=AR4004 국토교통부, `sorgnId(+Arr)`=10002 KAIA. 상세 GET `retrieveBsnsAncmView.do?ancmId=` 에 소관부처·전문기관·공고번호·공고일자·접수기간·**공고문 본문 인라인**·사업담당자 이름(전화) | 마감 전체 19,113건, 국토교통부 945건(전 기간), 접수중 0·예정 1(2026-10-27) → 2년 ≈ 150~250건 | 세션 POST 다운로드(`/comm/file/retrieveCheckFileDownload.do` → `fileDownload.do`) — 받지 않고 이름만(`post_download`). 공고문 본문이 인라인이라 RFP 텍스트는 확보 | JSON `rcveStrDe`·`rcveEndDe`, 상세 "접수기간" | **구현** — 보조 수집처(국토교통부 필터), 첨부는 보류 |
+| NTIS 공고 (`www.ntis.go.kr`) | **`User-agent: * / Disallow: /`** — 공개 페이지 수집 금지 | — | — | — | — | 보류(자동 판단 2). 공고 OpenAPI 유무는 키 투입 뒤 확인(과제검색 어댑터와 같은 키) |
+| 공공데이터포털 R&D 공고 API (`www.data.go.kr`) | Googlebot 일부 경로만 제한 | "사업공고" API 검색: 과기정통부_사업공고(15074634), 산기평 지역균형 유관기관 사업공고(15106158·15067525), 식약처 연구관리 사업공고(15067899) 등 — **국토교통 R&D 공고 API 없음** | — | — | — | 범위 밖(타 부처·키 필요). 필요하면 과기정통부_사업공고를 키 투입 뒤 어댑터 추가 |
+
+중복: 같은 공고가 KAIA 와 IRIS 에 함께 실린다(표본: 국토교통연구기획 제2차 공고·재공고 모두 양쪽). `domain/rules/notices.notice_key`
+(제목에서 공고번호·괄호·기호·"재공고/공고/시행" 제거 + 기관 + 공고일 → 16자 해시)로 한 문서로 합치고 나머지 URL 은 `raw.notice.also_in`.
+KAIA 가 먼저 돌아 PDF 공고문이 붙고 IRIS 는 같은 키면 `duplicate_of` 로만 기록된다.
+
+수집 명령: `rra crawl rnd-notice --explore` → `rra crawl rnd-notice --download [--limit N] [--incremental]`
+(스냅샷 `data/rnd_notice/snapshots/<날짜>/manifest.jsonl`, 첨부 `files/<sha[:2]>/<sha>.<ext>`, 본문 `items/<site>/<id>.txt`),
+적재 `rra ingest --source rnd_notice --limit 600`. 실행 경과는 `docs/history/progress.d/feat-rnd-notice.md`.

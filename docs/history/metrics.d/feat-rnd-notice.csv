@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,,feat/rnd-notice,1515,,8,,,,,,,,,,,,,,,rnd_notice 스냅샷 SNAPSHOT_COUNTS (적재 전); KAIA 1224건·IRIS 국토교통부 945건 탐색

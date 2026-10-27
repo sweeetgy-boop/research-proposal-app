@@ -1,8 +1,8 @@
 """정책 근거 추천 (`rra policy-suggest`, POST /v1/ideas/policy-suggestions).
 
-① 입력(5슬롯 + 있으면 policy_basis)으로 저장소를 korail_web 자료원만 검색(hybrid_search sources
-필터)하고, doc_type 이 policy 인 문서의 청크에서 문구를 고른다. LLM 을 쓰지 않는다. 결과는 제안서에
-자동으로 들어가지 않는다
+① 입력(5슬롯 + 있으면 policy_basis)으로 저장소를 정책 자료원(korail_web·molit·rnd_notice)만 검색
+(hybrid_search sources 필터)하고, doc_type 이 policy·rnd_notice 인 문서의 청크에서 문구를 고른다.
+LLM 을 쓰지 않는다. 결과는 제안서에 자동으로 들어가지 않는다
 — 제안자가 고른 것만 apply_policy_suggestion 으로 policy_basis 에 붙는다.
 """
 
@@ -16,7 +16,7 @@ from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.policy_phrases import pick_quote, rank
 from rra.domain.rules.retrieval_scope import POLICY_DOC_TYPES
 
-POLICY_SOURCES = ["korail_web", "molit"]
+POLICY_SOURCES = ["korail_web", "molit", "rnd_notice"]  # rnd_notice: 공고문도 후보 (P2-7)
 
 
 class PolicySuggest:
