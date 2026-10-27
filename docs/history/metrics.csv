@@ -37,3 +37,7 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-27,(feat/ntis-live2),NTIS 실응답 확정 [R](#50),1770,1383,8,7768,8388,16334,7487,272,,,,,,,,,,ParseError 원인=Accept json → XML 을 JSON 문자열로 감쌈(unwrap) + 보고서 DocUrl 맨 &; 실응답 fixture 6종(과제 20·보고서 10·성과 12·연관 10, 이름 NAME-REMOVED); sources check ntis/ntis_reports/ntis_insights ok(1087/202/12·10); NTIS 호출 17회
 2026-10-27,(fix/ntis-bare-amp),NTIS 보고서 파싱 수정(#51 #53),1772,,8,,,,,,,,,,,,,,,R&DB; 엔티티·공백 앞 < 이스케이프
 2026-10-27,(feat/pilot-prep),시범 준비 [D](#52),1756,,8,,,,,,,,,,227,,,,,시범 흐름 1회(골든셋 04): precheck 56s·생성 155s·최종 검토 15s·HWPX 0.2s; 골든셋 10건 평균 180s
+2026-10-28,(feat/pilot-password),비밀번호 최소 길이 설정(#54),1773,,8,,,,,,,,,,,,,,,시범 한정 4자
+2026-10-28,TBD,F1 빈 초안 금지(#55),1779,,8,,,,,,,,,,,,,,,저녁 측정 15 run 원인 표(docs/status.d/feat-draft-fallback.md)
+2026-10-28,TBD,F1 대체 작성·재측정(#57),1792,,8,,,,,,,,,201,,3.2,3.1,2.1,2.7,골든셋 10건 유효 10/10·invalid 0·실패 섹션 1·대체 작성 1·Gemini 11회(docs/eval-2026-10-28.md)
+2026-10-28,feat/overlap-sources,유사과제 판정 과제형 자료원만·관련 연구 분리(#56),,,8,,,,,,1119,120,2482,,,,,,,precheck 적중 5/10→9/10(골든셋 10, 상위5), 지연 on 1.84~2.09s(reranker 단독 1.65~2.0s), off 0.11~0.17s 7/10, Gemini 0회
