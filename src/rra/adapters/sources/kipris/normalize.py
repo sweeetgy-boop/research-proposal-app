@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any
 
-from rra.adapters.sources._orgs import org_tags
+from rra.adapters.sources._orgs import is_organization, org_tags
 from rra.domain.models import Document
 
 FIELDS: dict[str, tuple[str, ...]] = {
@@ -37,11 +37,6 @@ MAX_ABSTRACT_CHARS = 8000
 MAX_APPLICANTS = 5
 _APP_NO = re.compile(r"^[0-9]{8,16}$")
 _DATE = re.compile(r"(\d{4})[-./]?(\d{2})[-./]?(\d{2})")
-_ORG_HINT = re.compile(
-    r"(주식회사|㈜|\(주\)|유한회사|회사|공사|공단|연구원|연구소|대학교|대학|산학협력단|법인|재단|협회|"
-    r"조합|청|부|원|센터|기관|Inc|Corp|Ltd|LLC|GmbH|Co\.|University|Institute)",
-    re.IGNORECASE,
-)
 
 
 def _pick(raw: Mapping[str, Any], field: str) -> str:
@@ -60,14 +55,6 @@ def _date(value: str) -> date | None:
         return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
     except ValueError:
         return None
-
-
-def is_organization(name: str) -> bool:
-    """기관으로 보이는 출원인 이름. 2~4자 한글만이면 개인으로 본다."""
-    name = name.strip()
-    if not name or re.fullmatch(r"[가-힣]{2,4}", name):
-        return False
-    return bool(_ORG_HINT.search(name)) or len(name) >= 8
 
 
 def split_names(value: str) -> list[str]:

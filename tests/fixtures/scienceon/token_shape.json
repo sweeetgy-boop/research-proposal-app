@@ -1,0 +1,8 @@
+{
+  "access_token": "str",
+  "refresh_token": "str",
+  "refresh_token_expire": "str",
+  "access_token_expire": "str",
+  "issued_at": "str",
+  "client_id": "str"
+}

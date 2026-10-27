@@ -343,10 +343,11 @@ def test_scienceon_wiring_uses_rate_limit_policy():
 
     src = build_scienceon_source(project_settings(**SCIENCEON_KEYS))
     assert src.client.min_interval == pytest.approx(1.0)  # 초당 1회
-    assert src.client.max_requests == 40 and src.max_consecutive_429 == 2
+    assert src.client.max_requests == 48 and src.max_consecutive_429 == 2  # 토큰 1 + 13×3 + 여유
     assert src.client.max_backoff_sec == 30
     assert "apigateway.kisti.re.kr" in src.client.allowed
-    assert src.targets == ["ARTI", "REPORT"]
+    assert src.targets == ["ARTI", "REPORT", "PATENT"]
+    assert src.row_count == 100 and src.per_query_limit == 80 and len(src.queries) == 13
     assert "CID-1" not in repr(src) and "CID-1" not in repr(src.tokens)
 
 
@@ -402,7 +403,7 @@ async def test_sources_check_wiring_reports_without_values():
     sci, ntis = rows
     assert sci["roundtrip"] == "ok" and sci["result"] == {
         "auth": "ok",
-        "totals": {"ARTI": 7, "REPORT": 7},
+        "totals": {"ARTI": 7, "REPORT": 7, "PATENT": 7},
     }
     assert ntis["roundtrip"] == "skipped" and ntis["credentials"] == {"RRA_NTIS_KEY": False}
     import json as _json
