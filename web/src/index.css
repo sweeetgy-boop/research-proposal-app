@@ -1,0 +1,209 @@
+/* 디자인 토큰 + Tailwind v4. 글꼴은 Pretendard Variable 동적 서브셋(자체 호스팅, 외부 요청 없음). */
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  color-scheme: light;
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 40%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --border: 214 32% 88%;
+  --input: 214 32% 82%;
+  --primary: 221 83% 45%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 94%;
+  --secondary-foreground: 222 47% 11%;
+  --accent: 210 40% 92%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 72% 42%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 60% 30%;
+  --warning: 32 90% 36%;
+  --info: 221 83% 45%;
+  --ring: 221 83% 45%;
+  --radius: 0.5rem;
+  /* origin 배지 */
+  --origin-local: 215 16% 40%;
+  --origin-argon: 262 60% 42%;
+  --origin-added: 152 60% 30%;
+  --origin-edit: 32 90% 36%;
+}
+
+/* 저장값 없음 + OS 다크 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: 222 40% 8%;
+    --foreground: 210 40% 96%;
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 72%;
+    --card: 222 40% 11%;
+    --card-foreground: 210 40% 96%;
+    --border: 217 33% 22%;
+    --input: 217 33% 30%;
+    --primary: 217 91% 66%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --accent: 217 33% 20%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 80% 70%;
+    --destructive-foreground: 222 47% 8%;
+    --success: 152 55% 60%;
+    --warning: 38 92% 62%;
+    --info: 217 91% 66%;
+    --ring: 217 91% 66%;
+    --origin-local: 215 20% 72%;
+    --origin-argon: 262 80% 78%;
+    --origin-added: 152 55% 60%;
+    --origin-edit: 38 92% 62%;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: 222 40% 8%;
+  --foreground: 210 40% 96%;
+  --muted: 217 33% 15%;
+  --muted-foreground: 215 20% 72%;
+  --card: 222 40% 11%;
+  --card-foreground: 210 40% 96%;
+  --border: 217 33% 22%;
+  --input: 217 33% 30%;
+  --primary: 217 91% 66%;
+  --primary-foreground: 222 47% 8%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 96%;
+  --accent: 217 33% 20%;
+  --accent-foreground: 210 40% 96%;
+  --destructive: 0 80% 70%;
+  --destructive-foreground: 222 47% 8%;
+  --success: 152 55% 60%;
+  --warning: 38 92% 62%;
+  --info: 217 91% 66%;
+  --ring: 217 91% 66%;
+  --origin-local: 215 20% 72%;
+  --origin-argon: 262 80% 78%;
+  --origin-added: 152 55% 60%;
+  --origin-edit: 38 92% 62%;
+}
+
+@theme inline {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-info: hsl(var(--info));
+  --color-ring: hsl(var(--ring));
+  --color-origin-local: hsl(var(--origin-local));
+  --color-origin-argon: hsl(var(--origin-argon));
+  --color-origin-added: hsl(var(--origin-added));
+  --color-origin-edit: hsl(var(--origin-edit));
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    margin: 0;
+    min-height: 100dvh;
+  }
+  /* 보이는 포커스 링 (키보드 조작) */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  dialog::backdrop {
+    background: rgb(0 0 0 / 0.5);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .skip-link {
+    position: absolute;
+    left: 0.5rem;
+    top: -3rem;
+    z-index: 100;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+    font-weight: 600;
+  }
+  .skip-link:focus {
+    top: 0.5rem;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .skeleton {
+    background: var(--color-muted);
+    border-radius: var(--radius-sm);
+    animation: rra-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes rra-pulse {
+    50% {
+      opacity: 0.55;
+    }
+  }
+  .diff-ins {
+    background: color-mix(in oklab, var(--color-success) 22%, transparent);
+    text-decoration: none;
+  }
+  .diff-del {
+    background: color-mix(in oklab, var(--color-destructive) 22%, transparent);
+    text-decoration: line-through;
+  }
+}
