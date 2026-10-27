@@ -195,8 +195,9 @@ class EvaluateQuality:
         top = [a.doc_id for a in alerts[:5]]
         expected = self.expected.get(name)
         hit: bool | None = None
-        if expected is not None:
-            hit = (not alerts) if not expected else any(d in top for d in expected)
+        if expected is not None:  # 정답이 비면 "차단 알림이 없어야" 적중, 있으면 상위 5 안에 하나
+            blocking = [a for a in alerts if a.blocking]
+            hit = (not blocking) if not expected else any(d in top for d in expected)
         if expected is not None and hasattr(self.manager.generate, "exemplar_exclude"):
             # [4] 정답 유사과제는 Q4 본보기에서 뺀다 (정답을 베끼는 것을 막는다)
             self.manager.generate.exemplar_exclude = frozenset(expected)

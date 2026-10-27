@@ -66,6 +66,14 @@ async def test_evaluate_without_reviewer_reports_skipped_review_and_unknown_hits
     (idea,) = (await ev([("03", REQ)])).ideas
     assert idea.review_status == "skipped" and idea.gemini_calls == 0 and idea.scores == {}
     assert idea.v2_alerts is None and idea.precheck_alerts == 1
-    assert idea.precheck_hit is False  # 정답 "없음" 인데 알림이 났다
+    assert idea.precheck_hit is False  # 정답 "없음" 인데 차단 알림이 났다
+    ev2 = EvaluateQuality(
+        build(review=None)[0],
+        FakePrecheck([alert(blocking=False)]),
+        label="n",
+        pipeline={},
+        expected={"03": []},
+    )
+    assert (await ev2([("03", REQ)])).ideas[0].precheck_hit is True  # 근접 알림만이면 적중
     text = eval_markdown([{"label": "none", "pipeline": {}, "ideas": [], "totals": {}}], date="d")
     assert "(없음)" in text

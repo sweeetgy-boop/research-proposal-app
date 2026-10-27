@@ -7,3 +7,4 @@ goal: 좌석 센서와 예약 시스템을 연동해 무단 점유를 자동 감
 constraints: 열람실 2곳 시범, 예산 3천만 원.
 policy_basis: ""
 beneficiaries: ""
+expected_similar: []
