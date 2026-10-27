@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,feat/web,웹 프론트엔드(#TBD),,,8,,,,,,1119,120,2482,,,,,,,web: vitest 33·Playwright e2e 8·Lighthouse 100/100/100·CLS 0·axe 0·초기 JS 110.6KB gzip(전체 ≈167KB)·CSS 21.2KB

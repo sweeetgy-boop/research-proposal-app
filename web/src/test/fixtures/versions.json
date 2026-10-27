@@ -1,0 +1,46 @@
+{
+ "run_id": "20260101000000-00000002",
+ "versions": [
+  {
+   "version": 1,
+   "origin": "local",
+   "origin_label": "로컬 생성",
+   "created_at": "2026-10-27T01:22:49+00:00",
+   "based_on_review": null,
+   "reverted_from": null,
+   "note": "",
+   "changed_sections": [
+    "title",
+    "task_type",
+    "policy_importance",
+    "tech_importance",
+    "strategy_alignment",
+    "objective",
+    "method",
+    "expected_management",
+    "expected_technology",
+    "expected_standing",
+    "utilization",
+    "overlap_review"
+   ],
+   "sentences": 15,
+   "alerts": 1,
+   "open_annotations": 0
+  },
+  {
+   "version": 2,
+   "origin": "argon",
+   "origin_label": "Argon 보완",
+   "created_at": "2026-10-27T01:22:49+00:00",
+   "based_on_review": 1,
+   "reverted_from": null,
+   "note": "Argon 1차 검토 반영",
+   "changed_sections": [
+    "method"
+   ],
+   "sentences": 15,
+   "alerts": 1,
+   "open_annotations": 1
+  }
+ ]
+}
