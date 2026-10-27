@@ -132,7 +132,7 @@ jobs:
         working-directory: web
         env:
           CI: "1"
-          RRA_BIN: ../.venv/bin/rra
+          RRA_BIN: .venv/bin/rra
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
