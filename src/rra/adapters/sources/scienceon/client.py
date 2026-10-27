@@ -81,10 +81,13 @@ class ScienceOnSource:
         queries = [query] if query else list(self.queries)
         out: list[dict[str, Any]] = []
         strikes = 0
+        failed: list[tuple[str, str]] = []  # 서버 오류(code 500 등)로 건너뛴 (target, 질의)
+        attempted = 0
         for q in queries:
             for target in self.targets:
                 page = 1
                 got = 0
+                attempted += 1
                 while len(out) < limit and (
                     self.per_query_limit is None or got < self.per_query_limit
                 ):
@@ -99,6 +102,14 @@ class ScienceOnSource:
                         if strikes >= self.max_consecutive_429:
                             raise  # 차단기: 이 run 에서는 더 두드리지 않는다
                         break  # 다음 target/질의로
+                    except ScienceOnError as exc:
+                        # 한 질의·target 의 서버 오류(2026-10-27 적재에서 code=500)로 run 전체를
+                        # 버리지 않는다 — 그 조합만 건너뛰고 모은 것은 적재한다
+                        failed.append((target, q))
+                        logger.warning(
+                            "scienceon.target_failed target=%s error=%s", target, type(exc).__name__
+                        )
+                        break
                     strikes = 0
                     if self.per_query_limit is not None:
                         records = records[: self.per_query_limit - got]
@@ -107,6 +118,10 @@ class ScienceOnSource:
                     if len(records) < self.row_count or page * self.row_count >= total:
                         break
                     page += 1
+        if failed:
+            logger.warning("scienceon.targets_skipped n=%d of=%d", len(failed), attempted)
+            if not out and len(failed) >= attempted:
+                raise ScienceOnError(f"ScienceON 오류 — 모든 질의·target 실패 ({len(failed)}건)")
         return out[:limit]
 
     async def probe(self) -> dict[str, Any]:
