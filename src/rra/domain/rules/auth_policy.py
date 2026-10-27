@@ -33,6 +33,15 @@ def valid_guest_id(value: str) -> bool:
     return bool(_GUEST_ID.match(value or ""))
 
 
+DEFAULT_MIN_PASSWORD_LENGTH = 8
+
+
+def valid_password(value: str, min_length: int = DEFAULT_MIN_PASSWORD_LENGTH) -> bool:
+    """공용 계정 비밀번호 — 비어 있지 않고 최소 길이 이상.
+    최소 길이는 설정(auth.yaml guest.min_password_length)."""
+    return bool(value) and len(value) >= max(1, int(min_length))
+
+
 def valid_staff_no(value: str) -> bool:
     """사번 형식(영숫자·하이픈 2~32자). 값은 검사만 하고 어디에도 남기지 않는다."""
     return bool(_STAFF_NO.match(value or ""))
