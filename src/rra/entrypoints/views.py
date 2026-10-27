@@ -347,6 +347,31 @@ def render_check_lines(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def policy_suggestions_payload(
+    suggestions: list[Any], *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """정책 근거 추천 — 제안자가 고를 목록.
+
+    policy_basis_text 는 고른 뒤 칸에 넣을 문자열(자동 삽입 없음)."""
+    from rra.domain.rules.policy_phrases import policy_basis_text
+
+    return [
+        {
+            "doc_id": s.doc_id,
+            "title": clean(s.title),
+            "year": s.year,
+            "page": clean(s.page) if s.page else None,
+            "quote": clean(s.quote),
+            "url": s.url,
+            "menu_path": clean(s.menu_path) if s.menu_path else None,
+            "keywords": list(s.keywords),
+            "similarity": s.similarity,
+            "policy_basis_text": clean(policy_basis_text(s)),
+        }
+        for s in suggestions
+    ]
+
+
 def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
     """유사과제 경보 목록 → 출력용 dict (MCP·REST 공용). 제목은 수집 문서에서 온 비신뢰 텍스트."""
     return {

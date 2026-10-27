@@ -65,6 +65,7 @@ from rra.entrypoints.views import (
     diff_payload,
     differentiation_payload,
     draft_payload,
+    policy_suggestions_payload,
     recommendation_preview_payload,
     recommendations_payload,
     render_check_payload,
@@ -214,6 +215,7 @@ def create_app(
     sse_poll_sec: float = 1.0,
     fake_mode: bool = False,
     snapshot_status: Callable[[], dict[str, Any]] | None = None,
+    policy_suggest: Any | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api()."""
 
@@ -338,6 +340,20 @@ def create_app(
         if recommend is not None and recommend_auto:
             out["recommendations"] = await _recommend(req, alerts)
         return out
+
+    @app.post(f"/{API_VERSION}/ideas/policy-suggestions")
+    async def policy_suggestions_route(req: ProposalRequest) -> dict[str, Any]:
+        """① 입력 → 정책(policy) 문서 문구 3~5개.
+
+        제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음)."""
+        if policy_suggest is None:
+            raise HTTPException(503, "정책 근거 추천이 꺼져 있습니다.")
+        suggestions = await policy_suggest(req)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            "suggestions": policy_suggestions_payload(suggestions, clean=_clean),
+            "count": len(suggestions),
+        }
 
     @app.post(f"/{API_VERSION}/precheck/clarify")
     async def clarify_route(req: ProposalRequest) -> dict[str, Any]:

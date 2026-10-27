@@ -82,6 +82,7 @@ __all__ = [
     "build_llm",
     "build_ntis_source",
     "build_openalex_source",
+    "build_policy_suggest",
     "build_precheck",
     "build_prompt_library",
     "build_purge_runs",
@@ -530,7 +531,7 @@ def build_korail_web_crawler(settings: Settings | None = None, *, transport=None
 
 
 def build_strategy_drafter(settings: Settings | None = None, *, transport=None, resolver=None):
-    """`rra strategy draft` — 중장기 경영목표 페이지 1건을 받아(GuardedClient) 전략체계 초안 dict 를 만든다."""
+    """`rra strategy draft` — 중장기 경영목표 페이지 1건(GuardedClient) → 전략체계 초안 dict."""
     from rra.adapters.sources.korail_web import strategy_draft_from_html
 
     settings = settings or load_settings()
@@ -680,6 +681,16 @@ def build_precheck(settings: Settings | None = None, repo=None):
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
     return PrecheckOverlap(repo, own=own_unit(settings), keywords=keyword_rule(settings))
+
+
+def build_policy_suggest(settings: Settings | None = None, repo=None):
+    """PolicySuggest 유스케이스 — korail_web policy 문서에서 정책 문구 3~5개 (LLM 없음)."""
+    from rra.application.usecases.policy_suggest import PolicySuggest
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return PolicySuggest(repo, keywords=keyword_rule(settings))
 
 
 def build_generate(settings: Settings | None = None, *, repo=None, llm=None):
@@ -903,6 +914,7 @@ def build_api(
     return create_app(
         manager=manager,
         precheck=precheck,
+        policy_suggest=build_policy_suggest(settings, repo=repo),
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
         recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         recommend_auto=recommend_policy(settings)["auto"],

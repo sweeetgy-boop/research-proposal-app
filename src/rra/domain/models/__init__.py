@@ -12,6 +12,7 @@ from .gap import (
     Tier,
 )
 from .pipeline import PipelineConfig
+from .policy import MAX_SUGGESTIONS, MIN_SUGGESTIONS, PolicySuggestion
 from .proposer import Person, ProposerInfo
 from .recommendation import (
     MAX_RECOMMENDATIONS,
@@ -53,7 +54,10 @@ __all__ = [
     "Budget",
     "Confirmation",
     "Annotation",
+    "MAX_SUGGESTIONS",
+    "MIN_SUGGESTIONS",
     "PipelineConfig",
+    "PolicySuggestion",
     "CriterionScore",
     "DraftVersion",
     "ReviewComment",

@@ -558,6 +558,48 @@ def _warning_line(w) -> str:
     return f"[경고] {text}"
 
 
+# ── policy-suggest (정책 근거 추천) ────────────────────────
+def cmd_policy_suggest(args: argparse.Namespace) -> int:
+    """① 입력 → 정책 문서 문구 3~5개.
+
+    --pick N 이면 그 문구를 policy_basis 에 붙인 입력(JSON)을 출력한다."""
+    from rra.composition import build_policy_suggest, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.domain.rules.policy_phrases import apply_policy_suggestion
+    from rra.entrypoints.views import policy_suggestions_payload
+
+    settings = load_settings()
+    fields = _read_slots(args)
+    fields["policy_basis"] = getattr(args, "policy_basis", "") or ""
+    try:
+        req = ProposalRequest(**fields)
+    except ValidationError as exc:
+        _eprint(f"입력 오류: {validation_message(exc)}")
+        return EXIT_USAGE
+    suggestions = asyncio.run(build_policy_suggest(settings)(req))
+    rows = policy_suggestions_payload(suggestions, clean=_safe)
+    if args.pick is not None:
+        if not (1 <= args.pick <= len(suggestions)):
+            _eprint(f"--pick 은 1~{len(suggestions)} 사이여야 합니다.")
+            return EXIT_USAGE
+        chosen = apply_policy_suggestion(req, suggestions[args.pick - 1])
+        print(json.dumps(chosen.model_dump(), ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if args.json:
+        print(json.dumps({"suggestions": rows}, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if not rows:
+        print("정책 문서에서 고를 문구가 없습니다 (korail_web 적재 전이거나 관련 문서 없음).")
+        return EXIT_OK
+    for i, r in enumerate(rows, 1):
+        where = ", ".join(p for p in (str(r["year"]) if r["year"] else "", r["page"] or "") if p)
+        print(f"{i}. {r['title']}{' (' + where + ')' if where else ''} — {r['url'] or ''}")
+        print(f"   “{r['quote']}”  [키워드 {', '.join(r['keywords']) or '-'}]")
+    print("고른 번호를 --pick N 으로 주면 policy_basis 에 붙인 입력을 돌려줍니다 (자동 삽입 없음).")
+    return EXIT_OK
+
+
 # ── crawl (공사 홈페이지 스냅샷) ───────────────────────────
 def cmd_crawl_korail(args: argparse.Namespace) -> int:
     """`rra crawl korail --explore | --download [--incremental]`. 예약 실행 없음 (사람이 돌린다)."""
@@ -1600,6 +1642,19 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
     diff.add_argument("--json", action="store_true", help="JSON 으로 출력")
     diff.set_defaults(handler=cmd_differentiate)
+
+    ps = sub.add_parser(
+        "policy-suggest", help="① 입력 → 정책 문서 문구 3~5개 추천 (LLM 없음, 자동 삽입 없음)"
+    )
+    for slot in SLOTS:
+        ps.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    ps.add_argument("--policy-basis", dest="policy_basis", default="", help="이미 적은 정책 근거")
+    ps.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    ps.add_argument(
+        "--pick", type=int, default=None, help="고른 번호 → policy_basis 에 붙인 입력 출력"
+    )
+    ps.add_argument("--json", action="store_true")
+    ps.set_defaults(handler=cmd_policy_suggest)
 
     search = sub.add_parser("search", help="수집 문서 하이브리드 검색")
     search.add_argument("query")
