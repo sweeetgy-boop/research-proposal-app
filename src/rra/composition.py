@@ -74,6 +74,7 @@ __all__ = [
     "build_assistant",
     "build_differentiator",
     "build_embedding",
+    "build_eval",
     "build_generate",
     "build_ingest",
     "build_list_missing",
@@ -199,7 +200,7 @@ def build_llm(
     )
 
 
-def build_reviewer(settings: Settings | None = None, *, llm=None):
+def build_reviewer(settings: Settings | None = None, *, llm=None, pipeline=None):
     """검토 유스케이스(ReviewDraft). review 단계 LLM(gemini) 키가 없으면 None → 검토 건너뜀.
     Q5 체크리스트(config/templates/section_checklists.yaml)·additions(pipeline.additions)를
     넣는다."""
@@ -212,7 +213,7 @@ def build_reviewer(settings: Settings | None = None, *, llm=None):
         llm = build_llm(settings, stage="review")
     cfg = llm_config(settings, "review")
     policy = review_policy(settings)
-    pipeline = pipeline_config(settings)
+    pipeline = pipeline or pipeline_config(settings)
     return ReviewDraft(
         llm,
         build_prompt_library(settings),
@@ -283,6 +284,47 @@ def build_bench(settings: Settings | None = None, *, label: str, repo=None, llm=
         profile=cfg["profile"],
         context_length=cfg["context_length"],
         rss_sampler=server_rss_mb,
+    )
+
+
+def build_eval(
+    settings: Settings | None = None,
+    *,
+    label: str,
+    pipeline,
+    runs_dir: Path | str,
+    repo=None,
+    llm=None,
+    expected=None,
+):
+    """초안 품질 강화 측정 유스케이스(`rra eval`, Q9) — 주어진 pipeline 구성으로 조립한 RunManager·
+    precheck 로 골든셋을 돌린다. run 은 runs_dir 아래에 남는다(운영 runs/ 와 분리)."""
+    from rra.adapters.llm.server_stats import server_rss_mb
+    from rra.application.usecases.evaluate import EvaluateQuality
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    if llm is None:
+        llm = build_llm(settings, stage="compose")
+    reranker = build_reranker(settings) if pipeline.reranker else None
+    manager = build_run_manager(settings, repo=repo, llm=llm, pipeline=pipeline, runs_dir=runs_dir)
+    compose_cfg = llm_config(settings, "compose")
+    review_cfg = llm_config(settings, "review")
+    return EvaluateQuality(
+        manager,
+        build_precheck(settings, repo=repo, reranker=reranker, pipeline=pipeline),
+        label=label,
+        pipeline=pipeline.model_dump(),
+        user=LOCAL_USER,
+        model=compose_cfg["served_model"] or compose_cfg["model"],
+        review_model=review_cfg["served_model"] or review_cfg["model"]
+        if llm_available(settings, stage="review")
+        else None,
+        rss_sampler=server_rss_mb,
+        reranker=reranker,
+        keywords=keyword_rule(settings),
+        expected=expected,
     )
 
 
@@ -624,7 +666,7 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
     return IngestSources(sources, repo, limit=limit, own=own_unit(settings))
 
 
-def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None):
+def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None, pipeline=None):
     """PrecheckOverlap 유스케이스. repo 를 주면 그대로 쓴다(테스트·MCP 조립용).
     pipeline.reranker 가 켜져 있으면 Q8 reranker 로 k×4 를 다시 순위 매긴다."""
     from rra.application.usecases.precheck_overlap import PrecheckOverlap
@@ -632,21 +674,23 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
     settings = settings or load_settings()
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
-    if reranker is None and pipeline_config(settings).reranker:
+    if reranker is None and (pipeline or pipeline_config(settings)).reranker:
         reranker = build_reranker(settings)
     return PrecheckOverlap(
         repo, own=own_unit(settings), keywords=keyword_rule(settings), reranker=reranker
     )
 
 
-def build_generate(settings: Settings | None = None, *, repo=None, llm=None, reranker=None):
+def build_generate(
+    settings: Settings | None = None, *, repo=None, llm=None, reranker=None, pipeline=None
+):
     """GenerateProposal 유스케이스. repo·llm 을 주면 그대로 쓴다(테스트용).
     [Q] 품질 단계(section_search·exemplars·rule_check·reranker)는 config/pipeline.yaml 을 따른다."""
     from rra.application.usecases.generate_proposal import GenerateProposal
 
     settings = settings or load_settings()
     rules = lint_rules(settings)
-    pipeline = pipeline_config(settings)
+    pipeline = pipeline or pipeline_config(settings)
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
     if llm is None:
@@ -682,9 +726,12 @@ def build_run_manager(
     review_llm=None,
     store=None,
     run_log=None,
+    pipeline=None,
+    runs_dir=None,
 ):
     """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, 실행기, HWPX 렌더러,
     검토 유스케이스(review 단계 키가 있을 때만; 없으면 None → review_skipped).
+    pipeline·runs_dir 는 측정(`rra eval`)이 설정과 다른 구성·별도 폴더로 돌릴 때 준다.
 
     repo·llm 은 바로 만든다. 임베딩 모델은 어댑터가 첫 호출 때 올리므로 상태 조회만 할 때는
     로드되지 않는다 (SentenceTransformerEmbedding.loaded).
@@ -694,9 +741,9 @@ def build_run_manager(
     from rra.application.services import RunManager
 
     settings = settings or load_settings()
-    root = Path(settings.runs_dir)
+    root = Path(runs_dir or settings.runs_dir)
     compose_cfg = llm_config(settings, "compose")
-    pipeline = pipeline_config(settings)
+    pipeline = pipeline or pipeline_config(settings)
     # manifest 에는 선언된 실제 모델명(served_model)을, 없으면 요청용 이름을 남긴다
     model = compose_cfg["served_model"] or compose_cfg["model"]
     if repo is None:
@@ -704,7 +751,7 @@ def build_run_manager(
     if llm is None:
         llm = build_llm(settings, stage="compose")
     return RunManager(
-        build_generate(settings, repo=repo, llm=llm),
+        build_generate(settings, repo=repo, llm=llm, pipeline=pipeline),
         store or FileRunStore(root),
         FlockSlot(root / ".generate.lock"),
         run_log or FileRunLog(root),
@@ -713,7 +760,9 @@ def build_run_manager(
         model=model,
         renderer=renderer or build_renderer(settings),
         line_limits=render_slots(settings).get("line_limits") or {},
-        reviewer=reviewer if reviewer is not None else build_reviewer(settings, llm=review_llm),
+        reviewer=reviewer
+        if reviewer is not None
+        else build_reviewer(settings, llm=review_llm, pipeline=pipeline),
         review_auto=review_policy(settings)["auto"],
         pipeline=pipeline,
         outliner=build_outliner(settings, llm=llm) if pipeline.outline else None,

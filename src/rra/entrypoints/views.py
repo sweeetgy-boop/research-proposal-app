@@ -588,3 +588,98 @@ def bench_markdown(results: list[Any], *, date: str, baseline: str | None = None
             lines.append("파싱 실패: " + "; ".join(f"{lbl}: {', '.join(f)}" for lbl, f in failed))
         lines.append("")
     return "\n".join(lines) + "\n"
+
+
+EVAL_STEP_LABELS = {
+    "clarify": "Q1 보강 질문",
+    "outline": "Q2 설계도",
+    "section_search": "Q3 섹션별 검색",
+    "exemplars": "Q4 본보기",
+    "additions": "Q5 보완 작성",
+    "rule_check": "Q6 규칙 검사",
+    "two_candidates": "Q7 두 후보",
+    "reranker": "Q8 reranker",
+    "draft_review": "Argon 1차 검토",
+}
+
+
+def eval_markdown(results: list[dict[str, Any]], *, date: str) -> str:
+    """`rra eval --report` — 구성별 합계 비교표와 아이디어별 표. 결과는 EvalResult.to_dict()."""
+
+    def num(v: Any) -> str:
+        if v is None:
+            return "-"
+        if isinstance(v, float):
+            return f"{v:.2f}"
+        return str(v)
+
+    lines = [f"## 초안 품질 강화 비교 ({date})", ""]
+    lines.append("### 구성")
+    lines.append("")
+    lines.append("| 구성 | 켠 단계 | 모델 | 검토 모델 |")
+    lines.append("|---|---|---|---|")
+    for r in results:
+        on = [EVAL_STEP_LABELS.get(k, k) for k, v in (r.get("pipeline") or {}).items() if v is True]
+        lines.append(
+            f"| {r['label']} | {', '.join(on) or '(없음)'} | {r.get('model') or '-'} | "
+            f"{r.get('review_model') or '-'} |"
+        )
+    lines.append("")
+    lines.append("### 합계 (골든셋 전체)")
+    lines.append("")
+    cols = [
+        ("v1_alerts", "v1 알림"),
+        ("v2_alerts", "v2 알림"),
+        ("sentences_v1", "문장 v1"),
+        ("sentences_v2", "문장 v2"),
+        ("style_fixed", "자동 정리"),
+        ("style_warnings", "규칙 경고"),
+        ("cited_ids", "인용 id"),
+        ("paper_citations", "논문 인용"),
+        ("irrelevant_citations", "무관 인용"),
+        ("applied", "수정안 반영"),
+        ("additions_applied", "추가 문장 반영"),
+        ("checklist_coverage", "필수 요소 충족률"),
+        ("score_sum", "1차 점수합"),
+        ("score_avg", "1차 점수 평균"),
+        ("precheck_hits", "precheck 적중"),
+        ("seconds_avg", "평균 시간(s)"),
+        ("gemini_calls", "Gemini 호출"),
+    ]
+    lines.append("| 구성 | " + " | ".join(label for _, label in cols) + " | RSS(MB) | reranker |")
+    lines.append("|---|" + "---|" * (len(cols) + 2))
+    for r in results:
+        t = r.get("totals") or {}
+        rr = r.get("reranker") or {}
+        rr_text = f"{rr.get('calls', 0)}회 {rr.get('seconds', 0):.1f}s" if rr else "-"
+        hits = f"{t.get('precheck_hits', 0)}/{t.get('precheck_known', 0)}"
+        cells = [hits if key == "precheck_hits" else num(t.get(key)) for key, _ in cols]
+        lines.append(
+            f"| {r['label']} | "
+            + " | ".join(cells)
+            + f" | {num(r.get('max_rss_mb'))} | {rr_text} |"
+        )
+    lines.append("")
+    lines.append("### 아이디어별")
+    lines.append("")
+    lines.append(
+        "| 구성 | 아이디어 | 상태 | v1 알림 | v2 알림 | 문장 v1→v2 | 무관 인용 | 점수 | "
+        "반영(수정+추가) | 충족률 | 후보 | precheck | 시간(s) |"
+    )
+    lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in results:
+        for i in r.get("ideas") or []:
+            scores = " ".join(f"{k[:2]}{v}" for k, v in (i.get("scores") or {}).items()) or "-"
+            cands = ",".join(f"{k}:{v}" for k, v in (i.get("candidates") or {}).items()) or "-"
+            pre = f"{i.get('precheck_alerts', 0)}건"
+            if i.get("precheck_hit") is not None:
+                pre += " ✓" if i["precheck_hit"] else " ✗"
+            lines.append(
+                f"| {r['label']} | {i['name']} | {i.get('status')} | {i.get('v1_alerts')} | "
+                f"{num(i.get('v2_alerts'))} | {i.get('sentences_v1')}→{i.get('sentences_v2')} | "
+                f"{i.get('irrelevant_citations')} | {scores} | "
+                f"{i.get('applied')}+{i.get('additions_applied')} | "
+                f"{num(i.get('checklist_coverage'))} | {cands} | {pre} | {i.get('seconds')} |"
+            )
+    lines.append("")
+    return "\n".join(lines)

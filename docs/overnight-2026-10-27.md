@@ -37,6 +37,7 @@
 | 11:05 | [E] 완료 | PR #22 CI 통과 → 병합 1102b72. main 검사 1,245/8/통과. 실제 흐름 확인(골든셋 01, Gemini 1회): v1 18문장·알림 1 → 1차 검토 의견 24·통과 수정안 14 자동 반영(폐기 0) → v2(argon 14·llm 4, 메모 10), 점수 3/2/2/3 |
 | 11:10 | [Q] 시작 | 브랜치 feat/draft-quality. Q6 규칙(style.py)·Q1 clarify·Q2 outline 유스케이스·프롬프트·체크리스트 yaml·포트/저장소(outline·candidates)·reranker 설정 뼈대 |
 | (중단) | 세션 | 크레딧 소진으로 멈춤 → 사용자 구입 뒤 재개 |
+| 08:43~09:40 | [Q] 배선 | Q1~Q8 백엔드 배선 완료(GenerateProposal reranker·섹션별 검색·본보기·규칙 검사, ReviewDraft 체크리스트·추가 문장·후보 선택, RunManager outline 단계·두 후보·자동 반영, composition build_reranker/outliner/clarifier, Assistant·Streamlit clarify·후보 표시, 프롬프트). 테스트 25건 추가 → 1,273 통과·8 kept·ruff 통과. 커밋 296749a |
 
 ## 판단 기록
 - [H] 배경 메모 중 저장소에 근거가 없는 항목(팀 구성·54초·DRM·.env 흰 화면·8501 충돌·웹 React 결정)은 "(대화 기록 기준, 미검증)" 으로 표시. 팀원 이름은 개인정보라 기록하지 않음.

@@ -1159,6 +1159,7 @@ class RunManager:
             chunk_texts=chunk_texts,
             evidence_skipped=self.generate.evidence_skipped(snapshot) if snapshot else None,
         )
+        problems = [*problems, *self.generate.style_problems(req, version.sections)]
         version = version.model_copy(update={"alerts": len(problems)})
         self.store.save_version(user, run_id, version)
         state.problems = [

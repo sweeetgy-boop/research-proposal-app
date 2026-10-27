@@ -102,7 +102,7 @@ external_llm:
   include_internal: true     # 사내(internal) 근거·문장을 외부 검토 LLM 에 보낼지. false 면 "검토 제외"
 
 # Q8 cross-encoder reranker (pipeline.reranker 가 켜져 있을 때만 로드). 모델은 ~/models/ 에 두고 저장소에 넣지 않는다.
-# BAAI/bge-reranker-v2-m3: MIT 라이선스(업무 이용 허용). 하이브리드 상위 k×4 를 다시 순위 매긴다.
+# BAAI/bge-reranker-v2-m3: Apache-2.0 라이선스(HF 모델 카드 2026-10-27 확인, 업무 이용 허용). 하이브리드 상위 k×4 를 다시 순위 매긴다.
 reranker:
   model: ~/models/bge-reranker-v2-m3
   max_length: 512

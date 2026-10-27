@@ -500,6 +500,24 @@ class GenerateProposal:
         return section.model_copy(update={"sentences": kept}), dropped
 
     # ── finalize ─────────────────────────────────────────
+    def style_problems(self, req: ProposalRequest, sections: list[Section]) -> list[LintProblem]:
+        """Q6 규칙 검사 알림만(고치지 않음) — 편집·검토 반영으로 새 버전이 생길 때도 알림을 유지."""
+        if not self.rule_check:
+            return []
+        result = style.check_sections(
+            sections, constraints=req.constraints, max_chars=self.max_sentence_chars, fix=False
+        )
+        return [
+            LintProblem(
+                section=f.section,
+                code=f.code,
+                message=f.message,
+                severity="warning",
+                sentence=f.sentence,
+            )
+            for f in result.findings
+        ]
+
     def finalize(
         self,
         run_id: str,

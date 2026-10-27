@@ -1116,3 +1116,77 @@ class _IngestStub:
         return IngestReport(
             fetched={"openalex": 1, "alio": 1}, normalized={"openalex": 1, "alio": 1}
         )
+
+
+# ── rra eval (Q9) ─────────────────────────────────────────
+def test_eval_report_builds_comparison_markdown_and_label_is_required(tmp_path, capsys):
+    from rra.entrypoints import cli
+
+    result = {
+        "label": "baseline",
+        "pipeline": {"rule_check": True, "draft_review": True},
+        "model": "qwen",
+        "review_model": "argon",
+        "max_rss_mb": 100.0,
+        "reranker": {},
+        "ideas": [
+            {
+                "name": "01",
+                "status": "drafted",
+                "v1_alerts": 2,
+                "v2_alerts": 1,
+                "sentences_v1": 20,
+                "sentences_v2": 22,
+                "irrelevant_citations": 0,
+                "scores": {"필요성": 3},
+                "applied": 4,
+                "additions_applied": 1,
+                "checklist_coverage": 0.7,
+                "candidates": {},
+                "precheck_alerts": 1,
+                "precheck_hit": True,
+                "seconds": 120.0,
+            }
+        ],
+        "totals": {
+            "v1_alerts": 2,
+            "v2_alerts": 1,
+            "score_sum": 3,
+            "precheck_hits": 1,
+            "precheck_known": 1,
+            "seconds_avg": 120.0,
+            "gemini_calls": 1,
+        },
+    }
+    src = tmp_path / "baseline.json"
+    src.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    out = tmp_path / "eval.md"
+    assert cli.main(["eval", "--report", str(src), "--out", str(out)]) == cli.EXIT_OK
+    text = out.read_text(encoding="utf-8")
+    assert "초안 품질 강화 비교" in text and "| baseline |" in text and "Q6 규칙 검사" in text
+    assert cli.main(["eval", "--report", str(src), "--out", str(out), "--append"]) == cli.EXIT_OK
+    assert out.read_text(encoding="utf-8").count("초안 품질 강화 비교") == 2
+    assert cli.main(["eval"]) == cli.EXIT_USAGE
+    assert "--label" in capsys.readouterr().err
+
+
+def test_eval_pipeline_presets_and_overrides(monkeypatch):
+    from types import SimpleNamespace
+
+    from rra.domain.models import PipelineConfig
+    from rra.entrypoints import cli
+
+    monkeypatch.setattr("rra.composition.pipeline_config", lambda s: PipelineConfig(outline=True))
+
+    def args(**kw):
+        base = dict(pipeline="default", on=None, off=None, no_review=False)
+        return SimpleNamespace(**{**base, **kw})
+
+    assert cli._eval_pipeline(None, args()).outline and cli._eval_pipeline(None, args()).rule_check
+    none = cli._eval_pipeline(None, args(pipeline="none"))
+    assert not none.outline and not none.rule_check and none.draft_review
+    all_on = cli._eval_pipeline(None, args(pipeline="all", off="reranker", no_review=True))
+    assert all_on.two_candidates and not all_on.reranker and not all_on.draft_review
+    assert cli._eval_pipeline(None, args(on="reranker,exemplars")).exemplars
+    with pytest.raises(ValueError, match="모르는 단계"):
+        cli._eval_pipeline(None, args(on="bogus"))
