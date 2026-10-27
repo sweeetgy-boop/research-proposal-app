@@ -1,0 +1,15 @@
+# 감사원 감사결과(분야·종류별) 스냅샷 수집 — `rra crawl bai` (P2-4, 레인 E 2026-10-27). 적재는 `rra ingest --source bai`.
+# JS(Vue) 렌더 화면이라 Playwright 헤드리스 Chromium 으로 공개 화면만 조작한다(검색 → 상세 → 파일 클릭). robots: Allow /,
+# Disallow /api/ → /api/ 는 직접 요청하지 않는다. 이용조건: 화면 표기 공공누리 제4유형(출처표시·상업적 이용금지·변경금지).
+# 선택 의존성: uv pip install playwright && playwright install chromium (pyproject 에 넣지 않았다).
+base_url: https://www.bai.go.kr
+list_path: /bai/result/branch/list/
+queries: [철도]                 # "철도" 55건(2026-10-27). 한국철도공사·국가철도공단 정기감사 포함
+user_agent: "RRA research-proposal-app (internal research use) +https://github.com/sweeetgy-boop/research-proposal-app"
+min_interval_sec: 2             # 페이지 이동·파일 클릭 사이 간격 (동시 1)
+max_pages: 10                   # 목록 10건/쪽
+max_items: 200
+max_file_mb: 50
+attachment_types: [pdf, hwp, hwpx]   # 전문(공개문) PDF·HWP. 옛 항목은 hwp 공개문만 있다 (2026-10-27 1차: pdf 20건 → 2차 hwp 추가)
+snapshot_dir: data/bai          # data/bai/snapshots/<날짜>/manifest.jsonl (커밋 금지)
+headless: true

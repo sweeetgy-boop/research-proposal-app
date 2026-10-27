@@ -1,0 +1,16 @@
+# 기획재정부 보도자료 게시판 — 공공기관 경영실적 평가 결과 발표 (P2-5, 레인 E 2026-10-27). `rra ingest --source mofe`.
+# robots: /sch/schMain.do·/id/qustnr.do 만 Disallow. 첨부는 개별 FileDown.do 만(zip 전체받기 안 씀). 담당자 이름·전화·이메일 미저장.
+base_url: https://mofe.go.kr
+list_path: /nw/nes/nesdta.do
+detail_path: /nw/nes/detailNesDtaView.do
+bbs_id: MOSFBBS_000000000028    # 보도자료
+menu_no: "4010100"
+queries: [경영실적 평가 결과]
+title_filter: [경영실적 평가]    # 제목에 이 말이 든 글만 (2016~2025년도 10건)
+store_dir: data/mofe
+max_file_mb: 50
+rate_limit: 0.5                 # 2초 간격
+max_requests_per_run: 60
+retries: 2
+max_response_mb: 50
+timeout: {connect: 10, read: 60}

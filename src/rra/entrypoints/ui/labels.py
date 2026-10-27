@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import re
 
-TIER = {"own": "사내(철도연구원)", "domestic_rail": "국내 철도기관", "external": "외부"}
+TIER = {
+    "own": "사내(철도연구원)",
+    "domestic_rail": "국내 철도기관",
+    "external": "외부",
+    "procurement": "발주 용역",
+}
 OWN_DETAIL = {"institute": "사내(철도연구원)", "company": "사내(공사)"}
 
 
@@ -37,6 +42,7 @@ STATUS_PROJECT = {  # 사내 과제 기록의 상태 (OverlapAlert.status)
     "stopped": "중단",
     "rejected": "미채택 — 보완 재제안 검토",
     "proposed": "제안·검토 중",
+    "procuring": "용역으로 진행 중/예정",  # 발주 용역 공고 (P2-6)
 }
 STATUS = {
     "queued": "대기",

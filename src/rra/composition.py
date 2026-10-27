@@ -77,6 +77,11 @@ __all__ = [
     "build_korail_web_crawler",
     "build_korail_web_source",
     "build_molit_source",
+    "build_g2b_source",
+    "build_bai_crawler",
+    "build_bai_source",
+    "build_mofe_source",
+    "build_datago_source",
     "build_strategy_drafter",
     "build_own_docs_source",
     "build_own_projects_source",
@@ -811,6 +816,123 @@ def build_korail_web_source(settings: Settings | None = None):
     )
 
 
+# ── [P2] 레인 E (2026-10-27): 발주 용역·감사·경영평가·통계 ─────────────
+def build_g2b_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """G2bProcurementSource — 나라장터 입찰공고(용역) API. RRA_DATA_GO_KR_KEY 없으면
+    MissingCredential."""
+    from rra.adapters.sources.procurement import G2bProcurementSource
+
+    settings = settings or load_settings()
+    require_credentials(settings, "g2b")
+    cfg = source_config(settings, "g2b")
+    return G2bProcurementSource(
+        _guarded(settings, cfg, transport=transport, resolver=resolver),
+        service_key=settings.data_go_kr_key,
+        base_url=str(cfg.get("base_url") or "https://apis.data.go.kr"),
+        path=str(
+            cfg.get("path") or "/1230000/ad/BidPublicInfoService/getBidPblancListInfoServcPPSSrch"
+        ),
+        queries=[str(q) for q in cfg.get("queries") or ["철도"]],
+        institutions=institutions(settings),
+        org_filter=[str(o) for o in cfg.get("org_filter") or []],
+        lookback_days=int(cfg.get("lookback_days", 365)),
+        rows=int(cfg.get("rows", 100)),
+        max_pages=int(cfg.get("max_pages", 5)),
+        active_days=int(cfg.get("active_days", 540)),
+    )
+
+
+def _bai_root(cfg: dict[str, Any]) -> Path:
+    return Path(str(cfg.get("snapshot_dir") or "data/bai"))
+
+
+def build_bai_crawler(settings: Settings | None = None, *, transport=None, resolver=None):
+    """BaiCrawler — config/bai.yaml. Playwright 로 공개 화면만 조작, robots 는 GuardedClient 로
+    읽는다."""
+    from rra.adapters.sources import GuardedClient
+    from rra.adapters.sources.audit.bai_crawler import BaiConfig, BaiCrawler
+
+    settings = settings or load_settings()
+    raw = read_config("bai.yaml", settings)
+    cfg = BaiConfig.from_config(raw)
+
+    async def robots_text() -> str:
+        client = GuardedClient(
+            allowed_domains(settings),
+            retries=0,
+            transport=transport,
+            user_agent=cfg.user_agent,
+            accept="text/plain,*/*;q=0.8",
+            **({"resolver": resolver} if resolver else {}),
+        )
+        try:
+            _h, body, _s = await client.get_raw(f"{cfg.base_url}/robots.txt")
+            return body.decode("utf-8", "replace")
+        finally:
+            await client.aclose()
+
+    return BaiCrawler(cfg, _bai_root(raw), robots_text=robots_text)
+
+
+def build_bai_source(settings: Settings | None = None):
+    """BaiAuditSource — 최신 스냅샷(data/bai/snapshots/<날짜>/) → Document(audit). 전문 PDF 는
+    샌드박스
+    파싱."""
+    from rra.adapters.sources.audit import BaiAuditSource
+
+    settings = settings or load_settings()
+    raw = read_config("bai.yaml", settings)
+    return BaiAuditSource(
+        _bai_root(raw),
+        limits=sandbox_limits(settings),
+        institutions=institutions(settings),
+        max_file_bytes=int(float(raw.get("max_file_mb", 50)) * 1024 * 1024),
+    )
+
+
+def build_mofe_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """MofeEvaluationSource — config/mofe.yaml (기획재정부 공공기관 경영평가 결과 보도자료)."""
+    from rra.adapters.sources.audit import MofeEvaluationSource
+
+    settings = settings or load_settings()
+    cfg = read_config("mofe.yaml", settings)
+    client = _guarded(settings, cfg, transport=transport, resolver=resolver)
+    client._client.headers["Accept"] = "text/html,application/xhtml+xml,*/*;q=0.8"
+    return MofeEvaluationSource(
+        client,
+        base_url=str(cfg.get("base_url") or "https://mofe.go.kr"),
+        list_path=str(cfg.get("list_path") or "/nw/nes/nesdta.do"),
+        detail_path=str(cfg.get("detail_path") or "/nw/nes/detailNesDtaView.do"),
+        bbs_id=str(cfg.get("bbs_id") or "MOSFBBS_000000000028"),
+        menu_no=str(cfg.get("menu_no") or "4010100"),
+        queries=[str(q) for q in cfg.get("queries") or ["경영실적 평가 결과"]],
+        title_filter=[str(t) for t in cfg.get("title_filter") or ["경영실적 평가"]],
+        store_dir=Path(str(cfg.get("store_dir") or "data/mofe")),
+        limits=sandbox_limits(settings),
+        max_file_bytes=int(float(cfg.get("max_file_mb", 50)) * 1024 * 1024),
+    )
+
+
+def build_datago_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """DataGoKrFileSource — config/datago.yaml 데이터셋 목록(철도 안전·수송 통계 파일, 키 없음)."""
+    from rra.adapters.sources.datago import DataGoKrFileSource
+
+    settings = settings or load_settings()
+    cfg = read_config("datago.yaml", settings)
+    client = _guarded(settings, cfg, transport=transport, resolver=resolver)
+    client._client.headers["Accept"] = "text/html,application/json,*/*;q=0.8"
+    return DataGoKrFileSource(
+        client,
+        datasets=[d for d in cfg.get("datasets") or [] if isinstance(d, dict)],
+        base_url=str(cfg.get("base_url") or "https://www.data.go.kr"),
+        store_dir=Path(str(cfg.get("store_dir") or "data/datago")),
+        limits=sandbox_limits(settings),
+        institutions=institutions(settings),
+        max_file_bytes=int(float(cfg.get("max_file_mb", 50)) * 1024 * 1024),
+        max_rows=int(cfg.get("max_rows", 400)),
+    )
+
+
 _SOURCE_BUILDERS = {
     "openalex": build_openalex_source,
     "alio": build_alio_source,
@@ -822,6 +944,10 @@ _SOURCE_BUILDERS = {
     "kipris": build_kipris_source,
     "korail_web": build_korail_web_source,
     "molit": build_molit_source,
+    "g2b": build_g2b_source,
+    "bai": build_bai_source,
+    "mofe": build_mofe_source,
+    "datago": build_datago_source,
 }
 SOURCE_NAMES = tuple(_SOURCE_BUILDERS)
 
@@ -871,6 +997,7 @@ def build_sources_check(
         "scienceon": build_scienceon_source,
         "ntis": build_ntis_source,
         "kipris": build_kipris_source,
+        "g2b": build_g2b_source,
     }
     targets = []
     for name in names:
