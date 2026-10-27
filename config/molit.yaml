@@ -1,0 +1,13 @@
+# 국토교통부 정책자료(정책정보 게시판) 수집 — P2-1 (레인 A, 2026-10-27). 호스트는 security.yaml allowed_domains.
+# 이용조건: 국토교통부 누리집 공공누리 표시(게시물별 확인). 담당자 이름·전화번호는 저장하지 않는다.
+base_url: https://www.molit.go.kr
+list_path: /USR/policyData/m_34681/lst.jsp
+queries: [국가철도망 구축계획, 철도산업발전기본계획, 철도안전종합계획, 철도정책]
+max_pages: 5
+store_dir: data/molit           # 받은 첨부 (sha256 이름, 커밋 금지)
+max_file_mb: 50
+rate_limit: 0.5                 # 2초 간격
+max_requests_per_run: 300
+retries: 2
+max_response_mb: 50
+timeout: {connect: 10, read: 60}

@@ -617,6 +617,8 @@ def cmd_db_backup(args: argparse.Namespace) -> int:
     _, backup = build_db_maintenance(load_settings())
     report = asyncio.run(backup(args.out, keep=args.keep))
     print(f"백업: {report.path} (보관 {len(report.kept)}벌, 삭제 {len(report.removed)}벌)")
+    for extra in report.extras:
+        print(f"  + {extra.name}")
     return EXIT_OK
 
 
@@ -737,6 +739,168 @@ def _warning_line(w) -> str:
         code=_safe(w.code, 40), detail=_safe(w.detail, 40), doc_id=_safe(w.doc_id, 64)
     )
     return f"[경고] {text}"
+
+
+# ── policy-suggest (정책 근거 추천) ────────────────────────
+def cmd_policy_suggest(args: argparse.Namespace) -> int:
+    """① 입력 → 정책 문서 문구 3~5개.
+
+    --pick N 이면 그 문구를 policy_basis 에 붙인 입력(JSON)을 출력한다."""
+    from rra.composition import build_policy_suggest, load_settings
+    from rra.domain.models import ProposalRequest
+    from rra.domain.models.request import validation_message
+    from rra.domain.rules.policy_phrases import apply_policy_suggestion
+    from rra.entrypoints.views import policy_suggestions_payload
+
+    settings = load_settings()
+    fields = _read_slots(args)
+    fields["policy_basis"] = getattr(args, "policy_basis", "") or ""
+    try:
+        req = ProposalRequest(**fields)
+    except ValidationError as exc:
+        _eprint(f"입력 오류: {validation_message(exc)}")
+        return EXIT_USAGE
+    suggestions = asyncio.run(build_policy_suggest(settings)(req))
+    rows = policy_suggestions_payload(suggestions, clean=_safe)
+    if args.pick is not None:
+        if not (1 <= args.pick <= len(suggestions)):
+            _eprint(f"--pick 은 1~{len(suggestions)} 사이여야 합니다.")
+            return EXIT_USAGE
+        chosen = apply_policy_suggestion(req, suggestions[args.pick - 1])
+        print(json.dumps(chosen.model_dump(), ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if args.json:
+        print(json.dumps({"suggestions": rows}, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    if not rows:
+        print("정책 문서에서 고를 문구가 없습니다 (korail_web 적재 전이거나 관련 문서 없음).")
+        return EXIT_OK
+    for i, r in enumerate(rows, 1):
+        where = ", ".join(p for p in (str(r["year"]) if r["year"] else "", r["page"] or "") if p)
+        print(f"{i}. {r['title']}{' (' + where + ')' if where else ''} — {r['url'] or ''}")
+        print(f"   “{r['quote']}”  [키워드 {', '.join(r['keywords']) or '-'}]")
+    print("고른 번호를 --pick N 으로 주면 policy_basis 에 붙인 입력을 돌려줍니다 (자동 삽입 없음).")
+    return EXIT_OK
+
+
+# ── crawl (공사 홈페이지 스냅샷) ───────────────────────────
+def cmd_crawl_korail(args: argparse.Namespace) -> int:
+    """`rra crawl korail --explore | --download [--incremental]`. 예약 실행 없음 (사람이 돌린다)."""
+    from rra.composition import build_korail_web_crawler, load_settings
+
+    settings = load_settings()
+    crawler = build_korail_web_crawler(settings)
+
+    async def run():
+        try:
+            if args.explore:
+                return await crawler.explore()
+            return await crawler.download(incremental=bool(args.incremental))
+        finally:
+            await crawler.aclose()
+
+    result = asyncio.run(run())
+    if args.explore:
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return EXIT_OK
+        print(
+            f"탐색 {result['date']} {result['base_url']} robots "
+            f"{'비어 있음(제한 없음)' if result['robots_empty'] else '있음'}"
+        )
+        for m in result["menus"]:
+            if m.get("held") or m.get("blocked"):
+                print(
+                    f"- {_safe(m['path'], 60)}: {'보류' if m.get('held') else '차단'} "
+                    f"{_safe(m.get('held') or m.get('blocked'), 80)}"
+                )
+                continue
+            if m["kind"] == "contents":
+                print(
+                    f"- {_safe(m['path'], 60)}: 본문 {m.get('chars', 0):,}자, "
+                    f"첨부 {m.get('attachments', 0)}"
+                    f"{' ' + str(m.get('attachment_kinds')) if m.get('attachment_kinds') else ''}, "
+                    f"이미지 {m.get('images', 0)}"
+                )
+            else:
+                print(
+                    f"- {_safe(m['path'], 60)}: {m.get('posts') or '?'}건 / "
+                    f"{m.get('pages') or '?'}쪽, {m.get('earliest') or '?'} ~ "
+                    f"{m.get('latest') or '?'}, "
+                    f"1쪽 첨부 {m.get('attachment_kinds_page1')}"
+                    f"{' (since ' + m['since'] + ')' if m.get('since') else ''}"
+                )
+        return EXIT_OK
+    data = result.to_dict()
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    else:
+        total = sum(data["items"].values())
+        carried = sum(data["carried"].values())
+        print(
+            f"스냅샷 {data['snapshot']}{' (증분)' if data['incremental'] else ''}: 항목 {total:,}건"
+            f"(이어 적음 {carried:,}), 파일 {data['files']:,}, 이미지 {data['images']:,}, "
+            f"{data['bytes'] / 1024 / 1024:,.1f}MB, 건너뜀 {data['skipped_files']}, "
+            f"삭제 표시 {data['removed']}, "
+            f"보류 {len(data['held'])}, robots 차단 {data['robots_blocked']}"
+        )
+        for menu, n in data["items"].items():
+            print(f"- {_safe(menu, 40)}: {n:,}건 (이어 적음 {data['carried'].get(menu, 0):,})")
+        for url in data["held"]:
+            _eprint(f"[보류] {_safe(url, 160)}")
+    return EXIT_ERROR if data["held"] else EXIT_OK
+
+
+# ── strategy (전략체계 초안·확정) ───────────────────────────
+def cmd_strategy_draft(args: argparse.Namespace) -> int:
+    """공사 홈페이지 "중장기 경영목표" 표 → korail_strategy.draft.yaml (basis: text)."""
+    import yaml
+
+    from rra.composition import build_strategy_drafter, load_settings
+    from rra.config_loader import STRATEGY_DRAFT_FILE, korail_web_config
+
+    settings = load_settings()
+    cfg = korail_web_config(settings)
+    key = str(
+        args.key
+        or next((m["key"] for m in cfg.get("menus") or [] if m.get("id") == "mgmt_goal"), "1900")
+    )
+    draft = asyncio.run(build_strategy_drafter(settings)(key, time.strftime("%Y-%m-%d")))
+    url = str(draft["directions"][0]["source"]["url"]) if draft["directions"] else ""
+    out = Path(args.out) if args.out else Path(settings.config_dir) / STRATEGY_DRAFT_FILE
+    out.parent.mkdir(parents=True, exist_ok=True)
+    header = (
+        "# 전략체계 초안 — 공사 홈페이지 ‘중장기 경영목표’ 표에서 자동 추출\n"
+        "# (rra strategy draft, basis: text). 사람이 확인한 뒤 `rra strategy promote` 로\n"
+        "# korail_strategy.yaml 에 복사한다. 항목을 지어내지 않는다.\n"
+    )
+    out.write_text(
+        header + yaml.safe_dump(draft, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+    tasks = sum(len(d["tasks"]) for d in draft["directions"])
+    print(
+        f"초안 저장: {out} — 전략방향 {len(draft['directions'])}개, 전략과제 {tasks}개 "
+        f"(출처 {_safe(url, 80)})"
+    )
+    return EXIT_OK
+
+
+def cmd_strategy_promote(args: argparse.Namespace) -> int:
+    """초안 → 확정 파일 복사 (백업 유지) + strategy.yaml source: confirmed. 사람만 실행한다."""
+    from rra.application.usecases.strategy_catalog import promote_strategy
+    from rra.composition import load_settings
+    from rra.config_loader import STRATEGY_DRAFT_FILE, STRATEGY_FILE
+
+    settings = load_settings()
+    base = Path(settings.config_dir)
+    report = promote_strategy(
+        base / STRATEGY_DRAFT_FILE, base / STRATEGY_FILE, base / "strategy.yaml"
+    )
+    print(
+        f"확정: {report.target} (전략방향 {report.directions}, 전략과제 {report.tasks})"
+        + (f", 백업 {report.backup.name}" if report.backup else "")
+    )
+    return EXIT_OK
 
 
 # ── alio ──────────────────────────────────────────────────
@@ -1494,6 +1658,46 @@ def cmd_sources_check(args: argparse.Namespace) -> int:
     return EXIT_OK if all(r["roundtrip"] == "ok" for r in results) else EXIT_ERROR
 
 
+def cmd_sources_status(args: argparse.Namespace) -> int:
+    """자료원별 적재 건수·최근 적재일 + 공사 홈페이지 스냅샷 날짜."""
+    from rra.composition import (
+        build_embedding,
+        build_korail_web_source,
+        build_repository,
+        load_settings,
+    )
+    from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
+
+    settings = load_settings()
+    repo = build_repository(build_embedding(settings), settings)
+    status = asyncio.run(repo.source_status())
+    snap = build_korail_web_source(settings).status()
+    rows = [
+        {
+            "source": s,
+            "label": SOURCE_LABELS.get(s, s),
+            "count": int(status.get(s, {}).get("count", 0)),
+            "last_ingested": status.get(s, {}).get("last_ingested"),
+        }
+        for s in ALL_SOURCES
+    ]
+    if args.json:
+        print(
+            json.dumps({"sources": rows, "korail_web_snapshot": snap}, ensure_ascii=False, indent=2)
+        )
+        return EXIT_OK
+    for r in rows:
+        print(f"- {r['label']}: {r['count']:,}건, 최근 적재 {r['last_ingested'] or '-'}")
+    if snap.get("snapshot"):
+        print(
+            f"공사 홈페이지 자료: {snap['snapshot']} 기준 스냅샷 (항목 {snap.get('items', 0):,}건, "
+            f"삭제 표시 {snap.get('removed', 0)})"
+        )
+    else:
+        print("공사 홈페이지 자료: 스냅샷 없음 (rra crawl korail --download)")
+    return EXIT_OK
+
+
 def _record_tag_hints(r: dict) -> list[str]:
     """NTIS·KIPRIS 레코드 태그 진단 — probe 후보와 설정값을 대조해 다음 할 일을 알려 준다."""
     from rra.composition import load_settings, source_config
@@ -1729,6 +1933,18 @@ def build_parser() -> argparse.ArgumentParser:
     diff.add_argument("--json", action="store_true", help="JSON 으로 출력")
     diff.set_defaults(handler=cmd_differentiate)
 
+    ps = sub.add_parser(
+        "policy-suggest", help="① 입력 → 정책 문서 문구 3~5개 추천 (LLM 없음, 자동 삽입 없음)"
+    )
+    for slot in SLOTS:
+        ps.add_argument(f"--{slot.replace('_', '-')}", dest=slot, default="")
+    ps.add_argument("--policy-basis", dest="policy_basis", default="", help="이미 적은 정책 근거")
+    ps.add_argument("--file", help="5슬롯이 담긴 yaml/json 파일")
+    ps.add_argument(
+        "--pick", type=int, default=None, help="고른 번호 → policy_basis 에 붙인 입력 출력"
+    )
+    ps.add_argument("--json", action="store_true")
+    ps.set_defaults(handler=cmd_policy_suggest)
     st = sub.add_parser("structure", help="U2 자유 문장 → 필수 4칸 + 보완 질문 (로컬 모델)")
     st.add_argument("--text", required=True, help="아이디어 1~2문장")
     st.add_argument("--title", default="", help="가제 (선택)")
@@ -1801,7 +2017,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--source",
         default="openalex",
         help="쉼표로 구분 (openalex, alio, alio_summary, own_projects, own_docs, scienceon, ntis, "
-        "kipris)",
+        "kipris, korail_web, molit)",
     )
     ingest.add_argument("--query", default=None, help="없으면 sources.yaml 기본 질의로 증분 수집")
     ingest.add_argument(
@@ -1825,6 +2041,42 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis,kipris)")
     chk.add_argument("--json", action="store_true")
     chk.set_defaults(handler=cmd_sources_check)
+    sst = src_sub.add_parser(
+        "status", help="자료원별 적재 건수·최근 적재일, 공사 홈페이지 스냅샷 날짜"
+    )
+    sst.add_argument("--json", action="store_true")
+    sst.set_defaults(handler=cmd_sources_status)
+
+    crawl = sub.add_parser("crawl", help="공개 웹 자료 스냅샷 수집 (예약 실행 없음)")
+    crawl_sub = crawl.add_subparsers(dest="crawl_cmd", required=True)
+    ck = crawl_sub.add_parser(
+        "korail", help="공사 홈페이지(info.korail.com) — config/korail_web.yaml 메뉴를 2초 간격으로"
+    )
+    mode = ck.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--explore", action="store_true", help="메뉴별 건수·기간·첨부 형식만 조사")
+    mode.add_argument(
+        "--download", action="store_true", help="data/korail_web/snapshots/<오늘>/ 에 저장"
+    )
+    ck.add_argument(
+        "--incremental",
+        action="store_true",
+        help="이전 스냅샷과 같은 항목은 다시 받지 않고, 사라진 항목은 '원본 삭제됨' 으로 표시",
+    )
+    ck.add_argument("--json", action="store_true")
+    ck.set_defaults(handler=cmd_crawl_korail)
+
+    strat = sub.add_parser("strategy", help="전략체계 목록 — 초안 추출·확정")
+    strat_sub = strat.add_subparsers(dest="strategy_cmd", required=True)
+    sd = strat_sub.add_parser(
+        "draft", help="공사 홈페이지 중장기 경영목표 표 → korail_strategy.draft.yaml"
+    )
+    sd.add_argument("--key", help="contents.do key (기본: korail_web.yaml 의 mgmt_goal)")
+    sd.add_argument("--out", help="저장 경로 (기본 config/templates/korail_strategy.draft.yaml)")
+    sd.set_defaults(handler=cmd_strategy_draft)
+    sp = strat_sub.add_parser(
+        "promote", help="초안을 korail_strategy.yaml 로 (백업 유지, 사람만 실행)"
+    )
+    sp.set_defaults(handler=cmd_strategy_promote)
 
     vis = sub.add_parser("vision", help="웹 이미지 판독 (P3): OCR 대조 + Argon, 캐시·상한")
     vis_sub = vis.add_subparsers(dest="vision_cmd", required=True)

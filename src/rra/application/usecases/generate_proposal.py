@@ -76,6 +76,7 @@ from rra.domain.rules.relevance import (
     balance_sources,
     filter_chunks,
 )
+from rra.domain.rules.retrieval_scope import overlap_candidates
 from rra.domain.rules.rewrite import merge_candidate
 from rra.domain.rules.schedule import (
     METRIC_SECTIONS,
@@ -172,7 +173,7 @@ class GenerateProposal:
             snapshot = RetrievalSnapshot.of(query, chunks)
             snapshot.dropped_chunks = dropped
             return snapshot
-        hits = await self.repo.find_similar(query, k=self.overlap_k)
+        hits = overlap_candidates(await self.repo.find_similar(query, k=self.overlap_k))
         alerts = judge(hits, own=self.own, query=query, keywords=self.keywords)
         extra = self._overlap_chunks(hits, alerts, chunks)
         snapshot = RetrievalSnapshot.of(query, chunks + extra, alerts)
