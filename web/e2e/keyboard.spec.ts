@@ -11,7 +11,9 @@ test("키보드만으로 로그인 → 입력 → 유사과제 확인 → 다음
   expect(box && box.y >= 0).toBe(true);
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => document.activeElement?.id)).toBe("main");
-  await page.getByLabel("접속 토큰").focus();
+  await page.getByRole("button", { name: "관리자" }).focus();
+  await page.keyboard.press("Enter");
+  await page.getByLabel("관리자 접속 토큰").focus();
   await page.keyboard.type(TOKEN);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/new$/);

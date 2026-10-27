@@ -1504,6 +1504,7 @@ def build_fake_parts(settings: Settings):
         InMemoryDocumentRepository,
         InMemoryRunStore,
         NoopRunLog,
+        ScriptedAuthStore,
         ScriptedComposeLLM,
         ScriptedNtisInsights,
         ScriptedReviewLLM,
@@ -1575,6 +1576,7 @@ def build_fake_parts(settings: Settings):
         "store": InMemoryRunStore(),
         "run_log": NoopRunLog(),
         "ntis_insights": NtisProjectInsights(ntis, ntis, repo=repo),
+        "auth": ScriptedAuthStore(),  # e2e 고정 계정 — 실제 data/auth 를 쓰지 않는다
     }
 
 
@@ -1622,7 +1624,12 @@ def build_api(
     auth = auth_config(settings)
     guest_services = None
     if not auth["include_internal"]:  # 공용 계정용 — internal 을 뺀 저장소로 같은 유스케이스
-        guest_services = build_scoped_services(settings, public_repository(repo), llm=llm)
+        guest_services = build_scoped_services(
+            settings,
+            public_repository(repo),
+            llm=llm,
+            ntis_insights=fake["ntis_insights"] if fake else None,
+        )
     return create_app(
         manager=manager,
         precheck=precheck,
@@ -1637,7 +1644,7 @@ def build_api(
         brief=build_briefer(settings, repo=repo, llm=llm),
         ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
-        login=build_login(settings),
+        login=build_login(settings, store=fake["auth"] if fake else None),
         auth_limits=auth["limits"],
         trust_cf=auth["trust_cf_connecting_ip"],
         client_ip=client_ip,
@@ -1656,7 +1663,9 @@ def build_api(
     )
 
 
-def build_scoped_services(settings: Settings, repo, *, llm=None) -> dict[str, Any]:
+def build_scoped_services(
+    settings: Settings, repo, *, llm=None, ntis_insights=None
+) -> dict[str, Any]:
     """공용 계정(guest)용 서비스 묶음 — 같은 유스케이스를 internal 제외 저장소로 조립 (레인 A).
     키는 create_app 의 인자 이름과 같다."""
     precheck = build_precheck(settings, repo=repo)
@@ -1669,7 +1678,9 @@ def build_scoped_services(settings: Settings, repo, *, llm=None) -> dict[str, An
         "recommend": build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         "compare": build_comparer(settings, repo=repo, precheck=precheck),
         "brief": build_briefer(settings, repo=repo, llm=llm),
-        "ntis_insights": None if settings.fake_llm else build_ntis_insights(settings, repo=repo),
+        "ntis_insights": ntis_insights
+        if ntis_insights is not None
+        else build_ntis_insights(settings, repo=repo),
     }
 
 

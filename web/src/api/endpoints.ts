@@ -20,6 +20,8 @@ import type {
   RunList,
   RunState,
   SearchOut,
+  SessionIn,
+  SessionInfo,
   SessionOut,
   SourcesOut,
   VersionOut,
@@ -32,15 +34,20 @@ const V = "/v1";
 const enc = encodeURIComponent;
 
 // ── 세션 ─────────────────────────────────────
-export async function login(token: string): Promise<SessionOut> {
+/** 로그인 — 관리 토큰(kind=token)·직원 사번(staff)·공용 계정(guest). 값은 본문으로만 보내고
+ *  어디에도 보관하지 않는다. 세션에는 CSRF 와 로그인 종류만 남긴다. */
+export async function login(body: SessionIn | string): Promise<SessionOut> {
+  const payload: SessionIn = typeof body === "string" ? { kind: "token", token: body } : body;
   const out = await request<SessionOut>(`${V}/session`, {
     method: "POST",
-    body: { token },
+    body: payload,
     keepSessionOn401: true,
   });
-  setSession(out.csrf);
+  setSession(out.csrf, out.kind, out.label);
   return out;
 }
+
+export const getSession = () => request<SessionInfo>(`${V}/session`);
 
 export async function logout(): Promise<void> {
   try {

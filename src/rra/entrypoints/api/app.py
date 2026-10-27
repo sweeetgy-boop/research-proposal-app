@@ -518,10 +518,11 @@ def create_app(
         """② NTIS 부가 조회 — 유사과제 알림의 NTIS 과제(상위 3건) 주요 성과(참고용) + 연관 과제
         추천(우리 검색에
         없던 것만 `ntis_recommended`). 캐시(과제번호)·호출 간격은 어댑터. 키가 없으면 503."""
-        if ntis_insights is None or not getattr(ntis_insights, "enabled", True):
+        insights_svc = _svc(request, "ntis_insights")
+        if insights_svc is None or not getattr(insights_svc, "enabled", True):
             raise HTTPException(503, "NTIS 부가 조회가 꺼져 있습니다 (RRA_NTIS_KEY 없음).")
         alerts = await _svc(request, "precheck")(req)
-        insights = await _svc(request, "ntis_insights")(alerts)
+        insights = await insights_svc(alerts)
         return {"notice": UNTRUSTED_NOTICE, **ntis_insights_payload(insights, clean=_clean)}
 
     @app.post(f"/{API_VERSION}/ideas/policy-suggestions")
@@ -529,9 +530,10 @@ def create_app(
         """① 입력 → 정책(policy) 문서 문구 3~5개.
 
         제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음)."""
-        if policy_suggest is None:
+        svc = _svc(request, "policy_suggest")
+        if svc is None:
             raise HTTPException(503, "정책 근거 추천이 꺼져 있습니다.")
-        suggestions = await _svc(request, "policy_suggest")(req)
+        suggestions = await svc(req)
         return {
             "notice": UNTRUSTED_NOTICE,
             "suggestions": policy_suggestions_payload(suggestions, clean=_clean),
@@ -543,9 +545,10 @@ def create_app(
         """공고문 대조(#13 선행, P2-7) — 접수 중인 정부 R&D 공고 상위 3건.
 
         LLM 없음, 자동 삽입 없음."""
-        if notice_match is None:
+        svc = _svc(request, "notice_match")
+        if svc is None:
             raise HTTPException(503, "공고문 대조가 꺼져 있습니다.")
-        matches = await _svc(request, "notice_match")(req)
+        matches = await svc(req)
         return {
             "notice": UNTRUSTED_NOTICE,
             "items": notice_matches_payload(matches, clean=_clean),
@@ -606,10 +609,11 @@ def create_app(
     async def comparison_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
         """U4 차별성 비교표 — precheck 상위 5건 × (연구목표·연구방법·적용범위·기대성과·차별화 방향).
         기존 과제 칸은 요약·초록의 제목 기반 추출만, 제목뿐이면 "정보 없음(제목 기준)". 양식 밖."""
-        if compare is None:
+        svc = _svc(request, "compare")
+        if svc is None:
             raise HTTPException(503, "차별성 비교표가 꺼져 있습니다 (usability.yaml comparison).")
         alerts = await _svc(request, "precheck")(req)
-        table = await _svc(request, "compare")(req, alerts)
+        table = await svc(req, alerts)
         return {
             "notice": UNTRUSTED_NOTICE,
             **alerts_payload(alerts, clean=_clean),
@@ -620,9 +624,10 @@ def create_app(
     async def brief_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
         """U5 선행연구 브리핑 — 검색 상위 논문·보고서 10건의 한 줄 요약·연도별 건수·키워드·연구 공백
         후보(근거 안에서만, 후보일 뿐). LLM 1회 (stage brief: Gemini, 키 없으면 로컬)."""
-        if brief is None:
+        svc = _svc(request, "brief")
+        if svc is None:
             raise HTTPException(503, "선행연구 브리핑을 쓸 수 없습니다 (꺼짐 또는 LLM 없음).")
-        result = await _svc(request, "brief")(req)
+        result = await svc(req)
         return {"notice": UNTRUSTED_NOTICE, **brief_payload(result, clean=_clean)}
 
     @app.post(f"/{API_VERSION}/ideas/structure")

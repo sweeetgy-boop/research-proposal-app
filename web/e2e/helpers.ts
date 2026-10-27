@@ -1,10 +1,32 @@
 import { expect, type Page } from "@playwright/test";
 
 export const TOKEN = process.env.RRA_E2E_TOKEN ?? "e2e-token-1234";
+/** 가짜 모드(adapters/fake/auth.py)의 고정 계정 — e2e 전용 */
+export const STAFF_NO = "E2E-0001";
+export const GUEST = { id: "e2e", password: "e2e-password-1" };
 
+/** 관리자 토큰 로그인 — "관리자" 링크 아래 토큰 칸 */
 export async function login(page: Page) {
   await page.goto("/login");
-  await page.getByLabel("접속 토큰").fill(TOKEN);
+  await page.getByRole("button", { name: "관리자" }).click();
+  await page.getByLabel("관리자 접속 토큰").fill(TOKEN);
+  await page.getByRole("button", { name: "로그인" }).click();
+  await expect(page).toHaveURL(/\/new$/);
+}
+
+export async function loginStaff(page: Page, staffNo = STAFF_NO) {
+  await page.goto("/login");
+  await page.getByRole("tab", { name: "철도연구원 직원(사번)" }).click();
+  await page.getByLabel("사번", { exact: true }).fill(staffNo);
+  await page.getByRole("button", { name: "로그인" }).click();
+  await expect(page).toHaveURL(/\/new$/);
+}
+
+export async function loginGuest(page: Page, id = GUEST.id, password = GUEST.password) {
+  await page.goto("/login");
+  await page.getByRole("tab", { name: "그 외 사용자(아이디·비밀번호)" }).click();
+  await page.getByLabel("아이디", { exact: true }).fill(id);
+  await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "로그인" }).click();
   await expect(page).toHaveURL(/\/new$/);
 }
