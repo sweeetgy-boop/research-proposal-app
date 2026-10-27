@@ -1,0 +1,46 @@
+{
+ "sources": [
+  {
+   "source": "openalex",
+   "label": "OpenAlex 해외 논문",
+   "count": 1,
+   "last_ingested": "2026-10-26"
+  },
+  {
+   "source": "scienceon",
+   "label": "ScienceON 국내 논문·보고서",
+   "count": 0,
+   "last_ingested": null
+  },
+  {
+   "source": "kipris_kr",
+   "label": "KIPRIS 국내 특허",
+   "count": 0,
+   "last_ingested": null
+  },
+  {
+   "source": "kipris_intl",
+   "label": "KIPRIS 해외 특허",
+   "count": 0,
+   "last_ingested": null
+  },
+  {
+   "source": "ntis",
+   "label": "NTIS 국가R&D 과제",
+   "count": 0,
+   "last_ingested": null
+  },
+  {
+   "source": "alio",
+   "label": "알리오 공시 연구보고서",
+   "count": 1,
+   "last_ingested": "2026-10-26"
+  },
+  {
+   "source": "own",
+   "label": "사내 과제 현황",
+   "count": 0,
+   "last_ingested": null
+  }
+ ]
+}
