@@ -209,6 +209,44 @@ class InMemoryRepository:
         counts = await self.count_by_source()
         return {s: {"count": n, "last_ingested": "2026-10-26"} for s, n in counts.items()}
 
+    # ── TableFactRepository (P2-8) ───────────────────────
+    async def replace_facts(self, doc_id, facts):
+        self.facts = {k: v for k, v in getattr(self, "facts", {}).items() if k != doc_id}
+        if facts:
+            self.facts[doc_id] = list(facts)
+        return len(facts)
+
+    async def search_facts(self, query, *, k=20):
+        toks = [t for t in self._TOKEN.findall((query or "").lower()) if t]
+        if not toks:
+            return []
+        out = [
+            f
+            for facts in getattr(self, "facts", {}).values()
+            for f in facts
+            if all(t in f.item.lower() for t in toks)
+        ]
+        return out[: max(0, k)]
+
+    async def facts_for(self, doc_ids):
+        store = getattr(self, "facts", {})
+        return {d: list(store[d]) for d in doc_ids if d in store}
+
+    async def fact_counts(self):
+        out: dict[str, int] = {}
+        for doc_id, facts in getattr(self, "facts", {}).items():
+            src = doc_id.split(":", 1)[0]
+            out[src] = out.get(src, 0) + len(facts)
+        return out
+
+    # ── CorpusAccessPort (P2-9) ──────────────────────────
+    async def sample_chunks(self, limit):
+        return list(self.chunks)[: max(0, limit)]
+
+    async def documents_of(self, source, *, limit=None):
+        docs = sorted((d for d in self.docs.values() if d.source == source), key=lambda d: d.doc_id)
+        return docs if limit is None else docs[: max(0, limit)]
+
 
 class FakeReranker:
     """RerankerPort fake — 호출을 기록하고 순서를 뒤집는다 (끄면 원래 순서가 유지되는지 검사용)."""

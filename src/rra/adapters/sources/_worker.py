@@ -23,6 +23,7 @@ EXIT_INPUT = 87
 
 PARSERS = {
     "pdf": "rra.adapters.sources.alio.extract.pdf",
+    "pdf_pages": "rra.adapters.sources.alio.extract.pdf:extract_pages",  # 쪽별 텍스트 (P2-8 표)
     "hwpx": "rra.adapters.sources.alio.extract.hwpx",
     "hwp": "rra.adapters.sources.alio.extract.hwp",
     "csv": "rra.adapters.sources.alio.extract.csv_catalog",

@@ -13,6 +13,8 @@ lint 경고(unsupported_number)로 담당자가 보게 한다 (lint.number_check
 - 연도 표기(1900~2100년)·월·차(차년도)는 환산 없이 그대로 대조
 - 단위 없는 숫자는 허용 텍스트의 어떤 수치든 같은 값이면 통과 (0.80 같은 임계치·계수)
 
+표 사실(P2-8, `facts=`): 인용 문서의 표에서 뽑은 (항목·연도·단위·값)도 허용 값이다.
+
 한계: 어절 단위 패턴이라 "열 개", "백만 원" 같은 한글 수사는 뽑지 못한다. 수치가 허용 텍스트에
 있어도 다른 뜻으로 쓰인 것은 잡지 못한다 — 폐기가 아닌 경고인 이유다.
 """
@@ -22,6 +24,8 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
+
+from rra.domain.models.table_fact import TableFact
 
 _NUM = r"\d+(?:,\d{3})*(?:\.\d+)?"
 # 긴 단위를 먼저 (개년 > 년, 백만원 > 만원 > 원, 주일 > 주, 일간 > 일)
@@ -97,11 +101,20 @@ def numbers(text: str) -> list[tuple[str, Canonical]]:
     return out
 
 
-def unsupported_numbers(text: str, allowed_texts: Iterable[str]) -> list[str]:
-    """허용 텍스트(입력·인용 근거)에 같은 값(단위 환산 후)이 없는 수치 표기. 비어 있으면 통과."""
+def unsupported_numbers(
+    text: str, allowed_texts: Iterable[str], *, facts: Iterable[TableFact] | None = None
+) -> list[str]:
+    """허용 텍스트(입력·인용 근거)에 같은 값(단위 환산 후)이 없는 수치 표기. 비어 있으면 통과.
+
+    facts: 문장이 인용한 문서의 표 사실(P2-8). 각 사실의 `as_text()`("2023년 1,512대")가 허용
+    텍스트에 더해진다 — 표 칸의 수치는 청크 본문에 흩어져 있어도 근거로 인정된다. 없으면 종전과
+    같다.
+    """
     allowed: set[Canonical] = set()
     for t in allowed_texts:
         allowed.update(c for _, c in numbers(t or ""))
+    for fact in facts or ():
+        allowed.update(c for _, c in numbers(fact.as_text()))
     values = {v for _, v in allowed}
     out: list[str] = []
     for shown, canon in numbers(text):

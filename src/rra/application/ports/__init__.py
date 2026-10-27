@@ -11,6 +11,7 @@ from .reranker import RerankerPort, rerank_stats
 from .run_log import RunLogPort
 from .run_store import RunBusy, RunClaim, RunNotFound, RunStorePort
 from .source import AcknowledgingSource, InboxSource, ProbingSource, SourcePort, WarningSource
+from .table_facts import CorpusAccessPort, TableFactRepository, TableSourcePort
 from .task_runner import TaskRunner
 
 __all__ = [
@@ -37,6 +38,9 @@ __all__ = [
     "RunNotFound",
     "RunStorePort",
     "SourcePort",
+    "CorpusAccessPort",
+    "TableFactRepository",
+    "TableSourcePort",
     "TaskRunner",
     "WarningSource",
 ]

@@ -79,3 +79,25 @@ def test_numbers_extracts_value_and_unit():
 
 def test_no_allowed_text_flags_every_number():
     assert unsupported_numbers("3단계 10% 2년", []) == ["3", "10%", "2년"]
+
+
+# ── 표 사실(P2-8) ─────────────────────────────────────────
+def test_table_facts_count_as_supported_numbers_only_when_given():
+    from decimal import Decimal
+
+    from rra.domain.models import TableFact
+
+    fact = TableFact(
+        item="합계 엘리베이터",
+        value=Decimal("1512"),
+        value_text="1,512",
+        doc_id="korail_web:a",
+        year=2026,
+        unit="대",
+    )
+    text = "2026년 기준 엘리베이터 1,512대가 설치되어 있음"
+    assert unsupported_numbers(text, [INPUT]) == ["2026년", "1,512대"]  # 종전 동작 그대로
+    assert unsupported_numbers(text, [INPUT], facts=[fact]) == []
+    # 다른 값·다른 단위는 여전히 경고
+    assert unsupported_numbers("엘리베이터 1,600대", [INPUT], facts=[fact]) == ["1,600대"]
+    assert unsupported_numbers("엘리베이터 1,512건", [INPUT], facts=[fact]) == ["1,512건"]

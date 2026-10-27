@@ -28,12 +28,13 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from rra.adapters.persistence import _mapping, _sql, _vec
 from rra.adapters.persistence.migrations import runner
-from rra.domain.models import Chunk, Document
+from rra.domain.models import Chunk, Document, TableFact
 from rra.domain.rules.fusion import DEFAULT_K as RRF_K
 from rra.domain.rules.fusion import reciprocal_rank_fusion
 
@@ -88,6 +89,26 @@ _SOURCE_FILTER = " AND d.source IN ({sources})"
 # 부족하면 4배씩 늘려 다시 받는다. 상한은 DoS 방지.
 VEC_FETCH_CAP = 4096
 _SELECT_ALL_CHUNKS = "SELECT id, text FROM chunks ORDER BY id"
+# P2-8 표 사실 (migration 005). 값은 전부 바인딩, LIKE 패턴은 _like_pattern 으로 이스케이프.
+_FACT_COLUMNS = (
+    "doc_id, item, year, unit, value, value_text, page, sheet, row_label, col_label, basis"
+)
+_INSERT_FACT = f"INSERT INTO table_facts ({_FACT_COLUMNS}) VALUES ({_sql.placeholders(11)})"  # noqa: S608  # nosec B608 - 상수
+_DELETE_FACTS = "DELETE FROM table_facts WHERE doc_id = ?"
+_SELECT_FACTS = f"SELECT {_FACT_COLUMNS} FROM table_facts"  # noqa: S608  # nosec B608 - 상수
+_FACT_COUNTS = (
+    "SELECT substr(doc_id, 1, instr(doc_id, ':') - 1) AS src, COUNT(*) FROM table_facts "
+    "GROUP BY src"
+)
+MAX_FACT_TOKENS = 8
+_SAMPLE_SOURCES = "SELECT DISTINCT source FROM documents ORDER BY source"
+_SAMPLE_CHUNKS = (
+    "SELECT c.chunk_id, c.doc_id, c.ordinal, c.heading, c.text, "
+    "d.text_basis AS basis, d.visibility AS visibility "
+    "FROM chunks c JOIN documents d ON d.doc_id = c.doc_id WHERE d.source = ? "
+    "ORDER BY c.id LIMIT ?"
+)
+_DOCUMENTS_OF = "SELECT * FROM documents WHERE source = ? ORDER BY doc_id LIMIT ?"
 
 
 @dataclass(frozen=True)
@@ -532,6 +553,83 @@ class SQLiteDocumentRepository:
             os.chmod(out, DB_FILE_MODE)
         return out
 
+    # ── 표 사실 (TableFactRepository, P2-8) ───────────────
+    async def replace_facts(self, doc_id: str, facts: list[TableFact]) -> int:
+        return await asyncio.to_thread(self._replace_facts_sync, doc_id, facts)
+
+    def _replace_facts_sync(self, doc_id: str, facts: list[TableFact]) -> int:
+        with self._lock, self.conn:
+            self.conn.execute(_DELETE_FACTS, (doc_id,))
+            self.conn.executemany(_INSERT_FACT, [_fact_row(doc_id, f) for f in facts])
+        return len(facts)
+
+    async def search_facts(self, query: str, *, k: int = 20) -> list[TableFact]:
+        limit = _sql.clamp_k(k, max_k=self.max_k)
+        tokens = _sql.fts_tokens(query, max_chars=self.max_query_chars, max_tokens=MAX_FACT_TOKENS)
+        if not tokens:
+            return []
+        return await asyncio.to_thread(self._search_facts_sync, tokens, limit)
+
+    def _search_facts_sync(self, tokens: list[str], limit: int) -> list[TableFact]:
+        # 조건 개수만 정수로 조립하고 패턴은 전부 바인딩한다 (보안 E)
+        where = " AND ".join(["item LIKE ? ESCAPE '\\'"] * len(tokens))
+        sql = f"{_SELECT_FACTS} WHERE {where} ORDER BY id LIMIT ?"  # noqa: S608  # nosec B608
+        params = (*[_like_pattern(t) for t in tokens], limit)
+        with self._lock:
+            return [_row_to_fact(r) for r in self.conn.execute(sql, params)]
+
+    async def facts_for(self, doc_ids: list[str]) -> dict[str, list[TableFact]]:
+        ids = self._clean_names(doc_ids)
+        if not ids:
+            return {}
+        return await asyncio.to_thread(self._facts_for_sync, ids)
+
+    def _facts_for_sync(self, doc_ids: list[str]) -> dict[str, list[TableFact]]:
+        out: dict[str, list[TableFact]] = {}
+        with self._lock:
+            for start in range(0, len(doc_ids), self.max_k):
+                batch = doc_ids[start : start + self.max_k]
+                sql = (
+                    f"{_SELECT_FACTS} WHERE doc_id IN ({_sql.placeholders(len(batch))}) "  # noqa: S608  # nosec B608
+                    "ORDER BY id"
+                )
+                for row in self.conn.execute(sql, tuple(batch)):
+                    out.setdefault(row["doc_id"], []).append(_row_to_fact(row))
+        return out
+
+    async def fact_counts(self) -> dict[str, int]:
+        return await asyncio.to_thread(self._fact_counts_sync)
+
+    def _fact_counts_sync(self) -> dict[str, int]:
+        with self._lock:
+            return {str(src): int(n) for src, n in self.conn.execute(_FACT_COUNTS)}
+
+    # ── 코퍼스 접근 (CorpusAccessPort, P2-9) ─────────────
+    async def sample_chunks(self, limit: int) -> list[Chunk]:
+        return await asyncio.to_thread(self._sample_chunks_sync, max(0, int(limit)))
+
+    def _sample_chunks_sync(self, limit: int) -> list[Chunk]:
+        """자료원마다 limit/자료원수 개씩 (id 순 — 결정적). 한 자료원이 표본을 독차지하지 않도록."""
+        with self._lock:
+            sources = [str(r[0]) for r in self.conn.execute(_SAMPLE_SOURCES)]
+            if not sources or limit == 0:
+                return []
+            per_source = max(1, limit // len(sources))
+            out: list[Chunk] = []
+            for source in sources:
+                rows = self.conn.execute(_SAMPLE_CHUNKS, (source, per_source)).fetchall()
+                out.extend(_mapping.row_to_chunk(r) for r in rows)
+            return out[:limit]
+
+    async def documents_of(self, source: str, *, limit: int | None = None) -> list[Document]:
+        cap = _sql.MAX_K * 100 if limit is None else max(0, int(limit))
+        return await asyncio.to_thread(self._documents_of_sync, str(source), cap)
+
+    def _documents_of_sync(self, source: str, limit: int) -> list[Document]:
+        with self._lock:
+            rows = self.conn.execute(_DOCUMENTS_OF, (source, limit)).fetchall()
+        return [_mapping.row_to_document(r) for r in rows]
+
     def _load_chunks(self, chunk_ids: list[str]) -> list[Chunk]:
         if not chunk_ids:
             return []
@@ -547,3 +645,41 @@ class SQLiteDocumentRepository:
             for row in self.conn.execute(sql, tuple(batch)):
                 found[row["chunk_id"]] = _mapping.row_to_chunk(row)
         return [found[cid] for cid in chunk_ids if cid in found]
+
+
+def _fact_row(doc_id: str, f: TableFact) -> tuple[object, ...]:
+    return (
+        doc_id,
+        f.item,
+        f.year,
+        f.unit,
+        float(f.value),
+        f.value_text,
+        f.page,
+        f.sheet,
+        f.row_label,
+        f.col_label,
+        f.basis,
+    )
+
+
+def _row_to_fact(row: sqlite3.Row) -> TableFact:
+    return TableFact(
+        doc_id=row["doc_id"],
+        item=row["item"],
+        year=row["year"],
+        unit=row["unit"],
+        value=Decimal(repr(float(row["value"]))),
+        value_text=row["value_text"],
+        page=row["page"],
+        sheet=row["sheet"],
+        row_label=row["row_label"],
+        col_label=row["col_label"],
+        basis=row["basis"],
+    )
+
+
+def _like_pattern(token: str) -> str:
+    """LIKE 토큰 — 와일드카드·이스케이프 문자를 리터럴로."""
+    escaped = token.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
