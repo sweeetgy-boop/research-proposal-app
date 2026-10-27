@@ -17,7 +17,9 @@ from defusedxml.ElementTree import fromstring
 _SPACES = re.compile(r"\s+")
 MAX_FIELD_CHARS = 20_000
 # 엔티티가 아닌 맨 `&` (예: NTIS 연구보고서 DocUrl 의 `?dbt=TRKO&cn=…`). 엔티티 꼴은 그대로.
-_BARE_AMP = re.compile(rb"&(?!(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#x[0-9A-Fa-f]+);)")
+# DTD 를 금지하므로 미리 정의된 5개 엔티티·숫자 참조만 엔티티다.
+# 그 밖의 `&이름;`(예: 실응답의 "R&DB;")도 맨 & 로 본다.
+_BARE_AMP = re.compile(rb"&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9A-Fa-f]+);)")
 
 
 class XmlResponseError(ValueError):
