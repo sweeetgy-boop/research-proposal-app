@@ -165,7 +165,7 @@ class RetrievalSnapshot(BaseModel):
     overlap_checked: bool = False  # False 면 유사과제 판정을 하지 않은 것 ("없음"과 구분)
     # Q3 섹션별 맞춤 검색 결과 — 섹션 키 → 그 섹션이 쓸 chunk_id (chunks 안). 비면 기본 집합
     section_chunks: dict[str, list[str]] = Field(default_factory=dict)
-    # 섹션별 검색이 더한 chunk_id — 섹션 검색이 없는 섹션(제목·선택형 등)은 이것을 빼고 기본 집합만 본다
+    # 섹션별 검색이 더한 chunk_id — 섹션 검색이 없는 섹션(제목·선택형)은 이것을 빼고 기본 집합만
     # (전부 주면 프롬프트가 3배로 커져 7B 가 JSON 을 못 지킨다, 2026-10-27 측정 3단계)
     section_added: list[str] = Field(default_factory=list)
     # Q4 채택 과제 본보기 — 구성·문체 참고용(인용 금지). {doc_id, status, sections: {key: [문장]}}
