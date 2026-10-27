@@ -3,27 +3,29 @@
 필드 매핑(scienceon/normalize.py·ntis/projects.py 의 FIELDS 후보)을 여기서 실응답으로 확정한다.
 """
 
+import re
 from pathlib import Path
 
 import pytest
 import yaml
 
 from rra.adapters.sources._xml import find_records, flatten, parse
-from rra.adapters.sources.ntis import normalize_project
+from rra.adapters.sources.ntis import normalize_project, normalize_report
 from rra.adapters.sources.scienceon import normalize_record
 
 ROOT = Path(__file__).parents[2]
 FIX = ROOT / "tests" / "fixtures"
 SOURCES = yaml.safe_load((ROOT / "config" / "sources.yaml").read_text(encoding="utf-8"))
 SCIENCEON = sorted((FIX / "scienceon").glob("*.xml"))
-NTIS = sorted((FIX / "ntis").glob("*.xml"))
+NTIS = sorted((FIX / "ntis").glob("ntis_project_*.xml"))
+NTIS_REPORTS = sorted((FIX / "ntis").glob("ntis_report_*.xml"))
 KIPRIS = sorted((FIX / "kipris").glob("*.xml"))
 KIPRIS_TAG = (SOURCES.get("kipris") or {}).get("record_tag") or "PatentUtilityInfo"
 NTIS_TAG = (SOURCES.get("ntis") or {}).get("record_tag") or ""
 
 
 def test_fixtures_hold_no_obvious_secrets():
-    for path in [*SCIENCEON, *NTIS, *KIPRIS]:
+    for path in [*SCIENCEON, *NTIS, *NTIS_REPORTS, *KIPRIS]:
         text = path.read_text(encoding="utf-8", errors="replace")
         for marker in (
             "accounts=",
@@ -87,16 +89,49 @@ def test_scienceon_records_normalize(path):
         assert any("krri" in d.orgs for d in docs)  # 한국철도기술연구원 출원 건이 들어 있다
 
 
-@pytest.mark.skipif(not NTIS, reason="NTIS 실응답 미녹화 (tests/fixtures/ntis/README.md)")
-@pytest.mark.skipif(not NTIS_TAG, reason="sources.yaml ntis.record_tag 미설정")
+def test_ntis_fixtures_present():
+    """2026-10-27: 합성(매뉴얼 형식) fixture — IP 등록 뒤 실응답으로 교체해도 이름이 같은 glob 에
+    잡힌다."""
+    assert NTIS and NTIS_REPORTS and NTIS_TAG == "HIT"
+
+
+def test_ntis_fixtures_hold_no_person_names():
+    for path in [*NTIS, *NTIS_REPORTS]:
+        for r in find_records(parse(path.read_bytes()), NTIS_TAG):
+            flat = flatten(r)
+            for tag in ("Manager/Name", "Researchers/Name", "ManagerName", "Manager", "Author"):
+                names = {n.strip() for n in re.split(r"[;|]", flat.get(tag, ""))}
+                assert names <= {"", "NAME-REMOVED"}, f"{path.name}: {tag}"
+
+
 @pytest.mark.parametrize("path", NTIS, ids=[p.name for p in NTIS])
 def test_ntis_projects_normalize(path):
     institutions = SOURCES.get("institutions") or []
     records = [flatten(r) for r in find_records(parse(path.read_bytes()), NTIS_TAG)]
     assert records, f"record_tag {NTIS_TAG!r} 요소가 없다"
     docs = [normalize_project(r, institutions) for r in records]
+    assert len({d.doc_id for d in docs}) == len(docs)
     assert all(d.doc_id.startswith("ntis:") and d.doc_type == "rnd_project" for d in docs)
+    assert all(d.raw["kind"] == "national_rnd" and d.visibility == "public" for d in docs)
+    assert all(not d.authors for d in docs)  # 연구책임자·참여연구원 이름은 저장하지 않는다
     assert any(d.abstract for d in docs), "연구목표·내용 필드 매핑을 확인할 것"
+    assert all("search_word" not in (d.title + (d.abstract or "")) for d in docs)
+    assert any(d.orgs for d in docs) and any(d.project_period for d in docs)
+    assert "NAME-REMOVED" not in " ".join(str(d.model_dump()) for d in docs)
+
+
+@pytest.mark.parametrize("path", NTIS_REPORTS, ids=[p.name for p in NTIS_REPORTS])
+def test_ntis_reports_normalize(path):
+    institutions = SOURCES.get("institutions") or []
+    records = [flatten(r) for r in find_records(parse(path.read_bytes()), NTIS_TAG)]
+    assert records
+    docs = [normalize_report(r, institutions) for r in records]
+    assert all(d.doc_type == "report" and d.source == "ntis" and d.title for d in docs)
+    assert all(not d.authors for d in docs)
+    assert all(d.raw["kind"] == "national_rnd_report" for d in docs)
+    assert any(d.raw["project_no"] for d in docs) and any(d.url for d in docs)
+    assert all("search_word" not in (d.title + (d.abstract or "")) for d in docs)
+    assert "NAME-REMOVED" not in " ".join(str(d.model_dump()) for d in docs)
 
 
 @pytest.mark.skipif(not KIPRIS, reason="KIPRIS 실응답 미녹화 (tests/fixtures/kipris/README.md)")

@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,(feat/ntis-live),NTIS 실연결(레인 N),1522,1173,8,6381,7517,11893,6795,223,,,,,,,,,,NTIS 실호출 4건 모두 IP 차단(HTTP 200 error 0.13~0.52 s); 합성 fixture 과제3·보고서2·성과3·연관4; 드라이런 NtisError; 적재 예상 과제≤1950·보고서≤1950(26회/소스)

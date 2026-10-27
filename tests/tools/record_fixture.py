@@ -29,6 +29,7 @@ import httpx
 
 from rra.composition import (
     build_kipris_source,
+    build_ntis_report_source,
     build_ntis_source,
     build_scienceon_source,
     load_settings,
@@ -140,6 +141,31 @@ def strip_person_names(body: bytes) -> bytes:
     return _ITEM.sub(repl, body.decode("utf-8")).encode("utf-8")
 
 
+_NTIS_NAME = re.compile(
+    r"<(?P<tag>Manager|ManagerName|Author|Inventor|Researchers)>(?P<body>.*?)</(?P=tag)>", re.S
+)
+
+
+def strip_ntis_names(body: bytes) -> bytes:
+    """NTIS XML 의 사람 이름 요소(연구책임자 Manager/Name·ManagerName, 참여연구원 Researchers/Name,
+    저자 Author)를
+    NAME-REMOVED 로. 기관명 요소(ResearchAgency·PublicationAgency 등)는 그대로."""
+
+    def repl(m: re.Match[str]) -> str:
+        tag, inner = m.group("tag"), m.group("body")
+        if tag == "Researchers":
+            inner = re.sub(r"<Name>[^<]*</Name>", "<Name>NAME-REMOVED</Name>", inner)
+            return f"<{tag}>{inner}</{tag}>"
+        if tag == "Manager":
+            inner = re.sub(r"<Name>[^<]*</Name>", "<Name>NAME-REMOVED</Name>", inner)
+            if "<Name>" not in inner and inner.strip():
+                inner = "NAME-REMOVED"
+            return f"<{tag}>{inner}</{tag}>"
+        return f"<{tag}>{'NAME-REMOVED' if inner.strip() else ''}</{tag}>"
+
+    return _NTIS_NAME.sub(repl, body.decode("utf-8", "replace")).encode("utf-8")
+
+
 def token_shape(body: bytes) -> dict[str, str]:
     try:
         data = json.loads(body)
@@ -172,6 +198,12 @@ async def record(
         from rra.adapters.sources._xml import find_records, local
 
         print("record_tag 후보:", sorted({local(r.tag) for r in find_records(root)}))
+    elif source == "ntis_reports":
+        src = build_ntis_report_source(settings, transport=transport, resolver=resolver)
+        root = await src._fetch_root(query, 1, count=rows)  # noqa: SLF001 - 녹화 전용
+        from rra.adapters.sources._xml import find_records, local
+
+        print("record_tag 후보:", sorted({local(r.tag) for r in find_records(root)}))
     else:
         src = build_ntis_source(settings, transport=transport, resolver=resolver)
         root = await src._fetch_root(query, 1, count=rows)  # noqa: SLF001 - 녹화 전용
@@ -181,7 +213,7 @@ async def record(
     await src.aclose()
 
     secrets = secret_values(settings, transport.exchanges)
-    out_dir = out_root / source
+    out_dir = out_root / ("ntis" if source == "ntis_reports" else source)
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%d")
     saved: list[Path] = []
@@ -190,11 +222,14 @@ async def record(
             path = out_dir / "token_shape.json"
             path.write_text(json.dumps(token_shape(ex["body"]), indent=2) + "\n", encoding="utf-8")
         else:
-            name = f"{source}_{target or 'project'}_{stamp}_{i}"
+            kind = "report" if source == "ntis_reports" else (target or "project")
+            name = f"{'ntis' if source == 'ntis_reports' else source}_{kind}_{stamp}_{i}"
             path = out_dir / f"{name}.xml"
             body = redact(ex["body"], secrets)
             if source == "scienceon":
                 body = strip_person_names(body)
+            elif source == "ntis":
+                body = strip_ntis_names(body)
             path.write_bytes(body)
             meta = {
                 "source": source,
@@ -215,7 +250,7 @@ async def record(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser("record_fixture")
-    parser.add_argument("source", choices=["scienceon", "ntis", "kipris"])
+    parser.add_argument("source", choices=["scienceon", "ntis", "ntis_reports", "kipris"])
     parser.add_argument("--query", required=True)
     parser.add_argument("--target", help="ScienceON: ARTI | REPORT | PATENT")
     parser.add_argument("--rows", type=int, default=10)
