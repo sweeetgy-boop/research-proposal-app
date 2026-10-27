@@ -13,7 +13,7 @@
 | 사내 과제 현황·공시 요약문 | `own_projects`·`own_docs` | 사내 유사과제·차별화 (기능 1·2) | 사내 파일 (P2) | — | — | `adapters/sources/own/` | 적재 완료 (1,119 + 120건). 공개 자료(public) — 공시용이 없는 일반 요약문 5건만 internal. 티어는 모두 own(철도연구원/공사 구분) |
 | NTIS 과제검색 | `ntis` | 국가R&D 중복 (기능 1·2·3) | ntis.go.kr OpenAPI [활용신청] — **소속기관 등록 필요**(내정보 > 소속기관 등록), 콜센터 042-865-1115 | `RRA_NTIS_KEY` (rndopen apprvKey) | 무료 | `ntis/client.py` | 코드 완료, 키·`record_tag` 대기 |
 | NTIS 연구보고서 검색 | (없음) | 국가R&D 보고서 근거 | ntis.go.kr OpenAPI 목록 "국가R&D 연구보고서 검색 서비스(전체용)" (2021-07-01 등록) — 과제검색과 별도 활용신청 | NTIS 키 (서비스별 권한) | 무료 | 미구현 | 가능 여부 확인됨 — 키 확보 뒤 구현 |
-| ScienceON | `scienceon` | 국내 논문·보고서 근거 (기능 3·4) | KISTI ScienceON API 활용신청 → client_id + 32자 인증키, **호출 기기 MAC 등록** | `RRA_SCIENCEON_CLIENT_ID`·`_KEY`·`_MAC` | 무료, 429 이력 → 초당 1회·run 예산 40 | `scienceon/` | 코드 완료, 키 대기 |
+| ScienceON | `scienceon` | 국내 논문·보고서·특허 근거 (기능 3·4) | KISTI ScienceON API 활용신청 → **client_id(64자) + 인증키(32자)**, **호출 기기 MAC 등록** | `RRA_SCIENCEON_CLIENT_ID`·`_KEY`·`_MAC` | 무료, 429 이력 → 초당 1회·run 예산(sources.yaml) | `scienceon/` — target ARTI·REPORT·PATENT, 사람 이름 미저장 | 실응답 확인(2026-10-27): 토큰·검색 ok, fixture 3종, 매핑 확정. 적재는 통합 세션 대기 |
 | KIPRIS 특허 (국내) | `kipris` → 문서 `kipris_kr` | 특허 선행기술·차별성 (기능 3·4) | plus.kipris.or.kr 회원가입 → "특허·실용신안 정보" 활용신청 (오퍼레이션 단위 권한) | `RRA_KIPRIS_KEY` (accessKey) | 무료 구간 + 유료, 미신청 기능 호출 시 resultCode 30 | `kipris/` (P4) | 코드 완료, 키·실응답 대기 |
 | KIPRIS 해외 특허 | `kipris_intl` | 해외 특허 | KIPRIS Plus 별도 서비스 | 같은 키 | — | 미구현 | 국내 특허 실응답 확정 뒤 |
 
@@ -49,7 +49,13 @@ NTIS 과제검색 응답의 레코드 요소 이름은 매뉴얼에만 있어 �
 "후보 중 레코드 하나를 감싸는 요소를 적으세요" 라고 안내한다. 녹화 도구도 같은 후보를 출력한다. 설정 뒤 다시 실행하면
 "record_tag 확인됨" 이 나온다. KIPRIS 도 같은 진단을 한다(기본 `PatentUtilityInfo`).
 
-### ScienceON MAC 안내
+### ScienceON 키 길이·MAC 안내
+- client_id 는 **64자**, 인증키는 **32자**(AES-256 키). `.env` 에 둘을 서로 바꿔 넣으면 `rra sources check` 가
+  "인증키는 32자여야 합니다 (지금 64바이트)" 로 멈춘다 — 값만 서로 바꾼다. (2026-10-27 실제로 그랬다.)
+- 토큰 응답은 JSON(access_token·refresh_token·*_expire·issued_at), 재발급 파라미터는 `refresh_token`. 복호화 실패는
+  XML `E5001`, MAC 불일치는 JSON `E4107`. 검색 응답은 XML — Accept 에 `text/xml` 이 없으면 406.
+- 응답 `parameterData` 에 client_id·token 이 그대로 들어 있다. 녹화·로그에 본문을 남길 때 반드시 REDACTED 처리.
+
 ScienceON 토큰 발급은 활용신청 때 등록한 **기기 MAC** 과 요청의 MAC 이 같아야 한다.
 - MAC 확인: macOS `ifconfig en0 | grep ether` (Wi-Fi 끄고 유선이면 `en1` 등 실제 인터페이스), WSL/리눅스 `ip link`.
 - 형식: `AA-BB-CC-DD-EE-FF` (대문자·하이픈). `.env RRA_SCIENCEON_MAC` 에 적는다. 값은 어디에도 출력되지 않는다.

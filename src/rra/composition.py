@@ -391,6 +391,8 @@ def build_scienceon_source(settings: Settings | None = None, *, transport=None, 
         search_field=str(cfg.get("search_field", "BI")),
         row_count=int(cfg.get("row_count", 50)),
         max_consecutive_429=int(cfg.get("max_consecutive_429", 2)),
+        per_query_limit=int(cfg["per_query_limit"]) if cfg.get("per_query_limit") else None,
+        institutions=institutions(settings),
     )
 
 

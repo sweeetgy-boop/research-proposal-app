@@ -8,6 +8,9 @@
   바꾼 뒤에도 남아 있으면 저장하지 않고 실패한다.
 - 요청 URL 은 저장하지 않는다 (질의·target·건수만 meta 로).
 - 토큰 응답은 값을 버리고 키 이름·타입(형태)만 token_shape.json 으로 남긴다.
+- ScienceON 레코드의 사람 이름 항목(Author·Author2·Contributors)은 값을 NAME-REMOVED 로 바꾸고,
+  출원인(Applicants)은 기관으로 보이는 이름만 남긴다(개인 출원인은 지움). fixture 에 개인 이름을
+  커밋하지 않는다.
 """
 
 from __future__ import annotations
@@ -33,6 +36,9 @@ from rra.composition import (
 
 ROOT = Path(__file__).parents[1] / "fixtures"
 MASK = b"REDACTED"
+NAME_MASK = "NAME-REMOVED"
+PERSON_ITEMS = ("Author", "Author2", "Contributors")
+_ITEM = re.compile(r'(<item metaCode="(?P<code>[A-Za-z0-9]+)"[^>]*>)(?P<body>.*?)(</item>)', re.S)
 
 
 class RecordingTransport(httpx.AsyncBaseTransport):
@@ -113,6 +119,27 @@ def redact(body: bytes, secrets: set[str]) -> bytes:
     return out
 
 
+def strip_person_names(body: bytes) -> bytes:
+    """ScienceON XML 에서 사람 이름 항목을 가린다. 기관명(Affiliation·Publisher·기관 출원인)은
+    그대로.
+    """
+    from rra.adapters.sources._orgs import is_organization
+
+    def repl(m: re.Match[str]) -> str:
+        code, inner = m.group("code"), m.group("body")
+        value = re.sub(r"^\s*<!\[CDATA\[|\]\]>\s*$", "", inner.strip()).strip()
+        if code in PERSON_ITEMS:
+            new = NAME_MASK if value else ""
+        elif code == "Applicants":  # 개인 출원인은 지운다 (자리표시자는 기관 판정을 통과해 버린다)
+            names = [n.strip() for n in re.split(r"\s*[;|]\s*", value) if n.strip()]
+            new = ";".join(n for n in names if n != NAME_MASK and is_organization(n))
+        else:
+            return m.group(0)
+        return f"{m.group(1)}<![CDATA[{new}]]>{m.group(4)}"
+
+    return _ITEM.sub(repl, body.decode("utf-8")).encode("utf-8")
+
+
 def token_shape(body: bytes) -> dict[str, str]:
     try:
         data = json.loads(body)
@@ -165,7 +192,10 @@ async def record(
         else:
             name = f"{source}_{target or 'project'}_{stamp}_{i}"
             path = out_dir / f"{name}.xml"
-            path.write_bytes(redact(ex["body"], secrets))
+            body = redact(ex["body"], secrets)
+            if source == "scienceon":
+                body = strip_person_names(body)
+            path.write_bytes(body)
             meta = {
                 "source": source,
                 "query": query,
@@ -187,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser("record_fixture")
     parser.add_argument("source", choices=["scienceon", "ntis", "kipris"])
     parser.add_argument("--query", required=True)
-    parser.add_argument("--target", help="ScienceON: ARTI | REPORT")
+    parser.add_argument("--target", help="ScienceON: ARTI | REPORT | PATENT")
     parser.add_argument("--rows", type=int, default=10)
     args = parser.parse_args(argv)
     asyncio.run(record(args.source, args.query, args.target, max(1, min(args.rows, 50))))
