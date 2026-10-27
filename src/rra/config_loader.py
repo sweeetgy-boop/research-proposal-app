@@ -471,6 +471,20 @@ def model_profiles(settings: Settings) -> dict[str, dict[str, Any]]:
     return dict(read_config("llm.yaml", settings).get("model_profiles") or {})
 
 
+def llm_fallback(settings: Settings, stage: str = DEFAULT_STAGE) -> str | None:
+    """stages[stage].fallback — 그 단계가 실패했을 때 대신 쓸 provider 이름(ADR 0027, compose 만
+    쓴다).
+    없거나 빈 값·none 이면 None. providers 표에 없는 이름은 오류."""
+    cfg = read_config("llm.yaml", settings)
+    stage_cfg = (cfg.get("stages") or {}).get(stage) or {}
+    name = str(stage_cfg.get("fallback") or "").strip()
+    if not name or name.lower() == "none":
+        return None
+    if name not in (cfg.get("providers") or {}):
+        raise ValueError(f"stages.{stage}.fallback={name!r} 가 providers 표에 없습니다.")
+    return name
+
+
 def llm_key_present(settings: Settings, cfg: dict[str, Any]) -> bool:
     """이 provider 의 키가 .env 에 있는지 (값은 돌려주지 않는다). 키가 없는 provider 는 True."""
     field = cfg.get("api_key_field")

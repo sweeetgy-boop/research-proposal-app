@@ -18,6 +18,7 @@ const failedDraft = {
   ...draftFx,
   sections: draftFx.sections.map((s) => (s.key === "method" ? { ...s, sentences: [] } : s)),
   failed_sections: [{ key: "method", reason: "json", label: "JSON 문법 오류(잘린 응답 포함)" }],
+  fallback_sections: [{ key: "title", provider: "gemini", model: "gemini-4-argon", reason: "empty" }],
   problems: [{ section: "method", code: "generation_failed", severity: "warning", message: "생성 실패(JSON 문법 오류) — 이 섹션을 다시 생성하십시오", sentence: null }],
 };
 
@@ -47,6 +48,7 @@ describe("초안 보기 — 생성 실패 섹션", () => {
     expect(await screen.findByText(/생성 실패 섹션 1개/)).toBeInTheDocument();
     expect(screen.getByText("생성 실패")).toBeInTheDocument();
     expect(screen.getByText(/JSON 문법 오류\(잘린 응답 포함\) — 빈칸으로 두었습니다/)).toBeInTheDocument();
+    expect(screen.getByText("대체 작성")).toHaveAttribute("title", expect.stringContaining("gemini/gemini-4-argon"));
     await expectNoA11yViolations(container);
     await userEvent.click(screen.getByRole("button", { name: /이 섹션 다시 생성/ }));
     expect(await screen.findByText("검측 이력을 분석해 구간별 진행 속도를 추정함.")).toBeInTheDocument();
@@ -68,6 +70,7 @@ describe("초안 보기 — 생성 실패 섹션", () => {
     mount();
     expect(await screen.findByRole("heading", { name: "초안 본문" })).toBeInTheDocument();
     expect(screen.queryByText("생성 실패")).toBeNull();
+    expect(screen.queryByText("대체 작성")).toBeNull();
     expect(screen.queryByRole("button", { name: /이 섹션 다시 생성/ })).toBeNull();
   });
 });

@@ -124,6 +124,7 @@ async def test_resume_keeps_the_original_evidence_set_even_if_db_changed(repo, r
             sentence("배경"),
             sentence("문제"),
             sentence("새 문서 인용", ["new:1#0"]),
+            sentence("새 문서 인용", ["new:1#0"]),  # 전부 폐기 → 교정 재요청도 같은 답
             sentence("목표"),
         ],
         fail_at={2},
@@ -147,7 +148,8 @@ async def test_lint_failure_is_a_state_not_an_exception(repo, req):
         sentence("배경"),
         "자유 텍스트",
         "재요청도 자유 텍스트",
-        sentence("x"),
+        sentence("x"),  # prior_work: 근거 없음 → 폐기 → 교정 재요청
+        sentence("x2"),  # 재요청도 근거 없음 → 폐기 (실패 섹션 dropped)
         sentence("y"),
     ]
     mgr, _ = build(repo, FakeLLM(answers))
@@ -468,11 +470,14 @@ async def test_every_section_failing_is_still_invalid(repo, req):
 
 
 async def test_empty_required_section_counts_as_failed_and_rewrite_clears_it(repo, req):
-    answers = [sentence("배경"), "[]", sentence("선행", ["alio:1#0"]), sentence("목표")]
+    # 필수 섹션의 빈 목록은 교정 재요청 1회(EMPTY_HINT) → 그래도 비면 실패 섹션(empty)
+    answers = [sentence("배경"), "[]", "[]", sentence("선행", ["alio:1#0"]), sentence("목표")]
     mgr, store = build(repo, FakeLLM(answers))
     final = await run_to_end(mgr, req)
     assert final.status == "drafted"
     assert [(f.key, f.reason) for f in final.failed_sections] == [("problem", "empty")]
+    assert final.step("section:problem").retries == 1
+    assert "sentences 가 비어 있었음" in mgr.generate.llm.calls[2]
     # U3 다시 쓰기로 채우면 실패 목록에서 빠지고 경고도 사라진다
     mgr.generate.llm.responses.append(sentence("문제 다시 씀"))
     await mgr.rewrite_section(USER, final.run_id, "problem")

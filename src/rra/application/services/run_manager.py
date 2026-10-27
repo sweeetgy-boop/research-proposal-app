@@ -488,6 +488,18 @@ class RunManager:
                             parse.raw_chars,
                         )
                     sections[key] = composed.section
+                    fb = getattr(composed, "fallback", None)
+                    if fb:  # 대체 작성(ADR 0027) — 전송 기록만 (본문 없음)
+                        state.fallback_sections = [
+                            x for x in state.fallback_sections if x.get("key") != key
+                        ] + [{"key": key, **fb}]
+                        logger.warning(
+                            "run.section_fallback run=%s section=%s reason=%s provider=%s",
+                            run_id,
+                            key,
+                            fb.get("reason"),
+                            fb.get("provider"),
+                        )
                     self._finish(
                         state,
                         current,
@@ -501,6 +513,7 @@ class RunManager:
                         parse=parse.status if parse is not None else composed.mode,
                         raw_chars=parse.raw_chars if parse is not None else None,
                         retries=composed.retries,
+                        fallback=f"{fb['provider']}/{fb['model']}" if fb else None,
                     )
                     current = None
 
@@ -1973,6 +1986,7 @@ def manifest(
                 "parse": s.parse,
                 "raw_chars": s.raw_chars,
                 "retries": s.retries,
+                "fallback": s.fallback,
             }
             for s in state.steps
         ],
@@ -2019,6 +2033,7 @@ def manifest(
             "draft_review_skipped": state.draft_review_skipped,
         },
         "failed_sections": [{"key": f.key, "reason": f.reason} for f in state.failed_sections],
+        "fallback_sections": [dict(x) for x in state.fallback_sections],
         "versions": [
             {
                 "version": v.version,

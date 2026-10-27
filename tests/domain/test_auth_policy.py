@@ -72,4 +72,3 @@ def test_valid_password_min_length_is_configurable():
     assert not valid_password("1234567") and valid_password("12345678")
     assert valid_password("1234", 4) and not valid_password("123", 4)  # 시범 한정 4자
     assert valid_password("x", 0)  # 0·음수는 1 로 본다 (빈 값은 항상 거부)
-

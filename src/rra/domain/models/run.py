@@ -100,6 +100,7 @@ class StepRecord(BaseModel):
     parse: str | None = None  # section 만: ok | fence | json | schema (rules/llm_output.py)
     raw_chars: int | None = None  # section 만: LLM 원본 응답 길이 (원문은 저장하지 않음)
     retries: int = 0  # section 만: 형식 교정 재요청 횟수
+    fallback: str | None = None  # section 만: 대체 작성이면 "provider/model" (ADR 0027)
 
 
 class FailedSection(BaseModel):
@@ -143,6 +144,9 @@ class RunState(BaseModel):
     # 빈 초안 금지(ADR 0027): 로컬 작성이 실패해 빈칸으로 둔 섹션·사유. 다시 생성·수정으로
     # 채우면 뺀다
     failed_sections: list[FailedSection] = Field(default_factory=list)
+    # 대체 작성(ADR 0027) 전송 기록 — [{key, reason, provider, model, public_doc_ids,
+    # internal_doc_ids, calls}]. 본문 없음. manifest 에 그대로 간다
+    fallback_sections: list[dict[str, Any]] = Field(default_factory=list)
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from rra.domain.models import ProposalRequest
+from rra.domain.models import Chunk, ProposalRequest
 from rra.domain.models.outline import Outline
 
 # 섹션 → 질의에 넣을 제안 입력 칸 (순서대로 이어 붙인다)
@@ -49,3 +49,20 @@ def section_queries(
         if query:
             out[key] = query
     return out
+
+
+def clip_chunks(chunks: list[Chunk], *, max_chars: int = 0, limit: int = 0) -> list[Chunk]:
+    """섹션 프롬프트 [자료] 상한 — 앞에서 limit 개만, 각 본문은 max_chars 자까지 (0 = 제한 없음).
+    유사과제 보탬 청크(#overlap)는 개수 상한에서 빼지 않는다. 근거 대조 집합은 스냅샷 그대로라
+    잘린 청크의 id 도 인용할 수 있다."""
+    picked = chunks
+    if limit > 0:
+        picked = [c for c in chunks[:limit]] + [
+            c for c in chunks[limit:] if c.chunk_id.endswith("#overlap")
+        ]
+    if max_chars <= 0:
+        return picked
+    return [
+        c.model_copy(update={"text": c.text[:max_chars] + "…"}) if len(c.text) > max_chars else c
+        for c in picked
+    ]

@@ -125,3 +125,12 @@ def redact(text: str, secrets: Iterable[str] = (), *, limit: int = ERROR_BODY_LI
             out = out.replace(s, "***")
     out = " ".join(out.split())
     return out[:limit] + "…" if len(out) > limit else out
+
+
+def extract_finish_reason(data: Any) -> str | None:
+    """choices[0].finish_reason (stop | length | …). 없으면 None. 잘림(length) 집계용."""
+    choices = data.get("choices") if isinstance(data, dict) else None
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return None
+    reason = choices[0].get("finish_reason")
+    return reason if isinstance(reason, str) and reason else None

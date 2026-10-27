@@ -23,6 +23,11 @@ class PipelineConfig(BaseModel):
         True  # Q8 cross-encoder reranker (2026-10-27 측정 뒤 기본 켬; 모델 없으면 생략)
     )
     draft_review_retries: int = Field(default=1, ge=0, le=3)  # 1차 검토 실패 시 재시도 횟수
+    # 섹션 프롬프트 [자료] 상한 (2026-10-28, ADR 0027 §원인): 코퍼스가 커지며 청크가 길어져 같은
+    # 청크 수로도 글자가 2.1× 늘자 7B 가 JSON 을 못 지켰다. 0 = 상한 없음.
+    chunk_max_chars: int = Field(default=0, ge=0)  # 청크 하나의 본문 글자 상한(넘으면 자른다)
+    # 섹션별 검색이 없는 섹션(제목·선택형)의 기본 집합 청크 수 상한
+    base_chunk_limit: int = Field(default=0, ge=0)
 
     def enabled_steps(self) -> list[str]:
         return [k for k, v in self.model_dump().items() if v is True]

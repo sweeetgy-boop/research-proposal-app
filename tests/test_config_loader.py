@@ -427,6 +427,44 @@ def test_source_config_falls_back_to_named_yaml_and_g2b_credentials(tmp_path):
     }
 
 
+# ── 대체 작성 provider (ADR 0027) ──────────────────────────
+def test_llm_fallback_reads_stage_fallback_and_rejects_unknown_provider(tmp_path):
+    from rra.config_loader import llm_fallback
+
+    with_fallback = YAML.replace(
+        "stages:\n  compose:  {model: local-14b, max_tokens: 2000}",
+        "providers:\n  gemini: {base_url: https://generativelanguage.googleapis.com/"
+        "v1beta/openai/, model: gemini-4-argon}\n"
+        "stages:\n  compose:  {model: local-14b, max_tokens: 2000, fallback: gemini}",
+    )
+    (tmp_path / "llm.yaml").write_text(with_fallback, encoding="utf-8")
+    s = settings_for(tmp_path)
+    assert llm_fallback(s, "compose") == "gemini"
+    assert llm_fallback(s, "critique") is None  # fallback 을 안 적은 단계
+    cfg = llm_config(s, "compose", provider="gemini")  # 대체 provider 로 같은 단계 설정
+    assert cfg["provider"] == "gemini" and cfg["max_tokens"] == 2000
+    # stage 의 model 이 provider 표보다 앞선다 — 조립이 served_model 로 보완한다
+    assert cfg["model"] == "local-14b"
+    (tmp_path / "llm.yaml").write_text(
+        YAML.replace("max_tokens: 2000}", "max_tokens: 2000, fallback: nowhere}"), encoding="utf-8"
+    )
+    with pytest.raises(ValueError):
+        llm_fallback(settings_for(tmp_path), "compose")
+    (tmp_path / "llm.yaml").write_text(
+        YAML.replace("max_tokens: 2000}", "max_tokens: 2000, fallback: none}"), encoding="utf-8"
+    )
+    assert llm_fallback(settings_for(tmp_path), "compose") is None
+
+
+def test_project_llm_yaml_fallback_is_gemini_and_pipeline_has_prompt_limits():
+    from rra.config_loader import llm_fallback, pipeline_config
+
+    s = project_settings()
+    assert llm_fallback(s, "compose") == "gemini"
+    p = pipeline_config(s)
+    assert p.chunk_max_chars == 500 and p.base_chunk_limit == 10
+
+
 def test_overlap_candidates_from_overlap_yaml_and_absent_section(tmp_path):
     from rra.config_loader import overlap_candidates, retrieval_mix
 

@@ -31,6 +31,7 @@ from rra.config_loader import (
     lint_rules,
     llm_budget,
     llm_config,
+    llm_fallback,
     llm_key_present,
     molit_config,
     overlap_candidates,
@@ -1418,6 +1419,7 @@ def build_generate(
         llm = build_llm(settings, stage="compose")
     if reranker is None and pipeline.reranker:
         reranker = build_reranker(settings)
+    fallback = build_compose_fallback(settings)
     return GenerateProposal(
         llm,
         repo,
@@ -1435,7 +1437,32 @@ def build_generate(
         rule_check=pipeline.rule_check,
         mix=retrieval_mix(settings),
         schedule_metrics=usability_config(settings).schedule_metrics,
+        chunk_max_chars=pipeline.chunk_max_chars,
+        base_chunk_limit=pipeline.base_chunk_limit,
+        fallback_llm=fallback["llm"] if fallback else None,
+        fallback_provider=fallback["provider"] if fallback else "",
+        fallback_model=fallback["model"] if fallback else "",
+        fallback_include_internal=review_policy(settings)["include_internal"],
     )
+
+
+def build_compose_fallback(settings: Settings | None = None) -> dict[str, Any] | None:
+    """대체 작성 LLM(ADR 0027) — llm.yaml stages.compose.fallback 의 provider. 키가 없으면 None(자동
+    끔).
+    gemini 는 build_llm 이 일일 예산 카운터(BudgetedLLM)로 감싼다. 전송 범위는 검토 정책과 같다."""
+    settings = settings or load_settings()
+    provider = llm_fallback(settings, "compose")
+    if provider is None:
+        return None
+    cfg = llm_config(settings, "compose", provider=provider)
+    if not llm_key_present(settings, cfg):
+        logger.warning("compose.fallback=%s 의 키가 없어 대체 작성을 끕니다.", provider)
+        return None
+    return {
+        "llm": build_llm(settings, stage="compose", provider=provider),
+        "provider": provider,
+        "model": cfg["served_model"] or cfg["model"],
+    }
 
 
 def build_run_manager(

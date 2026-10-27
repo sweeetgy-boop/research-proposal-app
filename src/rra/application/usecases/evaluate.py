@@ -59,6 +59,9 @@ class EvalIdea:
     gemini_calls: int = 0
     dropped_sentences: int = 0
     review_status: str | None = None
+    failed_sections: list[str] = field(default_factory=list)  # 빈 초안 금지(ADR 0027) 실패 섹션
+    fallback_sections: list[str] = field(default_factory=list)  # 대체 작성(Gemini) 섹션
+    fallback_calls: int = 0  # 대체 작성 Gemini 호출 수 (gemini_calls 는 검토만)
 
     @property
     def sentences_v1(self) -> int:
@@ -83,7 +86,7 @@ class EvalResult:
 
     @property
     def gemini_calls(self) -> int:
-        return sum(i.gemini_calls for i in self.ideas)
+        return sum(i.gemini_calls + i.fallback_calls for i in self.ideas)
 
     def totals(self) -> dict[str, float | int]:
         n = len(self.ideas) or 1
@@ -116,6 +119,9 @@ class EvalResult:
             "seconds_avg": round(sum(i.seconds for i in self.ideas) / n, 1),
             "gemini_calls": self.gemini_calls,
             "dropped_sentences": sum(i.dropped_sentences for i in self.ideas),
+            "invalid": sum(1 for i in self.ideas if i.status == "invalid"),
+            "failed_sections": sum(len(i.failed_sections) for i in self.ideas),
+            "fallback_sections": sum(len(i.fallback_sections) for i in self.ideas),
         }
 
     def to_dict(self) -> dict[str, Any]:
@@ -228,6 +234,13 @@ class EvaluateQuality:
             if step.name == "outline" and step.status == "done":
                 idea.outline_sections = step.sentences
         idea.style_warnings = sum(1 for p in state.problems if p.get("code") in STYLE_CODES)
+        idea.failed_sections = [f.key for f in getattr(state, "failed_sections", [])]
+        idea.fallback_sections = [
+            str(x.get("key", "")) for x in getattr(state, "fallback_sections", [])
+        ]
+        idea.fallback_calls = sum(
+            int(x.get("calls", 0) or 0) for x in getattr(state, "fallback_sections", [])
+        )
         snapshot = store.load_snapshot(self.user, rid)
         if snapshot is not None:
             idea.exemplars = len(snapshot.exemplars)
