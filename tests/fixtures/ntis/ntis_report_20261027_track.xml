@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RESULT xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://www.ntis.go.kr/searchapi/schema/title.1.0.xsd">
+   <QUERYTRANSFORMS>
+      <ORIGINALQUERY>철도 궤도</ORIGINALQUERY>
+   </QUERYTRANSFORMS>
+   <COUNTLIST>
+      <COLCOUNT NAME="rresearchpdf">202</COLCOUNT>
+   </COUNTLIST>
+   <NAVIGATION />
+   <TOTALHITS>202</TOTALHITS>
+   <SECRETPROJECTHITS />
+   <PROJECTRHITS />
+   <PROJECTCHITS />
+   <PROJECTCRHITS />
+   <STARTPOSITION>1</STARTPOSITION>
+   <HITS>10</HITS>
+   <SEARCHTIME>0.024</SEARCHTIME>
+   <RESULTSET>
+      <HIT NO="1">
+         <TermSn>REP-2011-0115023251</TermSn>
+         <PublicationYear>2011</PublicationYear>
+         <ResearchPublicNo>TRKO201300021692</ResearchPublicNo>
+         <PublicationAgency>한국<span class="search_word">철도</span>기술연구원</PublicationAgency>
+         <ResultTitle>
+            <Korean><span class="search_word">철도</span> 구성품 환경성 향상 기술개발</Korean>
+            <English>Development of Environment-friendly Technology for Railway Components</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>... 제동디스크 유한요소 해석기술 개발 고속제동성능시험기를 이용한 320kmh 제동성능시험기술 확보 <span class="search_word">철도</span>연변 친환경 공간창출을 위한 선로법면최소화 기술개발 <span class="search_word">철도</span>보강노반 설계용 프로그램 개발 <span class="search_word">철도</span>보강노반 ... 현장 시험부설 터널 및 교량구간 시공 및 유지보수지침 작성완료 슬래브<span class="search_word">궤도</span> LCC 평가 포장<span class="search_word">궤도</span> 시험부설구간 장기거동 평가 포장<span class="search_word">궤도</span> 저가형 충전재료 실용성능 확보 친환경 <span class="search_word">철도</span> 구조물 기술 ...</Korean>
+            <English />
+         </Abstract>
+         <Keyword>
+            <Korean>제동디스크;강화노반;슬래브<span class="search_word">궤도</span>;포장<span class="search_word">궤도</span>;<span class="search_word">철도</span> 교량;</Korean>
+            <English>Brake disc;Roadbed;slab track;Paved track;Bridge;</English>
+         </Keyword>
+         <Contents>... 제 2 장 국내외 연구현황... 120  제 1 절 노반침하현황... 120  제 2 절 <span class="search_word">철도</span> 보강노반 관련 연구현황... 125 제 3 장 선로법면 최소화를 위한 강성보강노반 기술... ... 모델의 개요... 362    1.1 LCC 평가모델 개발의 목적... 362    1.2 <span class="search_word">철도</span> <span class="search_word">궤도</span>의 초기비용... 362    1.3 <span class="search_word">철도</span> <span class="search_word">궤도</span>의 유지관리비용... 362    1.4 ...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201300021692</DocUrl>
+         <SpecializedAgency>한국철도기술연구원</SpecializedAgency>
+         <ProjectNumber>1415119784</ProjectNumber>
+         <ProjectTitle>철도 구성품 환경성 향상 기술 개발</ProjectTitle>
+         <LeadAgency>한국철도기술연구원</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>PK11002B</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="2">
+         <TermSn>REP-2012-0118227104</TermSn>
+         <PublicationYear>2012</PublicationYear>
+         <ResearchPublicNo>TRKO201300010805</ResearchPublicNo>
+         <PublicationAgency>고려대학교</PublicationAgency>
+         <ResultTitle>
+            <Korean>고속<span class="search_word">철도</span> <span class="search_word">궤도</span> 검측 데이터 고급분석기법 및 장대레일 최적 <span class="search_word">궤도</span> 관리 시스템 개발</Korean>
+            <English>Development of high speed railway track geometry measuring data analysis method and the continuous weleded rail optimum track geometry management system</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>... 검측차량 및 검측센서의 특성 검측속도 등에 따라 달라지고 결과적으로 이러한 영향 인자들이 <span class="search_word">궤도</span>선형상태를 진단하고 적절한 조치를 내릴 때 중요한 영향을 끼침 고급<span class="search_word">궤도</span> 검측데이터 분석을 위한 ... 같은 환경요소와 곡률반경 도상체결구 및 구조물 종류 등 구간 특성에 따른 수명이력을 가지므로 <span class="search_word">철도</span>의 효율적인 유지관리를 위해 다변수 환경요소를 고려한 상관관계 분석 기법 개발 파형과 파장을 ...</Korean>
+            <English>Create highquality data filtering method and analyze track geometry measuring equipment types and characteristics Make highquality data analysis method to solve the question where and when the track s...</English>
+         </Abstract>
+         <Keyword>
+            <Korean>고속<span class="search_word">철도</span>;<span class="search_word">궤도</span>검측데이터;<span class="search_word">궤도</span> 틀림;<span class="search_word">궤도</span>유지관리시스템;최적유지관리;</Korean>
+            <English>high speed rail;track geometry measuring data;track geometry irregularity;track geometry maintenance -management system;optimum maintenance-management;Power Spectral Density;Wavelet method;</English>
+         </Keyword>
+         <Contents>중견연구자지원사업(핵심연구) 최종보고서... 1목차... 3연구계획 요약문... 4연구결과 요약문... 5 한글요약문... 5 SUMMARY... 6연구내용 및 결과... 7 1. 연구개발과제의 개요... 7 2. 국내외 기술개발 현황... 9 3. 연구수행 내용 및 결과... 10 4. 목표달성도 및 관련분야에의 기여도... 94 5. 연구결과의 활용계획...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201300010805</DocUrl>
+         <SpecializedAgency>한국연구재단</SpecializedAgency>
+         <ProjectNumber>1345147315</ProjectNumber>
+         <ProjectTitle>고속철도 궤도 검측 데이터 고급분석기법 및 장대레일 최적 궤도 관리 시스템 개발</ProjectTitle>
+         <LeadAgency>고려대학교 산학협력단</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>2009-0081373</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="3">
+         <TermSn>REP-2010-0118217919</TermSn>
+         <PublicationYear>2010</PublicationYear>
+         <ResearchPublicNo>TRKO201100004470</ResearchPublicNo>
+         <PublicationAgency>한국<span class="search_word">철도</span>기술연구원</PublicationAgency>
+         <ResultTitle>
+            <Korean><span class="search_word">철도</span>기술 선진화 연구기반 조성 4차년도 연구보고서</Korean>
+            <English>The Establishment of Research  Testing Facility for the Advancement of Railway Technology</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>... 차량전기 및 <span class="search_word">궤도</span>토목 관련 시험동 구축 차량전기 분야 시험장비 구축  의 일환으로서 본 사업의 실질적 목표인 <span class="search_word">철도</span> <span class="search_word">궤도</span> 노반 구조 환경 전철 분야 시험장비 구축을 통해 <span class="search_word">철도</span> 선진국 수준의 종합시험장비 인프라를 완성된 형태로 구축하고자 함2 기술적 측면 고속<span class="search_word">철도</span> 신교통시스템 경전철 등 개발기술의 객관적 시험 인증 필요 기술개발과정 및 영업운행 중에 발생하는 다양한 기술적 ...</Korean>
+            <English>Term  13052005300620101305200830062010 in this period Budget  38128 billion won in total 198 billion won in this period Ministry of Supervision  Ministry of Land Transportation and Marin Institute in ...</English>
+         </Abstract>
+         <Keyword>
+            <Korean />
+            <English />
+         </Keyword>
+         <Contents>... 차별성 ... 62  3. 구축 과정 요약 ... 66 제3절 구축장비 추진 현황 : 실대형 <span class="search_word">철도</span>시설물 통합성능 시험시스템 ... 77  1. 개요 ... 77  2. 구축 필요성 및 국내외 ... ... 266  2. 활용시스템 ... 267 제3절 각 분야별 활용계획 ... 270  1. <span class="search_word">궤도</span>분야 ... 270  2. 노반분야 ... 271  3. 구조물분야 ... 272  4. 환경분야 ...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201100004470</DocUrl>
+         <SpecializedAgency>한국건설교통기술평가원</SpecializedAgency>
+         <ProjectNumber>1615000484</ProjectNumber>
+         <ProjectTitle>철도기술 선진화 연구기반 조성</ProjectTitle>
+         <LeadAgency>한국철도기술연구원</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>42760</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="4">
+         <TermSn>REP-2016-0118255302</TermSn>
+         <PublicationYear>2016</PublicationYear>
+         <ResearchPublicNo>TRKO201600003931</ResearchPublicNo>
+         <PublicationAgency>서울과학기술대학교</PublicationAgency>
+         <ResultTitle>
+            <Korean>일반<span class="search_word">철도</span> 레일교체 및 유지보수기준 마련</Korean>
+            <English />
+         </ResultTitle>
+         <Abstract>
+            <Korean>... 따라 상이하며 현행 국내 선로유지관리지침제22조 제26조 제28조은 철강생산 및 용접기술의 발달과 <span class="search_word">궤도</span>시스템의 변화 및 레일탐상 연마 등 <span class="search_word">철도</span>시설 유지보수기술의 발전이 고려되지 않은 채 과거1990년 이전 일본의 지침을 그래도 준용하고 있다본 연구개발과제는 일반<span class="search_word">철도</span> 레일교체 및 유지보수기준을 재정립하는데 목적이 있으며 이를 위해 일반<span class="search_word">철도</span> 선로조건레일종류 열차종류 도상조건 ...</Korean>
+            <English>Rail maintenance involves enormous operational expenses and rails are replaced at periodic intervals Rails are replaced at periodic intervals so a lot of costs are incurred by its maintenance and mana...</English>
+         </Abstract>
+         <Keyword>
+            <Korean>일반<span class="search_word">철도</span>;레일교체;연마;마모;레일표면요철;레일피로수명;</Korean>
+            <English>Conventional railway;Periodic replacement of rail;Grinding;Wear;Rail surface irregularity;Rail fatigue life;</English>
+         </Keyword>
+         <Contents>... 2. 연구개발의 중요성... 39 제2절 연구개발의 정의, 범위, 특징... 40  1. 일반<span class="search_word">철도</span> 레일 교체 및 유지관리 기준의 정의... 40  2. 일반<span class="search_word">철도</span> 레일 교체 및 유지관리 기준의 ... 실내시험... 182  4. 레일요철량과 <span class="search_word">궤도</span>동적응답의 상관관계 분석... 194  5. 일반<span class="search_word">철도</span> 레일 피로시험 및 S-N선도 분석... 199  6. 일반<span class="search_word">철도</span> <span class="search_word">궤도</span>조건별 레일 피로해석 및 ...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201600003931</DocUrl>
+         <SpecializedAgency>국토교통과학기술진흥원</SpecializedAgency>
+         <ProjectNumber>1615007131</ProjectNumber>
+         <ProjectTitle>일반철도 레일 교체 및 유지보수 기준 마련</ProjectTitle>
+         <LeadAgency>서울과학기술대학교 산학협력단</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>63972</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="5">
+         <TermSn>REP-2004-0118235641</TermSn>
+         <PublicationYear>2004</PublicationYear>
+         <ResearchPublicNo>TRKO200500066065</ResearchPublicNo>
+         <PublicationAgency>한국<span class="search_word">철도</span>기술연구원</PublicationAgency>
+         <ResultTitle>
+            <Korean>고속<span class="search_word">철도</span> 성능기준 및 안전체계 기술개발</Korean>
+            <English>Development of Performance Test and Safety System for High-Speed Rail System</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>본 연구개발과제의 최종목표는 고속<span class="search_word">철도</span>시스템 성능기준 및 안전기준의 개발로서 당해연도인 2차년도에는 고속<span class="search_word">철도</span>시스템의 Sub system 수준의 성능기준 및 안전체계 구축이라는 목표하에 단위 시스템별 성능 안전요구사양 Data 수집 및 분석 고속<span class="search_word">철도</span>시스템 인증절차 검토 및 연구을 거쳐 고속<span class="search_word">철도</span>시스템의 성능시험기준 안전기준 및 진단기준의 기본안을 수립하여 제시하는 ...</Korean>
+            <English>Performance  Safety Requirements Data Analysis for SubSystem Level Presentation of Hazard Analysis and of Safety Performance Requirements for Railway System Analysis of Law  Regulation RtxJuirerrents ...</English>
+         </Abstract>
+         <Keyword>
+            <Korean>고속<span class="search_word">철도</span>;성능시험;안전기준;요건관리;추적성;시스템 엔지니어링;</Korean>
+            <English>High speed train;performance criteria;safety standard;requirement management;traceability;system engineering;</English>
+         </Keyword>
+         <Contents>... ...16제 1 장 단위 시스템별 성능, 안전 요구사양 Data 수집 및 분석...17  제 1 절 <span class="search_word">철도</span> 시스템 위험분석 및 안전성능 요건 제시...18   1. <span class="search_word">철도</span> 시스템 위험(Hazard) 분류 ... 제시...378 제 4 절 <span class="search_word">궤도</span>분야 안전요건 도출 및 안전기준 기본안 제시...395  1. 영국 <span class="search_word">철도</span>시스템 <span class="search_word">궤도</span>분야 안전요건 및 기준 분석...395  2. 미국 고속<span class="search_word">철도</span> <span class="search_word">궤도</span>분야 안전요건 및 ...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO200500066065</DocUrl>
+         <SpecializedAgency>한국건설교통기술평가원</SpecializedAgency>
+         <ProjectNumber>1500000184</ProjectNumber>
+         <ProjectTitle>고속철도 성능기준 및 안전체계 기술개발</ProjectTitle>
+         <LeadAgency>한국철도기술연구원</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>고속철도 I-3</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="6">
+         <TermSn>REP-2012-0115442619</TermSn>
+         <PublicationYear>2012</PublicationYear>
+         <ResearchPublicNo>TRKO201300032736</ResearchPublicNo>
+         <PublicationAgency>한국<span class="search_word">철도</span>기술연구원</PublicationAgency>
+         <ResultTitle>
+            <Korean>저심도 <span class="search_word">철도</span>시스템 핵심기술개발</Korean>
+            <English>Development of core technologies of shallow-depth underground train system</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>... LIM 기초설계 및 과도특성 해석을 통한 성능분석 완료ㅇ비접촉 급전시스템 기초설계 및 해석 완료ㅇ저심도 <span class="search_word">철도</span>터널에서의 친환경 환기방재 기술 개발을 위한 강제환기 최소화 설계요소 도출ㅇ터널 에너지 소비 최소화 기술 연구를 통한 지열 cool tube TLS 시스템의 우수성 및 경제성 분석ㅇ저심도<span class="search_word">철도</span>를 대상으로 최적화한 프리포지셔닝 및 프리코티드<span class="search_word">궤도</span>의 개념을 제시하고 기본설계를 통한 안정성평가를 수행하였다 ...</Korean>
+            <English />
+         </Abstract>
+         <Keyword>
+            <Korean>저심도;급구배;병렬식 LIM;비접촉 급전;환기;방재;프리포지셔닝<span class="search_word">궤도</span>;프리코티드<span class="search_word">궤도</span>;</Korean>
+            <English>Shallow depth underground;Steep gradient;LIM in parallel;wireless power transfer;ventilation;Disaster prevention;pre-positioning track;pre-coated track;</English>
+         </Keyword>
+         <Contents>... 33  2. 기술 수준... 48제3장 연구개발수행 내용 및 결과... 51 제1절 저심도<span class="search_word">철도</span> SE 및 인프라 기술... 51  1. 개 요... 51  2. 세부기술 내용... 51  ... 개요... 467  2. 세부기술 내용... 467  3. 결론... 563 제5절 저심도 <span class="search_word">철도</span> <span class="search_word">궤도</span> 시스템 기술... 574  1. 개 요... 574  2. 세부기술 내용... 575 ...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201300032736</DocUrl>
+         <SpecializedAgency>한국철도기술연구원</SpecializedAgency>
+         <ProjectNumber>1415125781</ProjectNumber>
+         <ProjectTitle>저심도 철도시스템 핵심기술 개발</ProjectTitle>
+         <LeadAgency>한국철도기술연구원</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>PK12003F</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="7">
+         <TermSn>REP-2015-0119651488</TermSn>
+         <PublicationYear>2015</PublicationYear>
+         <ResearchPublicNo>TRKO201500019445</ResearchPublicNo>
+         <PublicationAgency>한국<span class="search_word">철도</span>시설공단</PublicationAgency>
+         <ResultTitle>
+            <Korean>400km/h급 선로구축물(호남고속<span class="search_word">철도</span>) 설계기준연구</Korean>
+            <English>Study on design standards of track systems for the high-speed railway at 400km/h</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>고속선 선로구축물<span class="search_word">궤도</span>토공교량미기압파의 속도 증속과 거동관의 상관관계를 해석 시험 현장시험을 통해 규명하기 위해 TestBed 구간 내 선로구축물 거동평가 모니터링 시스템과 증속시험을 통한 시험평가데이터를 구축함 여기에 대한 분석결과를 토대로 향후 400kmh급 증속을 위한 선로구축물의 요구조건 Requirement을 도출하고 설계지침안 도출을 개발 제시함</Korean>
+            <English>Ⅱ Purpose and Needs of RD1 Purpose of RDThe objectives for Study on design standards of track systems for the highspeed railway at 400kmh are summarized hereafter This project aims to have reliable te...</English>
+         </Abstract>
+         <Keyword>
+            <Korean>속도증속;기준;선로구축물 모니터링구간;<span class="search_word">궤도</span>노반단면;모니터링;</Korean>
+            <English>Speed-up;Standards;Section of Track-Bed;monitoring;</English>
+         </Keyword>
+         <Contents>... 기술개발현황... 31 제1절 국내 기술개발현황... 31  1. 개요... 31  2. 선로구축물(<span class="search_word">궤도</span>,교량)모니터링 시스템구축... 37  3. 선로구축물(노반) 모니터링 시스템... 38  4. ... <span class="search_word">궤도</span>/노반 단면 최적설계(안) 개발... 581  1. 개요... 581  2. 국내·외 고속<span class="search_word">철도</span> <span class="search_word">궤도</span>노반 현황조사... 583  3. 열차속도증가에 따른 <span class="search_word">궤도</span>/노반 시스템의 핵심요소 도출을 ...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201500019445</DocUrl>
+         <SpecializedAgency>국토교통과학기술진흥원</SpecializedAgency>
+         <ProjectNumber>1615006809</ProjectNumber>
+         <ProjectTitle>400km/h급 선로구축물(호남고속철도) 설계기준 연구</ProjectTitle>
+         <LeadAgency>한국철도시설공단</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>56532</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="8">
+         <TermSn>REP-2019-01110952886</TermSn>
+         <PublicationYear>2019</PublicationYear>
+         <ResearchPublicNo>TRKO201900017842</ResearchPublicNo>
+         <PublicationAgency>경남과학기술대학교</PublicationAgency>
+         <ResultTitle>
+            <Korean>GFRP와 섬유보강 콘크리트 기술을 활용한 신호교란 없는 고성능 프리캐스트 슬래브 <span class="search_word">궤도</span> 개발</Korean>
+            <English />
+         </ResultTitle>
+         <Abstract>
+            <Korean />
+            <English />
+         </Abstract>
+         <Keyword>
+            <Korean>프리캐스트 슬래브 <span class="search_word">궤도</span>;섬유보강 폴리머;섬유보강 콘크리트;융합기술;신호교란;</Korean>
+            <English>Precast slab track;Fiber Reinforced Polymer(FRP);Fiber Reinforced Concrete(FRC);Convergence technology;Signal jamming;</English>
+         </Keyword>
+         <Contents>... 13제1장 연구개발과제의 개요... 21 제1절 고품질 시공을 위한 프리캐스트 콘크리트 슬래브 <span class="search_word">궤도</span>... 21 제2절 FRP보강근의 적용 필요성... 22 제3절 섬유보강 콘크리트의 적용 필요성... ... 연구수행내용 및 성과... 26 제1절 신호교란 문제 해결을 위한 설계개념 수립... 26  가. <span class="search_word">철도</span> <span class="search_word">궤도</span> 신호교란 현황... 26  나. 현행 <span class="search_word">궤도</span>설계기준 및 시공체계상의 신호교란 제어방법 분석... ...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201900017842</DocUrl>
+         <SpecializedAgency>국토교통과학기술진흥원</SpecializedAgency>
+         <ProjectNumber>1615010311</ProjectNumber>
+         <ProjectTitle>GFRP와 섬유보강 콘크리트 기술을 활용한 신호교란 없는 고성능 프리캐스트 슬래브 궤도 개발</ProjectTitle>
+         <LeadAgency>경남과학기술대학교 산학협력단</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>117247</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="9">
+         <TermSn>REP-2012-0118222108</TermSn>
+         <PublicationYear>2012</PublicationYear>
+         <ResearchPublicNo>TRKO201300018271</ResearchPublicNo>
+         <PublicationAgency>한양대학교 산학협력단</PublicationAgency>
+         <ResultTitle>
+            <Korean><span class="search_word">철도</span><span class="search_word">궤도</span> 진동소음 발생특성을 이용한 구조건전도 진단 시스템</Korean>
+            <English>Vibration and sound radiation analysis of railways and its application to structural health monitoring</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>본 연구에서는 <span class="search_word">철도</span> <span class="search_word">궤도</span>의 진동소음 발생특성을 이용한 구조건전도 모니터링 알고리즘 및 실제 관측시스템을 제안하였으며 상세 연구 내용은 다음과 같다구조 건전도 모니터링에 활용하기 위한 ... 특성 해석을 위한 이론모델과 정량적인 <span class="search_word">궤도</span> 지지단 동특성 측정 방법을 제안하여 실제 다양한 <span class="search_word">궤도</span> 시스템에 적용 후 구조건전도 시스템을 구축을 위한 결함 파악 알고리즘을 제안하였다 구조건전도 ...</Korean>
+            <English />
+         </Abstract>
+         <Keyword>
+            <Korean />
+            <English />
+         </Keyword>
+         <Contents>일반연구자지원사업 최종(결과)보고서... 1목 차... 3Ⅰ. 연구결과 요약문... 4Ⅱ. 연구내용 및 결과... 5 1. 연구과제의 개요... 5 2. 국내외 기술개발 현황... 5 3. 연구수행 내용 및 결과... 5 4. 목표 달성도 및 관련 분야에의 기여도... 10 5. 연구결과의 활용계획... 10 6. 연구과정에서 수집한 해외과학기술정보... ...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201300018271</DocUrl>
+         <SpecializedAgency>한국연구재단</SpecializedAgency>
+         <ProjectNumber>1345153085</ProjectNumber>
+         <ProjectTitle>철도궤도 진동소음 발생특성을 이용한 구조건전도 진단 시스템</ProjectTitle>
+         <LeadAgency>한양대학교 산학협력단</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>2009-0066877</AgencyDetailProjectNumber>
+      </HIT>
+      <HIT NO="10">
+         <TermSn>REP-2010-0118271975</TermSn>
+         <PublicationYear>2010</PublicationYear>
+         <ResearchPublicNo>TRKO201000012862</ResearchPublicNo>
+         <PublicationAgency>고려대학교 산학협력단</PublicationAgency>
+         <ResultTitle>
+            <Korean>미래형 <span class="search_word">철도</span> 구조 시스템 기술 구축</Korean>
+            <English>Establishment of Structural Technology for Future Railway System</English>
+         </ResultTitle>
+         <Abstract>
+            <Korean>고속<span class="search_word">철도</span>가 국토의 반나절 생활권을 이루고 남북<span class="search_word">철도</span>시베리아<span class="search_word">철도</span> 등이 세계로 진출하기 위한 물류운송수단으로 계획되면서 <span class="search_word">철도</span>는 미래의 핵심교통수단으로 주목받고 있지만 <span class="search_word">철도</span> 시스템의 안전성을 ... 고속화 고밀화 중량화에 따른 친환경성 요구가 점점 증대되고 있다 따라서 본 연구는 이러한 미래 <span class="search_word">철도</span> 산업이 효율적으로 발전하는데 필수적인 <span class="search_word">철도</span> 구조 및 <span class="search_word">궤도</span> 시스템의 선진 기술을 구축하기 위하여 ...</Korean>
+            <English>At the stage 1two years we developed analysis algorithm  analysis program of the straightcurved track for evaluation of its safety and performed analysis of structural behavior establishment of proper...</English>
+         </Abstract>
+         <Keyword>
+            <Korean><span class="search_word">철도</span>;<span class="search_word">철도</span>/<span class="search_word">궤도</span>시스템;안전성;소음;진동;해석프로그램;저감기술;해석/설계;상호작용;</Korean>
+            <English>Railway;Railway/Track System;Safety;Noise;Vibration;Analysis Program;Decrease Technique;Analysis/Design;Interaction;</English>
+         </Keyword>
+         <Contents>도약연구사업(국가지정연구실) 최종보고서 ...1목차 ...2Ⅰ. 연구계획 요약문 ...3 1. 국문요약문 ...3Ⅱ. 연구결과 요약문 ...4 1. 국문요약문 ...4 2. 영문요약문 ...5Ⅲ. 연구내용 및 결과...6 1. 연구개발과제의개요 ...6 2. 국내외 기술개발 현황 ...16 3. 연구수행 내용 및 결과 ...20 4. 목표달성도 및 관련분야...</Contents>
+         <PublicationCountry>대한민국</PublicationCountry>
+         <PublicationLanguage>Korean</PublicationLanguage>
+         <DocUrl>https://scienceon.kisti.re.kr/commons/util/originalView.do?dbt=TRKO&cn=TRKO201000012862</DocUrl>
+         <SpecializedAgency>한국과학재단</SpecializedAgency>
+         <ProjectNumber>1355047923</ProjectNumber>
+         <ProjectTitle>미래형 철도 구조 시스템 기술 구축</ProjectTitle>
+         <LeadAgency>고려대학교</LeadAgency>
+         <ManagerName>NAME-REMOVED</ManagerName>
+         <AgencyDetailProjectNumber>R0A-2005-000-10119-0</AgencyDetailProjectNumber>
+      </HIT>
+   </RESULTSET>
+</RESULT>

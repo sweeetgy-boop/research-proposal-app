@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RESULT xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://www.ntis.go.kr/searchapi/schema/title.1.0.xsd">
+   <QUERYTRANSFORMS>
+      <ORIGINALQUERY>1615007833</ORIGINALQUERY>
+   </QUERYTRANSFORMS>
+   <COUNTLIST>
+      <COLCOUNT NAME="rpaper">13</COLCOUNT>
+   </COUNTLIST>
+   <NAVIGATION>
+      <NAVIGATIONENTRY NAME="journalname">
+         <NAVIGATIONELEMENTS COUNT="9">
+            <NAVIGATIONELEMENT NAME="International journal of railway" COUNT="3" />
+            <NAVIGATIONELEMENT NAME="한국철도학회 논문집 = Journal of the Korean Society for Railway" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="한국지반공학회 논문집 = JOURNAL OF THE KOREAN GEOTECHNICAL SOCIETY" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="한국전산구조공학회" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="TUNNELLING AND UNDERGROUND SPACE TECHNOLOGY" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="한국지반환경공학회논문집 = Journal of the Korean Geoenvironmental Society" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="대한토목학회논문집 = Journal of the Korean Society of Civil Engineers" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="한국도로학회논문집 = International journal of highway engineering" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="한국토목섬유학회 논문집 = Journal of the Korean Geosynthetics Society" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="year">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="2015" COUNT="13" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="nationtype">
+         <NAVIGATIONELEMENTS COUNT="2">
+            <NAVIGATIONELEMENT NAME="국내" COUNT="11" />
+            <NAVIGATIONELEMENT NAME="국외" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="papertype">
+         <NAVIGATIONELEMENTS COUNT="2">
+            <NAVIGATIONELEMENT NAME="국내전문학술지▦03" COUNT="11" />
+            <NAVIGATIONELEMENT NAME="국외전문학술지▦01" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="ministryname">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="국토교통부" COUNT="13" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="performagency">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원▦B551201" COUNT="13" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="performagent">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="출연연구소▦02" COUNT="13" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="sixtechnology">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구▦070000" COUNT="13" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="textcheckyn">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="Y" COUNT="13" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="scienceclass1">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="궤도토목기술" COUNT="13" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="authorname">
+         <NAVIGATIONELEMENTS COUNT="39">
+            <NAVIGATIONELEMENT NAME="최찬용" COUNT="7" />
+            <NAVIGATIONELEMENT NAME="홍원택" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="이종섭" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="변용훈" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="임유진" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="Yeo Inho" COUNT="2" />
+            <NAVIGATIONELEMENT NAME="김성민" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="이진욱" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="김대현" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="이정민" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="김현기" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="김대성" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="박수민" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="이성혁" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="여인호" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="Cho K.H." COUNT="1" />
+            <NAVIGATIONELEMENT NAME="조영교" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="김상엽" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="권혁민" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="박재범" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="최린" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="오한진" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="조호진" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="송민우" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="Kim Daehwan" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="백인열" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="오정호" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="Park Jaebeom" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="Park Y.H." COUNT="1" />
+            <NAVIGATIONELEMENT NAME="Cho Hojin" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="scitype">
+         <NAVIGATIONELEMENTS COUNT="2">
+            <NAVIGATIONELEMENT NAME="비SCI▦02" COUNT="12" />
+            <NAVIGATIONELEMENT NAME="SCI▦01" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+   </NAVIGATION>
+   <TOTALHITS>13</TOTALHITS>
+   <SECRETPROJECTHITS />
+   <PROJECTRHITS />
+   <PROJECTCHITS />
+   <PROJECTCRHITS />
+   <STARTPOSITION>1</STARTPOSITION>
+   <HITS>10</HITS>
+   <SEARCHTIME>0.031</SEARCHTIME>
+   <RESULTSET>
+      <HIT NO="1" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016669567</ResultID>
+         <ResultTitle>철도궤도 하부구조물 평가를 위한 타격식 관입 롯드가 체결된 콘 관입기의 개발 및 적용</ResultTitle>
+         <JournalName>한국지반환경공학회논문집 = Journal of the Korean Geoenvironmental Society</JournalName>
+         <IssnNumber>1598-0820</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>철도궤도 하부구조물의 유지, 보수 및 과다설계에 따른 비용을 최소화하기 위하여 궤도 하부구조물의 강도 및 강성특성에 대한 정확한 평가는 필수적이다. 본 연구에서는 궤도 하부구조물의 상태를 평가하기 위한 콘 관입기(CPI)를 개발하였으며, 적용성 검증을 위하여 실내실험과 현장실험을 수행하였다. CPI를 이용한 철도궤도 하부구조물 평가의 결과로서 획득되는 결과는 동적 콘관입지수(DCPI), 원추관입저항력($q_c$), 마찰저항력($f_s$) 및 마찰력비(Fr)이다. 실험결과, 실내실험의 경우 도상자갈층에서 획득한 동적 콘 관입지수와 상부노반층에서 획득한 원추관입저항력, 마찰저항력 및 마찰비는 조성한 시료에 대하여 신뢰할 만한 결과를 보였다. 현장실험의 경우 도상자갈층의 경계면을 명확히 구분해 내었으며, 상부노반층의 불연속면을 감지하였다. 본 연구에서 개발된 CPI는 동적 관입과 정적 관입 방법을 이용함으로써 궤도 하부구조물 평가에 유용한 방법이 될 것이라 기대된다.To minimize the cost of maintenance, repair and over-design of track substructure, an accurate evaluation of strength and stiffness of the track substructure is necessary. In this study, a cone penetrometer with impact penetration rod (CPI) is developed for the evaluation of track substructure. For applicability test, the chamber and field tests were performed. As the experimental results of the CPI, dynamic cone penetration endex (DCPI), cone tip resistance ($q_c$), friction resistance ($f_s$) and friction ratio (Fr) were obtained. In the chamber test, the experimental results show reasonable values for the simulated track substructure. In the field test, the CPI clearly detects the interface between the ballast and the subgrade. Also, discontinuous layers are detected in the subgrade. It is expected that the developed CPI may be an effective tool for the evaluation of track substructure by evaluating the ballast layer by dynamic penetration and the subgrade by static penetration of the inner rod.</Full>
+            <Teaser>철도궤도 하부구조물의 유지, 보수 및 과다설계에 따른 비용을 최소화하기 위하여 궤도 하부구조물의 강도 및 강성특성에 대한 정확한 평가는 필수적이다. 본 연구에서는 궤도 하부구조물의 상태를 평가하기 위한 콘 관입기(CPI)를 개발하였으며, 적용성 검증을 위하여 실내실험과 현장실험을 수행하였다. CPI를 이용한 철도궤도 하부구조물 평가의 결과로서 획득되는 결과...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier />
+      </HIT>
+      <HIT NO="2" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016890170</ResultID>
+         <ResultTitle>동적 콘 관입지수를 이용한 철도노반의 전단파속도 추정</ResultTitle>
+         <JournalName>한국지반공학회 논문집 = JOURNAL OF THE KOREAN GEOTECHNICAL SOCIETY</JournalName>
+         <IssnNumber>1229-2427</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>연속 동하중을 지지하는 철도노반의 탄성거동은 대상 상부노반의 전단탄성계수에 주된 영향을 받으므로, 일정한 다짐도로 조성된 상부노반에서의 전단파속도 획득은 대상 지반의 탄성거동 예측에 활용될 수 있다. 본 연구에서는 상부노반에서 수행된 동적 콘 관입시험(DCPT) 결과로부터 전단파속도($V_s$)를 추정하기 위하여 동적 콘 관입지수(DCPI)와 전단파속도의 상호관계를 제시하고자 하였다. 상호관계의 신뢰도를 확보하기 위하여 동적 콘 관입시험 및 전단파속도 획득은 시공 완료된 철도 상부노반에서 수행되었다. 전단파속도 획득 방법으로서 cross hole 방법이 사용되었으며, 수신기와 발신기의 중간 위치에서 동적 콘 관입시험이 수행되었다. 동일한 심도에서의 동적 콘 관입지수 및 전단파속도 비교 결과, 전단파속도는 결정계수가 0.8 이상인 동적 콘 관입지수의 거듭제곱 형태로 나타났다. 본 연구결과는 동적 콘 관입기를 이용한 상부노반의 강도평가와 동시에 전단파속도 추정 방법으로써 유용하게 사용될 것이라 기대된다.Elastic behavior of the railway roadbed which supports the repeating dynamic loads of the train is mainly affected by the shear modulus of the upper roadbed. Therefore, shear wave velocity estimation of the uniformly compacted roadbed can be used to estimate the elastic behavior of the railway roadbed. The objective of this study is to suggest the relationship between the dynamic cone penetration index (DCPI) and the shear wave velocity ($V_s$) of the upper roadbed in order to estimate the shear wave velocity by using the dynamic cone penetration test (DCPT). To ensure the reliability of the relationship, the dynamic cone penetration test and the measurement of the shear wave velocity are conducted on the constructed upper roadbed. As a method for measurement of the shear wave velocity, cross hole is used and then the dynamic cone penetration test is performed at a center point between the source and the receiver of the cross hole. As a result of the correlation of the dynamic cone penetration index and the shear wave velocity at the same depths, the shear wave velocity is estimated as a form of involution of the dynamic cone penetration index with a determinant coefficient above 0.8. The result of this study can be used to estimate both the shear wave velocity and the strength of the railway roadbed using the dynamic cone penetrometer.</Full>
+            <Teaser>연속 동하중을 지지하는 철도노반의 탄성거동은 대상 상부노반의 전단탄성계수에 주된 영향을 받으므로, 일정한 다짐도로 조성된 상부노반에서의 전단파속도 획득은 대상 지반의 탄성거동 예측에 활용될 수 있다. 본 연구에서는 상부노반에서 수행된 동적 콘 관입시험(DCPT) 결과로부터 전단파속도($V_s$)를 추정하기 위하여 동적 콘 관입지수(DCPI)와 전단파속도의 ...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier>10.7843/kgs.2015.31.11.25</DigitalObjectIdentifier>
+      </HIT>
+      <HIT NO="3" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016887520</ResultID>
+         <ResultTitle>Sensitivity Analysis by Parametric Study of Load Factor for a Concrete Box Girder Railway Bridge Using Limit State Design</ResultTitle>
+         <JournalName>International journal of railway</JournalName>
+         <IssnNumber>1976-9067</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>Reliability based limit state design method is replacing traditional deterministic designs such as allowable stress design and/or ultimate strength design methods in world trends. European design code(Eurocode) has adopted limit state design, and Korea road bridge design standard has also recently been transferred to limit state design method. In this trend, Korea railroad design standard is also preparing for adopting the same design concept. While safety factors are determined empirically in traditional design, load combinations as well as load factors are determined by solving limit state equations. General partial safety factors are evaluated by using AFORM(Advanced First Order Reliability Method) in the reliability based limit state design method. In this study sensitivity analysis is carried out for a dead load factor and a live load factor. Relative precisions of the dead load and the live load factors are discussed prior to the AFORM analysis. Furthermore the sectional forces of design and the material quantities required by two different design methods are compared for a PSC box girder railway bridge.</Full>
+            <Teaser>Reliability based limit state design method is replacing traditional deterministic designs such as allowable stress design and/or ultimate strength design methods in world trends. European design code...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier>10.7782/IJR.2015.8.1.005</DigitalObjectIdentifier>
+      </HIT>
+      <HIT NO="4" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016887504</ResultID>
+         <ResultTitle>고속철도 WIM 데이터에 대한 통계분석을 통한 철도교량 설계활하중 분석</ResultTitle>
+         <JournalName>한국전산구조공학회</JournalName>
+         <IssnNumber>1229-3059</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>이 논문에서는 고속철도교량 설계를 위한 활하중 모델을 통계 및 확률적 방법으로 검토하고, 하중조합의 하중계수가 주는 안전율을 분석하였다. 이 연구는 철도교량 설계기준에 대한 한계상태설계법 개발의 일환이며, 이를 위하여 경부고속철도를 운행하는 열차를 대상으로 약 한달 동안 실측하여 데이터를 수집하고 분석하였다. 이 데이터를 대상으로 교량의 설계수명에 맞도록 4가지 통계 방법들을 적용하여 설계하중을 추정하여 비교 검토하였다. 또한, 철도교량의 설계하중조합이 주는 안전율을 검토하기 위하여 신뢰도지수를 구하고 이를 분석하였다. 실측 데이터로부터 추정한 활하중효과에 대하여, 현행 고속철도 설계활하중인 표준열차하중의 0.75배를 적용한 설계활하중 효과의 크기가 최소 30~22% 더 크게 나왔다. 신뢰도분석을 통하여, 극한한계상태만을 기준으로 본다면, 추가적인 하중계수 감소의 가능성이 있음을 알 수 있다.In this paper, the live load model for the design of high-speed railway bridge is analyzed by statistic and probabilistic methods and the safety level that is given by the load factors of the load combination is analyzed. This study is a part of the development of the limit state design method for the railway bridge, and the train data collected from the Gyeongbu high-speed railway for about one month are utilized. The four different statistical methods are applied to estimate the design load to match the bridge design life and the results are compared. In order to examine the safety level that the design load combination of the railway bridge gives, the reliability indexes are determined and the results are analyzed. The load effect from the current design live load for the high-speed rail bridge which is 0.75 times of the standard train load is came out greater than at least 30-22% that from the estimated load from the measured data. If it is judged based on the ultimate limit state, there is a possibility of additional reduction of the safety factors through the reliability analysis.</Full>
+            <Teaser>이 논문에서는 고속철도교량 설계를 위한 활하중 모델을 통계 및 확률적 방법으로 검토하고, 하중조합의 하중계수가 주는 안전율을 분석하였다. 이 연구는 철도교량 설계기준에 대한 한계상태설계법 개발의 일환이며, 이를 위하여 경부고속철도를 운행하는 열차를 대상으로 약 한달 동안 실측하여 데이터를 수집하고 분석하였다. 이 데이터를 대상으로 교량의 설계수명에 맞도록 ...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier />
+      </HIT>
+      <HIT NO="5" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016887506</ResultID>
+         <ResultTitle>TDR의 함수비 예측을 위한 새로운 보정방정식</ResultTitle>
+         <JournalName>한국토목섬유학회 논문집 = Journal of the Korean Geosynthetics Society</JournalName>
+         <IssnNumber>1975-2423</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>TDR을 이용한 흙의 건조밀도와 함수비의 새로운 보정 방정식을 검증하기 위해 본 연구를 수행하였다. 기존의 보정 방정식이 제안되고 몇몇 연구자들에 의해 새로운 보정 방정식을 개발하는 연구가 진행되고 있다. 기존의 보정 방정식이 함수비가 높은 세립토와 느슨한 토질에서는 적용되기 어려워 새로운 보정 방정식을 개발하였다. 이에 따라 본 연구에서는 새로운 보정 방정식을 소개하고 기존의 실험과 비교해 새로운 보정방정식의 국내지반과의 적용성을 검토를 수행하였다. 그 결과 함수비의 보정방정식에 오차가 발생하여 함수비의 새로운 보정방정식을 개발하였고, 개발한 보정방정식을 검토한 결과 95%이상의 정확도를 보여준다.The objective of the study is to verify a new calibration equation of dry density and water contents with TDR. Since the traditional calibration equation was proposed, some research to develop a new calibration equation has been conducted by several researchers. As traditional calibration equation is difficult to be applied for loose soil and fine-grained soil at high water contents, this study developed a new calibration equation. Thus, this study introduces a new calibration equation and its applicability by comparing TDR test results with conventional test results. Based on the analyses, the calibration equation for water content has large error. A new calibration equation was proposed and it showed more than 95% accuracy for estimating water content of soil.</Full>
+            <Teaser>TDR을 이용한 흙의 건조밀도와 함수비의 새로운 보정 방정식을 검증하기 위해 본 연구를 수행하였다. 기존의 보정 방정식이 제안되고 몇몇 연구자들에 의해 새로운 보정 방정식을 개발하는 연구가 진행되고 있다. 기존의 보정 방정식이 함수비가 높은 세립토와 느슨한 토질에서는 적용되기 어려워 새로운 보정 방정식을 개발하였다. 이에 따라 본 연구에서는 새로운 보정 방...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier />
+      </HIT>
+      <HIT NO="6" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016890168</ResultID>
+         <ResultTitle>궤도틀림을 고려한 교대접속부의 열차상호동적거동해석</ResultTitle>
+         <JournalName>한국지반공학회 논문집 = JOURNAL OF THE KOREAN GEOTECHNICAL SOCIETY</JournalName>
+         <IssnNumber>1229-2427</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>이 연구에서는 열차가 교량 접속부를 통과하면서 발생되는 동적상호작용 문제를 유한요소해석프로그램을 이용하여 검토하였다. 해석대상구간에서의 궤도틀림조건은 부등침하량을 삼각함수를 이용하여 이상화하고, 철도공사 선로 보수기준을 만족하는 최대 궤도틀림 한계치를 해석조건으로 설정하였다. 해석대상이 되는 접속부 구조물의 체결장치 아래 부분은 모두 3차원 입체요소로 모형화하였으며, 해석비용을 줄이기 위하여 1/2 궤도부분만을 모형화하였다. 경계조건은 평면변형률상태에 준하는 것으로 차량-궤도 동적상호작용해석을 수행하였다. 국내 콘크리트궤도용 표준 접속부에서의 궤도틀림에 따른 열차 주행시 동적상호작용해석을 수행하여 윤중감소율과 차체수직진동가속도를 살펴보았으며, 접속부의 시멘트 안정처리골재, 일반골재, 일반토사구간에서의 발생된 최대 Mises응력으로 동적거동을 평가하였다.In this study, track dynamic interaction characteristics caused by the vehicle running through transitional section such as bridge abutments were studied using the finite element analysis program. The geometric condition of track was generated by trigonometric function and allowable maximum track irregularity is determined by KORAIL track maintenance criteria. The sub-infrastructure under rail fastener system was modelled by 3D solid elements. To reduce computational cost only half track line is numerically considered and the roller boundary condition was applied to each side of model. In this study, the vehicle-track dynamic interaction analysis was carried out for standard Korean transition section of concrete track and the dynamic behaviors were investigated. The dynamic characteristics considered are wheel load variation, vertical acceleration at body, and maximum Mises stress at each part of transitional section.</Full>
+            <Teaser>이 연구에서는 열차가 교량 접속부를 통과하면서 발생되는 동적상호작용 문제를 유한요소해석프로그램을 이용하여 검토하였다. 해석대상구간에서의 궤도틀림조건은 부등침하량을 삼각함수를 이용하여 이상화하고, 철도공사 선로 보수기준을 만족하는 최대 궤도틀림 한계치를 해석조건으로 설정하였다. 해석대상이 되는 접속부 구조물의 체결장치 아래 부분은 모두 3차원 입체요소로 모형...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier>10.7843/kgs.2015.31.9.29</DigitalObjectIdentifier>
+      </HIT>
+      <HIT NO="7" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016890164</ResultID>
+         <ResultTitle>다짐된 궤도 흙노반 재료의 전단탄성계수(G)-전단변형률(γ)-포화도(S) 관계특성 분석</ResultTitle>
+         <JournalName>한국철도학회 논문집 = Journal of the Korean Society for Railway</JournalName>
+         <IssnNumber>1738-6225</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>본 연구에서는 국내 철도 궤도하부 다져진 흙노반의 강성 평가를 위하여 Stokoe 방식의 고정단-자유단 중형 공진주 시험기(D=10cm, L=20cm)를 이용, 구속압 및 전단변형률 증가시 포화도(S)변화에 따른 전단탄성계수의 분포변화를 조사, 분석하였다. 분석결과 포화도가 증가할수록 최대전단탄성계수는 감소하고 정규화 전단탄성계수는 증가하는 경향을 보였다. 분석결과를 바탕으로 포화도(S)~전단탄성계수(S)~전단변형률(${\gamma}$) 사이의 고유한 감소 관계특성을 관찰할 수 있었다. 이러한 특성수립 가능성을 기반으로 향후 광범위한 추가시험을 통하여 예측모델을 수립하고 소정의 모델계수 값들을 획득할 수 있을 것이다.It is important to evaluate the stiffness characteristics of compacted subgrade soil under track that is loaded dynamically. Using a mid-size Resonant Column test apparatus, normalized shear modulus and shear modulus variation with changing of confining pressure were investigated with change of degree of saturation (DOS). From an analysis of the test results, it was verified that the maximum shear modulus decreased with increases of DOS. However, normalized shear modulus increased with increases of DOS. Using the test results, a relation of G~${\gamma}$~DOS can be constructed and characterized. In the future, by performing tests with soils used as trackbed broadly in the field, a prediction model for DOS~G~${\gamma}$ can be proposed.</Full>
+            <Teaser>본 연구에서는 국내 철도 궤도하부 다져진 흙노반의 강성 평가를 위하여 Stokoe 방식의 고정단-자유단 중형 공진주 시험기(D=10cm, L=20cm)를 이용, 구속압 및 전단변형률 증가시 포화도(S)변화에 따른 전단탄성계수의 분포변화를 조사, 분석하였다. 분석결과 포화도가 증가할수록 최대전단탄성계수는 감소하고 정규화 전단탄성계수는 증가하는 경향을 보였다....</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier>10.7782/JKSR.2015.18.2.127</DigitalObjectIdentifier>
+      </HIT>
+      <HIT NO="8" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016887526</ResultID>
+         <ResultTitle>접속부 궤도 성토재료의 함수특성곡선을 이용한 포화도 분포 산정</ResultTitle>
+         <JournalName>대한토목학회논문집 = Journal of the Korean Society of Civil Engineers</JournalName>
+         <IssnNumber>1015-6348</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>최근 궤도 접속부에서의 부등침하 및 궤도틀림으로 잦은 유지보수 및 열차운영에 지장을 초래하는 경우가 많아지고 있다. 이는 주로 궤도 접속부 시공에 사용되는 다양한 성토재료의 강우나 동결융해 같은 환경적 인자에 의한 역학적 물성들의 변화에 기인한 것으로, 본 연구에서는 궤도 접속부 성토재료에 대한 함수특성곡선을 산정하고 강우 시 포화도 변화 추이를 알아보고자 침투해석을 수행 하였다. 필터페이퍼를 이용하여 다짐 성토의 함수특성곡선을 성공적으로 산정할 수 있었고, 함수특성곡선 데이터를 이용한 강우 시 침투해석을 수행한 결과 궤도 접속부 성토재료의 포화도 분포는 강우강도, 뒤채움재 경사, 성토 및 절토 여부, 그리고 함수특성곡선에 큰 영향을 받는 것을 확인 하였다.The number of occurrence of differential settlement and track irregularity at track transition zone recently comes to increase, which leads to frequent maintenance activities that have an impact on train operation. Such track transition zone damages are attributed to the change of mechanical properties of fill materials due to environmental factors such as rainfall and freeze, and thaw. Consequently, this study attempts to establish the soil water characteristic curve (SWCC) of fill materials, and conduct seepage analysis to assess the distribution of degree of saturation (DOS) for track transition zone in case of rainfall. The SWCC of fill materials was successfully obtained using filter paper test method. The results of seepage analysis revealed that rainfall intensity, the slope of backfill, backfill condition (fill or cut), and SWCC are significantly influential in controlling the distribution of DOS.</Full>
+            <Teaser>최근 궤도 접속부에서의 부등침하 및 궤도틀림으로 잦은 유지보수 및 열차운영에 지장을 초래하는 경우가 많아지고 있다. 이는 주로 궤도 접속부 시공에 사용되는 다양한 성토재료의 강우나 동결융해 같은 환경적 인자에 의한 역학적 물성들의 변화에 기인한 것으로, 본 연구에서는 궤도 접속부 성토재료에 대한 함수특성곡선을 산정하고 강우 시 포화도 변화 추이를 알아보고자...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier />
+      </HIT>
+      <HIT NO="9" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016887514</ResultID>
+         <ResultTitle>Evaluation of Field Calibration Test on Rail for Train Wheel Force Measurement</ResultTitle>
+         <JournalName>International journal of railway</JournalName>
+         <IssnNumber>1976-9067</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>An accurate measurement of the train-track interaction forces is important for track performance evaluation. In the field calibration test as a wheel load measurement process, the calibration system creates a different boundary condition in comparison with that in the train wheel passage. This study aims to evaluate a reliability of the field calibration test in the process of wheel load measurement. Finite element models were developed to compare the deformed shapes, bending moment and shear force profiles on the rail section. The analysis results revealed that the deformed shapes and their associated bending moment profiles on the rail are significantly different in two numerical simulations of the calibration test and the train wheel load passage. However, the shear stress profile on the rail section of the strain gauge installation in the field was almost identical, which may imply that the current calibration test is sufficiently reliable.</Full>
+            <Teaser>An accurate measurement of the train-track interaction forces is important for track performance evaluation. In the field calibration test as a wheel load measurement process, the calibration system c...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="103">국내전문학술지</PaperType>
+         <SciType>02</SciType>
+         <NationType>국내</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier>10.7782/IJR.2015.8.1.001</DigitalObjectIdentifier>
+      </HIT>
+      <HIT NO="10" SITID="PAP">
+         <Year>2015</Year>
+         <ResultID>JNL-2015-0016835045</ResultID>
+         <ResultTitle>Stability analysis of subway box structure supported by modified underpinning method</ResultTitle>
+         <JournalName>TUNNELLING AND UNDERGROUND SPACE TECHNOLOGY</JournalName>
+         <IssnNumber>0886-7798</IssnNumber>
+         <Author>NAME-REMOVED</Author>
+         <Abstract>
+            <Full>When excavation under existing structure is planned for a new construction project, the underpinning method is one of the most applicable construction methods. This study introduces a new modified underpinning method which is applied to construct a new subway #9 line in Seoul Metropolitan in South Korea. The new subway line #9 was designed to pass underneath the existing subway line #2. Subway line #2 carries about 2 million passengers daily, which is 33% of total passengers using subway in Seoul, and is the only circulation line in Seoul. Subway trains are passing 540 times through this section in a day. By applying a new underpinning method, the subway box structure of line #2 is exposed 54m in the air supported by bearing piles. The proposed method was carefully monitored using heavy instrumentation system during construction. This study proposed and verified the application of the modified underpinning method, which can reduce construction period by 1.5 times and the construction cost by 1.2 times comparing with conventional method. The importance of considering construction sequence is investigated and verified by using measured load cell data. The unexpected heaving which can bring up a dangerous situation for train running stability were measured, so this study shows that the upward movement has to be analyzed in designing process. The vibration from train operation and blasting excavation was thoroughly monitored and verified that the proposed construction method can be used with safety. As the use of underground space increases, the proposed method can be a good example of underground development.</Full>
+            <Teaser>When excavation under existing structure is planned for a new construction project, the underpinning method is one of the most applicable construction methods. This study introduces a new modified und...</Teaser>
+         </Abstract>
+         <PubYear>2015</PubYear>
+         <PaperType code="201">국외전문학술지</PaperType>
+         <SciType>01</SciType>
+         <NationType>국외</NationType>
+         <JCType>학술지</JCType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+         <DigitalObjectIdentifier>10.1016/j.tust.2015.06.013</DigitalObjectIdentifier>
+      </HIT>
+   </RESULTSET>
+</RESULT>

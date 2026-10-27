@@ -2,12 +2,15 @@
 
 (doc_type="report").
 
-형식은 공개 매뉴얼 "국가R&D 연구보고서 검색 서비스"(2021-12-28): 파라미터
-query·searchField·startPosition·displayCount· returnType=xml, 레코드 HIT, 필드
-TermSn·PublicationYear|PublicationYm·ResearchPublicNo·PublicationAgency·
-ResultTitle/Korean·Abstract/Korean·Keyword/Korean·DocUrl·ProjectNumber·ProjectTitle·LeadAgency|ManageAgency.
-ManagerName/Manager(연구책임자)는 읽지 않는다. 같은 보고서가 ScienceON(REPORT, doc_type
-internal_report)에도 있으면 domain/rules/dedup.report_identity(과제번호+제목) 로 하나만 남는다.
+형식은 2026-10-27 실응답(tests/fixtures/ntis/ntis_report_*.xml)으로 확정 — 공개 매뉴얼 "국가R&D
+연구보고서 검색 서비스"(2021-12-28)와 같다: 파라미터 query·searchField·startPosition·displayCount·
+returnType=xml, 레코드 HIT, 필드 TermSn·PublicationYear·ResearchPublicNo·PublicationAgency·
+ResultTitle/Korean|English·Abstract/Korean|English·Keyword/Korean|English·Contents·PublicationCountry·
+PublicationLanguage·DocUrl(scienceon originalView, 맨 `&` 포함)·SpecializedAgency(전문기관)·
+ProjectNumber·ProjectTitle·LeadAgency·AgencyDetailProjectNumber. 강조 `<span class="search_word">`
+는 날 태그로 텍스트 안에 온다(_xml.flatten 이 잎으로 본다). ManagerName(연구책임자)은 읽지 않는다.
+같은 보고서가 ScienceON(REPORT, doc_type internal_report)에도 있으면
+domain/rules/dedup.report_identity(과제번호+제목) 로 하나만 남는다.
 """
 
 from __future__ import annotations
@@ -23,7 +26,13 @@ from pydantic import SecretStr
 from rra.adapters.sources import _xml
 from rra.adapters.sources._base import GuardedClient, RequestBudgetExceeded
 from rra.adapters.sources._orgs import org_tags
-from rra.adapters.sources.ntis.client import MAX_QUERY_CHARS, NtisClient, NtisError, total_hits
+from rra.adapters.sources.ntis.client import (
+    MAX_QUERY_CHARS,
+    NtisClient,
+    NtisError,
+    probe_result,
+    total_hits,
+)
 from rra.adapters.sources.ntis.projects import parse_date, pick, split_list
 from rra.domain.models import Document
 
@@ -44,6 +53,8 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "project_no": ("ProjectNumber",),
     "project_title": ("ProjectTitle",),
     "language": ("PublicationLanguage",),
+    "specialized_agency": ("SpecializedAgency",),
+    "agency_project_no": ("AgencyDetailProjectNumber",),
 }
 MAX_TITLE_CHARS = 500
 MAX_TEXT_CHARS = 8000
@@ -98,6 +109,8 @@ def normalize_report(raw: Mapping[str, Any], institutions: Sequence[Mapping[str,
             "project_title": pick(raw, FIELDS["project_title"]) or None,
             "orgs_named": org_names,
             "year": pick(raw, FIELDS["year"])[:4] or None,
+            "specialized_agency": pick(raw, FIELDS["specialized_agency"]) or None,
+            "agency_project_no": pick(raw, FIELDS["agency_project_no"])[:40] or None,
         },
     )
 
@@ -166,10 +179,7 @@ class NtisReportSource:
 
     async def probe(self) -> dict[str, Any]:
         root = await self._fetch_root(self.queries[0] if self.queries else "철도", 1, count=5)
-        return {
-            "total": total_hits(root) or None,
-            "record_tag_candidates": sorted({_xml.local(r.tag) for r in _xml.find_records(root)}),
-        }
+        return probe_result(root, self.record_tag)
 
     async def _fetch_root(self, query: str, start: int, *, count: int) -> Any:
         return await self.api.get_xml(

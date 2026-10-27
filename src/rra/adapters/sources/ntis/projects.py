@@ -2,11 +2,12 @@
 
 순수 함수.
 
-필드 이름은 공개 매뉴얼 "국가R&D 과제검색 서비스(대국민용)"(2021-02-08) 응답명세 기준
-(tests/fixtures/ntis/README.md). overlap.tier_of 에 맞춘다: 주관연구기관명 → orgs
-태그(korail·krri·kr). 수행 부서 필드는 응답에 없다 → department 없음 (코레일 철도연구원 과제도 own
-이 아니라 national_rnd 티어로 판정된다). 사람 이름(Manager/Name 연구책임자, Researchers/Name
-참여연구원)은 읽지 않는다 — authors 는 항상 빈 목록.
+필드 이름은 2026-10-27 실응답(tests/fixtures/ntis/ntis_project_*.xml, README)으로 확정 — 공개
+매뉴얼 "국가R&D 과제검색 서비스(대국민용)"(2021-02-08) 응답명세와 같다. 강조 태그는 이스케이프된
+꼴(`&lt;span class="search_word"&gt;`)로 텍스트 안에 온다. overlap.tier_of 에 맞춘다: 주관연구기관명
+→ orgs 태그(korail·krri·kr). 수행 부서 필드는 응답에 없다 → department 없음 (코레일 철도연구원
+과제도 own 이 아니라 national_rnd 티어로 판정된다). 사람 이름(Manager/Name 연구책임자,
+Researchers/Name 참여연구원)은 읽지 않는다 — authors 는 항상 빈 목록.
 """
 
 from __future__ import annotations
@@ -36,6 +37,8 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "keywords": ("Keyword/Korean", "Keyword"),
     "phase": ("DevelopmentPhases",),
     "science_class": ("ScienceClass/Medium", "ScienceClass/Large"),
+    "business": ("BusinessName", "BudgetProject/Name", "BigprojectTitle"),  # 사업명
+    "manage_agency": ("ManageAgency/Name", "ManageAgency"),  # 전문기관
 }
 MAX_TITLE_CHARS = 500
 MAX_TEXT_CHARS = 8000
@@ -73,6 +76,12 @@ def parse_date(value: str) -> date | None:
 
 def split_list(value: str) -> list[str]:
     return [v.strip() for v in re.split(r"\s*[|,;]\s*", value) if v.strip()]
+
+
+def unique_parts(value: str) -> list[str]:
+    """flatten 이 ' | ' 로 이은 반복 요소(ScienceClass type=old/new ×3)를 중복 없이 순서대로."""
+    seen: set[str] = set()
+    return [v for v in split_list(value) if not (v in seen or seen.add(v))]
 
 
 def normalize_project(
@@ -115,6 +124,8 @@ def normalize_project(
             "budget": _pick(raw, "budget") or None,
             "year": year or None,
             "phase": _pick(raw, "phase") or None,
-            "science_class": _pick(raw, "science_class") or None,
+            "science_class": " | ".join(unique_parts(_pick(raw, "science_class"))[:5]) or None,
+            "business": _pick(raw, "business") or None,
+            "manage_agency": _pick(raw, "manage_agency") or None,
         },
     )

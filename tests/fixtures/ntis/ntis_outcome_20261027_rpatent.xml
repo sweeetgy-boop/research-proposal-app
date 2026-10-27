@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RESULT xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://www.ntis.go.kr/searchapi/schema/title.1.0.xsd">
+   <QUERYTRANSFORMS>
+      <ORIGINALQUERY>1615007833</ORIGINALQUERY>
+   </QUERYTRANSFORMS>
+   <COUNTLIST>
+      <COLCOUNT NAME="rpatent">2</COLCOUNT>
+   </COUNTLIST>
+   <NAVIGATION>
+      <NAVIGATIONENTRY NAME="country">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="대한민국▦KR" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="year">
+         <NAVIGATIONELEMENTS COUNT="2">
+            <NAVIGATIONELEMENT NAME="2016" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="2015" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="registtype">
+         <NAVIGATIONELEMENTS COUNT="2">
+            <NAVIGATIONELEMENT NAME="등록" COUNT="1" />
+            <NAVIGATIONELEMENT NAME="출원" COUNT="1" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="iprtype">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="특허▦01" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="ministryname">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="국토교통부" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="performagency">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원▦B551201" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="performagent">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="출연연구소▦02" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="sixtechnology">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구▦070000" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="textcheckyn">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="Y" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="scienceclass1">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="궤도토목기술" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="applicant">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="한국철도기술연구원" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="countrytype">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="국내" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+      <NAVIGATIONENTRY NAME="overseasregisttype">
+         <NAVIGATIONELEMENTS COUNT="1">
+            <NAVIGATIONELEMENT NAME="국내출원" COUNT="2" />
+         </NAVIGATIONELEMENTS>
+      </NAVIGATIONENTRY>
+   </NAVIGATION>
+   <TOTALHITS>2</TOTALHITS>
+   <SECRETPROJECTHITS />
+   <PROJECTRHITS />
+   <PROJECTCHITS />
+   <PROJECTCRHITS />
+   <STARTPOSITION>1</STARTPOSITION>
+   <HITS>2</HITS>
+   <SEARCHTIME>0.021</SEARCHTIME>
+   <RESULTSET>
+      <HIT NO="1" SITID="PAT">
+         <Year>2015</Year>
+         <ResultID>PTR-2015-0026887546</ResultID>
+         <ResultTitle>철도교량에 작용하는 열차의 시제동 하중 측정방법 및 측정장치</ResultTitle>
+         <RegistCountry code="G01L 5/04;G01B 11/16;G01B 11/02;G06F 17/10">대한민국</RegistCountry>
+         <RegistNumber>10-2015-0033088</RegistNumber>
+         <Registrant>한국철도기술연구원</Registrant>
+         <RegistType code="01">출원</RegistType>
+         <IprType code="01">특허</IprType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <GoodFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+      </HIT>
+      <HIT NO="2" SITID="PAT">
+         <Year>2016</Year>
+         <ResultID>PTR-2016-0029757882</ResultID>
+         <ResultTitle>철도교량에 작용하는 열차의 시제동 하중 측정방법 및 측정장치</ResultTitle>
+         <RegistCountry code="G01L 5/04;G01B 11/16;G01B 11/02;G06F 17/10">대한민국</RegistCountry>
+         <RegistNumber>10-1589977-0000</RegistNumber>
+         <Registrant>한국철도기술연구원</Registrant>
+         <RegistType code="02">등록</RegistType>
+         <IprType code="01">특허</IprType>
+         <SourceFlag>Y</SourceFlag>
+         <TechnologylinkFlag />
+         <GoodFlag />
+         <ProjectYear>2015</ProjectYear>
+         <BudgetProjectNumber>137</BudgetProjectNumber>
+         <BudgetProject>철도기술연구사업</BudgetProject>
+         <MinistryName code="P26">국토교통부</MinistryName>
+         <ProjectID>1615007833</ProjectID>
+         <ProjectTitle>콘크리트 궤도/철도교량의 성능중심 설계법 개발 및 철도 토공노반 설계기준 개선</ProjectTitle>
+         <PerformAgency code="B551201">한국철도기술연구원</PerformAgency>
+         <SecreProject />
+         <PerformAgent code="02">출연연구소</PerformAgent>
+         <SixTechnology code="070000">위의 미래유망신기술(6T) 103개 세분류에 속하지 않는 기타 연구</SixTechnology>
+         <TechnologyRoadMap code="060000">위의 국가전략기술에 속하지 않는 기타 연구</TechnologyRoadMap>
+         <ScienceClass1 code="EI0602">궤도토목기술</ScienceClass1>
+         <ScienceClass2 code="EI0304">교량</ScienceClass2>
+         <ScienceClass3 code="EI0301">설계 표준화기술</ScienceClass3>
+      </HIT>
+   </RESULTSET>
+</RESULT>
