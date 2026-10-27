@@ -155,10 +155,23 @@ export interface Recommendations {
   discarded: Record<string, string>[];
 }
 
+/** ② 관련 연구(참고) — 논문·보고서·특허. 판정·차단에 쓰지 않는다 (ADR 0028). 제목은 비신뢰 텍스트. */
+export interface RelatedResearch {
+  doc_id: string;
+  title: string;
+  source: string;
+  source_label: string;
+  doc_type: string;
+  year: number | null;
+  similarity: number;
+  url: string | null;
+}
+
 export interface PrecheckOut {
   notice: string;
   blocking: boolean;
   alerts: OverlapAlert[];
+  related_research?: RelatedResearch[];
   differentiation?: Differentiation;
   recommendations?: Recommendations;
 }

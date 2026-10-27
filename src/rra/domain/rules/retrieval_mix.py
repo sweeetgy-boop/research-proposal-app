@@ -13,6 +13,7 @@ from collections.abc import Iterable, Mapping
 from pydantic import BaseModel, ConfigDict, Field
 
 from rra.domain.models import Chunk
+from rra.domain.rules.overlap_candidates import OverlapCandidateRule
 
 DEFAULT_SCHOLARLY = ("paper", "report", "patent")
 
@@ -32,6 +33,9 @@ class RetrievalMix(BaseModel):
     scholarly: tuple[str, ...] = DEFAULT_SCHOLARLY
     sections: dict[str, SectionMix] = Field(default_factory=dict)
     overlap_exclude: tuple[str, ...] = ()
+    # 유사과제 판정 후보 자료원(config/overlap.yaml candidates, ADR 0028). None 이면 doc_type
+    # 제외만.
+    candidates: OverlapCandidateRule | None = None
 
     def allowed(self, section: str, doc_type: str | None) -> bool:
         mix = self.sections.get(section)
@@ -87,7 +91,11 @@ class RetrievalMix(BaseModel):
         return [*picked, *extra]
 
     def overlap_candidates(self, hits, doc_type_of) -> list:
-        """유사과제 판정에서 뺄 doc_type 의 문서를 거른 (문서, 유사도) 목록."""
-        if not self.overlap_exclude:
-            return list(hits)
-        return [(d, s) for d, s in hits if doc_type_of(d) not in self.overlap_exclude]
+        """유사과제 판정에서 뺄 doc_type 의 문서를 거르고, candidates 규칙이 있으면 과제형 자료원만
+        남긴 (문서, 유사도) 목록."""
+        kept = list(hits)
+        if self.overlap_exclude:
+            kept = [(d, s) for d, s in kept if doc_type_of(d) not in self.overlap_exclude]
+        if self.candidates is not None:
+            kept = self.candidates.project_hits(kept)
+        return kept

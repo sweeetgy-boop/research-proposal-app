@@ -425,3 +425,55 @@ def test_source_config_falls_back_to_named_yaml_and_g2b_credentials(tmp_path):
     assert "g2b" in KEYED_SOURCES and credential_status(settings, "g2b") == {
         "RRA_DATA_GO_KR_KEY": False
     }
+
+
+def test_overlap_candidates_from_overlap_yaml_and_absent_section(tmp_path):
+    from rra.config_loader import overlap_candidates, retrieval_mix
+
+    (tmp_path / "overlap.yaml").write_text(
+        "candidates:\n"
+        "  project:\n"
+        "    - {source: own}\n"
+        "    - {source: ntis, doc_types: [rnd_project]}\n"
+        "  pool: {per_source: 3, size: 12}\n"
+        "  research:\n"
+        "    k: 2\n"
+        "    members:\n"
+        "      - {source: scienceon}\n",
+        encoding="utf-8",
+    )
+    rule = overlap_candidates(settings_for(tmp_path))
+    assert rule.project_sources() == ["own", "ntis"] and rule.project[1].doc_types == (
+        "rnd_project",
+    )
+    assert rule.research_sources() == ["scienceon"] and rule.research_k == 2
+    assert rule.per_source == 3 and rule.pool_size == 12
+    (tmp_path / "retrieval_mix.yaml").write_text("overlap_exclude: [policy]\n", encoding="utf-8")
+    assert retrieval_mix(settings_for(tmp_path)).candidates == rule  # generate 도 같은 후보 집합
+    (tmp_path / "overlap.yaml").write_text("keywords: {min_hits: 2}\n", encoding="utf-8")
+    assert not overlap_candidates(settings_for(tmp_path)).restricts  # 절이 없으면 제한 없음
+
+
+def test_shipped_overlap_candidates_are_project_sources_only():
+    """config/overlap.yaml candidates — 과제형 자료원(own·alio·ntis 과제·g2b)만, 논문·보고서는
+    관련 연구."""
+    from rra.config_loader import overlap_candidates
+    from rra.domain.models import Document
+    from rra.settings import load_settings
+
+    rule = overlap_candidates(load_settings())
+    assert rule.project_sources() == ["own", "alio", "ntis", "g2b"]
+    assert rule.is_project(
+        Document(doc_id="ntis:p", source="ntis", doc_type="rnd_project", title="t")
+    )
+    assert not rule.is_project(
+        Document(doc_id="ntis:r", source="ntis", doc_type="report", title="t")
+    )
+    assert not rule.is_project(
+        Document(doc_id="scienceon:a", source="scienceon", doc_type="paper", title="t")
+    )
+    assert rule.is_research(Document(doc_id="ntis:r", source="ntis", doc_type="report", title="t"))
+    assert rule.is_research(
+        Document(doc_id="openalex:W", source="openalex", doc_type="paper", title="t")
+    )
+    assert rule.per_source > 0 and rule.pool_size >= rule.per_source and rule.research_k > 0

@@ -605,6 +605,46 @@ def relevance_floor(settings: Settings) -> RelevanceFloor:
     return RelevanceFloor.model_validate(values)
 
 
+def overlap_candidates(settings: Settings):
+    """config/overlap.yaml `candidates` → OverlapCandidateRule (ADR 0028). 절이 없으면 제한 없음."""
+    from rra.domain.rules.overlap_candidates import OverlapCandidateRule, SourceMember
+
+    cfg = read_config("overlap.yaml", settings).get("candidates") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError("overlap.yaml candidates 는 매핑이어야 합니다.")
+
+    def members(items: Any, where: str) -> tuple[SourceMember, ...]:
+        if items is None:
+            return ()
+        if not isinstance(items, list):
+            raise ValueError(f"overlap.yaml candidates.{where} 는 목록이어야 합니다.")
+        out = []
+        for item in items:
+            if not isinstance(item, dict) or not item.get("source"):
+                raise ValueError(f"overlap.yaml candidates.{where} 항목에는 source 가 필요합니다.")
+            out.append(
+                SourceMember(
+                    source=str(item["source"]),
+                    doc_types=tuple(str(x) for x in (item.get("doc_types") or [])),
+                )
+            )
+        return tuple(out)
+
+    research = cfg.get("research") or {}
+    if not isinstance(research, dict):
+        raise ValueError("overlap.yaml candidates.research 는 매핑이어야 합니다.")
+    pool = cfg.get("pool") or {}
+    if not isinstance(pool, dict):
+        raise ValueError("overlap.yaml candidates.pool 은 매핑이어야 합니다.")
+    return OverlapCandidateRule(
+        project=members(cfg.get("project"), "project"),
+        research=members(research.get("members"), "research.members"),
+        research_k=int(research.get("k", 5)),
+        per_source=int(pool.get("per_source", 0)),
+        pool_size=int(pool.get("size", 30)),
+    )
+
+
 def _retrieval_mix_raw(settings: Settings) -> dict[str, Any] | None:
     if not (Path(settings.config_dir) / "retrieval_mix.yaml").is_file():
         return None
@@ -635,6 +675,7 @@ def retrieval_mix(settings: Settings):
         scholarly=tuple(str(x) for x in (cfg.get("scholarly") or ["paper", "report", "patent"])),
         sections=sections,
         overlap_exclude=tuple(str(x) for x in (cfg.get("overlap_exclude") or [])),
+        candidates=overlap_candidates(settings),  # generate 의 판정도 같은 후보 집합(ADR 0028)
     )
 
 

@@ -1,5 +1,5 @@
 /** 화면 단위: 가짜 응답(fixtures)으로 그리고 axe 를 돌린다. */
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expectNoA11yViolations, mockFetch, problem, renderWithProviders } from "@/test/utils";
 import { clearSession, getCsrf } from "@/auth/session";
@@ -90,6 +90,30 @@ describe("유사과제 확인", () => {
     const { container } = renderWithProviders(<Precheck />, { route: "/new/precheck" });
     expect(screen.getByRole("heading", { name: /유사과제 1건/ })).toBeInTheDocument();
     expect(screen.getByText("추천 0건")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /다음: 선행연구 브리핑/ })).toBeEnabled();
+    await expectNoA11yViolations(container);
+  });
+
+  it("관련 연구는 판정 표와 분리된 '참고' 목록으로 보인다 (ADR 0028)", async () => {
+    mockFetch({});
+    const pre: PrecheckOut = {
+      ...(precheckFx as PrecheckOut),
+      related_research: [
+        { doc_id: "scienceon:fake-1", title: "궤도 틀림 논문 (가짜)", source: "scienceon", source_label: "ScienceON 국내 논문·보고서", doc_type: "paper", year: 2024, similarity: 0.9123, url: "https://example.invalid/p1" },
+        { doc_id: "ntis:rep-1", title: "국가R&D 보고서 (가짜)", source: "ntis", source_label: "NTIS 국가R&D 과제", doc_type: "report", year: null, similarity: 0.88, url: null },
+      ],
+    };
+    updateIdea({ precheck: pre, request: { ...emptyRequest(), current_state: "a", root_cause: "b", limitation: "c", goal: "d" } });
+    const { container } = renderWithProviders(<Precheck />, { route: "/new/precheck" });
+    expect(screen.getByRole("heading", { name: /유사과제 1건/ })).toBeInTheDocument();
+    const section = screen.getByRole("region", { name: /관련 연구 2건/ });
+    expect(section).toHaveTextContent("궤도 틀림 논문 (가짜)");
+    expect(section).toHaveTextContent("ScienceON 국내 논문·보고서 · 논문 · 2024 · 유사도 0.912");
+    expect(within(section).getAllByText("참고")).toHaveLength(2);
+    expect(within(section).queryByText("차단")).toBeNull();
+    const link = within(section).getByRole("link", { name: /원문/ });
+    expect(link).toHaveAttribute("href", "https://example.invalid/p1");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.getByRole("button", { name: /다음: 선행연구 브리핑/ })).toBeEnabled();
     await expectNoA11yViolations(container);
   });

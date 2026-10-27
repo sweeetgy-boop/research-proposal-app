@@ -30,6 +30,30 @@ class OverlapAlert(BaseModel):
     )
 
 
+class RelatedResearch(BaseModel):
+    """② 유사과제 확인의 "관련 연구"(참고) 한 건 — 논문·보고서·특허. 판정·차단에 쓰지 않는다
+    (ADR 0028)."""
+
+    doc_id: str
+    title: str  # 비신뢰 텍스트 (수집 문서 제목)
+    source: str
+    doc_type: str
+    year: int | None = None
+    similarity: float
+    url: str | None = None
+
+
+class PrecheckResult(BaseModel):
+    """② precheck 결과 — 판정 알림(과제형 자료원만) + 관련 연구 목록(참고)."""
+
+    alerts: list[OverlapAlert] = Field(default_factory=list)
+    related_research: list[RelatedResearch] = Field(default_factory=list)
+
+    @property
+    def blocking(self) -> bool:
+        return any(a.blocking for a in self.alerts)
+
+
 MAX_DIRECTIONS = 3
 MAX_ITEM_CHARS = 600
 

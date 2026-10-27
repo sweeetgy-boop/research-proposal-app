@@ -39,7 +39,7 @@ class InMemoryDocumentRepository:
             hits = [c for c in hits if c.doc_id.split(":", 1)[0] in set(sources)]
         return hits[: max(0, k)]
 
-    async def find_similar(self, text, *, k=10):
+    async def find_similar(self, text, *, k=10, sources=None):
         query = set(_TOKEN.findall((text or "").lower()))
         if not query:
             return []
@@ -58,6 +58,8 @@ class InMemoryDocumentRepository:
             score = len(query & tokens) / len(query | tokens) if tokens else 0.0
             if score > 0 and score > best.get(doc_id, 0.0):
                 best[doc_id] = score
+        if sources:
+            best = {d: s for d, s in best.items() if d.split(":", 1)[0] in set(sources)}
         ranked = sorted(best.items(), key=lambda kv: (-kv[1], kv[0]))[: max(0, k)]
         return [(self.docs[d], s) for d, s in ranked if d in self.docs]
 

@@ -15,7 +15,7 @@ from typing import Any
 
 from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
-from rra.domain.rules.overlap import STATUS_LABELS, tier_label
+from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
 
 
 def _same(text: str) -> str:
@@ -432,6 +432,27 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
             for a in alerts
         ],
     }
+
+
+def related_research_payload(
+    items: list[Any], *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """② 관련 연구(참고) 목록 → 출력용 (REST). 판정이 아니다 — 제목은 비신뢰 텍스트(ADR 0028).
+
+    프론트엔드 영향: ② 유사과제 확인의 "관련 연구" 목록(related_research[], 배지 "참고")."""
+    return [
+        {
+            "doc_id": r.doc_id,
+            "title": clean(r.title),
+            "source": r.source,
+            "source_label": SOURCE_LABELS.get(r.source, r.source),
+            "doc_type": r.doc_type,
+            "year": r.year,
+            "similarity": round(r.similarity, 4),
+            "url": r.url,
+        }
+        for r in items
+    ]
 
 
 def ntis_insights_payload(insights: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:

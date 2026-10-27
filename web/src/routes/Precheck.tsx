@@ -8,6 +8,7 @@ import { ComparisonTable } from "@/features/idea/ComparisonTable";
 import type { RecommendationPreview } from "@/api/types";
 import { updateIdea, updateRequest, useIdea } from "@/features/idea/store";
 import { AlertsTable } from "@/features/idea/AlertsTable";
+import { RelatedResearchList } from "@/features/idea/RelatedResearchList";
 import { RecommendationCards } from "@/features/idea/RecommendationCards";
 import { DifferentiationPanel } from "@/features/idea/DifferentiationPanel";
 import { NtisInsights } from "@/features/idea/NtisInsights";
@@ -120,7 +121,7 @@ export default function Precheck() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">② 유사과제 확인</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          유사도와 공유 키워드가 함께 기준을 넘는 기존 과제입니다. 제목은 수집 자료의 텍스트입니다.
+          유사도와 공유 키워드가 함께 기준을 넘는 기존 과제(사내 기록·알리오·NTIS 과제·발주 용역)입니다. 제목은 수집 자료의 텍스트입니다.
         </p>
       </div>
 
@@ -146,6 +147,8 @@ export default function Precheck() {
         <h2 className="text-lg font-semibold">유사과제 {pre.alerts.length}건</h2>
         <AlertsTable alerts={pre.alerts} />
       </section>
+
+      {pre.related_research ? <RelatedResearchList items={pre.related_research} /> : null}
 
       {hasNtis ? <NtisInsights data={ntis.data} loading={ntis.isPending} unavailable={!!ntis.error} /> : null}
 
