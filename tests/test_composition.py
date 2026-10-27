@@ -642,3 +642,94 @@ def test_build_extract_facts_and_term_candidates_with_given_repo(tmp_path):
     terms, write = build_term_candidates(settings, repo=repo)
     assert isinstance(terms, ExtractTermCandidates) and callable(write)
     assert "안전" in terms.rule.generic_terms  # config/overlap.yaml generic_terms 반영
+
+
+# ── 자료원 IP 확인 (레인 I) ───────────────────────────────
+def test_ntis_ip_policy_is_read_from_sources_yaml_and_wired_into_check():
+    from rra.composition import build_sources_check
+    from rra.config_loader import source_ip_policy
+
+    settings = project_settings()
+    ntis = source_ip_policy(settings, "ntis", label="NTIS")
+    assert ntis.restricted and ntis.registered_ips == ("59.0.166.199", "59.0.251.250")
+    assert ntis.source_label == "NTIS"
+    assert not source_ip_policy(settings, "scienceon").restricted
+    assert not source_ip_policy(settings, "kipris").restricted
+    assert not source_ip_policy(settings, "g2b").restricted
+    check = build_sources_check(settings, ["ntis", "ntis_reports", "scienceon", "ntis_insights"])
+    policies = {t.name: t.ip_policy for t in check.targets}
+    assert policies["ntis_insights"].restricted
+    insights_target = [t for t in check.targets if t.name == "ntis_insights"][0]
+    assert insights_target.credentials == {"RRA_NTIS_KEY": False} and not insights_target.ready
+    assert policies["ntis"].restricted and policies["ntis_reports"].registered_ips == (
+        "59.0.166.199",
+        "59.0.251.250",
+    )
+    assert policies["ntis"].source_label == "NTIS 국가R&D 과제"
+    assert policies["scienceon"].restricted is False
+    assert check.public_ip is not None and check.availability is not None
+
+
+def test_public_ip_probe_requires_allowlisted_host(tmp_path, config_dir):
+    from rra.composition import build_public_ip_probe
+
+    assert build_public_ip_probe(project_settings()).url == "https://api.ipify.org"
+    (config_dir / "sources.yaml").write_text(
+        "public_ip: {lookup_url: https://evil.example/ip}\n", encoding="utf-8"
+    )
+    assert build_public_ip_probe(settings_for(config_dir)) is None
+    (config_dir / "sources.yaml").write_text("public_ip: {lookup_url: ''}\n", encoding="utf-8")
+    assert build_public_ip_probe(settings_for(config_dir)) is None
+
+
+async def test_sources_check_ip_lookup_uses_the_same_transport_and_reports_notice():
+    from rra.composition import build_sources_check
+
+    def handler(request):
+        if request.url.host == "api.ipify.org":
+            return httpx.Response(
+                200, content=b"203.0.113.9", headers={"content-type": "text/plain"}
+            )
+        return httpx.Response(
+            200,
+            content=b"<error>\xec\xa0\x91\xea\xb7\xbc \xed\x97\x88\xec\x9a\xa9 IP\xea\xb0\x80 "
+            b"\xec\x95\x84\xeb\x8b\x99\xeb\x8b\x88\xeb\x8b\xa4.</error>",
+            headers={"content-type": "text/plain;charset=UTF-8"},
+        )
+
+    class Store:
+        data = {}
+
+        def record(self, source, notice):
+            self.data[source] = notice
+
+        def notice(self, source):
+            return self.data.get(source)
+
+        def notices(self):
+            return dict(self.data)
+
+    check = build_sources_check(
+        project_settings(ntis_key="NTIS-SECRET"),
+        ["ntis"],
+        transport=httpx.MockTransport(handler),
+        resolver=lambda h: False,
+    )
+    check.availability = Store()
+    (row,) = await check()
+    assert row["roundtrip"] == "NtisIpBlocked" and row["current_ip"] == "203.0.113.9"
+    assert row["ip_notice"] == (
+        "현재 IP 203.0.113.9 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. 활용신청에 추가하세요"
+    )
+    assert "NTIS-SECRET" not in str(row)
+    assert check.availability.data == {"ntis": row["ip_notice"]}
+
+
+def test_source_availability_path_follows_data_dir():
+    from rra.composition import build_source_availability
+    from rra.config_loader import data_location
+
+    settings = project_settings()
+    store = build_source_availability(settings)
+    assert store.path == data_location(settings, "source_availability")
+    assert store.path.name == "source_availability.json"

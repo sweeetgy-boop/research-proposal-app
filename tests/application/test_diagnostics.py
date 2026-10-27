@@ -104,3 +104,117 @@ async def test_failure_reports_class_name_and_continues():
     assert bad.closed and good.closed
     # 메시지는 어댑터가 넘긴 그대로 300자까지 — 비밀 제거는 어댑터(FetchError) 책임
     assert rows[0]["error"].startswith("https://a.example")
+
+
+# ── 자료원 IP 확인 (레인 I) ───────────────────────────────
+from rra.domain.rules.source_ip import IpPolicy, SourceIpBlocked  # noqa: E402
+
+NTIS_POLICY = IpPolicy(True, ("59.0.166.199", "59.0.251.250"), "NTIS 국가R&D 과제")
+NTIS_NOTICE = "현재 IP 203.0.113.9 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. 활용신청에 추가하세요"
+
+
+class FakePublicIp:
+    def __init__(self, ip=None, *, error=None):
+        self.ip, self.error, self.calls, self.closed = ip, error, 0, False
+
+    async def current_ip(self):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        return self.ip
+
+    async def aclose(self):
+        self.closed = True
+
+
+class DictAvailability:
+    def __init__(self):
+        self.data = {}
+
+    def record(self, source, notice):
+        if notice is None:
+            self.data.pop(source, None)
+        else:
+            self.data[source] = notice
+
+    def notice(self, source):
+        return self.data.get(source)
+
+    def notices(self):
+        return dict(self.data)
+
+
+async def test_unregistered_ip_is_reported_with_the_exact_notice():
+    src = FakeProbingSource("ntis", {"total": 3})
+    ip, store = FakePublicIp("203.0.113.9"), DictAvailability()
+    rows = await CheckSources(
+        [
+            target("ntis", connect=lambda: src).__class__(
+                "ntis", "ntis.example", True, {"K": True}, lambda: src, ip_policy=NTIS_POLICY
+            ),
+            SourceTarget("scienceon", "sci.example", True, {"K": True}, None, IpPolicy(False)),
+        ],
+        public_ip=ip,
+        availability=store,
+    )()
+    ntis, sci = rows
+    assert ntis["roundtrip"] == "ok" and ntis["current_ip"] == "203.0.113.9"
+    assert ntis["registered_ips"] == ["59.0.166.199", "59.0.251.250"]
+    assert ntis["ip_registered"] is False and ntis["ip_notice"] == NTIS_NOTICE
+    assert sci["ip_restricted"] is False and sci["ip_notice"] is None and sci["current_ip"] is None
+    assert ip.calls == 1 and ip.closed
+    assert store.data == {"ntis": NTIS_NOTICE}
+
+
+async def test_registered_ip_clears_notice_and_lookup_failure_is_diagnostic_only():
+    src = FakeProbingSource("ntis", {"total": 3})
+    store = DictAvailability()
+    store.record("ntis", "옛 안내")
+    rows = await CheckSources(
+        [SourceTarget("ntis", "h", True, {"K": True}, lambda: src, NTIS_POLICY)],
+        public_ip=FakePublicIp("59.0.251.250"),
+        availability=store,
+    )()
+    assert rows[0]["ip_registered"] is True and rows[0]["ip_notice"] is None
+    assert store.data == {}  # 정상 왕복 → 해제
+    rows = await CheckSources(
+        [SourceTarget("ntis", "h", True, {"K": True}, lambda: src, NTIS_POLICY)],
+        public_ip=FakePublicIp(error=ConnectionError("https://ip.example/?key=S")),
+    )()
+    assert rows[0]["roundtrip"] == "ok" and rows[0]["ip_lookup_error"] == "ConnectionError"
+    assert rows[0]["current_ip"] is None and rows[0]["ip_notice"] is None
+    assert "key=S" not in str(rows)
+
+
+async def test_ip_blocked_roundtrip_always_notifies_even_if_registered():
+    bad = FakeProbingSource("ntis", error=SourceIpBlocked("NTIS 오류: 접근 허용 IP가 아닙니다."))
+    store = DictAvailability()
+    rows = await CheckSources(
+        [SourceTarget("ntis", "h", True, {"K": True}, lambda: bad, NTIS_POLICY)],
+        public_ip=FakePublicIp("59.0.166.199"),
+        availability=store,
+    )()
+    assert rows[0]["roundtrip"] == "SourceIpBlocked" and rows[0]["ip_registered"] is True
+    assert rows[0]["ip_notice"] == (
+        "현재 IP 59.0.166.199 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. 활용신청에 추가하세요"
+    )
+    assert store.data["ntis"] == rows[0]["ip_notice"]
+
+
+async def test_no_lookup_without_a_ready_restricted_target():
+    ip = FakePublicIp("1.2.3.4")
+    rows = await CheckSources(
+        [
+            SourceTarget("ntis", "h", True, {"K": False}, None, NTIS_POLICY),  # 키 없음
+            SourceTarget(
+                "sci", "h", True, {"K": True}, lambda: FakeProbingSource("sci"), IpPolicy()
+            ),
+        ],
+        public_ip=ip,
+    )()
+    assert ip.calls == 0
+    assert rows[0]["roundtrip"] == "skipped" and rows[0]["current_ip"] is None
+    assert rows[0]["ip_notice"] is None
+    # ip_policy 가 없는 대상은 IP 항목을 내지 않는다 (기존 출력 그대로)
+    rows = await CheckSources([target("x", connect=lambda: FakeProbingSource("x"))])()
+    assert "ip_restricted" not in rows[0]

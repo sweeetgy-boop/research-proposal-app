@@ -250,6 +250,7 @@ def create_app(
     notice_match: Any | None = None,
     notice_snapshot_status: Callable[[], dict[str, Any]] | None = None,
     ntis_insights: Any | None = None,
+    availability_notices: Callable[[], dict[str, str]] | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api()."""
 
@@ -343,12 +344,15 @@ def create_app(
     @app.get(f"/{API_VERSION}/sources/status")
     async def sources_status() -> dict[str, Any]:
         status = await repo.source_status()
+        # 자료원별 차단 안내 (IP 거부 등, 레인 I) — 적재·사전 점검·sources check 가 기록한 문구
+        notices = availability_notices() if availability_notices is not None else {}
         rows = [
             {
                 "source": s,
                 "label": SOURCE_LABELS.get(s, s),
                 "count": int(status.get(s, {}).get("count", 0)),
                 "last_ingested": status.get(s, {}).get("last_ingested"),
+                "notice": _clean(notices[s]) if notices.get(s) else None,
             }
             for s in ALL_SOURCES
         ]

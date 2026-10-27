@@ -473,6 +473,8 @@ export interface SourceStatus {
   label: string;
   count: number;
   last_ingested: string | null;
+  /** 차단 안내 (IP 거부 등, 레인 I). 평소 null. */
+  notice?: string | null;
 }
 
 export interface SourcesOut {

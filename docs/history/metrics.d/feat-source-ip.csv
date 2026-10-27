@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-27,(feat/source-ip),자료원 IP 확인(레인 I),1710,1329,8,7578,8105,15723,7236,262,,,,,,,,,,web Vitest 58(15 파일; +Sources 2)·lint·build ok; 실호출 1회 ScienceON ok·NTIS 3 대상 NtisIpBlocked(공인 IP 59.0.251.250 는 등록 목록에 있음); 가용 상태 파일 cache/source_availability.json

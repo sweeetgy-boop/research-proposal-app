@@ -28,7 +28,8 @@
    "source": "ntis",
    "label": "NTIS 국가R&D 과제",
    "count": 0,
-   "last_ingested": null
+   "last_ingested": null,
+   "notice": "현재 IP 203.0.113.9 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. 활용신청에 추가하세요"
   },
   {
    "source": "alio",
