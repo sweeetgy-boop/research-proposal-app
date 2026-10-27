@@ -518,6 +518,7 @@ def evidence_items_payload(
             "support": i.support,
             "decision": i.decision,
             "in_snapshot": i.in_snapshot,
+            "url": getattr(i, "url", None),  # 원본 링크(이미지 판독은 이미지 URL)
             "trust": "untrusted",
         }
         for i in items

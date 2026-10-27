@@ -196,6 +196,7 @@ class EvidenceItem:
     support: str | None  # 지지|부분|불일치 (Argon 1차 검토)
     decision: str | None  # approve|replace|exclude (제안자)
     in_snapshot: bool
+    url: str | None = None  # 원본 링크 — 이미지 판독이면 이미지 URL(raw.image.url), 아니면 문서 URL
 
 
 @dataclass(frozen=True)
@@ -1382,6 +1383,7 @@ class RunManager:
                     support=support,
                     decision=decided.get(ev),
                     in_snapshot=ev in allowed or doc_id in allowed,
+                    url=_evidence_url(doc, raw, basis),
                 )
             )
         return out
@@ -1950,6 +1952,17 @@ def manifest(
 
 
 # ── [5] 순수 함수 ─────────────────────────────────────────
+def _evidence_url(doc: Any, raw: Mapping[str, Any], basis: str | None) -> str | None:
+    """근거 원본 링크 — 이미지 판독은 raw.image.url(없으면 페이지 url), 그 밖은 문서 url."""
+    image = raw.get("image") if isinstance(raw, Mapping) else None
+    if basis == "image_vision" and isinstance(image, Mapping):
+        link = image.get("url") or image.get("page_url")
+        if isinstance(link, str) and link:
+            return link
+    link = getattr(doc, "url", None) if doc is not None else None
+    return link if isinstance(link, str) and link else None
+
+
 def _auto_fixed(old: list[Section], new: list[Section]) -> int:
     """Q6 규칙 검사가 바꾼 문장 수 — 자리별 텍스트 차이 + 줄어든(중복 제거) 개수."""
     total = 0
