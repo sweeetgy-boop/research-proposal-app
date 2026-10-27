@@ -187,7 +187,8 @@ SOURCE_LABELS: dict[str, str] = {
 }
 ALL_SOURCES: tuple[str, ...] = tuple(get_args(SourceType))
 # 유사과제 판정에 쓰지 않는 자료원 — 검토 범위·미수집 문장에 넣지 않는다
-# (정책·보도자료·공고·감사·통계는 근거 전용). g2b(발주 용역 공고)는 판정에 들어간다(procurement 티어).
+# (정책·보도자료·공고·감사·통계는 근거 전용). g2b(발주 용역 공고)는 판정에 들어간다
+# (procurement 티어).
 NON_OVERLAP_SOURCES: frozenset[str] = frozenset(
     {"korail_web", "molit", "rnd_notice", "bai", "mofe", "datago"}
 )
