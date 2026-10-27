@@ -468,11 +468,14 @@ async def test_every_section_failing_is_still_invalid(repo, req):
 
 
 async def test_empty_required_section_counts_as_failed_and_rewrite_clears_it(repo, req):
-    answers = [sentence("배경"), "[]", sentence("선행", ["alio:1#0"]), sentence("목표")]
+    # 필수 섹션의 빈 목록은 교정 재요청 1회(EMPTY_HINT) → 그래도 비면 실패 섹션(empty)
+    answers = [sentence("배경"), "[]", "[]", sentence("선행", ["alio:1#0"]), sentence("목표")]
     mgr, store = build(repo, FakeLLM(answers))
     final = await run_to_end(mgr, req)
     assert final.status == "drafted"
     assert [(f.key, f.reason) for f in final.failed_sections] == [("problem", "empty")]
+    assert final.step("section:problem").retries == 1
+    assert "sentences 가 비어 있었음" in mgr.generate.llm.calls[2]
     # U3 다시 쓰기로 채우면 실패 목록에서 빠지고 경고도 사라진다
     mgr.generate.llm.responses.append(sentence("문제 다시 씀"))
     await mgr.rewrite_section(USER, final.run_id, "problem")

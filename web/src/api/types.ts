@@ -78,6 +78,14 @@ export interface FailedSection {
   label: string;
 }
 
+/** 대체 작성(ADR 0027): 로컬 2회 실패 뒤 외부 LLM(Gemini)이 쓴 섹션 — 화면은 "대체 작성" 배지만 */
+export interface FallbackSection {
+  key: string;
+  provider: string;
+  model: string;
+  reason: string;
+}
+
 export interface RunState {
   run_id: string;
   status: RunStatus;
@@ -90,6 +98,7 @@ export interface RunState {
   draft_version: number;
   flow: FlowSummary;
   failed_sections?: FailedSection[];
+  fallback_sections?: FallbackSection[];
 }
 
 export interface RunList {
@@ -308,6 +317,7 @@ export interface DraftOut {
   review: ReviewSummary;
   flow: FlowSummary;
   failed_sections?: FailedSection[];
+  fallback_sections?: FallbackSection[];
 }
 
 export interface Score {

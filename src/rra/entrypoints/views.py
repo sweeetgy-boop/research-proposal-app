@@ -105,6 +105,8 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
         "flow": flow_summary(state, getattr(view, "has_working", False)),
         # 빈 초안 금지(ADR 0027): 로컬 작성이 실패해 빈칸으로 둔 섹션 — 화면은 "다시 생성" 버튼
         "failed_sections": failed_sections_payload(state),
+        # 대체 작성(ADR 0027): 외부 LLM 이 쓴 섹션 키 — 화면은 "대체 작성" 배지만
+        "fallback_sections": fallback_sections_payload(state),
         # 전략체계 목록의 출처 — draft 면 2-가-(3) 선택지가 확인 전 초안이라는 뜻
         "strategy_source": getattr(view, "strategy_status", "confirmed"),
         "strategy_label": STRATEGY_DRAFT_LABEL
@@ -118,6 +120,19 @@ def failed_sections_payload(state: Any) -> list[dict[str, str]]:
     return [
         {"key": f.key, "reason": f.reason, "label": reason_label(f.reason)}
         for f in getattr(state, "failed_sections", None) or []
+    ]
+
+
+def fallback_sections_payload(state: Any) -> list[dict[str, str]]:
+    """RunState.fallback_sections → [{key, provider, model, reason}] (doc_id 는 manifest 에만)."""
+    return [
+        {
+            "key": str(x.get("key", "")),
+            "provider": str(x.get("provider", "")),
+            "model": str(x.get("model", "")),
+            "reason": str(x.get("reason", "")),
+        }
+        for x in getattr(state, "fallback_sections", None) or []
     ]
 
 
@@ -789,6 +804,7 @@ def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
         "draft_version": state.draft_version,
         "flow": flow_summary(state),
         "failed_sections": failed_sections_payload(state),
+        "fallback_sections": fallback_sections_payload(state),
     }
 
 
@@ -994,6 +1010,9 @@ def eval_markdown(results: list[dict[str, Any]], *, date: str) -> str:
         ("precheck_hits", "precheck 적중"),
         ("seconds_avg", "평균 시간(s)"),
         ("gemini_calls", "Gemini 호출"),
+        ("invalid", "invalid run"),
+        ("failed_sections", "실패 섹션"),
+        ("fallback_sections", "대체 작성"),
     ]
     lines.append("| 구성 | " + " | ".join(label for _, label in cols) + " | RSS(MB) | reranker |")
     lines.append("|---|" + "---|" * (len(cols) + 2))
@@ -1012,10 +1031,10 @@ def eval_markdown(results: list[dict[str, Any]], *, date: str) -> str:
     lines.append("### 아이디어별")
     lines.append("")
     lines.append(
-        "| 구성 | 아이디어 | 상태 | v1 알림 | v2 알림 | 문장 v1→v2 | 무관 인용 | 점수 | "
-        "반영(수정+추가) | 충족률 | 후보 | precheck | 시간(s) |"
+        "| 구성 | 아이디어 | 상태 | 실패/대체 섹션 | v1 알림 | v2 알림 | 문장 v1→v2 | 무관 인용 | "
+        "점수 | 반영(수정+추가) | 충족률 | 후보 | precheck | 시간(s) |"
     )
-    lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for r in results:
         for i in r.get("ideas") or []:
             scores = " ".join(f"{k[:2]}{v}" for k, v in (i.get("scores") or {}).items()) or "-"
@@ -1023,8 +1042,11 @@ def eval_markdown(results: list[dict[str, Any]], *, date: str) -> str:
             pre = f"{i.get('precheck_alerts', 0)}건"
             if i.get("precheck_hit") is not None:
                 pre += " ✓" if i["precheck_hit"] else " ✗"
+            ff = ",".join(i.get("failed_sections") or []) or "-"
+            fb = ",".join(i.get("fallback_sections") or []) or "-"
             lines.append(
-                f"| {r['label']} | {i['name']} | {i.get('status')} | {i.get('v1_alerts')} | "
+                f"| {r['label']} | {i['name']} | {i.get('status')} | {ff}/{fb} | "
+                f"{i.get('v1_alerts')} | "
                 f"{num(i.get('v2_alerts'))} | {i.get('sentences_v1')}→{i.get('sentences_v2')} | "
                 f"{i.get('irrelevant_citations')} | {scores} | "
                 f"{i.get('applied')}+{i.get('additions_applied')} | "

@@ -197,6 +197,18 @@ def correction_hint(result: ParseResult, *, choice_section: bool) -> str:
     )
 
 
+EMPTY_HINT = (
+    "직전 응답은 sentences 가 비어 있었음. 이 섹션은 필수 — 자료·입력에 근거한 문장을 1개 이상 "
+    "sentences 에 넣을 것 (text 는 한국어 문장, evidence 는 자료 구획 id 배열)."
+)
+
+
+def is_empty_result(result: ParseResult, *, required: bool) -> bool:
+    """파싱은 됐지만 문장이 0 — 필수 섹션이면 실패로 본다(2026-10-27 측정 02·05·10 의 원인:
+    7B 가 `{"choices": [...]}` 나 `[]` 만 내고 ok 로 통과해 missing → invalid)."""
+    return required and result.ok and not result.sentences
+
+
 def parse_object(raw: str) -> dict[str, Any] | None:
     """JSON 객체 하나만 수용 (검토 응답). 펜스 하나는 벗긴다. 그 외는 None — 폐기."""
     status, data, _, _ = _load(raw)

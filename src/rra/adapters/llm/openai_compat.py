@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -22,6 +23,8 @@ import httpx
 from rra.adapters.llm import _endpoint, _payload
 from rra.adapters.llm.errors import LLMAuthError, LLMError, LLMResponseInvalid, LLMTimeout
 from rra.adapters.llm.rate_limiter import RateLimiter, parse_retry_after
+
+logger = logging.getLogger("rra.llm")
 
 JsonMode = Literal["auto", "native", "prompt"]
 
@@ -93,7 +96,8 @@ class OpenAICompatLLM:
         self.stop = [s for s in (stop or []) if s]
         # provider 별 공유 제한기(동시성·분당 상한·429 백오프). None 이면 제한 없음 (로컬 mlx)
         self.limiter = limiter
-        # 벤치·진단용 집계 (본문은 담지 않는다): 호출 수·폴백 횟수·usage 최대 토큰
+        # 벤치·진단용 집계 (본문은 담지 않는다): 호출 수·폴백 횟수·usage 최대 토큰·잘림(length) 횟수
+        self.truncated = 0
         self.calls = 0
         self.fallbacks = 0
         self.max_prompt_tokens = 0
@@ -220,6 +224,16 @@ class OpenAICompatLLM:
         self.max_completion_tokens = max(
             self.max_completion_tokens, usage.get("completion_tokens", 0)
         )
+        # max_tokens 에서 잘림(finish_reason=length) — 섹션 JSON 깨짐의 한 원인이라 집계·경고한다
+        if _payload.extract_finish_reason(data) == "length":
+            self.truncated += 1
+            logger.warning(
+                "llm.truncated provider=%s model=%s max_tokens=%d completion_tokens=%s",
+                self.provider,
+                self.model,
+                self.max_tokens,
+                usage.get("completion_tokens"),
+            )
 
     # ── 내부 ───────────────────────────────────────────────
     def _try_native(self) -> bool:

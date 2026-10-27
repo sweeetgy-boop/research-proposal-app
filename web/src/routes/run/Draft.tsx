@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BookOpen, RefreshCw } from "lucide-react";
 import { useRunContext } from "./useRunContext";
 import { keys, useDraft, useDraftReview, useOutline, useSubmitCheck, useVersion } from "@/api/hooks";
-import type { Citation, DraftSection, FailedSection, Problem_, VersionSection } from "@/api/types";
+import type { Citation, DraftSection, FailedSection, FallbackSection, Problem_, VersionSection } from "@/api/types";
 import { SectionRewrite } from "@/features/rewrite/SectionRewrite";
 import { useToast } from "@/components/ui/toast";
 import { EvidencePanel } from "@/features/evidence/EvidencePanel";
@@ -40,16 +40,26 @@ function SectionHeader({
   section,
   failed,
   onRegenerate,
+  fallback,
 }: {
   section: DraftSection | VersionSection;
   /** 빈 초안 금지(ADR 0027): 로컬 작성 실패 → 빈칸 + "이 섹션 다시 생성" (현재 버전에서만) */
   failed?: FailedSection;
   onRegenerate?: (key: string) => void;
+  /** 대체 작성(ADR 0027): 로컬 2회 실패 뒤 외부 LLM 이 쓴 섹션 — 배지만 */
+  fallback?: FallbackSection;
 }) {
   const choices = "choices" in section && section.choices && !Array.isArray(section.choices) ? section.choices : null;
   return (
     <div id={`sec-${section.key}`} className="mt-6 scroll-mt-24 border-b pb-1 first:mt-0">
-      <h3 className="text-base font-semibold">{sectionTitle(section.key)}</h3>
+      <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
+        {sectionTitle(section.key)}
+        {fallback && (
+          <Badge variant="secondary" title={`로컬 모델 실패(${fallback.reason}) 뒤 ${fallback.provider}/${fallback.model} 이 작성`}>
+            대체 작성
+          </Badge>
+        )}
+      </h3>
       {choices && (
         <p className="mt-1 text-sm">
           <span className="text-muted-foreground">제안값: </span>
@@ -178,6 +188,7 @@ export default function Draft() {
   if (draft.error || !draft.data) return <ProblemBanner error={draft.error} onRetry={() => draft.refetch()} />;
   const d = draft.data;
   const failedByKey = new Map<string, FailedSection>((d.failed_sections ?? []).map((f) => [f.key, f]));
+  const fallbackByKey = new Map<string, FallbackSection>((d.fallback_sections ?? []).map((f) => [f.key, f]));
   const sections: (DraftSection | VersionSection)[] = selected === null ? d.sections : (version.data?.sections ?? []);
   const rows = toRows(sections);
   const problemBySentence = new Map<string, string>();
@@ -195,7 +206,7 @@ export default function Draft() {
 
   const renderRow = (row: Row) =>
     row.kind === "header" ? (
-      <SectionHeader section={row.section} failed={selected === null ? failedByKey.get(row.section.key) : undefined} onRegenerate={selected === null ? setRegenerateKey : undefined} />
+      <SectionHeader section={row.section} failed={selected === null ? failedByKey.get(row.section.key) : undefined} onRegenerate={selected === null ? setRegenerateKey : undefined} fallback={fallbackByKey.get(row.section.key)} />
     ) : (
       <SentenceLine row={row} citations={d.citations} problem={problemBySentence.get(row.key)} onOpen={selected === null ? openEvidence : undefined} />
     );

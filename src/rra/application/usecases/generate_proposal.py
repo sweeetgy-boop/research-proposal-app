@@ -28,12 +28,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from rra.application.ports import DocumentRepository, LLMPort, PromptLibraryPort
+from rra.application.ports.auth import BudgetExhausted
 from rra.application.ports.table_facts import TableFactRepository
 from rra.domain.models import (
     Chunk,
@@ -68,8 +70,10 @@ from rra.domain.rules.lint import (
     skipped_sections,
 )
 from rra.domain.rules.llm_output import (
+    EMPTY_HINT,
     ParseResult,
     correction_hint,
+    is_empty_result,
     parse_choice_section,
     parse_sentences,
 )
@@ -91,8 +95,10 @@ from rra.domain.rules.schedule import (
     schedule_instruction,
     schedule_problems,
 )
-from rra.domain.rules.section_search import section_queries
+from rra.domain.rules.section_search import clip_chunks, section_queries
 from rra.domain.rules.trust import enforce_section_evidence, escape_untrusted, wrap_untrusted
+
+logger = logging.getLogger("rra.generate")
 
 OVERLAP_SECTION = "overlap_review"
 _OVERLAP_TEXT_CHARS = 1500
@@ -133,6 +139,12 @@ class ComposedSection:
     retries: int = 0  # 형식 교정 재요청 횟수 (0 또는 1)
     # 첫 응답의 파싱 결과 (벤치 (a) 지표용). 재요청이 없었으면 parse 와 같다
     first_parse: ParseResult | None = None
+    # 대체 작성(ADR 0027): 로컬 교정 재요청까지 실패한 섹션을 외부 LLM 이 썼다 — 전송 기록(본문
+    # 없음)
+    # {provider, model, reason, public_doc_ids, internal_doc_ids, calls}. 로컬이 썼으면 None
+    fallback: dict[str, Any] | None = None
+    # 대체 작성을 시도하지 못한/실패한 이유 (budget | 예외 클래스명 | parse 상태). 시도 없으면 None
+    fallback_error: str | None = None
 
 
 @dataclass
@@ -166,6 +178,16 @@ class GenerateProposal:
     # 요구하고
     # 일정 합이 기간을 넘으면 경고. config/usability.yaml schedule_metrics
     schedule_metrics: bool = True
+    # 섹션 프롬프트 [자료] 상한 (pipeline.yaml chunk_max_chars·base_chunk_limit, 0 = 없음)
+    chunk_max_chars: int = 0
+    base_chunk_limit: int = 0
+    # 대체 작성(ADR 0027): 로컬 교정 재요청까지 실패한 섹션만 외부 LLM(Gemini)이 쓴다. None 이면
+    # 없음.
+    # 전송 범위는 검토와 같다 — fallback_include_internal=False 면 internal 청크를 빼고 준다
+    fallback_llm: LLMPort | None = None
+    fallback_provider: str = ""
+    fallback_model: str = ""
+    fallback_include_internal: bool = True
 
     @property
     def template(self) -> str | None:
@@ -460,12 +482,16 @@ class GenerateProposal:
             notes=notes,
             keep=keep,
         )
+        required = key in self.rules.required_sections
         raw = await self.llm.complete(prompt, system=system, json_mode=True)
         first = parsed = self._parse(key, raw, spec, options)
         retries = 0
-        if not parsed.ok:  # 스키마·JSON 오류 1회 재요청 — 오류 요약을 붙여 같은 섹션을 다시 묻는다
+        empty = is_empty_result(parsed, required=required)
+        if not parsed.ok or empty:
+            # 스키마·JSON 오류(또는 필수 섹션의 빈 문장 목록) 1회 재요청 — 오류 요약을 붙여 같은
+            # 섹션을 다시 묻는다
             retries = 1
-            hint = correction_hint(parsed, choice_section=spec is not None)
+            hint = EMPTY_HINT if empty else correction_hint(parsed, choice_section=spec is not None)
             # 재요청은 기본 프롬프트로(설계도·본보기·후보·메모 없이) — 긴 지시가 붙을수록 7B 가 JSON
             # 대신 글을 쓴다(2026-10-27 측정: 제목·활용계획에서 반복)
             compact = self._prompt(
@@ -477,12 +503,72 @@ class GenerateProposal:
                 json_mode=True,
             )
             second = self._parse(key, raw2, spec, options)
-            if second.ok or (second.status == "choices_only" and not parsed.choices):
+            if (second.ok and not is_empty_result(second, required=required)) or (
+                second.status == "choices_only" and not parsed.choices
+            ):
                 parsed = second  # 두 번째도 실패하면 첫 결과로 기존처럼 처리한다
+            elif second.ok and parsed.ok:
+                parsed = second if second.choices or not parsed.choices else parsed
+
+        allowed_ids = snapshot.retrieved_ids
+        fallback: dict[str, Any] | None = None
+        fallback_error: str | None = None
+        if (not parsed.ok or is_empty_result(parsed, required=required)) and (
+            self.fallback_llm is not None
+        ):
+            # 대체 작성(ADR 0027) — 로컬 2회 실패 뒤에만. 전송 범위는 검토와 같다.
+            reason = parsed.status if not parsed.ok else "empty"
+            shown = self._fallback_chunks(key, snapshot)
+            compact = self._prompt(
+                key,
+                instruction,
+                req,
+                snapshot,
+                options.get(key) if spec else None,
+                compact=True,
+                chunks=shown,
+            )
+            try:
+                raw3 = await self.fallback_llm.complete(compact, system=system, json_mode=True)
+            except BudgetExhausted:
+                fallback_error = "budget"
+            except Exception as exc:  # 네트워크·인증 등 — 실패 섹션으로 남긴다 (메시지 로그 없음)
+                fallback_error = type(exc).__name__
+            else:
+                third = self._parse(key, raw3, spec, options)
+                if third.ok and not is_empty_result(third, required=required):
+                    parsed = third
+                    # 보안 A: 대체 작성 문장의 근거 id 는 "보여 준 청크" 집합과 대조한다
+                    allowed_ids = (
+                        {c.chunk_id for c in shown}
+                        | {c.doc_id for c in shown}
+                        | {a.doc_id for a in snapshot.overlap}
+                    )
+                    internal = internal_doc_ids(snapshot.chunks)
+                    fallback = {
+                        "provider": self.fallback_provider,
+                        "model": self.fallback_model,
+                        "reason": reason,
+                        "public_doc_ids": sorted(
+                            {c.doc_id for c in shown if c.doc_id not in internal}
+                        ),
+                        "internal_doc_ids": sorted(
+                            {c.doc_id for c in shown if c.doc_id in internal}
+                        ),
+                        "calls": 1,
+                    }
+                else:
+                    fallback_error = third.status if not third.ok else "empty"
+            logger.warning(
+                "compose.fallback section=%s reason=%s result=%s",
+                key,
+                reason,
+                "ok" if fallback else fallback_error,
+            )
 
         section, dropped = enforce_section_evidence(
             Section(key=key, sentences=parsed.sentences, choices=parsed.choices),
-            snapshot.retrieved_ids,
+            allowed_ids,
             evidence_required=key in self.rules.evidence_required,
             evidence_forbidden=key in self.rules.evidence_forbidden,
         )
@@ -499,7 +585,17 @@ class GenerateProposal:
             ungrounded=lost,
             retries=retries,
             first_parse=first,
+            fallback=fallback,
+            fallback_error=fallback_error,
         )
+
+    def _fallback_chunks(self, key: str, snapshot: RetrievalSnapshot) -> list[Chunk]:
+        """대체 작성에 보여 줄 청크 — 섹션 [자료] 와 같되, 검토 정책이 internal 제외면 뺀다."""
+        chunks = self.chunks_for(key, snapshot)
+        if self.fallback_include_internal:
+            return chunks
+        internal = internal_doc_ids(snapshot.chunks)
+        return [c for c in chunks if c.doc_id not in internal]
 
     def _parse(
         self, key: str, raw: str, spec: ChoiceSpec | None, options: dict[str, dict[str, str]]
@@ -521,6 +617,7 @@ class GenerateProposal:
         notes: Mapping[str, str] | None = None,
         keep: Sequence[str] = (),
         compact: bool = False,  # 형식 교정 재요청용 — 설계도·본보기·후보 없이 기본 지시만
+        chunks: list[Chunk] | None = None,  # 대체 작성: 전송 범위를 적용한 [자료] 를 직접 준다
     ) -> str:
         parts = [
             f"[섹션: {key}]\n{instruction}",
@@ -596,16 +693,18 @@ class GenerateProposal:
                 "[자료]\n(없음 — 이 섹션은 제안자 입력만 근거로 쓴다. evidence 는 빈 배열)"
             )
         else:
-            parts.append(f"[자료]\n{wrap_untrusted(self.chunks_for(key, snapshot))}")
+            shown = self.chunks_for(key, snapshot) if chunks is None else chunks
+            parts.append(f"[자료]\n{wrap_untrusted(shown)}")
         return "\n\n".join(parts)
 
     def chunks_for(self, key: str, snapshot: RetrievalSnapshot) -> list[Chunk]:
-        """섹션 프롬프트 [자료] — 섹션별 검색 결과(또는 전체)에 근거 구성 규칙(허용 doc_type)을
-        적용."""
+        """섹션 프롬프트 [자료] — 섹션별 검색 결과(또는 전체)에 근거 구성 규칙(허용 doc_type)과
+        길이 상한(chunk_max_chars; 섹션별 검색이 없는 섹션은 base_chunk_limit 개)을 적용."""
         chunks = snapshot.chunks_for(key)
-        if self.mix is None or not snapshot.doc_types:
-            return chunks
-        return self.mix.filter(key, chunks, snapshot.doc_types)
+        if self.mix is not None and snapshot.doc_types:
+            chunks = self.mix.filter(key, chunks, snapshot.doc_types)
+        limit = 0 if snapshot.section_chunks.get(key) else self.base_chunk_limit
+        return clip_chunks(chunks, max_chars=self.chunk_max_chars, limit=limit)
 
     @staticmethod
     def _exemplar_rows(key: str, snapshot: RetrievalSnapshot) -> str:
@@ -745,6 +844,10 @@ class GenerateProposal:
         if has_errors(problems):
             raise DraftInvalid(problems, dropped)
         return draft
+
+
+def internal_doc_ids(chunks: Sequence[Chunk]) -> set[str]:
+    return {c.doc_id for c in chunks if c.visibility == "internal"}
 
 
 def _norm_text(text: str) -> str:

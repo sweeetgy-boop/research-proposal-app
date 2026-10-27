@@ -411,3 +411,27 @@ async def test_fallback_counter_increments_when_native_json_is_rejected():
     llm = build(rec, json_mode="auto")
     await llm.complete("p", json_mode=True)
     assert llm.fallbacks == 1 and llm.calls == 1
+
+
+# ── 잘림(finish_reason=length) 집계 — 섹션 JSON 깨짐 원인 추적 (ADR 0027) ──────
+async def test_truncated_completion_is_counted_and_logged(caplog):
+    import logging
+
+    cut = httpx.Response(
+        200,
+        json={
+            "choices": [{"message": {"content": '[{"text": "잘린'}, "finish_reason": "length"}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 2000},
+        },
+    )
+    rec = Recorder(cut, ok("[]"))
+    llm = build(rec, json_mode="prompt", max_tokens=2000)
+    with caplog.at_level(logging.WARNING, logger="rra.llm"):
+        await llm.complete("p", json_mode=True)
+        await llm.complete("p", json_mode=True)
+    assert llm.truncated == 1 and llm.max_completion_tokens == 2000
+    assert "llm.truncated" in caplog.text and "max_tokens=2000" in caplog.text
+    assert "잘린" not in caplog.text  # 본문은 로그에 없다
+    assert _payload.extract_finish_reason({"choices": [{"finish_reason": "stop"}]}) == "stop"
+    assert _payload.extract_finish_reason({"choices": []}) is None
+    assert _payload.extract_finish_reason("x") is None

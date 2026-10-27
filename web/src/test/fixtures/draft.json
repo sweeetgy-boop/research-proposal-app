@@ -448,5 +448,6 @@
   "stale": false,
   "has_working": false
  },
- "failed_sections": []
+ "failed_sections": [],
+ "fallback_sections": []
 }
