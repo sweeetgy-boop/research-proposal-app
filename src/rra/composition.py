@@ -95,6 +95,8 @@ __all__ = [
     "build_ingest",
     "build_list_missing",
     "build_llm",
+    "build_ntis_insights",
+    "build_ntis_report_source",
     "build_ntis_source",
     "build_openalex_source",
     "build_policy_suggest",
@@ -103,6 +105,9 @@ __all__ = [
     "build_purge_runs",
     "build_renderer",
     "build_reranker",
+    "build_table_source",
+    "build_extract_facts",
+    "build_term_candidates",
     "build_outliner",
     "build_clarifier",
     "build_repository",
@@ -304,6 +309,25 @@ def build_vision_snapshot(settings: Settings | None = None, *, snapshot: str | N
     )
 
 
+def build_extract_attachment_images(
+    settings: Settings | None = None, *, snapshot: str | None = None
+):
+    """첨부 속 내장 이미지 추출(`rra vision extract`) — 격리 자식, 같은 해시 하나,
+    attachment_images.jsonl 에 기록."""
+    from rra.adapters.vision import ExtractAttachmentImages
+
+    settings = settings or load_settings()
+    acfg = vision_config(settings)["attachments"]
+    return ExtractAttachmentImages(
+        build_vision_snapshot(settings, snapshot=snapshot),
+        sandbox_limits(settings),
+        formats=frozenset(acfg["formats"]),
+        max_images_per_file=acfg["max_images_per_file"],
+        max_image_bytes=acfg["max_image_bytes"],
+        min_pixels=acfg["min_pixels"],
+    )
+
+
 def build_read_images(
     settings: Settings | None = None,
     *,
@@ -356,6 +380,70 @@ def build_ingest_image_readings(
         repo = build_repository(build_embedding(settings), settings)
     reader = build_read_images(settings, snapshot=snapshot, with_reader=False, store=store)
     return IngestImageReadings(reader, repo)
+
+
+# ── 표 사실(P2-8)·용어 후보(P2-9) ──────────────────────────
+TABLE_SOURCES = ("korail_web", "molit", "vision")
+
+
+def build_table_source(
+    settings: Settings | None = None,
+    *,
+    source: str,
+    snapshot: str | None = None,
+    repo=None,
+    store=None,
+):
+    """TableSourcePort — korail_web(스냅샷 첨부 xlsx·xls·pdf), molit(DB 문서 본문), vision(판독
+    캐시 표)."""
+    from rra.adapters.tables import DocumentTables, SnapshotTables, VisionTables
+
+    settings = settings or load_settings()
+    if source == "korail_web":
+        return SnapshotTables(
+            _korail_web_root(settings, korail_web_config(settings)),
+            limits=sandbox_limits(settings),
+            snapshot=snapshot,
+        )
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    if source == "vision":
+        return VisionTables(store or build_vision_store(settings), repo)
+    if source == "molit":
+        return DocumentTables(repo, source="molit")
+    raise KeyError(f"표 자료원은 {', '.join(TABLE_SOURCES)} 중 하나: {source!r}")
+
+
+def build_extract_facts(
+    settings: Settings | None = None,
+    *,
+    source: str,
+    snapshot: str | None = None,
+    repo=None,
+    store=None,
+):
+    """표 → 사실 적재 유스케이스. repo 를 주면 그대로 쓴다(테스트용)."""
+    from rra.application.usecases.extract_facts import ExtractTableFacts
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    table_source = build_table_source(
+        settings, source=source, snapshot=snapshot, repo=repo, store=store
+    )
+    return ExtractTableFacts(table_source, repo, repo)
+
+
+def build_term_candidates(settings: Settings | None = None, *, repo=None):
+    """용어 후보 유스케이스 + YAML 쓰기 함수. 후보 파일만 적는다 (overlap.yaml 은 건드리지
+    않는다)."""
+    from rra.adapters.terms import write_candidates
+    from rra.application.usecases.term_candidates import ExtractTermCandidates
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return ExtractTermCandidates(repo, keyword_rule(settings)), write_candidates
 
 
 def build_reviewer(settings: Settings | None = None, *, llm=None, pipeline=None):
@@ -667,6 +755,63 @@ def build_ntis_source(settings: Settings | None = None, *, transport=None, resol
     )
 
 
+def build_ntis_report_source(settings: Settings | None = None, *, transport=None, resolver=None):
+    """NtisReportSource (연구보고서 검색, doc_type report). 같은 RRA_NTIS_KEY (서비스별 활용신청은
+    따로)."""
+    from rra.adapters.sources.ntis import NtisReportSource
+
+    settings = settings or load_settings()
+    require_credentials(settings, "ntis")
+    cfg = source_config(settings, "ntis")
+    return NtisReportSource(
+        _guarded(settings, cfg, transport=transport, resolver=resolver),
+        apprv_key=settings.ntis_key,
+        base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
+        report_path=str(cfg.get("report_path", "/rndopen/openApi/rresearchpdf/")),
+        queries=list(cfg.get("report_queries") or cfg.get("queries") or ["철도"]),
+        institutions=institutions(settings),
+        search_field=str(cfg.get("search_field", "BI")),
+        display_count=int(cfg.get("display_count", 100)),
+        record_tag=str(cfg.get("record_tag") or "") or None,
+        per_query_limit=int(cfg["per_query_limit"]) if cfg.get("per_query_limit") else None,
+    )
+
+
+def build_ntis_insights(
+    settings: Settings | None = None, *, repo=None, transport=None, resolver=None
+):
+    """NtisProjectInsights 유스케이스 (성과검색·연관콘텐츠, 과제번호 파일 캐시). 키가 없으면 포트
+    없이(enabled=False)."""
+    from rra.adapters.persistence.file_cache import FileCache
+    from rra.application.usecases.ntis_insights import NtisProjectInsights
+
+    settings = settings or load_settings()
+    cfg = source_config(settings, "ntis")
+    insights = cfg.get("insights") or {}
+    source = None
+    if (
+        settings.ntis_key
+        and settings.ntis_key.get_secret_value().strip()
+        and insights.get("enabled", True)
+    ):
+        from rra.adapters.sources.ntis import NtisInsightSource
+
+        source = NtisInsightSource(
+            _guarded(settings, cfg, transport=transport, resolver=resolver),
+            apprv_key=settings.ntis_key,
+            base_url=str(cfg.get("base_url", "https://www.ntis.go.kr")),
+            outcome_path=str(cfg.get("outcome_path", "/rndopen/openApi/public_result")),
+            related_path=str(cfg.get("related_path", "/rndopen/openApi/ConnectionContent")),
+            record_tag=str(cfg.get("record_tag") or "HIT"),
+            display_count=int(insights.get("max_items", 10)),
+        )
+    cache_dir = Path(str(insights.get("cache_dir", "data/cache/ntis")))
+    cache = FileCache(cache_dir, ttl_sec=float(insights.get("cache_ttl_days", 7)) * 86400)
+    return NtisProjectInsights(
+        source, source, cache=cache, repo=repo, max_projects=int(insights.get("max_projects", 3))
+    )
+
+
 def build_kipris_source(settings: Settings | None = None, *, transport=None, resolver=None):
     """KiprisPatentSource (KIPRIS Plus 자유검색). RRA_KIPRIS_KEY 없으면 MissingCredential."""
     from rra.adapters.sources.kipris import KiprisPatentSource
@@ -853,6 +998,7 @@ _SOURCE_BUILDERS = {
     "own_docs": build_own_docs_source,
     "scienceon": build_scienceon_source,
     "ntis": build_ntis_source,
+    "ntis_reports": build_ntis_report_source,
     "kipris": build_kipris_source,
     "korail_web": build_korail_web_source,
     "molit": build_molit_source,
@@ -905,14 +1051,18 @@ def build_sources_check(
     builders = {
         "scienceon": build_scienceon_source,
         "ntis": build_ntis_source,
+        "ntis_reports": build_ntis_report_source,
         "kipris": build_kipris_source,
     }
     targets = []
     for name in names:
         if name not in builders:
             raise KeyError(f"연결 확인을 지원하지 않는 소스: {name} (가능: {list(builders)})")
-        host = urlsplit(str(source_config(settings, name).get("base_url", ""))).hostname or ""
-        creds = credential_status(settings, name)
+        cfg_name = (
+            "ntis" if name == "ntis_reports" else name
+        )  # 연구보고서는 과제검색 설정·키를 같이 쓴다
+        host = urlsplit(str(source_config(settings, cfg_name).get("base_url", ""))).hostname or ""
+        creds = credential_status(settings, cfg_name)
         ready = host in allowed and all(creds.values())
 
         def connect(_build=builders[name]):
@@ -1248,6 +1398,7 @@ def build_api(
         structure=build_structurer(settings, llm=llm),
         compare=build_comparer(settings, repo=repo, precheck=precheck),
         brief=build_briefer(settings, repo=repo, llm=llm),
+        ntis_insights=build_ntis_insights(settings, repo=repo),
         repo=repo,
         user=LOCAL_USER,
         middlewares=api_middlewares(settings, token, sessions=sessions),

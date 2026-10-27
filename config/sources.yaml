@@ -112,18 +112,47 @@ scienceon:
   max_response_mb: 20
   timeout: {connect: 10, read: 30}
 ntis:
+  # NTIS 국가R&D OpenAPI (rndopen apprvKey, .env RRA_NTIS_KEY). 승인 서비스 4개(2026-10-27, 유효 2027-05-27): 과제검색·성과검색·
+  # 연구보고서 검색·연관콘텐츠 추천. 형식은 공개 매뉴얼(과제검색 2021-02-08, 연구보고서 2021-12-28; tests/fixtures/ntis/README.md).
+  # 실호출은 "접근 허용 IP가 아닙니다" — 활용신청의 서버 IP 를 현재 공인 IP 로 바꾼 뒤 `rra sources check --source ntis`.
   base_url: https://www.ntis.go.kr
-  project_path: /rndopen/openApi/public_project   # 과제검색 경로 — 매뉴얼·첫 실응답으로 확인
-  record_tag: ""            # 필수 — 녹화 도구가 알려 주는 레코드 요소 이름을 적는다 (비우면 ntis 수집 불가)
-  search_field: BI
-  queries: [철도, 궤도, 전차선, 철도신호, 철도차량]
-  display_count: 100
-  rate_limit: 2
+  project_path: /rndopen/openApi/public_project     # 과제검색 (매뉴얼 p.6). SRWR·searchFd·startPosition·displayCnt
+  report_path: /rndopen/openApi/rresearchpdf/       # 연구보고서 검색 (매뉴얼 p.6). query·searchField·displayCount·returnType
+  outcome_path: /rndopen/openApi/public_result      # 성과검색 (공개 구현 기준 — 실호출로 확정). collection rpaper|rpatent
+  related_path: /rndopen/openApi/ConnectionContent  # 연관콘텐츠 추천 (공개 구현 기준, JSON). pjtId
+  record_tag: HIT           # 매뉴얼 응답명세: RESULT > RESULTSET > HIT (NO 속성). 총건수 TOTALHITS
+  search_field: BI          # 전체(과제명·기관·키워드·연구목표·내용·기대효과)
+  # 철도 분야 질의 13개 (openalex.queries 분야와 같은 순서, 한국어). 과제검색은 띄어쓰기 = AND 라 2어절 이내로 짧게.
+  # 총건수는 IP 등록 뒤 `rra sources check` / 녹화 도구로 채운다. 예상(질의당 상한 per_query_limit 150 × 13 = 1,950, 중복 제거 전).
+  queries:
+    - 철도 궤도              # 궤도
+    - 궤도 검측              # 궤도검측
+    - 철도차량               # 차량
+    - 철도 신호              # 신호
+    - 전차선                 # 전력
+    - 철도 유지보수          # 유지보수
+    - 철도 안전              # 안전
+    - 철도 수요              # 수송수요
+    - 철도역                 # 역사
+    - 철도 자산관리          # 자산관리
+    - 철도 탄소              # 탄소중립
+    - 철도 화물              # 화물
+    - 열차 운행              # 운영
+  report_queries: []        # 비어 있으면 queries 와 같다 (rra ingest --source ntis_reports)
+  display_count: 100        # 페이지 크기 (매뉴얼 예 100)
+  per_query_limit: 150      # 질의당 최대 건수 → 질의당 2페이지, 13 질의 = 요청 26회
+  rate_limit: 2             # 초당 2회 (매뉴얼 30 tps 상한보다 훨씬 낮게)
   max_requests_per_run: 60
   retries: 3
   max_backoff_sec: 30
   max_response_mb: 20
   timeout: {connect: 10, read: 30}
+  insights:                 # ② 성과검색·연관콘텐츠 (REST POST /v1/precheck/ntis-outcomes)
+    enabled: true
+    max_projects: 3         # 알림 상위 NTIS 과제 몇 건까지
+    max_items: 10           # 과제당 성과·추천 최대
+    cache_dir: data/cache/ntis   # 과제번호 기준 파일 캐시 (JSON, 비밀 없음)
+    cache_ttl_days: 7
 # KIPRIS Plus 특허·실용신안 자유검색 (P4). 키는 .env RRA_KIPRIS_KEY 에만 (plus.kipris.or.kr 활용신청 → accessKey).
 # 공공데이터포털(data.go.kr) 경로는 같은 데이터·키 체계이고 월 상한 뒤 KIPRIS Plus 로 안내하므로 KIPRIS Plus 를 기본으로 한다.
 # 경로·파라미터·레코드 태그는 공개 구현 기준이며 첫 실응답(rra sources check --source kipris, 녹화 도구)으로 확정한다.

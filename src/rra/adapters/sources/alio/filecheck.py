@@ -20,10 +20,12 @@ MAGIC: dict[str, bytes] = {
     "hwpx": ZIP_MAGIC,
     "hwp": OLE_MAGIC,
     "xlsx": ZIP_MAGIC,
+    "pptx": ZIP_MAGIC,  # 내장 이미지 추출(P3)만 — 본문 파서는 없다
     "xls": OLE_MAGIC,
 }
 TEXT_FORMATS = frozenset({"csv", "txt"})  # 매직바이트 없음 — 텍스트인지만 본다
-PARSEABLE = frozenset({"pdf", "hwpx", "hwp", "csv", "txt", "xlsx", "xls"})
+# pptx 는 내장 이미지 추출(vision)에서만 쓴다
+PARSEABLE = frozenset({"pdf", "hwpx", "hwp", "csv", "txt", "xlsx", "xls", "pptx"})
 _BINARY_MAGICS = tuple(set(MAGIC.values()))
 _TEXT_SNIFF = 64 * 1024
 

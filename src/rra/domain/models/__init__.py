@@ -37,6 +37,7 @@ from .review import (
 from .run import RetrievalSnapshot, RunState, RunStatus, StepRecord
 from .selection import STRATEGY_DRAFT_LABEL, Confirmation, StrategyCatalog, StrategyStatus
 from .structure import FollowUp, StructuredIdea
+from .table_fact import FactBasis, ParsedTable, TableFact
 from .usability import UsabilityConfig
 from .usage import EvidenceCounts, Satisfaction, UsageRecord
 
@@ -101,4 +102,7 @@ __all__ = [
     "RunState",
     "RunStatus",
     "StepRecord",
+    "FactBasis",
+    "ParsedTable",
+    "TableFact",
 ]

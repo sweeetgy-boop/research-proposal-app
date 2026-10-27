@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RESULT xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://www.ntis.go.kr/searchapi/schema/title.1.0.xsd">
+<QUERYTRANSFORMS><ORIGINALQUERY>철도 궤도</ORIGINALQUERY></QUERYTRANSFORMS>
+<COUNTLIST><COLCOUNT NAME="project">3</COLCOUNT></COUNTLIST>
+<NAVIGATION><NAVIGATIONENTRY NAME="leadagency"><NAVIGATIONELEMENTS COUNT="3"><NAVIGATIONELEMENT NAME="한국철도공사▦C0268" COUNT="1"/></NAVIGATIONELEMENTS></NAVIGATIONENTRY></NAVIGATION>
+<TOTALHITS>3</TOTALHITS>
+<STARTPOSITION>1</STARTPOSITION>
+<HITS>3</HITS>
+<SEARCHTIME>0.031</SEARCHTIME>
+<RESULTSET>
+<HIT NO="1">
+<ProjectNumber>1415171234</ProjectNumber>
+<ProjectTitle><Korean><span class="search_word">철도</span> <span class="search_word">궤도</span> 틀림 상시 감시 기술 개발</Korean><English>Continuous monitoring of railway track irregularity</English></ProjectTitle>
+<Manager><Name>NAME-REMOVED</Name></Manager>
+<Researchers><Name>NAME-REMOVED;NAME-REMOVED</Name><ManCount>2</ManCount><WomanCount>1</WomanCount></Researchers>
+<Goal><Full>영업 열차 탑재 가속도 센서로 <span class="search_word">궤도</span> 틀림을 상시 감지하는 기술 개발</Full><Teaser/></Goal>
+<Abstract><Full>○ 차축 가속도 기반 <span class="search_word">궤도</span> 틀림 추정 알고리즘 개발 ○ 검측차 데이터와 대조 검증</Full><Teaser/></Abstract>
+<Effect><Full>검측 주기 단축과 유지보수 비용 절감</Full><Teaser/></Effect>
+<Keyword><Korean><span class="search_word">궤도</span>틀림, 가속도, 상시감시</Korean><English>track irregularity, acceleration</English></Keyword>
+<OrderAgency><Name>국토교통과학기술진흥원</Name></OrderAgency>
+<ResearchAgency><Name>한국철도공사</Name></ResearchAgency>
+<BudgetProject><Name>철도기술연구사업</Name></BudgetProject>
+<BusinessName>철도기술연구사업</BusinessName>
+<BigprojectTitle/>
+<ManageAgency><Name>국토교통과학기술진흥원</Name></ManageAgency>
+<Ministry><Name>국토교통부</Name></Ministry>
+<ProjectYear>2022</ProjectYear>
+<ProjectPeriod><Start>20220101</Start><End>20221231</End><TotalStart>2021-04-01 00:00:00.0</TotalStart><TotalEnd>2023-12-31 00:00:00.0</TotalEnd></ProjectPeriod>
+<OrganizationPNumber>22RTRP-B000001-01</OrganizationPNumber>
+<ScienceClass type="new" sequence="1"><Large code="E">공학</Large><Medium code="EE">철도교통기술</Medium><Small/></ScienceClass>
+<PerformAgent code="05">공기업</PerformAgent>
+<DevelopmentPhases code="03">개발연구</DevelopmentPhases>
+<GovernmentFunds>500000000</GovernmentFunds>
+<SbusinessFunds>0</SbusinessFunds>
+<TotalFunds>650000000</TotalFunds>
+<CorporateRegistrationNumber>*******12*</CorporateRegistrationNumber>
+</HIT>
+<HIT NO="2">
+<ProjectNumber>1711185678</ProjectNumber>
+<ProjectTitle><Korean>고속<span class="search_word">철도</span> 전차선 마모 예측 모델</Korean><English/></ProjectTitle>
+<Manager><Name>NAME-REMOVED</Name></Manager>
+<Researchers><Name/><ManCount>0</ManCount><WomanCount>0</WomanCount></Researchers>
+<Goal><Full/><Teaser>전차선 마모 예측</Teaser></Goal>
+<Abstract><Full/><Teaser>팬터그래프 접촉력 데이터 기반 마모 예측</Teaser></Abstract>
+<Effect><Full/><Teaser/></Effect>
+<Keyword><Korean>전차선;마모;예측</Korean><English>catenary;wear</English></Keyword>
+<OrderAgency><Name>한국연구재단</Name></OrderAgency>
+<ResearchAgency><Name>한국철도기술연구원</Name></ResearchAgency>
+<Ministry><Name>과학기술정보통신부</Name></Ministry>
+<ProjectYear>2023</ProjectYear>
+<ProjectPeriod><Start>20230101</Start><End>20231231</End><TotalStart/><TotalEnd/></ProjectPeriod>
+<ScienceClass type="new" sequence="1"><Large code="E">공학</Large><Medium code="EE">철도교통기술</Medium><Small/></ScienceClass>
+<DevelopmentPhases code="02">응용연구</DevelopmentPhases>
+<GovernmentFunds>120000000</GovernmentFunds>
+<TotalFunds>120000000</TotalFunds>
+</HIT>
+<HIT NO="3">
+<ProjectNumber>1345399012</ProjectNumber>
+<ProjectTitle><Korean>도시<span class="search_word">철도</span> 역사 승객 흐름 시뮬레이션</Korean><English>Passenger flow simulation</English></ProjectTitle>
+<Manager><Name>NAME-REMOVED</Name></Manager>
+<Goal><Full>역사 혼잡 완화를 위한 승객 흐름 모형</Full></Goal>
+<Abstract><Full>에이전트 기반 시뮬레이션</Full></Abstract>
+<Effect><Full>혼잡도 20% 감소</Full></Effect>
+<Keyword><Korean>승객 흐름, 시뮬레이션</Korean></Keyword>
+<ResearchAgency><Name>서울대학교</Name></ResearchAgency>
+<Ministry><Name>교육부</Name></Ministry>
+<ProjectYear>2020</ProjectYear>
+<ProjectPeriod><Start>20200301</Start><End>20210228</End><TotalStart>2020-03-01 00:00:00.0</TotalStart><TotalEnd>2021-02-28 00:00:00.0</TotalEnd></ProjectPeriod>
+<TotalFunds>50000000</TotalFunds>
+</HIT>
+</RESULTSET>
+</RESULT>

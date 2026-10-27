@@ -15,7 +15,18 @@ from rra.domain.models import Document, OverlapAlert, SourceType, Tier
 from rra.domain.models.gap import OwnDetail
 from rra.domain.rules.keywords import KeywordRule, enough, keyword_overlap
 
-DEFAULT_THRESHOLDS: dict[Tier, float] = {"own": 0.80, "domestic_rail": 0.85, "external": 0.90}
+# national_rnd(NTIS 과제검색)는 own 과 같은 0.80 으로 시작 — 골든셋 확인은 적재 뒤 (2026-10-27, ADR
+# 0020)
+DEFAULT_THRESHOLDS: dict[Tier, float] = {
+    "own": 0.80,
+    "national_rnd": 0.80,
+    "domestic_rail": 0.85,
+    "external": 0.90,
+}
+# 국가R&D 과제 티어 = NTIS 과제검색 문서(source ntis, doc_type rnd_project). 수행기관이 코레일이어도
+# 부서가 없어
+# own 이 될 수 없으므로 own 다음 순서로 본다
+NATIONAL_RND_SOURCES: frozenset[str] = frozenset({"ntis"})
 # 사내 과제 기록(엑셀 4개) 출처 — 부서와 관계없이 own 티어. 알림은 철도연구원/공사 부서를 구분한다
 OWN_RECORD_SOURCES: frozenset[str] = frozenset({"own"})
 DOMESTIC_RAIL_ORGS = ("korail", "kr")
@@ -66,9 +77,16 @@ def tier_of(doc: Document, own: OwnUnit | None = None) -> Tier:
         return "own"
     if own is not None and own.org in doc.orgs and department_listed(doc.department, own):
         return "own"
+    if is_national_rnd(doc):
+        return "national_rnd"
     if any(o in DOMESTIC_RAIL_ORGS for o in doc.orgs):
         return "domestic_rail"
     return "external"
+
+
+def is_national_rnd(doc: Document) -> bool:
+    """NTIS 과제검색으로 수집한 국가R&D 과제 (보고서·성과는 아님)."""
+    return doc.source in NATIONAL_RND_SOURCES and doc.doc_type == "rnd_project"
 
 
 def own_detail_of(doc: Document, own: OwnUnit | None) -> OwnDetail | None:
@@ -120,7 +138,12 @@ def judge(
     return sorted(alerts, key=lambda a: (-int(a.blocking), -a.similarity))
 
 
-_TIER_LABEL: dict[Tier, str] = {"own": "사내", "domestic_rail": "국내 철도기관", "external": "외부"}
+_TIER_LABEL: dict[Tier, str] = {
+    "own": "사내",
+    "national_rnd": "국가R&D 과제",
+    "domestic_rail": "국내 철도기관",
+    "external": "외부",
+}
 OWN_DETAIL_LABEL: dict[str, str] = {"institute": "사내(철도연구원)", "company": "사내(공사)"}
 
 
@@ -177,7 +200,7 @@ def no_overlap_statement(
     if not scope:
         return ["비교할 수집 자료가 없어 기수행 유사과제 검토를 수행하지 못함."]
     th = thresholds or DEFAULT_THRESHOLDS
-    tiers: tuple[Tier, ...] = ("own", "domestic_rail", "external")
+    tiers: tuple[Tier, ...] = ("own", "national_rnd", "domestic_rail", "external")
     criteria = ", ".join(f"{_TIER_LABEL[t]} {th[t]:.2f}" for t in tiers)
     searched = ", ".join(f"{_label(s)} {scope[s]}건" for s in _ordered(scope))
     out = [f"유사과제 검토 범위는 수집 자료 중 본 제안과 관련도가 높은 {searched}임."]

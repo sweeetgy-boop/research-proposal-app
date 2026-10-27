@@ -27,7 +27,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
-from rra.application.ports import RunBusy, RunNotFound
+from rra.application.ports import RunBusy, RunNotFound, TableFactRepository
 from rra.application.ports.renderer import RenderRejected
 from rra.application.services import (
     ConfirmRejected,
@@ -77,7 +77,9 @@ from rra.entrypoints.views import (
     differentiation_payload,
     draft_payload,
     evidence_items_payload,
+    facts_payload,
     notice_matches_payload,
+    ntis_insights_payload,
     policy_suggestions_payload,
     recommendation_preview_payload,
     recommendations_payload,
@@ -238,6 +240,7 @@ def create_app(
     policy_suggest: Any | None = None,
     notice_match: Any | None = None,
     notice_snapshot_status: Callable[[], dict[str, Any]] | None = None,
+    ntis_insights: Any | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api()."""
 
@@ -378,6 +381,17 @@ def create_app(
             out["recommendations"] = await _recommend(req, alerts)
         return out
 
+    @app.post(f"/{API_VERSION}/precheck/ntis-outcomes")
+    async def ntis_outcomes_route(req: ProposalRequest) -> dict[str, Any]:
+        """② NTIS 부가 조회 — 유사과제 알림의 NTIS 과제(상위 3건) 주요 성과(참고용) + 연관 과제
+        추천(우리 검색에
+        없던 것만 `ntis_recommended`). 캐시(과제번호)·호출 간격은 어댑터. 키가 없으면 503."""
+        if ntis_insights is None or not getattr(ntis_insights, "enabled", True):
+            raise HTTPException(503, "NTIS 부가 조회가 꺼져 있습니다 (RRA_NTIS_KEY 없음).")
+        alerts = await precheck(req)
+        insights = await ntis_insights(alerts)
+        return {"notice": UNTRUSTED_NOTICE, **ntis_insights_payload(insights, clean=_clean)}
+
     @app.post(f"/{API_VERSION}/ideas/policy-suggestions")
     async def policy_suggestions_route(req: ProposalRequest) -> dict[str, Any]:
         """① 입력 → 정책(policy) 문서 문구 3~5개.
@@ -517,6 +531,20 @@ def create_app(
         orgs: str | None = Query(default=None, max_length=400),
     ) -> dict[str, Any]:
         return await _search(q, k, (orgs or "").split(",") if orgs else None)
+
+    @app.get(f"/{API_VERSION}/facts")
+    async def facts_get(
+        q: str = Query(min_length=1, max_length=200),
+        k: int = Query(default=DEFAULT_K, ge=1, le=MAX_K),
+    ) -> dict[str, Any]:
+        """표 사실(P2-8) 항목 검색. 전부 비신뢰 — 표에서 파싱·판독한 값이다."""
+        if not isinstance(repo, TableFactRepository):
+            raise HTTPException(503, "표 사실 저장소가 없습니다.")
+        query = q.strip()
+        if not query:
+            raise HTTPException(422, "검색어가 비어 있습니다.")
+        facts = await repo.search_facts(query, k=k)
+        return {"notice": UNTRUSTED_NOTICE, "facts": facts_payload(list(facts), clean=_clean)}
 
     # ── run ─────────────────────────────────────────────
     @app.post(f"/{API_VERSION}/runs", status_code=202)

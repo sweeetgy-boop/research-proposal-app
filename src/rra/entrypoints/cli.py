@@ -1949,6 +1949,23 @@ def _vision_plan_lines(summary: dict) -> list[str]:
     return lines
 
 
+def cmd_vision_extract(args: argparse.Namespace) -> int:
+    """첨부(hwpx·hwp·pdf·pptx·xlsx) 속 내장 이미지를 꺼내 스냅샷에 더한다 — read 전에 한 번."""
+    from rra.composition import build_extract_attachment_images, load_settings
+
+    use = build_extract_attachment_images(load_settings(), snapshot=args.snapshot)
+    report = asyncio.run(use(limit=args.limit))
+    if args.json:
+        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(
+            f"첨부 {report.attachments}개 중 파싱 {report.parsed}, 새 이미지 {report.images}장"
+            f"(중복 {report.duplicates}), 형식별 {report.by_ext}, 거부 {report.rejected}, "
+            f"건너뜀 {report.skipped}"
+        )
+    return EXIT_OK
+
+
 def cmd_vision_read(args: argparse.Namespace) -> int:
     from rra.composition import build_read_images, load_settings
 
@@ -2036,6 +2053,79 @@ def cmd_vision_ingest(args: argparse.Namespace) -> int:
             + ", ".join(f"{k} {v}" for k, v in summary["removed_personal"].items())
         )
     print("dry-run: 적재하지 않았습니다." if args.dry_run else "적재했습니다.")
+    return EXIT_OK
+
+
+# ── facts (P2-8) · terms (P2-9) ─────────────────────────
+def cmd_facts_extract(args: argparse.Namespace) -> int:
+    """적재된 문서의 표 → 사실 저장 (적재 뒤에 돈다). --dry-run 은 건수만."""
+    from rra.composition import build_extract_facts, load_settings
+    from rra.entrypoints.views import fact_line
+
+    usecase = build_extract_facts(load_settings(), source=args.source, snapshot=args.snapshot)
+    report = asyncio.run(usecase(dry_run=args.dry_run, limit=args.limit))
+    summary = report.summary()
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    basis = ", ".join(f"{k} {v}" for k, v in summary["by_basis"].items()) or "없음"
+    print(
+        f"{summary['source']}: 표 {summary['tables']}장 → 사실 {summary['facts']}건 "
+        f"(문서 {summary['documents']}건, 사실 없는 표 {summary['empty_tables']}장, "
+        f"근거 종류: {basis})"
+    )
+    if summary["missing_docs"]:
+        ids = ", ".join(_safe(d, 40) for d in summary["missing_doc_ids"])
+        print(f"  ! 아직 적재되지 않은 문서 {summary['missing_docs']}건 (사실은 저장됨): {ids}")
+    for f in report.samples:
+        print("  - " + fact_line(f, clean=_safe))
+    print("dry-run: 저장하지 않았습니다." if args.dry_run else "저장했습니다.")
+    return EXIT_OK
+
+
+def cmd_facts_search(args: argparse.Namespace) -> int:
+    from rra.composition import build_embedding, build_repository, load_settings
+    from rra.domain.rules.trust import UNTRUSTED_NOTICE
+    from rra.entrypoints.views import fact_line, facts_payload
+
+    settings = load_settings()
+    repo = build_repository(build_embedding(settings), settings)
+    facts = asyncio.run(repo.search_facts(args.query, k=args.k))
+    if args.json:
+        print(
+            json.dumps(
+                {"notice": UNTRUSTED_NOTICE, "facts": facts_payload(facts, clean=_safe)},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return EXIT_OK
+    print(UNTRUSTED_NOTICE)
+    if not facts:
+        print("(사실 없음)")
+    for f in facts:
+        print("- " + fact_line(f, clean=_safe))
+    return EXIT_OK
+
+
+def cmd_terms_candidates(args: argparse.Namespace) -> int:
+    """코퍼스 표본 → 철도 용어·흔한 단어 후보 YAML 두 개 (config/*.candidates.yaml). 자동 반영
+    없음."""
+    from rra.composition import build_term_candidates, load_settings
+
+    settings = load_settings()
+    usecase, write = build_term_candidates(settings)
+    report = asyncio.run(usecase(sample=args.sample, limit=args.limit))
+    out_dir = Path(args.out_dir) if args.out_dir else Path(settings.config_dir)
+    written = write(out_dir, usecase.payloads(report))
+    sources = ", ".join(f"{k} {v}" for k, v in report.sources.items()) or "없음"
+    print(
+        f"표본 청크 {report.chunks}건 / 문서 {report.documents}건 ({sources}) → "
+        f"철도 용어 후보 {len(report.rail)}건, 흔한 단어 후보 {len(report.generic)}건"
+    )
+    for path in written:
+        print(f"  {path}")
+    print("후보일 뿐입니다 — config/overlap.yaml 반영은 사람이 검토해 결정합니다.")
     return EXIT_OK
 
 
@@ -2333,6 +2423,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     vis = sub.add_parser("vision", help="웹 이미지 판독 (P3): OCR 대조 + Argon, 캐시·상한")
     vis_sub = vis.add_subparsers(dest="vision_cmd", required=True)
+    ve = vis_sub.add_parser(
+        "extract", help="첨부 속 내장 이미지 추출 → attachment_images.jsonl (판독 전)"
+    )
+    ve.add_argument("--snapshot", help="data/korail_web/snapshots/<date> (기본: 최신)")
+    ve.add_argument("--limit", type=int, help="처리 첨부 수 상한 (시험용)")
+    ve.add_argument("--json", action="store_true")
+    ve.set_defaults(handler=cmd_vision_extract)
     vr = vis_sub.add_parser("read", help="스냅샷 이미지 판독 (--dry-run: 계획만, 호출 없음)")
     vr.add_argument("--snapshot", help="data/korail_web/snapshots/<date> (기본: 최신)")
     vr.add_argument("--dry-run", action="store_true", help="거르기·순서·예상 호출 수만 출력")
@@ -2358,6 +2455,38 @@ def build_parser() -> argparse.ArgumentParser:
     vi.add_argument("--limit", type=int)
     vi.add_argument("--json", action="store_true")
     vi.set_defaults(handler=cmd_vision_ingest)
+
+    facts = sub.add_parser(
+        "facts", help="표 사실 (P2-8): 적재된 문서의 표 칸 → (항목·연도·단위·값)"
+    )
+    facts_sub = facts.add_subparsers(dest="facts_cmd", required=True)
+    fx = facts_sub.add_parser("extract", help="표 → 사실 저장 (적재 뒤에 실행)")
+    fx.add_argument(
+        "--source",
+        required=True,
+        choices=("korail_web", "molit", "vision"),
+        help="korail_web=스냅샷 첨부 xlsx·xls·pdf, molit=DB 본문, vision=판독 캐시의 표",
+    )
+    fx.add_argument("--snapshot", help="korail_web: data/korail_web/snapshots/<date> (기본: 최신)")
+    fx.add_argument("--dry-run", action="store_true", help="저장하지 않고 건수만")
+    fx.add_argument("--limit", type=int, help="표(첨부·문서) 수 상한 (시험용)")
+    fx.add_argument("--json", action="store_true")
+    fx.set_defaults(handler=cmd_facts_extract)
+    fs = facts_sub.add_parser("search", help="항목으로 사실 검색")
+    fs.add_argument("query")
+    fs.add_argument("--k", type=int, default=20)
+    fs.add_argument("--json", action="store_true")
+    fs.set_defaults(handler=cmd_facts_search)
+
+    terms = sub.add_parser("terms", help="용어 후보 (P2-9): 코퍼스 표본의 철도 용어·흔한 단어 후보")
+    terms_sub = terms.add_subparsers(dest="terms_cmd", required=True)
+    tc = terms_sub.add_parser(
+        "candidates", help="config/rail_terms.candidates.yaml·generic_terms.candidates.yaml 쓰기"
+    )
+    tc.add_argument("--limit", type=int, help="후보 수 상한 (기본 200)")
+    tc.add_argument("--sample", type=int, default=5000, help="표본 청크 수 (자료원별로 고르게)")
+    tc.add_argument("--out-dir", help="출력 폴더 (기본 config/)")
+    tc.set_defaults(handler=cmd_terms_candidates)
 
     alio = sub.add_parser("alio", help="알리오 공시 보고서 카탈로그·filedrop 관리")
     alio_sub = alio.add_subparsers(dest="alio_cmd", required=True)
