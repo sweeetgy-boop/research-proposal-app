@@ -211,3 +211,48 @@ def test_manifest_lines_are_json(tmp_path):
     snap = _snapshot(tmp_path)
     lines = snap.manifest.read_text(encoding="utf-8").splitlines()
     assert all(json.loads(line)["native_id"] for line in lines)
+
+
+async def _sheet_runner(fd: int, fmt: str, limits: SandboxLimits) -> dict:
+    assert fmt == "xlsx"
+    rows = [["구분", "2023", "2024"]] + [[f"항목{i}", i * 10, i * 11] for i in range(12)]
+    return {"sheets": [{"name": "수송실적", "rows": rows}]}
+
+
+async def test_xlsx_attachment_is_ingested_as_pipe_rows(tmp_path):
+    day = "2026-10-27"
+    snap = SnapshotDir(tmp_path / "korail_web", day)
+    snap.ensure()
+    snap.write_bytes("files/ab/abcd.xlsx", b"PK\x03\x04" + b"0" * 200)
+    snap.append_manifest(
+        {
+            "native_id": "biz:1",
+            "menu": "biz_stat_docs",
+            "menu_path": "주요사업 > 광역수송",
+            "doc_type": "statistics",
+            "terms": "공공누리 제4유형",
+            "snapshot": day,
+            "removed": False,
+            "title": "광역수송 통계",
+            "url": "https://info.korail.com/x",
+            "text_file": None,
+            "posted": "2026-01-01",
+            "attachments": [
+                {
+                    "name": "수송실적.xlsx",
+                    "url": "https://info.korail.com/f/1",
+                    "ext": "xlsx",
+                    "downloaded": True,
+                    "path": "files/ab/abcd.xlsx",
+                    "sha256": "abcd",
+                    "snapshot": day,
+                }
+            ],
+            "images": [],
+        }
+    )
+    src = KorailWebSource(tmp_path / "korail_web", limits=SandboxLimits(), runner=_sheet_runner)
+    raws = await src.search(None, 100)
+    att = [r for r in raws if r["kind"] == "attachment"]
+    assert len(att) == 1
+    assert att[0]["text"].startswith("[수송실적]\n구분 | 2023 | 2024\n항목0 | 0 | 0")

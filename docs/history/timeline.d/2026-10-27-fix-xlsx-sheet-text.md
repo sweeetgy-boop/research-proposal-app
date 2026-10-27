@@ -1,0 +1,1 @@
+| 2026-10-27 | 공사 홈페이지 첨부 xlsx·xls 를 본문으로 적재 — 워커의 시트 구조를 `[시트]` + " \| " 행 텍스트로 바꿔 `ExtractResult` 에 넣는다(`korail_web/_sheets.py`) | [P] 적재에서 ValidationError 61건(xlsx 59·xls 2)이 전부 시트 구조만 돌아온 스프레드시트 — 광역수송 통계 등 표 문서가 검색 집합에 없었다(레인 F 발견) | #TBD | 재적재 뒤 건수는 overnight 기록 |
