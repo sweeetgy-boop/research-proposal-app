@@ -88,9 +88,9 @@ async def loaded(repo):
 
 # ── 스키마·마이그레이션 ──────────────────────────────────────────
 def test_migration_is_applied_and_idempotent(repo):
-    assert runner.current_version(repo.conn) == 5 and repo.schema_version == 5
-    assert runner.migrate(repo.conn) == 5
-    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3, 4, 5]  # 적용 이력 표
+    assert runner.current_version(repo.conn) == 6 and repo.schema_version == 6
+    assert runner.migrate(repo.conn) == 6
+    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3, 4, 5, 6]  # 적용 이력 표
 
 
 async def test_reopening_reuses_the_pinned_backend(tmp_path, loaded):
@@ -304,7 +304,7 @@ def test_migration_002_backfills_existing_rows(tmp_path):
         [("alio:1", "alio", "internal_report", "a"), ("ntis:1", "ntis", "rnd_project", "b")],
     )
     conn.commit()
-    assert runner.migrate(conn) == 5  # 002 백필 뒤 003·004·005 까지 적용
+    assert runner.migrate(conn) == 6  # 002 백필 뒤 003~006 까지 적용
     rows = dict(conn.execute("SELECT doc_id, text_basis FROM documents"))
     assert rows == {"alio:1": "full_text", "ntis:1": "abstract"}
 
@@ -353,8 +353,8 @@ async def test_old_schema_is_migrated_and_still_searchable(tmp_path):
     path = tmp_path / "data" / "rra.sqlite"
     _old_schema_db(path, make_docs())
     repo = SQLiteDocumentRepository(path, DeterministicEmbedding(), prefer_extension=False)
-    assert repo.schema_version == 5
-    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3, 4, 5]
+    assert repo.schema_version == 6
+    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3, 4, 5, 6]
     doc = await repo.get_document("alio:1")
     assert doc.visibility == "public" and doc.valid_until is None  # 기본값
     hits = await repo.hybrid_search(["궤도 틀림"], k=5)  # 벡터 색인 전 — FTS 만으로 검색
@@ -436,7 +436,7 @@ async def test_backup_is_a_consistent_copy_with_owner_only_mode(tmp_path, loaded
         assert os.stat(out).st_mode & 0o777 == 0o600
     copy = sqlite3.connect(out)
     assert copy.execute("SELECT count(*) FROM documents").fetchone()[0] == 2
-    assert copy.execute("PRAGMA user_version").fetchone()[0] == 5
+    assert copy.execute("PRAGMA user_version").fetchone()[0] == 6
     copy.close()
     with pytest.raises(sqlite3.OperationalError):  # 덮어쓰지 않는다
         await loaded.backup(out)
@@ -473,3 +473,145 @@ async def test_backend_vectors_returns_stored_normalized_vectors(loaded):
     for vec in got.values():
         assert len(vec) == loaded._vec_dim
         assert abs(sum(v * v for v in vec) - 1.0) < 1e-4  # 정규화 저장
+
+
+# ── 006 text_basis CHECK 에 image_vision (2026-10-27) ──────────────
+def _db_at_version(path, upto: int):
+    """001~upto 만 적용한 DB. 운영 DB(user_version 5)를 흉내 낸다."""
+    import shutil
+
+    old_dir = path.parent / f"migrations_upto_{upto}"
+    old_dir.mkdir(parents=True, exist_ok=True)
+    for version, sql in runner.discover():
+        if version <= upto:
+            shutil.copy(sql, old_dir / sql.name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA foreign_keys = ON")  # 저장소와 같은 조건
+    assert runner.migrate(conn, old_dir) == upto
+    return conn
+
+
+def _seed_v5(conn):
+    rows = [
+        ("ntis:1", "ntis", "rnd_project", "궤도 틀림 감지", "궤도의 틀림을 감지한다", "abstract"),
+        ("alio:1", "alio", "internal_report", "차량 정비", "차량 정비 주기를 분석한다", "summary"),
+        ("own:1", "own", "internal_report", "역사 혼잡도", "역사 혼잡도를 측정한다", "full_text"),
+    ]
+    conn.executemany(
+        "INSERT INTO documents(doc_id, source, doc_type, title, body, text_basis, doi, "
+        "department, visibility, valid_until) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [r + ("10.1/x", "철도연구원", "internal", "2099-01-01") for r in rows],
+    )
+    for doc_id, *_rest, body, _basis in rows:
+        conn.execute(
+            "INSERT INTO chunks(chunk_id, doc_id, ordinal, text) VALUES (?,?,?,?)",
+            (f"{doc_id}#0", doc_id, 0, body),
+        )
+        conn.execute("INSERT INTO document_orgs(doc_id, org) VALUES (?, ?)", (doc_id, "korail"))
+    conn.commit()
+
+
+def test_migration_006_rebuilds_documents_without_losing_rows_or_children(tmp_path):
+    path = tmp_path / "data" / "rra.sqlite"
+    conn = _db_at_version(path, 5)
+    _seed_v5(conn)
+    with pytest.raises(sqlite3.IntegrityError, match="text_basis"):  # 결함 재현
+        conn.execute(
+            "INSERT INTO documents(doc_id, source, doc_type, title, text_basis) "
+            "VALUES ('alio:img:1', 'alio', 'internal_report', 'x', 'image_vision')"
+        )
+    before_docs = conn.execute("SELECT rowid, * FROM documents ORDER BY rowid").fetchall()
+    before_chunks = conn.execute("SELECT * FROM chunks ORDER BY id").fetchall()
+    before_orgs = conn.execute("SELECT * FROM document_orgs ORDER BY doc_id").fetchall()
+
+    assert runner.migrate(conn) == 6
+
+    # 행·rowid·자식 표(FK CASCADE 로 지워지지 않음)가 그대로
+    assert conn.execute("SELECT rowid, * FROM documents ORDER BY rowid").fetchall() == before_docs
+    assert conn.execute("SELECT * FROM chunks ORDER BY id").fetchall() == before_chunks
+    assert conn.execute("SELECT * FROM document_orgs ORDER BY doc_id").fetchall() == before_orgs
+    assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+    assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1  # 마이그레이션이 FK 를 되돌림
+    # 인덱스 5개 복원, documents_new 잔재 없음
+    names = {
+        r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE tbl_name = 'documents'")
+    }
+    assert names >= {
+        "idx_documents_doi",
+        "idx_documents_appno",
+        "idx_documents_department",
+        "idx_documents_valid_until",
+        "idx_documents_ingested",
+    }
+    assert not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE name LIKE 'documents_new%'"
+    ).fetchall()
+    # 기본값·CHECK 유지 + image_vision 허용
+    conn.execute(
+        "INSERT INTO documents(doc_id, source, doc_type, title, text_basis) "
+        "VALUES ('alio:img:1', 'alio', 'internal_report', 'x', 'image_vision')"
+    )
+    row = conn.execute("SELECT visibility, lang, raw_json FROM documents WHERE doc_id='alio:img:1'")
+    assert tuple(row.fetchone()) == ("public", "ko", "{}")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("UPDATE documents SET text_basis = 'bogus' WHERE doc_id = 'alio:img:1'")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("UPDATE documents SET visibility = 'secret' WHERE doc_id = 'alio:img:1'")
+    # FTS(chunks 외부 콘텐츠)·CASCADE 가 살아 있다
+    hit = conn.execute(
+        "SELECT c.doc_id FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid "
+        "WHERE chunks_fts MATCH '\"혼잡도\"*'"
+    ).fetchall()
+    assert [r[0] for r in hit] == ["own:1"]
+    conn.execute("DELETE FROM documents WHERE doc_id = 'own:1'")
+    assert conn.execute("SELECT count(*) FROM chunks WHERE doc_id='own:1'").fetchone()[0] == 0
+    conn.close()
+
+
+async def test_migration_006_keeps_hybrid_search_and_allows_image_vision_upsert(tmp_path):
+    path = tmp_path / "data" / "rra.sqlite"
+    conn = _db_at_version(path, 5)
+    _seed_v5(conn)
+    conn.close()
+    repo = SQLiteDocumentRepository(path, DeterministicEmbedding(), prefer_extension=False)
+    assert repo.schema_version == 6  # open 시 자동 적용
+    assert await repo.count_by_source() == {"ntis": 1, "alio": 1, "own": 1}
+    hits = await repo.hybrid_search(["궤도 틀림"], k=5)
+    assert [c.doc_id for c in hits] == ["ntis:1"] and hits[0].basis == "abstract"
+    assert (await repo.get_document("alio:1")).text_basis == "summary"
+
+    doc = Document(
+        doc_id="alio:img:abc",
+        source="alio",
+        doc_type="internal_report",
+        title="수송 실적 이미지",
+        body="수송인원 1,234만명",
+        text_basis="image_vision",
+    )
+    await repo.upsert(
+        [doc], [Chunk(chunk_id="alio:img:abc#0", doc_id=doc.doc_id, ordinal=0, text=doc.body)]
+    )
+    assert (await repo.get_document(doc.doc_id)).text_basis == "image_vision"
+    (chunk,) = await repo.hybrid_search(["수송인원"], k=5)
+    assert chunk.doc_id == doc.doc_id and chunk.basis == "image_vision"
+    repo.close()
+
+
+async def test_fresh_database_applies_001_to_006_in_one_go(tmp_path):
+    repo = SQLiteDocumentRepository(tmp_path / "fresh.sqlite", DeterministicEmbedding())
+    assert repo.schema_version == 6
+    assert [v for v, _ in runner.applied_versions(repo.conn)] == [1, 2, 3, 4, 5, 6]
+    assert repo.conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    doc = Document(
+        doc_id="korail_web:img:1",
+        source="korail_web",
+        doc_type="internal_report",
+        title="이미지 판독",
+        body="판독 본문",
+        text_basis="image_vision",
+    )
+    await repo.upsert([doc], [])
+    assert (await repo.get_document(doc.doc_id)).text_basis == "image_vision"
+    repo.close()
