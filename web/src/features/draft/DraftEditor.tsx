@@ -29,6 +29,8 @@ export interface DraftEditorProps {
   state: EditState;
   onChange: (next: EditState) => void;
   disabled?: boolean;
+  /** 섹션 머리에 붙일 도구 (AI 다시 쓰기·보완 질문) */
+  sectionTools?: (section: VersionSection) => React.ReactNode;
 }
 
 function AnnotationList({ items, state, onChange, disabled }: { items: Annotation[]; state: EditState; onChange: (s: EditState) => void; disabled?: boolean }) {
@@ -163,7 +165,7 @@ function SentenceEditor({
   );
 }
 
-export function DraftEditor({ sections, annotations, revisions, state, onChange, disabled }: DraftEditorProps) {
+export function DraftEditor({ sections, annotations, revisions, state, onChange, disabled, sectionTools }: DraftEditorProps) {
   const rows: Row[] = [];
   for (const sec of sections) {
     rows.push({ kind: "header", key: `h:${sec.key}`, section: sec });
@@ -187,6 +189,7 @@ export function DraftEditor({ sections, annotations, revisions, state, onChange,
         <div className="mt-6 border-b pb-2 first:mt-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-semibold">{sectionTitle(sec.key)}</h3>
+            {sectionTools?.(sec)}
             {!CHOICE_SECTIONS.has(sec.key) || sec.sentences.length > 0 ? (
               <Label className="flex items-center gap-1.5 text-sm">
                 <Checkbox checked={whole} disabled={disabled} onChange={(e) => toggleSectionText(sec, e.target.checked)} />

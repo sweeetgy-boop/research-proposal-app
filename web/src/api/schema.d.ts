@@ -80,6 +80,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ideas/policy-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Policy Suggestions Route
+         * @description ① 입력 → 정책(policy) 문서 문구 3~5개.
+         *
+         *     제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음).
+         */
+        post: operations["policy_suggestions_route_v1_ideas_policy_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/precheck/clarify": {
         parameters: {
             query?: never;
@@ -156,6 +178,89 @@ export interface paths {
          * @description 기능 2 — precheck 뒤 차단·근접 유사과제별 활용·차별화 방향 (외부 LLM 출력, 비신뢰).
          */
         post: operations["differentiate_route_v1_precheck_differentiate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/precheck/comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Comparison Route
+         * @description U4 차별성 비교표 — precheck 상위 5건 × (연구목표·연구방법·적용범위·기대성과·차별화 방향).
+         *     기존 과제 칸은 요약·초록의 제목 기반 추출만, 제목뿐이면 "정보 없음(제목 기준)". 양식 밖.
+         */
+        post: operations["comparison_route_v1_precheck_comparison_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/precheck/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Brief Route
+         * @description U5 선행연구 브리핑 — 검색 상위 논문·보고서 10건의 한 줄 요약·연도별 건수·키워드·연구 공백
+         *     후보(근거 안에서만, 후보일 뿐). LLM 1회 (stage brief: Gemini, 키 없으면 로컬).
+         */
+        post: operations["brief_route_v1_precheck_brief_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ideas/structure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Structure Route
+         * @description U2 간편 입력 — 자유 문장을 필수 4칸(현황·원인·한계·목표)으로 나누고, 빈 칸마다 보완 질문.
+         *     서버는 본문을 저장하지 않는다.
+         */
+        post: operations["structure_route_v1_ideas_structure_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ideas/structure/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Structure Merge Route
+         * @description U2 보완 답 합치기 (순수, LLM 없음) → 4칸 미리보기 + 남은 질문. 확정은 POST /v1/runs.
+         */
+        post: operations["structure_merge_route_v1_ideas_structure_merge_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -529,6 +634,190 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run_id}/sentences/{sid}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sentence Evidence Route
+         * @description U1 문장의 근거마다 원문 발췌·문서 메타(자료원·발행기관·연도·수집일)·근거 수준
+         *     (원문/공개 요약/초록/제목/이미지 판독, 세부 확인 필요)·Argon 적합성·제안자 판단.
+         */
+        get: operations["sentence_evidence_route_v1_runs__run_id__sentences__sid__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/evidence-decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Evidence Decisions Route
+         * @description U1 제안자 근거 판단(approve·replace·exclude) → 새 버전. replace 는 검색 집합 안의 id 만.
+         *     base_version 이 다르면 409.
+         */
+        post: operations["evidence_decisions_route_v1_runs__run_id__evidence_decisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/sections/{key}/rewrite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rewrite Route
+         * @description U3 섹션 하나를 로컬 모델로 다시 쓴 후보 (반영 전, 현재 문장과 나란히). 제안자가 고친
+         *     문장은 보존, 선택값 불변. 반영은 …/rewrite/apply.
+         */
+        post: operations["rewrite_route_v1_runs__run_id__sections__key__rewrite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/sections/{key}/rewrite/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rewrite Apply Route
+         * @description U3 후보 반영 → 새 버전(origin edit, note "AI 다시 쓰기"). chosen 은 후보 문장 번호.
+         */
+        post: operations["rewrite_apply_route_v1_runs__run_id__sections__key__rewrite_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/sections/{key}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Section Questions Route
+         * @description U3 섹션 체크리스트(section_checklists.yaml)에서 빠진 요소 → 보완 질문 + 저장된 답.
+         */
+        get: operations["section_questions_route_v1_runs__run_id__sections__key__questions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/sections/{key}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Section Answers Route
+         * @description U3 보완 질문의 답을 제안자 입력으로 저장 — 다음 다시 쓰기 프롬프트에 들어간다.
+         */
+        post: operations["section_answers_route_v1_runs__run_id__sections__key__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/submit-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Submit Check Route
+         * @description U7 제출 전 점검 — 필수 섹션·미해결 알림(코드별)·근거 승인 비율·남은 메모·최종 검토 이후
+         *     수정·선택형 확정·칸 길이·전략 목록 출처·검토 상태. 항목마다 target 으로 이동.
+         */
+        get: operations["submit_check_route_v1_runs__run_id__submit_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage Route
+         * @description U8 run 의 측정 기록 (단계 시간·근거 판단 비율·다시 쓰기 횟수·HWPX 성공·만족도).
+         */
+        get: operations["usage_route_v1_runs__run_id__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Feedback Route
+         * @description U8 만족도 1~5 + 한 줄 (마무리 뒤에만, 개인정보 금지).
+         */
+        post: operations["feedback_route_v1_runs__run_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run_id}/reopen": {
         parameters: {
             query?: never;
@@ -630,6 +919,49 @@ export interface components {
             base_version?: number | null;
             /** Done Annotations */
             done_annotations?: string[];
+        };
+        /**
+         * EvidenceDecision
+         * @description 문장 하나의 근거 id 하나에 대한 제안자 판단. replacement 는 replace 일 때 새 근거 id.
+         */
+        EvidenceDecision: {
+            /** Sentence Id */
+            sentence_id: string;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Action
+             * @default approve
+             * @enum {string}
+             */
+            action: "approve" | "replace" | "exclude";
+            /** Replacement */
+            replacement?: string | null;
+        };
+        /** EvidenceDecisionRequest */
+        EvidenceDecisionRequest: {
+            /** Decisions */
+            decisions?: components["schemas"]["EvidenceDecision"][];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Base Version */
+            base_version?: number | null;
+        };
+        /**
+         * FeedbackIn
+         * @description POST /v1/runs/{id}/feedback — 만족도 1~5 + 한 줄(200자, 이메일·전화 금지). 마무리 뒤에만.
+         */
+        FeedbackIn: {
+            /** Score */
+            score: number;
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
         };
         /**
          * FinalizeIn
@@ -772,11 +1104,29 @@ export interface components {
             to: number;
         };
         /**
+         * RewriteApplyIn
+         * @description POST /v1/runs/{id}/sections/{key}/rewrite/apply — 고른 후보 문장 번호(없으면 전부).
+         */
+        RewriteApplyIn: {
+            /** Chosen */
+            chosen?: number[] | null;
+            /** Base Version */
+            base_version?: number | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
          * RunIn
-         * @description 생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 + (선택) 과제 추천 세션 id·번호.
+         * @description 생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 + (선택) 과제 추천 세션 id·번호
+         *     + (선택) U5 우선 근거 id.
          *
          *     recommendation_id 가 있으면 서버가 그 세션의 추천 결과 전체를 run 의 recommendations.json 에
          *     복사하고 manifest 에 전송 기록·chosen 을 남긴다. 모르는 id 는 404.
+         *     priority_evidence 는 브리핑에서 고른 doc_id·chunk_id — 검색 집합 안의 것만
+         *     snapshot.priority_ids 로.
          */
         RunIn: {
             /**
@@ -858,6 +1208,8 @@ export interface components {
              * @default false
              */
             acknowledged: boolean;
+            /** Priority Evidence */
+            priority_evidence?: string[] | null;
         };
         /** SearchIn */
         SearchIn: {
@@ -870,6 +1222,16 @@ export interface components {
             k: number;
             /** Orgs */
             orgs?: string[] | null;
+        };
+        /**
+         * SectionAnswersIn
+         * @description POST /v1/runs/{id}/sections/{key}/answers — 보완 질문의 답 {요소: 답} (제안자 입력).
+         */
+        SectionAnswersIn: {
+            /** Answers */
+            answers?: {
+                [key: string]: string;
+            };
         };
         /**
          * SectionEdit
@@ -914,6 +1276,34 @@ export interface components {
         SessionIn: {
             /** Token */
             token: string;
+        };
+        /**
+         * StructureIn
+         * @description POST /v1/ideas/structure — 자유 문장(1~2문장) + 가제(선택). 서버는 저장하지 않는다.
+         */
+        StructureIn: {
+            /** Text */
+            text: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /**
+         * StructureMergeIn
+         * @description POST /v1/ideas/structure/merge — 구조화 결과(fields) + 보완 답(answers) → 합친 4칸 미리보기.
+         *     LLM 호출 없음.
+         */
+        StructureMergeIn: {
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            };
+            /** Answers */
+            answers?: {
+                [key: string]: string;
+            };
         };
         /** ValidationError */
         ValidationError: {
@@ -1084,6 +1474,41 @@ export interface operations {
             };
         };
     };
+    policy_suggestions_route_v1_ideas_policy_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     clarify_route_v1_precheck_clarify_post: {
         parameters: {
             query?: never;
@@ -1201,6 +1626,146 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    comparison_route_v1_precheck_comparison_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    brief_route_v1_precheck_brief_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    structure_route_v1_ideas_structure_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StructureIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    structure_merge_route_v1_ideas_structure_merge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StructureMergeIn"];
             };
         };
         responses: {
@@ -2103,6 +2668,324 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sentence_evidence_route_v1_runs__run_id__sentences__sid__evidence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evidence_decisions_route_v1_runs__run_id__evidence_decisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvidenceDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rewrite_route_v1_runs__run_id__sections__key__rewrite_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rewrite_apply_route_v1_runs__run_id__sections__key__rewrite_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RewriteApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    section_questions_route_v1_runs__run_id__sections__key__questions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    section_answers_route_v1_runs__run_id__sections__key__answers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SectionAnswersIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_check_route_v1_runs__run_id__submit_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_route_v1_runs__run_id__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feedback_route_v1_runs__run_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

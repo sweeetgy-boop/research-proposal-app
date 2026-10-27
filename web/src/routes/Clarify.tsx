@@ -46,6 +46,7 @@ export default function Clarify() {
         recommendation_id: idea.recommendationIndex !== null ? idea.recommendationId : null,
         recommendation_index: idea.recommendationIndex,
         acknowledged: idea.acknowledged, // 차단 경보 확인 — 서버도 같은 게이트(409)를 둔다
+        priority_evidence: idea.priorityEvidence.length ? idea.priorityEvidence : null,
       };
       return submitRun.mutateAsync(body);
     },
@@ -102,8 +103,8 @@ export default function Clarify() {
                 </div>
               ))}
               <div className="flex flex-wrap justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => navigate("/new/precheck")} disabled={start.isPending}>
-                  ← 유사과제 확인
+                <Button type="button" variant="outline" onClick={() => navigate("/new/brief")} disabled={start.isPending}>
+                  ← 브리핑
                 </Button>
                 {questions.length > 0 && (
                   <Button type="button" variant="secondary" onClick={() => start.mutate(false)} disabled={start.isPending}>

@@ -9,7 +9,15 @@ export async function login(page: Page) {
   await expect(page).toHaveURL(/\/new$/);
 }
 
+/** ① 입력 방식을 상세(4칸)로 — 기본은 간편 입력 */
+export async function detailMode(page: Page) {
+  const radio = page.getByRole("radio", { name: "상세 입력(4칸)" });
+  if (!(await radio.isChecked())) await radio.check({ force: true });
+  await expect(page.getByLabel(/현재 상황·문제/)).toBeVisible();
+}
+
 export async function fillIdea(page: Page, suffix = "") {
+  await detailMode(page);
   await page.getByLabel(/현재 상황·문제/).fill(`궤도 틀림이 반복 발생함${suffix}`);
   await page.getByLabel(/발생 원인/).fill("다짐 효과가 오래 가지 않음");
   await page.getByLabel(/현행 대응의 한계/).fill("주기적 보수로는 진행 속도를 반영하지 못함");
@@ -21,6 +29,8 @@ export async function createRun(page: Page): Promise<string> {
   await fillIdea(page);
   await page.getByRole("button", { name: "유사과제 확인" }).click();
   await expect(page).toHaveURL(/\/new\/precheck$/);
+  await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();
+  await expect(page).toHaveURL(/\/new\/brief$/);
   await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
   await expect(page).toHaveURL(/\/new\/clarify$/);
   await page.getByRole("button", { name: /초안 생성 시작|답하고 생성 시작/ }).click();

@@ -8,6 +8,44 @@ import re
 _SECTION = re.compile(r"\[섹션: ([a-z_]+)\]")
 _SENT_ID = re.compile(r'"sentence_id": "(s:[a-z_]+:\d+)"')
 _EVIDENCE = re.compile(r'<doc id="([^"<>]+)"')
+_STRUCTURE_HEAD = "[자유 입력"  # U2 간편 입력 프롬프트 머리
+_BRIEF_HEAD = "[선행연구"  # U5 브리핑 프롬프트 구획 머리
+_FREE_TEXT = re.compile(r'"text": "([^"]*)"')
+
+
+def _structure_answer(prompt: str) -> str:
+    """U2: 자유 문장의 첫 문장을 현황 칸에, 둘째 문장을 목표 칸에 (원문 그대로 → 근거 검사 통과).
+    나머지 칸은 비워 보완 질문이 나오게 한다."""
+    m = _FREE_TEXT.search(prompt)
+    text = m.group(1) if m else ""
+    parts = [p.strip() for p in re.split(r"(?<=[.。!?])\s+", text) if p.strip()]
+    return json.dumps(
+        {
+            "current_state": parts[0] if parts else "",
+            "root_cause": "",
+            "limitation": "",
+            "goal": parts[1] if len(parts) > 1 else "",
+        },
+        ensure_ascii=False,
+    )
+
+
+def _brief_answer(prompt: str) -> str:
+    """U5: 구획마다 한 줄 요약(수치 없음), 첫 구획을 근거로 한 공백 후보 하나."""
+    ids = _EVIDENCE.findall(prompt)
+    return json.dumps(
+        {
+            "summaries": [
+                {"chunk_id": i, "summary": "궤도 상태 감지와 열화 추정을 다룸."} for i in ids
+            ],
+            "gaps": (
+                [{"text": "재래선 구간의 열화 진행 속도 자료가 없음.", "evidence": ids[:1]}]
+                if ids
+                else []
+            ),
+        },
+        ensure_ascii=False,
+    )
 
 
 class ScriptedComposeLLM:
@@ -23,6 +61,10 @@ class ScriptedComposeLLM:
 
     async def complete(self, prompt, *, system=None, max_tokens=None, json_mode=False) -> str:
         self.calls.append(prompt)
+        if prompt.startswith(_STRUCTURE_HEAD):
+            return _structure_answer(prompt)
+        if _BRIEF_HEAD in prompt and "summaries" in prompt:
+            return _brief_answer(prompt)
         m = _SECTION.search(prompt)
         key = m.group(1) if m else "method"
         ids = _EVIDENCE.findall(prompt)

@@ -60,3 +60,27 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export const statusLabel = (s: string): string => STATUS_LABELS[s] ?? s;
+
+/** 근거 수준(basis) 라벨 — domain/rules/evidence.py BASIS_LABELS 와 같다 */
+export const BASIS_LABELS: Record<string, string> = {
+  full_text: "원문",
+  summary: "공개 요약",
+  abstract: "초록",
+  title: "제목",
+  image_vision: "이미지 판독",
+};
+export const basisLabel = (b: string | null | undefined): string => (b ? BASIS_LABELS[b] ?? b : "미상");
+
+/** Argon 근거 적합성 → 배지 색 */
+export const SUPPORT_VARIANT: Record<string, "success" | "warning" | "destructive"> = {
+  지지: "success",
+  부분: "warning",
+  불일치: "destructive",
+};
+
+/** 브리핑·비교표 건너뜀 사유 */
+export const SKIP_LABELS: Record<string, string> = {
+  no_evidence: "검색된 논문·보고서가 없습니다",
+  parse_failed: "모델 응답을 해석하지 못했습니다",
+  no_llm: "브리핑 모델이 없습니다",
+};
