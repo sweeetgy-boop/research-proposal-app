@@ -34,10 +34,26 @@ def build_messages(
     return messages
 
 
+def build_image_messages(
+    prompt: str, image_data_url: str, system: str | None, *, system_role: bool = True
+) -> list[dict[str, Any]]:
+    """이미지 입력(OpenAI 호환 content parts). 이미지는 data URL(base64) 로만 — 원격 URL 을 보내지
+    않는다."""
+    parts: list[dict[str, Any]] = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": image_data_url}},
+    ]
+    if system and system_role:
+        return [{"role": "system", "content": system}, {"role": "user", "content": parts}]
+    if system:
+        parts[0] = {"type": "text", "text": f"{system}\n\n{prompt}"}
+    return [{"role": "user", "content": parts}]
+
+
 def build_payload(
     *,
     model: str,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     max_tokens: int,
     temperature: float,
     native_json: bool = False,

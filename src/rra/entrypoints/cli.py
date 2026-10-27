@@ -1331,6 +1331,86 @@ def _record_tag_hints(r: dict) -> list[str]:
     return [f"record_tag {configured!r} 확인됨."]
 
 
+# ── vision (P3 이미지 판독) ───────────────────────────────
+def _vision_plan_lines(summary: dict) -> list[str]:
+    f, p = summary["filter"], summary["plan"]
+    reasons = ", ".join(f"{k} {v}" for k, v in f.items() if k not in ("kept", "excluded"))
+    lines = [
+        f"스냅샷 {summary['snapshot']} — 거르기: 유지 {f['kept']} / 제외 {f['excluded']} "
+        f"({reasons or '없음'})",
+        f"판독 계획: 대상 {p['planned']}건, 캐시 {p['cached']}건, "
+        f"예상 호출 {p['expected_calls']}건 (상한 {p['cap']}), OCR 만 {p['ocr_only']}건",
+        "순서 그룹: " + ", ".join(f"{k} {v}" for k, v in p["groups"].items()),
+    ]
+    return lines
+
+
+def cmd_vision_read(args: argparse.Namespace) -> int:
+    from rra.composition import build_read_images, load_settings
+
+    usecase = build_read_images(
+        load_settings(), snapshot=args.snapshot, cap=args.cap, with_reader=not args.ocr_only
+    )
+    if usecase.ocr is None:
+        _eprint("OCR 없음 — macOS Vision(ocrmac) 을 쓸 수 없어 수치 대조 없이 진행합니다.")
+    if usecase.reader is None and not args.ocr_only:
+        _eprint("판독기 없음 — RRA_GEMINI_API_KEY 가 없어 OCR 만 합니다.")
+    report = asyncio.run(usecase(dry_run=args.dry_run, limit=args.limit))
+    summary = report.summary()
+    if args.json:
+        payload = {**summary, "ocr_only_hashes": report.ocr_only_hashes}
+        if not args.dry_run:
+            payload["results"] = [
+                {
+                    "sha256": r.sha256,
+                    "status": r.status,
+                    "cached": r.cached,
+                    "image_type": r.reading.image_type if r.reading else None,
+                    "unconfirmed_numbers": r.unconfirmed_numbers,
+                    "ocr_error": r.ocr_error,
+                    "vision_error": r.vision_error,
+                }
+                for r in report.results
+            ]
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    for line in _vision_plan_lines(summary):
+        print(line)
+    if args.dry_run:
+        print("dry-run: 호출하지 않았습니다.")
+        return EXIT_OK
+    print(
+        f"결과: {summary['status']} / 실제 호출 {summary['calls']}건 / 미확인 수치 "
+        f"{summary['unconfirmed_numbers']}건 / {summary['elapsed_sec']}초"
+    )
+    if report.ocr_only_hashes:
+        print(f"상한으로 OCR 만 한 이미지 {len(report.ocr_only_hashes)}건 (다음 실행에서 이어서):")
+        for h in report.ocr_only_hashes[:20]:
+            print(f"  {h}")
+    return EXIT_OK
+
+
+def cmd_vision_sample(args: argparse.Namespace) -> int:
+    from rra.application.usecases.vision_sample import build_sample
+    from rra.composition import build_read_images, load_settings, vision_config
+
+    settings = load_settings()
+    vcfg = vision_config(settings)
+    usecase = build_read_images(settings, snapshot=args.snapshot, with_reader=not args.cached_only)
+    report = asyncio.run(usecase(limit=args.limit))
+    sample = build_sample(report.results, per_type=args.per_type or vcfg["sample_per_type"])
+    out = Path(args.out or vcfg["sample_dir"])
+    out.mkdir(parents=True, exist_ok=True)
+    for name, content in sample.files().items():
+        (out / name).write_text(content, encoding="utf-8")
+    print(sample.markdown())
+    print(
+        f"표본 {sum(len(v) for v in sample.entries.values())}건 → {out}/ "
+        f"(실제 호출 {report.calls}건)"
+    )
+    return EXIT_OK
+
+
 # ── mcp ───────────────────────────────────────────────────
 def cmd_mcp(args: argparse.Namespace) -> int:
     from rra.entrypoints.mcp.server import main as mcp_main
@@ -1508,6 +1588,26 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument("--source", help="쉼표로 구분 (기본: scienceon,ntis,kipris)")
     chk.add_argument("--json", action="store_true")
     chk.set_defaults(handler=cmd_sources_check)
+
+    vis = sub.add_parser("vision", help="웹 이미지 판독 (P3): OCR 대조 + Argon, 캐시·상한")
+    vis_sub = vis.add_subparsers(dest="vision_cmd", required=True)
+    vr = vis_sub.add_parser("read", help="스냅샷 이미지 판독 (--dry-run: 계획만, 호출 없음)")
+    vr.add_argument("--snapshot", help="data/korail_web/snapshots/<date> (기본: 최신)")
+    vr.add_argument("--dry-run", action="store_true", help="거르기·순서·예상 호출 수만 출력")
+    vr.add_argument("--limit", type=int, help="처리 이미지 수 상한 (시험용)")
+    vr.add_argument("--cap", type=int, help="Argon 호출 상한 (기본 vision.yaml cap)")
+    vr.add_argument("--ocr-only", action="store_true", help="Argon 없이 OCR 만")
+    vr.add_argument("--json", action="store_true")
+    vr.set_defaults(handler=cmd_vision_read)
+    vs = vis_sub.add_parser("sample", help="측정 표본: 종류별 원본·OCR·Argon 나란히 + 요약표")
+    vs.add_argument("--snapshot")
+    vs.add_argument("--out", help="출력 폴더 (기본 vision.yaml paths.sample = docs/ocr-sample)")
+    vs.add_argument("--limit", type=int)
+    vs.add_argument("--per-type", type=int, help="종류별 표본 수 (기본 30)")
+    vs.add_argument(
+        "--cached-only", action="store_true", help="Argon 호출 없이 캐시·OCR 결과만으로"
+    )
+    vs.set_defaults(handler=cmd_vision_sample)
 
     alio = sub.add_parser("alio", help="알리오 공시 보고서 카탈로그·filedrop 관리")
     alio_sub = alio.add_subparsers(dest="alio_cmd", required=True)

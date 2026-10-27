@@ -38,6 +38,7 @@ from rra.config_loader import (
     served_model_aliases,
     source_config,
     strategy_catalog,
+    vision_config,
 )
 from rra.settings import Settings, load_settings
 
@@ -161,9 +162,21 @@ def build_llm(
     보안 C: 원격 provider(gemini·openai)는 base_url 호스트가 allowed_domains 에 있어야 한다.
     보안 D: 키는 provider 별 Settings 필드(SecretStr)에서만. 없으면 LLMUnavailable (변수 이름만).
     """
+    from rra.adapters.llm import OpenAICompatLLM
+
+    return _build_openai_compat(OpenAICompatLLM, settings, stage=stage, provider=provider)
+
+
+def _build_openai_compat(
+    cls, settings: Settings | None, *, stage: str, provider: str | None, **extra
+):
+    """OpenAI 호환 어댑터 공용 조립 — 텍스트(build_llm)·이미지(build_vision_reader). 원격 provider
+    는
+    provider 별 공유 호출 제한기(rate)를 붙인다 (프로세스 내, adapters/llm/rate_limiter)."""
     import httpx
 
-    from rra.adapters.llm import OpenAICompatLLM, RetryPolicy
+    from rra.adapters.llm import RetryPolicy
+    from rra.adapters.llm.rate_limiter import limiter_for
 
     settings = settings or load_settings()
     cfg = llm_config(settings, stage, provider=provider)
@@ -173,7 +186,8 @@ def build_llm(
     key = (
         getattr(settings, cfg["api_key_field"]).get_secret_value() if cfg["api_key_field"] else None
     )
-    return OpenAICompatLLM(
+    limiter = limiter_for(cfg["provider"], **cfg["rate"]) if cfg.get("rate") else None
+    return cls(
         cfg["base_url"],
         cfg["model"],
         provider=cfg["provider"],
@@ -189,6 +203,104 @@ def build_llm(
         json_mode=cfg["json_mode"],
         timeout=httpx.Timeout(**cfg["timeout"]),
         retry=RetryPolicy(**cfg["retry"]),
+        limiter=limiter,
+        **extra,
+    )
+
+
+# ── 이미지 판독 (P3) ───────────────────────────────────────
+def build_vision_reader(settings: Settings | None = None):
+    """VisionReaderPort (stage=vision, 기본 gemini). 키가 없으면 LLMUnavailable."""
+    from rra.adapters.llm.vision_reader import OpenAICompatVisionReader
+
+    settings = settings or load_settings()
+    vcfg = vision_config(settings)
+    return _build_openai_compat(
+        OpenAICompatVisionReader,
+        settings,
+        stage="vision",
+        provider=None,
+        max_image_bytes=vcfg["image_max_bytes"],
+    )
+
+
+def build_vision_ocr(settings: Settings | None = None):
+    """OcrPort — macOS Vision (격리 자식). 엔진이 없으면 None 을 돌려주고 파이프라인은
+    'OCR 없음' 으로 간다."""
+    from dataclasses import replace
+
+    from rra.adapters.vision import MacVisionOcr, ocr_available
+
+    settings = settings or load_settings()
+    if not ocr_available():
+        return None
+    ocr_cfg = vision_config(settings)["ocr"]
+    limits = replace(sandbox_limits(settings), timeout_sec=ocr_cfg["timeout_sec"])
+    return MacVisionOcr(
+        limits=limits,
+        languages=tuple(ocr_cfg["languages"]),
+        max_bytes=ocr_cfg["max_bytes"],
+        max_pixels=ocr_cfg["max_pixels"],
+    )
+
+
+def build_vision_store(settings: Settings | None = None):
+    from rra.adapters.vision import FileVisionStore
+
+    settings = settings or load_settings()
+    return FileVisionStore(Path(vision_config(settings)["store_dir"]))
+
+
+def build_vision_snapshot(settings: Settings | None = None, *, snapshot: str | None = None):
+    from rra.adapters.vision import SnapshotImages
+
+    settings = settings or load_settings()
+    vcfg = vision_config(settings)
+    return SnapshotImages(
+        Path(vcfg["snapshots_dir"]),
+        snapshot,
+        max_bytes=int(vcfg["filter"].get("max_bytes", 15728640)),
+    )
+
+
+def build_read_images(
+    settings: Settings | None = None,
+    *,
+    snapshot: str | None = None,
+    cap: int | None = None,
+    with_reader: bool = True,
+    reader=None,
+    ocr=None,
+    store=None,
+):
+    """ReadImages 유스케이스. 판독기 키가 없으면 OCR 만 (reader=None). with_reader=False 는
+    dry-run·시험용."""
+    from rra.application.usecases.read_images import ReadImages
+    from rra.domain.rules.image_filter import ImageFilterConfig
+    from rra.domain.rules.vision_plan import group_keywords
+
+    settings = settings or load_settings()
+    vcfg = vision_config(settings)
+    if reader is None and with_reader:
+        try:
+            reader = build_vision_reader(settings)
+        except LLMUnavailable:
+            reader = None
+    if ocr is None:
+        ocr = build_vision_ocr(settings)
+    prompts = build_prompt_library(settings)
+    stage = llm_config(settings, "vision")
+    return ReadImages(
+        build_vision_snapshot(settings, snapshot=snapshot),
+        store or build_vision_store(settings),
+        ocr=ocr,
+        reader=reader,
+        prompt=prompts.vision(),
+        system=prompts.system(),
+        filter_config=ImageFilterConfig.from_dict(vcfg["filter"]),
+        cap=cap if cap is not None else vcfg["cap"],
+        keywords=group_keywords(vcfg["order_keywords"]),
+        max_tokens=stage["max_tokens"],
     )
 
 
