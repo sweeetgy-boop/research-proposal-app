@@ -34,3 +34,4 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-27,(feat/source-ip),자료원 IP 확인 [I](#46),1729,1329,8,7578,8105,15723,7236,262,,,,,,,,,,web Vitest 58; 실호출 ScienceON ok·NTIS 3 대상 NtisIpBlocked(공인 IP 59.0.251.250 는 등록 목록에 있음); cache/source_availability.json
 2026-10-27,(feat/login),로그인 사번·공용 계정 [A](#48),1756,1337,8,,,,,,,,,,,,,,,테스트 +26; web Vitest 59(axe 0)·Playwright 13(두 로그인 경로); data/auth 700/600·git 추적 없음
 2026-10-27,(fix/image-vision-basis),fix text_basis image_vision CHECK(#47),,,8,,,,,,,,,,,,,,,migration 006 표 재생성(rowid 보존·FK OFF); 운영 DB 사본 8406건 보존·integrity ok; 테스트 +3
+2026-10-27,(feat/ntis-live2),NTIS 실응답 확정 [R](#50),1770,1383,8,7768,8388,16334,7487,272,,,,,,,,,,ParseError 원인=Accept json → XML 을 JSON 문자열로 감쌈(unwrap) + 보고서 DocUrl 맨 &; 실응답 fixture 6종(과제 20·보고서 10·성과 12·연관 10, 이름 NAME-REMOVED); sources check ntis/ntis_reports/ntis_insights ok(1087/202/12·10); NTIS 호출 17회

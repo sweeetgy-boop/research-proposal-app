@@ -71,7 +71,7 @@
 | 항목 | 상태 |
 |---|---|
 | ScienceON 키 | 2026-10-27 15:48 사람이 .env 를 맞바꿔 실호출 auth ok(ARTI 1,858·REPORT 370·PATENT 911). Mac mini 의 .env 도 같은 값인지 확인 |
-| **NTIS 서버 IP 반영 확인** — 현재 공인 IP 59.0.251.250 은 `sources.yaml registered_ips` 에 있으나 4개 서비스 실호출이 여전히 `접근 허용 IP가 아닙니다`(17:5x, #46). NTIS 활용신청의 서비스별 서버 IP 반영 여부·실제 송신 IP 를 확인(콜센터 042-865-1115) | 반영 뒤 `rra sources check --source ntis,ntis_reports,ntis_insights` → 녹화(SYNTHETIC fixture 교체) → `rra ingest --source ntis --limit 2000 && rra ingest --source ntis_reports --limit 1500` → 골든셋 01·02 재측정 (`docs/status.d/feat-ntis-live.md`) |
+| NTIS | **해결(19:01)** — 등록 IP 반영으로 4개 서비스 실호출 ok, 파서 확정(#50). 남은 일: 운영 전 공인 IP 고정(IP 가 바뀌면 활용신청 서버 IP·`sources.yaml registered_ips` 갱신), 나머지 11개 질의 총건수·골든셋 임계치(0.80) 확인 | 적재 뒤 `rra precheck` 로 national_rnd 알림 확인 |
 | KIPRIS API 키 → 실응답 녹화 → FIELDS·record_tag 확정 | 대기. 특허는 ScienceON PATENT 가 기본(ADR 0016)이라 선택 |
 | `RRA_DATA_GO_KR_KEY` (나라장터 입찰공고정보서비스, 공공데이터포털 자동승인) | 대기 — 반영 뒤 `rra sources check --source g2b` → 녹화 → `rra ingest --source g2b` (`docs/status.d/feat-policy-sources.md`) |
 | `.env RRA_DATA_DIR` | `RRA_DATA_DIR=/Users/chan/projects/research-proposal-app/data` 명시 권장(Mac mini 는 그 경로). 기본값도 원 저장소 data/ 를 찾는다(#42) |
@@ -195,4 +195,5 @@ main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기�
 | 자료원 IP 확인 [I] | `sources.yaml` 자료원별 `ip_restricted`·`registered_ips`(NTIS 2개), `rra sources check` 가 공인 IP(api.ipify.org) 를 대조해 "현재 IP … 등록 IP 에 없습니다" 안내, IP 거부 응답은 그 자료원만 건너뜀(ingest·사전 점검 NTIS 성과) + 웹 `/sources`·`rra sources status` 안내(#46). 실호출: ScienceON ok, NTIS 는 현재 IP 59.0.251.250 이 목록에 있어도 거부 → NTIS 쪽 반영 확인 | ADR 0025, `docs/status.d/feat-source-ip.md` |
 | 로그인 [A] | 직원 사번(HMAC-SHA256, `data/auth/` 700/600·원문 없음)·공용 아이디·비밀번호(scrypt)·관리 토큰 3종, run 소유자 가명 격리(남의 run 404, 관리자는 전부, 옛 run 은 관리자만), 공용 계정 internal 제외, 사용자별 일일 상한(공용 10·직원 20)·잠금(계정 5회·IP 20회/10분·전체 50회 지연), Gemini 일일 300회 상한(소진 시 검토 없이 진행+알림), `rra auth` CLI(getpass), 웹 로그인 두 탭(#48). **사람: 사번 등록·공용 계정 설정** | ADR 0026, `docs/status.d/feat-login.md` |
 | DB migration 006 | 이미지 판독 적재가 `documents.text_basis` CHECK(002, image_vision 없음) 로 실패 → 표 재생성 migration(rowid 보존, FK OFF, 인덱스 5개 복원), 저장소 open 때 자동 적용(#47). 운영 DB 사본 검증 8,406건·integrity ok. 판독 결과 적재는 006 적용 뒤 재실행 | `docs/status.d/fix-image-vision-basis.md` |
-보류·미착수: g2b 실호출(키)·NTIS 적재(IP)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).
+| NTIS 실연결 확정 [R] | 19:01 부터 NTIS 가 응답(공인 IP 59.0.166.199 등록 반영). ParseError 원인은 Accept json → XML 을 JSON 문자열로 감쌈(unwrap) + 보고서 DocUrl 맨 &. 실응답 fixture 6종(이름 제거)·FIELDS·record_tag HIT 확정, per_query_limit 결함 수정(#50). `sources check` ntis·ntis_reports·ntis_insights ok. 적재(ntis 2,000·ntis_reports 1,500)는 19:3x 실행 | `docs/status.d/feat-ntis-live2.md`, `docs/external-apis.md` |
+보류·미착수: g2b 실호출(키)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).
