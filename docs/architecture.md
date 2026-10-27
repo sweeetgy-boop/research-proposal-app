@@ -811,6 +811,14 @@ fake 가 계약을 지키므로 유스케이스 테스트의 fake 결과를 믿�
   다 찾아본 것처럼 읽히지 않게. 비교할 자료가 아예 없으면 "검토를 수행하지 못함"으로 쓴다 — Step 6 에서 약한 모델이 "확인되지 않음"이라 쓰면서 무관한 청크를 인용하던 경로를 없앴다.
   기준 초과가 있으면 판정표(id·구분·유사도·basis·겹친 키워드, 제목 제외)를 주고 LLM 이 겹치는 범위·활용 방안을 쓴다.
   검색 청크에 없는 초과 문서는 제목·초록으로 `<doc_id>#overlap` 청크를 만들어 넣는다(비신뢰 구획).
+- **판정 후보는 과제형 자료원만** (2026-10-28, ADR 0028, `domain/rules/overlap_candidates.py`, `config/overlap.yaml candidates`):
+  own·alio·NTIS 과제(`rnd_project`)·g2b 만 유사과제 판정·차단·근접 알림에 들어간다. 논문·보고서·특허(ScienceON·OpenAlex·KIPRIS·
+  NTIS 연구보고서)는 기수행 과제가 아니므로 판정에서 빼고 `PrecheckResult.related_research`(관련 연구, 참고 — 제목·출처·연도·유사도·
+  링크 상위 5)로 따로 돌려준다(REST `POST /v1/precheck` `related_research[]`, 웹 ② "관련 연구" 목록 배지 "참고"; CLI·MCP·Streamlit 은
+  알림만). 저장소 검색은 `find_similar(sources=…)` 로 과제형 자료원 안에서만 하고(sqlite-vec KNN 사전 필터), 후보 풀은 자료원마다
+  상위 `pool.per_source`(6) 건 + 전체 순위로 `pool.size`(24) 까지 — NTIS 과제 2,000건(유사도 0.87~0.89)이 사내 기록(0.84~0.86)을
+  밀어내지 않게. `judge()` 는 차단 먼저, 그 안에서는 입력(reranker) 순서를 유지한다. `RetrievalMix.candidates` 로 생성 단계의 판정도
+  같은 집합. 측정: `docs/eval-2026-10-28-precheck.md`(적중 5/10 → 9/10).
 - **차단 = 유사도 AND 키워드** (`domain/rules/keywords.py`, 2026-10-13). multilingual-e5 의 코사인은 분포가
   압축돼 서로 무관한 한국어 문장 쌍도 0.79~0.83 이 나온다 (실측: 궤도 기하 열화 제안 vs 자산개발 공개 요약 0.832,
   진짜 유사한 자산개발 입력 0.867, 구내식당 메뉴 개선 0.797). own 임계치 0.80 이 그 바닥에 걸려 유사도만으로는

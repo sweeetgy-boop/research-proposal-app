@@ -59,3 +59,30 @@ keywords:
     - 완료
     - 제출
     - 사내
+
+# 유사과제 판정·알림 후보 자료원 (2026-10-28, ADR 0028, domain/rules/overlap_candidates.py).
+# ScienceON 2,045건·NTIS 연구보고서 1,084건 적재 뒤 논문(유사도 0.88~0.90)이 상위를 메워 사내 기록이 밀렸다
+# (골든셋 precheck 적중 9/10 → 6/10). 과제형 자료원만 판정·차단·근접 알림에 쓰고, 논문·보고서·특허는
+# `related_research`(관련 연구, 참고) 로 따로 돌려준다. doc_types 가 비면 그 자료원 전부.
+# project 가 비면 제한 없음(옛 동작). NTIS 는 과제검색(rnd_project)만 과제, 연구보고서(report)는 관련 연구.
+candidates:
+  project:
+    - {source: own}
+    - {source: alio}
+    - {source: ntis, doc_types: [rnd_project]}
+    - {source: g2b}
+  # 후보 풀(reranker 입력): 자료원마다 상위 per_source 건을 먼저 넣고 나머지는 전체 순위로 size 까지.
+  # NTIS 과제 2,000건은 요약이 비슷해 e5 유사도 0.87~0.89 로 사내 기록(0.84~0.86)을 상위 80 밖으로 밀어낸다
+  # (2026-10-28 골든셋 01·10). 측정(docs/eval-2026-10-28-precheck.md): 7/28 → 적중 9/10·1.94~2.09s, 6/24 → 8/10(10번 놓침)·
+  # 지연 같음(reranker 자체가 1.7~2.0s). 그래서 7/28.
+  pool:
+    per_source: 7
+    size: 28
+  research:
+    k: 5
+    members:
+      - {source: scienceon}
+      - {source: openalex}
+      - {source: kipris_kr}
+      - {source: kipris_intl}
+      - {source: ntis, doc_types: [report]}

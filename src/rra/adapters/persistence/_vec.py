@@ -50,6 +50,12 @@ class VectorBackend(Protocol):
     def add(self, rows: list[tuple[int, list[float]]]) -> None: ...
     def delete(self, chunk_rowids: list[int]) -> None: ...
     def search(self, vector: list[float], k: int) -> list[tuple[int, float]]: ...
+    def search_within(
+        self, vector: list[float], k: int, rowid_sql: str, params: tuple[object, ...]
+    ) -> list[tuple[int, float]]:
+        """`rowid_sql`(청크 rowid 를 돌려주는 SELECT, 값은 params 로 바인딩) 안에서만 상위 k."""
+        ...
+
     def vectors(self, chunk_rowids: list[int]) -> dict[int, list[float]]: ...
 
 
@@ -86,6 +92,16 @@ class BruteForceBackend:
             (row[0], cosine(query, unpack(row[1])))
             for row in self.conn.execute("SELECT chunk_rowid, vec FROM chunk_embeddings")
         ]
+        scored.sort(key=lambda rs: (-rs[1], rs[0]))
+        return scored[:k]
+
+    def search_within(
+        self, vector: list[float], k: int, rowid_sql: str, params: tuple[object, ...]
+    ) -> list[tuple[int, float]]:
+        query = normalize(vector)
+        # rowid_sql 은 sqlite_repo 의 상수 조각에서만 오고 값은 전부 params 로 바인딩된다 (보안 E).
+        sql = f"SELECT chunk_rowid, vec FROM chunk_embeddings WHERE chunk_rowid IN ({rowid_sql})"  # noqa: S608  # nosec B608
+        scored = [(row[0], cosine(query, unpack(row[1]))) for row in self.conn.execute(sql, params)]
         scored.sort(key=lambda rs: (-rs[1], rs[0]))
         return scored[:k]
 
@@ -147,6 +163,16 @@ class SqliteVecBackend:
             "WHERE embedding MATCH ? AND k = ? ORDER BY distance",
             (pack(normalize(vector)), k),
         ).fetchall()
+        return [(row[0], max(0.0, min(1.0, 1.0 - row[1]))) for row in rows]
+
+    def search_within(
+        self, vector: list[float], k: int, rowid_sql: str, params: tuple[object, ...]
+    ) -> list[tuple[int, float]]:
+        # vec0 의 KNN 사전 필터(`rowid IN (...)`, sqlite-vec ≥ 0.1.2). rowid_sql 은 sqlite_repo 의
+        # 상수 조각, 값은 전부 바인딩 (보안 E).
+        where = f"WHERE embedding MATCH ? AND k = ? AND chunk_rowid IN ({rowid_sql})"  # noqa: S608  # nosec B608
+        sql = f"SELECT chunk_rowid, distance FROM chunk_vec {where} ORDER BY distance"  # noqa: S608  # nosec B608
+        rows = self.conn.execute(sql, (pack(normalize(vector)), k, *params)).fetchall()
         return [(row[0], max(0.0, min(1.0, 1.0 - row[1]))) for row in rows]
 
     def vectors(self, chunk_rowids: list[int]) -> dict[int, list[float]]:

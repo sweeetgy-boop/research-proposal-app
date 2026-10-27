@@ -126,7 +126,7 @@ def judge(
 ) -> list[OverlapAlert]:
     """임계치 초과 문서를 경보로. `keywords` 가 있으면 차단에는 질의 키워드가 문서에도
     `min_hits` 개 이상 등장해야 한다 (e5 유사도만으로는 무관한 한국어 문서도 임계치를 넘는다).
-    `keywords` 가 없으면 종전처럼 유사도만 본다."""
+    `keywords` 가 없으면 종전처럼 유사도만 본다. 결과는 차단 먼저, 그 안에서는 입력 순서."""
     th = thresholds or DEFAULT_THRESHOLDS
     alerts = []
     for doc, sim in hits:
@@ -148,7 +148,9 @@ def judge(
                 own_detail=own_detail_of(doc, own),
             )
         )
-    return sorted(alerts, key=lambda a: (-int(a.blocking), -a.similarity))
+    # 차단 먼저, 그 안에서는 입력 순서(저장소 유사도 순 또는 reranker 순) 유지 — reranker 가 고른
+    # 순서를 유사도 재정렬로 버리지 않는다 (2026-10-28, ADR 0028). 입력이 유사도 순이면 종전과 같다.
+    return sorted(alerts, key=lambda a: -int(a.blocking))
 
 
 _TIER_LABEL: dict[Tier, str] = {

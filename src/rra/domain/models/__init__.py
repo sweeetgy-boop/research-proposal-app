@@ -11,6 +11,8 @@ from .gap import (
     GapRow,
     GapTable,
     OverlapAlert,
+    PrecheckResult,
+    RelatedResearch,
     Tier,
 )
 from .notice import MAX_NOTICE_MATCHES, NoticeMatch
@@ -67,6 +69,8 @@ __all__ = [
     "GapRow",
     "GapTable",
     "OverlapAlert",
+    "PrecheckResult",
+    "RelatedResearch",
     "Tier",
     "Budget",
     "Confirmation",

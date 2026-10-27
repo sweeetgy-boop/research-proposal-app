@@ -54,8 +54,10 @@ class PublicOnlyRepository:
                 break
         return out
 
-    async def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]:
-        hits = await self._inner.find_similar(text, k=min(k * _OVERFETCH, 200))
+    async def find_similar(
+        self, text: str, *, k: int = 10, sources: list[str] | None = None
+    ) -> list[tuple[Document, float]]:
+        hits = await self._inner.find_similar(text, k=min(k * _OVERFETCH, 200), sources=sources)
         return [(d, s) for d, s in hits if is_public(d)][:k]
 
     async def get_document(self, doc_id: str) -> Document | None:

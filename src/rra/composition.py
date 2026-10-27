@@ -33,6 +33,7 @@ from rra.config_loader import (
     llm_config,
     llm_key_present,
     molit_config,
+    overlap_candidates,
     own_unit,
     pipeline_config,
     public_ip_config,
@@ -1378,6 +1379,7 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
         keywords=keyword_rule(settings),
         reranker=reranker,
         mix=retrieval_mix(settings),
+        candidates=overlap_candidates(settings),
     )
 
 
@@ -1561,6 +1563,8 @@ FAKE_MODE_WARNING = (
 
 def build_fake_parts(settings: Settings):
     """가짜 모드(RRA_FAKE_LLM=1) 부품 — 가짜 LLM·메모리 저장소·시드 문서. adapters/fake."""
+    from datetime import date
+
     from rra.adapters.fake import (
         InMemoryDocumentRepository,
         InMemoryRunStore,
@@ -1608,6 +1612,19 @@ def build_fake_parts(settings: Settings):
                 orgs=["external"],
                 text_basis="abstract",
                 raw={"kind": "national_rnd", "project_no": "fake-1"},
+            ),
+            # ScienceON 논문 → 유사과제 판정이 아니라 ② "관련 연구"(참고) 목록 (ADR 0028). 청크 없이
+            # 문서만.
+            Document(
+                doc_id="scienceon:fake-1",
+                source="scienceon",
+                doc_type="paper",
+                title="궤도 틀림 진행 속도 추정 논문 (가짜)",
+                abstract="검측 이력으로 궤도 틀림 진행 속도를 추정하는 국내 논문 초록",
+                orgs=["external"],
+                pub_date=date(2024, 5, 1),
+                url="https://scienceon.kisti.re.kr/fake-1",
+                text_basis="abstract",
             ),
         ],
         [

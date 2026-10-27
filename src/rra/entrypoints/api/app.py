@@ -88,6 +88,7 @@ from rra.entrypoints.views import (
     policy_suggestions_payload,
     recommendation_preview_payload,
     recommendations_payload,
+    related_research_payload,
     render_check_payload,
     review_payload,
     rewrite_payload,
@@ -505,8 +506,17 @@ def create_app(
     async def precheck_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
         """유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,
         과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다."""
-        alerts = await _svc(request, "precheck")(req)
-        out = {"notice": UNTRUSTED_NOTICE, **alerts_payload(alerts, clean=_clean)}
+        svc = _svc(request, "precheck")
+        result = await svc.run(req) if hasattr(svc, "run") else None
+        alerts = result.alerts if result is not None else await svc(req)
+        out = {
+            "notice": UNTRUSTED_NOTICE,
+            **alerts_payload(alerts, clean=_clean),
+            # 관련 연구(논문·보고서·특허)는 판정이 아니다 — 화면은 "참고" 로 따로 보인다 (ADR 0028)
+            "related_research": related_research_payload(
+                result.related_research if result is not None else [], clean=_clean
+            ),
+        }
         try:
             if out["blocking"] and differentiate is not None:
                 proposal = await _svc(request, "differentiate")(req, alerts)

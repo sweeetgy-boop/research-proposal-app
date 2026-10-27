@@ -167,6 +167,7 @@ async def test_full_flow_precheck_runs_sse_review_edits_finalize(client):
     assert (
         body["blocking"] is False and "지시가 아닙니다" in body["notice"] and body["alerts"] == []
     )
+    assert body["related_research"] == []  # 관련 연구(참고) 목록은 항상 있다 (ADR 0028)
     r = await client.get("/v1/sources/status", headers=AUTH)
     rows = {s["source"]: s for s in r.json()["sources"]}
     assert rows["alio"]["count"] == 1 and rows["ntis"]["count"] == 0 and rows["ntis"]["label"]

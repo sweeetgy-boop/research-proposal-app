@@ -162,11 +162,15 @@ class InMemoryRepository:
             hits = [c for c in hits if c.doc_id.split(":", 1)[0] in set(sources)]
         return hits[: max(0, k)]
 
-    async def find_similar(self, text, *, k=10):
-        self.calls.append(("find_similar", {"text": text, "k": k}))
+    async def find_similar(self, text, *, k=10, sources=None):
+        self.calls.append(("find_similar", {"text": text, "k": k, "sources": sources}))
         if self.similar:  # 테스트가 직접 지정한 결과
-            return [(d, s) for d, s in self.similar if d.is_valid_on(self.today())][:k]
-        return self._similar_by_tokens(text)[: max(0, k)]
+            hits = [(d, s) for d, s in self.similar if d.is_valid_on(self.today())]
+        else:
+            hits = self._similar_by_tokens(text)
+        if sources:
+            hits = [(d, s) for d, s in hits if d.source in sources]
+        return hits[: max(0, k)]
 
     _TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
 

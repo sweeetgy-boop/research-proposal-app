@@ -23,7 +23,12 @@ class DocumentRepository(Protocol):
         """FTS + 벡터 융합 검색. orgs 는 기관 태그, sources 는 자료원(Document.source) 필터."""
         ...
 
-    async def find_similar(self, text: str, *, k: int = 10) -> list[tuple[Document, float]]: ...
+    async def find_similar(
+        self, text: str, *, k: int = 10, sources: list[str] | None = None
+    ) -> list[tuple[Document, float]]:
+        """벡터 유사 문서 (문서, 코사인) 내림차순. sources 는 자료원(Document.source) 필터 —
+        유사과제 판정은 과제형 자료원만 본다(ADR 0028)."""
+        ...
 
     async def get_document(self, doc_id: str) -> Document | None: ...
 
