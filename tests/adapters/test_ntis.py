@@ -214,6 +214,29 @@ def test_bare_ampersand_in_report_docurl_is_repaired():
     assert parse_response(b"<r><a>x &amp; y &#39; &lt;</a></r>").findtext("a") == "x & y ' <"
 
 
+def test_undefined_named_entity_is_treated_as_bare_ampersand():
+    # 2026-10-27 실응답(철도 궤도, displayCount 100) 2722행 "Joint R&DB;" — DTD 가 없으니 &DB; 는
+    # 정의되지 않은 엔티티라 ParseError. 미리 정의된 5개·숫자 참조만 남기고 나머지는 맨 & 로 본다.
+    body = b"<r><English>Policy;Joint R&DB;Turn - Key;EPCM &copy; &amp; &#x41;</English></r>"
+    with pytest.raises(XmlResponseError, match="ParseError"):
+        parse(body)
+    assert parse_response(body).findtext("English") == (
+        "Policy;Joint R&DB;Turn - Key;EPCM &copy; & A"
+    )
+
+
+def test_bare_less_than_before_space_is_repaired():
+    # 2026-10-27 실응답(철도 궤도 2쪽·철도 안전 1쪽):
+    # "R&amp;D 동향조사 < <span class=…>철도</span>교통" — 공백 앞의 맨 < 는 태그가 아니다.
+    text = '<r><Korean>2019 R&amp;D 동향 < <span class="w">철도</span>교통 <\n</Korean></r>'
+    body = text.encode()
+    with pytest.raises(XmlResponseError, match="ParseError"):
+        parse(body)
+    root = parse_response(body)
+    assert root.find("Korean/span") is not None  # 진짜 태그는 그대로
+    assert "".join(root.find("Korean").itertext()) == "2019 R&D 동향 < 철도교통 <\n"
+
+
 def test_probe_result_prefers_configured_tag_over_navigation_entries():
     root = parse_response(PROJECT_FIX.read_bytes())
     assert [e.tag for e in find_records(root)] == ["NAVIGATIONENTRY"] * 13  # 자동 탐지는 틀린다

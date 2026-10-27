@@ -308,7 +308,7 @@ def test_run_manager_wiring_does_not_load_the_model(tmp_path, monkeypatch):
     assert isinstance(mgr.generate.llm, LLMPort)
     assert isinstance(mgr.generate.repo.embedding, EmbeddingPort)
     assert not mgr.generate.repo.embedding.loaded
-    assert mgr.max_queued == 3
+    assert mgr.max_queued == 6  # config/security.yaml max_queued_runs (시범 운영 6)
     # manifest 에는 선언된 실제 모델명, 요청은 default_model
     assert mgr.model == "mlx-community/Qwen2.5-7B-Instruct-4bit"
     assert comp.llm_config(settings, "compose")["model"] == "default_model"
