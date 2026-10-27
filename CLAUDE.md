@@ -138,8 +138,8 @@
   (`RRA_DATA_DIR`, `config_loader.resolve_data_dir`·`data_path`·`data_locations`, #42) — worktree 는 데이터를 갖지 않는다.
   공사 홈페이지 `korail_web`(크롤·첨부·xlsx 시트 본문·내장 이미지 #34·#40), 이미지 판독 `adapters/vision`(거르기·OCR·사진 거르기
   `domain/rules/photo_filter` #43·병렬 `concurrency` #44·신뢰도 규칙, `rra vision extract|read|sample|ingest`; `sample` 은
-  `--cached-only` 로 — 아니면 캐시 없는 항목을 다시 호출한다), NTIS 4 서비스(`adapters/sources/ntis`, 티어 `national_rnd`, IP 등록 필요,
-  #35), [P2] g2b(키)·bai(Playwright)·datago·mofe(#37), `rnd_notice` KAIA·IRIS 공고(#38), `table_facts`·용어 후보(#36, migration 005),
+  `--cached-only` 로 — 아니면 캐시 없는 항목을 다시 호출한다), NTIS 4 서비스(`adapters/sources/ntis`, 티어 `national_rnd`, 서버 IP 등록 필요, #35; 실응답 확정 #50 — 응답은 Accept json 이면
+  JSON 문자열로 감싼 XML(`unwrap_json_string`), record_tag HIT, fixture 는 실응답·이름 제거), [P2] g2b(키)·bai(Playwright)·datago·mofe(#37), `rnd_notice` KAIA·IRIS 공고(#38), `table_facts`·용어 후보(#36, migration 005),
   `config/retrieval_mix.yaml`(섹션별 doc_type·최소 보장), reranker 잠금(#41). **브라우저 접속**(#45, ADR 0024): `config/api.yaml`
   (`public_origin`·`trust_cf_connecting_ip`), `adapters/security/client_ip.py`(CF-Connecting-IP 는 peer 127.0.0.1 일 때만), Origin 검사,
   cloudflared 설정 초안·`com.rra.tunnel.plist` — 터널·Access 는 사람 작업(`docs/deploy-exposure.md` §5).
