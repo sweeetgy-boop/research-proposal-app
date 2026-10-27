@@ -43,4 +43,4 @@ async def test_generate_overlap_check_ignores_policy_documents(req, docs, chunks
         FakeLLM(), repo, FakePromptLibrary(), rules, ["overlap_review"], own=own, check_overlap=True
     )
     snapshot = await gen.retrieve(req)
-    assert [a.doc_id for a in snapshot.alerts] == ["alio:1"]
+    assert [a.doc_id for a in snapshot.overlap] == ["alio:1"]
