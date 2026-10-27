@@ -9,5 +9,5 @@ rule_check: true        # Q6 규칙 검사·자동 정리 (어미 통일·완전
 draft_review: true      # Argon 1차 검토 → 검증 통과 수정안·추가 문장 자동 반영 → v2 (키 없으면 v1 로 진행)
 additions: false        # Q5 Argon 보완 작성 (섹션별 필수 요소 체크리스트로 빠진 문장 추가 제안)
 two_candidates: false   # Q7 핵심 섹션(기술적 중요도·연구방법) 두 후보 → 1차 검토에서 선택
-reranker: false         # Q8 cross-encoder reranker (이슈 #12)
+reranker: true          # Q8 cross-encoder reranker — precheck 적중 9/10 유지·평균 순위 1.7→1.4·지연 1.5~1.95s (2026-10-27, ADR 0013). 모델 폴더 없으면 자동 생략
 draft_review_retries: 1 # 1차 검토 실패 시 재시도 횟수

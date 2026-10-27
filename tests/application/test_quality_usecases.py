@@ -236,3 +236,62 @@ def test_finalize_unifies_endings_removes_duplicates_and_warns_the_rest():
     g.rule_check = False
     draft2, _ = g.finalize("r", REQ, snap, sections)
     assert [s.text for s in draft2.section("method").sentences][0] == "이력을 분석한다."
+
+
+# ── 근거 구성 규칙(retrieval_mix) ──────────────────────────
+async def test_section_search_keeps_scholarly_minimum_and_filters_policy_docs():
+    from rra.domain.rules.retrieval_mix import RetrievalMix, SectionMix
+
+    r = InMemoryRepository()
+    docs = [
+        Document(doc_id=f"own:{i}", source="own", doc_type="rnd_project", title=f"o{i}")
+        for i in range(6)
+    ]
+    docs += [
+        Document(doc_id=f"openalex:W{i}", source="openalex", doc_type="paper", title=f"p{i}")
+        for i in range(3)
+    ]
+    docs += [
+        Document(doc_id="alio:pol", source="alio", doc_type="internal_report", title="policy-like")
+    ]
+    chunks = [
+        Chunk(chunk_id=f"{d.doc_id}#0", doc_id=d.doc_id, ordinal=0, text=f"궤도 {d.title}")
+        for d in docs
+    ]
+    r.seed(docs, chunks)
+    mix = RetrievalMix(
+        section_min_per_source=1,
+        sections={
+            "method": SectionMix(allow=("paper", "rnd_project"), min_scholarly=2),
+            "title": SectionMix(allow=("paper",)),
+        },
+        overlap_exclude=("internal_report",),
+    )
+    g = gen(FakeLLM(), r, section_search=True, section_k=3, mix=mix, k=4)
+    snap = await g.retrieve(REQ)
+    assert set(snap.doc_types) == {c.doc_id for c in snap.chunks}  # 스냅샷 문서마다 doc_type
+    snap = await g.retrieve_sections(REQ, snap)
+    method_ids = snap.section_chunks["method"]
+    types = [snap.doc_types[i.split("#")[0]] for i in method_ids]
+    assert (
+        types.count("paper") >= 2 and "internal_report" not in types
+    )  # 논문 최소 2 + 허용 밖 제외
+    assert [snap.doc_types[c.doc_id] for c in g.chunks_for("title", snap)] == ["paper"] * 3
+    # 유사과제 판정 후보에서 제외 doc_type 은 빠진다
+    r.similar = [(docs[-1], 0.95), (docs[0], 0.9)]
+    g2 = gen(FakeLLM(), r, check_overlap=True, mix=mix, k=4)
+    snap2 = await g2.retrieve(REQ)
+    assert [a.doc_id for a in snap2.overlap] == ["own:0"]
+
+
+async def test_precheck_excludes_overlap_exclude_types():
+    from rra.domain.rules.retrieval_mix import RetrievalMix
+
+    r = InMemoryRepository()
+    pol = Document(doc_id="alio:p", source="alio", doc_type="internal_report", title="정책")
+    own = Document(doc_id="own:1", source="own", doc_type="rnd_project", title="과제")
+    r.similar = [(pol, 0.95), (own, 0.9)]
+    mix = RetrievalMix(overlap_exclude=("internal_report",))
+    assert [a.doc_id for a in await PrecheckOverlap(r, mix=mix)(REQ)] == ["own:1"]
+    rr = FakeReranker()
+    assert [a.doc_id for a in await PrecheckOverlap(r, mix=mix, reranker=rr)(REQ)] == ["own:1"]

@@ -19,7 +19,9 @@ class PipelineConfig(BaseModel):
     draft_review: bool = True  # ③ Argon 1차 검토 → 검증 통과분 자동 반영 → v2 (키 없으면 v1)
     additions: bool = False  # Q5 Argon 보완 작성(빠진 요소 추가 문장)
     two_candidates: bool = False  # Q7 핵심 섹션 두 후보 → 1차 검토에서 선택
-    reranker: bool = False  # Q8 cross-encoder reranker
+    reranker: bool = (
+        True  # Q8 cross-encoder reranker (2026-10-27 측정 뒤 기본 켬; 모델 없으면 생략)
+    )
     draft_review_retries: int = Field(default=1, ge=0, le=3)  # 1차 검토 실패 시 재시도 횟수
 
     def enabled_steps(self) -> list[str]:

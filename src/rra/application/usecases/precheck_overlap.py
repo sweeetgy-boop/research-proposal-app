@@ -22,16 +22,21 @@ class PrecheckOverlap:
         own: OwnUnit | None = None,
         keywords: KeywordRule | None = None,
         reranker: Any | None = None,
+        mix: Any | None = None,  # RetrievalMix — overlap_exclude doc_type 은 판정 후보에서 뺀다
         rerank_multiplier: int = 3,  # k×3=30건: MPS 에서 약 1.6s (k×4 는 2.0~2.4s, 2026-10-27)
     ):
         self.repo, self.k, self.own, self.keywords = repo, k, own, keywords
-        self.reranker, self.rerank_multiplier = reranker, rerank_multiplier
+        self.reranker, self.rerank_multiplier, self.mix = reranker, rerank_multiplier, mix
 
     async def __call__(self, req: ProposalRequest) -> list[OverlapAlert]:
         query = req.search_text()
         if self.reranker is None:
-            hits = await self.repo.find_similar(query, k=self.k)
+            hits = list(await self.repo.find_similar(query, k=self.k))
+            if self.mix is not None:
+                hits = self.mix.overlap_candidates(hits, lambda d: d.doc_type)
         else:
-            wide = await self.repo.find_similar(query, k=self.k * self.rerank_multiplier)
-            hits = list(await self.reranker.rerank_documents(query, list(wide), k=self.k))
+            wide = list(await self.repo.find_similar(query, k=self.k * self.rerank_multiplier))
+            if self.mix is not None:
+                wide = self.mix.overlap_candidates(wide, lambda d: d.doc_type)
+            hits = list(await self.reranker.rerank_documents(query, wide, k=self.k))
         return judge(hits, own=self.own, query=query, keywords=self.keywords)

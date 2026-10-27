@@ -78,6 +78,7 @@ from rra.domain.rules.relevance import (
     balance_sources,
     filter_chunks,
 )
+from rra.domain.rules.retrieval_mix import RetrievalMix
 from rra.domain.rules.section_search import section_queries
 from rra.domain.rules.trust import enforce_section_evidence, escape_untrusted, wrap_untrusted
 
@@ -90,7 +91,8 @@ CHOICE_EXAMPLE = (
 )
 # Q7 두 후보를 쓰는 핵심 섹션 (기술적 중요도·연구방법) — 1차 검토가 고른다
 CORE_SECTIONS = frozenset({"tech_importance", "method"})
-EXEMPLAR_DROP = "exemplar_cited"  # Q4 본보기 과제를 근거로 달거나 문장을 그대로 베낀 경우
+EXEMPLAR_DROP = "exemplar_cited"  # Q4 본보기 문장을 그대로 베낀 경우
+SECTION_POOL_MULTIPLIER = 4  # Q3 섹션별 검색 후보 폭 (관련도 하한이 없을 때)
 
 ComposeMode = Literal["llm", "skipped", "app"]
 
@@ -141,6 +143,8 @@ class GenerateProposal:
     exemplar_exclude: frozenset[str] = frozenset()  # 본보기에서 뺄 doc_id (골든셋 정답 과제 등)
     rule_check: bool = True  # Q6 규칙 검사·자동 정리 (finalize, Argon 전)
     max_sentence_chars: int = style.DEFAULT_MAX_SENTENCE_CHARS
+    # 근거 구성 규칙(config/retrieval_mix.yaml): 섹션별 허용 doc_type·논문 최소 보장·유사과제 제외
+    mix: RetrievalMix | None = None
 
     @property
     def template(self) -> str | None:
@@ -174,8 +178,11 @@ class GenerateProposal:
         if not self.check_overlap and not self.exemplars:
             snapshot = RetrievalSnapshot.of(query, chunks)
             snapshot.dropped_chunks = dropped
+            await self._fill_doc_types(snapshot)
             return snapshot
         hits = await self.repo.find_similar(query, k=max(self.overlap_k, self.exemplar_limit * 5))
+        if self.mix is not None:  # 정책·보도·통계 문서는 과제가 아니다 — 판정 후보에서 뺀다
+            hits = self.mix.overlap_candidates(hits, lambda d: d.doc_type)
         if not self.check_overlap:
             snapshot = RetrievalSnapshot.of(query, chunks)
         else:
@@ -190,7 +197,19 @@ class GenerateProposal:
             snapshot.exemplars = pick_exemplars(
                 hits, limit=self.exemplar_limit, exclude=self.exemplar_exclude
             )
+        await self._fill_doc_types(snapshot)
         return snapshot
+
+    async def _fill_doc_types(self, snapshot: RetrievalSnapshot) -> None:
+        """근거 구성 규칙용 doc_id → doc_type (규칙이 있을 때만, 문서마다 1회 조회)."""
+        if self.mix is None:
+            return
+        for doc_id in {c.doc_id for c in snapshot.chunks}:
+            if doc_id in snapshot.doc_types:
+                continue
+            doc = await self.repo.get_document(doc_id)
+            if doc is not None:
+                snapshot.doc_types[doc_id] = doc.doc_type
 
     async def _rerank(self, query: str, chunks: list[Chunk]) -> list[Chunk]:
         if self.reranker is None or not chunks:
@@ -206,7 +225,8 @@ class GenerateProposal:
             return snapshot
         queries = section_queries(req, self.section_keys, outline)
         have = {c.chunk_id for c in snapshot.chunks}
-        multiplier = self.relevance.search_multiplier if self.relevance else 1
+        # 후보는 넓게(k×배수) 받아야 허용 doc_type·자료원 보장·논문 최소 보장을 채울 수 있다
+        multiplier = self.relevance.search_multiplier if self.relevance else SECTION_POOL_MULTIPLIER
         for key, query in queries.items():
             found = list(await self.repo.hybrid_search([query], k=self.section_k * multiplier))
             if self.relevance is not None:
@@ -214,17 +234,25 @@ class GenerateProposal:
                     found, query, self.relevance, self.keywords or KeywordRule()
                 )
             ranked = await self._rerank(query, found)
-            if self.relevance is not None and self.relevance.min_per_source > 0:
-                # 섹션 근거도 자료원 섞임을 지킨다 — 한국어 섹션 질의는 논문을 뒤로 밀기 때문
-                picked = balance_sources(
-                    ranked, self.section_k, max(1, self.relevance.min_per_source // 3)
-                )
-            else:
-                picked = ranked[: self.section_k]
-            for c in picked:
+            for c in ranked:  # doc_type 을 먼저 알아야 섹션 허용 규칙을 적용할 수 있다
                 if c.chunk_id not in have:
                     have.add(c.chunk_id)
                     snapshot.chunks.append(c)
+            await self._fill_doc_types(snapshot)
+            if self.mix is not None:
+                ranked = self.mix.filter(key, ranked, snapshot.doc_types)
+            per_source = (
+                self.mix.section_min_per_source
+                if self.mix is not None
+                else (max(1, self.relevance.min_per_source // 3) if self.relevance else 0)
+            )
+            if per_source > 0:
+                # 섹션 근거도 자료원 섞임을 지킨다 — 한국어 섹션 질의는 논문을 뒤로 밀기 때문
+                picked = balance_sources(ranked, self.section_k, per_source)
+            else:
+                picked = ranked[: self.section_k]
+            if self.mix is not None:  # 기술적 중요도·연구방법은 논문·보고서·특허 최소 보장
+                picked = self.mix.top_up_scholarly(key, picked, ranked, snapshot.doc_types)
             if picked:
                 snapshot.section_chunks[key] = [c.chunk_id for c in picked]
         return snapshot
@@ -444,8 +472,16 @@ class GenerateProposal:
                 "[자료]\n(없음 — 이 섹션은 제안자 입력만 근거로 쓴다. evidence 는 빈 배열)"
             )
         else:
-            parts.append(f"[자료]\n{wrap_untrusted(snapshot.chunks_for(key))}")
+            parts.append(f"[자료]\n{wrap_untrusted(self.chunks_for(key, snapshot))}")
         return "\n\n".join(parts)
+
+    def chunks_for(self, key: str, snapshot: RetrievalSnapshot) -> list[Chunk]:
+        """섹션 프롬프트 [자료] — 섹션별 검색 결과(또는 전체)에 근거 구성 규칙(허용 doc_type)을
+        적용."""
+        chunks = snapshot.chunks_for(key)
+        if self.mix is None or not snapshot.doc_types:
+            return chunks
+        return self.mix.filter(key, chunks, snapshot.doc_types)
 
     @staticmethod
     def _exemplar_rows(key: str, snapshot: RetrievalSnapshot) -> str:

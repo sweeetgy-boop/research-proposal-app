@@ -34,6 +34,7 @@ from rra.config_loader import (
     render_template_path,
     require_credentials,
     retention_days,
+    retrieval_mix,
     review_policy,
     section_checklists,
     security_config,
@@ -677,7 +678,11 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
     if reranker is None and (pipeline or pipeline_config(settings)).reranker:
         reranker = build_reranker(settings)
     return PrecheckOverlap(
-        repo, own=own_unit(settings), keywords=keyword_rule(settings), reranker=reranker
+        repo,
+        own=own_unit(settings),
+        keywords=keyword_rule(settings),
+        reranker=reranker,
+        mix=retrieval_mix(settings),
     )
 
 
@@ -712,6 +717,7 @@ def build_generate(
         section_search=pipeline.section_search,
         exemplars=pipeline.exemplars,
         rule_check=pipeline.rule_check,
+        mix=retrieval_mix(settings),
     )
 
 

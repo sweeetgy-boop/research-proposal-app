@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 SourceType = Literal["openalex", "scienceon", "kipris_kr", "kipris_intl", "ntis", "alio", "own"]
-DocType = Literal["paper", "patent", "internal_report", "rnd_project"]
+DocType = Literal["paper", "report", "patent", "internal_report", "rnd_project"]
 # 본문의 근거. full_text=원문 파일, summary=공개 요약(원문 비공개), abstract=초록·과제요약
 TextBasis = Literal["full_text", "summary", "abstract"]
 # public=외부(검토 LLM 등)로 보낼 수 있음, internal=사내 전용(외부 전송 제외·구획 표시)

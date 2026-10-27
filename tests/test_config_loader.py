@@ -350,3 +350,37 @@ def test_project_overlap_yaml_floor_equals_the_golden_measurement():
     from rra.domain.rules.relevance import RelevanceFloor
 
     assert relevance_floor(project_settings()) == RelevanceFloor()
+
+
+def test_retrieval_mix_loads_sections_and_overrides_min_per_source(tmp_path):
+    from rra.config_loader import relevance_floor, retrieval_mix
+    from rra.settings import Settings
+
+    (tmp_path / "overlap.yaml").write_text(
+        "evidence_floor: {min_similarity: 0.5, min_per_source: 9}\n", encoding="utf-8"
+    )
+    settings = Settings(_env_file=None, config_dir=tmp_path)
+    assert retrieval_mix(settings) is None and relevance_floor(settings).min_per_source == 9
+    (tmp_path / "retrieval_mix.yaml").write_text(
+        "min_per_source: 4\nsection_min_per_source: 1\nscholarly: [paper]\n"
+        "sections:\n  method: {allow: [paper, rnd_project], min_scholarly: 2}\n"
+        "overlap_exclude: [policy]\n",
+        encoding="utf-8",
+    )
+    mix = retrieval_mix(settings)
+    assert mix.min_per_source == 4 and relevance_floor(settings).min_per_source == 4
+    assert mix.sections["method"].allow == ("paper", "rnd_project")
+    assert mix.sections["method"].min_scholarly == 2 and mix.overlap_exclude == ("policy",)
+    assert mix.scholarly == ("paper",)
+
+
+def test_retrieval_mix_from_repo_config_covers_core_sections():
+    from pathlib import Path
+
+    from rra.config_loader import retrieval_mix
+    from rra.settings import Settings
+
+    mix = retrieval_mix(Settings(_env_file=None, config_dir=Path(__file__).parents[1] / "config"))
+    assert mix is not None and mix.sections["tech_importance"].min_scholarly >= 2
+    assert mix.sections["method"].min_scholarly >= 2 and "policy" in mix.overlap_exclude
+    assert "paper" in mix.sections["tech_importance"].allow

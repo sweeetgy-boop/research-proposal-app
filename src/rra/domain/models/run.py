@@ -167,6 +167,8 @@ class RetrievalSnapshot(BaseModel):
     section_chunks: dict[str, list[str]] = Field(default_factory=dict)
     # Q4 채택 과제 본보기 — 구성·문체 참고용(인용 금지). {doc_id, status, sections: {key: [문장]}}
     exemplars: list[dict[str, Any]] = Field(default_factory=list)
+    # 근거 구성 규칙(retrieval_mix)용 doc_id → doc_type. 비면 규칙을 적용하지 않는다(옛 스냅샷)
+    doc_types: dict[str, str] = Field(default_factory=dict)
     # retrieve 시점에 한 건도 적재되지 않았던 자료원. None = 확인하지 않음 (이전 스냅샷)
     uncollected: list[str] | None = None
     # 관련도 하한(domain/rules/relevance.py)에 걸려 근거에서 뺀 청크 id → 이유. 이전 스냅샷은 빈 값

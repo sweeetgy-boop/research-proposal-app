@@ -51,7 +51,7 @@
 
 | 레인 | 작업 | 브랜치 / 워크트리 | 상태 | 대기 중인 의존 |
 |---|---|---|---|---|
-| 통합 | [0] 정리(Q8 기본 켬·회귀 테스트·retrieval_mix.yaml), pytest-xdist·CI 분할, CONTRIBUTING 조각 규칙, Q9 2단계 결론, PR 합치기·공유 파일 반영 | feat/draft-quality → 이후 chore/parallel-ci, feat/retrieval-mix | 진행 | Q9 2단계(대기열) |
+| 통합 | [0] 정리(Q8 기본 켬·회귀 테스트·retrieval_mix.yaml), pytest-xdist·CI 분할(완료 #24), CONTRIBUTING 조각 규칙(완료 #24), Q9 결론, PR 합치기·공유 파일 반영 | feat/draft-quality, feat/retrieval-mix | 진행 | Q9 3단계(대기열) |
 | 웹 | [3] 웹 프론트엔드 → U9(U1~U8 합침 뒤) | feat/web (../rra-web) | [3] 완료 → PR #23 CI 통과 → 병합 11:00. 화면 11·Vitest 33·e2e 8·Lighthouse 100/100/100·axe 0·초기 JS gzip 110.6KB | U9 ← U1~U8·[3] 합침 |
 | A | [C] 공사 홈페이지 탐색·내려받기 → [P2] 수집처 확장 탐색·내려받기, [P] 코드·fixture | feat/policy-crawl (../rra-wt/feat-policy-crawl) | 시작 10:58 | [P] 적재·[P3] 판독은 내려받기 뒤(대기열) |
 | B | [S] ScienceON 1~2단계(실호출 검증·fixture·매핑) | feat/scienceon-live (../rra-wt/feat-scienceon-live) | 시작 10:58 | 3단계 적재는 대기열 |
@@ -62,7 +62,7 @@
 
 | 순서 | 작업 | 상태 |
 |---|---|---|
-| 1 | Q9 2단계 빼기 실험(9개 구성) | 진행 중 10:45~ |
+| 1 | Q9 2단계 → 결함으로 중단(11:07) → 3단계 재측정(all3·로컬 빼기 5·검토 빼기 2) | 진행 중 11:12~ |
 | 2 | [S] 3단계 ScienceON 적재 1,000~2,000건 | 대기(레인 B 1~2단계 뒤) |
 | 3 | [P] 공사 홈페이지 스냅샷 적재 | 대기(레인 A 내려받기 뒤) |
 | 4 | [P3] 대조용 OCR | 대기 |
@@ -76,6 +76,10 @@ Gemini 상한: 이미지 판독 2,000회(별도), 그 외 오늘 추가 작업 8
 | 11:05 | [3] 완료 | 서브에이전트 보고: 화면 11개·DraftEditor·Vitest 33·Playwright e2e 8·Lighthouse 100/100/100(/login)·axe 0(7화면)·초기 JS gzip 110.6KB. 미재현: 추천 ≥1·보강 질문 ≥1·키 없음 경로는 가짜 모드가 못 만듦(UI 는 구현). 백엔드 간극: main 의 build_api 가 clarify 를 안 넘김([Q] 에서 수정), POST /v1/runs 에 acknowledged 없음, 응답 스키마 없음, draft 문장 sentence_id 없음 → 통합 작업에서 처리. 검사 재확인 뒤 PR |
 
 | 11:00 | [3] 병합 | PR #23 병합. 통합: chore/parallel-ci(pytest-xdist·CI 분할·heavy lock·조각 규칙) PR 생성 |
+
+| 11:07 | [Q] Q9 2단계 중단 | all2·minus-additions 에서 골든셋 01·03 이 invalid(제목·기술적 중요도·활용계획 등 빈칸). 원인 2건: (1) Q4 "인용 금지" 가 검색 근거에도 든 본보기 doc 을 인용한 문장까지 폐기해 섹션이 통째로 사라짐, (2) 제목·선택형 프롬프트에 설계 요약이 들어가 Qwen 이 JSON 대신 긴 글을 씀(raw 1,597~2,689자). 수정: 본보기는 베끼기만 폐기(doc 인용 허용), 제목·선택형엔 설계 요약·본보기 제외, 요약 600자. 2단계 결과(baseline-02·all2·minus-additions)는 참고용으로만 남김 |
+| 11:00~11:10 | 통합 | PR #24 병합(pytest-xdist·CI 분할 backend-unit/api·web-check/e2e + 모음 job·heavy lock·조각 규칙). xdist 수집 불일치 1건(zip 바이트 id) 수정. feat/draft-quality 에 main 병합 |
+| 11:12 | [Q] Q9 3단계 시작 | all3(골든셋 3, Argon) → local-none/local-all/local-minus-{exemplars,outline,section_search,rule_check,reranker}(01·02, Argon 없이) → minus-additions/minus-two_candidates(Argon). heavy lock 사용. Gemini 예정 9회 |
 
 ## 판단 기록
 - [H] 배경 메모 중 저장소에 근거가 없는 항목(팀 구성·54초·DRM·.env 흰 화면·8501 충돌·웹 React 결정)은 "(대화 기록 기준, 미검증)" 으로 표시. 팀원 이름은 개인정보라 기록하지 않음.
@@ -104,3 +108,4 @@ Gemini 상한: 이미지 판독 2,000회(별도), 그 외 오늘 추가 작업 8
 | [R] 실측 4차 (골든셋 3, warn) | 3 | 13 |
 | [E] 실제 흐름 확인 (골든셋 01 생성 + 1차 검토) | 1 | 14 |
 | [Q] Q9 측정 1 (baseline 2 + all 2; 02 는 invalid 라 검토 없음) | 4 | 18 |
+| [Q] Q9 측정 2 (baseline-02 1, all2 1, minus-additions 1, minus-two_candidates 중단 ≤1) | 4 | 22 |
