@@ -81,7 +81,9 @@ class ScienceOnSource:
         queries = [query] if query else list(self.queries)
         out: list[dict[str, Any]] = []
         strikes = 0
-        failed: list[tuple[str, str]] = []  # 서버 오류(code 500 등)로 건너뛴 (target, 질의)
+        failed: list[
+            tuple[str, str, ScienceOnError]
+        ] = []  # 서버 오류로 건너뛴 (target, 질의, 예외)
         attempted = 0
         for q in queries:
             for target in self.targets:
@@ -105,7 +107,7 @@ class ScienceOnSource:
                     except ScienceOnError as exc:
                         # 한 질의·target 의 서버 오류(2026-10-27 적재에서 code=500)로 run 전체를
                         # 버리지 않는다 — 그 조합만 건너뛰고 모은 것은 적재한다
-                        failed.append((target, q))
+                        failed.append((target, q, exc))
                         logger.warning(
                             "scienceon.target_failed target=%s error=%s", target, type(exc).__name__
                         )
@@ -121,7 +123,7 @@ class ScienceOnSource:
         if failed:
             logger.warning("scienceon.targets_skipped n=%d of=%d", len(failed), attempted)
             if not out and len(failed) >= attempted:
-                raise ScienceOnError(f"ScienceON 오류 — 모든 질의·target 실패 ({len(failed)}건)")
+                raise failed[0][2]  # 전부 실패 — 첫 오류(코드 포함)를 그대로 올린다
         return out[:limit]
 
     async def probe(self) -> dict[str, Any]:

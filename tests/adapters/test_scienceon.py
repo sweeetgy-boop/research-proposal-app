@@ -382,5 +382,5 @@ async def test_search_skips_a_target_with_server_error_and_keeps_the_rest():
     src._page = always_fail
     import pytest
 
-    with pytest.raises(ScienceOnError, match="모든 질의"):
+    with pytest.raises(ScienceOnError, match="code=500"):  # 전부 실패면 첫 오류를 그대로
         await ScienceOnSource.search(src, None, 100)
