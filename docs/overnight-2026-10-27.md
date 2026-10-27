@@ -84,6 +84,8 @@ Gemini 상한: 이미지 판독 2,000회(별도), 그 외 오늘 추가 작업 8
 | 11:05~11:14 | 통합 [0] | `config/retrieval_mix.yaml`(섹션별 허용 doc_type·논문·보고서·특허 최소 보장·유사과제 판정 제외, 출처별 최소 보장 우선), 스냅샷 doc_types, DocType report, reranker 기본 켬 + ADR 0013 Q8 결정, architecture §4.16. 테스트 1,285 통과 |
 | 11:15 | 레인 D 시작 | [P3] 코드·fixture(장식 거르기·OCR·Argon 이미지 판독·캐시·신뢰도 규칙·배지·공용 Gemini 제한기) |
 
+| 11:19~11:30 | [Q] Q9 3단계 중단 → 4단계 | all3 이 골든셋 3건 모두 invalid(제목·기술적 중요도 JSON 실패). 직접 재현: 제목 프롬프트가 34,099자 — 섹션별 검색이 더한 청크(~50개)가 섹션 검색 없는 섹션(제목·선택형)에도 전부 들어감. 수정: `RetrievalSnapshot.section_added` 를 빼고 기본 집합(20개)만. 테스트 1,286 통과. 4단계(all4 → 로컬 빼기 → 검토 빼기) 재시작 11:31. [3] 웹: acknowledged·sentence_id 반영 뒤 e2e 8건 통과 |
+
 ## 판단 기록
 - [H] 배경 메모 중 저장소에 근거가 없는 항목(팀 구성·54초·DRM·.env 흰 화면·8501 충돌·웹 React 결정)은 "(대화 기록 기준, 미검증)" 으로 표시. 팀원 이름은 개인정보라 기록하지 않음.
 - [H] Mermaid SVG 는 `npx @mermaid-js/mermaid-cli`(puppeteer, 저장소 밖 캐시)로 렌더. 02 는 edge 라벨의 따옴표 때문에 실패 → 따옴표 제거.
@@ -112,3 +114,4 @@ Gemini 상한: 이미지 판독 2,000회(별도), 그 외 오늘 추가 작업 8
 | [E] 실제 흐름 확인 (골든셋 01 생성 + 1차 검토) | 1 | 14 |
 | [Q] Q9 측정 1 (baseline 2 + all 2; 02 는 invalid 라 검토 없음) | 4 | 18 |
 | [Q] Q9 측정 2 (baseline-02 1, all2 1, minus-additions 1, minus-two_candidates 중단 ≤1) | 4 | 22 |
+| [Q] Q9 측정 3 (all3 — 전부 invalid 라 검토 0) | 0 | 22 |

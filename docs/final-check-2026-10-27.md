@@ -19,6 +19,7 @@ cd /Users/chan/projects/research-proposal-app && .venv/bin/rra api --port 8000  
 | 11:07 | Q9 2단계 중단 — Q4 "인용 금지" 가 검색 근거의 본보기 doc 인용까지 폐기해 섹션이 비던 결함. 베끼기만 폐기로 완화(설정 아님, 규칙 변경) | overnight 11:07 행, 커밋 5c97b23 |
 | 11:10 | 자료원 균형: `config/retrieval_mix.yaml` 신설. 걸러서 0건이면 전부로 되돌림(근거를 비우는 쪽보다 넓게 주는 쪽) | architecture §4.16 |
 | 11:10 | reranker 기본 켬(설정으로 끌 수 있음, 모델 폴더 없으면 자동 생략) | ADR 0013 |
+| 11:30 | 섹션별 검색이 더한 청크를 제목·선택형 프롬프트에서 제외(프롬프트 34k자 → 7B JSON 실패 원인) | overnight 11:19 행 |
 
 ## 내가 확인할 것 (체크박스)
 

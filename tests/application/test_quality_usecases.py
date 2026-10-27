@@ -120,7 +120,9 @@ async def test_retrieve_reranks_before_cutting_to_k_and_section_search_uses_it_t
         c.chunk_id for c in CHUNKS
     }  # 새 청크는 스냅샷에 더해짐
     assert len(rr.calls) == 3 and all(q for q, _ in rr.calls)
-    assert [c.chunk_id for c in snap.chunks_for("title")] == [c.chunk_id for c in snap.chunks]
+    assert snap.section_added == ["own:ex#0"]  # 섹션 검색이 더한 것
+    # 섹션 검색이 없는 섹션(제목)은 기본 집합만 — 커진 스냅샷 전체를 주지 않는다
+    assert [c.chunk_id for c in snap.chunks_for("title")] == ["openalex:W2#0", "openalex:W1#0"]
 
 
 async def test_section_search_is_a_noop_when_disabled():
@@ -276,7 +278,8 @@ async def test_section_search_keeps_scholarly_minimum_and_filters_policy_docs():
     assert (
         types.count("paper") >= 2 and "internal_report" not in types
     )  # 논문 최소 2 + 허용 밖 제외
-    assert [snap.doc_types[c.doc_id] for c in g.chunks_for("title", snap)] == ["paper"] * 3
+    # 제목은 기본 집합(own 4건)만 보고, 허용(paper)이 0건이라 전부로 되돌린다
+    assert [snap.doc_types[c.doc_id] for c in g.chunks_for("title", snap)] == ["rnd_project"] * 4
     # 유사과제 판정 후보에서 제외 doc_type 은 빠진다
     r.similar = [(docs[-1], 0.95), (docs[0], 0.9)]
     g2 = gen(FakeLLM(), r, check_overlap=True, mix=mix, k=4)
