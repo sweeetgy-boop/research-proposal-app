@@ -148,6 +148,9 @@
   run 소유자 격리(남의 run 404, 관리자 토큰은 전부), 공용 계정은 `PublicOnlyRepository` 로 internal 제외, Gemini 일일 상한 `llm.yaml budget`
   (`adapters/llm/daily_budget.py`), `rra auth staff|guest|status`(getpass). **자료원 IP**(#46, ADR 0025): `sources.yaml registered_ips`,
   `domain/rules/source_ip.py`, IP 거부 응답은 그 자료원만 건너뜀 + `cache/source_availability.json` 안내.
+- 시범 운영(2026-10-28, 3명, [D]): launchd com.rra.{mlx,api,backup,ingest} 등록(`deploy/README.md` §2), `max_queued_runs` 6(사용자별),
+  동료 안내 `docs/pilot-guide.md`, 준비 상태·사람 할 일은 `docs/final-check-2026-10-27.md` 맨 위. 외부 주소는 DNS 가 Gabia 라 터널 미기동
+  (Tailscale 대체 가능). 실측: 한 건 227초(생성 155 + 최종 검토 15), precheck 38~56초(자동 추천 Gemini 포함), 7B JSON 실패 4/10.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 
