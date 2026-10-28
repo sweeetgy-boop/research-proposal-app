@@ -95,6 +95,46 @@ export interface FallbackSection {
   reason: string;
 }
 
+// ── [3] Argon 우선 작성 — 섹션마다 누가 썼는지. 옛 응답에는 없다(전부 선택). ─────────
+export type WriterProvider = "gemini" | "mlx";
+/** Argon(Gemini) 작성이 실패해 로컬 모델로 넘어간 사유 */
+export type WriterReason = "error" | "rate_limit" | "budget" | "invalid";
+
+export interface SectionWriter {
+  provider: WriterProvider | string;
+  model: string;
+  /** true 면 Argon 실패 뒤 로컬 모델이 썼다 */
+  local_fallback: boolean;
+  reason: WriterReason | string | null;
+}
+
+/** 로컬 모델 근거 대조 — Argon 이 쓴 문장의 근거를 로컬 모델이 다시 맞춰 본 결과 */
+export interface LocalCheck {
+  enabled: boolean;
+  mismatches: number;
+  skipped_sections: string[];
+}
+
+// ── [4] 실시간 검색 — ② 유사과제 확인 때 외부 자료원을 바로 조회한 요약. 옛 응답에는 없다. ───
+export type LiveSearchStatus = "done" | "partial" | "pending" | "off";
+export type LiveSourceName = "scienceon" | "ntis" | "openalex";
+export type LiveSourceStatus = "ok" | "timeout" | "ip_blocked" | "error" | "off";
+
+export interface LiveSearchSource {
+  source: LiveSourceName | string;
+  status: LiveSourceStatus | string;
+  count: number;
+  seconds: number;
+  /** 자료원 안내(NTIS IP 미등록 등) — 비신뢰 텍스트로 그린다 */
+  notice: string | null;
+}
+
+export interface LiveSearch {
+  status: LiveSearchStatus | string;
+  keywords: { ko: string[]; en: string[] };
+  sources: LiveSearchSource[];
+}
+
 export interface RunState {
   run_id: string;
   status: RunStatus;
@@ -108,6 +148,11 @@ export interface RunState {
   flow: FlowSummary;
   failed_sections?: FailedSection[];
   fallback_sections?: FallbackSection[];
+  /** [3] run 전체 작성자 — gemini(Argon) 또는 local */
+  writer?: "gemini" | "local" | string;
+  local_sections?: string[];
+  /** [4] 실시간 검색 요약 */
+  live_search?: LiveSearch | null;
 }
 
 export interface RunList {
@@ -126,6 +171,8 @@ export interface OverlapAlert {
   own_detail: string | null;
   tier_label: string;
   status_label?: string | null;
+  /** [4] 실시간 검색에서 찾은 과제 */
+  live?: boolean;
 }
 
 export interface Transfer {
@@ -191,6 +238,8 @@ export interface RelatedResearch {
   year: number | null;
   similarity: number;
   url: string | null;
+  /** [4] 실시간 검색에서 찾은 자료 */
+  live?: boolean;
 }
 
 export interface PrecheckOut {
@@ -200,6 +249,8 @@ export interface PrecheckOut {
   related_research?: RelatedResearch[];
   differentiation?: Differentiation;
   recommendations?: Recommendations;
+  /** [4] 실시간 검색 요약 */
+  live_search?: LiveSearch | null;
 }
 
 /** POST /v1/precheck/ntis-outcomes — ② NTIS 과제(tier national_rnd) 주요 성과(참고용)·연관 과제 추천. 전부 비신뢰(NTIS API 출력). */
@@ -293,6 +344,8 @@ export interface Citation {
   id: string;
   doc_id: string;
   title: string | null;
+  /** [4] 실시간 검색에서 가져온 근거 */
+  live?: boolean;
 }
 
 export interface Problem_ {
@@ -391,6 +444,12 @@ export interface DraftOut {
   flow: FlowSummary;
   failed_sections?: FailedSection[];
   fallback_sections?: FallbackSection[];
+  /** [3] 섹션별 작성자 */
+  writers?: Record<string, SectionWriter>;
+  /** [3] Argon 실패 뒤 로컬 모델이 쓴 섹션 */
+  local_sections?: string[];
+  /** [3] 로컬 근거 대조 */
+  local_check?: LocalCheck | null;
   /** [G] 그림 카드 — 옛 응답에는 없을 수 있다 */
   figures?: Figure[];
 }
@@ -716,6 +775,8 @@ export interface EvidenceItem {
   decision: DecisionAction | null;
   in_snapshot: boolean;
   trust: "untrusted";
+  /** [4] 실시간 검색에서 가져온 근거 */
+  live?: boolean;
 }
 
 /** GET /v1/runs/{id}/sentences/{sid}/evidence */

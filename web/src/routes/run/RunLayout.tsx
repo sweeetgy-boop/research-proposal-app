@@ -36,6 +36,25 @@ function statusVariant(s: string): "default" | "secondary" | "destructive" | "su
   return "secondary";
 }
 
+/** [3] run 작성자 — 눈에 덜 띄게 outline. 로컬로 넘어간 섹션이 있으면 수를 붙인다. */
+function WriterChip({ run }: { run: RunState }) {
+  if (!run.writer) return null;
+  const locals = run.local_sections?.length ?? 0;
+  if (run.writer === "local") {
+    return (
+      <Badge variant="outline" className="font-normal text-muted-foreground" title="이 run 은 로컬 모델이 작성했습니다">
+        로컬 작성
+      </Badge>
+    );
+  }
+  if (run.writer !== "gemini") return null;
+  return (
+    <Badge variant="outline" className="font-normal text-muted-foreground" title={locals ? `Argon 이 작성, ${locals}개 섹션은 Argon 실패 뒤 로컬 모델이 작성` : "Argon 이 작성했습니다"}>
+      Argon 작성{locals ? ` · 로컬 ${locals}개 섹션` : ""}
+    </Badge>
+  );
+}
+
 export default function RunLayout() {
   const { id = "" } = useParams();
   const q = useRun(id, { poll: true });
@@ -84,6 +103,7 @@ export default function RunLayout() {
         </h1>
         <Badge variant={statusVariant(run.status)}>{statusLabel(run.status)}</Badge>
         <span className="text-sm text-muted-foreground">v{run.draft_version}</span>
+        <WriterChip run={run} />
         {run.legacy && <Badge variant="outline">옛 run (조회 전용)</Badge>}
         {run.flow.stale && (
           <Badge variant="warning" role="status">

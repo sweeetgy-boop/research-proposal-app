@@ -3,7 +3,7 @@ import { ORIGIN_LABELS } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 
 const COLOR: Record<string, string> = {
-  "로컬 작성": "border-origin-local text-origin-local",
+  "AI 작성": "border-origin-local text-origin-local",
   "Argon 보완": "border-origin-argon text-origin-argon",
   "Argon 추가": "border-origin-added text-origin-added",
   "제안자 수정": "border-origin-edit text-origin-edit",
