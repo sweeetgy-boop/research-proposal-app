@@ -8,6 +8,7 @@ import type { Citation, DraftSection, FailedSection, FallbackSection, Problem_, 
 import { SectionRewrite } from "@/features/rewrite/SectionRewrite";
 import { useToast } from "@/components/ui/toast";
 import { EvidencePanel } from "@/features/evidence/EvidencePanel";
+import { FigureList } from "@/features/figures/FigureList";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -190,6 +191,7 @@ export default function Draft() {
   const failedByKey = new Map<string, FailedSection>((d.failed_sections ?? []).map((f) => [f.key, f]));
   const fallbackByKey = new Map<string, FallbackSection>((d.fallback_sections ?? []).map((f) => [f.key, f]));
   const sections: (DraftSection | VersionSection)[] = selected === null ? d.sections : (version.data?.sections ?? []);
+  const figures = selected === null ? (d.figures ?? []) : (version.data?.figures ?? []);
   const rows = toRows(sections);
   const problemBySentence = new Map<string, string>();
   const problemsBySentence = new Map<string, Problem_[]>();
@@ -206,7 +208,26 @@ export default function Draft() {
 
   const renderRow = (row: Row) =>
     row.kind === "header" ? (
-      <SectionHeader section={row.section} failed={selected === null ? failedByKey.get(row.section.key) : undefined} onRegenerate={selected === null ? setRegenerateKey : undefined} fallback={fallbackByKey.get(row.section.key)} />
+      <>
+        <SectionHeader section={row.section} failed={selected === null ? failedByKey.get(row.section.key) : undefined} onRegenerate={selected === null ? setRegenerateKey : undefined} fallback={fallbackByKey.get(row.section.key)} />
+        {row.section.key !== "title" && (
+          <div className="mt-3">
+            <FigureList
+              runId={id}
+              figures={figures}
+              section={row.section.key}
+              baseVersion={d.version}
+              readOnly
+              disabled={selected !== null || d.flow.has_working || d.legacy}
+              version={selected}
+              onApplied={(v) => {
+                toast(`v${v} 으로 저장했습니다 (그림)`, "success");
+                qc.invalidateQueries({ queryKey: keys.run(id) });
+              }}
+            />
+          </div>
+        )}
+      </>
     ) : (
       <SentenceLine row={row} citations={d.citations} problem={problemBySentence.get(row.key)} onOpen={selected === null ? openEvidence : undefined} />
     );

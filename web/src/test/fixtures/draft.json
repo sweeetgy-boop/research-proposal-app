@@ -449,5 +449,73 @@
   "has_working": false
  },
  "failed_sections": [],
- "fallback_sections": []
+ "fallback_sections": [],
+ "figures": [
+  {
+   "id": "fig-concept-1",
+   "kind": "concept",
+   "label": "연구 개념도",
+   "section": "objective",
+   "caption": "검측 이력 기반 궤도 틀림 진행 속도 추정 개념도",
+   "alt": "검측 이력에서 진행 속도를 추정해 보수 우선순위를 정하는 흐름",
+   "renderer": "nano_banana",
+   "renderer_label": "Nano Banana Pro",
+   "model": "gemini-3-pro-image-preview",
+   "calls": 1,
+   "included": true,
+   "confirmed": false,
+   "source_caption": "",
+   "error": null,
+   "image_url": "/v1/runs/20260101000000-00000002/figures/fig-concept-1/image",
+   "baseline_url": "/v1/runs/20260101000000-00000002/figures/fig-concept-1/image?variant=baseline",
+   "texts": [
+    {
+     "path": "title",
+     "label": "제목",
+     "value": "궤도 틀림 진행 속도 추정"
+    },
+    {
+     "path": "nodes[0].label",
+     "label": "요소 1",
+     "value": "검측 이력"
+    },
+    {
+     "path": "nodes[1].label",
+     "label": "요소 2",
+     "value": "진행 속도 추정"
+    }
+   ],
+   "edit_requests": 0,
+   "updated_at": "2026-10-27T01:22:49+00:00",
+   "notice": "AI 가 그린 그림입니다. 숫자와 글자를 원문과 확인하세요"
+  },
+  {
+   "id": "fig-process-1",
+   "kind": "process",
+   "label": "추진 체계도",
+   "section": "method",
+   "caption": "연차별 추진 체계",
+   "alt": "1차년도 자료 수집, 2차년도 모델 개발, 3차년도 현장 검증",
+   "renderer": "baseline",
+   "renderer_label": "기본 그림",
+   "model": null,
+   "calls": 0,
+   "included": true,
+   "confirmed": true,
+   "source_caption": "자료: 검측 이력 DB(2020~2025)",
+   "error": null,
+   "image_url": "/v1/runs/20260101000000-00000002/figures/fig-process-1/image",
+   "baseline_url": "/v1/runs/20260101000000-00000002/figures/fig-process-1/image?variant=baseline",
+   "texts": [
+    {
+     "path": "steps[0].label",
+     "label": "단계 1",
+     "value": "자료 수집"
+    }
+   ],
+   "edit_requests": 0,
+   "updated_at": "2026-10-27T01:22:49+00:00",
+   "notice": "AI 가 그린 그림입니다. 숫자와 글자를 원문과 확인하세요"
+  }
+ ]
 }

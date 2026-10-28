@@ -206,3 +206,25 @@ class RunIn(ProposalRequest):
             **self.differentiation_transfer.model_dump(),
             "chosen": bool(self.differentiation.strip()),
         }
+
+
+FigureAction = Literal["words", "texts", "baseline", "regenerate", "include", "exclude", "confirm"]
+
+
+class FigureActionIn(BaseModel):
+    """POST /v1/runs/{id}/figures/{fid} — 그림 카드 동작 ([G]). words→request, texts→texts 필수."""
+
+    model_config = ConfigDict(extra="forbid")
+    action: FigureAction
+    request: str = Field(default="", max_length=500)  # [말로 고치기] 요청 (개인정보 정리 뒤 저장)
+    texts: dict[str, str] = Field(default_factory=dict)  # [글자 고치기] path → 글자
+    base_version: int | None = Field(default=None, ge=1)
+
+
+class FigureAddIn(BaseModel):
+    """POST /v1/runs/{id}/figures — [다른 그림 추가]."""
+
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["concept", "process", "schedule", "stat_chart", "comparison", "roadmap"]
+    section: str = Field(min_length=1, max_length=40)
+    base_version: int | None = Field(default=None, ge=1)

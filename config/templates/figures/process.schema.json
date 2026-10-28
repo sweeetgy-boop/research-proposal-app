@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "ProcessStage": {
+      "properties": {
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "outputs": {
+          "items": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Outputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ProcessStage",
+      "type": "object"
+    }
+  },
+  "description": "추진 체계도 — 단계 3~6개 상자와 화살표, 단계마다 산출물.",
+  "properties": {
+    "kind": {
+      "const": "process",
+      "default": "process",
+      "title": "Kind",
+      "type": "string"
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/ProcessStage"
+      },
+      "maxItems": 6,
+      "minItems": 3,
+      "title": "Stages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "stages"
+  ],
+  "title": "ProcessSpec",
+  "type": "object"
+}

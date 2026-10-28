@@ -1,0 +1,41 @@
+# 제안서 그림(인포그래픽) 설정 [G] (2026-10-28, architecture §4.16). 이미지 생성 AI 는 쓰지 않는다 —
+# 초안을 구조화한 "그림 명세(JSON)" 를 템플릿으로 SVG → PNG(300dpi) 로 그린다 (adapters/figures).
+enabled: true                 # false 면 생성·검토 전송·HWPX 삽입 전부 생략 (기존 흐름과 같음)
+max_default: 3                # 초안 생성 뒤 기본으로 고르는 그림 수 (2~3). 종류·섹션 우선순위는 domain/rules/figures.py
+dpi: 300
+max_png_bytes: 512000         # 그림당 PNG 상한 500KB (HWPX BinData)
+width_px: 1600                # SVG 기준 폭(px). 양식 칸 너비에 맞춰 비율 유지 축소
+fonts_dir: config/templates/figures/fonts   # Pretendard Regular·Bold 서브셋 (tools/build_figure_fonts.py)
+template_dir: config/templates/figures      # 종류별 명세 스키마(*.schema.json)
+kinds: [concept, process, schedule, stat_chart, comparison, roadmap]
+spec_stage: figures           # llm.yaml stages.figures (로컬 모델이 명세 JSON 작성). 교정 재요청 1회 뒤 compose.fallback 규칙
+# Nano Banana Pro(그림 생성·말로 고치기) — provider gemini, 모델은 llm.yaml providers.gemini.image_model. 호출은 공용 제한기 경유.
+daily_image_cap: 150          # 그림 호출 일일 상한(생성·말로 고치기·다시 만들기 포함). 넘으면 기본 그림 + 화면 알림. 0 = 없음
+budget_counter: data/cache/figure_budget.json   # {"date","count"} — API·CLI 가 같은 파일을 본다
+cache_dir: data/cache/figures # 같은 명세·같은 밑그림(해시)이면 다시 부르지 않는다
+concurrency: 3                # 초안 1건당 그림 동시 생성 수
+image_size: 2K                # 1K | 2K | 4K
+aspect:                       # 종류별 비율 (Nano Banana imageConfig.aspectRatio, 밑그림도 같은 비율)
+  concept: "16:9"
+  process: "16:9"
+  schedule: "21:9"
+  stat_chart: "16:9"
+  comparison: "16:9"
+  roadmap: "16:9"
+hwpx:
+  placement: inline           # inline(섹션 칸 안, 본문 뒤) | appendix(문서 끝 "별첨 그림"). render-check 가 깨지면 appendix 로 자동 전환
+  max_width_hwp: 42000        # 칸 안 그림 최대 폭 (HWPUNIT, 1/7200 인치 ≈ 148mm)
+  caption_prefix: 그림
+# 색상 토큰 — 흑백 인쇄에서도 구분되게 명도 차 + 무늬(점·빗금)·선 모양을 함께 쓴다. 로고·상표·사진 금지.
+palette:
+  ink: "#1a1a1a"            # 글자·외곽선
+  muted: "#5b5b5b"          # 보조 글자·캡션
+  line: "#8c8c8c"           # 격자·연결선
+  paper: "#ffffff"
+  series:                   # 순서대로 명도가 어두워진다 (L* 85 → 30). 무늬·선 모양과 짝: solid, dots, hatch, dashed
+    - { fill: "#dbe7f3", stroke: "#1f4e79", pattern: solid,  dash: "" }
+    - { fill: "#9fc0dc", stroke: "#1f4e79", pattern: dots,   dash: "6 3" }
+    - { fill: "#5f8fb8", stroke: "#123a5c", pattern: hatch,  dash: "2 2" }
+    - { fill: "#2b5f8e", stroke: "#0b2d4d", pattern: cross,  dash: "8 3 2 3" }
+  accent: "#b45309"         # 강조(제안 과제 열·현재 단계) — 명도 낮음
+  warn: "#9a3412"

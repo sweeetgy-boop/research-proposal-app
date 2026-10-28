@@ -30,7 +30,7 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -39,6 +39,7 @@ from xml.sax.saxutils import escape
 
 from rra.application.ports.renderer import RenderRejected
 from rra.domain.models import Confirmation, Draft, ProposerInfo, StrategyCatalog
+from rra.domain.models.figure import Figure, FigurePlacement
 from rra.domain.models.selection import TASK_TYPES, UTILIZATION
 from rra.domain.rules.llm_output import clean_sentence
 
@@ -290,6 +291,9 @@ class HwpxRenderer:
         template_path: Path | None = None,
         required_choices: tuple[str, ...] = ("task_type", "utilization"),
         clock: Callable[[], date] = date.today,
+        figure_placement: str = "inline",
+        figure_max_width: int = 42000,
+        figure_caption_prefix: str = "그림",
     ):
         self.slots = slots
         self.titles = dict(titles or {})
@@ -297,6 +301,10 @@ class HwpxRenderer:
         self.template_path = Path(template_path) if template_path else None
         self.required_choices = required_choices
         self.clock = clock
+        # [G] 그림 — inline(섹션 칸 안, 본문 뒤) | appendix(문서 끝 "별첨 그림"). 칸 없으면 appendix
+        self.figure_placement = figure_placement
+        self.figure_max_width = int(figure_max_width)
+        self.figure_caption_prefix = figure_caption_prefix
 
     def __repr__(self) -> str:
         mode = "template" if self.template_path else "generate"
@@ -331,8 +339,110 @@ class HwpxRenderer:
         verify_hwpx(data)
         return data
 
+    def render_with_figures(
+        self,
+        draft: Draft,
+        *,
+        confirmation: Confirmation | None = None,
+        proposer: ProposerInfo | None = None,
+        figures: Sequence[tuple[Figure, bytes, str]] = (),
+    ) -> tuple[bytes, list[FigurePlacement]]:
+        """[G] 그림 삽입. 섹션 본문 마지막 줄에 표식 단락을 넣어 치환한 뒤, 표식 단락을 그림+캡션
+        으로 바꾼다(inline). 표식이 표 칸 안에 없거나 설정이 appendix 면 "(별첨 그림 n 참조)" 로
+        바꾸고 문서 끝 "별첨 그림" 에 모은다. BinData 추가 외의 구조 변화는 거부한다."""
+        if not figures:
+            return self.render(draft, confirmation=confirmation, proposer=proposer), []
+        values = dict(
+            slot_values(
+                draft,
+                self.slots,
+                confirmation=confirmation,
+                proposer=proposer,
+                strategy=self.strategy,
+                required_choices=self.required_choices,
+                today=self.clock,
+            )
+        )
+        numbered: list[tuple[int, Figure, bytes, str]] = []
+        for n, (fig, data, mime) in enumerate(figures, start=1):
+            if mime not in ("image/png", "image/jpeg") or not data:
+                raise RenderRejected("그림 형식은 PNG·JPEG 만 받습니다.")
+            numbered.append((n, fig, data, mime))
+            ph = self.slots.text.get(fig.section)
+            if ph is not None and fig.section in self.slots.paragraphs:
+                values[ph] = (values.get(ph, "") + "\n" + figure_marker(fig.id)).strip("\n")
+        if self.mode == "template":
+            data = self._fill_template(
+                self.template_path.read_bytes(),  # type: ignore[union-attr]
+                values,
+                allow_bindata=True,
+            )
+        else:
+            data = self._generate(values, confirmation)
+        data, placements = self._insert_figures(data, numbered)
+        verify_hwpx(data)
+        return data, placements
+
+    def _insert_figures(
+        self, data: bytes, figures: list[tuple[int, Figure, bytes, str]]
+    ) -> tuple[bytes, list[FigurePlacement]]:
+        from hwpx.document import HwpxDocument
+
+        from rra.adapters.figures import image_size
+
+        doc = HwpxDocument.open(data)
+        placements: list[FigurePlacement] = []
+        appendix: list[tuple[int, Figure, str, int, int]] = []  # (n, fig, item_id, w, h)
+        for n, fig, png, mime in figures:
+            try:
+                w_px, h_px = image_size(png)
+            except ValueError as exc:
+                raise RenderRejected("그림 파일을 읽을 수 없습니다.") from exc
+            fmt = "jpg" if mime == "image/jpeg" else "png"
+            item_id = str(_add_image(doc, png, fmt))
+            cell_para = _find_marker(doc, figure_marker(fig.id))
+            inline = self.figure_placement == "inline" and cell_para is not None
+            width = self.figure_max_width
+            cell = cell_para[0] if cell_para else None
+            if cell is not None and getattr(cell, "width", None):
+                width = min(width, max(int(cell.width) - 2000, 8000))
+            height = max(1, round(width * h_px / max(w_px, 1)))
+            caption = f"{self.figure_caption_prefix} {n}. {sanitize(fig.caption)}".strip()
+            extra = [sanitize(fig.source_caption)] if fig.source_caption else []
+            if inline and cell_para is not None:
+                para = cell_para[1]
+                _clear_paragraph(para)
+                para.add_picture(item_id, width=width, height=height)
+                if cell is not None:  # 표 칸 안 — 칸 끝에 캡션 단락
+                    for text in (caption, *extra):
+                        cell.add_paragraph(text)
+                else:  # 본문 단락(실물 양식) — 그림 단락 바로 뒤에 캡션 단락
+                    _insert_after(para, [caption, *extra])
+                placements.append(
+                    FigurePlacement(id=fig.id, placement="inline", number=n, bytes=len(png))
+                )
+            else:
+                if cell_para is not None:
+                    note = f"(별첨 {self.figure_caption_prefix} {n} 참조)"
+                    _set_paragraph_text(cell_para[1], note)
+                appendix.append((n, fig, item_id, width, height))
+                placements.append(
+                    FigurePlacement(id=fig.id, placement="appendix", number=n, bytes=len(png))
+                )
+        if appendix:
+            doc.add_paragraph(f"별첨 {self.figure_caption_prefix}")
+            for n, fig, item_id, width, height in appendix:
+                para = doc.add_paragraph("")
+                para.add_picture(item_id, width=width, height=height)
+                doc.add_paragraph(f"{self.figure_caption_prefix} {n}. {sanitize(fig.caption)}")
+                if fig.source_caption:
+                    doc.add_paragraph(sanitize(fig.source_caption))
+        return doc.to_bytes(), placements
+
     # ── 템플릿 모드 ───────────────────────────────────────
-    def _fill_template(self, template: bytes, values: Mapping[str, str]) -> bytes:
+    def _fill_template(
+        self, template: bytes, values: Mapping[str, str], *, allow_bindata: bool = False
+    ) -> bytes:
         from hwpx.package import HwpxPackage
 
         pkg = HwpxPackage.open(template)
@@ -355,8 +465,10 @@ class HwpxRenderer:
         buf = io.BytesIO()
         pkg.save(buf)
         data = buf.getvalue()
-        if sorted(zipfile.ZipFile(io.BytesIO(data)).namelist()) != before:
+        after = sorted(zipfile.ZipFile(io.BytesIO(data)).namelist())
+        if after != before:
             raise RenderedXmlInvalid("템플릿 구조가 바뀌었습니다 — 출력을 거부합니다.")
+        del allow_bindata  # 그림(BinData)은 _insert_figures 가 뒤에 더한다
         return data
 
     # ── 생성 모드 ─────────────────────────────────────────
@@ -497,6 +609,79 @@ def _paragraph_bounds(xml: str, inner_idx: int, placeholder: str) -> tuple[int, 
     if para.count(_P_OPEN) != 1 or "<hp:tbl" in para:
         raise RenderedXmlInvalid(f"{placeholder} 단락 구조가 예상과 다릅니다 (표·중첩 단락).")
     return start, end
+
+
+# ── [G] 그림 삽입 보조 ────────────────────────────────────
+_MARKER_PREFIX = "\u200b[fig:"
+
+
+def figure_marker(figure_id: str) -> str:
+    """섹션 본문 마지막 줄에 넣는 표식 단락 — 치환 뒤 그림으로 바꾼다(영폭 공백으로 본문과 구분)."""
+    safe = re.sub(r"[^a-z0-9_:-]", "", figure_id)
+    return f"{_MARKER_PREFIX}{safe}]"
+
+
+def _add_image(doc: Any, data: bytes, fmt: str) -> Any:
+    media = getattr(doc, "media", None)
+    if media is not None and hasattr(media, "add_image"):
+        return media.add_image(data, fmt)
+    return doc.add_image(data, fmt)
+
+
+def _find_marker(doc: Any, marker: str) -> tuple[Any, Any] | None:
+    """표식이 든 표 칸의 (cell, paragraph). 표 밖(생성 모드 본문)이면 (None, paragraph)."""
+    for para in doc.paragraphs:
+        for table in para.tables:
+            for r in range(table.row_count):
+                for c in range(table.column_count):
+                    cell = _cell_or_none(table, r, c)
+                    if cell is None or marker not in (getattr(cell, "text", "") or ""):
+                        continue
+                    for cp in cell.paragraphs:
+                        if marker in (cp.text or ""):
+                            return cell, cp
+        if marker in (para.text or ""):
+            return None, para
+    return None
+
+
+def _cell_or_none(table: Any, r: int, c: int) -> Any:
+    try:
+        return table.cell(r, c)
+    except Exception:  # noqa: BLE001 — 병합 칸은 건너뛴다
+        return None
+
+
+def _insert_after(para: Any, texts: list[str]) -> None:
+    """본문 단락 `para` 바로 뒤에 글 단락들을 끼워 넣는다 (같은 섹션, 서식은 단락 기본)."""
+    section = para.section
+    siblings = list(section.paragraphs)
+    index = next((i for i, p in enumerate(siblings) if p.element is para.element), None)
+    if index is None:
+        for text in texts:
+            section.add_paragraph(text)
+        return
+    made = []
+    for text in texts:
+        made.append(section.add_paragraph(text))  # 끝에 만든 뒤 자리로 복사
+    section.insert_paragraphs(index + 1, made)
+    for p in made:
+        p.remove()
+
+
+def _clear_paragraph(para: Any) -> None:
+    if hasattr(para, "clear_text"):
+        para.clear_text()
+    else:
+        para.set_text_preserving_runs("")
+
+
+def _set_paragraph_text(para: Any, text: str) -> None:
+    if hasattr(para, "set_text_preserving_runs"):
+        para.set_text_preserving_runs(text)
+    else:
+        _clear_paragraph(para)
+        para.add_run(text)
 
 
 def replace_inline(xml: str, placeholder: str, escaped: str) -> str:

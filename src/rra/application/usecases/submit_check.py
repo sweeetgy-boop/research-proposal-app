@@ -10,6 +10,9 @@
 - choices_confirmed: 선택형 확정 여부 (과제유형·활용계획·전략)
 - field_limits: 칸 길이 초과 (render_check overflow)
 - strategy_source: 전략체계 목록이 임시(draft)인가
+- figures_unconfirmed: [G] 제안자가 아직 [확인함] 하지 않은 그림 수 (제안서에 넣는 그림만)
+- figures_source: [G] 출처 캡션이 없는 수치 그래프
+- figures_mismatch: [G] 1차 검토가 "본문과 그림이 어긋남" 으로 지적한 그림(열린 의견)
 - review_state: 최종 검토 완료 또는 검토 건너뜀(마무리 가능)인가
 """
 
@@ -19,7 +22,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from rra.domain.models import DraftVersion, RunState
+from rra.domain.models import DraftVersion, Figure, RunState
 from rra.domain.models.review import sentence_id
 from rra.domain.rules import review_flow
 from rra.domain.rules.lint import LintRules
@@ -62,6 +65,8 @@ def submit_check(
     evidence_counts: Mapping[str, int],
     strategy_source: str = "confirmed",
     strategy_options: int = 0,
+    figures: Sequence[Figure] = (),
+    figure_comments: int = 0,
 ) -> SubmitCheck:
     items: list[CheckItem] = []
     sections = {s.key: s for s in (version.sections if version else [])}
@@ -216,6 +221,47 @@ def submit_check(
                 1 if (draft_list or strategy_options == 0) else 0,
                 f"section:{STRATEGY_KEY}" if (draft_list or strategy_options == 0) else None,
                 {"source": strategy_source, "options": strategy_options},
+            )
+        )
+
+    included = [f for f in figures if f.included]
+    if figures:
+        pending = [f for f in included if not f.confirmed]
+        items.append(
+            CheckItem(
+                "figures_unconfirmed",
+                "확인 전 그림",
+                not pending,
+                f"확인 전 그림 {len(pending)}개 — 카드에서 숫자·글자를 원문과 확인한 뒤 [확인함]"
+                if pending
+                else (f"그림 {len(included)}개 모두 확인됨" if included else "넣은 그림 없음"),
+                len(pending),
+                f"section:{pending[0].section}" if pending else None,
+                {"figures": [f.id for f in pending], "included": len(included)},
+            )
+        )
+        no_source = [f for f in included if f.kind == "stat_chart" and not f.source_caption]
+        items.append(
+            CheckItem(
+                "figures_source",
+                "그래프 출처 표시",
+                not no_source,
+                f"출처 캡션 없음 {len(no_source)}개" if no_source else "모두 표시됨",
+                len(no_source),
+                f"section:{no_source[0].section}" if no_source else None,
+                {"figures": [f.id for f in no_source]},
+            )
+        )
+        items.append(
+            CheckItem(
+                "figures_mismatch",
+                "본문과 그림 일치",
+                figure_comments == 0,
+                f"검토 지적 {figure_comments}건 — 그림을 고치거나 메모를 처리"
+                if figure_comments
+                else "지적 없음",
+                figure_comments,
+                f"section:{included[0].section}" if figure_comments and included else None,
             )
         )
 

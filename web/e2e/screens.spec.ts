@@ -31,7 +31,7 @@ test("모든 화면 캡처", async ({ page }) => {
   await shot(page, 4, "clarify");
   await page.getByRole("button", { name: "초안 생성 시작" }).click();
   await expect(page.getByRole("heading", { name: "초안 본문" })).toBeVisible({ timeout: 30_000 });
-  const id = /\/runs\/([0-9-]+)/.exec(page.url())![1]!;
+  const id = /\/runs\/([0-9a-f-]+)/.exec(page.url())![1]!;
   await subnav(page, "진행").click();
   await shot(page, 5, "progress");
   await subnav(page, "초안 보기").click();

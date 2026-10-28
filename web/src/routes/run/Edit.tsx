@@ -9,6 +9,8 @@ import { isApiError } from "@/api/client";
 import { DraftEditor } from "@/features/draft/DraftEditor";
 import { SectionRewrite } from "@/features/rewrite/SectionRewrite";
 import { SectionQuestions } from "@/features/rewrite/SectionQuestions";
+import { FigureList } from "@/features/figures/FigureList";
+import { AddFigureDialog } from "@/features/figures/AddFigureDialog";
 import { countChanges, emptyEditState, fromWorking, isDirty, toEditRequest, toWorking, usableRevisions, type EditState } from "@/features/draft/editModel";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -51,6 +53,14 @@ export default function Edit() {
   );
   const sections = version.data?.sections ?? [];
   const dirty = isDirty(state);
+  const figures = draft.data?.figures ?? [];
+  // 그림 동작은 새 버전을 만든다 — 저장하지 않은 편집이 있으면 기준 버전이 어긋나므로 막는다
+  const figuresDisabled = !editable || dirty;
+  const onFigureApplied = (v: number) => {
+    toast(`v${v} 으로 저장했습니다 (그림)`, "success");
+    refetch();
+    qc.invalidateQueries({ queryKey: keys.run(id) });
+  };
 
   // 임시 저장(autosave): 편집이 바뀌고 1.5초 뒤 서버 작업 사본에 쓴다 (localStorage 없음).
   React.useEffect(() => {
@@ -119,6 +129,10 @@ export default function Edit() {
         <div>
           <h2 className="text-lg font-semibold">④ 직접 수정 — v{current} 기준</h2>
           <p className="text-sm text-muted-foreground">문장마다 원문 유지·수정안 사용·직접 수정·삭제·뒤에 추가를 고르고 저장하면 새 버전이 됩니다. 이 단계에서는 외부 모델을 부르지 않습니다.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <AddFigureDialog runId={id} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} />
+            {editable && dirty && <span className="text-xs text-muted-foreground">그림은 편집을 저장한 뒤 바꿀 수 있습니다.</span>}
+          </div>
         </div>
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status" aria-live="polite">
           {autosave.kind === "saving" && (
@@ -191,6 +205,11 @@ export default function Edit() {
                 보완 질문
               </Button>
             </span>
+          ) : null
+        }
+        sectionExtra={(sec) =>
+          sec.key !== "title" ? (
+            <FigureList runId={id} figures={figures} section={sec.key} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} />
           ) : null
         }
       />

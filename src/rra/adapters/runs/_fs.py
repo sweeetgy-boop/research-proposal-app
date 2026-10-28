@@ -34,6 +34,21 @@ def write_json(path: Path, data: Any) -> None:
         raise
 
 
+def write_bytes(path: Path, data: bytes) -> None:
+    """tmp → fsync → rename (write_json 과 같은 원자성·권한 600). 그림 파일용."""
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, FILE_MODE)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 def read_json(path: Path) -> Any:
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     with os.fdopen(fd, "rb") as f:

@@ -61,6 +61,8 @@ from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
     FeedbackIn,
+    FigureActionIn,
+    FigureAddIn,
     FinalizeIn,
     RecommendationApplyIn,
     RevertIn,
@@ -83,6 +85,7 @@ from rra.entrypoints.views import (
     draft_payload,
     evidence_items_payload,
     facts_payload,
+    figures_payload,
     notice_matches_payload,
     ntis_insights_payload,
     policy_suggestions_payload,
@@ -826,7 +829,10 @@ def create_app(
         try:
             if version is not None:
                 found = await manager.get_version(*await _own(request, rid), version)
-                return {"notice": UNTRUSTED_NOTICE, **version_payload(found, clean=_clean)}
+                return {
+                    "notice": UNTRUSTED_NOTICE,
+                    **version_payload(found, clean=_clean, run_id=rid),
+                }
             view = await manager.get_draft(*await _own(request, rid))
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
@@ -850,7 +856,7 @@ def create_app(
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
-        return {"run_id": run_id, **version_payload(version, clean=_clean)}
+        return {"run_id": run_id, **version_payload(version, clean=_clean, run_id=run_id)}
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/review", status_code=202)
     async def review_route(request: Request, run_id: str) -> dict[str, Any]:
@@ -891,7 +897,7 @@ def create_app(
             "run_id": rid,
             "status": state.status,
             "stale_edits": state.stale_edits,
-            **version_payload(version, clean=_clean),
+            **version_payload(version, clean=_clean, run_id=rid),
         }
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/edits")
@@ -967,7 +973,11 @@ def create_app(
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
-        return {"run_id": rid, "status": state.status, **version_payload(new, clean=_clean)}
+        return {
+            "run_id": rid,
+            "status": state.status,
+            **version_payload(new, clean=_clean, run_id=rid),
+        }
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/outline")
     async def outline_route(request: Request, run_id: str) -> dict[str, Any]:
@@ -1116,7 +1126,11 @@ def create_app(
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
-        return {"run_id": rid, "status": state.status, **version_payload(version, clean=_clean)}
+        return {
+            "run_id": rid,
+            "status": state.status,
+            **version_payload(version, clean=_clean, run_id=rid),
+        }
 
     # ── U3 섹션별 AI 다시 쓰기·보완 질문 ─────────────────
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/sections/{{key}}/rewrite")
@@ -1153,7 +1167,11 @@ def create_app(
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except (RewriteRejected, EditRejected) as exc:
             raise HTTPException(409, str(exc)) from exc
-        return {"run_id": rid, "status": state.status, **version_payload(version, clean=_clean)}
+        return {
+            "run_id": rid,
+            "status": state.status,
+            **version_payload(version, clean=_clean, run_id=rid),
+        }
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/sections/{{key}}/questions")
     async def section_questions_route(request: Request, run_id: str, key: str) -> dict[str, Any]:
@@ -1194,6 +1212,99 @@ def create_app(
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         return {"run_id": rid, **submit_check_payload(check, titles=_titles(), clean=_clean)}
+
+    # ── [G] 그림 ──────────────────────────────────────────
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/figures")
+    async def figures_route(request: Request, run_id: str) -> dict[str, Any]:
+        """현재 버전의 그림 목록(명세 글자·배지·확인 여부·그림 URL)."""
+        rid = _run_id(run_id)
+        try:
+            view = await manager.get_draft(*await _own(request, rid))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        return {
+            "run_id": rid,
+            "version": view.version,
+            "figures": figures_payload(view.figures, rid, clean=_clean),
+        }
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/figures/{{figure_id}}/image")
+    async def figure_image_route(
+        request: Request,
+        run_id: str,
+        figure_id: str,
+        variant: str = Query(default="adopted", pattern="^(adopted|baseline)$"),
+        version: int | None = Query(default=None, ge=1, le=10_000),
+    ) -> Response:
+        """그림 파일(PNG/JPEG). 소유자만. version 을 주면 그 버전의 그림."""
+        rid = _run_id(run_id)
+        owner, rid = await _own(request, rid)
+        try:
+            if version is not None:
+                figs = (await manager.get_version(owner, rid, version)).figures
+            else:
+                figs = (await manager.get_draft(owner, rid)).figures
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        fig = next((f for f in figs if f.id == figure_id), None)
+        if fig is None:
+            raise HTTPException(404, "그림이 없습니다.")
+        sha = fig.baseline_sha if variant == "baseline" else fig.image_sha
+        loaded = await manager.figure_image(owner, rid, sha or "") if sha else None
+        if loaded is None:
+            raise HTTPException(404, "그림 파일이 없습니다.")
+        data, mime = loaded
+        return Response(
+            content=data,
+            media_type=mime,
+            headers={"cache-control": "private, max-age=3600"},
+        )
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/figures")
+    async def figure_add_route(request: Request, run_id: str, body: FigureAddIn) -> dict[str, Any]:
+        """[다른 그림 추가] — 종류·섹션을 골라 명세·그림을 만들고 새 버전."""
+        rid = _run_id(run_id)
+        try:
+            version = await manager.add_figure(
+                *await _own(request, rid), body.kind, body.section, base_version=body.base_version
+            )
+            state = await manager.status(*await _own(request, rid))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {
+            "run_id": rid,
+            "status": state.status,
+            **version_payload(version, clean=_clean, run_id=rid),
+        }
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/figures/{{figure_id}}")
+    async def figure_action_route(
+        request: Request, run_id: str, figure_id: str, body: FigureActionIn
+    ) -> dict[str, Any]:
+        """그림 카드 동작 — words(말로 고치기)·texts(글자 고치기)·baseline(기본 그림으로)·
+        regenerate·include·exclude·confirm. 저장은 새 버전(되돌리기 가능). 기준 버전 불일치 409."""
+        rid = _run_id(run_id)
+        try:
+            version = await manager.figure_action(
+                *await _own(request, rid),
+                figure_id,
+                body.action,
+                request_text=body.request,
+                texts=body.texts,
+                base_version=body.base_version,
+            )
+            state = await manager.status(*await _own(request, rid))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {
+            "run_id": rid,
+            "status": state.status,
+            **version_payload(version, clean=_clean, run_id=rid),
+        }
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/usage")
     async def usage_route(request: Request, run_id: str) -> dict[str, Any]:

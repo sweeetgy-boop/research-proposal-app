@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
 from rra.domain.models import Confirmation, Draft, ProposerInfo
+from rra.domain.models.figure import Figure, FigurePlacement
+
+FigureFile = tuple[Figure, bytes, str]  # (그림 기록, 이미지 바이트, mime)
 
 
 class RenderRejected(ValueError):
@@ -28,3 +32,14 @@ class RendererPort(Protocol):
         confirmation: Confirmation | None = None,
         proposer: ProposerInfo | None = None,
     ) -> bytes: ...
+
+    def render_with_figures(
+        self,
+        draft: Draft,
+        *,
+        confirmation: Confirmation | None = None,
+        proposer: ProposerInfo | None = None,
+        figures: Sequence[FigureFile] = (),
+    ) -> tuple[bytes, list[FigurePlacement]]:
+        """[G] 그림을 섹션 칸 안(inline) 또는 문서 끝 별첨(appendix)에 넣은 양식 + 배치 기록."""
+        ...

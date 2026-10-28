@@ -289,6 +289,13 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
     ),
     # 배포 버전 파일 (tools/deploy.sh 가 쓰고 /healthz·화면 하단이 읽는다)
     "deploy_version": (lambda s: {}, "", "data/deploy/version.json"),
+    # [G] 그림: Nano Banana 일일 상한 카운터·같은 명세 캐시
+    "figure_budget": (
+        lambda s: read_config("figures.yaml", s),
+        "budget_counter",
+        "data/cache/figure_budget.json",
+    ),
+    "figure_cache": (lambda s: read_config("figures.yaml", s), "cache_dir", "data/cache/figures"),
 }
 DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
 
@@ -506,6 +513,46 @@ def review_policy(settings: Settings) -> dict[str, Any]:
     return {
         "auto": bool(review.get("auto", True)),
         "include_internal": bool(external.get("include_internal", True)),
+    }
+
+
+FIGURE_KINDS_DEFAULT = ("concept", "process", "schedule", "stat_chart", "comparison", "roadmap")
+
+
+def figures_config(settings: Settings) -> dict[str, Any]:
+    """config/figures.yaml ([G]) — 켜기·기본 개수·동시 수·크기·비율·팔레트·HWPX 배치·상한·경로."""
+    raw = read_config("figures.yaml", settings)
+    hwpx = raw.get("hwpx") or {}
+    kinds = [str(k) for k in (raw.get("kinds") or FIGURE_KINDS_DEFAULT)]
+    aspects = {str(k): str(v) for k, v in (raw.get("aspect") or {}).items()}
+    template_dir = Path(str(raw.get("template_dir") or "config/templates/figures"))
+    if not template_dir.is_absolute():
+        template_dir = Path(settings.config_dir).parent / template_dir
+    fonts_dir = Path(str(raw.get("fonts_dir") or "config/templates/figures/fonts"))
+    if not fonts_dir.is_absolute():
+        fonts_dir = Path(settings.config_dir).parent / fonts_dir
+    return {
+        "enabled": bool(raw.get("enabled", True)),
+        "max_default": int(raw.get("max_default", 3)),
+        "concurrency": int(raw.get("concurrency", 3)),
+        "dpi": int(raw.get("dpi", 300)),
+        "max_png_bytes": int(raw.get("max_png_bytes", 512_000)),
+        "width_px": int(raw.get("width_px", 1600)),
+        "image_size": str(raw.get("image_size", "2K")),
+        "aspects": aspects,
+        "kinds": kinds,
+        "spec_stage": str(raw.get("spec_stage", "figures")),
+        "daily_image_cap": int(raw.get("daily_image_cap", 150)),
+        "budget_counter": data_location(settings, "figure_budget", cfg=raw),
+        "cache_dir": data_location(settings, "figure_cache", cfg=raw),
+        "template_dir": template_dir,
+        "fonts_dir": fonts_dir,
+        "palette": dict(raw.get("palette") or {}),
+        "hwpx": {
+            "placement": str(hwpx.get("placement", "inline")),
+            "max_width_hwp": int(hwpx.get("max_width_hwp", 42000)),
+            "caption_prefix": str(hwpx.get("caption_prefix", "그림")),
+        },
     }
 
 

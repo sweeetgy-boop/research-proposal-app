@@ -1,0 +1,63 @@
+{
+  "$defs": {
+    "ScheduleStage": {
+      "properties": {
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "start_month": {
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Start Month",
+          "type": "integer"
+        },
+        "end_month": {
+          "maximum": 120,
+          "minimum": 1,
+          "title": "End Month",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "start_month",
+        "end_month"
+      ],
+      "title": "ScheduleStage",
+      "type": "object"
+    }
+  },
+  "description": "추진 일정표(간트) — U6 단계별 개월. total_months 는 연구기간(제약)에서.",
+  "properties": {
+    "kind": {
+      "const": "schedule",
+      "default": "schedule",
+      "title": "Kind",
+      "type": "string"
+    },
+    "total_months": {
+      "maximum": 120,
+      "minimum": 1,
+      "title": "Total Months",
+      "type": "integer"
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/ScheduleStage"
+      },
+      "maxItems": 8,
+      "minItems": 2,
+      "title": "Stages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "total_months",
+    "stages"
+  ],
+  "title": "ScheduleSpec",
+  "type": "object"
+}

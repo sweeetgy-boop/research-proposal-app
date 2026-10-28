@@ -1,0 +1,65 @@
+{
+  "$defs": {
+    "ComparisonProject": {
+      "properties": {
+        "title": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "cells": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Cells",
+          "type": "object"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "ComparisonProject",
+      "type": "object"
+    }
+  },
+  "description": "차별성 비교 — U4 비교표에서 기존 과제 2~3건 대 제안 과제 (연구목표·방법·적용범위).",
+  "properties": {
+    "kind": {
+      "const": "comparison",
+      "default": "comparison",
+      "title": "Kind",
+      "type": "string"
+    },
+    "aspects": {
+      "items": {
+        "maxLength": 40,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 5,
+      "minItems": 1,
+      "title": "Aspects",
+      "type": "array"
+    },
+    "projects": {
+      "items": {
+        "$ref": "#/$defs/ComparisonProject"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "title": "Projects",
+      "type": "array"
+    },
+    "proposal": {
+      "$ref": "#/$defs/ComparisonProject"
+    }
+  },
+  "required": [
+    "aspects",
+    "projects",
+    "proposal"
+  ],
+  "title": "ComparisonSpec",
+  "type": "object"
+}

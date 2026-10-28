@@ -1,7 +1,7 @@
 /** TanStack Query 훅. 키는 ["run", id, …] 로 묶어 저장·복원 뒤 한꺼번에 무효화한다. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "./endpoints";
-import type { EditRequest, EvidenceDecisionRequest, FeedbackIn, FinalizeIn, ProposalRequest, RewriteApplyIn, RunState } from "./types";
+import type { EditRequest, EvidenceDecisionRequest, FeedbackIn, FigureActionIn, FigureAddIn, FinalizeIn, ProposalRequest, RewriteApplyIn, RunState } from "./types";
 import { isApiError } from "./client";
 
 export const keys = {
@@ -16,6 +16,7 @@ export const keys = {
   working: (id: string) => ["run", id, "working"] as const,
   renderCheck: (id: string) => ["run", id, "render-check"] as const,
   outline: (id: string) => ["run", id, "outline"] as const,
+  figures: (id: string) => ["run", id, "figures"] as const,
   sources: ["sources"] as const,
   health: ["health"] as const,
   search: (q: string) => ["search", q] as const,
@@ -238,5 +239,27 @@ export function useFeedback(id: string) {
   return useMutation({
     mutationFn: (body: FeedbackIn) => api.sendFeedback(id, body),
     onSuccess: (out) => qc.setQueryData(usabilityKeys.usage(id), out),
+  });
+}
+
+// ── [G] 그림 카드 ─────────────────────────────
+export function useFigures(id: string, enabled = true) {
+  return useQuery({ queryKey: keys.figures(id), queryFn: () => api.getFigures(id), enabled });
+}
+
+/** 그림 동작 → 새 버전. 성공하면 run 아래 전부 무효화 (초안·버전·그림). */
+export function useFigureAction(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fid, body }: { fid: string; body: FigureActionIn }) => api.figureAction(id, fid, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.run(id) }),
+  });
+}
+
+export function useAddFigure(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: FigureAddIn) => api.addFigure(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.run(id) }),
   });
 }

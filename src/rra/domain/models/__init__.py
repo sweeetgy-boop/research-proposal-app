@@ -3,6 +3,7 @@ from .catalog import CatalogEntry
 from .comparison import ComparisonColumn, ComparisonTable
 from .document import Chunk, DocType, Document, SourceType, TextBasis
 from .draft import Draft, Section, Sentence, SentenceOrigin
+from .figure import FIGURE_KINDS, KIND_LABEL, Figure, FigureKind, FigurePlacement, FigureSpec
 from .gap import (
     MAX_DIRECTIONS,
     MAX_ITEM_CHARS,
@@ -53,6 +54,12 @@ __all__ = [
     "FollowUp",
     "StructuredIdea",
     "CatalogEntry",
+    "FIGURE_KINDS",
+    "KIND_LABEL",
+    "Figure",
+    "FigureKind",
+    "FigurePlacement",
+    "FigureSpec",
     "Chunk",
     "MAX_DIRECTIONS",
     "MAX_ITEM_CHARS",

@@ -27,7 +27,7 @@ LLM 출력은 비신뢰 텍스트 — 구획 태그 무력화·길이 상한·id
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -36,6 +36,7 @@ from rra.domain.models import (
     Chunk,
     Confirmation,
     DraftVersion,
+    Figure,
     ProposalRequest,
     RetrievalSnapshot,
     ReviewComment,
@@ -58,6 +59,7 @@ from rra.domain.models.review import (
 )
 from rra.domain.models.selection import STRATEGY_SOURCE
 from rra.domain.rules.evidence import parse_support
+from rra.domain.rules.figures import texts_of as figure_texts
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.lint import LintRules
@@ -109,6 +111,8 @@ class ReviewContext:
     app_findings: tuple[str, ...] = ()  # Q6 규칙 검사가 찾은 문제 (1차 검토에 "앱이 찾은 문제" 로)
     # Q7 핵심 섹션의 후보 B (초안에 든 것이 A). 1차 검토가 고른다 — 호출 수는 늘지 않는다
     candidates: Mapping[str, Section] = field(default_factory=dict)
+    # [G] 제안서에 넣는 그림(명세만) — 1차 검토가 "본문과 그림이 어긋나는 곳" 을 figures 에 지적한다
+    figures: Sequence[Figure] = ()
 
 
 @dataclass
@@ -142,6 +146,7 @@ class ReviewDraft:
         checklist_raw: dict = {}
         candidate_raw: dict = {}
         support_items: list = []
+        figure_items: list[dict] = []
         for item in inputs:
             data = parse_object(
                 await self.llm.complete(item.prompt, system=self.prompts.review(), json_mode=True)
@@ -161,11 +166,16 @@ class ReviewDraft:
             if not score_items:  # 분할 호출이면 첫 호출(초안 전체 또는 첫 섹션)의 채점만 쓴다
                 score_items = [x for x in _as_list(data.get("scores")) if isinstance(x, dict)]
             support_items.extend(_as_list(data.get("support")))
+            figure_items.extend(x for x in _as_list(data.get("figures")) if isinstance(x, dict))
         sent_ids = {sid for item in inputs for sid in item.sentence_ids}
         support = parse_support(support_items, sent_ids) if self._wants_support(ctx) else {}
         comments = self._comments(ctx, sections, raw_items, section_items, sent_ids)
         if self.additions and ctx.kind == "draft":
             comments.extend(self._additions(ctx, sections, addition_items, start_no=len(comments)))
+        if ctx.figures and ctx.kind == "draft":
+            comments.extend(
+                figure_comments(ctx.figures, figure_items, ctx.round_no, start_no=len(comments))
+            )
         scores = parse_scores(score_items, sent_ids)
         comments.extend(
             score_comments(
@@ -310,6 +320,24 @@ class ReviewDraft:
                     '쪽을 candidates 에 {"섹션": {"choice": "A" 또는 "B", "reason": 한 줄}} 로 '
                     "고른다. sentences 의견은 항상 초안(A) 의 sentence_id 기준으로 낸다.\n"
                     + json.dumps(alt, ensure_ascii=False)
+                )
+        if ctx.figures and ctx.kind == "draft":
+            specs = [
+                {
+                    "figure_id": f.id,
+                    "kind": f.kind,
+                    "section": f.section,
+                    "caption": f.caption,
+                    "texts": figure_texts(f.spec),
+                }
+                for f in ctx.figures
+                if not part or f.section == part
+            ]
+            if specs:
+                parts.append(
+                    "[그림 명세 — 본문과 그림이 어긋나는 곳만 figures 에 "
+                    '{"figure_id": "...", "comment": "한 줄"} 로 적는다. 글자를 새로 짓지 않는다]\n'
+                    + json.dumps(specs, ensure_ascii=False)
                 )
         if self._wants_support(ctx):
             parts.append(
@@ -558,6 +586,34 @@ class ReviewDraft:
 
 
 # ── 순수 함수 ──────────────────────────────────────────────
+def figure_comments(
+    figures: Sequence[Figure], items: list[dict], round_no: int, *, start_no: int
+) -> list[ReviewComment]:
+    """[G] figures 응답 → kind=figure 의견 (보낸 그림 id 만, 그림당 하나)."""
+    by_id = {f.id: f for f in figures}
+    out: list[ReviewComment] = []
+    seen: set[str] = set()
+    for item in items:
+        fid = str(item.get("figure_id") or "")
+        fig = by_id.get(fid)
+        comment = _clean_text(item.get("comment"), MAX_COMMENT_CHARS)
+        if fig is None or fid in seen or not comment:
+            continue
+        seen.add(fid)
+        out.append(
+            ReviewComment(
+                id=f"r{round_no}-{start_no + len(out) + 1}",
+                section=fig.section,
+                sentence=None,
+                kind="figure",
+                issue_type="일관성",
+                comment=comment,
+                figure_id=fid,
+            )
+        )
+    return out
+
+
 def parse_scores(items: list[dict], sent_ids: set[str]) -> list[CriterionScore]:
     """LLM 의 scores 배열 → 기준별 점수 (기준 밖·범위 밖은 버림, 기준당 첫 값, CRITERIA 순서)."""
     found: dict[str, CriterionScore] = {}

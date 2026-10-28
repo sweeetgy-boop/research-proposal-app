@@ -9,6 +9,7 @@ from .auth import (
 )
 from .catalog import CatalogPort
 from .embedding import EmbeddingPort
+from .figures import FigureRendererPort, ImageBudgetExhausted, ImageGeneratorPort, ImageResult
 from .generation_slot import GenerationSlot
 from .llm import LLMPort, ModelListingPort
 from .maintenance import DatabaseMaintenancePort
@@ -37,6 +38,10 @@ __all__ = [
     "CachePort",
     "CatalogPort",
     "EmbeddingPort",
+    "FigureRendererPort",
+    "ImageBudgetExhausted",
+    "ImageGeneratorPort",
+    "ImageResult",
     "GenerationSlot",
     "InboxSource",
     "LLMPort",

@@ -59,6 +59,7 @@ RETRIEVE = "retrieve"
 OUTLINE = "outline"  # 섹션 설계도 (pipeline.outline — [Q] Q2)
 FINALIZE = "finalize"  # 규칙 검사·자동 정리 → v1 저장
 DRAFT_REVIEW = "draft_review"  # Argon 1차 검토 → 검증 통과분 자동 반영 → v2
+FIGURES = "figures"  # [G] 그림 명세·밑그림·Nano Banana Pro → v1 에 그림 목록 (검토 전)
 SECTION_PREFIX = "section:"
 
 _RUN_ID = re.compile(r"^\d{14}-[0-9a-f]{8}$")
@@ -74,7 +75,11 @@ def section_step(key: str) -> str:
 
 
 def plan_steps(
-    section_keys: list[str], *, outline: bool = False, draft_review: bool = True
+    section_keys: list[str],
+    *,
+    outline: bool = False,
+    draft_review: bool = True,
+    figures: bool = False,
 ) -> list[str]:
     """③ 파이프라인 단계 — 켜고 끄는 단계(pipeline.yaml)만 계획에 들어간다."""
     steps = [RETRIEVE]
@@ -82,6 +87,8 @@ def plan_steps(
         steps.append(OUTLINE)
     steps.extend(section_step(k) for k in section_keys)
     steps.append(FINALIZE)
+    if figures:
+        steps.append(FIGURES)
     if draft_review:
         steps.append(DRAFT_REVIEW)
     return steps
@@ -147,6 +154,9 @@ class RunState(BaseModel):
     # 대체 작성(ADR 0027) 전송 기록 — [{key, reason, provider, model, public_doc_ids,
     # internal_doc_ids, calls}]. 본문 없음. manifest 에 그대로 간다
     fallback_sections: list[dict[str, Any]] = Field(default_factory=list)
+    # [G] 그림 요약(manifest·목록용, 본문 없음): id·kind·section·renderer·model·calls·included·
+    # confirmed·placement·error. 현재 버전의 그림 목록에서 갱신한다
+    figures: list[dict[str, Any]] = Field(default_factory=list)
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

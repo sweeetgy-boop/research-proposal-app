@@ -43,3 +43,4 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-28,feat/overlap-sources,유사과제 판정 과제형 자료원만·관련 연구 분리(#56),,,8,,,,,,1119,120,2482,,,,,,,precheck 적중 5/10→9/10(골든셋 10, 상위5), 지연 on 1.84~2.09s(reranker 단독 1.65~2.0s), off 0.11~0.17s 7/10, Gemini 0회
 2026-10-28,feat/staff-import,사번 일괄 등록 CLI(A2),1837,,8,,,,,,,,,,,,,,,테스트 +12(domain 5·adapters 9 param·cli 3); OCR 실측 1건은 main 에서도 실패(환경)
 2026-10-28,feat/deploy-pilot,시범 배포 규칙·버전 표시(D2),1846,,8,,,,,,,,,,,,,,,테스트 +9; tools/deploy.sh; healthz version
+2026-10-28,feat/proposal-figures,제안서 그림 [G](#63),1902,,8,,,,,,,,,,,,,,,Nano Banana 6/6·장당 29~39s·말로 고치기 27~28s; 골든셋 측정 18:00 이후

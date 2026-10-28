@@ -899,6 +899,45 @@ Streamlit 의 ScriptRunner 는 `SystemExit`(BaseException)를 잡지 않아 스�
 토큰 게이트·필수 입력·차단 게이트·초안 표시·확정·다운로드·검색·개인정보 칸 없음). `AppTest` 는 `run_every`
 fragment 를 자동 재실행하지 않으므로 `Worker.wait(run_id)` 뒤 `at.run()` 으로 완료 화면을 본다.
 
+### 4.20 제안서 그림(인포그래픽) 자동 삽입 [G] (2026-10-28, ADR 0029)
+
+초안 생성 뒤(1차 검토 전) 섹션에 어울리는 그림을 기본 2~3개 만들어 붙이고, 제안자가 카드에서 확인·수정한 뒤 HWPX 에 넣는다.
+이미지 생성 AI 는 **그릴 내용을 정하지 않는다** — 내용은 구조화된 명세(JSON)뿐이고, AI 는 밑그림을 보고 "보기 좋게" 다시 그릴 뿐이다.
+
+- **종류 6** (`domain/models/figure.py`, 스키마 `config/templates/figures/<kind>.schema.json`): concept(개념도: 현황→문제→해결→기대효과),
+  process(추진 체계도 3~6단계+산출물), schedule(간트, U6 연구기간 안), stat_chart(검증 수치만, 출처 캡션 필수), comparison(U4 기존 2~3건 대 제안,
+  "정보 없음"), roadmap(성과지표 "목표치 확인 필요"·활용 단계). 기본 선택 순서는 `rules/figures.choose_default`(개념도→체계도→수치 그래프(facts)→
+  일정표(기간)→로드맵→비교(유사과제)), `figures.max_default`(3).
+- **흐름** (`usecases/figures.MakeFigures`, RunManager `_figures_step`, step 이름 `figures`): ① 명세 — 로컬 모델(`llm.yaml stages.figures`)이
+  스키마대로 JSON, 교정 재요청 1회, 그래도 실패면 `compose.fallback` provider 1회. `rules/figures.validate_spec` 이 모든 글자·수치가
+  초안 본문·제안자 입력·근거 청크·table_facts 에 있는지, stat_chart 는 출처 문서 facts 값만인지, schedule 은 기간 안인지 검사 — 위반이면 그 그림은
+  만들지 않는다(건너뜀 사유 기록). ② 밑그림 — `adapters/figures`(SVG 템플릿 6종, 번들 Pretendard, 팔레트 `config/figures.yaml`, resvg 로 PNG 300dpi).
+  ③ Nano Banana Pro(`adapters/llm/image_gen.GeminiImageGenerator`, `gemini-3-pro-image` generateContent, 참고 이미지 = 밑그림, 프롬프트 =
+  배치·순서 유지 + 명세 글자 목록 그대로 + 로고·얼굴·상표·새 숫자 금지, 비율은 종류별 `figures.aspect`, 2K) **1회 → 그대로 채택**.
+  실패(예외·`ImageBudgetExhausted`)면 밑그림을 "기본 그림" 으로. 동시 3(`figures.concurrency`). 응답은 500KB 이하로 축소(`shrink_image`).
+- **저장**: 그림 파일은 run 폴더 `figures/<sha>.png|jpg`(해시 이름 — 어느 버전이든 참조 가능), 기록은 `DraftVersion.figures: list[Figure]`
+  (id `f:<섹션>:<n>`, kind, spec, renderer nano_banana|baseline, model, calls, included, confirmed, source_caption, image_sha, baseline_sha,
+  error, edit_requests). `RunState.figures` 는 manifest 용 요약(본문 없음, `file_run_log.FIGURE_KEYS`).
+- **확인·수정** (자동 검증 없음): 카드 배지 "확인 전" → [확인함]. 동작(`RunManager.figure_action`, REST `POST /v1/runs/{id}/figures/{fid}`):
+  words(말로 고치기 — 현재 그림 + 요청 → 편집 호출 1회, 요청 원문은 `privacy.strip_personal` 뒤 `edit_requests` 에), texts(글자 고치기 —
+  `editable_texts` 경로 폼 → `apply_text_edits` → 다시 그림), baseline(기본 그림으로), regenerate, include/exclude, confirm. 동작마다 **새 버전**
+  (origin edit, note "그림 …"), 고치면 confirmed=False. 복원(revert)은 그 버전의 그림으로. 비교는 `rules/figures.figure_diff` → `figures_changed`.
+  [다른 그림 추가] `POST /v1/runs/{id}/figures` {kind, section}. 그림 파일 `GET /v1/runs/{id}/figures/{fid}/image?variant=adopted|baseline&version=N`
+  (소유자 검사, 같은 출처 `img-src 'self'`).
+- **검토·점검**: 1차 검토 입력 `[그림 명세]` 블록 → 응답 `figures[{figure_id, comment}]` → `ReviewComment(kind=figure)`(메모로 남음, 자동 반영 없음).
+  제출 전 점검 항목 `figures_unconfirmed`(확인 전 n개)·`figures_source`(수치 그래프 출처 캡션)·`figures_mismatch`(검토 지적). 웹 Finalize 는 확인 전
+  그림이 있으면 "그림을 확인하지 않았습니다. 그대로 진행할까요?" 확인 창.
+- **HWPX** (`adapters/rendering/hwpx.render_with_figures`): 섹션 본문 마지막 줄에 표식(`\u200b[fig:<id>]`) 단락을 넣어 치환 → `HwpxDocument` 로 열어
+  표식 단락을 그림(BinData, `hp:pic`, 폭 ≤ `hwpx.max_width_hwp`)으로 바꾸고 바로 뒤에 "그림 n. 캡션"·출처 단락. 실물 양식은 본문이 표 밖 단락이라
+  본문 바로 뒤(inline). 표식을 못 찾거나 `hwpx.placement: appendix` 면 "(별첨 그림 n 참조)" + 문서 끝 "별첨 그림". 결과는 manifest `figures[].placement`.
+  템플릿 구조 검사는 BinData 추가 전(치환 직후)에 하고, 삽입 뒤 `verify_hwpx` 재파싱.
+- **외부 전송·상한**: 명세 글자 목록 + 밑그림(또는 현재 그림)만. 공용 계정(`external_llm.include_internal=false`)은 internal 청크를 명세 프롬프트에서
+  빼고 internal 에만 있는 글자가 든 명세는 폐기. Gemini 공용 제한기 + 그림 일일 상한 `figures.daily_image_cap`(150, 생성·고치기 포함,
+  `data/cache/figure_budget.json`) + 캐시(`data/cache/figures/`, 모델·프롬프트·참고 이미지 해시). 가짜 모드는 `adapters/fake/figures.FakeImageGenerator`
+  (밑그림 그대로) + `ScriptedComposeLLM` 의 `[그림 명세:` 분기.
+- **측정** `rra eval` `EvalIdea.figures_total/figures_nano/figures_baseline/figures_skipped/figure_calls/figure_seconds/figure_comments`.
+  끄기: `config/figures.yaml enabled: false`(단계·검토 전송·삽입 전부 생략).
+
 ## 5. 추가 권장 10항목
 
 ### 1. NTIS 어댑터

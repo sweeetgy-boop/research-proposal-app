@@ -1,0 +1,147 @@
+{
+  "$defs": {
+    "ChartSeries": {
+      "properties": {
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "values"
+      ],
+      "title": "ChartSeries",
+      "type": "object"
+    },
+    "FactSource": {
+      "description": "출처 캡션 — \"출처: 문서명, 연도, 쪽\". stat_chart 는 필수.",
+      "properties": {
+        "doc_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Doc Id",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Title",
+          "type": "string"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "maximum": 2100,
+              "minimum": 1900,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        }
+      },
+      "required": [
+        "doc_id"
+      ],
+      "title": "FactSource",
+      "type": "object"
+    }
+  },
+  "description": "현황 수치 그래프 — 검증된 table_facts 값만. 값마다 value_texts(표기 그대로)를 함께 둔다.",
+  "properties": {
+    "kind": {
+      "const": "stat_chart",
+      "default": "stat_chart",
+      "title": "Kind",
+      "type": "string"
+    },
+    "chart": {
+      "default": "bar",
+      "enum": [
+        "bar",
+        "line"
+      ],
+      "title": "Chart",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "categories": {
+      "items": {
+        "maxLength": 40,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Categories",
+      "type": "array"
+    },
+    "series": {
+      "items": {
+        "$ref": "#/$defs/ChartSeries"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "Series",
+      "type": "array"
+    },
+    "unit": {
+      "default": "",
+      "maxLength": 20,
+      "title": "Unit",
+      "type": "string"
+    },
+    "value_texts": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 48,
+      "title": "Value Texts",
+      "type": "array"
+    },
+    "source": {
+      "$ref": "#/$defs/FactSource"
+    }
+  },
+  "required": [
+    "title",
+    "categories",
+    "series",
+    "source"
+  ],
+  "title": "StatChartSpec",
+  "type": "object"
+}

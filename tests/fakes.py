@@ -68,6 +68,9 @@ class FakePromptLibrary:
     def brief(self) -> str:
         return "BRIEF: 구획별 한 줄 요약·연구 공백 후보, 자료 안에서만, 한국어, JSON 객체 하나"
 
+    def figures(self) -> str:
+        return "FIGURES: 그림 명세 JSON 하나, 본문·입력·근거에 있는 글자·수치만"
+
 
 class FakeEmbedding:
     dim = 4
@@ -286,6 +289,68 @@ class FakeRenderer:
         }
         return json.dumps(body, ensure_ascii=False).encode()
 
+    def render_with_figures(self, draft, *, confirmation=None, proposer=None, figures=()):
+        from rra.domain.models.figure import FigurePlacement
+
+        data = self.render(draft, confirmation=confirmation, proposer=proposer)
+        placements = [
+            FigurePlacement(id=f.id, placement="inline", number=i + 1, bytes=len(b))
+            for i, (f, b, _mime) in enumerate(figures)
+        ]
+        self.calls[-1]["figures"] = [f.id for f, _b, _m in figures]
+        return data, placements
+
+
+class FakeImageGenerator:
+    """ImageGeneratorPort fake — 참고 이미지 앞에 표식(채택 ≠ 밑그림). fail 이면 예외."""
+
+    provider = "fake"
+    model = "fake/nano-banana"
+
+    def __init__(self, *, fail: bool = False, exhausted: bool = False):
+        self.calls: list[dict[str, Any]] = []
+        self.fail = fail
+        self.exhausted = exhausted
+
+    async def generate(self, prompt, reference, *, mime="image/png", aspect="16:9", size="2K"):
+        from rra.application.ports.figures import ImageBudgetExhausted, ImageResult
+
+        self.calls.append({"kind": "generate", "prompt": prompt, "aspect": aspect, "size": size})
+        if self.exhausted:
+            raise ImageBudgetExhausted("cap")
+        if self.fail:
+            raise ConnectionError("https://generativelanguage.googleapis.com 응답 없음")
+        return ImageResult(b"NB:" + bytes(reference), "image/jpeg", self.model)
+
+    async def edit(self, prompt, image, *, mime, aspect="16:9", size="2K"):
+        from rra.application.ports.figures import ImageBudgetExhausted, ImageResult
+
+        self.calls.append({"kind": "edit", "prompt": prompt, "aspect": aspect, "size": size})
+        if self.exhausted:
+            raise ImageBudgetExhausted("cap")
+        if self.fail:
+            raise ConnectionError("응답 없음")
+        return ImageResult(b"EDIT:" + bytes(image), mime, self.model)
+
+
+class FakeFigureRenderer:
+    """FigureRendererPort fake — resvg 없이. svg 는 글자 목록, png 는 svg 해시 바이트."""
+
+    def svg(self, spec, *, caption=""):
+        from xml.sax.saxutils import escape
+
+        from rra.domain.rules.figures import texts_of
+
+        body = "".join(f"<text>{escape(t)}</text>" for t in texts_of(spec))
+        return (
+            f'<svg xmlns="http://www.w3.org/2000/svg"><title>{escape(caption)}</title>{body}</svg>'
+        )
+
+    def png(self, svg):
+        import hashlib
+
+        return b"\x89PNG" + hashlib.sha256(svg.encode()).digest()
+
 
 class FakeRunLog:
     def __init__(self):
@@ -360,6 +425,7 @@ class InMemoryRunStore:
         self.working: dict[tuple[str, str], dict[str, Any]] = {}
         self.outlines: dict[tuple[str, str], dict[str, Any]] = {}
         self.candidates: dict[tuple[str, str], dict[str, Any]] = {}
+        self.figure_images: dict[tuple[str, str], dict[str, tuple[bytes, str]]] = {}
         self.rewrites: dict[tuple[str, str], dict[str, Any]] = {}
         self.notes: dict[tuple[str, str], dict[str, Any]] = {}
         self.usage: dict[tuple[str, str], Any] = {}
@@ -433,6 +499,12 @@ class InMemoryRunStore:
 
     def load_outline(self, user, run_id):
         return self.outlines.get(self._key(user, run_id))
+
+    def save_figure_image(self, user, run_id, sha, data, mime):
+        self.figure_images.setdefault(self._key(user, run_id), {})[sha] = (bytes(data), mime)
+
+    def load_figure_image(self, user, run_id, sha):
+        return self.figure_images.get(self._key(user, run_id), {}).get(sha)
 
     def save_candidates(self, user, run_id, data):
         self.candidates[self._key(user, run_id)] = dict(data)

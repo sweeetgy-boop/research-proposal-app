@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Download, FileCheck2, RotateCcw } from "lucide-react";
+import { Link } from "react-router";
+import { Download, FileCheck2, ImageIcon, RotateCcw } from "lucide-react";
 import { useRunContext } from "./useRunContext";
 import { useDraft, useFinalize, useRenderCheck, useReopen } from "@/api/hooks";
 import type { FinalizeIn } from "@/api/types";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +47,9 @@ export default function Finalize() {
   // 제안자 정보 — 이 화면의 메모리에만, 마무리 요청 본문으로만 보낸다 (저장 금지)
   const [proposer, setProposer] = React.useState({ department: "", proposed_on: "", p_rank: "", p_name: "", p_phone: "", h_rank: "", h_name: "", h_phone: "" });
   const [lastCheck, setLastCheck] = React.useState<{ count: number; version: string | null } | null>(null);
+  // [G] 확인 전 그림(넣은 것만) — 마무리 전에 한 번 더 묻는다
+  const unconfirmedFigures = (draft.data?.figures ?? []).filter((f) => f.included && !f.confirmed);
+  const [askFigures, setAskFigures] = React.useState(false);
 
   // 제안값(또는 확정값)을 초기 선택으로
   React.useEffect(() => {
@@ -58,8 +63,17 @@ export default function Finalize() {
     }
   }, [draft.data]);
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (unconfirmedFigures.length > 0) {
+      setAskFigures(true);
+      return;
+    }
+    void runFinalize();
+  };
+
+  const runFinalize = async () => {
+    setAskFigures(false);
     const body: FinalizeIn = {
       task_type: taskType || null,
       utilization: utilization.length ? utilization : null,
@@ -114,6 +128,20 @@ export default function Finalize() {
             <div>
               <AlertTitle>최종 검토 이후 수정 {run.flow.stale_edits}건</AlertTitle>
               <AlertDescription>검토받지 않은 수정이 들어간 채로 마무리됩니다. 원하면 최종 검토를 다시 받으십시오.</AlertDescription>
+            </div>
+          </Alert>
+        )}
+        {unconfirmedFigures.length > 0 && (
+          <Alert variant="info" role="status">
+            <ImageIcon aria-hidden="true" />
+            <div>
+              <AlertTitle>확인 전 그림 {unconfirmedFigures.length}개</AlertTitle>
+              <AlertDescription>
+                직접 수정 화면의 그림 카드에서 [확인함]을 누르십시오 — AI 가 그린 숫자·글자를 원문과 맞춰 보는 단계입니다.{" "}
+                <Link to={`/runs/${id}/edit`} className="underline">
+                  직접 수정으로
+                </Link>
+              </AlertDescription>
             </div>
           </Alert>
         )}
@@ -230,6 +258,33 @@ export default function Finalize() {
           </Button>
         </div>
       </form>
+
+      {askFigures && (
+        <Dialog
+          open
+          onClose={() => setAskFigures(false)}
+          title="그림을 확인하지 않았습니다. 그대로 진행할까요?"
+          description={`확인 전 그림 ${unconfirmedFigures.length}개가 양식에 들어갑니다.`}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setAskFigures(false)}>
+                취소
+              </Button>
+              <Button onClick={() => void runFinalize()} disabled={finalize.isPending}>
+                그대로 진행
+              </Button>
+            </>
+          }
+        >
+          <ul className="list-disc space-y-1 pl-5 text-sm">
+            {unconfirmedFigures.map((f) => (
+              <li key={f.id}>
+                {f.label} <span className="text-muted-foreground">({sectionTitle(f.section)})</span>
+              </li>
+            ))}
+          </ul>
+        </Dialog>
+      )}
 
       <aside className="min-w-0">
         <section aria-labelledby="rc-h" className="rounded-lg border p-3">

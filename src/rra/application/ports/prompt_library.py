@@ -42,6 +42,10 @@ class PromptLibraryPort(Protocol):
         """U2 간편 입력 시스템 프롬프트 — 자유 문장 → 필수 4칸, 없는 칸은 빈 값, JSON 객체."""
         ...
 
+    def figures(self) -> str:
+        """[G] 그림 명세(JSON) 작성 지시 — 본문·입력·근거에 있는 글자·수치만."""
+        ...
+
     def brief(self) -> str:
         """U5 선행연구 브리핑 시스템 프롬프트 — 구획별 한 줄 요약·연구 공백 후보, JSON 객체."""
         ...

@@ -19,6 +19,7 @@ CLARIFY_NAME = "clarify"
 VISION_NAME = "vision"
 STRUCTURE_NAME = "structure"
 BRIEF_NAME = "brief"
+FIGURES_NAME = "figures"
 SYSTEM_NAME = "system"
 JSON_FALLBACK_NAME = "json_fallback"
 SECTION_PREFIX = "section_"
@@ -81,6 +82,9 @@ class FilePromptLibrary:
 
     def structure(self) -> str:
         return self._read(STRUCTURE_NAME)
+
+    def figures(self) -> str:
+        return self._read(FIGURES_NAME)
 
     def brief(self) -> str:
         return self._read(BRIEF_NAME)

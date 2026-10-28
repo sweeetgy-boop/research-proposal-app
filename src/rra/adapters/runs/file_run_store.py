@@ -25,7 +25,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from rra.adapters.runs._fs import ensure_dir, read_json, write_json
+from rra.adapters.runs._fs import ensure_dir, read_json, write_bytes, write_json
 from rra.adapters.runs.locks import FileLockClaim, is_locked, try_lock
 from rra.application.ports import RunBusy, RunNotFound
 from rra.domain.models import (
@@ -44,6 +44,7 @@ from rra.domain.models.run import is_valid_run_id
 
 _USER = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 _SECTION = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+_SHA = re.compile(r"^[0-9a-f]{16,64}$")
 
 
 class FileRunStore:
@@ -168,6 +169,25 @@ class FileRunStore:
     def load_outline(self, user: str, run_id: str) -> dict[str, Any] | None:
         path = self._run_dir(user, run_id) / "outline.json"
         return read_json(path) if path.is_file() else None
+
+    # ── [G] 그림 파일 — 해시 이름 (figures/<sha>.png|jpg) ──
+    def save_figure_image(self, user: str, run_id: str, sha: str, data: bytes, mime: str) -> None:
+        path = ensure_dir(self._run_dir(user, run_id) / "figures") / self._figure_name(sha, mime)
+        write_bytes(path, data)
+
+    def load_figure_image(self, user: str, run_id: str, sha: str) -> tuple[bytes, str] | None:
+        folder = self._run_dir(user, run_id) / "figures"
+        for mime in ("image/png", "image/jpeg"):
+            path = folder / self._figure_name(sha, mime)
+            if path.is_file():
+                return path.read_bytes(), mime
+        return None
+
+    @staticmethod
+    def _figure_name(sha: str, mime: str) -> str:
+        if not _SHA.match(sha):
+            raise ValueError("그림 해시 형식이 올바르지 않습니다.")
+        return f"{sha}.{'jpg' if mime == 'image/jpeg' else 'png'}"
 
     def save_candidates(self, user: str, run_id: str, data: dict[str, Any]) -> None:
         write_json(self._run_dir(user, run_id) / "candidates.json", data)

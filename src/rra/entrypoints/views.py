@@ -107,12 +107,58 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
         "failed_sections": failed_sections_payload(state),
         # 대체 작성(ADR 0027): 외부 LLM 이 쓴 섹션 키 — 화면은 "대체 작성" 배지만
         "fallback_sections": fallback_sections_payload(state),
+        # [G] 그림 카드 — 보고 있는 버전의 그림 목록
+        "figures": figures_payload(getattr(view, "figures", []) or [], state.run_id, clean=clean),
         # 전략체계 목록의 출처 — draft 면 2-가-(3) 선택지가 확인 전 초안이라는 뜻
         "strategy_source": getattr(view, "strategy_status", "confirmed"),
         "strategy_label": STRATEGY_DRAFT_LABEL
         if getattr(view, "strategy_status", "confirmed") == "draft"
         else None,
     }
+
+
+RENDERER_LABEL = {"nano_banana": "Nano Banana Pro", "baseline": "기본 그림"}
+FIGURE_NOTICE = "AI 가 그린 그림입니다. 숫자와 글자를 원문과 확인하세요"
+
+
+def figures_payload(
+    figures: list[Any], run_id: str, *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """[G] 그림 목록 — 명세 글자(editable_texts)·대체 텍스트·배지·그림 URL. 바이트는 별도 경로."""
+    from rra.domain.models.figure import KIND_LABEL
+    from rra.domain.rules.figures import editable_texts
+
+    out = []
+    for f in figures:
+        fid = f.id
+        out.append(
+            {
+                "id": fid,
+                "kind": f.kind,
+                "label": KIND_LABEL.get(f.kind, f.kind),
+                "section": f.section,
+                "caption": clean(f.caption),
+                "alt": clean(f.alt),
+                "renderer": f.renderer,
+                "renderer_label": RENDERER_LABEL.get(f.renderer, f.renderer),
+                "model": f.model,
+                "calls": f.calls,
+                "included": f.included,
+                "confirmed": f.confirmed,
+                "source_caption": clean(f.source_caption),
+                "error": f.error,
+                "image_url": f"/v1/runs/{run_id}/figures/{fid}/image",
+                "baseline_url": f"/v1/runs/{run_id}/figures/{fid}/image?variant=baseline",
+                "texts": [
+                    {"path": r["path"], "label": r["label"], "value": clean(r["value"])}
+                    for r in editable_texts(f.spec)
+                ],
+                "edit_requests": len(f.edit_requests),
+                "updated_at": f.updated_at,
+                "notice": FIGURE_NOTICE,
+            }
+        )
+    return out
 
 
 def failed_sections_payload(state: Any) -> list[dict[str, str]]:
@@ -227,9 +273,12 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
     }
 
 
-def version_payload(version: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+def version_payload(
+    version: Any, *, clean: Callable[[str], str] = _same, run_id: str = ""
+) -> dict[str, Any]:
     return {
         "version": version.version,
+        "figures": figures_payload(getattr(version, "figures", []) or [], run_id, clean=clean),
         "origin": version.origin,
         "origin_label": ORIGIN_LABEL.get(version.origin, version.origin),
         "created_at": version.created_at,
@@ -292,6 +341,7 @@ def versions_payload(versions: list[Any]) -> list[dict[str, Any]]:
             "sentences": sum(len(s.sentences) for s in v.sections),
             "alerts": getattr(v, "alerts", 0),
             "open_annotations": getattr(v, "open_annotations", 0),
+            "figures": len(getattr(v, "figures", []) or []),
         }
         for v in versions
     ]
@@ -306,9 +356,14 @@ def diff_payload(from_v: Any, to_v: Any, diff: list[dict], *, clean: Callable[[s
             for x in items
         ]
 
+    from rra.domain.rules.figures import figure_diff
+
     return {
         "from": from_v.version,
         "to": to_v.version,
+        "figures_changed": figure_diff(
+            getattr(from_v, "figures", []) or [], getattr(to_v, "figures", []) or []
+        ),
         "sections": [
             {
                 **d,
@@ -1034,6 +1089,13 @@ def eval_markdown(results: list[dict[str, Any]], *, date: str) -> str:
         ("invalid", "invalid run"),
         ("failed_sections", "실패 섹션"),
         ("fallback_sections", "대체 작성"),
+        ("figures_total", "그림"),
+        ("figures_nano", "Nano Banana 채택"),
+        ("figures_baseline", "기본 그림"),
+        ("figures_skipped", "그림 건너뜀"),
+        ("figure_calls", "그림 호출"),
+        ("figure_seconds_avg", "그림 단계(s)"),
+        ("figure_comments", "그림 지적"),
     ]
     lines.append("| 구성 | " + " | ".join(label for _, label in cols) + " | RSS(MB) | reranker |")
     lines.append("|---|" + "---|" * (len(cols) + 2))

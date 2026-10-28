@@ -10,6 +10,7 @@ _SENT_ID = re.compile(r'"sentence_id": "(s:[a-z_]+:\d+)"')
 _EVIDENCE = re.compile(r'<doc id="([^"<>]+)"')
 _STRUCTURE_HEAD = "[자유 입력"  # U2 간편 입력 프롬프트 머리
 _BRIEF_HEAD = "[선행연구"  # U5 브리핑 프롬프트 구획 머리
+_FIGURE_HEAD = re.compile(r"^\[그림 명세: ([a-z_]+)\]")  # [G] 그림 명세 프롬프트 머리
 _FREE_TEXT = re.compile(r'"text": "([^"]*)"')
 
 
@@ -48,6 +49,42 @@ def _brief_answer(prompt: str) -> str:
     )
 
 
+def _figure_answer(kind: str) -> str:
+    """[G] 가짜 그림 명세 — 글자는 가짜 초안 문장(아래 texts)·고정 라벨 안에서만 (검사 통과)."""
+    specs = {
+        "concept": {
+            "boxes": [
+                {"label": "현황", "lines": ["궤도 틀림 반복"]},
+                {"label": "문제", "lines": ["다짐 효과 지속 기간"]},
+                {"label": "해결 방안", "lines": ["검측 이력 분석", "진행 속도 추정"]},
+                {"label": "기대효과", "lines": ["유지보수 비용 절감"]},
+            ]
+        },
+        "process": {
+            "stages": [
+                {"name": "검측 이력 분석", "outputs": ["구간별 진행 속도"]},
+                {"name": "다짐 효과 분석", "outputs": ["지속 기간"]},
+                {"name": "보수 우선순위 산정", "outputs": ["산정 방법"]},
+            ]
+        },
+        "roadmap": {
+            "metrics": [{"name": "열화 예측 기술 확보", "target": "목표치 확인 필요"}],
+            "stages": [{"name": "시설처 유지보수 계획 반영"}, {"name": "현장 적용"}],
+        },
+        "comparison": {
+            "aspects": ["연구목표", "연구방법"],
+            "projects": [{"title": "궤도 상태 자동 감지 연구", "cells": {"연구목표": "정보 없음"}}],
+            "proposal": {
+                "title": "제안 과제",
+                "cells": {"연구목표": "보수 우선순위 산정", "연구방법": "검측 이력 분석"},
+            },
+        },
+    }
+    if kind not in specs:
+        return json.dumps({"skip": "no_facts" if kind == "stat_chart" else "no_period"})
+    return json.dumps(specs[kind], ensure_ascii=False)
+
+
 class ScriptedComposeLLM:
     """섹션 키에 따라 한국어 문장 1~2개를 JSON 으로 돌려준다. 근거는 프롬프트의 첫 구획 id."""
 
@@ -65,6 +102,9 @@ class ScriptedComposeLLM:
             return _structure_answer(prompt)
         if _BRIEF_HEAD in prompt and "summaries" in prompt:
             return _brief_answer(prompt)
+        fm = _FIGURE_HEAD.match(prompt)
+        if fm:
+            return _figure_answer(fm.group(1))
         m = _SECTION.search(prompt)
         key = m.group(1) if m else "method"
         ids = _EVIDENCE.findall(prompt)

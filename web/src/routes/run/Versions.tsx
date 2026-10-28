@@ -65,6 +65,7 @@ export default function Versions() {
         {v.note && <UntrustedText as="p" text={v.note} className="text-muted-foreground" />}
         <p className="text-xs text-muted-foreground">
           문장 {v.sentences ?? "—"} · 알림 {v.alerts} · 남은 메모 {v.open_annotations}
+          {(v.figures ?? 0) > 0 && ` · 그림 ${v.figures}`}
           {v.changed_sections.length > 0 && ` · 바뀐 섹션: ${v.changed_sections.map(sectionTitle).join(", ")}`}
         </p>
       </div>
