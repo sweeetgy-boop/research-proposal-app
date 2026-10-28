@@ -183,7 +183,7 @@ def test_api_config_normalizes_and_validates(tmp_path):
 def test_repo_api_yaml_sets_public_origin_and_middleware_gets_it():
     settings = Settings(_env_file=None)
     cfg = api_config(settings)
-    assert cfg["public_origin"] == "https://rra.ai-edu-lab.co.kr"
+    assert cfg["public_origin"] == "https://rra.taile5afcf.ts.net"  # 시범: Tailscale Funnel (2026-10-28)
     assert cfg["trust_cf_connecting_ip"] is False  # 터널 기동 전 기본값
     (_, auth_kw), *_ = api_middlewares(settings, TOKEN)
     assert auth_kw["public_origin"] == cfg["public_origin"]
