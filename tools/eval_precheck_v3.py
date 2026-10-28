@@ -138,6 +138,7 @@ async def one(c: httpx.AsyncClient, name: str, case: dict[str, Any], not_similar
         "overlap_found": rec.get("overlap_found", 0),
         "overlap_regenerated": rec.get("overlap_regenerated", 0),
         "overlap_after": sum(1 for x in cards if x.get("overlap_titles")),
+        "warning_any": sum(1 for x in cards if x.get("overlap_warning")),
         "overlap_reason_after": sum(1 for x in cards if x.get("overlap_reason")),
         "difference": [x.get("difference") for x in cards],
         "refs_titled": sum(1 for x in cards for f in x.get("refs", []) if f.get("title")),
