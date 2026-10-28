@@ -29,7 +29,7 @@ test.describe("[G] 그림 카드", () => {
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThan(box!.height * 1.5);
     await expect(card.getByText(/본문 폭 \d+(\.\d+)?mm/)).toBeVisible();
-    await expect(card.getByText("현재·연구 후 비교 그림", { exact: true })).toHaveCount(0);
+    await expect(card.getByText(/As-Is \/ To-Be/)).toHaveCount(0); // 영문 종류명은 보이지 않는다
     // v2: 개념도·체계도·로드맵은 자동으로 넣지 않는다 — 추천 기법 그림 2장
     await expect(page.getByRole("group", { name: "분석 기법 그림 – SWOT 분석" })).toBeVisible();
     await expect(page.getByRole("group", { name: "분석 기법 그림 – 비용-편익 분석" })).toBeVisible();
