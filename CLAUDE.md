@@ -146,7 +146,10 @@
   **로그인**(#48, ADR 0026): `domain/models/principal.py`·`domain/rules/auth_policy.py`(가명 `staff:<HMAC 12자>`·`guest:<아이디>`, 잠금·일일 상한),
   `adapters/auth/file_store.py`(`data/auth/` 700/600, 사번 HMAC·비밀번호 scrypt, 원문 없음), `config/auth.yaml`, `POST /v1/session {kind: token|staff|guest}`,
   run 소유자 격리(남의 run 404, 관리자 토큰은 전부), 공용 계정은 `PublicOnlyRepository` 로 internal 제외, Gemini 일일 상한 `llm.yaml budget`
-  (`adapters/llm/daily_budget.py`), `rra auth staff|guest|status`(getpass). **자료원 IP**(#46, ADR 0025): `sources.yaml registered_ips`,
+  (`adapters/llm/daily_budget.py`), `rra auth staff|guest|status`(getpass). 사번 일괄 등록(2026-10-28 A2): `rra auth staff import --file
+  <xlsx|csv> [--sheet] [--column] [--pad N] [--replace] [--dry-run]` — 샌드박스 자식(`adapters/auth/_roster_worker`)이 "사번" 열만 반환,
+  규칙 `domain/rules/staff_roster`(공백·하이픈 제거·숫자 셀·0 채움, 로그인도 같은 정규화), 포트 `RosterReaderPort`·`AuthStorePort.import_staff`,
+  출력은 개수만·원본 미복사·API 재시작 불필요. **자료원 IP**(#46, ADR 0025): `sources.yaml registered_ips`,
   `domain/rules/source_ip.py`, IP 거부 응답은 그 자료원만 건너뜀 + `cache/source_availability.json` 안내.
 - 시범 운영(2026-10-28, 3명, [D]): launchd com.rra.{mlx,api,backup,ingest} 등록(`deploy/README.md` §2), `max_queued_runs` 6(사용자별),
   동료 안내 `docs/pilot-guide.md`, 준비 상태·사람 할 일은 `docs/final-check-2026-10-27.md` 맨 위. 외부 주소는 DNS 가 Gabia 라 터널 미기동

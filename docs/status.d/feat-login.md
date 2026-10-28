@@ -48,8 +48,9 @@
 
 ## 내가 할 일 (사람) — CLI 등록 절차 (운영 Mac mini, 저장소 루트, 값은 화면에 남지 않는다)
 1. `rra auth status` — 비밀 키·등록 현황 확인(처음이면 "비밀 키: 없음").
-2. 직원 사번 등록(한 명씩, 프롬프트에 입력): `rra auth staff add` → "사번:" 입력. 처음 실행 때 `data/auth/secret`(600) 이 자동으로 생긴다.
-   반복해서 전원 등록. 개수 확인 `rra auth staff count`. 삭제는 `rra auth staff remove`.
+2. 직원 사번 등록: 명부 파일로 `rra auth staff import --file <xlsx|csv> [--pad N] [--replace] [--dry-run]`(2026-10-28 A2, `docs/pilot-guide.md` §6)
+   또는 한 명씩 `rra auth staff add` → "사번:" 입력. 처음 실행 때 `data/auth/secret`(600) 이 자동으로 생긴다.
+   개수 확인 `rra auth staff count`. 삭제는 `rra auth staff remove`.
 3. 공용 계정: `rra auth guest set --id <아이디>` → 비밀번호 두 번 입력(8자 이상). 끄기 `rra auth guest disable`.
 4. `ls -la data/auth` 로 폴더 700·파일 600 확인(`rra auth status` 가 아니면 경고를 낸다). `git status` 에 data/auth 가 나오지 않는지 확인.
 5. API 재기동 없이 즉시 반영된다(파일을 매번 읽는다). 비밀 키(`data/auth/secret`)를 지우면 모든 가명이 바뀌어 기존 run 소유권이 끊긴다 — 백업 대상에 포함.

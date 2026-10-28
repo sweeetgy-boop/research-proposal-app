@@ -14,6 +14,7 @@ import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -788,6 +789,8 @@ def cmd_auth(args: argparse.Namespace) -> int:
         if args.staff_cmd == "count":
             print(f"등록된 사번: {store.staff_count()}건")
             return EXIT_OK
+        if args.staff_cmd == "import":
+            return _auth_staff_import(args, settings, store)
         staff_no = _prompt_secret("사번")
         if not valid_staff_no(staff_no):
             _eprint("사번 형식이 올바르지 않습니다 (영숫자·하이픈 2~32자).")
@@ -821,6 +824,44 @@ def cmd_auth(args: argparse.Namespace) -> int:
         print(f"공용 계정을 설정했습니다 (아이디 {guest_id}).")
         return EXIT_OK
     return EXIT_USAGE
+
+
+def _auth_staff_import(args: argparse.Namespace, settings: Any, store: Any) -> int:
+    """`rra auth staff import --file <xlsx|csv>` — 사번 열만 샌드박스로 읽어 HMAC 으로 저장.
+    출력은 개수뿐(읽은 행·신규·이미 있음·빈칸·형식 오류 행 번호·길이별 분포). 사번 값은 절대
+    출력하지 않는다. 원본 파일은 복사하지 않는다."""
+    from rra.application.ports import RosterReadError
+    from rra.composition import build_roster_reader, build_staff_importer
+
+    path = Path(args.file).expanduser()
+    if args.pad < 0 or args.pad > 32:
+        _eprint("--pad 는 0~32 사이여야 합니다.")
+        return EXIT_USAGE
+    reader = build_roster_reader(settings)
+    try:
+        roster = asyncio.run(reader.read(path, sheet=args.sheet, column=args.column))
+    except RosterReadError as exc:
+        _eprint(f"명부를 읽지 못했습니다: {exc}")
+        return EXIT_ERROR
+    importer = build_staff_importer(settings, store=store)
+    try:
+        report = importer.run(
+            roster.cells, pad=args.pad, replace=args.replace, dry_run=args.dry_run
+        )
+    except ValueError as exc:
+        _eprint(str(exc))
+        return EXIT_ERROR
+    where = f"시트 '{roster.sheet}', " if roster.sheet else ""
+    mode = "미리 보기(저장 없음)" if args.dry_run else ("목록 교체" if args.replace else "추가")
+    print(f"사번 일괄 등록 — {where}머리글 {roster.header_row}행, 방식: {mode}")
+    for line in report.as_lines():
+        print(line)
+    if len(report.counts.length_histogram) > 1:
+        print(
+            "안내: 사번 길이가 여러 가지입니다. 엑셀에서 앞자리 0 이 빠졌다면 "
+            "--pad <자릿수> 로 다시 실행하십시오."
+        )
+    return EXIT_OK
 
 
 # ── llm-check ─────────────────────────────────────────────
@@ -2468,6 +2509,23 @@ def build_parser() -> argparse.ArgumentParser:
         ("count", "등록된 사번 개수만"),
     ):
         a_staff_sub.add_parser(name, help=desc).set_defaults(handler=cmd_auth)
+    a_imp = a_staff_sub.add_parser(
+        "import", help="xlsx·csv 명부에서 사번 열만 읽어 일괄 등록 (출력은 개수만, 파일 복사 없음)"
+    )
+    a_imp.add_argument("--file", required=True, help="명부 파일 (.xlsx 또는 .csv)")
+    a_imp.add_argument("--sheet", default=None, help="시트 이름 (기본: 첫 시트)")
+    a_imp.add_argument("--column", default=None, help='사번 열 제목 (기본: "사번")')
+    a_imp.add_argument(
+        "--pad",
+        type=int,
+        default=0,
+        help="숫자만인 사번을 이 자릿수까지 앞에 0 을 채운다 (엑셀 0 빠짐 보정)",
+    )
+    a_imp.add_argument(
+        "--replace", action="store_true", help="기존 목록을 이 파일로 바꾼다 (기본: 추가)"
+    )
+    a_imp.add_argument("--dry-run", action="store_true", help="저장 없이 집계만")
+    a_imp.set_defaults(handler=cmd_auth)
     a_guest = auth_sub.add_parser("guest", help="공용 계정 (아이디 1개)")
     a_guest_sub = a_guest.add_subparsers(dest="guest_cmd", required=True)
     a_set = a_guest_sub.add_parser("set", help="아이디·비밀번호 설정 (비밀번호 두 번 getpass)")

@@ -4,17 +4,19 @@ import hashlib
 
 import pytest
 
-from rra.application.ports import AuthStorePort
+from rra.application.ports import AuthStorePort, StaffImportResult
 from rra.application.usecases.login import Login, LoginFailed
 from rra.domain.rules.auth_policy import LOGIN_FAILED_MESSAGE, LockoutPolicy, LoginGuard
+from rra.domain.rules.staff_roster import normalize_staff_no
 
 
 class FakeAuthStore:
     def __init__(self, staff=(), guest=None):
-        self._staff = set(staff)
+        self._staff = {normalize_staff_no(s) for s in staff}  # 로그인 입력과 같은 정규화
         self._guest = guest  # (id, password) | None
 
     def verify_staff(self, staff_no):
+        staff_no = normalize_staff_no(staff_no)
         if not self._staff or staff_no not in self._staff:
             return None
         return hashlib.sha256(staff_no.encode()).hexdigest()  # 사번마다 다른 가명
@@ -29,15 +31,27 @@ class FakeAuthStore:
         return self._guest[0] if self._guest else None
 
     def add_staff(self, staff_no):
-        self._staff.add(staff_no)
+        self._staff.add(normalize_staff_no(staff_no))
         return True
 
     def remove_staff(self, staff_no):
-        self._staff.discard(staff_no)
+        self._staff.discard(normalize_staff_no(staff_no))
         return True
 
     def staff_count(self):
         return len(self._staff)
+
+    def import_staff(self, staff_nos, *, replace=False, dry_run=False):
+        incoming = {normalize_staff_no(s) for s in staff_nos} - {""}
+        result = StaffImportResult(
+            added=len(incoming - self._staff),
+            existing=len(incoming & self._staff),
+            removed=len(self._staff - incoming) if replace else 0,
+            saved=not dry_run,
+        )
+        if not dry_run:
+            self._staff = incoming if replace else self._staff | incoming
+        return result
 
     def set_guest(self, guest_id, password):
         self._guest = (guest_id, password)
@@ -57,7 +71,7 @@ def test_fake_store_satisfies_port():
 def test_staff_login_registered_vs_unregistered_same_message():
     login = Login(FakeAuthStore(staff={"K-100"}), clock=lambda: 10.0)
     ok = login.staff("K-100", ip="1.1.1.1")
-    expected = "staff:" + hashlib.sha256(b"K-100").hexdigest()[:12]
+    expected = "staff:" + hashlib.sha256(b"K100").hexdigest()[:12]  # 하이픈 제거 뒤 가명
     assert ok.principal.kind == "staff" and ok.principal.id == expected
     with pytest.raises(LoginFailed) as exc:
         login.staff("K-999", ip="1.1.1.1")
