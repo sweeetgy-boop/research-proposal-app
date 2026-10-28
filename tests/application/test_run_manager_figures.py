@@ -252,14 +252,15 @@ async def test_add_figure_and_finalize_passes_included_figures_to_renderer(repo)
         USER, rid, choices={"task_type": ["applied"], "utilization": ["software"]}
     )
     assert result.state.status == "finalized"
-    assert renderer.calls[-1]["figures"] == [
-        "f:expected_technology:1",
-        "f:method:1",
+    assert renderer.calls[-1]["figures"] == [  # 양식의 섹션 순서 (그림 번호 = 이 순서)
         "f:objective:1",
+        "f:method:1",
+        "f:expected_technology:1",
     ]
     rows = {r["id"]: r for r in result.state.figures}
+    assert rows["f:objective:1"]["number"] == 1 and rows["f:expected_technology:1"]["number"] == 3
     assert rows["f:expected_technology:1"]["placement"] == "inline"
-    assert rows["f:expected_technology:1"]["number"] == 1
+    assert rows["f:expected_technology:1"]["number"] == 3
     assert rows["f:method:2"]["placement"] is None
     m = manifest(result.state, None)
     check_manifest(m)
@@ -268,3 +269,21 @@ async def test_add_figure_and_finalize_passes_included_figures_to_renderer(repo)
 
 async def _ids(mgr, rid, version):
     return [f.id for f in (await mgr.get_version(USER, rid, version)).figures]
+
+
+async def test_status_stays_running_while_figures_are_drawn(repo):
+    """그림을 그리는 동안 저장된 상태는 running — drafted 로 먼저 보이면 편집이 락에 막힌다."""
+    seen: list[str] = []
+
+    class Watching(FakeImageGenerator):
+        async def generate(self, prompt, reference, **kw):
+            seen.append(mgr.store.load_state(USER, run_id[0]).status)
+            return await super().generate(prompt, reference, **kw)
+
+    run_id: list[str] = []
+    mgr, _ = make_manager(repo, images=Watching())
+    state = await mgr.submit(USER, REQ)
+    run_id.append(state.run_id)
+    final = await mgr.wait(USER, state.run_id)
+    assert seen and set(seen) == {"running"}
+    assert final.status == "drafted" and final.step("finalize").status == "done"

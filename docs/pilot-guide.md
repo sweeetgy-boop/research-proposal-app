@@ -126,3 +126,21 @@ run 확인(`rra runs active`; 있으면 `--wait` 대기, `--force` 는 무시하
 
 실패하면 `~/Library/Logs/rra-api.err.log` 와 `launchctl list | grep com.rra.api` 를 본다. 이전 버전으로 되돌리려면
 `git checkout <이전 커밋>` 뒤 `tools/deploy.sh --force` 가 아니라, main 을 되돌리는 PR(revert)을 합친 뒤 같은 절차로 배포한다.
+
+### 6.4 그림 기능 끄고 켜기 (2026-10-28)
+
+그림은 `config/figures.yaml` 의 `enabled` 로 켜고 끕니다(기본 켬). 끄면 초안 생성의 그림 단계, 1차 검토의 그림 전송, HWPX 그림 삽입이 모두
+빠지고 나머지는 그대로입니다. 설정은 API 가 뜰 때 읽으므로 **바꾼 뒤 API 를 다시 띄워야** 반영됩니다.
+
+**긴급히 끄기** (그림 때문에 생성이 막힐 때, 저장소 루트):
+```
+sed -i '' 's/^enabled: true/enabled: false/' config/figures.yaml
+launchctl kickstart -k gui/$(id -u)/com.rra.api
+curl -s http://127.0.0.1:8000/healthz                      # {"status":"ok", ...}
+```
+다시 켜기는 `false` → `true` 로 바꾸고 같은 두 줄을 실행합니다.
+
+- 이 방법은 추적 파일(`config/figures.yaml`)을 고친 상태라 `tools/deploy.sh` 가 "추적 파일에 변경이 있습니다"로 멈춥니다. 정식으로 바꾸려면
+  `enabled` 변경을 PR 로 합친 뒤 `tools/deploy.sh` 로 배포하고, 긴급 변경은 `git checkout config/figures.yaml` 로 되돌린 뒤 배포합니다.
+- 꺼 둔 동안 만든 run 에는 그림이 없고, 이미 만든 그림은 버전에 남아 있습니다(켜면 다시 보임). 그림 호출 수는 `.venv/bin/rra runs figures <run_id>`.
+- 하루 그림 호출 상한은 같은 파일의 `daily_image_cap`(150), 오늘 쓴 수는 `data/cache/figure_budget.json` 의 `count`.

@@ -19,7 +19,7 @@ import json
 import logging
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -132,16 +132,24 @@ class MakeFigures:
         request: ProposalRequest,
         snapshot: RetrievalSnapshot | None,
     ) -> rules.TextPool:
-        chunks = list(snapshot.chunks) if snapshot else []
+        """명세에 쓸 수 있는 글자·수치 — 초안 본문·제안자 입력 + 초안이 인용한 청크·문서의 facts.
+        검색 집합 전체를 넣으면 어느 문서에든 있는 연도·숫자가 통과한다(10-28 배포 시험: 로드맵의
+        근거 없는 "2024년"). 수치 그래프 값 대조용 pool.facts 는 검색 집합 전체를 둔다."""
+        cited = {ev for s in sections for sent in s.sentences for ev in sent.evidence}
+        cited_docs = {ev.split("#", 1)[0] for ev in cited}
+        chunks = [
+            c
+            for c in (snapshot.chunks if snapshot else [])
+            if c.chunk_id in cited or c.doc_id in cited
+        ]
         public = [c.text for c in chunks if getattr(c, "visibility", "public") != "internal"]
         internal = [c.text for c in chunks if getattr(c, "visibility", "public") == "internal"]
-        return rules.text_pool(
-            sections,
-            request,
-            public,
-            snapshot.facts if snapshot else None,
-            internal_chunk_texts=internal,
+        all_facts = dict(snapshot.facts) if snapshot else {}
+        cited_facts = {d: f for d, f in all_facts.items() if d in cited_docs}
+        pool = rules.text_pool(
+            sections, request, public, cited_facts, internal_chunk_texts=internal
         )
+        return replace(pool, facts=all_facts)
 
     # ── 명세 ─────────────────────────────────────────────
     async def make_spec(
@@ -173,6 +181,12 @@ class MakeFigures:
                 f"[형식 교정 — 직전 응답은 형식 오류였음: {reason}] "
                 "스키마의 키만 써서 JSON 객체 하나로."
             )
+            missing = self._missing(kind, raw, pool)
+            if missing:
+                hint += (
+                    " 다음 글자는 초안·입력·인용 근거에 없으니 초안 구절을 그대로 쓰거나 뺀다: "
+                    + json.dumps(missing, ensure_ascii=False)
+                )
             raw = await self.llm.complete(f"{prompt}\n\n{hint}", system=system, json_mode=True)
             result.calls += 1
             spec, reason = self._parse_and_check(kind, raw, pool, period)
@@ -190,6 +204,16 @@ class MakeFigures:
         result.spec = spec
         result.reason = None if spec is not None else (reason or "invalid")
         return result
+
+    @staticmethod
+    def _missing(kind: str, raw: str, pool: rules.TextPool) -> list[str]:
+        data = parse_object(raw)
+        if not data:
+            return []
+        try:
+            return rules.missing_texts(parse_spec(kind, data), pool)
+        except (ValidationError, KeyError, TypeError):
+            return []
 
     def _parse_and_check(
         self, kind: str, raw: str, pool: rules.TextPool, period: int | None
