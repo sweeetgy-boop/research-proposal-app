@@ -20,3 +20,7 @@
   다시 시도·새로 쓰기·정책 카드 연결) → SectionQuestions(source 배지·[답 반영해 다시 쓰기]) → Edit.tsx(변경 n건 =
   서버 /changes + 로컬, 버튼 항상 켬, 변경 없음/있음 팝업 → 최종 검토) → vitest·axe·e2e → 실호출 확인(2 run×12섹션) →
   ADR·status/timeline/metrics 조각 → PR. 반쯤 된 단계 없음(커밋 b33d34e 기준 깨끗).
+- 2026-10-28 (재개) 웹 완료 — `features/policy/{PolicyCards,RunPolicyDialog,model,store}`, Clarify.tsx 개편, SectionRewrite·
+  SectionQuestions 새 필드, `features/versions/SaveVersionFlow`, Edit.tsx 저장 흐름. vitest 112·axe 0·e2e 20(새 edit-ai 2).
+  origin/main(그림 v2 #81) 위로 한 커밋으로 rebase — 충돌 submit_check 독스트링·types.ts re-export 만. 변경 세기에 추천 그림
+  결정(accept·dismiss·restore·swap) 추가. 백엔드 2084 통과. ADR 0037·조각 작성. 실호출 확인(2 run × 12섹션) 진행.
