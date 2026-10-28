@@ -36,8 +36,13 @@ grep "api.access\|api.login.fail\|api.auth.reject" ~/Library/Logs/rra-api.err.lo
 ```
 
 - Funnel 이 꺼져 있으면 운영자가 직접 `… funnel --bg --https=443 http://127.0.0.1:8000`. 배포 스크립트는 Funnel 을 확인만 하고 바꾸지 않습니다.
-- 공개 경로는 이 맥 밖(휴대폰 데이터망 등)에서 `https://rra.taile5afcf.ts.net/healthz` 가 `{"status":"ok",…}` 인지로 확인합니다.
-  이 맥에서 `curl --resolve …:443:<공개 IP>` 는 자기 자신의 Funnel 로 되돌아가는 경로라 TLS 가 끊깁니다(정상).
+- 공개 경로는 **이 맥 밖**(휴대폰 데이터망, 또는 외부 점검 사이트 check-host.net 의 HTTP 점검)에서 `https://rra.taile5afcf.ts.net/healthz` 가
+  `{"status":"ok",…}` 인지로 확인합니다. 이 맥에서 하는 `curl`·`tools/deploy.sh` 외부 확인·Claude 의 WebFetch 는 모두 tailnet 경로라
+  Funnel 이 밖에서 막혀도 ok 로 보입니다. 앱 로그 `api.access … ip=100.74.2.113`(이 맥의 Tailscale 주소)는 tailnet 경로로 온 요청입니다.
+- **Funnel on 인데 밖에서 "Broken pipe"·TLS 끊김**(2026-10-28 실제 증상 — 공개 진입 IP 2개 모두, 4개국 점검 노드 전부): Funnel 중계가 이 맥으로
+  넘기지 않는 상태입니다(중계 노드와 주고받은 바이트 0). 운영자가 순서대로: ① `… funnel --https=443 off` → `… funnel --bg --https=443 http://127.0.0.1:8000`
+  ② 안 되면 Tailscale 앱 종료·재실행(메뉴 막대) ③ 관리 콘솔(login.tailscale.com) Access controls 의 `nodeAttrs` 에 `funnel` 이 이 맥(또는 사용자)에
+  붙어 있는지, DNS 에서 HTTPS Certificates 가 켜져 있는지 확인 ④ 1~2분 뒤 밖에서 다시 확인.
 - 로그인 IP 잠금은 접속자 IP(Funnel 이 넘겨주는 `X-Forwarded-For` 맨 오른쪽, 127.0.0.1 에서 온 요청일 때만)로 겁니다. 접속자 IP 를
   모르면 IP 잠금은 걸지 않습니다(계정별 잠금·전체 지연은 그대로). 잠금은 메모리에만 있어 API 재시작 때 풀립니다.
 

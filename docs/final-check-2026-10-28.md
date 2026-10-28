@@ -5,6 +5,7 @@
 
 ## 내가 할 일 (사람)
 
+- **[급] Tailscale Funnel 다시 등록**(15:4x, 외부 접속 장애의 주원인): `funnel status` 는 on 인데 인터넷 쪽에서 TLS 가 끊긴다. 운영 맥 터미널에서 `/Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --https=443 off` → `… funnel --bg --https=443 http://127.0.0.1:8000`, 안 되면 Tailscale 앱 재실행 → 관리 콘솔 nodeAttrs `funnel`·HTTPS 인증서 확인. 확인은 휴대폰 데이터망 또는 check-host.net(이 맥에서 하는 확인은 tailnet 경로라 소용없음). 절차 pilot-guide §1.5.
 - **NTIS 활용신청 IP**: 13:05 현재 공인 IP `59.0.251.250` 은 등록돼 있다. 다만 이 회선은 IP 가 바뀌고(59.0.166.199↔59.0.251.250, 오전 한때 `106.101.9.45` 로그) 미등록 IP 일 때 NTIS 가 빠진다 → 고정 IP 확보 또는 바뀔 때마다 활용신청·`config/sources.yaml ntis.registered_ips` 갱신.
 - **공용 계정 실제 로그인**: 비밀번호를 몰라 성공 경로는 확인하지 못했다(켜짐·틀린 비밀번호 통일 문구 401 은 확인). 외부 주소에서 한 번 로그인해 보기.
 - **NTIS IP 반영 확인**: 레인 C 실호출(14:xx)에서 현재 IP `59.0.251.250` 이 `registered_ips` 에 있는데도 NTIS 가 "접근 허용 IP가 아닙니다" → 활용신청 페이지에서 등록 IP 가 실제 반영됐는지(서비스별: 과제·보고서·성과) 확인. 그 전까지 실시간 검색·② NTIS 는 건너뛰고 화면 자료원 상태에 "IP 차단"으로 보인다.
@@ -42,5 +43,6 @@
 | 15:1x | [5]-4 시범 안내 | pilot-guide §2·§3·§5.5·§6.5 를 Argon 작성·실시간 검색 배지·동시 3건·그림 말로 고치기로 고침 | docs/pilot-guide.md |
 | 15:11 | [5]-3 배포 | `tools/deploy.sh --wait`(대기 run 0) → `4406e89`(#69~#78). 외부 주소 직원 로그인·공용 계정 거부 경로·하단 버전 확인, 실제 흐름 1건 성공(생성 111s·그림 3장 Nano Banana·최종 5/5/5/4·HWPX 정상) → 유지 | `docs/history/deploys/2026-10-28-1511.md` |
 | 15:16 | ② 시간 | 배포 직후 첫 ② 69.7s — 모델 적재 + 실시간 검색 대기(최대 15s) + 자동 추천·차별화(Gemini). 이어진 ② 는 측정에서 15.6s(B 평균). 시범 중 동료가 느끼면 `live_search.wait_seconds` 를 줄이거나 자동 추천(`llm.yaml recommend.auto`)을 끄는 것을 검토 | 위 기록 |
-| 16:xx | 외부 접속 장애 | 원인 조사: Funnel on·공개 DNS 2개·외부망 healthz 정상(서버 쪽 공개 경로는 열려 있음). 앱 쪽 결함 — Funnel 경유는 peer 가 전부 127.0.0.1 이라 로그인 IP 잠금(10분 20회)을 모든 외부 접속자가 한 키로 나눠 씀 → 누군가 미등록 사번으로 여러 번 시도하면 전원이 잠김. 거부·4xx 로그는 INFO 라 uvicorn warning 설정에서 버려져 상태 코드별 집계 불가였음. 수정: `X-Forwarded-For` 맨 오른쪽(127.0.0.1 peer 일 때만, `api.yaml trust_forwarded_from_loopback`), 접속자 IP 모르면 IP 잠금 없음(계정 잠금·전체 지연 유지), `rra.api.*` INFO 로그 + 4xx/5xx 접근 로그, `rra auth staff check`, deploy.sh "Funnel on" 확인(읽기만), pilot-guide §1 주소 정정(Tailscale 앱 설치 불필요)·§1.5. 접속 차단 수정이라 즉시 배포 | `fix/funnel-access` PR |
+| 15:3x | 외부 접속 장애 | 원인 조사(1차): Funnel on·공개 DNS 2개. 앱 쪽 결함 — Funnel 경유는 peer 가 전부 127.0.0.1 이라 로그인 IP 잠금(10분 20회)을 모든 외부 접속자가 한 키로 나눠 씀 → 누군가 미등록 사번으로 여러 번 시도하면 전원이 잠김. 거부·4xx 로그는 INFO 라 uvicorn warning 설정에서 버려져 상태 코드별 집계 불가였음. 수정: `X-Forwarded-For` 맨 오른쪽(127.0.0.1 peer 일 때만, `api.yaml trust_forwarded_from_loopback`), 접속자 IP 모르면 IP 잠금 없음(계정 잠금·전체 지연 유지), `rra.api.*` INFO 로그 + 4xx/5xx 접근 로그, `rra auth staff check`, deploy.sh "Funnel on" 확인(읽기만), pilot-guide §1 주소 정정(Tailscale 앱 설치 불필요)·§1.5. 접속 차단 수정이라 즉시 배포 | `fix/funnel-access` PR |
+| 15:4x | 외부 접속 — 공개 경로 | **정정**: 앞서 "외부망 healthz 정상"으로 본 WebFetch 는 이 맥에서 실행돼 tailnet 경로였다(배포 후 로그 ip=100.74.2.113 = 이 맥의 Tailscale 주소). 외부 점검 사이트(check-host.net) 노드 8곳(스위스·독일·포르투갈·터키·오스트리아·미국·이란·네덜란드)에서 `https://rra.taile5afcf.ts.net/healthz` → 공개 진입 IP 103.84.155.153·.217 둘 다 **TLS 단계 "Broken pipe"(0.3~0.8초)**, 앱 로그에 도달 0건. Funnel 설정·funnel 권한·인증서 도메인·Running·방화벽 꺼짐·shields-up 꺼짐은 정상, 그러나 funnel-ingress-node 23개와 handshake·바이트 0 → **Funnel 중계가 이 맥으로 넘기지 않는 것이 주원인**(앱 잠금은 그다음 문제). Funnel 다시 등록(off→on)은 자동 실행 권한이 막혀 사람 작업으로 넘김 | pilot-guide §1.5 |
 
