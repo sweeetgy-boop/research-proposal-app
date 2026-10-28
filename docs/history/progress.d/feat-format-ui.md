@@ -11,13 +11,13 @@
 
 완료(백엔드, 테스트 2070 통과·lint·lint-imports 통과):
 - 항목 12: hwpx_format(렌더마다 점검·고침, manifest `hwpx_format`), 측정 도구 `tools/hwpx_format_report.py`,
-  `docs/eval-2026-10-28-hwpx-format.md`(골든 10/10, 시범 run 19/19), ADR 0033.
+  `docs/eval-2026-10-28-hwpx-format.md`(골든 10/10, 시범 run 19/19), ADR 0034.
 - 항목 2: `domain/rules/run_title.py`, run 응답 `title`, 내려받기 `<제목>_v<n>.hwpx`(RFC 5987) — REST·MCP·Streamlit.
 - 항목 16: `domain/rules/problem_labels.py` + `web/src/lib/labels.ts`(같은 표, 테스트가 대조), 응답 `label`·`severity_label`·
   `draft_review_skipped_label`, 근거 "확인 필요"(불일치·부분·이미지 판독) + `POST …/evidence-decisions/bulk-approve`,
   선택형 제안값(`choices_confirmed.choices`), usage 섹션 작성 벽시계 + `sections_sum`·`steps`·`total_label`.
 - 항목 17: `domain/rules/request_change.py`, `RunManager.request_change_preview/regenerate/run_inputs`,
-  `GET …/request`·`POST …/request/preview`·`POST …/regenerate`(routes_format.py), ADR 0034.
+  `GET …/request`·`POST …/request/preview`·`POST …/regenerate`(routes_format.py), ADR 0035.
 - 덤: decide_evidence·apply_rewrite 새 버전에서 그림이 빠지던 것 수정.
 
 반쯤 된 것:

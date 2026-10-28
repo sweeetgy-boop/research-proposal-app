@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from urllib.parse import unquote
 
 import httpx
@@ -110,6 +111,9 @@ async def test_bulk_approve_and_submit_check_labels(client):
     rid = await drafted(client)
     check = (await client.get(f"/v1/runs/{rid}/submit-check", headers=AUTH)).json()
     items = {i["key"]: i for i in check["items"]}
+    for it in check["items"]:  # 항목 이름·설명은 한국어 (코드·영문 키를 내보내지 않는다)
+        assert re.search(r"[가-힣]", it["label"]) and re.search(r"[가-힣]", it["detail"]), it["key"]
+        assert it["key"] not in it["detail"]
     ev = items["evidence_approval"]
     assert ev["label"] == "근거 확인" and ev["bulk"] >= 1 and "/" not in ev["detail"]
     alerts = items["unresolved_alerts"]
