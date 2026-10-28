@@ -30,4 +30,14 @@
 | 15:xx | [4] 병합 | PR #72: 실시간 검색(키워드 Argon 4초, ScienceON 30건 7.3초, OpenAlex 30건 1.2초, NTIS ip_blocked, 캐시 0.00초). 가짜 모드 기본 꺼짐(기존 e2e 고정). 실시간 문서 보존·만료 규칙은 미정(후속) | ADR 0031 |
 | 15:xx | 그림 로컬 슬롯 | PR #73: 그림 로컬 대체 호출만 전역 슬롯 안. 로컬 작성 run 은 이미 슬롯을 잡고 있어 다시 잡지 않음(교착 방지) | PR #73 |
 | 15:xx | 공유 파일 | openapi 재생성(48 경로), status.md·timeline·metrics·CLAUDE.md 에 #69~#73 반영 | docs/integrate-2026-10-28-pm |
+| 14:1x | [5] 도구 병합 | PR #75: `rra eval --final-review --finalize --concurrent N --local-check on/off`, [5] 비교표. 통합 담당 실수: 병합 조건이 맞지 않았는데 원격 브랜치를 지우는 명령이 함께 실행돼 #75 가 닫힘 → 같은 커밋을 다시 올리고 PR 재개·CI 통과 뒤 병합(손실 없음). 이후 브랜치 삭제는 MERGED 확인 뒤에만 | PR #75 |
+| 14:2x | 측정 예산 분리 | 운영 api(ab17faa)는 Gemini 일일 300·그림 150 카운터(`data/cache/llm_budget.json`·`figure_budget.json`)를 보는데 측정 3종은 400회 이상 → 측정은 설정 사본(`RRA_CONFIG_DIR`, 카운터만 `*_eval.json`)으로 돌려 동료의 검토·그림 호출을 막지 않게 함. 실제 Gemini 키·분당 제한은 같음 | scratchpad evalcfg |
+| 14:2x | [5]-B 시작 | `rra eval --label argon_b --local-check off --finalize`(골든셋 10, 실시간 검색·그림 켬, 무거운 작업 잠금) — 실시간 결과는 운영 DB 에 public 으로 저장된다(정책대로) | data/eval/argon_b.json |
+| 14:28 | [5]-B 1차(실시간 검색 빠짐) | 골든셋 10: 유효 10/10·빈 초안 0·② 3.0s·생성 99.4s·최종 점수 4.12·수치 알림 42·유사과제 9/10·그림 30/30 Nano Banana(건너뜀 2)·HWPX 10/10·Gemini 작성 109·검토 10·그림 30·로컬 대체 0. 단 `build_eval` 이 실시간 검색을 연결하지 않아 실시간 인용 0/114 → `argon_b_nolive` 로 보관, PR #76 으로 고친 뒤 재측정 | data/eval/argon_b_nolive.json |
+| 14:4x | [5]-B 재측정·동시 3건 | #76 병합 뒤 B 재측정(10건) → 이어서 골든셋 01~03 동시 3건 | data/eval/argon_b.json, argon_b_c3.json |
+| 14:55 | [5]-B 결과 | 유효 10/10·빈 초안 0·② 15.6s(실시간 대기 포함)·생성 107s·최종 점수 4.30·수치 알림 38·실시간 인용 20%·유사과제 9/10·그림 94%·Gemini 1건 약 15회·HWPX 10/10. NTIS 실시간 100% IP 차단 | `docs/eval-2026-10-28-argon-live.md` |
+| 14:56 | 동시 3건 사고 | 동시 3건 측정이 1분 만에 SIGABRT(`MTLCommandBuffer` 단언) — 임베딩·reranker 가 모델별 잠금이라 두 스레드가 동시에 Metal 사용. 운영(max_concurrent 3)이면 api 가 죽는다 → PR #77 프로세스 공용 GPU 잠금 | PR #77 |
+| 15:03 | 동시 3건 재측정 | 3/3 유효·HWPX 3/3·묶음 266s(같은 3건 순차 401s, 34% 단축)·1건 240s(순차 평균 134s) — Gemini 공용 제한기 동시 4 를 나눠 씀. 시범 3명 규모에서는 그대로 둠(호출 제한기 상향은 Gemini 분당 한도 확인 뒤) | data/eval/argon_b_c3.json |
+| 15:1x | [5]-3 배포 판단 | 기준(빈 초안 0, 유효 9/10+, 유사과제 9/10+, 생성 완료 단축 195→107s, HWPX 정상)을 B 가 모두 충족 → 배포. local_check 는 기본 끔 유지 — 18:07 C 측정에서 걸러 내는 것이 의미 있으면 그때 켬 | 이 표 |
+| 15:1x | [5]-4 시범 안내 | pilot-guide §2·§3·§5.5·§6.5 를 Argon 작성·실시간 검색 배지·동시 3건·그림 말로 고치기로 고침 | docs/pilot-guide.md |
 

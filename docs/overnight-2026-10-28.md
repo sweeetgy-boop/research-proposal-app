@@ -26,5 +26,5 @@
 | C | [4] 실시간 검색 ScienceON·NTIS·OpenAlex | feat/live-search | **완료** #72 병합(B 위에 rebase, 테스트 +45) | — |
 | D | [3]·[4] 화면(로컬 작성·실시간 검색 배지, 자료원별 상태, e2e) | feat/web-argon-live | **완료** #69 병합(문장 origin llm 라벨 "AI 작성", vitest 86·e2e 19) | B·C 병합 뒤 e2e 의 page.route 주입 → 실응답 전환 |
 | A2 | 그림 로컬 대체 호출을 로컬 슬롯 안으로 | fix/figure-local-slot | **완료** #73 병합(통합 담당 rebase) | — |
-| E | [5] 측정 도구(최종 검토·HWPX·실시간 비율·자료원별·동시 N·비교표) | feat/eval-argon-live | 진행 중 | C 필드(방어적으로 읽음) |
-| 통합 | [5] 통합 측정·배포, [6] 보고 | — | 대기 | C·A2·E 병합 |
+| E | [5] 측정 도구(최종 검토·HWPX·실시간 비율·자료원별·동시 N·비교표) | feat/eval-argon-live | **완료** #75 병합 | — |
+| 통합 | [5] 통합 측정·배포, [6] 보고 | — | B·동시 3건 완료(#76·#77 수정 포함) → 배포 진행 → C(18:07 예약) | — |
