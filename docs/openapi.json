@@ -114,7 +114,7 @@
     "/v1/precheck": {
       "post": {
         "summary": "Precheck Route",
-        "description": "유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,\n과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다.",
+        "description": "유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,\n과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다.\n[4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초) 판정한다.",
         "operationId": "precheck_route_v1_precheck_post",
         "requestBody": {
           "content": {

@@ -20,9 +20,11 @@
 
 | 레인 | 작업 | 브랜치 | 상태 | 기다리는 의존 |
 |---|---|---|---|---|
-| 통합 | [0] 상태 확인·public_origin, [1] 맥 항상 켜짐 | chore/ops-awake-origin | 진행 중 | — |
-| A | [2] 그림 말로 고치기 = 명세 변경(+ 그림 명세 생성 Argon) | feat/figure-edit-spec | 진행 중 | — |
-| B | [3] Argon 먼저 작성·로컬 대체·local_check·동시 생성 | feat/argon-first | 진행 중 | — |
-| C | [4] 실시간 검색 ScienceON·NTIS·OpenAlex | feat/live-search | 진행 중 | B 병합 뒤 흐름 파일 통합 |
-| D | [3]·[4] 화면(로컬 작성·실시간 검색 배지, 자료원별 상태, e2e) | feat/web-argon-live | 진행 중 | B·C 응답(정해 둔 형태로 fixture 먼저) |
-| 통합 | [5] 통합 측정·배포, [6] 보고 | — | 대기 | A·B·C·D 병합 |
+| 통합 | [0] 상태 확인·public_origin, [1] 맥 항상 켜짐 | chore/ops-awake-origin | **완료** #68 병합·배포 ab17faa(13:14) | — |
+| A | [2] 그림 말로 고치기 = 명세 변경(+ 그림 명세 생성 Argon) | feat/figure-edit-spec | **완료** #70 병합 — 글자 변형 편집 1회당 2~3 → 6회 합계 1, 1회 31~41초 | — |
+| B | [3] Argon 먼저 작성·로컬 대체·local_check·동시 생성 | feat/argon-first | **완료** #71 병합(테스트 1,939, e2e 옛 run 시험은 통합 담당이 고침) | — |
+| C | [4] 실시간 검색 ScienceON·NTIS·OpenAlex | feat/live-search | **완료** #72 병합(B 위에 rebase, 테스트 +45) | — |
+| D | [3]·[4] 화면(로컬 작성·실시간 검색 배지, 자료원별 상태, e2e) | feat/web-argon-live | **완료** #69 병합(문장 origin llm 라벨 "AI 작성", vitest 86·e2e 19) | B·C 병합 뒤 e2e 의 page.route 주입 → 실응답 전환 |
+| A2 | 그림 로컬 대체 호출을 로컬 슬롯 안으로 | fix/figure-local-slot | **완료** #73 병합(통합 담당 rebase) | — |
+| E | [5] 측정 도구(최종 검토·HWPX·실시간 비율·자료원별·동시 N·비교표) | feat/eval-argon-live | 진행 중 | C 필드(방어적으로 읽음) |
+| 통합 | [5] 통합 측정·배포, [6] 보고 | — | 대기 | C·A2·E 병합 |

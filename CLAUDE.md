@@ -158,6 +158,12 @@
   HWPX `render_with_figures`(표식 단락 → 그림, 못 찾으면 별첨), 일일 상한 `figures.daily_image_cap` 150. 끄기 `figures.yaml enabled: false`.
   명세는 Argon 먼저·실패면 로컬(`Figure.spec_model`). [말로 고치기] = 명세 변경(`edit_by_words`→`change_spec`, 생성과 같은 검사) → 밑그림 → 새로 그림,
   현재 그림은 보내지 않는다(편집 호출 없음), 결과 `Figure.last_change`(카드 "바뀐 내용") — ADR 0030.
+- **Argon 먼저 작성 [3]**(2026-10-28 오후, ADR 0032, #71): `llm.yaml compose.writer: gemini`(섹션 Argon 작성·`concurrency` 4), 실패 섹션만 로컬
+  (`writers`·`local_sections`, 사유 error·rate_limit·budget·invalid), `review.first_pass: off`(self_review), `compose.local_check`, Gemini 일일 600,
+  `config/runs.yaml max_concurrent` 3(run 은 FlockPool, 로컬 모델 단계만 `runs/.generate.lock`). 보안 G "생성 동시성 1" 은 Argon 작성 한정 완화.
+  공용 계정 run 은 원격 프롬프트에서 internal 제외. 그림 명세·말로 고치기도 Argon→로컬(#70, 로컬 호출은 슬롯 안 #73).
+- **실시간 검색 [4]**(2026-10-28 오후, ADR 0031, #72): `config/live_search.yaml`, ② precheck 때 키워드 → ScienceON·NTIS·OpenAlex 동시 검색 →
+  public·`raw.live` 로 DB 저장(이름 제거, 24h 캐시), 응답 `live_search`·`live` 배지. 가짜 모드는 기본 꺼짐.
 - **시범 배포 규칙**(2026-10-28, [D2]): PR 을 합쳐도 운영 API 를 자동 재시작하지 않는다 — `docs/history/deploys/pending.md` 에 PR 한 줄을
   쌓고, 사용자가 "배포해" 하면 `tools/deploy.sh --wait`(main 최신 확인·web 빌드·`rra runs active`·version.json·kickstart·healthz/login/
   외부 주소 확인·`docs/history/deploys/<시각>.md`). 보안 수정·로그인/접속 차단 오류 수정은 즉시 배포하고 알린다. 배포 버전은
