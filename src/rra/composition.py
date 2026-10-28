@@ -1739,11 +1739,20 @@ def build_run_manager(
         checklists=section_checklists(settings),
         generate_public=generate_public,
         review_budget=build_review_budget(settings),
-        figures=figures if figures is not None else build_figures(settings, llm=llm),
+        figures=_with_local_slot(
+            figures if figures is not None else build_figures(settings, llm=llm), slot
+        ),
         run_slot=run_slot,
         first_pass=review_policy(settings)["first_pass"] if first_pass is None else first_pass,
         live_search=live_search,  # [4] build_api 가 REST 와 같은 인스턴스(세션 공유)를 준다
     )
+
+
+def _with_local_slot(figures, slot):
+    """그림 유스케이스의 로컬 모델 호출이 RunManager 와 같은 슬롯(.generate.lock)을 잡게 한다."""
+    if figures is not None and figures.local_slot is None:
+        figures.local_slot = slot
+    return figures
 
 
 # ── REST API (Step 10, 보안 G) ────────────────────────────

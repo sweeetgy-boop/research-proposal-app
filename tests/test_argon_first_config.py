@@ -101,6 +101,9 @@ def test_run_manager_uses_a_run_pool_only_when_argon_writes(tmp_path):
     mgr = build_run_manager(keyed, repo=InMemoryRepository(), llm=FakeLLM())
     assert isinstance(mgr.run_slot, FlockPool) and mgr.run_slot.size == 3
     assert isinstance(mgr.slot, FlockSlot) and mgr.generate.local_slot is mgr.slot
+    assert (
+        mgr.figures is not None and mgr.figures.local_slot is mgr.slot
+    )  # 그림 로컬 대체도 같은 락
     assert mgr.first_pass is False
     plain = shipped(runs_dir=tmp_path / "runs2")  # 키 없음 → 로컬 작성, 예전처럼 슬롯 하나
     mgr = build_run_manager(plain, repo=InMemoryRepository(), llm=FakeLLM())
