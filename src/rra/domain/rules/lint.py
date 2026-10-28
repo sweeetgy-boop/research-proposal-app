@@ -12,6 +12,11 @@ from rra.domain.models.selection import OPTION_SOURCES, STRATEGY_SOURCE
 from rra.domain.models.table_fact import TableFact
 from rra.domain.rules.foreign_script import foreign_script_chars
 from rra.domain.rules.numbers import unsupported_numbers
+from rra.domain.rules.policy_cards import (
+    POLICY_BASIS_NEEDED,
+    POLICY_BASIS_NEEDED_MESSAGE,
+    has_choice_text,
+)
 
 Severity = Literal["error", "warning"]
 
@@ -118,6 +123,11 @@ def skipped_sections(
     for key in rules.order:
         fields = rules.requires_input.get(key)
         if fields and not any(_filled(getattr(req, f, None)) for f in fields):
+            if "policy_basis" in fields:
+                # 고른 정책적 중요도 작성안이 있으면 앱이 그것으로 쓴다 — 빈칸 아님
+                if not has_choice_text(req):
+                    out[key] = POLICY_BASIS_NEEDED
+                continue
             out[key] = INPUT_MISSING
             continue
         spec = rules.choices.get(key)
@@ -146,6 +156,7 @@ def _filled(value: object) -> bool:
 
 _SKIP_MESSAGE = {
     INPUT_MISSING: "근거가 될 제안자 입력이 없어 비워 둠 (직접 작성 필요)",
+    POLICY_BASIS_NEEDED: POLICY_BASIS_NEEDED_MESSAGE,
     CATALOG_EMPTY: "선택지 목록(config)이 비어 있어 비워 둠",
     NO_RELEVANT_EVIDENCE: "관련도 하한을 넘는 수집 자료가 없어 비워 둠 (자료 적재 또는 직접 작성)",
 }
@@ -186,14 +197,24 @@ def lint(
     chunk_texts: Mapping[str, str] | None = None,
     evidence_skipped: Mapping[str, str] | None = None,
     facts: Mapping[str, Sequence[TableFact]] | None = None,
+    policy_ids: set[str] | None = None,
 ) -> list[LintProblem]:
     """chunk_texts: 이번 run 스냅샷의 chunk_id → 본문. 수치 검사(number_checked)에만 쓴다.
     evidence_skipped: `evidence_skipped_sections` 결과 — 근거가 없어 빈칸으로 둔 섹션 (경고만).
     facts: doc_id → 표 사실(P2-8). 인용 문서의 표 칸 수치는 근거 있는 수치로 본다. 없으면 종전과
-    같다."""
+    같다.
+    policy_ids: 고른 정책적 중요도 작성안의 원문 대조 통과 구간 — 근거 금지 섹션에서도 이 근거는
+    허용한다(앱이 작성안을 그대로 옮긴 문장)."""
     problems: list[LintProblem] = []
     request_texts = _request_texts(draft.request)
     skipped = {**skipped_sections(draft.request, rules, choice_options), **(evidence_skipped or {})}
+    # 빈칸으로 둔 섹션을 제안자가 나중에 채웠으면(직접 작성·작성안 고르기) 빈칸 알림은 지난 것이다
+    skipped = {
+        k: c
+        for k, c in skipped.items()
+        if not ((sec := draft.section(k)) is not None and sec.sentences)
+    }
+    allowed_policy = policy_ids or set()
     for key, code in skipped.items():
         problems.append(
             LintProblem(section=key, code=code, message=_SKIP_MESSAGE[code], severity="warning")
@@ -236,7 +257,7 @@ def lint(
                     )
         if sec.key in rules.evidence_forbidden:
             for i, s in enumerate(sec.sentences):
-                if s.evidence:
+                if s.evidence and not set(s.evidence) <= allowed_policy:
                     problems.append(
                         LintProblem(
                             section=sec.key,

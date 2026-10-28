@@ -33,6 +33,7 @@ from rra.domain.rules.problem_labels import (
 from rra.domain.rules.recommendation import discard_label
 from rra.domain.rules.same_judgment import VERDICT_LABELS
 from rra.domain.rules.writer import local_check_view, local_sections, writers_view
+from rra.entrypoints.views_editai import rewrite_reason_label
 
 
 def _same(text: str) -> str:
@@ -983,6 +984,28 @@ def rewrite_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[s
             for i, s in enumerate(view.candidate.sentences)
         ],
         "choices": list(view.candidate.choices),
+        # 2026-10-28 레인 B: 새 문장 수·사유(0 이면 화면이 사유 + [다시 시도])·새로 쓰기 여부·작성자
+        "new_count": sum(1 for s in view.candidate.sentences if s.origin not in _PRESERVED_ORIGINS),
+        "reason": getattr(view, "reason", None),
+        "reason_label": rewrite_reason_label(getattr(view, "reason", None)),
+        "mode": getattr(view, "mode", "rewrite"),
+        "writer": _writer_label(getattr(view, "writer", None)),
+    }
+
+
+_PRESERVED_ORIGINS = frozenset({"proposer_edit", "proposer_input", "proposer", "app"})
+
+
+def _writer_label(writer: dict | None) -> dict[str, Any] | None:
+    """작성 기록 → 화면용 {model, label, local_fallback} (본문·doc_id 없음)."""
+    if not writer:
+        return None
+    local = bool(writer.get("local_fallback")) or writer.get("provider") == "mlx"
+    return {
+        "provider": writer.get("provider"),
+        "model": writer.get("model"),
+        "local_fallback": bool(writer.get("local_fallback")),
+        "label": "로컬 모델" if local else "Argon",
     }
 
 

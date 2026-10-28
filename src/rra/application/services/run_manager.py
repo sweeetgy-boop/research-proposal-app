@@ -42,6 +42,7 @@ from rra.application.ports import (
 )
 from rra.application.ports.auth import BudgetExhausted, DailyBudgetPort
 from rra.application.ports.renderer import RenderRejected
+from rra.application.services.edit_ai import EditAIMixin
 from rra.application.usecases.figures import FigureBuild, MakeFigures, SpecRejected
 from rra.application.usecases.generate_proposal import CORE_SECTIONS, GenerateProposal
 from rra.application.usecases.outline import OutlineSections
@@ -54,6 +55,7 @@ from rra.domain.models import (
     Draft,
     DraftVersion,
     PipelineConfig,
+    PolicyChoice,
     ProposalRequest,
     ProposerInfo,
     RecommendationResult,
@@ -98,7 +100,6 @@ from rra.domain.models.run import (
 from rra.domain.rules import draft_failures, review_flow
 from rra.domain.rules import figures as figure_rules
 from rra.domain.rules.auth_policy import daily_limit_reached
-from rra.domain.rules.checklist import clean_answers, coverage, missing_elements
 from rra.domain.rules.evidence import (
     DecisionRejected,
     apply_decisions,
@@ -115,6 +116,7 @@ from rra.domain.rules.evidence import (
 from rra.domain.rules.lint import has_errors
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.overlap import SOURCE_LABELS
+from rra.domain.rules.policy_cards import apply_policy_choice
 from rra.domain.rules.request_change import (
     FIELD_LABELS,
     MODE_NOTES,
@@ -249,6 +251,10 @@ class RewriteView:
     rows: list[dict]
     dropped: list[str]
     created_at: str | None
+    # 2026-10-28 레인 B: 후보 0 이면 사유 코드(화면은 사유 + [다시 시도]), 빈 섹션이면 mode "new"
+    reason: str | None = None
+    mode: str = "rewrite"  # rewrite | new (빈 섹션 새로 쓰기)
+    writer: dict | None = None  # 작성 기록 (provider·local_fallback·reason — 본문 없음)
 
 
 @dataclass(frozen=True)
@@ -322,7 +328,7 @@ def _cleaned(section: Section) -> Section:
     )
 
 
-class RunManager:
+class RunManager(EditAIMixin):
     def __init__(
         self,
         generate: GenerateProposal,
@@ -418,6 +424,8 @@ class RunManager:
         today = self._clock()[:10]
         if daily_limit_reached([s.created_at for s in mine], today, daily_limit):
             raise DailyLimitReached(f"오늘 생성 상한 {daily_limit}건에 이르렀습니다.")
+        # 고른 정책적 중요도 작성안 → policy_basis 요지(비어 있을 때만). 2-가-(1) 은 작성안 그대로
+        req = apply_policy_choice(req, req.policy_choice)
         state = self.store.create(user, req, self._plan(), self._clock())
         state.scope = "public" if scope == "public" else "all"
         state.writer = "gemini" if self._generate_for(state).writes_remotely else "local"
@@ -1741,9 +1749,14 @@ class RunManager:
             )
         except DecisionRejected as exc:
             raise EditRejected(str(exc)) from exc
-        same = same_content(current.sections, sections) and sorted(
-            d.model_dump() for d in decisions
-        ) == sorted(d.model_dump() for d in current.evidence_decisions)
+
+        # 판단 목록 비교 — dict 는 정렬할 수 없다(TypeError, 시범 운영 500) → 값 묶음으로 비교
+        def _keyed(items: list) -> list[tuple[str, str, str]]:
+            return sorted((d.sentence_id, d.evidence_id, d.action) for d in items)
+
+        same = same_content(current.sections, sections) and _keyed(decisions) == _keyed(
+            current.evidence_decisions
+        )
         if same:
             return current
         new_version = DraftVersion(
@@ -1781,14 +1794,15 @@ class RunManager:
         if snapshot is None:
             raise RewriteRejected("검색 스냅샷이 없어 다시 쓸 수 없습니다.")
         notes = (self.store.load_notes(user, run_id) or {}).get("answers", {}).get(key) or {}
-        # 로컬 작성: 전역 슬롯 안에서. Argon 작성: 로컬 대체가 필요할 때만 유스케이스가
-        # 슬롯을 잡는다
+        # 로컬 작성: 전역 슬롯 안에서. Argon 작성(writer_llm·rewrite_llm): 로컬 대체가 필요할 때만
+        # 유스케이스가 슬롯을 잡는다
         gen = self._generate_for(state)  # 공용 계정 run 은 internal 제외 유스케이스
-        gate = self.slot.acquire() if not gen.writes_remotely else contextlib.nullcontext()
+        remote = gen.writes_remotely or gen.rewrite_llm is not None
+        gate = self.slot.acquire() if not remote else contextlib.nullcontext()
         async with gate:
             try:
                 composed = await gen.rewrite_section(
-                    key, self.store.load_request(user, run_id), snapshot, current, notes=notes
+                    key, self._request_with_policy(user, run_id), snapshot, current, notes=notes
                 )
             except ValueError as exc:
                 raise RewriteRejected(str(exc)) from exc
@@ -1804,6 +1818,7 @@ class RunManager:
                 "candidate": candidate.model_dump(mode="json"),
                 "dropped": len(composed.dropped),
                 "created_at": now,
+                "reason": composed.reason,
             },
         )
         return RewriteView(
@@ -1813,7 +1828,22 @@ class RunManager:
             rows=side_by_side(current, candidate),
             dropped=list(composed.dropped),
             created_at=now,
+            reason=composed.reason,
+            mode="new" if not current.sentences else "rewrite",
+            writer=composed.writer,
         )
+
+    def _request_with_policy(self, user: str, run_id: str) -> ProposalRequest:
+        """run 에서 나중에 고른 정책 근거(④ 정책 근거 고르기)를 입력에 얹는다 — 다시 쓰기가
+        그 요지로 2-가-(1) 을 쓸 수 있게(policy_basis 가 비었을 때만)."""
+        req = self.store.load_request(user, run_id)
+        stored = (self.store.load_notes(user, run_id) or {}).get("policy_choice")
+        if isinstance(stored, dict) and isinstance(stored.get("choice"), dict):
+            try:
+                return apply_policy_choice(req, PolicyChoice.model_validate(stored["choice"]))
+            except ValidationError:
+                return req
+        return req
 
     async def apply_rewrite(
         self,
@@ -1866,40 +1896,6 @@ class RunManager:
         self.store.clear_rewrite(user, run_id, key)
         self._touch_usage(user, run_id, state, rewrites_add=1)
         return self.store.load_version(user, run_id, new_version.version) or new_version
-
-    async def section_questions(self, user: str, run_id: str, key: str) -> dict[str, Any]:
-        """섹션 체크리스트에서 빠진 요소 → 보완 질문. 답(proposer_notes.json)이 있으면 함께."""
-        if not self.usability.section_questions:
-            raise FeatureDisabled("보완 질문이 꺼져 있습니다 (usability.yaml section_questions).")
-        state = await self.status(user, run_id)
-        if key not in state.section_keys:
-            raise EditRejected(f"그런 섹션이 없습니다: {key}")
-        version = self._current_version(user, run_id, state)
-        checklist = self.checklists.get(key, [])
-        answers = (self.store.load_notes(user, run_id) or {}).get("answers", {}).get(key) or {}
-        return {
-            "section": key,
-            "questions": missing_elements(version.section(key), checklist),
-            "coverage": coverage(version.section(key), checklist),
-            "answers": dict(answers),
-        }
-
-    async def save_section_answers(
-        self, user: str, run_id: str, key: str, answers: Mapping[str, Any]
-    ) -> dict[str, str]:
-        """보완 질문의 답을 제안자 입력으로 저장 (proposer_notes.json) — 다음 다시 쓰기에."""
-        state = await self.status(user, run_id)
-        if key not in state.section_keys:
-            raise EditRejected(f"그런 섹션이 없습니다: {key}")
-        cleaned = clean_answers(answers)
-        notes = self.store.load_notes(user, run_id) or {}
-        all_answers = dict(notes.get("answers") or {})
-        merged = {**(all_answers.get(key) or {}), **cleaned}
-        all_answers[key] = merged
-        self.store.save_notes(
-            user, run_id, {**notes, "answers": all_answers, "saved_at": self._clock()}
-        )
-        return merged
 
     # ── U7 제출 전 점검 ─────────────────────────────────
     async def submit_check(self, user: str, run_id: str) -> SubmitCheck:

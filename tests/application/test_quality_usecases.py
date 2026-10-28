@@ -94,10 +94,11 @@ async def test_clarify_validates_questions_and_applies_answers_as_supplement():
     llm = FakeLLM(
         ['{"questions": ["대상 노선은?", "日本語?", "대상 노선은?", "", 5, "예산은?", "기간은?"]}']
     )
-    questions = await ClarifyInput(llm, FakePromptLibrary())(REQ)
+    req = REQ.model_copy(update={"policy_basis": "철도 안전 강화"})  # 정책 질문 없이
+    questions = await ClarifyInput(llm, FakePromptLibrary())(req)
     assert questions == ["대상 노선은?", "예산은?", "기간은?"]
     assert validate_questions("nope") == [] and validate_questions({"questions": "하나?"}) == [
-        "하나?"
+        ("other", "하나?")
     ]
     req2 = apply_answers(REQ, {"대상 노선은?": "경부선", "예산은?": "  "})
     assert req2.supplement == "대상 노선은?: 경부선" and REQ.supplement == ""

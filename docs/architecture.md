@@ -1383,3 +1383,13 @@ DocumentTables=DB 본문) → `usecases/extract_facts.ExtractTableFacts` → `Ta
 (`usecases/notice_match.py` — 접수 중 상위 3건, LLM 없음, 자동 삽입 없음, `rra notices match`, `POST /v1/ideas/notices`)뿐이며
 유사과제 판정·기술적 중요도 근거에서는 뺀다(`retrieval_scope`, `NON_OVERLAP_SOURCES`, retrieval_mix `overlap_exclude`). #13(공고
 요건 대조)은 이 목록에서 고른 `rnd_notice:<key>` 를 notice_id 로 이어 쓴다.
+
+### 4.24 작성·편집 AI 버튼 (2026-10-28, 레인 B, ADR 0037)
+공용 호출 순서 `usecases/argon_first.ArgonFirst` — Argon(review 단계, 예산 래퍼·공유 제한기) 먼저, 호출 실패·형식 오류면 로컬
+(전역 슬롯 안), 값이 없으면 사유 코드(호출 실패·해당 없음·규칙에 걸러짐·꺼져 있음)를 돌려주고 화면은 [다시 시도]. ③ 보강 질문
+(`clarify_input.inspect`, `pipeline.clarify: true`, 상태 off/enough/failed)은 정책 근거가 없으면 정책적 중요도 작성안
+(`usecases/policy_cards` + `domain/rules/policy_cards`: 방향별 최대 4안, 한 문서는 한 안에만, 인용 구간 안에서만·정책명·수치
+검사)을 보인다. 고른 안은 `ProposalRequest.policy_choice` → 생성 때 원문 재대조(`verify_sources`) → `snapshot.policy_ids` →
+2-가-(1) 그대로(근거 금지 섹션의 유일한 예외). "정책 근거 없음" 은 `policy_basis_needed` 알림·제출 전 점검 `policy_basis`.
+④ AI 다시 쓰기(`rewrite_llm`, 사유·새로 쓰기), 보완 질문(`usecases/section_questions`, 모든 섹션 체크리스트), 변경 세기
+(`domain/rules/change_count`, `GET /v1/runs/{id}/changes`). RunManager 쪽은 `application/services/edit_ai.EditAIMixin`.

@@ -903,5 +903,6 @@ export interface UsageOut {
   usage: UsageRecord | null;
 }
 export * from "./types-figures"; // [G] 그림 v2 (레인 C)
+export * from "./types-editai";
 export * from "./types-precheck"; // ② 유사과제 흐름 (레인 A)
 export * from "./types-format"; // 레인 D

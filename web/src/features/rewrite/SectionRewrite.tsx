@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Wand2 } from "lucide-react";
-import { rewriteSection } from "@/api/endpoints";
+import { rewriteSectionV2 } from "@/api/editai";
 import { keys, useApplyRewrite } from "@/api/hooks";
 import { isApiError } from "@/api/client";
 import { defaultChosen } from "./model";
@@ -26,15 +26,17 @@ export interface SectionRewriteProps {
   dirty?: boolean;
   onClose: () => void;
   onApplied: (version: number) => void;
+  /** 2-가-(1) 에 정책 근거가 없을 때 — 정책적 중요도 작성안으로 (부모가 연다) */
+  onPolicy?: () => void;
 }
 
 /** U3 섹션 AI 다시 쓰기 — 현재 문장과 후보를 나란히, 고른 후보만 반영 → 새 버전(origin edit, "AI 다시 쓰기"). */
-export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose, onApplied }: SectionRewriteProps) {
+export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose, onApplied, onPolicy }: SectionRewriteProps) {
   const qc = useQueryClient();
   const [chosen, setChosen] = React.useState<number[]>([]);
   const [conflict, setConflict] = React.useState(false);
   const rewrite = useMutation({
-    mutationFn: (key: string) => rewriteSection(runId, key),
+    mutationFn: (key: string) => rewriteSectionV2(runId, key),
     onSuccess: (out) => setChosen(defaultChosen(out)),
   });
   const apply = useApplyRewrite(runId, sectionKey ?? "");
@@ -46,6 +48,8 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
   }, [sectionKey]);
 
   const out = rewrite.data;
+  const newCount = out ? (out.new_count ?? out.candidate.filter((c) => !["proposer_edit", "proposer_input", "proposer", "app"].includes(c.origin)).length) : 0;
+  const isNew = out?.mode === "new";
   const unavailable = isApiError(rewrite.error) && rewrite.error.status === 503;
   const rejected = isApiError(rewrite.error) && rewrite.error.status === 409;
   const toggle = (i: number, on: boolean) => setChosen((s) => (on ? [...new Set([...s, i])].sort((a, b) => a - b) : s.filter((x) => x !== i)));
@@ -69,11 +73,15 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
     <Dialog
       open={sectionKey !== null}
       onClose={onClose}
-      title={`AI 다시 쓰기 — ${sectionKey ? sectionTitle(sectionKey) : ""}`}
-      description="로컬 모델이 같은 지시·근거로 섹션을 다시 씁니다. 제안자가 고친 문장은 보존되고 선택값은 바뀌지 않습니다."
+      title={`${isNew ? "AI 새로 쓰기" : "AI 다시 쓰기"} — ${sectionKey ? sectionTitle(sectionKey) : ""}`}
+      description={
+        isNew
+          ? "빈 섹션입니다. Argon 이 이 섹션의 근거와 작성 규칙으로 새로 씁니다(실패하면 로컬 모델). 선택값은 바뀌지 않습니다."
+          : "Argon 이 같은 지시·근거로 다시 씁니다(실패하면 로컬 모델). 제안자가 고친 문장은 보존되고 선택값은 바뀌지 않습니다."
+      }
       className="w-[min(96vw,56rem)]"
       footer={
-        out && !unavailable ? (
+        out && !unavailable && newCount > 0 ? (
           <>
             <Button variant="outline" onClick={onClose}>
               닫기
@@ -107,14 +115,14 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
       )}
       {rewrite.isPending ? (
         <div aria-busy="true" className="space-y-2">
-          <p className="text-sm text-muted-foreground" aria-live="polite">후보를 쓰는 중입니다… (로컬 모델 1회)</p>
+          <p className="text-sm text-muted-foreground" aria-live="polite">후보를 쓰는 중입니다… (Argon, 실패하면 로컬 모델)</p>
           <SkeletonBlock lines={5} />
         </div>
       ) : unavailable ? (
         <Alert variant="info" role="status">
           <div>
             <AlertTitle>AI 다시 쓰기를 쓸 수 없습니다</AlertTitle>
-            <AlertDescription>기능이 꺼져 있거나 로컬 모델이 없습니다. 직접 수정으로 고치십시오.</AlertDescription>
+            <AlertDescription>기능이 꺼져 있거나 쓸 수 있는 모델이 없습니다. 직접 수정으로 고치십시오.</AlertDescription>
           </div>
         </Alert>
       ) : rejected ? (
@@ -126,11 +134,34 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
         </Alert>
       ) : rewrite.error ? (
         <ProblemBanner error={rewrite.error} onRetry={() => sectionKey && rewrite.mutate(sectionKey)} />
+      ) : out && newCount === 0 ? (
+        <Alert variant="warning" role="status">
+          <div className="flex-1">
+            <AlertTitle>후보 문장이 없습니다</AlertTitle>
+            <AlertDescription>사유: {out.reason_label ?? "해당 없음"}</AlertDescription>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {out.reason === "policy_basis_needed" && onPolicy && (
+                <Button size="sm" onClick={onPolicy}>
+                  정책적 중요도 작성안 보기
+                </Button>
+              )}
+              {out.reason !== "app_section" && out.reason !== "policy_basis_needed" && (
+                <Button size="sm" variant="outline" onClick={() => sectionKey && rewrite.mutate(sectionKey)}>
+                  다시 시도
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={onClose}>
+                닫기
+              </Button>
+            </div>
+          </div>
+        </Alert>
       ) : out ? (
         <div className="space-y-3">
           <ProblemBanner error={apply.error && !(isApiError(apply.error) && apply.error.status === 409) ? apply.error : null} />
           <p className="text-xs text-muted-foreground">
-            후보 {out.candidate.length}문장{out.dropped > 0 ? ` · 검증에서 버린 문장 ${out.dropped}` : ""}. 후보는 모델 출력(비신뢰)입니다 — 고른 행만 반영되고 보존 문장은 그대로 남습니다.
+            {out.writer && <Badge variant="outline" className="mr-1">{out.writer.label}</Badge>}
+            새 후보 {newCount}문장{out.dropped > 0 ? ` · 검증에서 버린 문장 ${out.dropped}` : ""}. 후보는 모델 출력(비신뢰)입니다 — 고른 행만 반영되고 보존 문장은 그대로 남습니다.
           </p>
           <div className="relative overflow-x-auto">
             <table className="w-full min-w-[36rem] text-sm">

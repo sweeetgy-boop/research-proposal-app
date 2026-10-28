@@ -10,6 +10,7 @@ export const PROBLEM_LABELS: Record<string, string> = {
   no_evidence: "근거가 없는 문장",
   evidence_forbidden: "근거를 달지 않는 섹션에 근거가 붙음",
   input_missing: "입력이 비어 작성하지 않은 섹션",
+  policy_basis_needed: "정책 근거 확인 필요",
   catalog_empty: "선택지 목록이 비어 작성하지 않은 섹션",
   no_relevant_evidence: "관련 자료가 없어 비워 둔 섹션",
   unsupported_number: "근거에 없는 수치",

@@ -23,6 +23,9 @@ import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
 import { sectionTitle } from "@/lib/sections";
 import { WriterBadges } from "@/features/draft/WriterBadges";
+import { editAiKeys, useChanges } from "@/api/editai";
+import { RunPolicyDialog } from "@/features/policy/RunPolicyDialog";
+import { ChangeCount, SaveVersionDialog } from "@/features/versions/SaveVersionFlow";
 
 const EDITABLE = new Set(["drafted", "editing", "final_reviewed"]);
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "saved"; at: string } | { kind: "error"; error: unknown };
@@ -46,7 +49,10 @@ export default function Edit() {
   const [offeredWorking, setOfferedWorking] = React.useState(false);
   const [rewriteKey, setRewriteKey] = React.useState<string | null>(null);
   const [questionsKey, setQuestionsKey] = React.useState<string | null>(null);
+  const [policyOpen, setPolicyOpen] = React.useState(false);
+  const [saveAsk, setSaveAsk] = React.useState<{ kind: "none" | "saved" | "already"; version: number | null } | null>(null);
   const editable = EDITABLE.has(run.status) && !run.legacy;
+  const changes = useChanges(id, editable);
 
   const revisions = React.useMemo(
     () => usableRevisions([...(finalReview.data?.comments ?? []), ...(draftReview.data?.comments ?? [])]),
@@ -61,6 +67,7 @@ export default function Edit() {
     toast(`v${v} 으로 저장했습니다 (그림)`, "success");
     refetch();
     qc.invalidateQueries({ queryKey: keys.run(id) });
+    qc.invalidateQueries({ queryKey: editAiKeys.changes(id) });
   };
 
   // 임시 저장(autosave): 편집이 바뀌고 1.5초 뒤 서버 작업 사본에 쓴다 (localStorage 없음).
@@ -92,16 +99,26 @@ export default function Edit() {
     }
   };
 
+  /** [새 버전으로 저장] — 항상 누를 수 있다. 저장하지 않은 편집이 있으면 새 버전으로 저장한 뒤, 없으면 바로
+   *  "최종 검토로 넘어갈까요?" 를 묻는다(바로 저장된 변경 — 그림·근거·정책 근거·보완 메모 — 도 변경으로 센다). */
   const doSave = async () => {
     if (current === null) return;
+    const serverTotal = changes.data?.total ?? 0;
+    if (!dirty) {
+      setSaveAsk(serverTotal > 0 ? { kind: "already", version: current } : { kind: "none", version: null });
+      return;
+    }
     try {
       const out = await save.mutateAsync(toEditRequest(state, current, revisions));
       setState(emptyEditState());
       setAutosave({ kind: "idle" });
-      if (out.version === current) toast("바뀐 내용이 없어 새 버전을 만들지 않았습니다.");
-      else toast(`v${out.version} 으로 저장했습니다.`, "success");
       refetch();
-      navigate(`/runs/${id}/draft`);
+      qc.invalidateQueries({ queryKey: editAiKeys.changes(id) });
+      if (out.version === current) setSaveAsk(serverTotal > 0 ? { kind: "already", version: current } : { kind: "none", version: null });
+      else {
+        toast(`v${out.version} 으로 저장했습니다.`, "success");
+        setSaveAsk({ kind: "saved", version: out.version });
+      }
     } catch (e) {
       if (isApiError(e) && e.status === 409) setConflict(e);
     }
@@ -129,7 +146,7 @@ export default function Edit() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">④ 직접 수정 — v{current} 기준</h2>
-          <p className="text-sm text-muted-foreground">문장마다 원문 유지·수정안 사용·직접 수정·삭제·뒤에 추가를 고르고 저장하면 새 버전이 됩니다. 이 단계에서는 외부 모델을 부르지 않습니다.</p>
+          <p className="text-sm text-muted-foreground">문장마다 원문 유지·수정안 사용·직접 수정·삭제·뒤에 추가를 고르고 저장하면 새 버전이 됩니다. AI 다시 쓰기·보완 질문은 누를 때만 Argon 을 부릅니다(실패하면 로컬 모델).</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <AddFigureDialog runId={id} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} />
             {editable && dirty && <span className="text-xs text-muted-foreground">그림은 편집을 저장한 뒤 바꿀 수 있습니다.</span>}
@@ -197,9 +214,20 @@ export default function Edit() {
         sectionTools={(sec) =>
           editable && sec.key !== "title" ? (
             <span className="flex flex-wrap gap-1">
-              <Button type="button" variant="outline" size="sm" onClick={() => setRewriteKey(sec.key)} aria-label={`${sectionTitle(sec.key)} AI 다시 쓰기`}>
+              {sec.key === "policy_importance" && (
+                <Button type="button" variant={sec.sentences.length ? "outline" : "default"} size="sm" onClick={() => setPolicyOpen(true)}>
+                  정책 근거 고르기
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRewriteKey(sec.key)}
+                aria-label={`${sectionTitle(sec.key)} ${sec.sentences.length ? "AI 다시 쓰기" : "AI 새로 쓰기"}`}
+              >
                 <Wand2 aria-hidden="true" />
-                AI 다시 쓰기
+                {sec.sentences.length ? "AI 다시 쓰기" : "AI 새로 쓰기"}
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setQuestionsKey(sec.key)} aria-label={`${sectionTitle(sec.key)} 보완 질문`}>
                 <MessageCircleQuestion aria-hidden="true" />
@@ -234,21 +262,58 @@ export default function Edit() {
           setAutosave({ kind: "idle" });
           toast(v === current ? "바뀐 내용이 없어 새 버전을 만들지 않았습니다." : `AI 다시 쓰기를 v${v} 으로 반영했습니다.`, "success");
           refetch();
+          qc.invalidateQueries({ queryKey: editAiKeys.changes(id) });
+        }}
+        onPolicy={() => {
+          setRewriteKey(null);
+          setPolicyOpen(true);
         }}
       />
-      <SectionQuestions runId={id} sectionKey={questionsKey} onClose={() => setQuestionsKey(null)} />
+      <SectionQuestions
+        runId={id}
+        sectionKey={questionsKey}
+        onClose={() => setQuestionsKey(null)}
+        onRewrite={(key) => {
+          setQuestionsKey(null);
+          setRewriteKey(key);
+        }}
+      />
+      <RunPolicyDialog
+        runId={id}
+        open={policyOpen}
+        baseVersion={current ?? 0}
+        disabled={dirty}
+        onClose={() => setPolicyOpen(false)}
+        onApplied={(v) => {
+          setPolicyOpen(false);
+          toast(v === current ? "바뀐 내용이 없어 새 버전을 만들지 않았습니다." : `정책 근거를 v${v} 으로 반영했습니다.`, "success");
+          refetch();
+          qc.invalidateQueries({ queryKey: editAiKeys.changes(id) });
+        }}
+      />
 
       <div className="sticky bottom-0 -mx-4 flex flex-wrap items-end gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur">
         <div className="min-w-0 flex-1 space-y-1">
           <Label htmlFor="note">저장 메모 (선택, 200자)</Label>
           <Input id="note" value={state.note} maxLength={200} onChange={(e) => setState({ ...state, note: e.target.value })} disabled={!editable} />
         </div>
-        <span className="text-sm text-muted-foreground">변경 {countChanges(state)}건</span>
-        <Button onClick={doSave} disabled={!editable || !dirty || save.isPending}>
+        <ChangeCount local={countChanges(state)} server={changes.data} />
+        <Button onClick={doSave} disabled={!editable || save.isPending}>
           <Save aria-hidden="true" />
           {save.isPending ? "저장 중…" : "새 버전으로 저장"}
         </Button>
       </div>
+
+      <SaveVersionDialog
+        open={saveAsk !== null}
+        kind={saveAsk?.kind ?? "none"}
+        savedVersion={saveAsk?.version}
+        onCancel={() => setSaveAsk(null)}
+        onConfirm={() => {
+          setSaveAsk(null);
+          navigate(`/runs/${id}/final-review`);
+        }}
+      />
 
       <Dialog
         open={conflict !== null}

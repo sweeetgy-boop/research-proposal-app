@@ -51,6 +51,7 @@ from rra.domain.models import (
     Document,
     Draft,
     OverlapAlert,
+    PolicyChoice,
     ProposalRequest,
     RetrievalSnapshot,
     Section,
@@ -70,6 +71,7 @@ from rra.domain.rules.exemplars import pick_exemplars
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.lint import (
+    NO_RELEVANT_EVIDENCE,
     ChoiceSpec,
     LintProblem,
     LintRules,
@@ -92,6 +94,12 @@ from rra.domain.rules.overlap import (
     no_overlap_statement,
     tier_of,
     uncollected_sources,
+)
+from rra.domain.rules.policy_cards import (
+    POLICY_SECTION,
+    choice_section,
+    has_choice_text,
+    verify_sources,
 )
 from rra.domain.rules.relevance import (
     DropReason,
@@ -173,6 +181,10 @@ class ComposedSection:
     # 작성 기록(ADR 0032, domain/rules/writer.writer_record): 누가 썼는지·로컬 대체 여부·사유·전송
     # doc_id·원격 호출 수. LLM 을 쓰지 않은 섹션(skipped·app)은 None
     writer: dict[str, Any] | None = None
+    # 문장이 0 일 때의 사유 코드 (AI 다시 쓰기 화면 — 빈 결과로 조용히 끝내지 않는다):
+    # policy_needed | input_missing | catalog_empty | no_relevant_evidence | app_section
+    # | error | rate_limit | budget | invalid | filtered | empty
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -301,6 +313,11 @@ class GenerateProposal:
     compose_concurrency: int = 1  # 한 run 안에서 동시에 쓰는 섹션 수 (원격 작성일 때만 쓴다)
     local_check: bool = False  # 근거 있는 문장을 로컬 모델이 지지|부분|불일치 로 판정 (경고만)
     local_check_timeout: float = LOCAL_CHECK_TIMEOUT_SEC  # 섹션당 상한(초). 넘으면 그 섹션은 건너뜀
+    # U3 AI 다시 쓰기 작성자(2026-10-28 레인 B) — writer_llm 이 없을 때(compose.writer: local) 다시
+    # 쓰기만 Argon(review 단계 provider, 예산 래퍼)이 먼저 쓰고 실패하면 로컬. None 이면 로컬만
+    rewrite_llm: LLMPort | None = None
+    rewrite_provider: str = ""
+    rewrite_model: str = ""
 
     @property
     def template(self) -> str | None:
@@ -332,6 +349,36 @@ class GenerateProposal:
 
     # ── retrieve ─────────────────────────────────────────
     async def retrieve(self, req: ProposalRequest) -> RetrievalSnapshot:
+        snapshot = await self._retrieve(req)
+        await self.pin_policy_choice(req.policy_choice, snapshot)
+        return snapshot
+
+    async def pin_policy_choice(
+        self, choice: PolicyChoice | None, snapshot: RetrievalSnapshot
+    ) -> list[str]:
+        """고른 정책적 중요도 작성안의 인용 구간을 저장소 원문과 대조해(보안 A) 통과한 것만
+        스냅샷에 고정한다 — 2-가-(1) 근거 전용(다른 섹션의 기본 [자료] 에는 넣지 않는다)."""
+        if choice is None or choice.mode == "none" or not choice.sources:
+            return []
+        docs = {s.doc_id: await self.repo.get_document(s.doc_id) for s in choice.sources}
+        verified = verify_sources(choice, docs)
+        have = {c.chunk_id for c in snapshot.chunks}
+        ids: list[str] = []
+        for c in verified:
+            ids.append(c.chunk_id)
+            if c.chunk_id in have:
+                continue
+            snapshot.chunks.append(c)
+            snapshot.section_added.append(c.chunk_id)
+            doc = docs.get(c.doc_id)
+            if doc is not None:
+                snapshot.doc_types[c.doc_id] = doc.doc_type
+        snapshot.policy_ids = ids
+        if ids:
+            snapshot.section_chunks[POLICY_SECTION] = list(ids)
+        return ids
+
+    async def _retrieve(self, req: ProposalRequest) -> RetrievalSnapshot:
         query = req.search_text()
         wide = self.k * (self.relevance.search_multiplier if self.relevance else 1)
         chunks = list(await self.repo.hybrid_search([query], k=wide))
@@ -481,6 +528,8 @@ class GenerateProposal:
                 picked = self.mix.top_up_scholarly(key, picked, ranked, snapshot.doc_types)
             if picked:
                 snapshot.section_chunks[key] = [c.chunk_id for c in picked]
+        if snapshot.policy_ids:  # 2-가-(1) 은 고른 작성안의 구간만 (pin_policy_choice)
+            snapshot.section_chunks[POLICY_SECTION] = list(snapshot.policy_ids)
         await self._fill_facts(snapshot)  # 섹션 검색이 더한 문서의 표 사실
         return snapshot
 
@@ -564,6 +613,10 @@ class GenerateProposal:
         """섹션 1개. outline(Q2)은 그 섹션 설계와 전체 요약을, candidate(Q7)는 이미 쓴 후보 A 를
         주고 다른 구성의 후보 B 를 쓰게 한다. 본보기(Q4)는 스냅샷에 있으면 넣는다."""
         options = self.choice_options()
+        if key == POLICY_SECTION and has_choice_text(req) and req.policy_choice is not None:
+            # 제안자가 고른 정책적 중요도 작성안 — 그대로 쓴다(근거는 원문 대조를 통과한 구간만)
+            section = choice_section(req.policy_choice, set(snapshot.policy_ids))
+            return ComposedSection(section, [], None, None, "app")
         if key in skipped_sections(req, self.rules, options) or key in self.evidence_skipped(
             snapshot
         ):
@@ -587,25 +640,75 @@ class GenerateProposal:
         current: Section,
         notes: Mapping[str, str] | None = None,
     ) -> ComposedSection:
-        """U3 섹션 하나 다시 쓰기 — 같은 지시·같은 스냅샷 근거로 LLM 1회. 제안자가 고친 문장
-        (proposer_edit·proposer_input·app)은 보존해 후보에 원래 자리로 끼워 넣고, 선택값은 그대로.
-        notes: 보완 질문에 대한 제안자 답({요소: 답}) — 지시문 뒤에 [제안자 보완 메모] 로."""
+        """U3 섹션 하나 다시 쓰기(빈 섹션이면 새로 쓰기) — 같은 지시·같은 스냅샷 근거로 Argon 먼저
+        (writer_llm 또는 rewrite_llm), 실패하면 로컬. 제안자가 고친 문장(proposer_edit·
+        proposer_input·app)은 보존해 후보에 원래 자리로 끼워 넣고, 선택값은 그대로.
+        notes: 보완 질문에 대한 제안자 답({요소: 답}) — 지시문 뒤에 [제안자 보완 메모] 로.
+        후보 문장이 0 이면 reason 에 사유 코드를 남긴다(화면이 사유와 [다시 시도] 를 보인다)."""
         options = self.choice_options()
-        if key in skipped_sections(req, self.rules, options) or key in self.evidence_skipped(
-            snapshot
-        ):
-            return ComposedSection(Section(key=key, sentences=[]), [], None, None, "skipped")
-        if key == OVERLAP_SECTION and snapshot.overlap_checked:
-            raise ValueError(
-                "특이사항(유사과제 검토 결과)은 앱이 쓰는 섹션이라 다시 쓰지 않습니다."
+        skipped = skipped_sections(req, self.rules, options)
+        if key in skipped or key in self.evidence_skipped(snapshot):
+            code = skipped.get(key) or NO_RELEVANT_EVIDENCE
+            return ComposedSection(
+                Section(key=key, sentences=[], choices=list(current.choices)),
+                [],
+                None,
+                None,
+                "skipped",
+                reason=code,
             )
+        if key == OVERLAP_SECTION and snapshot.overlap_checked:
+            if not any(a.blocking for a in snapshot.overlap):
+                return ComposedSection(current, [], None, None, "app", reason="app_section")
         keep = [
             s.text
             for s in current.sentences
             if s.origin in ("proposer_edit", "proposer_input", "proposer", "app")
         ]
-        composed = await self._compose_llm(key, req, snapshot, options, notes=notes, keep=keep)
+        remote = self.writer_llm or self.rewrite_llm
+        try:
+            if remote is not None and self.writer_llm is None:
+                composed = await self._compose_llm(
+                    key,
+                    req,
+                    snapshot,
+                    options,
+                    notes=notes,
+                    keep=keep,
+                    remote=(remote, self.rewrite_provider, self.rewrite_model),
+                )
+            else:
+                composed = await self._compose_llm(
+                    key, req, snapshot, options, notes=notes, keep=keep
+                )
+        except (
+            Exception
+        ) as exc:  # 원격·로컬 모두 실패 — 사유 코드만 (메시지에 제안 내용이 섞일 수 있다)
+            logger.warning("rewrite.failed section=%s error=%s", key, type(exc).__name__)
+            return ComposedSection(
+                Section(key=key, sentences=[], choices=list(current.choices)),
+                [],
+                None,
+                None,
+                reason=remote_failure_reason(exc),
+            )
         merged = merge_candidate(current, composed.section.sentences)
+        reason = None
+        if not composed.section.sentences:
+            parse = composed.parse
+            writer = composed.writer or {}
+            if parse is not None and not parse.ok:
+                reason = "invalid"
+            elif composed.dropped:
+                reason = "filtered"
+            elif writer.get("local_fallback") and writer.get("reason") in (
+                "error",
+                "rate_limit",
+                "budget",
+            ):
+                reason = str(writer.get("reason"))
+            else:
+                reason = "empty"
         return ComposedSection(
             section=merged,
             dropped=composed.dropped,
@@ -615,6 +718,7 @@ class GenerateProposal:
             retries=composed.retries,
             first_parse=composed.first_parse,
             writer=composed.writer,
+            reason=reason,
         )
 
     async def _compose_llm(
@@ -628,6 +732,7 @@ class GenerateProposal:
         candidate: Section | None = None,
         notes: Mapping[str, str] | None = None,
         keep: Sequence[str] = (),
+        remote: tuple[LLMPort, str, str] | None = None,
     ) -> ComposedSection:
         spec = self.rules.choices.get(key)
         job = _Job(
@@ -644,6 +749,8 @@ class GenerateProposal:
             notes=notes,
             keep=keep,
         )
+        if remote is not None:
+            return await self._compose_remote_first(job, *remote)
         if self.writer_llm is not None:
             return await self._compose_remote_first(job)
         system, instruction, required = job.system, job.instruction, job.required
@@ -785,12 +892,28 @@ class GenerateProposal:
             # 두 번째도 실패하면 첫 결과로 기존처럼 처리한다
         return _Attempt(first, parsed, section, dropped, lost, retries)
 
-    async def _compose_remote_first(self, job: _Job) -> ComposedSection:
+    async def _compose_remote_first(
+        self,
+        job: _Job,
+        llm: LLMPort | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+    ) -> ComposedSection:
         """ADR 0032 — Argon 이 먼저 쓰고(전송 범위 적용), 실패하면 로컬 모델이 local_slot 을
         잡고 쓴다. 로컬 대체 사유: 호출 예외 → error | rate_limit | budget, 교정 재요청 뒤에도
-        무효 → invalid."""
-        if self.writer_llm is None:
+        무효 → invalid. llm 을 주면 그것을 원격 작성자로 쓴다(AI 다시 쓰기의 rewrite_llm)."""
+        writer_llm = llm or self.writer_llm
+        # 다시 쓰기의 rewrite_llm 경로(로컬 작성 run)는 RunManager 가 슬롯을 잡지 않는다 — 로컬
+        # 대체만 잡는다
+        gate = (
+            self.local_slot.acquire()
+            if llm is not None and self.writer_llm is None and self.local_slot is not None
+            else self.local_gate()
+        )
+        if writer_llm is None:
             raise RuntimeError("writer_llm missing")
+        writer_provider = provider if llm is not None else self.writer_provider
+        writer_model = model if llm is not None else self.writer_model
         key, snapshot = job.key, job.snapshot
         shown = self._writer_chunks(key, snapshot)
         # 보안 A: 원격 작성 문장의 근거 id 는 "보여 준 청크" 집합과 대조한다
@@ -799,7 +922,7 @@ class GenerateProposal:
             | {c.doc_id for c in shown}
             | {a.doc_id for a in snapshot.overlap}
         )
-        remote = _Counted(self.writer_llm)
+        remote = _Counted(writer_llm)
         reason: str | None = None
         att: _Attempt | None = None
         try:
@@ -827,14 +950,14 @@ class GenerateProposal:
         internal_ids = [c.doc_id for c in sent if c.doc_id in internal]
         if reason is None and att is not None:
             writer = writer_record(
-                provider=self.writer_provider,
-                model=self.writer_model,
+                provider=writer_provider or "",
+                model=writer_model or "",
                 public_doc_ids=public_ids,
                 internal_doc_ids=internal_ids,
                 calls=remote.calls,
             )
             return self._composed(job, att, writer)
-        async with self.local_gate():  # 로컬 모델은 한 번에 하나 (FlockSlot)
+        async with gate:  # 로컬 모델은 한 번에 하나 (FlockSlot)
             local = await self._attempt(self.llm, job)
         logger.warning(
             "compose.local_fallback section=%s reason=%s result=%s",
@@ -1211,6 +1334,7 @@ class GenerateProposal:
             chunk_texts=chunk_texts,
             evidence_skipped=self.evidence_skipped(snapshot) if snapshot else None,
             facts=snapshot.facts if snapshot else None,
+            policy_ids=set(snapshot.policy_ids) if snapshot else None,
         )
         problems.extend(self.style_problems(draft.request, draft.sections))
         if self.schedule_metrics:

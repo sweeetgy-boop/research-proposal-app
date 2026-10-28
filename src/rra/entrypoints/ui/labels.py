@@ -33,6 +33,7 @@ PROBLEM = {
     "evidence_forbidden": "입력만 근거로 써야 함",
     "unsupported_number": "입력·근거에 없는 수치",
     "input_missing": "근거 입력 없음 — 빈칸",
+    "policy_basis_needed": "정책 근거 확인 필요",
     "catalog_empty": "선택지 목록 비어 있음 — 빈칸",
     "no_choice": "제안된 선택지 없음 — 직접 선택",
     "no_relevant_evidence": "관련도 하한을 넘는 근거 없음 — 빈칸",

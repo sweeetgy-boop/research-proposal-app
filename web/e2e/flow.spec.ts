@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { createRun, detailMode, fillIdea, login, subnav } from "./helpers";
 
 test.describe("전체 흐름 ①→⑥", () => {
-  test("아이디어 → 유사과제(추천 0건) → 보강 질문 없음 → 생성 → 초안 → 수정 → 버전 비교 → 최종 검토 → HWPX 내려받기 → 다시 열기", async ({ page }) => {
+  test("아이디어 → 유사과제(추천 0건) → 보강 질문(Argon) → 생성 → 초안 → 수정 → 버전 비교 → 최종 검토 → HWPX 내려받기 → 다시 열기", async ({ page }) => {
     await login(page);
 
     // ① 입력 검증: 빈 제출 (상세 입력)
@@ -26,8 +26,11 @@ test.describe("전체 흐름 ①→⑥", () => {
     await expect(page.getByText(/임시 저장됨/)).toBeVisible({ timeout: 10_000 }); // autosave → 서버
     await page.getByLabel(/저장 메모/).fill("목적 문장 보강");
     await page.getByRole("button", { name: "새 버전으로 저장" }).click();
-    await expect(page).toHaveURL(new RegExp(`/runs/${id}/draft$`));
-    await expect(page.getByText(/v3 으로 저장했습니다/).first()).toBeVisible();
+    // 저장 뒤 "최종 검토로 넘어갈까요?" — [취소] 로 남는다 (레인 B, 2026-10-28)
+    const ask = page.getByRole("dialog", { name: "저장했습니다" });
+    await expect(ask.getByText("v3 으로 저장했습니다. 최종 검토로 넘어갈까요?")).toBeVisible();
+    await ask.getByRole("button", { name: "취소" }).click();
+    await expect(page).toHaveURL(new RegExp(`/runs/${id}/edit$`));
 
     // 버전·비교
     await subnav(page, "버전·비교").click();
@@ -71,17 +74,17 @@ test.describe("전체 흐름 ①→⑥", () => {
     await expect(page).toHaveURL(/\/new\/brief$/);
     await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
     await expect(page).toHaveURL(/\/new\/clarify$/);
-    await expect(page.getByText("보강 질문 없음")).toBeVisible();
+    await expect(page.getByText(/질문 \d개/)).toBeVisible(); // 보강 질문 켬 (레인 B, 2026-10-28)
   });
 
-  test("보강 질문 건너뛰기(0개)는 바로 생성 버튼 하나", async ({ page }) => {
+  test("보강 질문이 있으면 [건너뛰고 생성]·[답하고 생성 시작]", async ({ page }) => {
     await login(page);
     await fillIdea(page);
     await page.getByRole("button", { name: "유사과제 확인" }).click();
     await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();
     await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
-    await expect(page.getByRole("button", { name: "건너뛰고 생성" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "초안 생성 시작" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "건너뛰고 생성" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "답하고 생성 시작" })).toBeVisible();
   });
 
   test("run 목록·자료 검색·자료원 상태", async ({ page }) => {
