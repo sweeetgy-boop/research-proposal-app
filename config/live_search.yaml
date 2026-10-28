@@ -12,6 +12,7 @@ cache_dir: data/cache/live_search  # 데이터 폴더 기준. 값은 정규화�
 ip_block_recheck_minutes: 60       # NTIS IP 거부가 기록된 뒤 이 시간 안에는 호출하지 않고 ip_blocked 로 표시
 session_ttl_minutes: 180           # (소유자, 입력) 세션 보관 시간 — 같은 입력으로 run 을 만들면 이어 쓴다
 max_sessions: 200
+fake_mode: false                   # 가짜 모드(RRA_FAKE_LLM=1)에서도 가짜 자료원으로 켤지 (기본 끔 — 가짜 e2e 고정 결과 유지)
 keywords:
   stage: review                    # Argon(gemini, llm.yaml stages.review). 일일 예산·공유 호출 제한기 적용
   local_stage: clarify             # Argon 실패 시 로컬 모델. "" 이면 로컬 생략 → 규칙 기반

@@ -86,6 +86,7 @@ from rra.entrypoints.views import (
     evidence_items_payload,
     facts_payload,
     figures_payload,
+    live_search_payload,
     notice_matches_payload,
     ntis_insights_payload,
     policy_suggestions_payload,
@@ -266,6 +267,7 @@ def create_app(
     client_ip: Callable[..., str] | None = None,
     version: dict[str, Any] | None = None,
     availability_notices: Callable[[], dict[str, str]] | None = None,
+    live_search: Any | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api().
 
@@ -510,20 +512,33 @@ def create_app(
         rec_id = recommendation_sessions.put(req, result)
         return {"id": rec_id, **recommendations_payload(result, clean=_clean)}
 
+    async def _live(request: Request, req: ProposalRequest) -> Any | None:
+        """[4] 실시간 검색 세션 시작(또는 이어 쓰기) + 최대 wait_seconds 기다림. 꺼져 있으면
+        None."""
+        if live_search is None:
+            return None
+        return await live_search.prepare(_owner_key(request), req)
+
     @app.post(f"/{API_VERSION}/precheck")
     async def precheck_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
         """유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,
-        과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다."""
+        과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다.
+        [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초) 판정한다."""
+        live = await _live(request, req)
+        live_ids = list(live.doc_ids) if live is not None else []
         svc = _svc(request, "precheck")
         result = await svc.run(req) if hasattr(svc, "run") else None
         alerts = result.alerts if result is not None else await svc(req)
         out = {
             "notice": UNTRUSTED_NOTICE,
-            **alerts_payload(alerts, clean=_clean),
+            **alerts_payload(alerts, clean=_clean, live_ids=live_ids),
             # 관련 연구(논문·보고서·특허)는 판정이 아니다 — 화면은 "참고" 로 따로 보인다 (ADR 0028)
             "related_research": related_research_payload(
-                result.related_research if result is not None else [], clean=_clean
+                result.related_research if result is not None else [],
+                clean=_clean,
+                live_ids=live_ids,
             ),
+            "live_search": live_search_payload(live),
         }
         try:
             if out["blocking"] and differentiate is not None:
@@ -649,6 +664,7 @@ def create_app(
         svc = _svc(request, "brief")
         if svc is None:
             raise HTTPException(503, "선행연구 브리핑을 쓸 수 없습니다 (꺼짐 또는 LLM 없음).")
+        await _live(request, req)  # [4] 같은 입력의 실시간 결과가 DB 에 들어올 때까지(최대 15초)
         result = await svc(req)
         return {"notice": UNTRUSTED_NOTICE, **brief_payload(result, clean=_clean)}
 
@@ -1100,7 +1116,9 @@ def create_app(
         (원문/공개 요약/초록/제목/이미지 판독, 세부 확인 필요)·Argon 적합성·제안자 판단."""
         rid = _run_id(run_id)
         try:
-            items = await manager.sentence_evidence(*await _own(request, rid), sid)
+            owner, rid = await _own(request, rid)
+            items = await manager.sentence_evidence(owner, rid, sid)
+            live_ids = list(getattr(await manager.status(owner, rid), "live_doc_ids", []) or [])
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except EditRejected as exc:
@@ -1109,7 +1127,7 @@ def create_app(
             "run_id": rid,
             "sentence_id": sid,
             "notice": UNTRUSTED_NOTICE,
-            "evidence": evidence_items_payload(items, clean=_clean),
+            "evidence": evidence_items_payload(items, clean=_clean, live_ids=live_ids),
         }
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/evidence-decisions")

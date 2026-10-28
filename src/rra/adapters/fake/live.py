@@ -76,6 +76,16 @@ class FakeLiveSource:
         ]
 
 
+class FakeKeywordLLM:
+    """가짜 키워드 LLM — 정해진 국문·영문 키워드 JSON (Argon 자리)."""
+
+    async def complete(self, prompt, *, system=None, max_tokens=None, json_mode=False) -> str:
+        return (
+            '{"ko": ["궤도 상태 감지", "궤도 틀림 검측", "궤도 유지보수"], '
+            '"en": ["track condition monitoring", "track geometry defect", "railway track"]}'
+        )
+
+
 def fake_live_sources() -> dict[str, FakeLiveSource]:
     return {
         "scienceon": FakeLiveSource("scienceon", "ko"),

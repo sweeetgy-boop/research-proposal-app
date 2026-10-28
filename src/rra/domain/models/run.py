@@ -165,6 +165,10 @@ class RunState(BaseModel):
     # 로컬 근거 대조(compose.local_check) 결과 {enabled, mismatches, sentences, checked_sections,
     # skipped_sections, mismatch_hashes}. None 이면 돌지 않았다
     local_check: dict[str, Any] | None = None
+    # [4] 실시간 자료 검색 요약(ADR 0031) — LiveSearchSummary.payload() (상태·키워드·자료원별 건수,
+    # 본문 없음). None 이면 꺼짐·예전 run. live_doc_ids 는 이 run 의 실시간 결과 doc_id (배지용)
+    live_search: dict[str, Any] | None = None
+    live_doc_ids: list[str] = Field(default_factory=list)
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

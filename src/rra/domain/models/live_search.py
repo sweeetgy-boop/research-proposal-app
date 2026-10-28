@@ -55,6 +55,9 @@ class LiveSearchConfig(BaseModel):
     ip_block_recheck_minutes: float = Field(default=60.0, ge=0)  # NTIS IP 거부 기록 뒤 재시도 간격
     session_ttl_minutes: float = Field(default=180.0, gt=0)
     max_sessions: int = Field(default=200, ge=1, le=5000)
+    # 가짜 모드(RRA_FAKE_LLM)에서도 가짜 자료원으로 켤지 — 기본 끔(가짜 모드 e2e 의 고정 결과를
+    # 지킨다)
+    fake_mode: bool = False
     keywords: LiveKeywordConfig = Field(default_factory=LiveKeywordConfig)
     sources: dict[str, LiveSourceConfig] = Field(
         default_factory=lambda: {name: LiveSourceConfig() for name in LIVE_SOURCES}
