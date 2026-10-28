@@ -144,9 +144,8 @@ def choose_aspect(spec: BaseModel, *, arrange: str | None = None) -> str:
         most = max((len(g.items) for g in spec.groups), default=1)
         if arrange == "grid" or n >= 5:
             return "21:9" if most <= 1 else "16:9"  # 두 줄 — 칸마다 항목 1개면 낮게
-        if n <= 3 and most <= 2:
-            return "21:9"
-        return "16:9"
+        # 한 줄(묶음 4개 이하)에 칸마다 항목 2개 이하면 낮고 넓게 — 실물 양식 미리보기에서 16:9 는 빈 칸이 컸다
+        return "21:9" if most <= 2 else "16:9"
     if isinstance(spec, ConceptSpec):
         return "21:9" if sum(len(b.lines) for b in spec.boxes) <= 4 else "16:9"
     if isinstance(spec, ProcessSpec):
