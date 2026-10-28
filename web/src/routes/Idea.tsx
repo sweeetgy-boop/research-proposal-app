@@ -3,7 +3,9 @@ import { IdeaForm } from "@/features/idea/IdeaForm";
 import { QuickInput } from "@/features/idea/QuickInput";
 import { PolicySuggestions } from "@/features/idea/PolicySuggestions";
 import { resetIdea, updateIdea, updateRequest, useIdea } from "@/features/idea/store";
-import { usePrecheck } from "@/api/hooks";
+import { useMutation } from "@tanstack/react-query";
+import { precheckFast } from "@/api/endpoints-precheck";
+import type { PrecheckOut } from "@/api/types";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -19,7 +21,8 @@ const MODES = [
 export default function Idea() {
   const idea = useIdea();
   const navigate = useNavigate();
-  const precheck = usePrecheck();
+  // ② 표 먼저 (ADR 0039) — 실시간 검색 + 규칙 판정까지. AI 판정·과제안은 ② 화면이 이어서 받는다
+  const precheck = useMutation({ mutationFn: (req: ProposalRequest) => precheckFast(req) as unknown as Promise<PrecheckOut> });
   const { toast } = useToast();
   const mode = idea.inputMode;
 

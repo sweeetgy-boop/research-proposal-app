@@ -68,7 +68,8 @@ describe("NtisInsights", () => {
     expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
     expect(within(rec).getByText("연관 과제 A <script>alert(1)</script>")).toBeInTheDocument();
     expect(container.querySelector("script")).toBeNull();
-    expect(within(rec).getByText(/점수 0\.91 · 1위/)).toBeInTheDocument();
+    expect(within(rec).getByText("NTIS 추천 1위")).toBeInTheDocument();
+    expect(rec.textContent).not.toMatch(/점수|fake-rel/); // 과제번호·점수 숫자 없음 (ADR 0039)
     // notice 는 작은 캡션으로 보인다
     expect(screen.getByText(fx.notice)).toBeInTheDocument();
     await expectNoA11yViolations(container);

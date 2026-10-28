@@ -8,7 +8,7 @@ import { LiveBadge } from "@/features/live/LiveBadge";
 
 export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
   if (alerts.length === 0) {
-    return <EmptyState icon={ShieldCheck} title="유사과제가 없습니다" description="유사도·공유 키워드 기준을 넘는 기존 과제가 없습니다." />;
+    return <EmptyState icon={ShieldCheck} title="유사과제가 없습니다" description="관련도·핵심 키워드 기준을 넘는 기존 과제가 없습니다." />;
   }
   return (
     <div className="relative overflow-x-auto rounded-lg border">
@@ -18,7 +18,7 @@ export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
           <tr>
             <th scope="col" className="px-3 py-2 font-medium">구분</th>
             <th scope="col" className="px-3 py-2 font-medium">과제·문서</th>
-            <th scope="col" className="px-3 py-2 font-medium">유사도</th>
+            <th scope="col" className="px-3 py-2 font-medium">관련도</th>
             <th scope="col" className="px-3 py-2 font-medium">공유 키워드</th>
             <th scope="col" className="px-3 py-2 font-medium">상태</th>
             <th scope="col" className="px-3 py-2 font-medium">판정</th>
@@ -31,9 +31,9 @@ export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
               <td className="px-3 py-2">
                 <UntrustedText text={a.title} className="font-medium" />
                 {a.live && <LiveBadge className="ml-2 align-middle" />}
-                <p className="text-xs text-muted-foreground">{a.doc_id}{a.basis ? ` · ${a.basis}` : ""}</p>
+                {(a as { source_label?: string }).source_label ? <p className="text-xs text-muted-foreground">{(a as { source_label?: string }).source_label}</p> : null}
               </td>
-              <td className="px-3 py-2 tabular-nums">{a.similarity.toFixed(3)}</td>
+              <td className="px-3 py-2">{(a as { relevance_label?: string | null }).relevance_label ?? "—"}</td>
               <td className="px-3 py-2">
                 <ul className="flex flex-wrap gap-1">
                   {a.keywords.map((k) => (

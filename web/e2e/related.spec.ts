@@ -27,7 +27,7 @@ test("논문은 유사과제 판정이 아니라 '관련 연구' 참고 목록�
   const section = page.getByRole("region", { name: /관련 연구 1건/ });
   await expect(section.getByText("궤도 틀림 진행 속도 추정 논문 (가짜)")).toBeVisible();
   await expect(section.getByText("참고", { exact: true })).toBeVisible();
-  await expect(section.getByText(/ScienceON 국내 논문·보고서 · 논문 · 2024 · 유사도 0\.\d{3}/)).toBeVisible();
+  await expect(section.getByText("ScienceON 국내 논문·보고서 · 논문 · 2024", { exact: true })).toBeVisible(); // 유사도·내부 번호 없음 (ADR 0039)
   await expect(section.getByText("차단", { exact: true })).toHaveCount(0);
   const link = section.getByRole("link", { name: /원문/ });
   await expect(link).toHaveAttribute("href", "https://scienceon.kisti.re.kr/fake-1");

@@ -12,7 +12,6 @@ escape.
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import logging
 from collections import OrderedDict
@@ -44,8 +43,6 @@ MEMO_MAX = 500
 class CellExtractor:
     primary: LLMPort | None = None
     local: LLMPort | None = None
-    timeout: float = 30.0
-    local_timeout: float = 60.0
     max_doc_chars: int = 1500
     max_tokens: int = 2500
     include_internal: bool = True
@@ -70,10 +67,7 @@ class CellExtractor:
                 todo.append(d)
         if not todo or not self.enabled:
             return out, by
-        for llm, timeout, origin in (
-            (self.primary, self.timeout, "argon"),
-            (self.local, self.local_timeout, "local"),
-        ):
+        for llm, origin in ((self.primary, "argon"), (self.local, "local")):
             if llm is None:
                 continue
             send = [
@@ -83,7 +77,7 @@ class CellExtractor:
             ]
             if not send:
                 continue
-            got = await self._ask(llm, send, timeout, origin)
+            got = await self._ask(llm, send, origin)
             if got:
                 for doc_id, cells in got.items():
                     out[doc_id] = cells
@@ -109,8 +103,10 @@ class CellExtractor:
         )
 
     async def _ask(
-        self, llm: LLMPort, docs: list[Document], timeout: float, origin: str
+        self, llm: LLMPort, docs: list[Document], origin: str
     ) -> dict[str, dict[str, str]] | None:
+        """앱 제한 시간 없음 (ADR 0039) — 느린 Argon 은 오류가 아니다.
+        로컬은 오류 응답·해석 실패만."""
         gate = (
             self.local_slot.acquire()
             if origin == "local" and self.local_slot is not None
@@ -118,14 +114,11 @@ class CellExtractor:
         )
         try:
             async with gate:
-                raw = await asyncio.wait_for(
-                    llm.complete(
-                        self.build_prompt(docs),
-                        system=EXTRACT_SYSTEM,
-                        max_tokens=self.max_tokens,
-                        json_mode=True,
-                    ),
-                    timeout,
+                raw = await llm.complete(
+                    self.build_prompt(docs),
+                    system=EXTRACT_SYSTEM,
+                    max_tokens=self.max_tokens,
+                    json_mode=True,
                 )
         except Exception as exc:  # 실패하면 다음 단계(로컬 → 규칙)
             logger.info("extract_cells.failed origin=%s err=%s", origin, type(exc).__name__)

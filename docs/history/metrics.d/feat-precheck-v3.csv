@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,TBD,feat precheck v3,2248,,8,,,,,,,,,,,,,,,② v3 표 먼저: 표 중앙 2.4초(v2 36~76초 뒤)·AI 판정 중앙 25.3초·첫 카드 중앙 100초; 상위5 10/10+2/2·거짓 차단 0/3; 카드 경고 14/25 → 0/27(처음 겹침 2 → 다시 받음 2); vitest 146·e2e 25; Gemini 61회

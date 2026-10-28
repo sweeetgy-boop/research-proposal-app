@@ -21,7 +21,7 @@ import secrets
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -50,13 +50,15 @@ from rra.application.services.run_manager import (
 from rra.application.usecases.login import LoginFailed
 from rra.domain.models import PrecheckResult, Principal, ProposalRequest, ProposerInfo
 from rra.domain.models.proposer import Person
+from rra.domain.models.recommendation import MAX_TOTAL_RECOMMENDATIONS
 from rra.domain.models.request import validation_message
 from rra.domain.models.review import EditRequest, EvidenceDecisionRequest
 from rra.domain.models.run import ACTIVE, is_valid_run_id
 from rra.domain.rules import agent_policy as policy
 from rra.domain.rules import auth_policy
 from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
-from rra.domain.rules.precheck_view import GATE_BLOCKING, RELEASED_NOTE
+from rra.domain.rules.precheck_levels import default_choices
+from rra.domain.rules.precheck_view import GATE_BLOCKING, PENDING_JUDGMENT, RELEASED_NOTE
 from rra.domain.rules.recommendation import apply_recommendation
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.run_title import ascii_filename, hwpx_filename
@@ -79,6 +81,7 @@ from rra.entrypoints.api.schemas import (
     FinalizeIn,
     PolishIn,
     RecommendationApplyIn,
+    RecommendMoreIn,
     RevertIn,
     RewriteApplyIn,
     RunIn,
@@ -236,6 +239,10 @@ def _named_events(prev: Any, current: Any) -> list[tuple[str, dict[str, Any]]]:
     return out
 
 
+MORE_NONE = "이미 보인 안과 다른 새 안을 만들지 못했습니다 — 다시 시도하십시오."
+MORE_FAILED = "과제안을 더 만들지 못했습니다 — 다시 시도하십시오."
+
+
 class RecommendationSessions:
     """precheck 세션 단위의 추천 결과 보관 — id(무작위) → (입력, 결과). 메모리에만, 최근 MAX 건.
 
@@ -256,6 +263,10 @@ class RecommendationSessions:
 
     def get(self, rec_id: str) -> tuple[ProposalRequest, Any] | None:
         return self._items.get(rec_id)
+
+    def replace(self, rec_id: str, req: ProposalRequest, result: Any) -> None:
+        """[차별화 과제안 더 만들기] — 같은 id 에 보탠 결과를 둔다(번호가 이어진다)."""
+        self._items[rec_id] = (req, result)
 
 
 def create_app(
@@ -550,11 +561,17 @@ def create_app(
     recommendation_sessions = RecommendationSessions()
 
     async def _recommend(
-        request: Request, req: ProposalRequest, alerts: list[Any], *, similar_only: bool = False
+        request: Request,
+        req: ProposalRequest,
+        alerts: list[Any],
+        *,
+        similar_only: bool = False,
+        core_keywords: list[str] | None = None,
     ) -> dict[str, Any]:
         svc = _svc(request, "recommend")
         if similar_only:
-            result = await svc(req, alerts, similar_only=True)
+            extra = {"core_keywords": core_keywords} if core_keywords else {}
+            result = await svc(req, alerts, similar_only=True, **extra)
         else:
             result = await svc(req, alerts)
         rec_id = recommendation_sessions.put(req, result)
@@ -600,9 +617,17 @@ def create_app(
             logger.warning("similar_choices.append_failed err=%s", type(exc).__name__)
 
     def _precheck_body(
-        req: ProposalRequest, result: Any, live_ids: list[str], live: Any | None
+        req: ProposalRequest,
+        result: Any,
+        live_ids: list[str],
+        live: Any | None,
+        *,
+        pending: bool = False,
     ) -> dict[str, Any]:
         view = _choice_view(req, list(result.alerts))
+        judgment = judgment_payload(result.judgment)
+        if pending:  # 표 먼저 — AI 같음 판정은 POST /v1/precheck/judgment 가 이어서 (ADR 0039)
+            judgment = {**judgment, "status": "pending", "message": PENDING_JUDGMENT}
         return {
             "notice": UNTRUSTED_NOTICE,
             **alerts_payload(view["shown"], clean=_clean, live_ids=live_ids),
@@ -611,7 +636,11 @@ def create_app(
             "released_note": view["released_note"],
             "gate_reason": view["gate_reason"],
             "similar_count": view["similar_count"],
-            "judgment": judgment_payload(result.judgment),
+            "judgment": judgment,
+            # AI 가 "다르다" 로 본 행만 [관련 없음] 을 미리 고른다 — 화면은 선택이 없는 행에만
+            "default_choices": [
+                {"doc_id": d, "choice": c} for d, c in default_choices(result.alerts).items()
+            ],
             "core_keywords": [_clean(k) for k in result.core_keywords],
             "keyword_origin": result.keyword_origin,
             # 관련 연구(논문·보고서·특허)는 판정이 아니다 — 화면은 "참고" 로 따로 보인다 (ADR 0028)
@@ -622,12 +651,18 @@ def create_app(
         }
 
     @app.post(f"/{API_VERSION}/precheck")
-    async def precheck_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
-        """유사과제 알림. [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초)
-        판정한다. 2026-10-28 레인 A: reranker 점수·핵심 키워드(실시간 검색의 Argon 키워드) 규칙
-        판정 →
-        상위 10건 AI 같음 판정(Argon → 로컬 → 규칙). 과제 추천 LLM 이 있고 recommend.auto 면 차별화
-        과제안을 AI 판정과 동시에 1회 붙인다. 활용·차별화 제안은 [유사함] 을 고른 뒤에만."""
+    async def precheck_route(
+        request: Request,
+        req: ProposalRequest,
+        stage: Literal["full", "rule"] = Query(default="full"),
+    ) -> dict[str, Any]:
+        """유사과제 알림. stage=rule(웹 ②, ADR 0039)이면 표 먼저 — 실시간 검색 + 규칙 판정까지만
+        돌려주고(judgment.status = pending) AI 같음 판정은 POST /v1/precheck/judgment, 과제안은
+        POST /v1/precheck/recommendations 가 이어서 한다. stage=full(기본 — MCP·run 화면)은
+        종전대로: [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초)
+        판정한다. reranker 점수·핵심 키워드(실시간 검색의 Argon 키워드) 규칙 판정 → 상위
+        10건 AI 같음 판정(Argon → 로컬 → 규칙). 과제 추천 LLM 이 있고 recommend.auto 면
+        차별화 과제안을 AI 판정과 동시에 1회 붙인다. 활용·차별화 제안은 [유사함] 을 고른 뒤에만."""
         live = await _live(request, req)
         live_ids = list(live.doc_ids) if live is not None else []
         core = None
@@ -638,8 +673,16 @@ def create_app(
         svc = _svc(request, "precheck")
         rec_out: dict[str, Any] | None = None
         budget_hit = False
+        if stage == "rule" and hasattr(svc, "rule_stage"):
+            rule = await svc.rule_stage(
+                req, core_keywords=core, keyword_origin=origin, remember=True
+            )
+            pending = getattr(svc, "same_judge", None) is not None and bool(rule.alerts)
+            return _precheck_body(req, rule, live_ids, live, pending=pending)
         if hasattr(svc, "rule_stage"):
-            rule = await svc.rule_stage(req, core_keywords=core, keyword_origin=origin)
+            rule = await svc.rule_stage(
+                req, core_keywords=core, keyword_origin=origin, remember=True
+            )
 
             async def _rec() -> dict[str, Any] | None:
                 if recommend is None or not recommend_auto:
@@ -683,13 +726,20 @@ def create_app(
         return out
 
     @app.post(f"/{API_VERSION}/precheck/judgment")
-    async def judgment_retry_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
-        """[다시 시도] — AI 같음 판정만 다시 (규칙 판정은 같은 입력의 메모를 쓴다). 레인 A."""
+    async def judgment_retry_route(
+        request: Request, req: ProposalRequest, retry: bool = Query(default=False)
+    ) -> dict[str, Any]:
+        """AI 같음 판정 — 표 먼저(stage=rule) 뒤 화면이 부른다. 규칙 판정은 같은 입력의 메모를 쓰고,
+        같은 입력의 판정이 돌고 있으면 그 작업을 기다린다. retry=true 는 [다시 시도](메모 무시).
+        앱 제한 시간 없음 — 화면 [취소] 는 요청을 끊어 이 작업만 멈춘다 (ADR 0039)."""
         svc = _svc(request, "precheck")
         if not hasattr(svc, "rejudge"):
             raise HTTPException(503, "AI 판정을 쓸 수 없습니다.")
         try:
-            result = await svc.rejudge(req)
+            if hasattr(svc, "judgment"):
+                result = await cancel_on_disconnect(request, svc.judgment(req, retry=retry))
+            else:
+                result = await cancel_on_disconnect(request, svc.rejudge(req))
         except BudgetExhausted as exc:
             raise HTTPException(
                 409, "오늘 외부 AI 호출 한도에 이르렀습니다 — 규칙 기준으로 진행하십시오."
@@ -712,13 +762,15 @@ def create_app(
         }
 
     @app.post(f"/{API_VERSION}/precheck/plan/polish")
-    async def polish_route(body: PolishIn) -> dict[str, Any]:
+    async def polish_route(request: Request, body: PolishIn) -> dict[str, Any]:
         """② 차별화 과제안 [AI로 다듬기] — 그 칸만 (Argon → 로컬). 실패면 원래 글 + 사유 (레인
         A)."""
         if polish is None:
             raise HTTPException(503, "AI 다듬기를 쓸 수 없습니다 (AI 모델 없음).")
         try:
-            result = await polish(body.request, body.field, body.text)
+            result = await cancel_on_disconnect(
+                request, polish(body.request, body.field, body.text)
+            )
         except BudgetExhausted as exc:
             raise HTTPException(409, "오늘 외부 AI 호출 한도에 이르렀습니다.") from exc
         return {"notice": UNTRUSTED_NOTICE, **polish_payload(result, clean=_clean)}
@@ -786,13 +838,81 @@ def create_app(
         recommendation_id 로 run 에 복사된다 (외부 LLM 출력, 비신뢰)."""
         if recommend is None:
             raise HTTPException(503, "과제 추천을 쓸 수 없습니다 (LLM 없음).")
-        alerts = await _svc(request, "precheck")(req)
+        alerts, core = await _current_alerts(request, req)
+        try:
+            rec = await cancel_on_disconnect(
+                request, _recommend(request, req, alerts, similar_only=True, core_keywords=core)
+            )
+        except BudgetExhausted as exc:
+            raise HTTPException(409, "오늘 외부 AI 호출 한도에 이르렀습니다.") from exc
         return {
             "notice": UNTRUSTED_NOTICE,
             **alerts_payload(_choice_view(req, list(alerts))["shown"], clean=_clean),
             # [과제안 다시 만들기] — [유사함] 으로 고른 과제와 겹치지 않는 안 (레인 A)
-            "recommendations": await _recommend(request, req, alerts, similar_only=True),
+            "recommendations": rec,
         }
+
+    async def _current_alerts(
+        request: Request, req: ProposalRequest
+    ) -> tuple[list[Any], list[str] | None]:
+        """과제안 근거 — 지금 AI 판정(진행 중이면 기다림, ADR 0039)과 아이디어 핵심어. 메모가
+        없으면 규칙 판정."""
+        svc = _svc(request, "precheck")
+        current = None
+        if hasattr(svc, "current"):
+            current = await cancel_on_disconnect(request, svc.current(req))
+        if current is None:
+            return list(await svc(req)), None
+        return list(current.alerts), list(current.core_keywords) or None
+
+    @app.post(f"/{API_VERSION}/precheck/recommendations/more")
+    async def recommend_more_route(request: Request, body: RecommendMoreIn) -> dict[str, Any]:
+        """[차별화 과제안 더 만들기] — 이미 보인 안(세션 id 의 카드)과 다른 안만 더 받는다.
+        검증·겹침 재판정 규칙은 같고 거의 같은 안은 뺀다. 보탠 안은 같은 세션 id 에 이어
+        붙는다(번호 유지)."""
+        if recommend is None:
+            raise HTTPException(503, "과제 추천을 쓸 수 없습니다 (LLM 없음).")
+        session = recommendation_sessions.get(body.rec_id)
+        if session is None:
+            raise HTTPException(404, "추천 세션을 찾을 수 없습니다 (만료 또는 모르는 id).")
+        _, before = session
+        req = body.request
+        shown = list(before.recommendations)
+        room = MAX_TOTAL_RECOMMENDATIONS - len(shown)
+        if room <= 0:
+            raise HTTPException(
+                409, "과제안은 15건까지입니다 — [과제안 다시 만들기] 로 새로 받으십시오."
+            )
+        alerts, core = await _current_alerts(request, req)
+        kwargs: dict[str, Any] = {"similar_only": True, "shown": shown}
+        if core:
+            kwargs["core_keywords"] = core
+        try:
+            more = await cancel_on_disconnect(
+                request, _svc(request, "recommend")(req, alerts, **kwargs)
+            )
+        except BudgetExhausted as exc:
+            raise HTTPException(409, "오늘 외부 AI 호출 한도에 이르렀습니다.") from exc
+        added = [r.model_copy(update={"added": True}) for r in more.recommendations[:room]]
+        merged = before.model_copy(
+            update={
+                "recommendations": [*shown, *added],
+                "discarded": [*before.discarded, *more.discarded],
+                "calls": before.calls + more.calls,
+            }
+        )
+        recommendation_sessions.replace(body.rec_id, req, merged)
+        out = {"id": body.rec_id, **recommendations_payload(merged, clean=_clean)}
+        out["added"] = len(added)
+        if added:
+            out["added_reason"] = None
+        elif more.no_recommendation_reason:
+            out["added_reason"] = _clean(more.no_recommendation_reason)
+        elif more.skipped_reason:
+            out["added_reason"] = out.get("skipped_label") or MORE_FAILED
+        else:
+            out["added_reason"] = MORE_NONE
+        return {"notice": UNTRUSTED_NOTICE, "recommendations": out}
 
     @app.post(f"/{API_VERSION}/precheck/recommendations/{{rec_id}}/apply")
     async def recommend_apply_route(rec_id: str, body: RecommendationApplyIn) -> dict[str, Any]:
@@ -817,7 +937,12 @@ def create_app(
             raise HTTPException(503, "차별화 제안을 쓸 수 없습니다 (LLM 없음).")
         alerts = await _svc(request, "precheck")(req)
         # [유사함] 으로 고른 과제만 (레인 A) — 없으면 건너뜀(no_similar_selected)
-        proposal = await _svc(request, "differentiate")(req, alerts, similar_only=True)
+        try:
+            proposal = await cancel_on_disconnect(
+                request, _svc(request, "differentiate")(req, alerts, similar_only=True)
+            )
+        except BudgetExhausted as exc:
+            raise HTTPException(409, "오늘 외부 AI 호출 한도에 이르렀습니다.") from exc
         return {
             "notice": UNTRUSTED_NOTICE,
             **alerts_payload(_choice_view(req, list(alerts))["shown"], clean=_clean),
@@ -833,7 +958,7 @@ def create_app(
             raise HTTPException(503, "차별성 비교표가 꺼져 있습니다 (usability.yaml comparison).")
         alerts = await _svc(request, "precheck")(req)
         # [유사함] 으로 고른 과제만 (레인 A) — 없으면 "유사한 과제를 고르면 비교표가 만들어집니다"
-        table = await svc(req, alerts, similar_only=True)
+        table = await cancel_on_disconnect(request, svc(req, alerts, similar_only=True))
         return {
             "notice": UNTRUSTED_NOTICE,
             **alerts_payload(_choice_view(req, list(alerts))["shown"], clean=_clean),

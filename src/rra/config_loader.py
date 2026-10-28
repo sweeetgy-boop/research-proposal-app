@@ -796,8 +796,8 @@ def same_judgment_config(settings: Settings) -> dict[str, Any]:
         "stage": str(cfg.get("stage") or "review"),
         "local_stage": str(cfg.get("local_stage") or ""),
         "max_candidates": max(1, min(10, int(cfg.get("max_candidates", 10)))),
-        "timeout": float(cfg.get("timeout_seconds", 40)),
-        "local_timeout": float(cfg.get("local_timeout_seconds", 60)),
+        # ② 차별화 과제안 카드 겹침 재판정 (ADR 0039) — 끄면 종전 자기 중복 검사(e5)
+        "cards": bool(cfg.get("cards", True)),
     }
 
 
