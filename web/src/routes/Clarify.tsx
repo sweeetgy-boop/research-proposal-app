@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
+import { StepNavBar } from "@/components/StepNavBar";
 import { supplementFromAnswers } from "@/lib/validation";
 import type { ClarifyOutV2, RunIn, RunInEditAI } from "@/api/types";
 
@@ -166,9 +167,6 @@ export default function Clarify() {
                 </Button>
               )}
               <div className="flex flex-wrap justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => navigate("/new/brief")} disabled={start.isPending}>
-                  ← 브리핑
-                </Button>
                 {questions.length > 0 && (
                   <Button type="button" variant="secondary" onClick={() => start.mutate(false)} disabled={start.isPending}>
                     건너뛰고 생성
@@ -182,6 +180,15 @@ export default function Clarify() {
           )}
         </CardContent>
       </Card>
+      <StepNavBar
+        prev={{ label: "이전 단계: 선행연구 브리핑", to: "/new/brief", reason: start.isPending ? "생성 요청 중입니다" : null }}
+        next={{
+          label: "다음: 초안 생성",
+          formId: "clarify-form",
+          busy: start.isPending || q.isPending,
+          reason: start.isPending ? "생성 요청 중입니다" : q.isPending ? "질문을 준비하는 중입니다" : null,
+        }}
+      />
     </div>
   );
 }

@@ -166,7 +166,7 @@ async def test_recommendation_actions_and_swap_over_rest(client):
     r = await client.post(
         f"/v1/runs/{rid}/figures/{fid}", json={"action": "accept", "base_version": 1}, headers=AUTH
     )
-    assert r.status_code == 200 and r.json()["version"] == 2
+    assert r.status_code == 200 and r.json()["version"] == 1  # 상태 표시 — 버전 그대로 (항목 21)
     assert r.json()["figures"][0]["recommendation"]["status_label"] == "넣기 확정"
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "dismiss"}, headers=AUTH)
     assert r.json()["figures"][0]["included"] is False
@@ -182,7 +182,9 @@ async def test_recommendation_actions_and_swap_over_rest(client):
     )
     assert bad.status_code == 409 and "해당 없음" in bad.json()["detail"]
     versions = (await client.get(f"/v1/runs/{rid}/versions", headers=AUTH)).json()
-    assert len(versions["versions"]) == 4
+    assert len(versions["versions"]) == 2  # v1 + 기법 바꾸기 (결정 2건은 v1 의 확인 기록)
+    first = versions["versions"][0]
+    assert first["confirmations"] == 2 and first["marks"][0].startswith("추천 그림 넣기 확정 — ")
 
 
 async def test_retry_route_reports_empty_result_and_adds_technique(client):

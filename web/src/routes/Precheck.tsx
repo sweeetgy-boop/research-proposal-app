@@ -15,8 +15,8 @@ import { JudgmentNotice } from "@/features/precheck/JudgmentNotice";
 import { ComparisonView } from "@/features/precheck/ComparisonView";
 import { PlanCards } from "@/features/precheck/PlanCards";
 import { PlanEditor } from "@/features/precheck/PlanEditor";
-import { NextGate } from "@/features/precheck/NextGate";
 import { SummaryBar } from "@/features/precheck/SummaryBar";
+import { StepNavBar } from "@/components/StepNavBar";
 import {
   GATE_REASON,
   RELEASED_NOTE,
@@ -36,7 +36,6 @@ import { NATIONAL_RND } from "@/lib/tiers";
 import { useAiCall, useElapsed } from "@/lib/useAiCall";
 import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ProblemBanner } from "@/components/ProblemBanner";
@@ -368,13 +367,6 @@ export default function Precheck() {
         <PlanEditor request={req} initial={planFields(idea.request)} original={original} onConfirm={confirmEdit} onCancel={() => setEditing(false)} />
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-        <Button variant="outline" onClick={() => navigate("/new")}>
-          ← 입력 고치기
-        </Button>
-        <NextGate label="다음: 선행연구 브리핑 →" reason={gateOk ? null : GATE_REASON} onNext={next} />
-      </div>
-
       <SummaryBar
         similar={counts.similar}
         unrelated={counts.unrelated}
@@ -387,6 +379,11 @@ export default function Precheck() {
         morePending={more.pending}
         moreElapsed={more.elapsed}
         onCancelMore={more.cancel}
+      />
+      {/* 레인 D 항목 22: 아래 이동 막대 — ② 게이트(차단 행을 고르기 전에는 다음으로 못 간다)를 막대에 넣는다 */}
+      <StepNavBar
+        prev={{ label: "이전 단계: 아이디어 입력", to: "/new" }}
+        next={{ label: "다음: 선행연구 브리핑", onClick: next, reason: gateOk ? null : GATE_REASON }}
       />
     </div>
   );

@@ -994,7 +994,8 @@ def create_app(
         if svc is None:
             raise HTTPException(503, "선행연구 브리핑을 쓸 수 없습니다 (꺼짐 또는 LLM 없음).")
         await _live(request, req)  # [4] 같은 입력의 실시간 결과가 DB 에 들어올 때까지(최대 15초)
-        result = await svc(req)
+        # 화면 [취소] — 브라우저가 끊으면 그 호출만 멈춘다(시간 제한 없음, ADR 0038)
+        result = await cancel_on_disconnect(request, svc(req))
         return {"notice": UNTRUSTED_NOTICE, **brief_payload(result, clean=_clean)}
 
     @app.post(f"/{API_VERSION}/ideas/structure")
@@ -1199,10 +1200,10 @@ def create_app(
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/versions")
     async def versions_route(request: Request, run_id: str) -> dict[str, Any]:
         try:
-            versions = await manager.versions(*await _own(request, run_id))
+            versions, rows = await manager.version_history(*await _own(request, run_id))
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
-        return {"run_id": run_id, "versions": versions_payload(versions)}
+        return {"run_id": run_id, "versions": versions_payload(versions, rows)}
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/revert")
     async def revert_route(request: Request, run_id: str, body: RevertIn) -> dict[str, Any]:
@@ -1372,6 +1373,17 @@ def create_app(
             raise HTTPException(409, str(exc)) from exc
         except QueueFull as exc:
             raise HTTPException(429, str(exc)) from exc
+        return run_state_payload(state, legacy=manager.is_legacy(state))
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/final-review/cancel")
+    async def final_review_cancel_route(request: Request, run_id: str) -> dict[str, Any]:
+        """⑤ 최종 검토 [취소] — 기다리던 Argon 검토만 멈추고 검토 전 상태로 (결과·버전 없음)."""
+        try:
+            state = await manager.cancel_final_review(*await _own(request, run_id))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(409, str(exc)) from exc
         return run_state_payload(state, legacy=manager.is_legacy(state))
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/final-review")

@@ -31,7 +31,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4"
+        className="pointer-events-none fixed inset-x-4 bottom-[calc(var(--stepnav-h)+1rem)] z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4"
         role="region"
         aria-label="알림"
       >

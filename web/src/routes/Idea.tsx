@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import type { ProposalRequest } from "@/api/types";
 import { cn } from "@/lib/utils";
+import { StepNavBar } from "@/components/StepNavBar";
 
 const MODES = [
   { id: "quick", label: "간편 입력" },
@@ -101,10 +102,17 @@ export default function Idea() {
           onUnavailable={() => updateIdea({ inputMode: "detail" })}
         />
       ) : (
-        <IdeaForm value={idea.request} onChange={updateRequest} onSubmit={onSubmit} busy={precheck.isPending} />
+        <IdeaForm value={idea.request} onChange={updateRequest} onSubmit={onSubmit} busy={precheck.isPending} hideSubmit />
       )}
 
       <PolicySuggestions request={idea.request} onPick={appendPolicy} />
+      <StepNavBar
+        next={
+          mode === "quick"
+            ? { label: "다음: 유사과제 확인", to: idea.precheck ? "/new/precheck" : null, reason: idea.precheck ? null : "네 칸으로 나눈 뒤 넘어갈 수 있습니다" }
+            : { label: "다음: 유사과제 확인", formId: "idea-form", busy: precheck.isPending, reason: precheck.isPending ? "유사과제를 찾는 중입니다" : null }
+        }
+      />
     </div>
   );
 }

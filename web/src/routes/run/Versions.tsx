@@ -2,7 +2,7 @@ import * as React from "react";
 import { History, RotateCcw } from "lucide-react";
 import { useRunContext } from "./useRunContext";
 import { useDiff, useRestore, useVersions } from "@/api/hooks";
-import type { VersionMeta } from "@/api/types";
+import type { VersionRowMeta } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { VirtualList } from "@/components/VirtualList";
 import { DiffView } from "@/features/versions/DiffView";
+import { foldVersions, type Row } from "@/features/versions/fold";
 import { UntrustedText } from "@/components/UntrustedText";
 import { sectionTitle } from "@/lib/sections";
 import { formatDate } from "@/lib/utils";
@@ -24,7 +25,8 @@ export default function Versions() {
   const { run, refetch } = useRunContext();
   const id = run.run_id;
   const q = useVersions(id);
-  const versions = q.data?.versions ?? [];
+  const versions = (q.data?.versions ?? []) as VersionRowMeta[];
+  const rows = React.useMemo(() => foldVersions(versions), [versions]);
   const latest = versions[versions.length - 1]?.version ?? null;
   const [from, setFrom] = React.useState<number | null>(null);
   const [to, setTo] = React.useState<number | null>(null);
@@ -51,8 +53,36 @@ export default function Versions() {
   if (q.isPending) return <SkeletonBlock lines={6} />;
   if (q.error) return <ProblemBanner error={q.error} onRetry={() => q.refetch()} />;
 
-  const renderRow = (v: VersionMeta) => (
-    <div className={cn("flex flex-wrap items-start gap-3 border-b px-2 py-3 text-sm", v.version === latest && "bg-accent/40")}>
+  const actions = (v: VersionRowMeta) => (
+    <div className="flex gap-1">
+      <Button size="sm" variant="outline" onClick={() => { setFrom(v.version); setTo(latest); }} aria-label={`v${v.version} 을 현재와 비교`}>
+        비교
+      </Button>
+      {v.version !== latest && (
+        <Button size="sm" variant="ghost" onClick={() => setConfirm(v.version)} disabled={!canRestore} aria-label={`v${v.version} 으로 복원`}>
+          <RotateCcw aria-hidden="true" />
+          복원
+        </Button>
+      )}
+    </div>
+  );
+
+  const marksLine = (v: VersionRowMeta) =>
+    (v.marks?.length ?? 0) > 0 ? (
+      <details className="text-xs text-muted-foreground" data-testid={`marks-v${v.version}`}>
+        <summary className="cursor-pointer">확인 {v.marks!.length}건</summary>
+        <ul className="mt-1 list-disc space-y-0.5 pl-5">
+          {v.marks!.map((m, i) => (
+            <li key={i}>
+              <UntrustedText text={m} />
+            </li>
+          ))}
+        </ul>
+      </details>
+    ) : null;
+
+  const renderVersion = (v: VersionRowMeta) => (
+    <div className={cn("flex flex-wrap items-start gap-3 border-b px-2 py-3 text-sm", v.version === latest && "bg-accent/40")} data-testid={`version-v${v.version}`}>
       <span className="w-10 font-mono font-semibold">v{v.version}</span>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -62,26 +92,45 @@ export default function Versions() {
           {v.based_on_review && <span className="text-xs text-muted-foreground">검토 {v.based_on_review}차 반영</span>}
           <span className="text-xs text-muted-foreground">{formatDate(v.created_at)}</span>
         </div>
-        {v.note && <UntrustedText as="p" text={v.note} className="text-muted-foreground" />}
+        {(v.description ?? v.note) && <UntrustedText as="p" text={v.description ?? v.note} className="text-muted-foreground" />}
         <p className="text-xs text-muted-foreground">
           문장 {v.sentences ?? "—"} · 알림 {v.alerts} · 남은 메모 {v.open_annotations}
           {(v.figures ?? 0) > 0 && ` · 그림 ${v.figures}`}
           {v.changed_sections.length > 0 && ` · 바뀐 섹션: ${v.changed_sections.map(sectionTitle).join(", ")}`}
+          {(v.changed_figures?.length ?? 0) > 0 && ` · 바뀐 그림: ${v.changed_figures!.join(", ")}`}
         </p>
+        {marksLine(v)}
       </div>
-      <div className="flex gap-1">
-        <Button size="sm" variant="outline" onClick={() => { setFrom(v.version); setTo(latest); }} aria-label={`v${v.version} 을 현재와 비교`}>
-          비교
-        </Button>
-        {v.version !== latest && (
-          <Button size="sm" variant="ghost" onClick={() => setConfirm(v.version)} disabled={!canRestore} aria-label={`v${v.version} 으로 복원`}>
-            <RotateCcw aria-hidden="true" />
-            복원
-          </Button>
-        )}
-      </div>
+      {actions(v)}
     </div>
   );
+
+  const renderFold = (group: VersionRowMeta[]) => {
+    const first = group[0]!.version;
+    const last = group[group.length - 1]!.version;
+    const count = group.reduce((n, v) => n + Math.max(v.marks?.length ?? 0, 1), 0);
+    return (
+      <details className="border-b px-2 py-2 text-sm" data-testid="status-fold">
+        <summary className="cursor-pointer text-muted-foreground">
+          확인 기록 {first === last ? `v${first}` : `v${first}~v${last}`} · {count}건 <span className="text-xs">(내용은 바뀌지 않은 예전 버전)</span>
+        </summary>
+        <ul className="mt-2 space-y-2">
+          {group.map((v) => (
+            <li key={v.version} className="flex flex-wrap items-start gap-3">
+              <span className="w-10 font-mono">v{v.version}</span>
+              <div className="min-w-0 flex-1 text-xs text-muted-foreground">
+                {(v.marks ?? []).length > 0 ? (v.marks ?? []).map((m, i) => <UntrustedText key={i} as="p" text={m} />) : <UntrustedText as="p" text={v.description ?? v.note} />}
+                <span>{formatDate(v.created_at)}</span>
+              </div>
+              {actions(v)}
+            </li>
+          ))}
+        </ul>
+      </details>
+    );
+  };
+
+  const renderRow = (r: Row) => (r.kind === "version" ? renderVersion(r.v) : renderFold(r.rows));
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -89,10 +138,11 @@ export default function Versions() {
         <h2 id="ver-h" className="mb-2 flex items-center gap-2 text-lg font-semibold">
           <History className="size-5" aria-hidden="true" />
           버전 {versions.length}개
+          {versions.some((v) => v.status_only) && <span className="text-sm font-normal text-muted-foreground">(확인 기록 포함)</span>}
         </h2>
         <ProblemBanner error={restore.error} />
         <div className="rounded-lg border">
-          <VirtualList items={versions} getKey={(v) => String(v.version)} estimate={96} renderRow={renderRow} as="div" ariaLabel="버전 목록" />
+          <VirtualList items={rows} getKey={(r) => (r.kind === "version" ? String(r.v.version) : `fold-${r.rows[0]!.version}`)} estimate={96} renderRow={renderRow} as="ul" ariaLabel="버전 목록" />
         </div>
       </section>
       <section aria-labelledby="diff-h" className="min-w-0 space-y-3">

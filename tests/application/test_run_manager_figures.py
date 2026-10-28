@@ -205,19 +205,24 @@ async def test_card_actions_make_versions_and_restore_brings_old_figure_back(rep
     mgr, _ = make_manager(repo)
     state = await mgr.wait(USER, (await mgr.submit(USER, REQ)).run_id)
     rid = state.run_id
+    # 항목 21: [확인함] 은 상태 표시 — 버전을 만들지 않고 v1 에 표시로 남는다 (버전 파일은 그대로)
     v = await mgr.figure_action(USER, rid, "f:objective:1", "confirm", base_version=1)
-    assert v.version == 2 and v.origin == "edit" and v.note == "그림 confirm"
+    assert v.version == 1 and mgr.store.list_versions(USER, rid) == [1]
     assert next(f for f in v.figures if f.id == "f:objective:1").confirmed is True
+    raw = mgr.store.load_version(USER, rid, 1)
+    assert next(f for f in raw.figures if f.id == "f:objective:1").confirmed is False
+    assert [m.kind for m in mgr.store.load_marks(USER, rid, 1).log] == ["figure_confirm"]
     with pytest.raises(VersionConflict):
-        await mgr.figure_action(USER, rid, "f:objective:1", "exclude", base_version=1)
+        await mgr.figure_action(USER, rid, "f:objective:1", "exclude", base_version=5)
     v = await mgr.figure_action(
         USER, rid, "f:objective:1", "texts", texts={"boxes.0.lines.0": "궤도 틀림 급증"}
     )
     fig = next(f for f in v.figures if f.id == "f:objective:1")
     assert (
-        v.version == 3 and fig.spec.boxes[0].lines[0] == "궤도 틀림 급증" and fig.confirmed is False
+        v.version == 2 and fig.spec.boxes[0].lines[0] == "궤도 틀림 급증" and fig.confirmed is False
     )
-    assert fig.calls == 2 and "f:objective:1" in await _ids(mgr, rid, 3)
+    assert v.note == "그림 글자 고치기 — 연구 개념도"
+    assert fig.calls == 2 and "f:objective:1" in await _ids(mgr, rid, 2)
     assert fig.last_change.kind == "content"  # 글자 고치기도 "바뀐 내용"을 남긴다
     assert fig.last_change.summary == ["상자 1 줄 1 '궤도 틀림 반복' → '궤도 틀림 급증'"]
     # 말로 고치기(모양만) — 명세 그대로, 밑그림에서 새로 그림 (편집 호출 없음)
@@ -226,7 +231,7 @@ async def test_card_actions_make_versions_and_restore_brings_old_figure_back(rep
     ]
     v = await mgr.figure_action(USER, rid, "f:objective:1", "words", request_text="화살표를 굵게")
     fig = next(f for f in v.figures if f.id == "f:objective:1")
-    assert v.version == 4 and fig.calls == 3 and fig.edit_requests[0].text == "화살표를 굵게"
+    assert v.version == 3 and fig.calls == 3 and fig.edit_requests[0].text == "화살표를 굵게"
     assert fig.last_change.kind == "style" and fig.last_change.summary == ["모양: 화살표를 굵게"]
     assert fig.spec.boxes[0].lines[0] == "궤도 틀림 급증" and fig.confirmed is False
     assert mgr.store.load_figure_image(USER, rid, fig.image_sha)[0].startswith(b"NB:")
@@ -236,8 +241,8 @@ async def test_card_actions_make_versions_and_restore_brings_old_figure_back(rep
     assert fig.renderer == "baseline" and fig.image_sha == fig.baseline_sha
     v = await mgr.figure_action(USER, rid, "f:objective:1", "exclude")
     assert next(f for f in v.figures if f.id == "f:objective:1").included is False
-    assert len(await mgr.versions(USER, rid)) == 6  # 문장은 같아도 버전은 만들어졌다
-    restored = await mgr.revert(USER, rid, 2)
+    assert len(await mgr.versions(USER, rid)) == 5  # 그림 내용이 바뀌면 문장은 같아도 새 버전
+    restored = await mgr.revert(USER, rid, 1)  # v1 + 그 표시(확인함)
     fig = next(f for f in restored.figures if f.id == "f:objective:1")
     assert fig.confirmed is True and fig.renderer == "nano_banana" and fig.included is True
     assert (
@@ -317,7 +322,7 @@ async def test_words_spec_change_makes_version_and_invalid_change_is_rejected(re
         USER, rid, "f:method:1", "words", request_text="3단계로 '열화 예측 모델 검증'을 넣어"
     )
     fig = next(f for f in v.figures if f.id == "f:method:1")
-    assert v.version == 2 and v.note == "그림 words" and fig.confirmed is False
+    assert v.version == 2 and v.note == "그림 말로 고치기 — 추진 체계도" and fig.confirmed is False
     assert [s.name for s in fig.spec.stages][2] == "열화 예측 모델 검증"
     assert fig.last_change.kind == "content" and fig.last_change.summary == [
         "단계 3 추가 '열화 예측 모델 검증'"

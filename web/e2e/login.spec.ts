@@ -32,13 +32,13 @@ test.describe("로그인 (레인 A)", () => {
     await loginGuest(page);
     await expect(page.getByLabel("로그인 종류: 공용 계정")).toBeVisible();
     const id = await createRun(page);
-    await page.getByRole("link", { name: "run 목록" }).click();
+    await page.getByRole("link", { name: "내 제안서" }).click();
     await expect(page.getByText(id)).toBeVisible();
     await page.getByRole("button", { name: "로그아웃" }).click();
 
     // 다른 직원으로 들어오면 공용 계정의 run 은 보이지 않고 직접 열어도 404
     await loginStaff(page, "E2E-0002");
-    await page.getByRole("link", { name: "run 목록" }).click();
+    await page.getByRole("link", { name: "내 제안서" }).click();
     await expect(page.getByText(id)).toHaveCount(0);
     await page.goto(`/runs/${id}`);
     await expect(page.getByText(/run 을 찾을 수 없습니다|없음/).first()).toBeVisible();

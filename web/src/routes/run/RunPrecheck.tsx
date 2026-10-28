@@ -52,7 +52,7 @@ export default function RunPrecheck() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">② 유사과제 확인 (이 run 의 입력)</h2>
+        <h2 className="text-lg font-semibold">② 유사과제 확인 (이 제안서의 입력)</h2>
         <p className="text-sm text-muted-foreground">초안을 만든 입력으로 유사과제를 다시 확인합니다. 차별화 방향·정책 근거를 고쳐 저장하면 관련 섹션만 또는 초안 전체를 새 버전으로 다시 쓸 수 있습니다.</p>
       </div>
       {blocked && (

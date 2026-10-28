@@ -125,7 +125,7 @@ test("② 실시간 검색 배지·자료원별 상태 → 초안 로컬 작성 
   await expect(objective.getByText("로컬 작성", { exact: true })).toHaveAttribute("title", "이 섹션은 로컬 모델이 작성 (Argon 작성 실패: 호출 한도)");
   await expect(page.getByRole("heading", { level: 3, name: /^1-가 연구과제명/ }).getByText("로컬 작성", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("local-check")).toContainText("근거 대조(로컬) 불일치 1건");
-  await expect(page.getByText("Argon 작성 · 로컬 1개 섹션")).toBeVisible();
+  await expect(page.getByText("Argon 작성(일부 로컬)")).toBeVisible();
   await expect(page.getByRole("region", { name: /인용 문서/ }).getByText("실시간 검색", { exact: true }).first()).toBeVisible();
   if (OUT) {
     await objective.scrollIntoViewIfNeeded();
