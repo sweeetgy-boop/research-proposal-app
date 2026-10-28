@@ -942,6 +942,14 @@ fragment 를 자동 재실행하지 않으므로 `Worker.wait(run_id)` 뒤 `at.r
   (밑그림 그대로) + `ScriptedComposeLLM` 의 `[그림 명세:` 분기.
 - **측정** `rra eval` `EvalIdea.figures_total/figures_nano/figures_baseline/figures_skipped/figure_calls/figure_seconds/figure_comments`.
   끄기: `config/figures.yaml enabled: false`(단계·검토 전송·삽입 전부 생략).
+- **v2 (2026-10-28 오후, ADR 0033)**: 기본 그림은 `as_is_to_be`(2-나 연구목적, 비면 2-가-(2)) → `stat_chart` → `schedule`
+  (`figures.yaml auto_kinds`) + 분석 기법 추천 `technique_slots`(최대 2) — 합쳐 최대 4장. 개념도·체계도·로드맵·비교는 [다른 그림 추가]에서만.
+  기법 20종 `config/figures/techniques.yaml`, 고르기·분석 `application/usecases/figure_techniques.TechniqueSteps`(Argon → 로컬, 교정 1회),
+  규칙 `domain/rules/techniques.py`(정성 = 고정 묶음 + 상·중·하, 비교·평가 = 척도 표, 경제성 = 근거 수치만·없으면 "산출 필요", 항목 출처,
+  "제안 내용 기반 예비 평가"). 추천 기록 `Figure.recommendation`(pending·accepted·dismissed), 결과 `RunState.figure_techniques`
+  (recommended·none·failed·filtered·off). 카드 동작 accept·dismiss·restore·swap(새 버전, `figure_diff` 한 건씩), [다시 추천]
+  `POST /v1/runs/{id}/figures/techniques`, 제출 전 점검 `figures_undecided`. 그림 프롬프트는 "새로 디자인"(색 강조·아이콘·제목 계층·여백,
+  글자 목록 그대로), 비율 `rules.choose_aspect`(내용 양, 밑그림과 같은 값), 새 명세 상자 글자 30자(`MAX_BOX`).
 
 ## 5. 추가 권장 10항목
 

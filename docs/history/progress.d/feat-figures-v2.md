@@ -12,3 +12,6 @@
 - 실호출 누계: 이미지 14/30(장당 27~35초), Gemini 텍스트 3/80 (laneC 카운터).
 - 다음: 웹 vitest 3건 실패 수정(onApplied 대기 — mock 응답 모양), e2e figures.spec 갱신(As-Is/To-Be·추천 넣기/빼기), as_is_to_be
   제목 규칙 반영 뒤 샘플 1장 다시(+1 이미지), ruff E501 2건, ADR 0033·status·timeline·metrics 조각, PR.
+- 재개 뒤: vitest 3건(그림 id 가 인코딩된 주소) 고침, e2e figures.spec 갱신·추가(전체 18 통과·2 건너뜀), 제목 규칙 반영 뒤
+  As-Is/To-Be 1장 다시(제목 없음, 글자 뭉개짐 2곳 — eval 에 기록), ADR 0033·eval 문서·architecture §4.20 v2·조각 파일, PR.
+  실호출 최종: 이미지 15/30, 텍스트 3/80.
