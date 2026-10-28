@@ -500,7 +500,14 @@ def test_shipped_overlap_candidates_are_project_sources_only():
     from rra.settings import load_settings
 
     rule = overlap_candidates(load_settings())
-    assert rule.project_sources() == ["own", "alio", "ntis", "g2b"]
+    assert rule.project_sources() == ["own", "alio", "ntis", "g2b", "korail_web"]
+    # 공사 사전정보공표 연구용역(사내 발주)만 과제, 정책 자료는 판정 밖 (ADR 0040)
+    assert rule.is_project(
+        Document(doc_id="korail_web:r", source="korail_web", doc_type="procurement", title="t")
+    )
+    assert not rule.is_project(
+        Document(doc_id="korail_web:p", source="korail_web", doc_type="policy", title="t")
+    )
     assert rule.is_project(
         Document(doc_id="ntis:p", source="ntis", doc_type="rnd_project", title="t")
     )

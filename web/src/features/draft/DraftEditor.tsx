@@ -11,6 +11,7 @@ import { UntrustedText } from "@/components/UntrustedText";
 import { VirtualList } from "@/components/VirtualList";
 import { sectionTitle, CHOICE_SECTIONS } from "@/lib/sections";
 import { cn } from "@/lib/utils";
+import { replaceDocIds } from "@/lib/docRefs";
 import type { Action, EditState, SentenceState } from "./editModel";
 
 type Row = { kind: "header"; key: string; section: VersionSection } | { kind: "sentence"; key: string; section: VersionSection; sentence: VersionSentence };
@@ -35,6 +36,10 @@ export interface DraftEditorProps {
   sectionExtra?: (section: VersionSection) => React.ReactNode;
   /** 섹션 제목 옆 배지 (로컬 작성·대체 작성) */
   sectionBadges?: (section: VersionSection) => React.ReactNode;
+  /** 문장 옆 표시 (L2 로컬 검토 판정 배지) — ADR 0040 */
+  sentenceBadges?: (sentence: VersionSentence) => React.ReactNode;
+  /** 문장 아래 (L2 로컬 검토 Argon 제안 카드) */
+  sentenceExtra?: (sentence: VersionSentence) => React.ReactNode;
 }
 
 function AnnotationList({ items, state, onChange, disabled }: { items: Annotation[]; state: EditState; onChange: (s: EditState) => void; disabled?: boolean }) {
@@ -50,11 +55,10 @@ function AnnotationList({ items, state, onChange, disabled }: { items: Annotatio
             <MessageSquareText className="mt-0.5 size-4 shrink-0 text-origin-argon" aria-hidden="true" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                <span className="font-mono">{a.id}</span>
                 <Badge variant="outline">{a.kind === "section" ? "섹션 의견" : a.kind === "discarded" ? "폐기된 수정안" : "의견"}</Badge>
                 {a.reason && <span>사유: {a.reason}</span>}
               </div>
-              <UntrustedText as="p" text={a.text} />
+              <UntrustedText as="p" text={replaceDocIds(a.text, [], sectionTitle)} />
             </div>
             <Label className="flex items-center gap-1.5 whitespace-nowrap text-xs">
               <Checkbox checked={done} disabled={disabled || a.status === "done"} onChange={(e) => toggle(a.id, e.target.checked)} />
@@ -75,7 +79,9 @@ function SentenceEditor({
   disabled,
   locked,
   sectionLabel,
+  badges,
 }: {
+  badges?: React.ReactNode;
   sentence: VersionSentence;
   st: SentenceState;
   sectionLabel: string;
@@ -98,6 +104,7 @@ function SentenceEditor({
           <UntrustedText as="p" text={sentence.text} className={cn(st.action === "delete" && "line-through")} />
           <div className="mt-1 flex flex-wrap items-center gap-1">
             <OriginBadge origin={sentence.origin} />
+            {badges}
             {sentence.evidence.length > 0 && <Badge variant="outline">근거 {sentence.evidence.length}</Badge>}
             {revisions.length > 0 && <Badge variant="info">수정안 {revisions.length}</Badge>}
           </div>
@@ -132,7 +139,7 @@ function SentenceEditor({
                     <input type="radio" name={`rev-${sid}`} checked={chosen} onChange={() => onSentence({ commentId: c.id })} className="mt-1" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs text-muted-foreground">
-                        {c.id} · {c.issue_type} — <UntrustedText text={c.comment} />
+                        {c.issue_type} — <UntrustedText text={replaceDocIds(c.comment, [], sectionTitle)} />
                       </span>
                       <UntrustedText as="span" text={c.revised_text} className="diff-ins" />
                     </span>
@@ -169,7 +176,7 @@ function SentenceEditor({
   );
 }
 
-export function DraftEditor({ sections, annotations, revisions, state, onChange, disabled, sectionTools, sectionExtra, sectionBadges }: DraftEditorProps) {
+export function DraftEditor({ sections, annotations, revisions, state, onChange, disabled, sectionTools, sectionExtra, sectionBadges, sentenceBadges, sentenceExtra }: DraftEditorProps) {
   const rows: Row[] = [];
   for (const sec of sections) {
     rows.push({ kind: "header", key: `h:${sec.key}`, section: sec });
@@ -240,7 +247,9 @@ export function DraftEditor({ sections, annotations, revisions, state, onChange,
           disabled={disabled}
           locked={state.sectionText[row.section.key] !== undefined}
           sectionLabel={sectionTitle(row.section.key)}
+          badges={sentenceBadges?.(row.sentence)}
         />
+        {sentenceExtra && <div className="ml-8">{sentenceExtra(row.sentence)}</div>}
         {ann.length > 0 && (
           <div className="ml-8 pb-2">
             <AnnotationList items={ann} state={state} onChange={onChange} disabled={disabled} />

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { UntrustedText } from "@/components/UntrustedText";
 import { cn } from "@/lib/utils";
 import { PROBLEM_LABELS, UNKNOWN_PROBLEM } from "@/lib/labels";
+import { replaceDocIds } from "@/lib/docRefs";
+import { sectionTitle } from "@/lib/sections";
 
 /** 미해결 알림의 코드별 줄 — 설명(코드 아님)·건수·주의/오류 */
 function AlertRows({ rows }: { rows: CheckAlertRow[] }) {
@@ -50,7 +52,7 @@ export function SubmitCheckList({
                 <Badge variant={it.ok ? "success" : "destructive"}>{it.ok ? "통과" : "확인 필요"}</Badge>
                 {it.count > 0 && <span className="text-xs text-muted-foreground">{it.count}건</span>}
               </span>
-              {rows.length === 0 && <UntrustedText as="span" text={it.detail} className="block break-words text-sm text-muted-foreground" />}
+              {rows.length === 0 && <UntrustedText as="span" text={replaceDocIds(it.detail, [], sectionTitle)} className="block break-words text-sm text-muted-foreground" />}
               {it.target_label && <span className="block text-xs text-muted-foreground">→ {it.target_label}</span>}
             </span>
             {path && <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}

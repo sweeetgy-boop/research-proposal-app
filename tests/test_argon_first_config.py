@@ -36,8 +36,7 @@ def test_shipped_config_writes_with_argon_and_turns_off_the_self_review():
     assert compose_policy(s) == {
         "writer": "gemini",
         "concurrency": 4,
-        "local_check": False,
-        "local_check_timeout_sec": 20.0,
+        "local_check": True,  # L2 로컬 2차 검토 켬 (ADR 0040)
     }
     assert review_policy(s)["first_pass"] is False
     assert runs_config(s) == {"max_concurrent": 3}

@@ -414,17 +414,28 @@ async def test_local_check_off_never_calls_the_local_model(req, repo):
     assert log.records[-1][1]["local_check"] is None
 
 
-async def test_local_check_flags_mismatch_and_skips_a_section_over_the_time_cap(req, repo):
+async def test_local_check_has_no_time_cap_and_skips_only_an_error(req, repo):
+    """L2(ADR 0040): 느린 섹션도 끝까지 기다린다 — 시간 때문에 건너뛰지 않는다. 오류 응답만
+    건너뛴다."""
     slot = FakeSlot()
-    local = KeyedLLM(check=_verdict("불일치"), delays={"prior_work": 0.5})
-    gen = make(local, repo, KeyedLLM(), slot=slot, local_check=True, local_check_timeout=0.05)
+
+    def answer(key):
+        if key == "prior_work":
+            raise ConnectionError("down")
+        return _verdict("불일치")(key)
+
+    local = KeyedLLM(check=answer, delays={"problem": 0.3})
+    gen = make(local, repo, KeyedLLM(), slot=slot, local_check=True)
+    assert not hasattr(gen, "local_check_timeout")
     mgr, log = manager(gen, slot=slot)
     st = await mgr.submit(USER, req)
     final = await mgr.wait(USER, st.run_id)
     assert final.status == "drafted"
-    assert final.local_check["checked_sections"] == ["problem"]
-    assert final.local_check["skipped_sections"] == ["prior_work"]  # 20초(여기선 0.05초) 넘음
+    assert final.local_check["checked_sections"] == ["problem"]  # 0.3초 걸려도 판정
+    assert final.local_check["skipped_sections"] == ["prior_work"]  # 오류 응답만
     assert final.local_check["mismatches"] == 1
+    assert final.local_check["counts"] == {"지지": 0, "부분": 0, "불일치": 1}
+    assert final.local_check["seconds"] >= 0.3
     warn = [p for p in final.problems if p["code"] == LOCAL_EVIDENCE_MISMATCH]
     assert len(warn) == 1 and warn[0]["severity"] == "warning" and warn[0]["section"] == "problem"
     manifest = log.records[-1][1]
@@ -435,13 +446,24 @@ async def test_local_check_flags_mismatch_and_skips_a_section_over_the_time_cap(
         "skipped_sections": ["prior_work"],
         "sentences": 1,
         "checked_sections": ["problem"],
+        "counts": {
+            "supported": 0,
+            "partial": 0,
+            "mismatch": 1,
+            "suggestions": 0,
+            "suggestion_status": {},
+            "seconds": final.local_check["seconds"],
+            "suggest_seconds": 0.0,
+        },
     }
     payload = draft_payload(await mgr.get_draft(USER, st.run_id))
-    assert payload["local_check"] == {
+    lc = payload["local_check"]
+    assert {k: lc[k] for k in ("enabled", "mismatches", "skipped_sections")} == {
         "enabled": True,
         "mismatches": 1,
         "skipped_sections": ["prior_work"],
     }
+    assert lc["verdicts"] == {"s:problem:0": "불일치"} and lc["unresolved"] == 1
     # 문장을 고치면 판정이 사라진다 (새 버전의 알림에서 빠진다)
     from rra.domain.models.review import EditRequest, SentenceEdit
 

@@ -32,6 +32,7 @@ from rra.adapters.sources.korail_web._sheets import sheets_to_text
 from rra.adapters.sources.korail_web.crawler import MenuSpec
 from rra.adapters.sources.korail_web.snapshot import SnapshotDir, latest_snapshot, read_manifest
 from rra.domain.models import Document
+from rra.domain.rules.doc_category import CLASS_KEY, classify_korail
 
 logger = logging.getLogger("rra.sources.korail_web")
 
@@ -40,8 +41,8 @@ PARSEABLE = frozenset({"pdf", "hwp", "hwpx", "xlsx", "xls"})
 MIN_CHARS = 80  # 이보다 짧은 본문(메뉴 링크 목록 등)은 적재하지 않는다
 _YEAR = re.compile(r"(20\d{2}|19\d{2})")
 DOC_TYPES = frozenset(
-    {"policy", "korail_news", "statistics"}
-)  # statistics: 통계자료 게시판 xlsx (P2-3)
+    {"policy", "korail_news", "statistics", "procurement"}
+)  # statistics: 통계자료 게시판 xlsx (P2-3). procurement: 사전정보공표 연구용역(ADR 0040)
 
 
 class KorailWebSource:
@@ -223,10 +224,13 @@ def _clean_name(name: str) -> str:
 
 
 def normalize_korail_item(raw: Mapping[str, Any]) -> Document:
-    """순수 함수. 본문은 strip_pii 를 거친다. doc_type 은 policy|korail_news 만."""
+    """순수 함수. 본문은 strip_pii 를 거친다. doc_type 은 메뉴 설정값을 자료 분류 규칙
+    (domain/rules/doc_category, ADR 0040)으로 바로잡는다 — 사전정보공표 연구용역은 procurement +
+    raw.doc_class research_service, 행정 공시·사업 현황은 policy + raw.doc_class 로 정책 근거에서
+    빠진다."""
     doc_type = str(raw.get("doc_type") or "policy")
     if doc_type not in DOC_TYPES:
-        raise ValueError(f"korail_web doc_type 은 policy|korail_news: {doc_type!r}")
+        raise ValueError(f"korail_web doc_type 은 {sorted(DOC_TYPES)}: {doc_type!r}")
     text = strip_pii(str(raw["text"])).strip()
     if not text:
         raise ValueError("본문 없음")
@@ -266,6 +270,14 @@ def normalize_korail_item(raw: Mapping[str, Any]) -> Document:
         extra["also_in"] = list(raw["also_in"])
     if raw.get("department"):
         extra["department"] = strip_pii(str(raw["department"]))
+    doc_type, category = classify_korail(
+        doc_type=doc_type,
+        title=title,
+        raw=extra,
+        url=str(raw.get("url") or "") or None,
+    )
+    if category:
+        extra[CLASS_KEY] = category
     return Document(
         doc_id=f"korail_web:{sha[:16]}",
         source="korail_web",

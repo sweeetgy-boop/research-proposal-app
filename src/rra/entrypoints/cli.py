@@ -781,6 +781,28 @@ def cmd_db_backup(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_db_reclassify(args: argparse.Namespace) -> int:
+    """자료 분류 이주 (ADR 0040) — 기본은 집계만(--apply 일 때만 쓴다). 먼저 `rra db backup`."""
+    from rra.composition import build_reclassify, load_settings
+
+    report = asyncio.run(build_reclassify(load_settings())(dry_run=not args.apply))
+    data = report.as_dict()
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    mode = "적용" if args.apply else "점검(쓰지 않음)"
+    print(f"자료 분류 {mode}: 바뀔 행 {data['changed']}건, 쓴 행 {data['written']}건")
+    for s in data["sources"]:
+        print(
+            f"  {s['source']}: {s['total']}건, 바뀜 {s['changed']}건, "
+            f"정책 근거 후보 {s['policy_basis_before']} → {s['policy_basis_after']}"
+        )
+        if s["changed"]:
+            print(f"    전: {s['before']}")
+            print(f"    후: {s['after']}")
+    return EXIT_OK
+
+
 # ── auth (레인 A) ───────────────────────────────────────────
 def _prompt_secret(label: str) -> str:
     """getpass — 화면·인자·셸 기록에 남지 않게. 값은 돌려주기만 한다."""
@@ -2668,6 +2690,12 @@ def build_parser() -> argparse.ArgumentParser:
     bk.add_argument("--out", required=True, help="저장 경로 또는 폴더(폴더면 날짜 이름)")
     bk.add_argument("--keep", type=int, default=7, help="같은 폴더에 남길 사본 수 (기본 7)")
     bk.set_defaults(handler=cmd_db_backup)
+    rc = db_sub.add_parser(
+        "reclassify", help="자료 분류 이주 — 사전정보공표 연구용역·행정 공시 바로잡기 (ADR 0040)"
+    )
+    rc.add_argument("--apply", action="store_true", help="실제로 쓴다 (기본: 집계만)")
+    rc.add_argument("--json", action="store_true", help="집계를 JSON 으로")
+    rc.set_defaults(handler=cmd_db_reclassify)
     check = sub.add_parser("llm-check", help="LLM 서버 왕복 1회 확인")
     check.add_argument("--stage", default="compose")
     check.add_argument(

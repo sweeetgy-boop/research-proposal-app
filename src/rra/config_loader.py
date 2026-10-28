@@ -22,7 +22,7 @@ from rra.domain.rules.lint import LintRules
 from rra.domain.rules.overlap import OwnUnit
 from rra.domain.rules.relevance import RelevanceFloor
 from rra.domain.rules.source_ip import IpPolicy
-from rra.domain.rules.writer import LOCAL_CHECK_TIMEOUT_SEC, on_off, parse_writer
+from rra.domain.rules.writer import on_off, parse_writer
 from rra.settings import Settings
 
 DEFAULT_STAGE = "compose"
@@ -541,16 +541,13 @@ def compose_policy(settings: Settings) -> dict[str, Any]:
 
     writer: gemini(Argon 먼저, 실패 섹션만 로컬) | local(로컬 먼저, 실패 섹션만
     stages.compose.fallback).
-    concurrency: Argon 작성일 때 한 run 안에서 동시에 쓰는 섹션 수. local_check: 로컬 근거 대조
-    (지지|부분|불일치, 섹션당 local_check_timeout_sec 초)."""
+    concurrency: Argon 작성일 때 한 run 안에서 동시에 쓰는 섹션 수. local_check: L2 로컬 근거 대조
+    (지지|부분|불일치, 시간 상한 없음 — ADR 0040)."""
     raw = read_config("llm.yaml", settings).get("compose") or {}
     return {
         "writer": parse_writer(raw.get("writer"), default="local"),
         "concurrency": max(1, int(raw.get("concurrency", 4))),
         "local_check": on_off(raw.get("local_check"), False),
-        "local_check_timeout_sec": max(
-            0.1, float(raw.get("local_check_timeout_sec", LOCAL_CHECK_TIMEOUT_SEC))
-        ),
     }
 
 

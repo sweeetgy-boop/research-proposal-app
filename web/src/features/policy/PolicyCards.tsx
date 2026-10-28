@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ExternalLink, FileText, Landmark, RefreshCw, Sparkles } from "lucide-react";
+import { ExternalLink, Landmark, RefreshCw, Sparkles } from "lucide-react";
 import type { PolicyCard, PolicyCardsOut, PolicyChoice, PolicyPolishOut } from "@/api/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -10,14 +10,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { UntrustedText } from "@/components/UntrustedText";
+import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
+import { DocRef } from "@/components/DocRef";
+import { useAiCall } from "@/lib/useAiCall";
 import { cn } from "@/lib/utils";
 import { MODE_LABEL, NONE_CHOICE, choiceFromCard, choiceText, editedChoice, mergeCards, seenDocs } from "./model";
 
 export interface PolicyCardsProps {
-  /** 작성안 받기 — exclude: [다른 안 보기] 때 이미 본 문서 id */
-  load: (exclude: string[]) => Promise<PolicyCardsOut>;
+  /** 작성안 받기 — exclude: [다른 안 보기] 때 이미 본 문서 id. signal: [취소] */
+  load: (exclude: string[], signal?: AbortSignal) => Promise<PolicyCardsOut>;
   /** [AI로 다듬기] */
-  polish: (choice: PolicyChoice, text: string) => Promise<PolicyPolishOut>;
+  polish: (choice: PolicyChoice, text: string, signal?: AbortSignal) => Promise<PolicyPolishOut>;
   /** 지금 고른 것 (없으면 null) */
   value: PolicyChoice | null;
   /** 제안자가 확정한 것 — 안 하나·합친 안·고친 글·직접 작성·"정책 근거 없음" */
@@ -27,12 +30,11 @@ export interface PolicyCardsProps {
 }
 
 function SourceLine({ s }: { s: PolicyCard["sources"][number] }) {
-  const meta = [s.source_label, s.year ? `${s.year}년` : null, s.page].filter(Boolean).join(" · ");
+  const meta = [s.year ? `${s.year}년` : null, s.page].filter(Boolean).join(" · ");
   return (
     <li className="space-y-1 rounded border bg-muted/30 p-2 text-xs">
       <div className="flex flex-wrap items-center gap-1">
-        <FileText className="size-3.5" aria-hidden="true" />
-        <UntrustedText text={s.title} className="font-medium" />
+        <DocRef docRef={{ doc_id: s.doc_id, title: s.title, source: s.source, source_label: s.source_label, url: s.url, summary: s.quote }} compact />
         {meta && <span className="text-muted-foreground">({meta})</span>}
       </div>
       <blockquote className="border-l-2 pl-2 text-muted-foreground">
@@ -51,33 +53,28 @@ function SourceLine({ s }: { s: PolicyCard["sources"][number] }) {
 /** 정책적 중요도 작성안 — 정책 근거가 없을 때 수집 정책 자료에서 찾은 구간으로 쓴 안(방향별, 근거 겹침 없음).
  *  [이 안으로] · 두 안 합치기 · 고른 뒤 직접 수정 + [AI로 다듬기] · [직접 작성] · [정책 근거 없음으로 진행] · [다른 안 보기]. */
 export function PolicyCards({ load, polish, value, onChoose, busy }: PolicyCardsProps) {
-  const [data, setData] = React.useState<PolicyCardsOut | null>(null);
-  const [error, setError] = React.useState<unknown>(null);
-  const [loading, setLoading] = React.useState(false);
   const [seen, setSeen] = React.useState<string[]>([]);
   const [merge, setMerge] = React.useState<string[]>([]);
   const [editing, setEditing] = React.useState<string | null>(null);
-  const [polishing, setPolishing] = React.useState(false);
   const [polishNote, setPolishNote] = React.useState<string | null>(null);
 
-  const loadRef = React.useRef(load);
-  loadRef.current = load;
+  // 시간 제한 없이 기다린다 — "응답 기다리는 중 · 경과 n초" + [취소] (취소하면 이전 상태 그대로)
+  const cardsCall = useAiCall((exclude: string[], signal) => load(exclude, signal));
+  const polishCall = useAiCall((args: { choice: PolicyChoice; text: string }, signal) => polish(args.choice, args.text, signal));
+  const data = cardsCall.data ?? null;
+  const error = cardsCall.error;
+  const loading = cardsCall.pending;
+  const polishing = polishCall.pending;
+  const runCards = cardsCall.run;
   const fetchCards = React.useCallback(
     async (exclude: string[]) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const out = await loadRef.current(exclude);
-        setData(out);
+      const out = await runCards(exclude);
+      if (out) {
         setSeen(seenDocs(out.cards, exclude));
         setMerge([]);
-      } catch (e) {
-        setError(e);
-      } finally {
-        setLoading(false);
       }
     },
-    [],
+    [runCards],
   );
 
   React.useEffect(() => {
@@ -96,20 +93,14 @@ export function PolicyCards({ load, polish, value, onChoose, busy }: PolicyCards
   };
   const doPolish = async () => {
     if (!value || editing === null) return;
-    setPolishing(true);
     setPolishNote(null);
-    try {
-      const out = await polish(value, editing);
-      if (out.choice && out.choice.sentences.length) {
-        setEditing(choiceText(out.choice));
-        setPolishNote(out.dropped ? `다듬은 문장 중 ${out.dropped}개는 근거·정책명·수치 검사에서 빠졌습니다.` : "다듬었습니다. 확인한 뒤 [고친 글 적용] 을 누르십시오.");
-      } else {
-        setPolishNote(`다듬지 못했습니다 — ${out.reason_label ?? "호출 실패"}. 다시 시도하거나 고친 글을 그대로 적용하십시오.`);
-      }
-    } catch (e) {
-      setPolishNote(`다듬지 못했습니다 — ${e instanceof Error ? e.message : "호출 실패"}.`);
-    } finally {
-      setPolishing(false);
+    const out = await polishCall.run({ choice: value, text: editing });
+    if (!out) return; // 취소(이전 상태 그대로) 또는 오류(아래 한 줄 안내)
+    if (out.choice && out.choice.sentences.length) {
+      setEditing(choiceText(out.choice));
+      setPolishNote(out.dropped ? `다듬은 문장 중 ${out.dropped}개는 근거·정책명·수치 검사에서 빠졌습니다.` : "다듬었습니다. 확인한 뒤 [고친 글 적용] 을 누르십시오.");
+    } else {
+      setPolishNote(`다듬지 못했습니다 — ${out.reason_label ?? "호출 실패"}. 다시 시도하거나 고친 글을 그대로 적용하십시오.`);
     }
   };
   const applyEdit = () => {
@@ -180,6 +171,13 @@ export function PolicyCards({ load, polish, value, onChoose, busy }: PolicyCards
               {polishNote}
             </p>
           )}
+          <AiWaiting pending={polishing} elapsed={polishCall.elapsed} onCancel={polishCall.cancel} what="AI로 다듬기" />
+          <AiCancelledNote show={polishCall.cancelled} />
+          {polishCall.error ? (
+            <p className="text-xs text-destructive" role="alert">
+              다듬지 못했습니다 — 호출 실패. 다시 시도하거나 고친 글을 그대로 적용하십시오.
+            </p>
+          ) : null}
           <div className="flex flex-wrap justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
               취소
@@ -198,11 +196,10 @@ export function PolicyCards({ load, polish, value, onChoose, busy }: PolicyCards
       )}
 
       <ProblemBanner error={error} onRetry={() => fetchCards([])} />
+      <AiCancelledNote show={cardsCall.cancelled} />
       {loading ? (
         <div aria-busy="true" className="space-y-2">
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            정책 자료에서 작성안을 찾는 중입니다… (Argon)
-          </p>
+          <AiWaiting pending elapsed={cardsCall.elapsed} onCancel={cardsCall.cancel} what="정책적 중요도 작성안" />
           <SkeletonBlock lines={4} />
         </div>
       ) : data && data.status !== "ok" ? (

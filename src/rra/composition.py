@@ -126,6 +126,8 @@ __all__ = [
     "build_ntis_source",
     "build_openalex_source",
     "build_policy_suggest",
+    "build_local_reviewer",
+    "build_reclassify",
     "build_precheck",
     "build_prompt_library",
     "build_purge_runs",
@@ -192,6 +194,16 @@ def build_db_maintenance(settings: Settings | None = None, *, repo=None):
     return ReindexDocuments(repo), BackupDatabase(
         repo, extra_files=_korail_web_backup_files(settings)
     )
+
+
+def build_reclassify(settings: Settings | None = None, *, repo=None):
+    """자료 분류 이주 (`rra db reclassify`, ADR 0040). 임베딩을 쓰지 않는다."""
+    from rra.application.usecases.reclassify_documents import ReclassifyDocuments
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return ReclassifyDocuments(repo)
 
 
 def _korail_web_backup_files(settings: Settings) -> list[Path]:
@@ -1633,7 +1645,6 @@ def build_generate(
         local_slot=local_slot,
         compose_concurrency=policy["concurrency"],
         local_check=policy["local_check"],
-        local_check_timeout=policy["local_check_timeout_sec"],
         rewrite_llm=rewrite["llm"] if rewrite else None,
         rewrite_provider=rewrite["provider"] if rewrite else "",
         rewrite_model=rewrite["model"] if rewrite else "",
@@ -1699,6 +1710,14 @@ def build_policy_cards(settings: Settings | None = None, *, repo=None, llm=None,
         build_argon_first(settings, llm=llm, local_slot=local_slot),
         keywords=keyword_rule(settings),
     )
+
+
+def build_local_reviewer(settings: Settings | None = None, *, llm=None, local_slot=None):
+    """L2 로컬 검토 불일치 문장의 Argon 제안(LocalReviewSuggester, ADR 0040) — Argon 먼저, 오류
+    응답일 때만 로컬."""
+    from rra.application.usecases.local_review_suggest import LocalReviewSuggester
+
+    return LocalReviewSuggester(build_argon_first(settings, llm=llm, local_slot=local_slot))
 
 
 def build_section_questioner(settings: Settings | None = None, *, llm=None, local_slot=None):
@@ -2004,6 +2023,7 @@ def build_run_manager(
     manager.section_questioner = build_section_questioner(settings, llm=llm, local_slot=slot)
     manager.section_questioner_public = manager.section_questioner  # 청크 범위는 run 이 정한다
     manager.policy_cards = build_policy_cards(settings, repo=repo, llm=llm, local_slot=slot)
+    manager.local_reviewer = build_local_reviewer(settings, llm=llm, local_slot=slot)
     if generate_public is not None:
         manager.policy_cards_public = build_policy_cards(
             settings, repo=public_repository(repo), llm=llm, local_slot=slot
@@ -2130,6 +2150,28 @@ def _fake_policy() -> tuple[list[Any], list[Any]]:
         Chunk(chunk_id=f"{d}#0", doc_id=d, ordinal=0, text=body, basis="full_text")
         for d, _, _, _, body, _ in rows
     ]
+    # 공사 사전정보공표 연구용역(사내 발주) — 정책 근거 추천·작성안에 나오면 안 된다 (ADR 0040, e2e)
+    research = Document(
+        doc_id="korail_web:fake-research",
+        source="korail_web",
+        doc_type="procurement",
+        title="궤도 보수 수송수요 예측 연구 (가짜 연구용역)",
+        body="궤도 검측 이력으로 보수 체계와 안전 수준을 높이는 방안을 연구함.",
+        pub_date=date(2025, 3, 1),
+        url="https://info.korail.com/fake-research",
+        orgs=["korail"],
+        raw={"menu": "preinfo", "native_id": "preinfo:55:1", "doc_class": "research_service"},
+    )
+    docs.append(research)
+    chunks.append(
+        Chunk(
+            chunk_id="korail_web:fake-research#0",
+            doc_id=research.doc_id,
+            ordinal=0,
+            text=research.body or "",
+            basis="full_text",
+        )
+    )
     return docs, chunks
 
 

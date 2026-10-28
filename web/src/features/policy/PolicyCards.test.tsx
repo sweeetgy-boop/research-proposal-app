@@ -46,7 +46,8 @@ describe("PolicyCards", () => {
     expect(await screen.findByText("정부 방향과 이어짐.")).toBeInTheDocument();
     expect(screen.getByText("정부 계획")).toBeInTheDocument();
     expect(screen.getByText("“노후 궤도 보수를 강화함.”")).toBeInTheDocument();
-    expect(screen.getAllByText("(국토교통부 · 2025년 · 3쪽)")).toHaveLength(2);
+    expect(screen.getAllByText("(2025년 · 3쪽)")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /\(국토교통부\) 근거 보기/ }).length).toBeGreaterThan(0); // 제목·자료원 이름 (ADR 0040)
     expect(screen.getAllByRole("link", { name: /원문 보기/ })[0]).toHaveAttribute("href", "https://example.go.kr/molit:a");
     await expectNoA11yViolations(container);
     await userEvent.click(screen.getByRole("button", { name: "이 안으로 — 정부 계획" }));
@@ -57,7 +58,7 @@ describe("PolicyCards", () => {
     expect(onChoose).toHaveBeenLastCalledWith(expect.objectContaining({ mode: "merged", card_ids: ["government-1", "company-1"] }));
     // [다른 안 보기] — 본 문서를 빼고 다시 요청
     await userEvent.click(screen.getByRole("button", { name: "다른 안 보기" }));
-    await waitFor(() => expect(load).toHaveBeenLastCalledWith(["molit:a", "korail_web:b"]));
+    await waitFor(() => expect(load).toHaveBeenLastCalledWith(["molit:a", "korail_web:b"], expect.anything()));
   });
 
   it("고른 뒤 직접 수정 + [AI로 다듬기] → [고친 글 적용], [정책 근거 없음으로 진행]", async () => {

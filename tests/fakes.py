@@ -260,6 +260,17 @@ class InMemoryRepository:
         docs = sorted((d for d in self.docs.values() if d.source == source), key=lambda d: d.doc_id)
         return docs if limit is None else docs[: max(0, limit)]
 
+    async def reclassify(self, changes):
+        n = 0
+        for doc_id, doc_type, raw in changes:
+            if doc_id in self.docs:
+                self.docs[doc_id] = self.docs[doc_id].model_copy(
+                    update={"doc_type": doc_type, "raw": dict(raw)}
+                )
+                n += 1
+        self.calls.append(("reclassify", {"n": n}))
+        return n
+
 
 class FakeReranker:
     """RerankerPort fake — 호출을 기록하고 순서를 뒤집는다 (끄면 원래 순서가 유지되는지 검사용)."""

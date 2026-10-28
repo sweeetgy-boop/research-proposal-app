@@ -21,6 +21,7 @@ from fastapi import FastAPI, HTTPException, Request
 from rra.application.ports import RunNotFound
 from rra.application.services.run_manager import EditRejected, VersionConflict
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
+from rra.entrypoints.api.cancellable import cancel_on_disconnect
 from rra.entrypoints.api.schemas_editai import (
     PolicyCardsIn,
     PolicyChoiceIn,
@@ -60,13 +61,17 @@ def register(
         에서 아이디어 관련 구간을 찾아 방향이 겹치지 않는 작성안 최대 4개. exclude_doc_ids 는
         [다른 안 보기] 때 이미 본 문서. 결과는 자동으로 들어가지 않는다 — 고른 것만
         RunIn.policy_choice 로."""
-        result = await _cards(request)(body.request(), exclude_docs=body.exclude_doc_ids)
+        result = await cancel_on_disconnect(  # [취소] = 연결 끊김 → 작업만 멈춤 (ADR 0038)
+            request, _cards(request)(body.request(), exclude_docs=body.exclude_doc_ids)
+        )
         return {"notice": UNTRUSTED_NOTICE, **policy_cards_payload(result, clean=clean)}
 
     @app.post(f"/{V}/ideas/policy-cards/polish")
     async def policy_polish_route(request: Request, body: PolicyPolishIn) -> dict[str, Any]:
         """[AI로 다듬기] — 고른 안을 제안자가 고친 글을 같은 근거 안에서 다듬는다 (Argon 먼저)."""
-        result = await _cards(request).polish(body.request(), body.choice, body.text)
+        result = await cancel_on_disconnect(
+            request, _cards(request).polish(body.request(), body.choice, body.text)
+        )
         return {"notice": UNTRUSTED_NOTICE, **policy_polish_payload(result, clean=clean)}
 
     @app.post(f"/{V}/runs/{{run_id}}/policy-cards")
@@ -75,8 +80,11 @@ def register(
     ) -> dict[str, Any]:
         """④ 빈 2-가-(1) — run 의 입력으로 작성안 최대 4개."""
         try:
-            result = await manager.run_policy_cards(
-                *await own(request, run_id), exclude_docs=body.exclude_doc_ids
+            result = await cancel_on_disconnect(
+                request,
+                manager.run_policy_cards(
+                    *await own(request, run_id), exclude_docs=body.exclude_doc_ids
+                ),
             )
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
@@ -87,8 +95,9 @@ def register(
         request: Request, run_id: str, body: RunPolicyPolishIn
     ) -> dict[str, Any]:
         try:
-            result = await manager.run_policy_polish(
-                *await own(request, run_id), body.choice, body.text
+            result = await cancel_on_disconnect(
+                request,
+                manager.run_policy_polish(*await own(request, run_id), body.choice, body.text),
             )
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc

@@ -81,6 +81,7 @@ def submit_check(
     evidence_attention: Mapping[str, Any] | None = None,
     proposed: Mapping[str, list[str]] | None = None,
     choice_options: Mapping[str, Mapping[str, str]] | None = None,
+    local_mismatch: Sequence[str] = (),
 ) -> SubmitCheck:
     """evidence_attention: domain/rules/evidence.evidence_attention 결과 (확인 필요 문장·
     일괄 승인 수). proposed·choice_options: 선택형 제안값·선택지 이름 — [제안값 그대로 확정] 용."""
@@ -171,6 +172,9 @@ def submit_check(
     rate = round(approved / ev_total, 3) if ev_total else None
     att = dict(evidence_attention or {})
     pending = [str(x) for x in att.get("sentences") or []]
+    # L2 로컬 검토 불일치(결정 전) — 확인 필요에 더한다 ([반영]·[무시] 하면 빠진다, ADR 0040)
+    local_open = [str(x) for x in local_mismatch]
+    pending += [x for x in local_open if x not in pending]
     bulk = int(att.get("bulk") or 0)
     parts = [
         f"{label} {int(att.get(key) or 0)}문장"
@@ -181,6 +185,8 @@ def submit_check(
         )
         if att.get(key)
     ]
+    if local_open:
+        parts.append(f"로컬 검토 불일치 {len(local_open)}문장")
     if pending:
         detail = f"확인 필요 {len(pending)}문장 (" + ", ".join(parts) + ")"
     elif ev_total:
@@ -200,6 +206,7 @@ def submit_check(
             {
                 "rate": rate,
                 "attention": pending,
+                "local_mismatch": len(local_open),
                 "bulk": bulk,
                 **{k: int(v) for k, v in evidence_counts.items()},
             },

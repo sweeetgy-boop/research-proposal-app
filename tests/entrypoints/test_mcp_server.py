@@ -203,7 +203,15 @@ async def test_generate_then_poll_draft_over_mcp(write_server):
         "source": "retrieved",
     }
     assert body["citations"] == [
-        {"id": "alio:1#0", "doc_id": "alio:1", "title": "궤도 상태 자동 감지 연구", "live": False}
+        {
+            "id": "alio:1#0",
+            "doc_id": "alio:1",
+            "title": "궤도 상태 자동 감지 연구",
+            "source": "alio",
+            "source_label": "알리오 공시",  # ADR 0040 — 화면은 번호 대신 제목·자료원 이름
+            "url": None,
+            "live": False,
+        }
     ]
 
 
