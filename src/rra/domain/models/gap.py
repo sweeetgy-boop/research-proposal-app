@@ -31,7 +31,7 @@ class OverlapAlert(BaseModel):
     own_detail: OwnDetail | None = (
         None  # tier=own 일 때: 철도연구원 부서(institute) / 그 외 공사 부서(company)
     )
-    # ── ② 판정 정확도 (2026-10-28 레인 A, ADR "precheck 판정") ──
+    # ── ② 판정 정확도 (2026-10-28 레인 A, ADR 0036) ──
     # reranker(cross-encoder) 점수 0~1 — 있으면 차단 판단의 주 점수(e5 유사도는 후보 검색용)
     rerank_score: float | None = None
     rule_blocking: bool | None = None  # 규칙(점수 + 핵심 키워드) 판정 — AI 판정 전 값
