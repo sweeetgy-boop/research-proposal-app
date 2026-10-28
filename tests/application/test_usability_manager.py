@@ -257,7 +257,9 @@ async def test_submit_check_items_and_targets():
     )
     # 항목 16: 판정 불일치·부분·이미지 판독이 아닌 근거는 "확인 필요"가 아니라 일괄 승인 대상
     ev = by_key["evidence_approval"]
-    assert ev.ok and ev.extra["total"] == 1 and ev.extra["bulk"] == 1 and ev.extra["attention"] == []
+    assert (
+        ev.ok and ev.extra["total"] == 1 and ev.extra["bulk"] == 1 and ev.extra["attention"] == []
+    )
     assert "0/1" not in ev.detail and "[근거 일괄 승인]" in ev.detail and len(check.failing) == 1
     await mgr.decide_evidence(
         "local",
