@@ -1,8 +1,18 @@
 /** ADR 0045 — 초안 글 먼저, 그림은 백그라운드. 가짜 백엔드는 그림마다 RRA_FAKE_FIGURE_DELAY 초(기본 3) 기다린다.
  *  초안 본문이 먼저 보이고 → "그림 준비 중" 카드·한 줄 → 그림이 그 자리에 들어온다. 그리는 동안 최종 검토는 기다린다. */
-import { expect, test } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
 import { createRun, login, subnav, expectNoRunWord } from "./helpers";
 import { expectNoInternalIds } from "./helpers-text";
+
+const SHOTS = process.env.RRA_SHOTS; // 화면 기록: docs/history/screens
+
+async function shot(page: Page, name: string) {
+  if (!SHOTS) return;
+  fs.mkdirSync(SHOTS, { recursive: true });
+  await page.screenshot({ path: path.join(SHOTS, `2026-10-29-draft-first-${name}.png`), fullPage: false });
+}
 
 test.describe("초안 글 먼저 · 그림은 백그라운드", () => {
   test("초안 본문 → 그림 준비 중 → 그림 도착, 그리는 동안 최종 검토는 기다린다", async ({ page }) => {
@@ -16,6 +26,8 @@ test.describe("초안 글 먼저 · 그림은 백그라운드", () => {
     const job = page.getByTestId("figure-job");
     await expect(job.getByText("그림 준비 중", { exact: true }).first()).toBeVisible();
     await expect(page.getByTestId("figure-slot").first()).toBeVisible();
+    await page.getByTestId("figure-slot").first().scrollIntoViewIfNeeded();
+    await shot(page, "drawing");
     await expectNoInternalIds(page);
     await expectNoRunWord(page);
 
@@ -35,6 +47,8 @@ test.describe("초안 글 먼저 · 그림은 백그라운드", () => {
     await expect(page.getByRole("group", { name: "현재·연구 후 비교 그림" })).toBeVisible();
     await expect(page.getByTestId("figure-slot")).toHaveCount(0);
     await expect(page.getByTestId("figure-job")).toHaveCount(0);
+    await page.getByRole("group", { name: "현재·연구 후 비교 그림" }).scrollIntoViewIfNeeded();
+    await shot(page, "ready");
     await expectNoInternalIds(page);
   });
 });
