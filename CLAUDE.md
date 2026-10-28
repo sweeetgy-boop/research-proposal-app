@@ -183,6 +183,15 @@
   분석 기법 추천 0~2(`config/figures/techniques.yaml`, ADR 0033). HWPX 단계별 서식 점검 `adapters/rendering/hwpx_format.py`(ADR 0034), 알림 한국어
   설명 표 `domain/rules/problem_labels.py` = `web/src/lib/labels.ts`(새 알림 코드는 두 표에 함께), 입력 변경 다시 쓰기 `POST /v1/runs/{id}/regenerate`(ADR 0035).
   화면 문구에 내부 코드(input_missing·json·no_change 등)를 내보내지 않는다.
+- **시범 의견 2차**(2026-10-28 밤, #88~#92): AI 응답은 시간 제한 없음 + "응답 기다리는 중 · 경과 n초" [취소](`web/src/lib/useAiCall.ts`·
+  `components/AiWaiting.tsx`, 서버 `entrypoints/api/cancellable.cancel_on_disconnect` — 끊기면 작업 취소 499), 로컬 대체는 오류 응답일 때만
+  (ADR 0038, `llm.yaml timeout.read` 600 = 10분 무응답 안전선). ② 표 먼저(`POST /v1/precheck?stage=rule` → `/judgment`·`/recommendations`,
+  [선택 적용], `/recommendations/more`, ADR 0039). 연구용역 재분류(`domain/rules/doc_category.py`, `rra db reclassify`, 정책 근거 추천 =
+  `policy_cards.policy_passage` 범위), 화면 내부 번호 금지(`DocRef`·`lib/docRefs.ts`·`entrypoints/views_refs.py`, e2e `helpers-text.expectNoInternalIds`),
+  L2 로컬 2차 검토 켬(`compose.local_check: on`, 모델 판정 + 규칙, 불일치만 Argon 제안, `/v1/runs/{id}/local-review…`, ADR 0040). 그림 가로·본문 폭
+  153.8mm·높이 쪽 1/3·글자 9pt(`domain/rules/figure_fit.py`, manifest `figure_fit`, ADR 0041). 상태 표시는 버전 없음(`versions/marks_vN.json`,
+  `RunManager.record_mark`), 아래 이동 막대(`StepNavBar`, `--stepnav-h`), 화면에 "run" 단어 금지(e2e `expectNoRunWord`, ADR 0042).
+  Argon 호출 응답 시간은 예산 카운터 옆 `*.latency.jsonl`(본문 없음). 설정 사본(RRA_CONFIG_DIR)도 번들 글꼴을 찾는다(`_figure_asset_dir`).
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 

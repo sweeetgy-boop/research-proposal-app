@@ -26,6 +26,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from rra.domain.models.figure import (
+    SHORT_TAGS,
     AsIsToBeSpec,
     ComparisonSpec,
     ConceptSpec,
@@ -312,6 +313,23 @@ def _clip_all(items: list[Any], key: str, limit: int, counter: list[int]) -> Non
             if new != old:
                 it[key] = new
                 counter[0] += 1
+
+
+def shorten_tags(spec: BaseModel) -> tuple[BaseModel, int] | None:
+    """As-Is/To-Be 이름표를 두 글자로(해결 방안 → 방안, 기대효과 → 효과) — 그림 글자가 9pt 밑일 때
+    칸 글자는 그대로 두고 이름표만 줄여 다시 그린다. 줄일 것이 없으면 None.
+    → (명세, 줄인 이름표 수)."""
+    if not isinstance(spec, AsIsToBeSpec):
+        return None
+    n = 0
+    data = spec.model_dump()
+    for side in ("as_is", "to_be"):
+        for it in data[side]:
+            short = SHORT_TAGS.get(it["tag"])
+            if short:
+                it["tag"] = short
+                n += 1
+    return (spec.model_validate(data), n) if n else None
 
 
 def shorten_spec(spec: BaseModel, level: int) -> tuple[BaseModel, int] | None:

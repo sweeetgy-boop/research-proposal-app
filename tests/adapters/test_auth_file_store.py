@@ -101,3 +101,36 @@ def test_daily_budget_counts_per_day_and_wrapper_refuses_calls_when_exhausted(tm
 
     asyncio.run(run())
     assert inner.calls == 1
+
+
+def test_budgeted_llm_logs_latency_without_content(tmp_path):
+    """호출마다 응답 시간 한 줄 — 단계·초·성공 여부만, 프롬프트·응답 본문 없음 (보안 D)."""
+    import asyncio
+    import json
+
+    from rra.adapters.llm.daily_budget import BudgetedLLM, FileDailyBudget, latency_path
+
+    budget = FileDailyBudget(tmp_path / "llm_budget.json", 5)
+
+    class Inner:
+        async def complete(self, prompt, *, system=None, max_tokens=None, json_mode=False):
+            if prompt == "boom":
+                raise RuntimeError("x")
+            return "비밀 응답"
+
+    llm = BudgetedLLM(Inner(), budget, stage="review")
+
+    async def run():
+        await llm.complete("비밀 프롬프트")
+        with pytest.raises(RuntimeError):
+            await llm.complete("boom")
+
+    asyncio.run(run())
+    text = latency_path(budget).read_text(encoding="utf-8")
+    rows = [json.loads(x) for x in text.splitlines()]
+    assert [(r["stage"], r["ok"], r["error"]) for r in rows] == [
+        ("review", True, None),
+        ("review", False, "RuntimeError"),
+    ]
+    assert all(r["seconds"] >= 0 for r in rows)
+    assert "비밀" not in text

@@ -80,11 +80,13 @@ export interface paths {
         put?: never;
         /**
          * Precheck Route
-         * @description 유사과제 알림. [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초)
-         *     판정한다. 2026-10-28 레인 A: reranker 점수·핵심 키워드(실시간 검색의 Argon 키워드) 규칙
-         *     판정 →
-         *     상위 10건 AI 같음 판정(Argon → 로컬 → 규칙). 과제 추천 LLM 이 있고 recommend.auto 면 차별화
-         *     과제안을 AI 판정과 동시에 1회 붙인다. 활용·차별화 제안은 [유사함] 을 고른 뒤에만.
+         * @description 유사과제 알림. stage=rule(웹 ②, ADR 0039)이면 표 먼저 — 실시간 검색 + 규칙 판정까지만
+         *     돌려주고(judgment.status = pending) AI 같음 판정은 POST /v1/precheck/judgment, 과제안은
+         *     POST /v1/precheck/recommendations 가 이어서 한다. stage=full(기본 — MCP·run 화면)은
+         *     종전대로: [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초)
+         *     판정한다. reranker 점수·핵심 키워드(실시간 검색의 Argon 키워드) 규칙 판정 → 상위
+         *     10건 AI 같음 판정(Argon → 로컬 → 규칙). 과제 추천 LLM 이 있고 recommend.auto 면
+         *     차별화 과제안을 AI 판정과 동시에 1회 붙인다. 활용·차별화 제안은 [유사함] 을 고른 뒤에만.
          */
         post: operations["precheck_route_v1_precheck_post"];
         delete?: never;
@@ -104,7 +106,9 @@ export interface paths {
         put?: never;
         /**
          * Judgment Retry Route
-         * @description [다시 시도] — AI 같음 판정만 다시 (규칙 판정은 같은 입력의 메모를 쓴다). 레인 A.
+         * @description AI 같음 판정 — 표 먼저(stage=rule) 뒤 화면이 부른다. 규칙 판정은 같은 입력의 메모를 쓰고,
+         *     같은 입력의 판정이 돌고 있으면 그 작업을 기다린다. retry=true 는 [다시 시도](메모 무시).
+         *     앱 제한 시간 없음 — 화면 [취소] 는 요청을 끊어 이 작업만 멈춘다 (ADR 0039).
          */
         post: operations["judgment_retry_route_v1_precheck_judgment_post"];
         delete?: never;
@@ -258,6 +262,28 @@ export interface paths {
          *     recommendation_id 로 run 에 복사된다 (외부 LLM 출력, 비신뢰).
          */
         post: operations["recommend_route_v1_precheck_recommendations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/precheck/recommendations/more": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recommend More Route
+         * @description [차별화 과제안 더 만들기] — 이미 보인 안(세션 id 의 카드)과 다른 안만 더 받는다.
+         *     검증·겹침 재판정 규칙은 같고 거의 같은 안은 뺀다. 보탠 안은 같은 세션 id 에 이어
+         *     붙는다(번호 유지).
+         */
+        post: operations["recommend_more_route_v1_precheck_recommendations_more_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -737,6 +763,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run_id}/final-review/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Final Review Cancel Route
+         * @description ⑤ 최종 검토 [취소] — 기다리던 Argon 검토만 멈추고 검토 전 상태로 (결과·버전 없음).
+         */
+        post: operations["final_review_cancel_route_v1_runs__run_id__final_review_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run_id}/confirm": {
         parameters: {
             query?: never;
@@ -849,8 +895,9 @@ export interface paths {
         put?: never;
         /**
          * Rewrite Route
-         * @description U3 섹션 하나를 로컬 모델로 다시 쓴 후보 (반영 전, 현재 문장과 나란히). 제안자가 고친
-         *     문장은 보존, 선택값 불변. 반영은 …/rewrite/apply.
+         * @description U3 섹션 하나를 Argon 이 다시 쓴 후보 (반영 전, 현재 문장과 나란히; 오류면 로컬). 제안자가
+         *     고친 문장은 보존, 선택값 불변. 반영은 …/rewrite/apply. 시간 제한 없음 — 브라우저가 끊으면
+         *     작업을 멈춘다(cancel_on_disconnect).
          */
         post: operations["rewrite_route_v1_runs__run_id__sections__key__rewrite_post"];
         delete?: never;
@@ -1038,6 +1085,84 @@ export interface paths {
         get: operations["run_changes_route_v1_runs__run_id__changes_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/local-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Local Review Route */
+        get: operations["local_review_route_v1_runs__run_id__local_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/local-review/{suggestion_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Local Apply Route
+         * @description [반영] — 다시 쓰기는 직접 수정(원래 근거 유지), 빼기는 삭제. 새 버전.
+         */
+        post: operations["local_apply_route_v1_runs__run_id__local_review__suggestion_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/local-review/{suggestion_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Local Dismiss Route
+         * @description [무시] — 결정만 기록한다. 버전은 그대로.
+         */
+        post: operations["local_dismiss_route_v1_runs__run_id__local_review__suggestion_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/local-review/{suggestion_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Local Retry Route
+         * @description 제안 다시 받기 — Argon 먼저(오류 응답일 때만 로컬). 시간 제한 없음, [취소] 는 연결
+         *     끊기.
+         */
+        post: operations["local_retry_route_v1_runs__run_id__local_review__suggestion_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1529,6 +1654,11 @@ export interface components {
              */
             at?: string;
         };
+        /** LocalApplyIn */
+        LocalApplyIn: {
+            /** Base Version */
+            base_version?: number | null;
+        };
         /** PersonIn */
         PersonIn: {
             /**
@@ -1923,6 +2053,16 @@ export interface components {
             department?: string;
             budget?: components["schemas"]["Budget"] | null;
             policy_choice?: components["schemas"]["PolicyChoice"] | null;
+        };
+        /**
+         * RecommendMoreIn
+         * @description POST /v1/precheck/recommendations/more — [차별화 과제안 더 만들기] (레인 A, ADR 0039).
+         *     rec_id 의 카드(이미 보인 안)와 다른 안만 더 받는다.
+         */
+        RecommendMoreIn: {
+            request: components["schemas"]["ProposalRequest"];
+            /** Rec Id */
+            rec_id: string;
         };
         /**
          * RecommendationApplyIn
@@ -2385,7 +2525,9 @@ export interface operations {
     };
     precheck_route_v1_precheck_post: {
         parameters: {
-            query?: never;
+            query?: {
+                stage?: "full" | "rule";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2420,7 +2562,9 @@ export interface operations {
     };
     judgment_retry_route_v1_precheck_judgment_post: {
         parameters: {
-            query?: never;
+            query?: {
+                retry?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2673,6 +2817,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recommend_more_route_v1_precheck_recommendations_more_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommendMoreIn"];
             };
         };
         responses: {
@@ -3762,6 +3941,39 @@ export interface operations {
             };
         };
     };
+    final_review_cancel_route_v1_runs__run_id__final_review_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     confirm_route_v1_runs__run_id__confirm_post: {
         parameters: {
             query?: never;
@@ -4271,6 +4483,145 @@ export interface operations {
             header?: never;
             path: {
                 run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    local_review_route_v1_runs__run_id__local_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    local_apply_route_v1_runs__run_id__local_review__suggestion_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                suggestion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocalApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    local_dismiss_route_v1_runs__run_id__local_review__suggestion_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                suggestion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    local_retry_route_v1_runs__run_id__local_review__suggestion_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                suggestion_id: string;
             };
             cookie?: never;
         };

@@ -522,3 +522,22 @@ def test_shipped_overlap_candidates_are_project_sources_only():
         Document(doc_id="openalex:W", source="openalex", doc_type="paper", title="t")
     )
     assert rule.per_source > 0 and rule.pool_size >= rule.per_source and rule.research_k > 0
+
+
+def test_figure_fonts_are_found_from_a_config_copy(tmp_path):
+    """설정 폴더 사본(RRA_CONFIG_DIR, 측정용)에서도 번들 글꼴을 찾는다 — 못 찾으면 밑그림이
+    글자 없이 그려졌다(2026-10-28 밤)."""
+    import shutil
+    from pathlib import Path
+
+    from rra.config_loader import figures_config
+    from rra.settings import Settings
+
+    repo_config = Path(__file__).resolve().parents[1] / "config"
+    copy = tmp_path / "evalcfg"
+    shutil.copytree(repo_config, copy)
+    s = Settings(_env_file=None, config_dir=copy, data_dir=tmp_path / "data")
+    assert sorted(p.name for p in Path(figures_config(s)["fonts_dir"]).glob("*.otf"))
+    # 사본에 글꼴 폴더가 없어도 저장소의 번들 글꼴로
+    shutil.rmtree(copy / "templates" / "figures" / "fonts")
+    assert sorted(Path(figures_config(s)["fonts_dir"]).glob("*.otf"))

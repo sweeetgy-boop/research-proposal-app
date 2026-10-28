@@ -72,8 +72,10 @@ def _token() -> str:
     return secret.get_secret_value()
 
 
-def load_ideas(only: list[str] | None) -> list[tuple[str, dict[str, Any], list[str] | None, bool]]:
-    """(이름, 요청, 정답 유사과제, 유사하지 않음 사례 여부)."""
+def load_ideas(
+    only: list[str] | None,
+) -> list[tuple[str, dict[str, Any], list[str] | None, bool, list[str]]]:
+    """(이름, 요청, 정답 유사과제, 유사하지 않음 사례 여부, 막으면 안 되는 과제)."""
     out = []
     for path in sorted(GOLDEN.glob("*.yaml")) + sorted((GOLDEN / "not_similar").glob("*.yaml")):
         name = ("ns_" if path.parent.name == "not_similar" else "") + path.stem
@@ -83,7 +85,10 @@ def load_ideas(only: list[str] | None) -> list[tuple[str, dict[str, Any], list[s
         req = {k: str(raw.get(k) or "") for k in REQUEST_KEYS}
         expected = raw.get("expected_similar")
         not_similar = path.parent.name == "not_similar"
-        out.append((name, req, list(expected) if expected is not None else None, not_similar))
+        must_not = [str(x) for x in raw.get("must_not_block") or []]
+        out.append(
+            (name, req, list(expected) if expected is not None else None, not_similar, must_not)
+        )
     return out
 
 
@@ -128,68 +133,106 @@ class Driver:
             await asyncio.sleep(2)
 
     async def precheck(
-        self, req: dict[str, Any], expected: list[str] | None, not_similar: bool
+        self,
+        req: dict[str, Any],
+        expected: list[str] | None,
+        not_similar: bool,
+        must_not: list[str] | None = None,
     ) -> dict[str, Any]:
+        """② 화면 순서(2026-10-28 밤, 레인 A): 표 먼저(stage=rule) → AI 판정·과제안 동시.
+        점수 규칙(소유자 지시): 정답 밖에서 걸린 과제는 오답이 아니라 "새로 찾은 후보"
+        (제목·자료원·판정 이유)로만 보고, API 실패·IP 차단으로 빠진 결과는 따로 표시하고
+        점수에서 뺀다."""
         t = time.perf_counter()
-        code, body = await self.j("POST", "/v1/precheck", json=req)
+        code, fast = await self.j("POST", "/v1/precheck?stage=rule", json=req)
         out: dict[str, Any] = {
             "precheck_status": code,
-            "precheck_seconds": round(time.perf_counter() - t, 1),
+            "table_seconds": round(time.perf_counter() - t, 1),
         }
-        if code != 200 or not isinstance(body, dict):
+        if code != 200 or not isinstance(fast, dict):
+            out["excluded"] = f"precheck {code}"
             return out
+
+        async def timed(method: str, url: str) -> tuple[int, Any, float]:
+            c, b = await self.j(method, url, json=req)
+            return c, b, round(time.perf_counter() - t, 1)
+
+        (jc, judged, t_judge), (rc, recb, t_cards) = await asyncio.gather(
+            timed("POST", "/v1/precheck/judgment"), timed("POST", "/v1/precheck/recommendations")
+        )
+        out.update(judgment_status=jc, judgment_seconds=t_judge, cards_seconds=t_cards)
+        out["precheck_seconds"] = max(t_judge, t_cards)
+        body = judged if jc == 200 and isinstance(judged, dict) else fast
+        judgment = body.get("judgment") or {}
         alerts = body.get("alerts") or []
         blocking = [a for a in alerts if a.get("blocking")]
         top5 = [i for a in alerts[:5] for i in _alert_ids(a)]
-        if not_similar or expected == []:
+        # 실시간 검색 상태는 표 먼저 응답(stage=rule)에 있다 — 판정 응답의 live_search 는 비어 "off"
+        live = fast.get("live_search") or body.get("live_search") or {}
+        live_fail = [
+            {"source": s.get("source"), "status": s.get("status")}
+            for s in live.get("sources") or []
+            if s.get("status") not in ("ok", "cached", "empty", "off", None)
+        ]
+        out["live"] = live.get("status")
+        out["live_failures"] = live_fail
+        if jc != 200 or judgment.get("status") in ("error", "failed"):
+            out["excluded"] = f"AI 판정 실패({jc}, {judgment.get('status')})"
+        exp = set(expected or [])
+        bad = set(must_not or [])
+        out["false_block"] = sum(1 for a in blocking if set(_alert_ids(a)) & bad)
+        if expected:
+            hit: bool | None = any(d in top5 for d in expected)
+        elif expected == []:  # 정답 없음(03) — 차단이 없어야 적중
             hit = not blocking
-        elif expected:
-            hit = any(d in top5 for d in expected)
         else:
             hit = None
+        out["new_candidates"] = [
+            {
+                "title": a.get("title"),
+                "source": a.get("source_label") or a.get("source"),
+                "level": a.get("level_label"),
+                "reason": a.get("judgment_reason"),
+            }
+            for a in blocking
+            if not (set(_alert_ids(a)) & (exp | bad))
+        ]
         out["blocking_detail"] = [
             {
                 "doc_id": a.get("doc_id"),
                 "title": a.get("title"),
-                "expected": bool(expected and set(_alert_ids(a)) & set(expected)),
+                "expected": bool(set(_alert_ids(a)) & exp),
                 "rerank": a.get("rerank_score"),
                 "judgment": a.get("judgment"),
                 "reason": a.get("judgment_reason"),
             }
             for a in blocking
         ]
-        rec = body.get("recommendations")
-        # 제안자처럼 고른다: 정답 유사과제가 표에 있으면 [유사함], 나머지 차단 행은 [관련 없음]
+        rec = (recb or {}).get("recommendations") if rc == 200 and isinstance(recb, dict) else None
+        # 제안자처럼 고른다: 정답 유사과제는 [유사함], 나머지 차단 행은 [관련 없음]
         choices = []
         for a in alerts:
             ids = set(_alert_ids(a))
-            if expected and ids & set(expected):
+            if ids & exp:
                 choices.append({"doc_id": a["doc_id"], "choice": "similar"})
             elif a.get("blocking"):
                 choices.append({"doc_id": a["doc_id"], "choice": "unrelated"})
         out["_choices"] = choices
         out["similar_chosen"] = sum(1 for c in choices if c["choice"] == "similar")
+        cards = _rec_items(rec)
         out.update(
             alerts=len(alerts),
             blocking=len(blocking),
-            blocking_expected=sum(
-                1 for a in blocking if expected and set(_alert_ids(a)) & set(expected)
-            ),
-            blocking_unrelated=sum(
-                1 for a in blocking if not (expected and set(_alert_ids(a)) & set(expected))
-            ),
+            levels={
+                lv: sum(1 for a in alerts if a.get("level") == lv)
+                for lv in ("blocking", "near", "low")
+            },
             hit=hit,
-            judged_by=(body.get("judgment") or {}).get("judged_by"),
-            judgment_status=(body.get("judgment") or {}).get("status"),
-            recommendations=len(_rec_items(rec)),
-            recommendation_status=(rec or {}).get("status") if isinstance(rec, dict) else None,
-            recommendation_discarded=len((rec or {}).get("discarded") or [])
-            if isinstance(rec, dict)
-            else 0,
-            recommendation_regenerated=bool((rec or {}).get("regenerated"))
-            if isinstance(rec, dict)
-            else False,
-            live=(body.get("live_search") or {}).get("status"),
+            judged_by=judgment.get("judged_by"),
+            judgment_state=judgment.get("status"),
+            recommendations=len(cards),
+            recommendation_status=(rec or {}).get("status") if isinstance(rec, dict) else rc,
+            recommendation_overlap_after=sum(1 for x in cards if x.get("overlap_titles")),
         )
         return out
 
@@ -262,9 +305,10 @@ class Driver:
         *,
         full: bool,
         sweep: bool = True,
+        must_not: list[str] | None = None,
     ) -> dict[str, Any]:
         row: dict[str, Any] = {"name": name, "not_similar": not_similar}
-        row.update(await self.precheck(req, expected, not_similar))
+        row.update(await self.precheck(req, expected, not_similar, must_not))
         if not_similar:
             row.pop("_choices", None)
             return row
@@ -316,6 +360,16 @@ class Driver:
             row["finalize_status"] = code
             manifest = _manifest(rid)
             row["hwpx_format"] = manifest.get("hwpx_format")
+            # [23] 그림이 본문 폭에 맞게 들어감 — 넣은 그림마다 마무리 때 HWPX 실측(figure_fit)
+            figs = [f for f in manifest.get("figures") or [] if f.get("included", True)]
+            row["figure_fit"] = [
+                {
+                    k: (f.get("figure_fit") or {}).get(k)
+                    for k in ("ratio", "width_mm", "height_mm", "fits", "min_text_pt", "text_ok")
+                }
+                | {"kind": f.get("kind"), "renderer": f.get("renderer")}
+                for f in figs
+            ]
         return row
 
 
@@ -351,6 +405,47 @@ def _manifest(rid: str) -> dict[str, Any]:
     return {}
 
 
+async def _concurrent(d: Driver, ideas: list[Any], out: Path, label: str) -> int:
+    """여러 건을 동시에 ② → 생성(초안까지). 각 건 시간과 묶음 전체 시간."""
+    await wait_quiet(set())
+    t0 = time.perf_counter()
+    started = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+    async def go(idea: Any) -> dict[str, Any]:
+        name, req, expected, ns, must_not = idea
+        t = time.perf_counter()
+        row = await d.one(name, req, expected, ns, full=False, must_not=must_not)
+        row["seconds"] = round(time.perf_counter() - t, 1)
+        return row
+
+    try:
+        rows = await asyncio.gather(*(go(i) for i in ideas))
+    finally:
+        await d.close()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps(
+            {
+                "label": label,
+                "started_at": started,
+                "concurrent": len(ideas),
+                "batch_seconds": round(time.perf_counter() - t0, 1),
+                "rows": rows,
+            },
+            ensure_ascii=False,
+            indent=1,
+        ),
+        encoding="utf-8",
+    )
+    for r in rows:
+        print(
+            json.dumps(
+                {k: r.get(k) for k in ("name", "status", "draft_seconds")}, ensure_ascii=False
+            )
+        )
+    return 0
+
+
 async def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base", default="http://127.0.0.1:8012")
@@ -368,10 +463,18 @@ async def main() -> int:
         action="store_true",
         help="--out 의 기존 결과에 이어 붙이고 있는 이름은 건너뛴다",
     )
+    ap.add_argument(
+        "--concurrent",
+        type=int,
+        default=0,
+        help="N 건을 동시에(② + 생성만) — 동시 생성 시간 측정. 0 이면 한 건씩",
+    )
     args = ap.parse_args()
     only = [s.strip() for s in args.only.split(",")] if args.only else None
     ideas = load_ideas(only)
     d = Driver(args.base, _token())
+    if args.concurrent > 0:
+        return await _concurrent(d, ideas[: args.concurrent], Path(args.out), args.label)
     rows: list[dict[str, Any]] = []
     out = Path(args.out)
     if args.append and out.exists():
@@ -383,11 +486,13 @@ async def main() -> int:
     started = time.strftime("%Y-%m-%dT%H:%M:%S")
     try:
         own: set[str] = set()
-        for name, req, expected, ns in ideas:
+        for name, req, expected, ns, must_not in ideas:
             waited = await wait_quiet(own)
             t = time.perf_counter()
             do_sweep = not sweep or any(name.startswith(x) for x in sweep)
-            row = await d.one(name, req, expected, ns, full=not args.gen_only, sweep=do_sweep)
+            row = await d.one(
+                name, req, expected, ns, full=not args.gen_only, sweep=do_sweep, must_not=must_not
+            )
             row["seconds"] = round(time.perf_counter() - t, 1)
             row["waited_for_colleagues"] = waited
             if row.get("run_id"):
@@ -400,7 +505,7 @@ async def main() -> int:
                         for k in (
                             "name",
                             "hit",
-                            "blocking_unrelated",
+                            "false_block",
                             "recommendations",
                             "status",
                             "draft_seconds",

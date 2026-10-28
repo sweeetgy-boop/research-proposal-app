@@ -473,7 +473,7 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         if self.is_legacy(state):
             raise RunNotResumable(LEGACY_HINT.format(run_id=run_id))
         if state.status not in RESUMABLE:
-            raise RunNotResumable(f"{state.status} 상태의 run 은 재개할 수 없습니다.")
+            raise RunNotResumable("지금 작성 상태에서는 재개할 수 없습니다.")
         claim = self.store.claim(user, run_id)  # 다른 프로세스가 이미 이어서 돌리면 RunBusy
         state.status = "queued"
         state.updated_at = self._clock()
@@ -2698,7 +2698,7 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
             raise RenderRejected(LEGACY_HINT.format(run_id=run_id))
         if not review_flow.can_render(view.state.status):
             raise RenderRejected(
-                f"{view.state.status} 상태의 run 은 렌더할 수 없습니다 — 양식 파일은 finalize 로만."
+                "지금 작성 상태에서는 양식 파일을 만들 수 없습니다 — 최종 마무리에서 만듭니다."
             )
         draft = Draft(
             run_id=run_id,
@@ -2715,7 +2715,7 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         if self.is_legacy(state):
             raise ConfirmRejected(LEGACY_HINT.format(run_id=run_id))
         if state.status not in FINISHED or state.status == "failed":
-            raise ConfirmRejected(f"{state.status} 상태의 run 은 확정할 수 없습니다 (생성 후에).")
+            raise ConfirmRejected("초안이 생성된 뒤에 확정할 수 있습니다.")
         if not choices:
             raise ConfirmRejected("확정할 선택값이 없습니다.")
         options = self.generate.choice_options()
@@ -2777,7 +2777,7 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         )
         reason = None
         if self.is_legacy(state):
-            reason = "이전 양식으로 만든 run 은 다시 쓸 수 없습니다."
+            reason = "이전 양식으로 만든 제안서는 다시 쓸 수 없습니다."
         elif state.draft_version < 1 or not review_flow.can_edit(state.status):
             reason = "초안이 완성된 뒤(검토 중이 아닐 때) 다시 쓸 수 있습니다."
         elif self.store.load_working(user, run_id) is not None:

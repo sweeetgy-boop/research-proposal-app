@@ -550,5 +550,5 @@ def technique_texts(spec: TechniqueSpec) -> list[str]:
         for r in spec.rows:
             out.append(r.name)
             out.extend(r.cells)
-    out.append(spec.note)
+    # spec.note(PRELIM_NOTE)는 그림 안에 그리지 않는다 — 캡션 줄로 (2026-10-29)
     return out

@@ -41,6 +41,6 @@ test.describe("로그인 (레인 A)", () => {
     await page.getByRole("link", { name: "내 제안서" }).click();
     await expect(page.getByText(id)).toHaveCount(0);
     await page.goto(`/runs/${id}`);
-    await expect(page.getByText(/run 을 찾을 수 없습니다|없음/).first()).toBeVisible();
+    await expect(page.getByText(/제안서를 찾을 수 없습니다|없음/).first()).toBeVisible();
   });
 });

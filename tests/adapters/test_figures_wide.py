@@ -283,3 +283,17 @@ def test_real_baseline_png_has_the_chosen_ratio():
     png = svg_to_png(render_svg(spec, palette=PALETTE, aspect=aspect), font_files=FONTS, dpi=96)
     w, h = Image.open(io.BytesIO(png)).size
     assert aspect == "4:1" and abs(w / h - 4.0) < 0.02
+
+
+def test_technique_prelim_note_goes_to_the_caption_line_not_the_image():
+    """분석 기법 그림의 "제안 내용 기반 예비 평가"는 그림 안이 아니라 캡션 아래 12pt 줄로
+    (2026-10-29 — 그림 안 안내문은 9pt 밑으로 그려졌다). 판단 표시는 그대로 남는다."""
+    from rra.adapters.rendering.hwpx import _caption_lines
+    from rra.domain.models.figure import PRELIM_NOTE, Figure, parse_spec
+    from rra.domain.rules.figures import texts_of
+    from tests.figure_v2_helpers import SWOT
+
+    spec = parse_spec("technique", {"technique": "swot", "title": "SWOT 분석", **SWOT})
+    fig = Figure(id="f:method:t1", kind="technique", section="method", spec=spec)
+    assert PRELIM_NOTE not in texts_of(spec)
+    assert _caption_lines(fig) == [f"※ {PRELIM_NOTE}"]

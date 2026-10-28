@@ -406,7 +406,7 @@ async def test_problem_json_shape_for_404_and_422(client):
         "type": "about:blank",
         "title": "없음",
         "status": 404,
-        "detail": "run 을 찾을 수 없습니다.",
+        "detail": "제안서를 찾을 수 없습니다.",
     }
     r = await client.post("/v1/precheck", json={"current_state": "a"}, headers=AUTH)
     assert r.status_code == 422 and r.json()["title"] == "입력 오류"

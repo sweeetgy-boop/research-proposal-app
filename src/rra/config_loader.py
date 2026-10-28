@@ -572,6 +572,21 @@ FIGURE_KINDS_DEFAULT = (
 )
 
 
+def _figure_asset_dir(settings: Settings, value: str) -> Path:
+    """그림 템플릿·번들 글꼴 폴더. 상대 경로("config/…")는 저장소 기준 — 설정 폴더 사본
+    (RRA_CONFIG_DIR, 측정용)이면 사본 안("…/<사본>/templates/…") → 저장소 순서로 있는 곳을 고른다.
+    2026-10-28 밤: 사본의 부모 기준으로만 찾아 글꼴이 없으면 밑그림이 글자 없이 그려졌다."""
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    config_dir = Path(settings.config_dir)
+    cands = [config_dir.parent / path]
+    if path.parts and path.parts[0] == "config":
+        cands.append(config_dir.joinpath(*path.parts[1:]))
+    cands.append(Path(__file__).resolve().parents[2] / path)
+    return next((c for c in cands if c.exists()), cands[0])
+
+
 def figures_config(settings: Settings) -> dict[str, Any]:
     """config/figures.yaml ([G]) — 켜기·기본 개수·동시 수·크기·비율·팔레트·HWPX 배치·상한·경로."""
     raw = read_config("figures.yaml", settings)
@@ -579,12 +594,12 @@ def figures_config(settings: Settings) -> dict[str, Any]:
     fit = raw.get("fit") or {}
     kinds = [str(k) for k in (raw.get("kinds") or FIGURE_KINDS_DEFAULT)]
     aspects = {str(k): str(v) for k, v in (raw.get("aspect") or {}).items()}
-    template_dir = Path(str(raw.get("template_dir") or "config/templates/figures"))
-    if not template_dir.is_absolute():
-        template_dir = Path(settings.config_dir).parent / template_dir
-    fonts_dir = Path(str(raw.get("fonts_dir") or "config/templates/figures/fonts"))
-    if not fonts_dir.is_absolute():
-        fonts_dir = Path(settings.config_dir).parent / fonts_dir
+    template_dir = _figure_asset_dir(
+        settings, str(raw.get("template_dir") or "config/templates/figures")
+    )
+    fonts_dir = _figure_asset_dir(
+        settings, str(raw.get("fonts_dir") or "config/templates/figures/fonts")
+    )
     return {
         "enabled": bool(raw.get("enabled", True)),
         "max_default": int(raw.get("max_default", 3)),
@@ -614,7 +629,7 @@ def figures_config(settings: Settings) -> dict[str, Any]:
             "body_width_mm": float(fit.get("body_width_mm", 153.8)),
             "page_height_mm": float(fit.get("page_height_mm", 297.0)),
             "max_shorten": int(fit.get("max_shorten", 2)),
-            "max_image_redraws": int(fit.get("max_image_redraws", 1)),
+            "max_image_redraws": int(fit.get("max_image_redraws", 2)),
             "ocr": bool(fit.get("ocr", True)),
             "ocr_box_em": float(fit.get("ocr_box_em", 1.2)),
         },

@@ -392,7 +392,7 @@ def create_app(
 
     def _run_id(value: str) -> str:
         if not is_valid_run_id(value):
-            raise HTTPException(404, "run 을 찾을 수 없습니다.")
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.")
         return value
 
     def _titles() -> dict[str, str]:
@@ -440,7 +440,7 @@ def create_app(
         if who.is_admin:
             owner = manager.find_owner(rid) if hasattr(manager, "find_owner") else user
             if owner is None:
-                raise HTTPException(404, "run 을 찾을 수 없습니다.")
+                raise HTTPException(404, "제안서를 찾을 수 없습니다.")
             return owner, rid
         return auth_policy.run_user(who), rid
 
@@ -997,7 +997,7 @@ def create_app(
             req = await manager.load_request(owner, rid)
             view = await manager.get_draft(owner, rid)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         alerts = await _svc(request, "precheck")(req)
         table = await svc(req, alerts, similar_only=True, draft=view.sections)
         return {
@@ -1138,7 +1138,7 @@ def create_app(
         try:
             state = await manager.status(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return run_state_payload(state, legacy=manager.is_legacy(state), title=_title(state))
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/events")
@@ -1148,7 +1148,7 @@ def create_app(
         try:
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
 
         async def stream() -> AsyncIterator[bytes]:
             last: str | None = None
@@ -1189,7 +1189,7 @@ def create_app(
         try:
             state = await manager.resume(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except RunNotResumable as exc:
             raise HTTPException(409, str(exc)) from exc
         except RunBusy as exc:
@@ -1212,7 +1212,7 @@ def create_app(
                 }
             view = await manager.get_draft(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(404, str(exc)) from exc
         return {"notice": UNTRUSTED_NOTICE, **draft_payload(view, clean=_clean)}
@@ -1222,7 +1222,7 @@ def create_app(
         try:
             versions, rows = await manager.version_history(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {"run_id": run_id, "versions": versions_payload(versions, rows)}
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/revert")
@@ -1230,7 +1230,7 @@ def create_app(
         try:
             version = await manager.revert(*await _own(request, run_id), body.to)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"run_id": run_id, **version_payload(version, clean=_clean, run_id=run_id)}
@@ -1240,7 +1240,7 @@ def create_app(
         try:
             state = await manager.review(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except InvalidTransition as exc:
             raise HTTPException(409, str(exc)) from exc
         except RunBusy as exc:
@@ -1257,7 +1257,7 @@ def create_app(
             owner, rid = await _own(request, run_id)
             review = await manager.get_review(owner, rid, round)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         if review is None:
             raise HTTPException(404, "검토 결과가 없습니다.")
         return await _review_out(owner, rid, review)
@@ -1268,7 +1268,7 @@ def create_app(
             version = await manager.apply_edits(*await _own(request, rid), body)
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:  # VersionConflict 포함
             raise HTTPException(409, str(exc)) from exc
         return {
@@ -1294,7 +1294,7 @@ def create_app(
         try:
             working = await manager.load_working(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         if working is None:
             raise HTTPException(404, "임시 저장이 없습니다.")
         return {"run_id": run_id, "notice": UNTRUSTED_NOTICE, "working": working}
@@ -1305,7 +1305,7 @@ def create_app(
         try:
             await manager.save_working(*await _own(request, run_id), body.model_dump())
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except WorkingRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"run_id": run_id, "saved": True}
@@ -1315,7 +1315,7 @@ def create_app(
         try:
             await manager.discard_working(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return Response(status_code=204)
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/versions/diff")
@@ -1331,7 +1331,7 @@ def create_app(
             b = await manager.get_version(*await _own(request, rid), to_v)
             diff = await manager.diff(*await _own(request, rid), from_v, to_v)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(404, str(exc)) from exc
         return {
@@ -1348,7 +1348,7 @@ def create_app(
             new = await manager.revert(*await _own(request, rid), version)
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return {
@@ -1364,7 +1364,7 @@ def create_app(
         try:
             await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         loader = getattr(manager, "load_outline", None)
         data = await loader(*await _own(request, rid)) if loader is not None else None
         if not data:
@@ -1378,7 +1378,7 @@ def create_app(
             owner, rid = await _own(request, run_id)
             review = await manager.get_review(owner, rid, kind="draft")
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         if review is None:
             raise HTTPException(404, "1차 검토 결과가 없습니다.")
         return await _review_out(owner, rid, review)
@@ -1390,7 +1390,7 @@ def create_app(
         try:
             state = await manager.final_review(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except (InvalidTransition, RunBusy) as exc:
             raise HTTPException(409, str(exc)) from exc
         except QueueFull as exc:
@@ -1403,7 +1403,7 @@ def create_app(
         try:
             state = await manager.cancel_final_review(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return run_state_payload(state, legacy=manager.is_legacy(state))
@@ -1417,7 +1417,7 @@ def create_app(
             owner, rid = await _own(request, run_id)
             review = await manager.get_review(owner, rid, round, kind="final")
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         if review is None:
             raise HTTPException(404, "최종 검토 결과가 없습니다.")
         return await _review_out(owner, rid, review)
@@ -1427,7 +1427,7 @@ def create_app(
         try:
             confirmation = await manager.confirm(*await _own(request, run_id), body.choices())
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except ConfirmRejected as exc:
             raise HTTPException(422, str(exc)) from exc
         return {"run_id": run_id, "confirmed": confirmation.choices}
@@ -1439,7 +1439,7 @@ def create_app(
         try:
             check = await manager.render_check(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {"run_id": run_id, **render_check_payload(check, titles=_titles(), clean=_clean)}
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/finalize")
@@ -1463,7 +1463,7 @@ def create_app(
                 version=body.version,
             )
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except (FinalizeRejected, RenderRejected) as exc:
             raise HTTPException(409, str(exc)) from exc
         except ConfirmRejected as exc:
@@ -1497,7 +1497,7 @@ def create_app(
             items = await manager.sentence_evidence(owner, rid, sid)
             live_ids = list(getattr(await manager.status(owner, rid), "live_doc_ids", []) or [])
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(404, str(exc)) from exc
         return {
@@ -1518,7 +1518,7 @@ def create_app(
             version = await manager.decide_evidence(*await _own(request, rid), body)
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return {
@@ -1539,7 +1539,7 @@ def create_app(
                 request, manager.rewrite_section(*await _own(request, rid), key)
             )
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except RewriteRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         except RunBusy as exc:
@@ -1562,7 +1562,7 @@ def create_app(
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except (RewriteRejected, EditRejected) as exc:
             raise HTTPException(409, str(exc)) from exc
         return {
@@ -1585,7 +1585,7 @@ def create_app(
                 manager.section_questions(*await _own(request, rid), key, refresh=refresh),
             )
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(404, str(exc)) from exc
         return {"run_id": rid, **out}
@@ -1601,7 +1601,7 @@ def create_app(
                 *await _own(request, rid), key, body.answers
             )
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(404, str(exc)) from exc
         return {"run_id": rid, "section": key, "answers": merged}
@@ -1620,7 +1620,7 @@ def create_app(
         try:
             check = await manager.submit_check(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {"run_id": rid, **submit_check_payload(check, titles=_titles(), clean=_clean)}
 
     # ── [G] 그림 ──────────────────────────────────────────
@@ -1631,7 +1631,7 @@ def create_app(
         try:
             view = await manager.get_draft(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {
             "run_id": rid,
             "version": view.version,
@@ -1658,7 +1658,7 @@ def create_app(
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         out: dict[str, Any] = {
@@ -1688,7 +1688,7 @@ def create_app(
             else:
                 figs = (await manager.get_draft(owner, rid)).figures
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         fig = next((f for f in figs if f.id == figure_id), None)
         if fig is None:
             raise HTTPException(404, "그림이 없습니다.")
@@ -1720,7 +1720,7 @@ def create_app(
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return {
@@ -1752,7 +1752,7 @@ def create_app(
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return {
@@ -1768,7 +1768,7 @@ def create_app(
         try:
             record = await manager.usage(*await _own(request, rid))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {"run_id": rid, "usage": usage_payload(record)}
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/feedback")
@@ -1778,7 +1778,7 @@ def create_app(
         try:
             record = await manager.feedback(*await _own(request, rid), body.score, body.comment)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except FeedbackRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         except ValidationError as exc:
@@ -1790,7 +1790,7 @@ def create_app(
         try:
             state = await manager.reopen(*await _own(request, run_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return run_state_payload(state, legacy=manager.is_legacy(state))

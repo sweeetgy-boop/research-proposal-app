@@ -8,3 +8,5 @@ constraints: ""
 policy_basis: ""
 beneficiaries: ""
 must_not_block: ['alio:sum-67c4e0b700003559', 'own:8dbc1ce1e7efd2e8', 'ntis:1615010993']
+# 2026-10-28 밤 정답 추가: 「영업정지역의 역사·문화자원 활용방안 연구」 — 폐역사 활용으로 실제로 겹치는 사내 과제(17건 측정에서 AI "같다")
+expected_similar: ['own:b1c5e0257d6066ae']

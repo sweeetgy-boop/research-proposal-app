@@ -64,3 +64,22 @@ Gemini 텍스트 0회. 도구: `tools/eval_figures_wide.py --real --thumb <Quick
 - 그림: `docs/history/screens/2026-10-28-figures-wide-<샘플>-figure.jpg`(Nano Banana), `…-baseline.jpg`(밑그림)
 - HWPX 쪽 미리보기(한/글 Quick Look, 첫 쪽): `…-<샘플>-hwpx-page.jpg`, 이전/이번 나란히 `…-hwpx-before-after.jpg`
 - 샘플: as_is_to_be · as_is_to_be-long · technique-swot · technique-pugh · technique-cost_benefit · technique-pestel · schedule · schedule-4to1 · roadmap
+
+## 7. 통합 담당 보완 — As-Is/To-Be 이름표 줄여 다시 그림 (2026-10-28 밤)
+
+소유자 지시: "As-Is/To-Be 칸 이름표 8.7pt 건은 이름표 글자 수를 줄여 그 그림만 다시 그려 9pt 이상으로 맞춰라. 배포 기준에서는 빼지 마라."
+
+- **측정 결함 발견**: 측정용 설정 사본(`--config-dir <임시 config>`, 운영의 `RRA_CONFIG_DIR` 측정 API 도 같다)에서는 번들 글꼴 폴더를
+  "설정 폴더의 부모/config/templates/figures/fonts" 로만 찾아 **글꼴이 없었고, 밑그림이 글자 없이 그려졌다**(경고 없음, 시스템 글꼴은
+  쓰지 않음). 그래서 밑그림 OCR 이 0줄 → 상대 어림이 안 되어 절대 어림(상자 높이 ÷ 1.2, 낮게 나온다)으로 떨어졌다. §2 의 8.7pt 와
+  "글자를 더 크게" 다시 그리기 2건은 이 결함 영향이다. 운영(저장소 config)은 해당 없음.
+  수정: `config_loader._figure_asset_dir` — 사본 안(`<사본>/templates/figures/fonts`) → 저장소 순서로 있는 곳, 글꼴이 없으면
+  `figure.fonts_missing` 경고.
+- **이름표 줄이기**: `SHORT_TAGS`(해결 방안 → 방안, 기대효과 → 효과), 줄인 이름표(두 글자)는 밑그림에서 10.9pt 굵은 글자. 그림 글자가
+  9pt 밑이면 As-Is/To-Be 는 먼저 이름표를 줄여 밑그림부터 다시 그리고(`shorten_tags`), 그래도 작으면 "글자를 더 크게". 칸 글자는 그대로.
+  줄인 이름도 정해진 이름으로 검사를 통과하고 다듬기(repair)가 되돌리지 않는다.
+- **다시 그린 결과(그림 1장, 실제 호출 1회)**: 이름표 줄인 As-Is/To-Be — 16:9, 153.8 × 86.5mm, 높이 상한 안, **가장 작은 글자 10.0pt**(OCR
+  상대 어림, 가장 작은 것은 칸 글자 "이상 구간 조기 발견·점검 차단 시간 절감"), 9pt 이상 ✓. 같은 명세의 원래 이름표판도 글꼴 수정 뒤 9.2pt.
+  → **글자 9pt 이상 9/9**.
+- 파일: `docs/history/screens/2026-10-28-figures-wide-as_is_to_be-short-tags-figure.jpg`·`…-baseline.jpg`·`…-hwpx-page.jpg`(한/글 Quick Look 첫 쪽).
+- 그림 호출: 통합 담당 카운터 `data/cache/figure_budget_integ.json` 5회(글꼴 결함 진단 3 + 원래 이름표 1 + 줄인 이름표 1), 운영 카운터 0.
