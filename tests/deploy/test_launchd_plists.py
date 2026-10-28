@@ -104,4 +104,3 @@ def test_awake_plist_keeps_caffeinate_running():
     data = load("com.rra.awake")
     assert data["ProgramArguments"] == ["/usr/bin/caffeinate", "-dimsu"]
     assert data["RunAtLoad"] is True and data["KeepAlive"] is True
-
