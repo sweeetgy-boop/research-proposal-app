@@ -7,13 +7,14 @@ own 티어 = 우리 기관(코레일) 문서이면서 부서가 설정의 own �
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from typing import get_args
 
 from pydantic import BaseModel, ConfigDict
 
 from rra.domain.models import Document, OverlapAlert, SourceType, Tier
 from rra.domain.models.gap import OwnDetail
-from rra.domain.rules.keywords import KeywordRule, enough, keyword_overlap
+from rra.domain.rules.keywords import KeywordRule, core_keyword_overlap, enough, keyword_overlap
 
 # national_rnd(NTIS 과제검색)·procurement(발주 용역 공고, P2-6)는 own 과 같은 0.80 으로 시작 —
 # 표본이 쌓이면 config/overlap.yaml 설명대로 조정 (2026-10-27, ADR 0020·0021)
@@ -116,6 +117,19 @@ def document_text(doc: Document) -> str:
     return " ".join(p for p in (doc.title, doc.abstract, doc.body) if p)
 
 
+class RerankRule(BaseModel):
+    """reranker 점수 중심 판정 (2026-10-28 레인 A). multilingual-e5 코사인은 철도 문서끼리
+    0.85~0.86 에
+    몰려 같은 과제와 무관한 과제를 가르지 못한다. reranker(cross-encoder, 0~1) 점수가 있으면 그
+    점수가 임계치 이상이어야 차단 후보가 된다 — e5 는 후보 검색에만 쓴다. 값은 골든셋 측정으로
+    정한다 (config/overlap.yaml rerank, docs/eval-2026-10-28-precheck-v2.md)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    threshold: float = 0.5
+    near_ratio: float = 0.6  # 근접(참고) 표시 하한 = threshold × near_ratio
+
+
 def judge(
     hits: list[tuple[Document, float]],
     thresholds: dict[Tier, float] | None = None,
@@ -123,17 +137,34 @@ def judge(
     own: OwnUnit | None = None,
     query: str | None = None,
     keywords: KeywordRule | None = None,
+    scores: Mapping[str, float] | None = None,
+    rerank: RerankRule | None = None,
+    core_keywords: Sequence[str] | None = None,
 ) -> list[OverlapAlert]:
     """임계치 초과 문서를 경보로. `keywords` 가 있으면 차단에는 질의 키워드가 문서에도
     `min_hits` 개 이상 등장해야 한다 (e5 유사도만으로는 무관한 한국어 문서도 임계치를 넘는다).
-    `keywords` 가 없으면 종전처럼 유사도만 본다. 결과는 차단 먼저, 그 안에서는 입력 순서."""
+    `keywords` 가 없으면 종전처럼 유사도만 본다. 결과는 차단 먼저, 그 안에서는 입력 순서.
+
+    `scores`(doc_id → reranker 점수)와 `rerank` 가 있으면 점수가 있는 문서는 reranker 점수 ≥
+    rerank.threshold 로 본다(e5 티어 임계치 대신). `core_keywords`(아이디어 핵심어)가 있으면 공유
+    키워드는 핵심어 중 문서에 있는 것만 센다."""
     th = thresholds or DEFAULT_THRESHOLDS
     alerts = []
     for doc, sim in hits:
         t = tier_of(doc, own)
-        shared = keyword_overlap(query or "", document_text(doc), keywords) if keywords else []
-        over = sim >= th[t]
-        blocking = over and (keywords is None or enough(shared, keywords))
+        text = document_text(doc)
+        if keywords is None:
+            shared: list[str] = []
+        elif core_keywords:
+            shared = core_keyword_overlap(query or "", list(core_keywords), text, keywords)
+        else:
+            shared = keyword_overlap(query or "", text, keywords)
+        score = scores.get(doc.doc_id) if scores is not None else None
+        if score is not None and rerank is not None:
+            over = score >= rerank.threshold
+        else:
+            over = sim >= th[t]
+        blocking = over and (keywords is None or enough(shared, keywords, core=bool(core_keywords)))
         status = doc.raw.get("status")
         alerts.append(
             OverlapAlert(
@@ -146,6 +177,8 @@ def judge(
                 keywords=shared,
                 status=status if isinstance(status, str) and status else None,
                 own_detail=own_detail_of(doc, own),
+                rerank_score=round(score, 4) if score is not None else None,
+                rule_blocking=blocking,
             )
         )
     # 차단 먼저, 그 안에서는 입력 순서(저장소 유사도 순 또는 reranker 순) 유지 — reranker 가 고른

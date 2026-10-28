@@ -1,1 +1,63 @@
-{"run_id":"20260101000000-00000002","usage":{"run_id":"20260101000000-00000002","step_seconds":{"retrieve":1.2,"sections":40.5,"finalize":0.3,"draft_review":12.0},"total_seconds":54.0,"checklist_coverage":null,"evidence":{"approve":1,"replace":0,"exclude":0,"total":2,"ratios":{"approve":0.5,"replace":0.0,"exclude":0.0}},"rewrites":1,"hwpx_success":true,"satisfaction":null,"updated_at":"2026-10-27T02:38:30+00:00"}}
+{
+ "run_id": "20260101000000-00000002",
+ "usage": {
+  "run_id": "20260101000000-00000002",
+  "step_seconds": {
+   "retrieve": 1.2,
+   "sections": 20.0,
+   "sections_sum": 73.0,
+   "finalize": 0.3,
+   "draft_review": 12.0
+  },
+  "total_seconds": 54.0,
+  "checklist_coverage": null,
+  "evidence": {
+   "approve": 1,
+   "replace": 0,
+   "exclude": 0,
+   "total": 2,
+   "ratios": {
+    "approve": 0.5,
+    "replace": 0.0,
+    "exclude": 0.0
+   }
+  },
+  "rewrites": 1,
+  "hwpx_success": true,
+  "satisfaction": null,
+  "updated_at": "2026-10-27T02:38:30+00:00",
+  "steps": [
+   {
+    "key": "retrieve",
+    "label": "근거 검색",
+    "seconds": 1.2,
+    "secondary": false
+   },
+   {
+    "key": "sections",
+    "label": "섹션 작성",
+    "seconds": 20.0,
+    "secondary": false
+   },
+   {
+    "key": "sections_sum",
+    "label": "섹션별 작성 시간 합계",
+    "seconds": 73.0,
+    "secondary": true
+   },
+   {
+    "key": "finalize",
+    "label": "규칙 검사·첫 버전 저장",
+    "seconds": 0.3,
+    "secondary": false
+   },
+   {
+    "key": "draft_review",
+    "label": "Argon 1차 검토",
+    "seconds": 12.0,
+    "secondary": false
+   }
+  ],
+  "total_label": "전체 경과(사람 작업 포함)"
+ }
+}

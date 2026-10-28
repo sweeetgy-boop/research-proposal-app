@@ -4,7 +4,8 @@
 - required_sections: 필수 섹션이 모두 채워졌는가 (lint missing 오류)
 - failed_sections: 로컬 작성이 실패해 빈칸인 섹션 (ADR 0027, "다시 생성" 으로 채운다)
 - unresolved_alerts: 미해결 알림 수 (코드별 건수)
-- evidence_approval: 근거 승인 비율 (U1 판단, 대상 근거 수 대비 approve)
+- evidence_approval: 근거 확인 — "확인 필요"는 Argon 판정 불일치·부분 지지 문장과 이미지 판독 근거가
+  붙은 문장 중 아직 판단하지 않은 것만 센다 (항목 16). 나머지는 [근거 일괄 승인] 대상(bulk)
 - open_memos: 남은 Argon 메모 (open annotations)
 - stale_edits: 최종 검토 이후 수정 건수
 - choices_confirmed: 선택형 확정 여부 (과제유형·활용계획·전략)
@@ -35,25 +36,9 @@ from rra.domain.rules.policy_cards import (
     POLICY_BASIS_NEEDED_LABEL,
     POLICY_SECTION,
 )
+from rra.domain.rules.problem_labels import problem_label, severity_label, status_label
 
 STRATEGY_KEY = "strategy_alignment"
-# 알림 코드 → 화면 문구 (내부 코드를 그대로 보이지 않는다). 모르는 코드는 "기타 알림"
-CODE_LABELS: dict[str, str] = {
-    "missing": "필수 섹션 비어 있음",
-    "too_long": "분량 초과",
-    "no_evidence": "근거 없음",
-    "evidence_forbidden": "입력만 근거로 써야 함",
-    "unsupported_number": "입력·근거에 없는 수치",
-    "input_missing": "근거 입력 없음",
-    POLICY_BASIS_NEEDED: POLICY_BASIS_NEEDED_LABEL,
-    "catalog_empty": "선택지 목록 비어 있음",
-    "no_choice": "선택지 직접 선택",
-    "no_relevant_evidence": "관련 근거 없음",
-    "foreign_script": "외국 문자 혼입",
-    "long_sentence": "긴 문장",
-    "mixed_style": "문체 혼용",
-    "period_mismatch": "연차 불일치",
-}
 
 
 @dataclass(frozen=True)
@@ -93,7 +78,12 @@ def submit_check(
     strategy_options: int = 0,
     figures: Sequence[Figure] = (),
     figure_comments: int = 0,
+    evidence_attention: Mapping[str, Any] | None = None,
+    proposed: Mapping[str, list[str]] | None = None,
+    choice_options: Mapping[str, Mapping[str, str]] | None = None,
 ) -> SubmitCheck:
+    """evidence_attention: domain/rules/evidence.evidence_attention 결과 (확인 필요 문장·
+    일괄 승인 수). proposed·choice_options: 선택형 제안값·선택지 이름 — [제안값 그대로 확정] 용."""
     items: list[CheckItem] = []
     sections = {s.key: s for s in (version.sections if version else [])}
 
@@ -135,9 +125,12 @@ def submit_check(
     )
 
     by_code: dict[str, int] = {}
+    severity: dict[str, str] = {}
     first_target: str | None = None
     for p in problems:
         by_code[p["code"]] = by_code.get(p["code"], 0) + 1
+        if severity.get(p["code"]) != "error":
+            severity[p["code"]] = p.get("severity", "error")
         if first_target is None:
             idx = p.get("sentence")
             first_target = (
@@ -151,29 +144,65 @@ def submit_check(
             "unresolved_alerts",
             "미해결 알림",
             total == 0,
-            ", ".join(
-                f"{CODE_LABELS.get(c, '기타 알림')} {n}건" for c, n in sorted(by_code.items())
-            )
+            ", ".join(f"{problem_label(c)} {n}건" for c, n in sorted(by_code.items()))
             if total
             else "없음",
             total,
             first_target,
-            {"by_code": by_code},
+            {
+                "by_code": by_code,
+                # 화면은 코드 대신 이 설명을 보인다 (domain/rules/problem_labels.py 한 곳)
+                "by_label": [
+                    {
+                        "code": c,
+                        "label": problem_label(c),
+                        "count": n,
+                        "severity": severity.get(c, "error"),
+                        "severity_label": severity_label(severity.get(c)),
+                    }
+                    for c, n in sorted(by_code.items(), key=lambda kv: (-kv[1], kv[0]))
+                ],
+            },
         )
     )
 
     ev_total = int(evidence_counts.get("total", 0))
     approved = int(evidence_counts.get("approve", 0))
     rate = round(approved / ev_total, 3) if ev_total else None
+    att = dict(evidence_attention or {})
+    pending = [str(x) for x in att.get("sentences") or []]
+    bulk = int(att.get("bulk") or 0)
+    parts = [
+        f"{label} {int(att.get(key) or 0)}문장"
+        for key, label in (
+            ("mismatch", "근거 불일치"),
+            ("partial", "부분 지지"),
+            ("image", "이미지 판독 근거"),
+        )
+        if att.get(key)
+    ]
+    if pending:
+        detail = f"확인 필요 {len(pending)}문장 (" + ", ".join(parts) + ")"
+    elif ev_total:
+        detail = "확인이 필요한 근거 없음"
+    else:
+        detail = "판단할 근거 없음"
+    if bulk:
+        detail += f" · 나머지 근거 {bulk}건은 [근거 일괄 승인]으로 처리"
     items.append(
         CheckItem(
             "evidence_approval",
-            "근거 승인 비율",
-            ev_total == 0 or approved == ev_total,
-            f"승인 {approved}/{ev_total}" if ev_total else "판단할 근거 없음",
-            ev_total - approved if ev_total else 0,
-            "route:evidence" if ev_total and approved < ev_total else None,
-            {"rate": rate, **{k: int(v) for k, v in evidence_counts.items()}},
+            "근거 확인",
+            not pending,
+            detail,
+            len(pending),
+            f"sentence:{pending[0]}" if pending else None,
+            {
+                "rate": rate,
+                "attention": pending,
+                "bulk": bulk,
+                **{k: int(v) for k, v in evidence_counts.items()},
+            },
         )
     )
 
@@ -208,6 +237,19 @@ def submit_check(
     )
 
     unconfirmed = [k for k in rules.choices if not confirmed.get(k)]
+    options = {k: dict(v) for k, v in (choice_options or {}).items()}
+    choice_rows = [
+        {
+            "key": k,
+            "title": rules.titles.get(k, k),
+            "confirmed": list(confirmed.get(k) or []),
+            "proposed": [i for i in (proposed or {}).get(k, []) if i in options.get(k, {})],
+            "options": [{"id": i, "label": label} for i, label in options.get(k, {}).items()],
+            "min": max(spec.min, 1),
+            "max": spec.max,
+        }
+        for k, spec in rules.choices.items()
+    ]
     items.append(
         CheckItem(
             "choices_confirmed",
@@ -218,7 +260,7 @@ def submit_check(
             else "확정됨",
             len(unconfirmed),
             f"section:{unconfirmed[0]}" if unconfirmed else None,
-            {"unconfirmed": unconfirmed},
+            {"unconfirmed": unconfirmed, "choices": choice_rows},
         )
     )
 
@@ -337,7 +379,9 @@ def submit_check(
             "review_state",
             "검토 상태",
             can,
-            "마무리 가능" if can else f"{state.status} — 최종 검토 완료(또는 건너뜀) 뒤 마무리",
+            "마무리 가능"
+            if can
+            else f"{status_label(state.status)} — 최종 검토 완료(또는 생략) 뒤 마무리",
             0 if can else 1,
             None if can else "route:final-review",
             {

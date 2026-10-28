@@ -1,4 +1,5 @@
 import type { FallbackSection, SectionWriter } from "@/api/types";
+import { reasonLabel } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
 import { localWriterNote } from "@/lib/writer";
 
@@ -19,7 +20,7 @@ export function WriterBadges({ local, writer, fallback }: { local?: boolean; wri
         </>
       )}
       {fallback && (
-        <Badge variant="secondary" title={`로컬 모델 실패(${fallback.reason}) 뒤 ${fallback.provider}/${fallback.model} 이 작성`}>
+        <Badge variant="secondary" title={`로컬 모델 실패(${reasonLabel(fallback.reason)}) 뒤 ${fallback.provider}/${fallback.model} 이 작성`}>
           대체 작성
         </Badge>
       )}

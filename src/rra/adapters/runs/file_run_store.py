@@ -103,6 +103,9 @@ class FileRunStore:
             read_json(self._run_dir(user, run_id) / "request.json")
         )
 
+    def save_request(self, user: str, run_id: str, req: ProposalRequest) -> None:
+        write_json(self._run_dir(user, run_id) / "request.json", req.model_dump(mode="json"))
+
     # ── 체크포인트 ───────────────────────────────────────
     def save_snapshot(self, user: str, run_id: str, snapshot: RetrievalSnapshot) -> None:
         write_json(self._run_dir(user, run_id) / "context.json", snapshot.model_dump(mode="json"))
@@ -214,6 +217,16 @@ class FileRunStore:
     def load_recommendations(self, user: str, run_id: str) -> dict[str, Any] | None:
         path = self._run_dir(user, run_id) / "recommendations.json"
         return read_json(path) if path.is_file() else None
+
+    def save_idea_versions(self, user: str, run_id: str, data: list[dict[str, Any]]) -> None:
+        write_json(self._run_dir(user, run_id) / "idea_versions.json", {"versions": list(data)})
+
+    def load_idea_versions(self, user: str, run_id: str) -> list[dict[str, Any]] | None:
+        path = self._run_dir(user, run_id) / "idea_versions.json"
+        if not path.is_file():
+            return None
+        data = read_json(path)
+        return list(data.get("versions") or []) if isinstance(data, dict) else None
 
     # ── U3 다시 쓰기 후보·보완 메모 / U8 usage ─────────────────
     def _rewrite_path(self, user: str, run_id: str, key: str) -> Path:

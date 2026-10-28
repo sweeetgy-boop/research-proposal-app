@@ -35,3 +35,9 @@ class ComparisonTable(BaseModel):
     )
     proposal: ComparisonColumn
     projects: list[ComparisonColumn] = Field(default_factory=list)
+    # 2026-10-28 레인 A: [유사함] 행이 없으면 projects 가 비고 안내 문구가 온다
+    empty_reason: str | None = None
+    proposal_source: str = "input"  # input(제안 입력) | draft(초안 섹션)
+    # 기존 과제 칸 출처: ai(Argon·로컬이 원문에서 뽑음) | rule(머리말 규칙) — 화면 안내용
+    extraction: str = "rule"
+    extraction_by: str | None = None  # argon | local

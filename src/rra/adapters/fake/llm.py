@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 
+from rra.adapters.fake.precheck import matches as precheck_answer
+
 _SECTION = re.compile(r"\[섹션: ([a-z_]+)\]")
 _SENT_ID = re.compile(r'"sentence_id": "(s:[a-z_]+:\d+)"')
 _EVIDENCE = re.compile(r'<doc id="([^"<>]+)"')
@@ -281,6 +283,9 @@ class ScriptedComposeLLM:
         sq = _SECTION_Q_HEAD.match(prompt)
         if sq:
             return _section_questions_answer(sq.group(1))
+        found = precheck_answer(prompt)  # ② 같음 판정·원문 추출·다듬기·과제안·활용 제안 (레인 A)
+        if found is not None:
+            return found
         if prompt.startswith(_STRUCTURE_HEAD):
             return _structure_answer(prompt)
         if _BRIEF_HEAD in prompt and "summaries" in prompt:

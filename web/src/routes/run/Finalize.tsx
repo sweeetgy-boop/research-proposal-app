@@ -1,4 +1,5 @@
 import * as React from "react";
+import { problemLabel, severityLabel } from "@/lib/labels";
 import { Link } from "react-router";
 import { Download, FileCheck2, ImageIcon, RotateCcw } from "lucide-react";
 import { useRunContext } from "./useRunContext";
@@ -17,17 +18,7 @@ import { ProblemBanner } from "@/components/ProblemBanner";
 import { UntrustedText } from "@/components/UntrustedText";
 import { useToast } from "@/components/ui/toast";
 import { sectionTitle } from "@/lib/sections";
-
-function canFinalize(run: ReturnType<typeof useRunContext>["run"]): { ok: boolean; reason: string | null } {
-  const f = run.flow;
-  if (run.legacy) return { ok: false, reason: "옛 run 은 마무리할 수 없습니다." };
-  if (f.has_working) return { ok: false, reason: "저장하지 않은 임시 편집이 있습니다. 직접 수정에서 저장하거나 버리십시오." };
-  if (run.status === "final_reviewed" || run.status === "finalized") return { ok: true, reason: null };
-  if ((run.status === "drafted" || run.status === "editing") && (f.draft_review_skipped === "no_review_llm" || f.final_reviews > 0))
-    return { ok: true, reason: null };
-  if (run.status === "drafted" || run.status === "editing") return { ok: false, reason: "최종 검토를 한 번 받은 뒤에 마무리할 수 있습니다 (검토 모델 키가 없으면 바로 가능)." };
-  return { ok: false, reason: "생성·검토가 끝난 뒤에 마무리할 수 있습니다." };
-}
+import { canFinalize } from "@/lib/runSteps";
 
 export default function Finalize() {
   const { run, refetch } = useRunContext();
@@ -305,7 +296,8 @@ export default function Finalize() {
                 <ul className="space-y-1">
                   {check.data.unresolved.map((p, i) => (
                     <li key={`u${i}`} className="flex flex-wrap gap-1">
-                      <Badge variant={p.severity === "error" ? "destructive" : "warning"}>{p.severity}</Badge>
+                      <Badge variant={p.severity === "error" ? "destructive" : "warning"}>{severityLabel(p)}</Badge>
+                      <span className="font-medium">{problemLabel(p)}</span>
                       <span className="text-muted-foreground">{sectionTitle(p.section)}{p.sentence !== null ? ` 문장 ${p.sentence + 1}` : ""}:</span>
                       <UntrustedText text={p.message} />
                     </li>

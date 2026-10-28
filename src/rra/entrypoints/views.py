@@ -17,6 +17,21 @@ from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.draft_failures import reason_label
 from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
+from rra.domain.rules.precheck_view import (
+    JUDGED_BY_LABELS,
+    differentiation_skip_label,
+    extraction_label,
+    judgment_message,
+    recommendation_skip_label,
+)
+from rra.domain.rules.problem_labels import (
+    problem_label,
+    review_skip_label,
+    severity_label,
+    step_label,
+)
+from rra.domain.rules.recommendation import discard_label
+from rra.domain.rules.same_judgment import VERDICT_LABELS
 from rra.domain.rules.writer import local_check_view, local_sections, writers_view
 from rra.entrypoints.views_editai import rewrite_reason_label
 
@@ -100,7 +115,9 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
             {
                 "section": p["section"],
                 "code": p["code"],
+                "label": problem_label(p["code"]),  # 화면은 코드 대신 이것 (항목 16)
                 "severity": p.get("severity", "error"),
+                "severity_label": severity_label(p.get("severity", "error")),
                 "message": clean(p["message"]),
                 "sentence": p.get("sentence"),
             }
@@ -368,6 +385,9 @@ def flow_summary(state: Any, has_working: bool = False) -> dict[str, Any]:
     return {
         "status": state.status,
         "draft_review_skipped": getattr(state, "draft_review_skipped", None),
+        "draft_review_skipped_label": review_skip_label(
+            getattr(state, "draft_review_skipped", None)
+        ),
         "final_reviews": getattr(state, "final_reviews", 0),
         "final_reviewed_version": getattr(state, "final_reviewed_version", None),
         "stale_edits": getattr(state, "stale_edits", 0),
@@ -586,7 +606,9 @@ def render_check_payload(
             {
                 "section": p.section,
                 "code": p.code,
+                "label": problem_label(p.code),
                 "severity": p.severity,
+                "severity_label": severity_label(p.severity),
                 "message": clean(p.message),
                 "sentence": p.sentence,
             }
@@ -698,9 +720,36 @@ def alerts_payload(
                 "own_detail": a.own_detail,
                 "tier_label": tier_label(a.tier, a.own_detail),
                 "live": a.doc_id in live,
+                # ② 판정 정확도 (레인 A) — reranker 점수·AI 같음 판정·같은 제목 묶음·제안자 선택
+                "rerank_score": getattr(a, "rerank_score", None),
+                "rule_blocking": getattr(a, "rule_blocking", None),
+                "judgment": getattr(a, "judgment", None),
+                "judgment_label": VERDICT_LABELS.get(getattr(a, "judgment", None) or "", None),
+                "judgment_reason": clean(getattr(a, "judgment_reason", "") or ""),
+                "judged_by": getattr(a, "judged_by", None),
+                "judged_by_label": JUDGED_BY_LABELS.get(getattr(a, "judged_by", None) or "", None),
+                "merged_ids": list(getattr(a, "merged_ids", []) or []),
+                "choice": getattr(a, "choice", None),
             }
             for a in alerts
         ],
+    }
+
+
+def judgment_payload(info: Any) -> dict[str, Any]:
+    """② AI 같음 판정 요약 → 화면 안내. 실패면 "AI 판정 실패 — 규칙 기준" + retry_available."""
+    status = getattr(info, "status", "off")
+    judged_by = getattr(info, "judged_by", None)
+    return {
+        "status": status,
+        "judged_by": judged_by,
+        "judged_by_label": JUDGED_BY_LABELS.get(judged_by or "", None),
+        "message": judgment_message(status, judged_by),
+        "retry_available": status == "rule_fallback",
+        "candidates": getattr(info, "candidates", 0),
+        "provider": getattr(info, "provider", None),
+        "model": getattr(info, "model", None),
+        "calls": getattr(info, "calls", 0),
     }
 
 
@@ -786,6 +835,7 @@ def differentiation_payload(
     """DifferentiationProposal → dict (CLI·MCP·REST 공용). 항목 본문은 LLM 출력(비신뢰) → clean."""
     return {
         "skipped_reason": proposal.skipped_reason,
+        "skipped_label": differentiation_skip_label(proposal.skipped_reason),
         "provider": proposal.provider,
         "model": proposal.model,
         "fallback_local": proposal.fallback_local,
@@ -816,6 +866,9 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
     """RecommendationResult → dict (CLI·MCP·REST 공용). 본문은 LLM 출력(비신뢰) → clean."""
     return {
         "skipped_reason": result.skipped_reason,
+        "skipped_label": recommendation_skip_label(result.skipped_reason),
+        "regenerated": bool(getattr(result, "regenerated", False)),
+        "similar_doc_ids": list(getattr(result, "similar_doc_ids", []) or []),
         "no_recommendation_reason": (
             clean(result.no_recommendation_reason) if result.no_recommendation_reason else None
         ),
@@ -834,6 +887,9 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
                 "title": clean(r.title),
                 "summary": clean(r.summary),
                 "differentiation": clean(r.differentiation),
+                "goal": clean(getattr(r, "goal", "") or ""),
+                "method": clean(getattr(r, "method", "") or ""),
+                "scope": clean(getattr(r, "scope", "") or ""),
                 "reasons": [clean(x) for x in r.reasons],
                 "build_on": clean(r.build_on),
                 "risks": clean(r.risks),
@@ -843,7 +899,13 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
             }
             for i, r in enumerate(result.recommendations)
         ],
-        "discarded": [{k: clean(str(v)) for k, v in d.items()} for d in result.discarded],
+        "discarded": [
+            {
+                **{k: clean(str(v)) for k, v in d.items()},
+                "reason_label": discard_label(str(d.get("reason", ""))),
+            }
+            for d in result.discarded
+        ],
     }
 
 
@@ -851,7 +913,7 @@ def recommendation_preview_payload(
     before: Any, after: Any, preview: Any, *, clean: Callable[[str], str] = _same
 ) -> dict[str, Any]:
     """추천 적용 미리보기 — 바뀐 칸과 전/후 값. 사용자가 고쳐 확정한 입력으로 초안을 만든다."""
-    fields = ("title_hint", "goal", "differentiation")
+    fields = ("title_hint", "goal", "method", "scope", "differentiation")
     return {
         "index": preview.index,
         "changed": list(preview.changed),
@@ -952,6 +1014,16 @@ def submit_check_payload(
 ) -> dict[str, Any]:
     """SubmitCheck → dict. 항목마다 target(section:<key> | sentence:<sid> | route:<hint>)."""
     names = titles or {}
+    slot_names = {**SLOT_LABELS, **names}
+
+    def detail(i: Any) -> str:
+        if i.key == "field_limits" and i.extra.get("overflow"):
+            return ", ".join(
+                f"{slot_names.get(r['slot'], r['slot'])} {r['chars']}자 > {r['limit']}자"
+                for r in i.extra["overflow"]
+            )
+        return i.detail
+
     return {
         "ok": check.ok,
         "failing": len(check.failing),
@@ -960,7 +1032,7 @@ def submit_check_payload(
                 "key": i.key,
                 "label": i.label,
                 "ok": i.ok,
-                "detail": clean(i.detail),
+                "detail": clean(detail(i)),
                 "count": i.count,
                 "target": i.target,
                 "target_label": (
@@ -979,10 +1051,22 @@ def usage_payload(record: Any) -> dict[str, Any] | None:
     """UsageRecord → dict. 개인정보·본문 없음 (한 줄 소감은 길이 제한된 제안자 입력)."""
     if record is None:
         return None
+    steps = dict(record.step_seconds)
     return {
         "run_id": record.run_id,
-        "step_seconds": dict(record.step_seconds),
+        "step_seconds": steps,
+        # 항목 16 — 화면용 줄 목록. 섹션 작성은 실제 경과(벽시계), 합계는 보조 줄
+        "steps": [
+            {
+                "key": k,
+                "label": step_label(k),
+                "seconds": v,
+                "secondary": k == "sections_sum",
+            }
+            for k, v in steps.items()
+        ],
         "total_seconds": record.total_seconds,
+        "total_label": "전체 경과(사람 작업 포함)",
         "checklist_coverage": record.checklist_coverage,
         "evidence": {**record.evidence.model_dump(), "ratios": record.evidence.ratios()},
         "rewrites": record.rewrites,
@@ -1039,10 +1123,29 @@ def comparison_payload(table: Any, *, clean: Callable[[str], str] = _same) -> di
             "cells": {k: clean(v) for k, v in c.cells.items()},
         }
 
+    extraction = getattr(table, "extraction", "rule")
+    by = getattr(table, "extraction_by", None)
     return {
         "aspects": list(table.aspects),
         "proposal": col(table.proposal),
         "projects": [col(c) for c in table.projects],
+        "empty_reason": getattr(table, "empty_reason", None),
+        "proposal_source": getattr(table, "proposal_source", "input"),
+        "extraction": extraction,
+        "extraction_by": by,
+        "extraction_label": extraction_label(extraction, by),
+    }
+
+
+def polish_payload(result: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """② [AI로 다듬기] 결과 — 다듬은 글(LLM 출력, 비신뢰 → clean) 또는 원래 글 + 사유."""
+    return {
+        "field": result.field,
+        "text": clean(result.text),
+        "changed": result.changed,
+        "by": result.by,
+        "by_label": JUDGED_BY_LABELS.get(result.by or "", None),
+        "reason": result.reason,
     }
 
 
@@ -1081,11 +1184,14 @@ def brief_payload(brief: Any, *, clean: Callable[[str], str] = _same) -> dict[st
     }
 
 
-def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
-    """RunState → 상태 조회 응답 (초안 본문 없음)."""
+def run_state_payload(
+    state: Any, *, legacy: bool = False, title: str | None = None
+) -> dict[str, Any]:
+    """RunState → 상태 조회 응답 (초안 본문 없음). title: 연구과제명(항목 2, 비신뢰 문장)."""
     done, total = state.progress
     return {
         "run_id": state.run_id,
+        "title": title,
         "status": state.status,
         "progress": [done, total],
         "template": state.template,
@@ -1537,3 +1643,43 @@ def _eval_idea_integrated_lines(results: list[dict[str, Any]]) -> list[str]:
             lines.append("| " + " | ".join(cells) + " |")
     lines.append("")
     return lines
+
+
+_REGEN_REASON = {
+    "fence": "응답 형식 오류",
+    "json": "응답 형식 오류",
+    "schema": "응답 형식 오류",
+    "choices_only": "본문 없이 선택값만 옴",
+    "empty": "빈 응답",
+    "dropped": "근거 검증에서 모두 빠짐",
+}
+
+
+def regenerate_payload(result: Any, *, titles: dict[str, str] | None = None) -> dict[str, Any]:
+    """항목 17 다시 쓰기 결과 (본문 없음 — 새 버전은 version_payload 로)."""
+    from rra.domain.rules.request_change import change_summary
+
+    names = titles or {}
+    return {
+        "mode": result.mode,
+        "fields": change_summary(result.fields),
+        "regenerated": [{"key": k, "title": names.get(k, k)} for k in result.regenerated],
+        "failed": [
+            {
+                "key": f["key"],
+                "title": names.get(f["key"], f["key"]),
+                "reason_label": _REGEN_REASON.get(f.get("reason", ""), "모델 호출 실패"),
+            }
+            for f in result.failed
+        ],
+        "kept": [{"key": k, "title": names.get(k, k)} for k in result.kept],
+        "saved_only": bool(result.saved_only),
+    }
+
+
+def content_disposition(filename: str, fallback: str) -> str:
+    """내려받기 헤더 — RFC 6266/5987: ASCII 대체 이름 + UTF-8 퍼센트 인코딩 이름(한글 제목)."""
+    from urllib.parse import quote
+
+    ascii_name = "".join(ch for ch in fallback if 32 < ord(ch) < 127 and ch not in '"\\;')
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"

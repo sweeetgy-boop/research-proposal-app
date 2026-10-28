@@ -22,7 +22,12 @@ class ProjectRecommendation(BaseModel):
     summary: str = Field(min_length=1, max_length=MAX_REC_CHARS)  # 한두 문장
     # 기존 과제 대비 핵심 차별점
     differentiation: str = Field(min_length=1, max_length=MAX_REC_CHARS)
-    reasons: list[str] = Field(min_length=1, max_length=MAX_REASONS)  # 어떤 과제와 무엇이 다른지
+    # 어떤 과제와 무엇이 다른지. 근거 검사에 걸린 이유만 빠질 수 있어 0개도 허용 (2026-10-28)
+    reasons: list[str] = Field(default_factory=list, max_length=MAX_REASONS)
+    # ② 차별화 과제안 카드 (2026-10-28 레인 A): 연구목표·연구방법·적용범위. 옛 추천(없음)은 빈 값
+    goal: str = Field(default="", max_length=MAX_REC_CHARS)
+    method: str = Field(default="", max_length=MAX_REC_CHARS)
+    scope: str = Field(default="", max_length=MAX_REC_CHARS)
     build_on: str = Field(default="", max_length=MAX_REC_CHARS)  # 이어받을 기존 성과
     risks: str = Field(default="", max_length=MAX_REC_CHARS)  # 예상 위험·확인할 점
     compared_with: list[str] = Field(default_factory=list)  # 비교한 기존 과제 doc_id (precheck 안)
@@ -52,6 +57,8 @@ class RecommendationResult(BaseModel):
     excluded_doc_ids: list[str] = Field(default_factory=list)  # include_internal=false 로 뺀 것
     calls: int = 0  # 외부 LLM 호출 수 (자기 중복 검사는 로컬이라 세지 않는다)
     skipped_reason: str | None = None  # no_alerts_or_evidence | no_documents | parse_failed
+    regenerated: bool = False  # 검증 뒤 2건 미만이라 제외 사유를 주고 한 번 다시 받았다
+    similar_doc_ids: list[str] = Field(default_factory=list)  # [유사함] 으로 고른 과제 (입력 범위)
 
     def transfer(self) -> dict[str, object]:
         """manifest 에 남기는 전송 기록 (본문 없음)."""
@@ -66,6 +73,7 @@ class RecommendationResult(BaseModel):
             "recommendations": len(self.recommendations),
             "discarded": len(self.discarded),
             "skipped_reason": self.skipped_reason,
+            "regenerated": self.regenerated,
         }
 
 

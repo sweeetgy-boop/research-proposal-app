@@ -345,7 +345,10 @@ async def test_full_flow_precheck_runs_sse_review_edits_finalize(client):
         headers=AUTH,
     )
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/hwp+zip")
-    assert r.headers["content-disposition"] == f'attachment; filename="proposal-{run_id}-v4.hwpx"'
+    # 항목 2 — ASCII 대체 이름 + RFC 5987 한글 제목 "<과제 제목>_v<번호>.hwpx"
+    disposition = r.headers["content-disposition"]
+    assert disposition.startswith(f'attachment; filename="proposal-{run_id}-v4.hwpx"; ')
+    assert "filename*=UTF-8''" in disposition and disposition.endswith("_v4.hwpx")
     assert r.headers["x-rra-status"] == "finalized" and r.headers["x-rra-version"] == "4"
     assert _check_header(r)["count"] >= 1
     rendered = json.loads(r.content)
@@ -606,7 +609,7 @@ class _FakeDifferentiate:
     def __init__(self):
         self.calls = []
 
-    async def __call__(self, req, alerts):
+    async def __call__(self, req, alerts, **kw):
         from rra.domain.models import DifferentiationItem, DifferentiationProposal
 
         self.calls.append((req, alerts))
@@ -656,15 +659,20 @@ async def test_differentiate_route_is_503_without_llm(client):
 
 
 async def test_precheck_route_attaches_differentiation_when_blocking_and_run_records_transfer():
+    """2026-10-28 레인 A: 활용·차별화 제안은 [유사함] 으로 고른 과제가 있을 때만 붙는다."""
     fake = _FakeDifferentiate()
     app, assistant = build(make_assistant(blocking=True), differentiate=fake)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8000"
     ) as c:
         r = await c.post("/v1/precheck", json=SLOTS, headers=AUTH)
+        assert r.json()["blocking"] and "differentiation" not in r.json()  # 아직 고르지 않음
+        chosen = {**SLOTS, "similar_choices": [{"doc_id": "alio:1", "choice": "similar"}]}
+        r = await c.post("/v1/precheck", json=chosen, headers=AUTH)
         body = r.json()
         assert body["blocking"] and body["differentiation"]["items"][0]["doc_id"] == "alio:1"
         assert body["alerts"][0]["tier_label"] == "사내(철도연구원)"
+        assert body["alerts"][0]["choice"] == "similar" and body["similar_count"] == 1
         transfer = body["differentiation"]["transfer"]
         payload = {
             **SLOTS,

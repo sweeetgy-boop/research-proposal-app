@@ -172,6 +172,9 @@ class RunState(BaseModel):
     # 본문 없음). None 이면 꺼짐·예전 run. live_doc_ids 는 이 run 의 실시간 결과 doc_id (배지용)
     live_search: dict[str, Any] | None = None
     live_doc_ids: list[str] = Field(default_factory=list)
+    # 항목 12 HWPX 서식 점검 — 마지막 마무리 때 고친 단락 수(종류별)·남은 불일치·단계별 단락 수.
+    # 건수만 (본문 없음). manifest 에 그대로 간다
+    hwpx_format: dict[str, Any] | None = None
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

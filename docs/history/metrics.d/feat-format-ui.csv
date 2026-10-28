@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,e45f018,[D] HWPX 서식·화면 편의,2109,1631,8,10347,12008,19560,8475,303,,,,,,,,,,HWPX 서식 골든 10/10·시범 19/19 남은 불일치 0; web vitest 106·e2e 18(+3 skip)

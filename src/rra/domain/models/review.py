@@ -48,14 +48,16 @@ CRITERION_ISSUE: dict[str, str] = {
 }
 MAX_REASON_CHARS = 300
 # 버전을 만든 경로: local = 로컬 생성(v1), argon = Argon 1차 검토 자동 반영(v2 "Argon 보완"),
-# edit = 제안자 편집(저장), final_review = 최종 검토 반영, revert = 복원
-VersionOrigin = Literal["local", "argon", "edit", "final_review", "revert"]
+# edit = 제안자 편집(저장), final_review = 최종 검토 반영, revert = 복원,
+# regenerate = ①·② 입력을 바꿔 관련 섹션(또는 전체)을 다시 쓴 버전 (항목 17)
+VersionOrigin = Literal["local", "argon", "edit", "final_review", "revert", "regenerate"]
 ORIGIN_LABEL: dict[str, str] = {
     "local": "로컬 생성",
     "argon": "Argon 보완",
     "edit": "제안자 편집",
     "final_review": "최종 검토 반영",
     "revert": "복원",
+    "regenerate": "입력 변경 다시 쓰기",
 }
 ReviewStatus = Literal["done", "skipped", "error"]
 ReviewKind = Literal["draft", "final"]  # 1차(초안 생성의 일부, 자동) / 최종(요청 시 1회)

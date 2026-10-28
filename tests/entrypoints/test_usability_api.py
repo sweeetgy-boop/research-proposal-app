@@ -27,7 +27,7 @@ class FakeStructure:
 
 
 class FakeCompare:
-    async def __call__(self, req, alerts):
+    async def __call__(self, req, alerts, **kw):
         return ComparisonTable(
             proposal=ComparisonColumn(title=req.title_hint, cells={"objective": req.goal}),
             projects=[

@@ -145,6 +145,9 @@ class KeywordRule(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     min_hits: int = Field(default=2, ge=1)
+    # 아이디어 핵심어(Argon 키워드)로 셀 때의 하한 — 핵심어는 질의 전체 토큰보다 적고 구체적이라 1
+    # (2026-10-28 골든셋: 2 면 01 궤도 틀림 정답이 "궤도틀림" 붙여 쓰기로 1개만 겹쳐 놓침)
+    core_min_hits: int = Field(default=1, ge=1)
     generic_terms: frozenset[str] = DEFAULT_GENERIC_TERMS
 
     def with_extra_generic(self, terms: list[str] | tuple[str, ...]) -> KeywordRule:
@@ -190,5 +193,30 @@ def keyword_overlap(query: str, doc_text: str, rule: KeywordRule) -> list[str]:
     return [kw for kw in query_keywords(query, rule) if any(d.startswith(kw) for d in doc_tokens)]
 
 
-def enough(hits: list[str], rule: KeywordRule) -> bool:
-    return len(hits) >= rule.min_hits
+def enough(hits: list[str], rule: KeywordRule, *, core: bool = False) -> bool:
+    return len(hits) >= (rule.core_min_hits if core else rule.min_hits)
+
+
+def core_terms(core_keywords: list[str] | tuple[str, ...], rule: KeywordRule) -> list[str]:
+    """아이디어 핵심어(Argon 키워드 구 → 없으면 규칙 키워드)를 어간 토큰으로. 일반어·숫자·한 글자
+    제외, 순서 유지·중복 제거. "폐철도역사 유휴 공간" → [폐철도역사, 유휴, 공간]."""
+    out: list[str] = []
+    for phrase in core_keywords:
+        for t in query_keywords(phrase or "", rule):
+            if t not in out:
+                out.append(t)
+    return out
+
+
+def core_keyword_overlap(
+    query: str, core_keywords: list[str] | tuple[str, ...], doc_text: str, rule: KeywordRule
+) -> list[str]:
+    """공유 키워드 = 아이디어 핵심어 중 문서에도 등장하는 것 (2026-10-28 레인 A).
+
+    시범 운영에서 "부족·정책·상황·인식·필요한" 같은 서술어·일반 명사가 겹쳐 무관한 과제가 차단됐다.
+    질의 전체 토큰 대신 핵심어만 센다. 핵심어가 없으면 종전처럼 질의 키워드 전체로 센다."""
+    terms = core_terms(core_keywords, rule)
+    if not terms:
+        return keyword_overlap(query, doc_text, rule)
+    doc_tokens = tokens(doc_text)
+    return [kw for kw in terms if any(d.startswith(kw) for d in doc_tokens)]

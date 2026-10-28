@@ -13,6 +13,10 @@ import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { useToast } from "@/components/ui/toast";
 import { stepLabel } from "@/lib/sections";
+import { stepKeyLabel } from "@/lib/labels";
+import { useBulkApprove } from "@/api/hooks-format";
+import { ChoiceConfirm } from "@/features/submit/ChoiceConfirm";
+import type { CheckChoiceRow, SubmitCheckItem } from "@/api/types";
 
 function seconds(n: number | undefined): string {
   if (n === undefined || n === null) return "—";
@@ -20,18 +24,59 @@ function seconds(n: number | undefined): string {
   return `${Math.floor(n / 60)}분 ${Math.round(n % 60)}초`;
 }
 
+/** 사용 기록 줄 순서 — 실제 진행 순서 (응답은 섹션 작성이 맨 뒤에 온다) */
+const STEP_ORDER = ["live_search", "retrieve", "clarify", "outline", "sections", "finalize", "figures", "draft_review"];
+const stepOrder = (key: string) => {
+  const i = STEP_ORDER.indexOf(key);
+  return i < 0 ? STEP_ORDER.length : i;
+};
+
 export default function SubmitCheck() {
-  const { run } = useRunContext();
+  const { run, refetch } = useRunContext();
   const id = run.run_id;
   const navigate = useNavigate();
   const { toast } = useToast();
   const check = useSubmitCheck(id);
   const usage = useUsage(id);
   const feedback = useFeedback(id);
+  const bulk = useBulkApprove(id);
   const [score, setScore] = React.useState<number | null>(null);
   const [comment, setComment] = React.useState("");
   const u = usage.data?.usage ?? null;
+  const sum = u?.step_seconds?.sections_sum;
   const finalized = run.status === "finalized";
+
+  const approveAll = async (n: number) => {
+    try {
+      await bulk.mutateAsync(run.draft_version || null);
+      toast(`근거 ${n}건을 승인했습니다.`, "success");
+      refetch();
+      void check.refetch();
+    } catch {
+      /* 배너 */
+    }
+  };
+
+  const extra = (it: SubmitCheckItem): React.ReactNode => {
+    if (it.key === "evidence_approval") {
+      const n = typeof it.bulk === "number" ? it.bulk : 0;
+      return (
+        <div className="mt-2 space-y-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => void approveAll(n)} disabled={n === 0 || bulk.isPending}>
+            {bulk.isPending ? "승인 중…" : `근거 일괄 승인 (${n}건)`}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            검토 판정이 불일치·부분 지지이거나 이미지 판독 근거가 붙은 문장만 직접 확인하고, 나머지는 한 번에 승인합니다.
+          </p>
+          <ProblemBanner error={bulk.error} />
+        </div>
+      );
+    }
+    if (it.key === "choices_confirmed" && Array.isArray(it.choices)) {
+      return <ChoiceConfirm rows={it.choices as CheckChoiceRow[]} runId={id} onDone={() => void check.refetch()} />;
+    }
+    return null;
+  };
 
   const sendFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +97,7 @@ export default function SubmitCheck() {
             <ClipboardList className="size-5" aria-hidden="true" />
             제출 전 점검
           </h2>
-          <p className="text-sm text-muted-foreground">필수 섹션·미해결 알림·근거 승인·남은 메모·최종 검토 이후 수정·선택형 확정·칸 길이·전략 목록·검토 상태를 한 장으로 봅니다. 항목을 누르면 그 자리로 갑니다. 마무리를 막지는 않습니다.</p>
+          <p className="text-sm text-muted-foreground">필수 섹션·미해결 알림·근거 확인·남은 메모·최종 검토 이후 수정·선택형 확정·칸 길이·전략 목록·검토 상태를 한 장으로 봅니다. 항목을 누르면 그 자리로 갑니다. 마무리를 막지는 않습니다.</p>
         </div>
         {check.isPending ? (
           <SkeletonBlock lines={9} />
@@ -63,7 +108,7 @@ export default function SubmitCheck() {
             <ClipboardList aria-hidden="true" />
             <div>
               <AlertTitle>제출 전 점검이 꺼져 있습니다</AlertTitle>
-              <AlertDescription>usability.yaml submit_check 를 켜면 보입니다. 최종 마무리로 바로 갈 수 있습니다.</AlertDescription>
+              <AlertDescription>관리자가 이 기능을 꺼 두었습니다. 최종 마무리로 바로 갈 수 있습니다.</AlertDescription>
             </div>
           </Alert>
         ) : check.data ? (
@@ -74,7 +119,7 @@ export default function SubmitCheck() {
                 다시 점검
               </Button>
             </p>
-            <SubmitCheckList check={check.data} runId={id} onGo={(p) => navigate(p)} />
+            <SubmitCheckList check={check.data} runId={id} onGo={(p) => navigate(p)} extra={extra} />
           </>
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
@@ -96,17 +141,25 @@ export default function SubmitCheck() {
           {usage.isPending ? (
             <SkeletonBlock lines={4} />
           ) : !u ? (
-            <p className="text-sm text-muted-foreground">기록이 없습니다 (usage_record 꺼짐 또는 아직 없음).</p>
+            <p className="text-sm text-muted-foreground">사용 기록이 아직 없거나 기록 기능이 꺼져 있습니다.</p>
           ) : (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-              <dt className="text-muted-foreground">총 시간</dt>
+            <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm [&>*]:min-w-0 [&>*]:break-words">
+              <dt className="text-muted-foreground">{u.total_label ?? "전체 경과(사람 작업 포함)"}</dt>
               <dd>{seconds(u.total_seconds)}</dd>
-              {Object.entries(u.step_seconds).map(([k, v]) => (
-                <React.Fragment key={k}>
-                  <dt className="pl-2 text-muted-foreground">· {stepLabel(k)}</dt>
-                  <dd>{seconds(v)}</dd>
-                </React.Fragment>
-              ))}
+              {(u.steps ?? Object.entries(u.step_seconds).map(([key, sec]) => ({ key, label: stepKeyLabel(key) ?? stepLabel(key), seconds: sec, secondary: key === "sections_sum" })))
+                .filter((r) => !r.secondary)
+                .sort((a, b) => stepOrder(a.key) - stepOrder(b.key))
+                .map((r) => (
+                  <React.Fragment key={r.key}>
+                    <dt className="pl-2 text-muted-foreground">· {r.label || stepKeyLabel(r.key) || stepLabel(r.key)}</dt>
+                    <dd>
+                      {seconds(r.seconds)}
+                      {r.key === "sections" && sum !== undefined && (
+                        <span className="block text-xs text-muted-foreground">(섹션별 합계 {seconds(sum)} — 4개씩 동시에 작성)</span>
+                      )}
+                    </dd>
+                  </React.Fragment>
+                ))}
               <dt className="text-muted-foreground">근거 판단</dt>
               <dd>
                 승인 {u.evidence.approve} · 교체 {u.evidence.replace} · 제외 {u.evidence.exclude} / {u.evidence.total}
@@ -116,7 +169,7 @@ export default function SubmitCheck() {
               <dd>{u.rewrites}회</dd>
               <dt className="text-muted-foreground">체크리스트 충족</dt>
               <dd>{u.checklist_coverage === null ? "—" : `${Math.round(u.checklist_coverage * 100)}%`}</dd>
-              <dt className="text-muted-foreground">HWPX</dt>
+              <dt className="text-muted-foreground">양식 파일(HWPX)</dt>
               <dd>{u.hwpx_success === null ? "아직" : u.hwpx_success ? "성공" : "실패"}</dd>
               <dt className="text-muted-foreground">만족도</dt>
               <dd>{u.satisfaction ? `${u.satisfaction.score}/5${u.satisfaction.comment ? ` — ${u.satisfaction.comment}` : ""}` : "미기록"}</dd>

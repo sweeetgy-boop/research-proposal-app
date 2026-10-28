@@ -47,7 +47,7 @@ async def client(tmp_path):
 
 async def _wait(c, run_id, want=("drafted",)):
     status = None
-    for _ in range(400):
+    for _ in range(3000):  # 병렬 실행(-n auto) 부하에서도 기다리게 (최대 ~30초)
         status = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["status"]
         if status in want:
             return status
@@ -106,7 +106,9 @@ async def test_chosen_card_becomes_policy_importance_with_verified_evidence(clie
         ],
         "sources": [*card["sources"], forged],
     }
-    r = await client.post("/v1/runs", json={**IDEA, "policy_choice": choice}, headers=AUTH)
+    r = await client.post(
+        "/v1/runs", json={**IDEA, "acknowledged": True, "policy_choice": choice}, headers=AUTH
+    )
     assert r.status_code in (200, 201, 202), r.text
     run_id = r.json()["run_id"]
     assert await _wait(client, run_id) == "drafted"
@@ -123,7 +125,9 @@ async def test_chosen_card_becomes_policy_importance_with_verified_evidence(clie
 
 async def test_no_policy_basis_leaves_notice_and_submit_check_flag(client):
     r = await client.post(
-        "/v1/runs", json={**IDEA, "policy_choice": {"mode": "none"}}, headers=AUTH
+        "/v1/runs",
+        json={**IDEA, "acknowledged": True, "policy_choice": {"mode": "none"}},
+        headers=AUTH,
     )
     run_id = r.json()["run_id"]
     assert await _wait(client, run_id) == "drafted"
@@ -179,7 +183,7 @@ async def test_polish_keeps_proposer_text_inside_quotes(client):
 async def test_rewrite_and_section_questions_use_argon_with_reasons(client):
     run_id = (await client.post("/v1/runs", json=SLOTS, headers=AUTH)).json()["run_id"]
     assert await _wait(client, run_id) == "drafted"
-    for _ in range(200):  # 자동 1차 검토(v2) 가 끝날 때까지
+    for _ in range(3000):  # 자동 1차 검토(v2) 가 끝날 때까지
         if (await client.get(f"/v1/runs/{run_id}/review", headers=AUTH)).status_code == 200:
             break
         await asyncio.sleep(0.01)
@@ -219,7 +223,7 @@ async def test_rewrite_and_section_questions_use_argon_with_reasons(client):
 async def _drafted_with_review(c, body):
     run_id = (await c.post("/v1/runs", json=body, headers=AUTH)).json()["run_id"]
     assert await _wait(c, run_id) == "drafted"
-    for _ in range(200):  # 자동 1차 검토(v2)
+    for _ in range(3000):  # 자동 1차 검토(v2)
         if (await c.get(f"/v1/runs/{run_id}/review", headers=AUTH)).status_code == 200:
             break
         await asyncio.sleep(0.01)
@@ -231,7 +235,9 @@ async def test_rewrite_regression_every_section_gets_a_candidate_or_a_reason(cli
     이제 정책 근거가 있으면 모든 섹션이 후보 ≥ 1, 앱이 쓰는 특이사항만 '해당 없음' 사유."""
     cards = (await client.post("/v1/ideas/policy-cards", json=IDEA, headers=AUTH)).json()["cards"]
     choice = {"mode": "card", "sentences": cards[0]["sentences"], "sources": cards[0]["sources"]}
-    run_id = await _drafted_with_review(client, {**IDEA, "policy_choice": choice})
+    run_id = await _drafted_with_review(
+        client, {**IDEA, "acknowledged": True, "policy_choice": choice}
+    )
     draft = (await client.get(f"/v1/runs/{run_id}/draft", headers=AUTH)).json()
     out = {}
     for sec in draft["sections"]:
