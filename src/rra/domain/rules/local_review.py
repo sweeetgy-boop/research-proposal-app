@@ -34,6 +34,11 @@ PRIORITY_SECTIONS: tuple[str, ...] = ("policy_importance", "tech_importance")
 VERDICT_LABELS: dict[str, str] = {"지지": "지지", "부분": "부분", "불일치": "불일치"}
 _DIGIT = re.compile(r"\d")
 _HANGUL = re.compile(r"[가-힣]")
+# 문장 속 번호(수치 아님) — 세부 목표 3:, 2단계, 1차년도, (1), ①
+_ENUM = re.compile(
+    r"(?:세부\s*)?(?:목표|과제|단계|항목|방안|방향|내용)\s*\d{1,2}\s*[:.)]"
+    r"|\d{1,2}\s*(?:차년도|단계|차\b)|[(（]\d{1,2}[)）]|\A\s*\d{1,2}[.)]\s"
+)
 _KEYWORDS = KeywordRule()
 # 고유명 — grounding.named_references(정책·계획·법령·기관 접미사, 따옴표 이름) + 낫표·법령
 _PROPER = re.compile(r"「|『|“|법\b|법률|시행령|규칙|공사\b|공단|위원회|연구원|부\b|청\b")
@@ -156,7 +161,8 @@ def rule_mismatch(text: str, evidence: Sequence[str], *, allowed: Sequence[str] 
     if not evidence:
         return False
     pool = [*evidence, *allowed]
-    if unsupported_numbers(text, pool) or ungrounded(text, pool):
+    body = _ENUM.sub(" ", text)  # "세부 목표 3:"·"1차년도"·"(2)" 같은 번호는 수치가 아니다
+    if unsupported_numbers(body, pool) or ungrounded(body, pool):
         return True
     # 한글 근거와 겹치는 핵심어가 하나도 없다 — 문장의 중심 주장이 근거에 없다 (영어 근거는 보지
     # 않는다)
