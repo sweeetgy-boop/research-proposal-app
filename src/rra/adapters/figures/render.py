@@ -23,12 +23,14 @@ from pydantic import BaseModel
 
 from rra.domain.models.figure import (
     KIND_LABEL,
+    AsIsToBeSpec,
     ComparisonSpec,
     ConceptSpec,
     ProcessSpec,
     RoadmapSpec,
     ScheduleSpec,
     StatChartSpec,
+    TechniqueSpec,
 )
 from rra.domain.rules.figures import NO_INFO
 
@@ -357,7 +359,7 @@ def render_svg(
     """종류별 SVG 밑그림. caption 은 그림 안에 그리지 않고 `<title>` 에만 둔다."""
     kind = str(getattr(spec, "kind", ""))
     w, h = figure_size(aspect, width_px)
-    title = caption or KIND_LABEL.get(kind, "그림")
+    title = caption or getattr(spec, "title", None) or KIND_LABEL.get(kind, "그림")
     cv = _Canvas(_Palette(palette), w, h, title)
     if isinstance(spec, ConceptSpec):
         _concept(cv, spec)
@@ -371,6 +373,10 @@ def render_svg(
         _comparison(cv, spec)
     elif isinstance(spec, RoadmapSpec):
         _roadmap(cv, spec)
+    elif isinstance(spec, AsIsToBeSpec):
+        _as_is_to_be(cv, spec)
+    elif isinstance(spec, TechniqueSpec):
+        _technique(cv, spec)
     else:
         raise ValueError(f"지원하지 않는 그림 종류: {kind!r}")
     return cv.render()
@@ -703,3 +709,245 @@ def _roadmap(cv: _Canvas, spec: RoadmapSpec) -> None:
             )
         if not last:
             cv.arrow_between(x + sw_ + 6, x + sw_ + sgap - 8, bot_y + bot_h / 2)
+
+
+# ── v2 [3] as_is_to_be: 현재 | 화살표(핵심 해결 방안) | 연구 후 ────────────────────
+_AS_IS = {"fill": "#eceff3", "head": "#d5d9e0", "stroke": "#c2410c", "ink": "#3f3f46"}
+_TO_BE = {"fill": "#eef5ff", "head": "#cfe3fb", "stroke": "#15803d", "ink": "#0b2d4d"}
+_ARROW = "#1e3a8a"
+
+
+def _side_panel(
+    cv: _Canvas,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    head: str,
+    items: Sequence[Any],
+    colors: Mapping[str, str],
+    *,
+    dashed: bool,
+    pattern: str,
+) -> None:
+    """한쪽 칸 — 머리글 띠(무늬) + 칸마다 이름표(tag)와 글자.
+    흑백 인쇄: 왼쪽 점선 테두리·빗금, 오른쪽 굵은 실선·점."""
+    head_h = 92.0
+    cv.rect(x, y, w, h, fill=colors["fill"], stroke="none", rx=18)
+    cv.rect(
+        x,
+        y,
+        w,
+        head_h,
+        fill=colors["head"],
+        stroke="none",
+        rx=18,
+        pattern=cv.pattern(pattern, colors["stroke"]),
+        opacity=0.35,
+    )
+    cv.text_box(head, x, y, w, head_h, size=38, bold=True, color=colors["ink"])
+    border = (
+        f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="18" fill="none" '
+        f'stroke="{colors["stroke"]}" stroke-width="{4 if dashed else 6}"'
+        + (' stroke-dasharray="14 8"' if dashed else "")
+        + "/>"
+    )
+    cv.parts.append(border)
+    n = max(1, len(items))
+    gap = 16.0
+    top = y + head_h + 20
+    row_h = (h - head_h - 40 - gap * (n - 1)) / n
+    tag_w = 150.0
+    for i, it in enumerate(items):
+        ry = top + i * (row_h + gap)
+        cv.rect(x + 20, ry, w - 40, row_h, fill=cv.p.paper, stroke=colors["stroke"], sw=2, rx=12)
+        cv.rect(x + 20, ry, tag_w, row_h, fill=colors["head"], stroke="none", rx=12)
+        cv.text_box(
+            it.tag, x + 20, ry, tag_w, row_h, size=28, bold=True, color=colors["ink"], pad=8
+        )
+        cv.text_box(
+            it.text,
+            x + 20 + tag_w,
+            ry,
+            w - 40 - tag_w,
+            row_h,
+            size=30,
+            anchor="start",
+            pad=18,
+        )
+
+
+def _as_is_to_be(cv: _Canvas, spec: Any) -> None:
+    from rra.domain.rules.figures import AS_IS_HEAD, TO_BE_HEAD
+
+    m = 40.0
+    mid_w = 300.0
+    panel_w = (BASE_W - 2 * m - mid_w) / 2
+    y = m
+    h = cv.vh - 2 * m
+    _side_panel(cv, m, y, panel_w, h, AS_IS_HEAD, spec.as_is, _AS_IS, dashed=True, pattern="hatch")
+    rx = BASE_W - m - panel_w
+    _side_panel(cv, rx, y, panel_w, h, TO_BE_HEAD, spec.to_be, _TO_BE, dashed=False, pattern="dots")
+    # 가운데 화살표 — 몸통 안에 핵심 해결 방안
+    ax0 = m + panel_w + 14
+    ax1 = rx - 14
+    cy = y + h / 2 + 30
+    body_h = min(h * 0.46, 300.0)
+    head_w = 70.0
+    pts = [
+        (ax0, cy - body_h / 2),
+        (ax1 - head_w, cy - body_h / 2),
+        (ax1 - head_w, cy - body_h / 2 - 34),
+        (ax1, cy),
+        (ax1 - head_w, cy + body_h / 2 + 34),
+        (ax1 - head_w, cy + body_h / 2),
+        (ax0, cy + body_h / 2),
+    ]
+    d = " ".join(f"{px:.1f},{py:.1f}" for px, py in pts)
+    cv.parts.append(f'<polygon points="{d}" fill="{_ARROW}" stroke="none"/>')
+    cv.text_box(
+        spec.solution,
+        ax0,
+        cy - body_h / 2,
+        ax1 - head_w - ax0 + 20,
+        body_h,
+        size=28,
+        bold=True,
+        color="#ffffff",
+        pad=12,
+    )
+
+
+# ── v2 [11] technique: 묶음 카드 / 평가 표 ───────────────────────────────
+_LEVEL_DOTS = {"상": 3, "중": 2, "하": 1}
+
+
+def _rating_chip(cv: _Canvas, x: float, cy: float, rating: str, color: str) -> float:
+    """강도 표시 — 동그라미 3개 중 채운 수(상 3·중 2·하 1) + 글자. 반환: 쓴 폭."""
+    n = _LEVEL_DOTS.get(rating, 0)
+    for k in range(3):
+        cv.circle(x + 12 + k * 22, cy, 8, fill=color if k < n else cv.p.paper, stroke=color, sw=2)
+    cv.label(rating, x + 82, cy + 9, size=24, bold=True, anchor="start", color=color)
+    return 120.0
+
+
+def _technique(cv: _Canvas, spec: Any) -> None:
+    m = 40.0
+    title_h = 70.0
+    note_h = 40.0
+    cv.text_box(spec.title, m, m - 6, BASE_W - 2 * m, title_h, size=38, bold=True, anchor="start")
+    cv.label(spec.note, BASE_W - m, cv.vh - m + 4, size=22, anchor="end", color=cv.p.muted)
+    top = m + title_h + 10
+    bottom = cv.vh - m - note_h
+    if spec.rows:
+        _technique_matrix(cv, spec, m, top, BASE_W - 2 * m, bottom - top)
+    else:
+        _technique_groups(cv, spec, m, top, BASE_W - 2 * m, bottom - top)
+
+
+def _technique_groups(cv: _Canvas, spec: Any, x0: float, y0: float, w: float, h: float) -> None:
+    from rra.domain.models.figure import NEED_CALC
+
+    n = len(spec.groups)
+    cols = 2 if n in (2, 4) else (1 if n == 1 else 3)
+    rows = math.ceil(n / cols)
+    gap = 22.0
+    cw = (w - gap * (cols - 1)) / cols
+    ch = (h - gap * (rows - 1)) / rows
+    head_h = 64.0
+    for i, g in enumerate(spec.groups):
+        r, c = divmod(i, cols)
+        x = x0 + c * (cw + gap)
+        y = y0 + r * (ch + gap)
+        s = cv.p.s(i)
+        cv.rect(x, y, cw, ch, fill=cv.p.paper, stroke=s["stroke"], sw=3, rx=14)
+        cv.rect(
+            x,
+            y,
+            cw,
+            head_h,
+            fill=s["fill"],
+            stroke="none",
+            rx=14,
+            pattern=cv.pattern(s["pattern"], s["stroke"]),
+            opacity=0.3,
+        )
+        cv.text_box(g.name, x, y, cw, head_h, size=30, bold=True, anchor="start", pad=20)
+        k = max(1, len(g.items))
+        slot = (ch - head_h - 16) / k
+        for j, it in enumerate(g.items):
+            iy = y + head_h + 8 + j * slot
+            badge_w = 0.0
+            if it.rating:
+                badge_w = 130.0
+                _rating_chip(cv, x + cw - badge_w - 6, iy + slot / 2, it.rating, s["stroke"])
+            elif it.amount:
+                badge_w = min(cw * 0.42, 260.0)
+                muted = it.amount == NEED_CALC
+                cv.rect(
+                    x + cw - badge_w - 14,
+                    iy + slot / 2 - 24,
+                    badge_w,
+                    48,
+                    fill=cv.p.paper if muted else s["fill"],
+                    stroke=s["stroke"],
+                    sw=2,
+                    rx=24,
+                )
+                cv.text_box(
+                    it.amount,
+                    x + cw - badge_w - 14,
+                    iy + slot / 2 - 24,
+                    badge_w,
+                    48,
+                    size=24,
+                    bold=not muted,
+                    color=cv.p.muted if muted else cv.p.ink,
+                    pad=6,
+                )
+            cv.text_box(
+                "· " + it.text,
+                x,
+                iy,
+                cw - badge_w - 20,
+                slot,
+                size=28,
+                anchor="start",
+                pad=20,
+            )
+
+
+def _technique_matrix(cv: _Canvas, spec: Any, x0: float, y0: float, w: float, h: float) -> None:
+    name_w = min(460.0, w * 0.34)
+    n = len(spec.columns)
+    col_w = (w - name_w) / max(1, n)
+    head_h = 80.0
+    row_h = (h - head_h) / max(1, len(spec.rows))
+    shade = {"상": 2, "+": 2, "중": 1, "0": 1, "하": 0, "−": 0}
+    head = cv.p.s(1)
+    cv.rect(x0, y0, name_w, head_h, fill=head["fill"], stroke=cv.p.ink, sw=1.5)
+    cv.text_box("평가 기준", x0, y0, name_w, head_h, size=28, bold=True)
+    for j, col in enumerate(spec.columns):
+        cx = x0 + name_w + j * col_w
+        cv.rect(cx, y0, col_w, head_h, fill=head["fill"], stroke=cv.p.ink, sw=1.5)
+        cv.text_box(col, cx, y0, col_w, head_h, size=28, bold=True, pad=8)
+    for i, r in enumerate(spec.rows):
+        ry = y0 + head_h + i * row_h
+        cv.rect(x0, ry, name_w, row_h, fill=cv.p.s(0)["fill"], stroke=cv.p.ink, sw=1.5)
+        cv.text_box(r.name, x0, ry, name_w, row_h, size=28, anchor="start", pad=16)
+        for j, val in enumerate(r.cells):
+            cx = x0 + name_w + j * col_w
+            level = shade.get(val, 1)
+            s = cv.p.s(level + 1 if level else 0)
+            cv.rect(
+                cx,
+                ry,
+                col_w,
+                row_h,
+                fill=s["fill"] if level else cv.p.paper,
+                stroke=cv.p.ink,
+                sw=1.5,
+                pattern=cv.pattern(s["pattern"], s["stroke"]) if level == 2 else None,
+                opacity=0.25,
+            )
+            cv.text_box(val, cx, ry, col_w, row_h, size=40, bold=True)

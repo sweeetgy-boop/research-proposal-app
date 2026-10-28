@@ -17,6 +17,9 @@
 - 로컬 모델 호출(Argon 실패 뒤 대체)만 `local_slot`(RunManager 와 같은 .generate.lock)을 잡는다 —
   Argon·Nano Banana 는 슬롯 밖이라 동시 run 의 그림 단계가 줄 서지 않는다. 호출자가 이미 슬롯을 잡고
   있으면(로컬 작성 run 의 그림 단계) `local_held=True` 로 다시 잡지 않는다(flock 은 재진입 불가).
+- v2(2026-10-28, ADR 0033): 기본 그림은 As-Is/To-Be(+ 검증 수치 그래프·일정표), 분석
+  기법 추천 0~2 는 `TechniqueSteps`(figure_techniques.py) — 합쳐 최대 4장. 비율은 내용
+  양으로(`rules.choose_aspect`), 밑그림과 그림 생성이 같은 비율을 쓴다.
 """
 
 from __future__ import annotations
@@ -42,6 +45,7 @@ from rra.application.ports.figures import (
 from rra.application.ports.generation_slot import GenerationSlot
 from rra.application.ports.llm import LLMPort
 from rra.application.ports.prompt_library import PromptLibraryPort
+from rra.application.usecases.figure_techniques import TechniqueSteps
 from rra.domain.models.draft import Section
 from rra.domain.models.figure import (
     FIGURE_KINDS,
@@ -61,6 +65,7 @@ from rra.domain.rules import figures as rules
 from rra.domain.rules.llm_output import parse_object
 from rra.domain.rules.privacy import strip_personal
 from rra.domain.rules.schedule import research_period_months
+from rra.domain.rules.techniques import TechniqueCatalog
 
 logger = logging.getLogger("rra.figures")
 
@@ -82,9 +87,18 @@ class FigureConfig:
     kinds: Sequence[str] = FIGURE_KINDS
     max_bytes: int = 512_000
     schemas: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)  # kind → JSON 스키마
+    auto_aspect: bool = True  # v2 [4] 내용 양으로 비율 (False 면 aspects 고정)
+    max_techniques: int = 2  # [11] 분석 기법 추천 상한 (0 이면 끔)
+    auto_kinds: Sequence[str] = rules.AUTO_KINDS  # v2 초안 뒤 자동으로 그리는 종류
 
     def aspect(self, kind: str) -> str:
         return str(self.aspects.get(kind) or "16:9")
+
+    def aspect_for(self, spec: BaseModel) -> str:
+        kind = str(getattr(spec, "kind", ""))
+        if self.auto_aspect or kind not in self.aspects:
+            return rules.choose_aspect(spec)
+        return self.aspect(kind)
 
 
 @dataclass
@@ -137,7 +151,7 @@ class SpecRejected(ValueError):
 
 
 @dataclass
-class MakeFigures:
+class MakeFigures(TechniqueSteps):
     llm: LLMPort  # 로컬 모델 (stage figures) — Argon 이 없거나 실패하면
     prompts: PromptLibraryPort
     renderer: FigureRendererPort
@@ -153,6 +167,8 @@ class MakeFigures:
     local_model: str = "local"
     fallback_model: str = "fallback"
     local_slot: GenerationSlot | None = None  # 로컬 모델 한 번에 하나 (RunManager.slot 과 같은 락)
+    catalog: TechniqueCatalog = field(default_factory=TechniqueCatalog)  # [11] 분석 기법 20종
+    input_labels: Mapping[str, str] = field(default_factory=dict)  # 입력 칸 → 화면 이름 (출처 표시)
 
     def _gate(self, llm: LLMPort, local_held: bool) -> AbstractAsyncContextManager[None]:
         """로컬 모델(self.llm) 호출만 슬롯 안에서. 이미 잡고 있으면 그대로."""
@@ -228,10 +244,11 @@ class MakeFigures:
         return rules.choose_default(
             sections,
             request,
-            max_default=len(rules.FIGURE_KINDS) if all_candidates else self.config.max_default,
+            max_default=rules.MAX_FIGURES if all_candidates else self.config.max_default,
             has_facts=has_facts,
             has_overlap=has_overlap,
             kinds=self.config.kinds,
+            auto_kinds=self.config.auto_kinds,
         )
 
     async def build_default(
@@ -444,8 +461,9 @@ class MakeFigures:
         """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림. style 은 [말로 고치기] 모양 요청."""
         t0 = time.monotonic()
         spec = figure.spec
+        aspect = self.config.aspect_for(spec)
         if baseline_png is None:
-            svg = self.renderer.svg(spec, caption=figure.caption)
+            svg = self.renderer.svg(spec, caption=figure.caption, aspect=aspect)
             baseline_png = self.renderer.png(svg)
         adopted, mime, renderer, model, error, calls = (
             baseline_png,
@@ -456,14 +474,14 @@ class MakeFigures:
             0,
         )
         if self.images is not None:
-            prompt = rules.image_prompt(spec, caption=figure.caption, style=style)
+            prompt = rules.image_prompt(spec, caption=figure.caption, style=style, aspect=aspect)
             try:
                 calls = 1
                 result = await self.images.generate(
                     prompt,
                     baseline_png,
                     mime="image/png",
-                    aspect=self.config.aspect(figure.kind),
+                    aspect=aspect,
                     size=self.config.image_size,
                 )
                 adopted, mime = self._fit(result.data, result.mime)
@@ -628,7 +646,9 @@ class MakeFigures:
 
     def baseline(self, figure: Figure) -> FigureBuild:
         """[기본 그림으로] — 밑그림을 다시 그려 채택 (호출 없음)."""
-        svg = self.renderer.svg(figure.spec, caption=figure.caption)
+        svg = self.renderer.svg(
+            figure.spec, caption=figure.caption, aspect=self.config.aspect_for(figure.spec)
+        )
         png = self.renderer.png(svg)
         updated = figure.model_copy(
             update={
@@ -725,7 +745,9 @@ def _change_lines(old: BaseModel, change: SpecChange, content: bool) -> list[str
 
 def _sections_for(kind: str, section: str) -> set[str]:
     base = {section, "title", "objective"}
-    if kind in ("concept",):
+    if kind == "as_is_to_be":
+        base |= {"tech_importance", "method", "expected_management", "expected_technology"}
+    elif kind in ("concept",):
         base |= {"tech_importance", "expected_management", "expected_technology"}
     elif kind in ("process", "schedule"):
         base |= {"method"}

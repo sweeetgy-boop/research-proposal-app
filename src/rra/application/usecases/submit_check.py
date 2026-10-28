@@ -13,6 +13,8 @@
 - figures_unconfirmed: [G] 제안자가 아직 [확인함] 하지 않은 그림 수 (제안서에 넣는 그림만)
 - figures_source: [G] 출처 캡션이 없는 수치 그래프
 - figures_mismatch: [G] 1차 검토가 "본문과 그림이 어긋남" 으로 지적한 그림(열린 의견)
+- figures_undecided: [11] 추천 그림 중 [넣기 확정]·[필요 없음]을 고르지 않은 것 (그대로 두면
+  제안서에 들어간다)
 - review_state: 최종 검토 완료 또는 검토 건너뜀(마무리 가능)인가
 """
 
@@ -240,6 +242,22 @@ def submit_check(
                 {"figures": [f.id for f in pending], "included": len(included)},
             )
         )
+        undecided = [f for f in figures if f.undecided]
+        if undecided or any(f.recommendation is not None for f in figures):
+            items.append(
+                CheckItem(
+                    "figures_undecided",
+                    "결정 전 추천 그림",
+                    not undecided,
+                    f"추천 그림 {len(undecided)}개 — [넣기 확정] 또는 [필요 없음]을 고르십시오. "
+                    "그대로 마무리하면 제안서에 들어갑니다."
+                    if undecided
+                    else "추천 그림 모두 결정함",
+                    len(undecided),
+                    f"section:{undecided[0].section}" if undecided else None,
+                    {"figures": [f.id for f in undecided]},
+                )
+            )
         no_source = [f for f in included if f.kind == "stat_chart" and not f.source_caption]
         items.append(
             CheckItem(

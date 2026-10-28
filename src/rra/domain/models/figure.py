@@ -5,8 +5,13 @@
 명세 → 템플릿 SVG 밑그림(기본 그림) → 참고 이미지로 Nano Banana Pro 1회 → 채택. 자동 검증은 없고
 제안자가 카드에서 확인·수정한다(confirmed).
 
-종류 6: concept(개념도) · process(추진 체계도) · schedule(간트) · stat_chart(수치 그래프) ·
-comparison(차별성 비교) · roadmap(성과지표·활용 로드맵).
+종류 8: concept(개념도) · process(추진 체계도) · schedule(간트) · stat_chart(수치 그래프) ·
+comparison(차별성 비교) · roadmap(성과지표·활용 로드맵) · as_is_to_be(현재 → 연구 후, v2) ·
+technique(분석 기법 인포그래픽 — SWOT·퓨 매트릭스·비용-편익 등 20종, v2 [11]).
+
+v2(2026-10-28, ADR 0033): 기본 그림은 As-Is/To-Be 1 + 분석 기법 추천 0~2 (+ 검증 수치
+그래프·일정표), 최대 4장. 개념도·체계도·로드맵은 [다른 그림 추가]에서만. 상자 글자는
+`MAX_BOX`(1~2줄)로 줄인다.
 """
 
 from __future__ import annotations
@@ -15,7 +20,16 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-FigureKind = Literal["concept", "process", "schedule", "stat_chart", "comparison", "roadmap"]
+FigureKind = Literal[
+    "concept",
+    "process",
+    "schedule",
+    "stat_chart",
+    "comparison",
+    "roadmap",
+    "as_is_to_be",
+    "technique",
+]
 FIGURE_KINDS: tuple[str, ...] = (
     "concept",
     "process",
@@ -23,6 +37,8 @@ FIGURE_KINDS: tuple[str, ...] = (
     "stat_chart",
     "comparison",
     "roadmap",
+    "as_is_to_be",
+    "technique",
 )
 KIND_LABEL: dict[str, str] = {
     "concept": "연구 개념도",
@@ -31,6 +47,8 @@ KIND_LABEL: dict[str, str] = {
     "stat_chart": "현황 수치 그래프",
     "comparison": "차별성 비교",
     "roadmap": "성과지표·활용 로드맵",
+    "as_is_to_be": "As-Is / To-Be",
+    "technique": "분석 기법",
 }
 # 종류별 기본 섹션 (그림이 붙는 양식 칸). 같은 섹션에 여러 그림이 올 수 있다.
 KIND_SECTION: dict[str, str] = {
@@ -40,6 +58,10 @@ KIND_SECTION: dict[str, str] = {
     "stat_chart": "tech_importance",
     "comparison": "tech_importance",
     "roadmap": "expected_technology",
+    # 양식에 "연구배경 및 필요성" 칸이 없다 — 현재 → 목표를 말하는 2-나 연구목적 (비면 2-가-(2),
+    # rules)
+    "as_is_to_be": "objective",
+    "technique": "method",  # 기법별 칸은 config/figures/techniques.yaml section
 }
 FigureRenderer = Literal["nano_banana", "baseline"]
 Placement = Literal["inline", "appendix"]
@@ -51,6 +73,8 @@ MAX_EDIT_REQUEST = 500
 MAX_EDIT_HISTORY = 20
 MAX_CHANGE_LINES = 8
 MAX_CHANGE_LINE = 160
+# v2 [4] 상자 한 칸 글자 — 제안서에 넣었을 때 읽히는 1~2줄. 새 명세는 normalize 가 이 길이로 줄인다
+MAX_BOX = 30
 
 Label = Annotated[str, Field(min_length=1, max_length=MAX_LABEL)]
 Line = Annotated[str, Field(min_length=1, max_length=MAX_LINE)]
@@ -179,8 +203,82 @@ class RoadmapSpec(BaseModel):
     stages: list[RoadmapStage] = Field(min_length=2, max_length=5)
 
 
+# ── v2 [3] As-Is / To-Be ─────────────────────────────────
+AS_IS_TAGS: tuple[str, ...] = ("현황", "원인", "한계")
+TO_BE_TAGS: tuple[str, ...] = ("목표", "해결 방안", "기대효과")
+Box = Annotated[str, Field(min_length=1, max_length=MAX_BOX)]
+
+
+class SideItem(BaseModel):
+    tag: Label  # As-Is: 현황·원인·한계 / To-Be: 목표·해결 방안·기대효과 (rules 가 고정 라벨로 맞춤)
+    text: Box
+
+
+class AsIsToBeSpec(BaseModel):
+    """현재(As-Is: 현황·원인·한계) → 연구 후(To-Be: 목표·해결 방안·기대효과), 쪽마다 3~4칸,
+    가운데 화살표에 연구의 핵심 해결 방안 한 줄. 글자는 입력·초안에서만."""
+
+    kind: Literal["as_is_to_be"] = "as_is_to_be"
+    as_is: list[SideItem] = Field(min_length=3, max_length=4)
+    to_be: list[SideItem] = Field(min_length=3, max_length=4)
+    solution: Box
+
+
+# ── v2 [11] 분석 기법 인포그래픽 ──────────────────────────────
+PRELIM_NOTE = "제안 내용 기반 예비 평가"  # 판단 기반 등급(상·중·하, +/0/−)에 항상 붙는다
+NEED_CALC = "산출 필요"  # 제안·근거에 수치가 없는 금액 칸
+TechniqueFamily = Literal["qualitative", "evaluation", "economic"]
+FAMILY_LABEL: dict[str, str] = {
+    "qualitative": "정성 분석",
+    "evaluation": "비교·평가",
+    "economic": "경제성·확률",
+}
+
+
+class TechItem(BaseModel):
+    """기법 항목 한 칸 — source 는 본문 문장 id(s:<섹션>:<n>)·근거 청크 id·input:<입력 칸>."""
+
+    text: Box
+    rating: str | None = Field(default=None, max_length=4)  # 정성: 상·중·하
+    amount: str | None = Field(default=None, max_length=MAX_BOX)  # 경제성: 수치 또는 "산출 필요"
+    source: str = Field(default="", max_length=200)
+
+
+class TechGroup(BaseModel):
+    name: Label  # 기법의 고정 묶음 이름 (강점·약점… / 비용·편익… / 시나리오 이름)
+    items: list[TechItem] = Field(min_length=1, max_length=4)
+
+
+class MatrixRow(BaseModel):
+    """비교·평가 표 한 줄 — 평가 기준(또는 FMEA 고장 유형)과 열마다 평가 기호."""
+
+    name: Box
+    cells: list[str] = Field(min_length=1, max_length=5)  # +·0·− 또는 상·중·하
+    source: str = Field(default="", max_length=200)
+
+
+class TechniqueSpec(BaseModel):
+    """분석 기법 결과 — 정성·경제성은 groups(묶음별 항목), 비교·평가는 columns×rows 표.
+    technique 는 config/figures/techniques.yaml 의 key. note 는 항상 PRELIM_NOTE."""
+
+    kind: Literal["technique"] = "technique"
+    technique: str = Field(min_length=1, max_length=40)
+    title: Label
+    groups: list[TechGroup] = Field(default_factory=list, max_length=6)
+    columns: list[Label] = Field(default_factory=list, max_length=5)
+    rows: list[MatrixRow] = Field(default_factory=list, max_length=6)
+    note: str = Field(default=PRELIM_NOTE, max_length=60)
+
+
 FigureSpec = Annotated[
-    ConceptSpec | ProcessSpec | ScheduleSpec | StatChartSpec | ComparisonSpec | RoadmapSpec,
+    ConceptSpec
+    | ProcessSpec
+    | ScheduleSpec
+    | StatChartSpec
+    | ComparisonSpec
+    | RoadmapSpec
+    | AsIsToBeSpec
+    | TechniqueSpec,
     Field(discriminator="kind"),
 ]
 SPEC_TYPES: dict[str, type[BaseModel]] = {
@@ -190,6 +288,8 @@ SPEC_TYPES: dict[str, type[BaseModel]] = {
     "stat_chart": StatChartSpec,
     "comparison": ComparisonSpec,
     "roadmap": RoadmapSpec,
+    "as_is_to_be": AsIsToBeSpec,
+    "technique": TechniqueSpec,
 }
 
 
@@ -227,6 +327,34 @@ class FigureChange(BaseModel):
     at: str | None = None
 
 
+RecommendationStatus = Literal["pending", "accepted", "dismissed"]
+
+
+class FigureRecommendation(BaseModel):
+    """[11] 앱이 추천한 그림 — 카드 "추천" 배지·이유 한 줄. pending = 결정 전(제출 전 점검),
+    accepted = [넣기 확정], dismissed = [필요 없음](제안서에서 빠지고 아래로 접힘, 다시 넣기
+    가능)."""
+
+    technique: str = Field(min_length=1, max_length=40)
+    reason: str = Field(default="", max_length=120)  # LLM 출력(비신뢰) — 화면은 그대로 보여 준다
+    status: RecommendationStatus = "pending"
+    model: str | None = None  # 고른 모델 라벨 (Argon 먼저, 실패면 로컬)
+    swapped_from: str | None = None  # [다른 기법으로 바꾸기] 전 기법
+    at: str | None = None
+
+
+class TechniqueOutcome(BaseModel):
+    """[11] 마지막 기법 추천 결과 — 빈 결과도 사유를 남긴다 (RunState.figure_techniques).
+    status: recommended | none(해당 없음) | failed(호출 실패) | filtered(규칙에 걸러짐) | off."""
+
+    status: Literal["recommended", "none", "failed", "filtered", "off"] = "none"
+    reason: str = Field(default="", max_length=200)  # 해당 없음 사유(모델 한 줄, 비신뢰) 또는 코드
+    picks: list[str] = Field(default_factory=list, max_length=2)  # 추천한 기법 key
+    dropped: list[str] = Field(default_factory=list, max_length=4)  # 걸러진 기법 key
+    model: str | None = None
+    at: str | None = None
+
+
 class Figure(BaseModel):
     id: str  # "f:<section>:<n>"
     kind: FigureKind
@@ -249,12 +377,18 @@ class Figure(BaseModel):
     )
     spec_model: str | None = None  # 명세를 쓴 모델 라벨 (Argon 먼저, 실패면 로컬 — [2])
     last_change: FigureChange | None = None  # 마지막 명세·모양 변경 요약 (버전이 바뀌어도 이어진다)
+    recommendation: FigureRecommendation | None = None  # [11] 앱 추천 그림이면 (분석 기법)
     created_at: str | None = None
     updated_at: str | None = None
 
     @property
     def label(self) -> str:
         return KIND_LABEL.get(self.kind, self.kind)
+
+    @property
+    def undecided(self) -> bool:
+        """[11] 추천 그림인데 [넣기 확정]·[필요 없음] 을 아직 고르지 않았다."""
+        return self.recommendation is not None and self.recommendation.status == "pending"
 
 
 class FigurePlacement(BaseModel):

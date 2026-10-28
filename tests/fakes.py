@@ -74,6 +74,9 @@ class FakePromptLibrary:
     def figure_edit(self) -> str:
         return "FIGURE_EDIT: 요청 → {spec, style, summary} JSON 하나, 명세·요청 글자만"
 
+    def figure_techniques(self) -> str:
+        return "FIGURE_TECHNIQUES: 기법 0~2개 고르기·분석 JSON 하나, 본문·입력·근거 안에서만"
+
 
 class FakeEmbedding:
     dim = 4
@@ -339,8 +342,13 @@ class FakeImageGenerator:
 class FakeFigureRenderer:
     """FigureRendererPort fake — resvg 없이. svg 는 글자 목록, png 는 svg 해시 바이트."""
 
-    def svg(self, spec, *, caption=""):
+    def __init__(self):
+        self.aspects: list[str | None] = []
+
+    def svg(self, spec, *, caption="", aspect=None):
         from xml.sax.saxutils import escape
+
+        self.aspects.append(aspect)
 
         from rra.domain.rules.figures import texts_of
 

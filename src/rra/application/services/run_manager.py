@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -68,7 +68,13 @@ from rra.domain.models import (
     UsabilityConfig,
     UsageRecord,
 )
-from rra.domain.models.figure import Figure, FigureChange, FigurePlacement
+from rra.domain.models.figure import (
+    Figure,
+    FigureChange,
+    FigurePlacement,
+    FigureRecommendation,
+    TechniqueOutcome,
+)
 from rra.domain.models.outline import Outline
 from rra.domain.models.review import (
     EditRequest,
@@ -1912,9 +1918,16 @@ class RunManager:
         try:
             # 로컬 작성 run 은 전역 슬롯을 이미 잡고 있다 — 그림의 로컬 대체가 다시 잡지 않게
             held = not self._generate_for(state).writes_remotely
-            builds, skipped = await self.figures.build_default(
-                sections, req, snapshot, local_held=held
+            # v2: 기본 그림(As-Is/To-Be + 수치 그래프·일정표)과 기법 추천(0~2)을 함께 — 최대 4장
+            slots = figure_rules.technique_slots(len(self.figures.plan(sections, req, snapshot)))
+            (builds, skipped), (tech_builds, outcome) = await asyncio.gather(
+                self.figures.build_default(sections, req, snapshot, local_held=held),
+                self._recommend_safely(
+                    sections, req, snapshot, slots=slots, scope=state.scope, local_held=held
+                ),
             )
+            state.figure_techniques = outcome.model_dump()
+            builds = [*builds, *tech_builds]
             for b in builds:
                 self._save_build(user, run_id, b)
             v1 = self.store.load_version(user, run_id, 1)
@@ -1940,6 +1953,89 @@ class RunManager:
             step.finished_at = self._clock()
             logger.warning("figure.step_failed run=%s error=%s", run_id, type(exc).__name__)
 
+    async def _recommend_safely(
+        self,
+        sections: list[Section],
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot | None,
+        *,
+        slots: int,
+        scope: str,
+        local_held: bool = False,
+        existing_ids: Sequence[str] = (),
+        exclude: Sequence[str] = (),
+    ) -> tuple[list[FigureBuild], TechniqueOutcome]:
+        """[11] 분석 기법 추천 — 실패해도 기본 그림을 막지 않는다(결과 "호출 실패" + 사유 코드).
+        공용 계정 run 은 internal 근거를 뺀다."""
+        if self.figures is None:
+            return [], TechniqueOutcome(status="off", reason="disabled", at=self._clock())
+        try:
+            return await self.figures.recommend_techniques(
+                sections,
+                req,
+                snapshot,
+                slots=slots,
+                existing_ids=existing_ids,
+                exclude=exclude,
+                include_internal=scope != "public",
+                local_held=local_held,
+            )
+        except Exception as exc:  # 렌더·저장 오류 — 사유 코드만
+            logger.warning("figure.techniques_failed error=%s", type(exc).__name__)
+            return [], TechniqueOutcome(
+                status="failed", reason=type(exc).__name__, at=self._clock()
+            )
+
+    def technique_catalog(self) -> list[dict[str, Any]]:
+        """[11] 분석 기법 목록 (화면 [다른 기법으로 바꾸기]·[다른 그림 추가])."""
+        return self.figures.technique_catalog_rows() if self.figures is not None else []
+
+    async def figure_techniques(self, user: str, run_id: str) -> dict[str, Any] | None:
+        """[11] 마지막 분석 기법 추천 결과 (빈 추천도 사유)."""
+        return (await self.status(user, run_id)).figure_techniques
+
+    async def retry_techniques(
+        self, user: str, run_id: str, *, base_version: int | None = None
+    ) -> tuple[DraftVersion | None, TechniqueOutcome]:
+        """[11] [다시 추천] — 이미 있는 기법은 빼고 남은 자리(2 − 살아 있는 추천)만큼 다시 고른다.
+        새 그림이 있으면 새 버전, 없으면 결과(해당 없음·호출 실패·규칙에 걸러짐)만 남긴다."""
+        if self.figures is None:
+            raise FeatureDisabled("그림 기능이 꺼져 있습니다 (figures.yaml enabled).")
+        state, current, nxt = await self._figure_edit_base(user, run_id, base_version)
+        alive = [
+            f
+            for f in current.figures
+            if f.kind == "technique"
+            and not (f.recommendation and f.recommendation.status == "dismissed")
+        ]
+        slots = figure_rules.MAX_TECHNIQUES - len(alive)
+        if slots <= 0:
+            raise EditRejected(
+                "분석 기법 그림이 이미 2장입니다 — [필요 없음]으로 뺀 뒤 다시 추천받으십시오."
+            )
+        builds, outcome = await self._recommend_safely(
+            current.sections,
+            self.store.load_request(user, run_id),
+            self.store.load_snapshot(user, run_id),
+            slots=slots,
+            scope=state.scope,
+            existing_ids=[f.id for f in current.figures],
+            exclude=[
+                getattr(f.spec, "technique", "") for f in current.figures if f.kind == "technique"
+            ],
+        )
+        state.figure_techniques = outcome.model_dump()
+        if not builds:
+            self._save(state)
+            return None, outcome
+        for b in builds:
+            self._save_build(user, run_id, b)
+        figures = [*current.figures, *(b.figure for b in builds)]
+        version = self._store_figures(
+            user, run_id, state, current, figures, nxt, note="분석 기법 추천"
+        )
+        return version, outcome
+
     def _save_build(self, user: str, run_id: str, build: FigureBuild) -> None:
         fig = build.figure
         if build.baseline_png and fig.baseline_sha:
@@ -1956,14 +2052,39 @@ class RunManager:
         return self.store.load_figure_image(user, run_id, sha)
 
     async def add_figure(
-        self, user: str, run_id: str, kind: str, section: str, *, base_version: int | None = None
+        self,
+        user: str,
+        run_id: str,
+        kind: str,
+        section: str,
+        *,
+        base_version: int | None = None,
+        technique: str = "",
     ) -> DraftVersion:
-        """[다른 그림 추가] — 종류·섹션을 골라 명세·그림을 만들고 새 버전."""
+        """[다른 그림 추가] — 종류·섹션을 골라 명세·그림을 만들고 새 버전. kind=technique 면
+        technique(기법 key)로 분석해 그린다(추천 배지 없음 — 제안자가 고른 그림)."""
         if self.figures is None:
             raise FeatureDisabled("그림 기능이 꺼져 있습니다 (figures.yaml enabled).")
         state, current, nxt = await self._figure_edit_base(user, run_id, base_version)
         req = self.store.load_request(user, run_id)
         snapshot = self.store.load_snapshot(user, run_id)
+        if kind == "technique":
+            if self.figures.catalog.get(technique) is None:
+                raise EditRejected("분석 기법을 골라 주십시오.")
+            build, reason = await self.figures.build_technique(
+                technique,
+                section or None,
+                current.sections,
+                req,
+                snapshot,
+                existing_ids=[f.id for f in current.figures],
+                include_internal=state.scope != "public",
+            )
+            if build is None:
+                raise EditRejected(_technique_reject(reason))
+            self._save_build(user, run_id, build)
+            figures = [*current.figures, build.figure]
+            return self._store_figures(user, run_id, state, current, figures, nxt, note="그림 추가")
         builds, skipped = await self.figures.build_all(
             [(kind, section)],
             current.sections,
@@ -1989,9 +2110,12 @@ class RunManager:
         request_text: str = "",
         texts: Mapping[str, str] | None = None,
         base_version: int | None = None,
+        technique: str = "",
     ) -> DraftVersion:
         """그림 카드 동작 — words(말로 고치기) | texts(글자 고치기) | baseline(기본 그림으로) |
-        regenerate(다시 만들기) | include | exclude | confirm. 저장은 새 버전(되돌리기 가능)."""
+        regenerate(다시 만들기) | include | exclude | confirm | [11] accept(넣기 확정) |
+        dismiss(필요 없음) | restore(다시 넣기) | swap(다른 기법으로 바꾸기, technique 필수).
+        저장은 새 버전(되돌리기 가능) — 추천 결정도 버전 변경("변경 n건")으로 센다."""
         if self.figures is None:
             raise FeatureDisabled("그림 기능이 꺼져 있습니다 (figures.yaml enabled).")
         state, current, nxt = await self._figure_edit_base(user, run_id, base_version)
@@ -2000,8 +2124,55 @@ class RunManager:
         if fig is None:
             raise EditRejected("그림이 없습니다.")
         note = f"그림 {action}"
+        rec = fig.recommendation
+        if action in ("include", "exclude") and rec is not None:
+            action = "restore" if action == "include" else "dismiss"  # 추천 그림은 결정으로 남긴다
+            note = f"그림 {action}"
         if action in ("include", "exclude"):
             fig = fig.model_copy(update={"included": action == "include"})
+        elif action in ("accept", "dismiss", "restore"):
+            if rec is None:
+                raise EditRejected("추천 그림이 아닙니다.")
+            status = "dismissed" if action == "dismiss" else "accepted"
+            fig = fig.model_copy(
+                update={
+                    "recommendation": rec.model_copy(
+                        update={"status": status, "at": self._clock()}
+                    ),
+                    "included": action != "dismiss",
+                }
+            )
+        elif action == "swap":
+            if fig.kind != "technique":
+                raise EditRejected("분석 기법 그림만 다른 기법으로 바꿀 수 있습니다.")
+            old_key = getattr(fig.spec, "technique", "")
+            if self.figures.catalog.get(technique) is None or technique == old_key:
+                raise EditRejected("바꿀 분석 기법을 목록에서 골라 주십시오.")
+            new_rec = (
+                FigureRecommendation(
+                    technique=technique,
+                    reason="제안자가 고른 기법",
+                    status="pending",
+                    swapped_from=old_key,
+                    at=self._clock(),
+                )
+                if rec is not None
+                else None
+            )
+            build, reason = await self.figures.build_technique(
+                technique,
+                fig.section,
+                current.sections,
+                self.store.load_request(user, run_id),
+                self.store.load_snapshot(user, run_id),
+                figure_id=fig.id,
+                recommendation=new_rec,
+                include_internal=state.scope != "public",
+            )
+            if build is None:
+                raise EditRejected(_technique_reject(reason))
+            self._save_build(user, run_id, build)
+            fig = build.figure.model_copy(update={"included": True})
         elif action == "confirm":
             fig = fig.model_copy(update={"confirmed": True})
         elif action == "baseline":
@@ -2561,6 +2732,27 @@ _EDIT_REJECT_HINTS = {
     "internal_text": "공용 계정에서는 사내 자료에만 있는 글자를 그림에 넣을 수 없습니다.",
     "budget": "오늘 그림 호출 상한에 이르렀습니다.",
 }
+
+
+_TECHNIQUE_REJECT = {
+    "skip": "이 제안 내용으로는 이 기법의 의미 있는 분석이 나오지 않습니다 (해당 없음).",
+    "json": "모델 답을 읽지 못했습니다 — 다시 시도해 주십시오 (호출 실패).",
+    "schema": "분석 결과가 기법 형식에 맞지 않았습니다 — 다시 시도해 주십시오 (규칙에 걸러짐).",
+    "internal_text": "공용 계정에서는 사내 자료에만 있는 글자를 그림에 넣을 수 없습니다.",
+}
+
+
+def _technique_reject(code: str | None) -> str:
+    """[11] 기법 분석 실패 → 안내 한 문장 (사유: 호출 실패·해당 없음·규칙에 걸러짐)."""
+    code = code or "invalid"
+    if code in _TECHNIQUE_REJECT:
+        return _TECHNIQUE_REJECT[code]
+    if code.startswith("technique_") or code.startswith("figure_"):
+        return (
+            "분석 결과가 출처·형식 검사를 통과하지 못했습니다 — 다른 기법을 고르거나 "
+            "다시 시도해 주십시오 (규칙에 걸러짐)."
+        )
+    return "분석 기법 호출이 실패했습니다 — 잠시 뒤 다시 시도해 주십시오 (호출 실패)."
 
 
 def _edit_reject_hint(code: str) -> str:

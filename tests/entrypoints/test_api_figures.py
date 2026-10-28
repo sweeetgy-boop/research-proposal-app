@@ -78,7 +78,7 @@ def build():
         FakePromptLibrary(),
         FakeFigureRenderer(),
         images=images,
-        config=FigureConfig(max_default=3),
+        config=FigureConfig(max_default=3, auto_kinds=("process",)),  # 예전 세트로 동작 시험
         titles=TITLES,
         clock=lambda: "2026-10-28T10:00:00+00:00",
     )

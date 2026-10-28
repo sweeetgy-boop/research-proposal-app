@@ -157,6 +157,9 @@ class RunState(BaseModel):
     # [G] 그림 요약(manifest·목록용, 본문 없음): id·kind·section·renderer·model·calls·included·
     # confirmed·placement·error. 현재 버전의 그림 목록에서 갱신한다
     figures: list[dict[str, Any]] = Field(default_factory=list)
+    # [11] 마지막 분석 기법 추천 결과 (TechniqueOutcome.model_dump(): status·reason·picks·dropped·
+    # model·at). 빈 추천도 사유를 남긴다. None 이면 돌지 않았다·예전 run
+    figure_techniques: dict[str, Any] | None = None
     # [3] Argon 먼저 작성(ADR 0032) — 이 run 의 섹션 작성자(compose.writer). 예전 run 은 local
     writer: Literal["gemini", "local"] = "local"
     # 섹션별 작성 기록 {key: {provider, model, local_fallback, reason, public_doc_ids,

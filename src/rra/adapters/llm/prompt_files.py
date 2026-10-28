@@ -21,6 +21,7 @@ STRUCTURE_NAME = "structure"
 BRIEF_NAME = "brief"
 FIGURES_NAME = "figures"
 FIGURE_EDIT_NAME = "figure_edit"
+FIGURE_TECHNIQUES_NAME = "figure_techniques"
 SYSTEM_NAME = "system"
 JSON_FALLBACK_NAME = "json_fallback"
 SECTION_PREFIX = "section_"
@@ -89,6 +90,9 @@ class FilePromptLibrary:
 
     def figure_edit(self) -> str:
         return self._read(FIGURE_EDIT_NAME)
+
+    def figure_techniques(self) -> str:
+        return self._read(FIGURE_TECHNIQUES_NAME)
 
     def brief(self) -> str:
         return self._read(BRIEF_NAME)
