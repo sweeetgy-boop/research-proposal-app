@@ -917,3 +917,4 @@ export * from "./types-precheck"; // ② 유사과제 흐름 (레인 A)
 export * from "./types-format"; // 레인 D
 export * from "./types-versions"; // 레인 D 항목 21
 export * from "./types-laneB"; // 레인 B — L2 로컬 2차 검토·문서 표시 (ADR 0040)
+export * from "./types-laneC"; // 레인 C — 그림 백그라운드·작성 중 섹션 (ADR 0045)

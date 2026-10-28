@@ -16,6 +16,7 @@ import { statusLabel } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { RunStepBar } from "@/features/stepnav/RunStepBar";
+import { figureJobSignature } from "@/features/figures/figureJob";
 
 export interface RunContext {
   run: RunState;
@@ -91,6 +92,20 @@ export default function RunLayout() {
       onEnd: () => qc.invalidateQueries({ queryKey: keys.run(id) }),
     });
   }, [id, active, qc, toast]);
+
+  // 그림 백그라운드 작업(ADR 0045): 그림이 하나 도착하거나 작업이 끝나면 초안·그림 목록을 다시 읽는다
+  // (편집 중인 내용은 화면 상태라 그대로 — 같은 버전의 같은 글이 다시 올 뿐)
+  const figureSig = figureJobSignature(run);
+  const lastSig = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!run) return;
+    if (lastSig.current !== null && lastSig.current !== figureSig) {
+      for (const sub of ["draft", "figures", "version", "versions", "render-check", "submit-check"]) {
+        void qc.invalidateQueries({ queryKey: ["run", id, sub] });
+      }
+    }
+    lastSig.current = figureSig;
+  }, [figureSig, run, id, qc]);
 
   if (q.isPending) {
     return (

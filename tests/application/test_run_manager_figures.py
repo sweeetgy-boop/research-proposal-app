@@ -186,7 +186,12 @@ async def test_review_gets_figure_specs_and_mismatch_comments_become_memos(repo)
         ensure_ascii=False,
     )
     mgr, _ = make_manager(repo, review=review)
-    state = await mgr.wait(USER, (await mgr.submit(USER, REQ)).run_id)
+    # ADR 0045 — 자동 1차 검토는 초안 직후 바로(그림은 백그라운드). 그림이 다 온 뒤 받는 검토는
+    # 그림 명세를 함께 본다
+    mgr.review_auto = False
+    rid = (await mgr.wait(USER, (await mgr.submit(USER, REQ)).run_id)).run_id
+    await mgr.review(USER, rid)
+    state = await mgr.wait(USER, rid)
     assert state.status == "drafted" and state.review_rounds == 1
     sent = mgr.reviewer.llm.calls[0]
     assert (

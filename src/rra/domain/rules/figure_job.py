@@ -63,7 +63,6 @@ def new_job(
     base_version: int,
     now: str,
     submitted_at: str | None,
-    review_after: bool = False,
 ) -> FigureJob:
     """계획(종류, 섹션) → 자리. 분석 기법은 개수를 모르므로(0~2) 자리 하나로 둔다."""
     slots = [
@@ -86,7 +85,6 @@ def new_job(
         created_at=now,
         submitted_at=submitted_at,
         draft_visible_seconds=seconds_between(submitted_at, now),
-        review_after=review_after,
     )
 
 

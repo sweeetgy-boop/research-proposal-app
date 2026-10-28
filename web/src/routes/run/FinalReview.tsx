@@ -14,6 +14,7 @@ import { ReviewPanel } from "@/features/draft/ReviewPanel";
 import { EmptyState } from "@/components/EmptyState";
 import { Link } from "react-router";
 import { buttonVariants } from "@/components/ui/button";
+import { drawingFigures } from "@/lib/runSteps";
 
 const CAN_START = new Set(["drafted", "editing", "final_reviewed"]);
 
@@ -24,7 +25,9 @@ export default function FinalReview() {
   const start = useStartFinalReview(id);
   const reviewing = run.status === "final_reviewing";
   const blockedByWorking = run.flow.has_working;
-  const canStart = CAN_START.has(run.status) && !blockedByWorking && !run.legacy;
+  // ADR 0045 — 검토는 그림까지 본다: 그림을 그리는 동안은 기다린다
+  const figuresPending = drawingFigures(run);
+  const canStart = CAN_START.has(run.status) && !blockedByWorking && !run.legacy && !figuresPending;
   const skipped = run.flow.draft_review_skipped === "no_review_llm";
   // 시간 제한 없음 — 기다리는 동안 경과 초와 [취소] (취소하면 검토 전 상태로, 결과·버전 없음)
   const elapsed = useElapsed(reviewing);
@@ -75,6 +78,12 @@ export default function FinalReview() {
           )}
         </Button>
       </div>
+
+      {figuresPending && (
+        <p role="status" className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground" data-testid="figures-pending-hint">
+          그림 준비 중 — 끝나면 진행할 수 있습니다. 초안 글은 지금 고칠 수 있습니다.
+        </p>
+      )}
 
       {run.flow.stale && (
         <Alert variant="warning" role="status">

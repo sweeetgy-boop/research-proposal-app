@@ -10,6 +10,8 @@ import { SectionRewrite } from "@/features/rewrite/SectionRewrite";
 import { useToast } from "@/components/ui/toast";
 import { EvidencePanel } from "@/features/evidence/EvidencePanel";
 import { FigureList } from "@/features/figures/FigureList";
+import { FigureJobBanner } from "@/features/figures/FigureJobBanner";
+import { slotsFor } from "@/features/figures/figureJob";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -227,6 +229,11 @@ export default function Draft() {
 
   const tabs = [{ id: "current", label: `현재 v${d.version}` }, ...versions.filter((v) => v !== d.version).map((v) => ({ id: String(v), label: `v${v}` }))];
 
+  const onFigureApplied = (v: number) => {
+    toast(v === d.version ? "확인 표시를 저장했습니다 (새 버전 없음)" : `v${v} 으로 저장했습니다 (그림)`, "success");
+    qc.invalidateQueries({ queryKey: keys.run(id) });
+  };
+
   const renderRow = (row: Row) =>
     row.kind === "header" ? (
       <>
@@ -241,10 +248,8 @@ export default function Draft() {
               readOnly
               disabled={selected !== null || d.flow.has_working || d.legacy}
               version={selected}
-              onApplied={(v) => {
-                toast(v === d.version ? "확인 표시를 저장했습니다 (새 버전 없음)" : `v${v} 으로 저장했습니다 (그림)`, "success");
-                qc.invalidateQueries({ queryKey: keys.run(id) });
-              }}
+              onApplied={onFigureApplied}
+              slots={selected === null ? slotsFor(run, row.section.key) : undefined}
             />
           </div>
         )}
@@ -291,6 +296,7 @@ export default function Draft() {
             </p>
           </div>
         )}
+        <FigureJobBanner run={run} ready={(d.figures ?? []).length} baseVersion={d.version} disabled={d.flow.has_working || d.legacy} onApplied={onFigureApplied} />
         <Tabs items={tabs} value={tab} onChange={setTab} label="초안 버전" />
         {tabs.map((t) => (
           <TabPanel key={t.id} id={t.id} active={t.id === tab}>

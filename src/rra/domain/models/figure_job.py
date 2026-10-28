@@ -43,5 +43,4 @@ class FigureJob(BaseModel):
     draft_visible_seconds: float | None = None  # 제출 → 초안 글 보임(drafted)
     figures_done_seconds: float | None = None  # 제출 → 그림 모두 끝남
     error: str | None = None  # 작업 전체 실패 사유 (예외 클래스명·interrupted)
-    review_after: bool = False  # 그림이 끝나면 ③ 1차 검토를 자동으로 시작한다
     applied: bool = False  # 끝난 뒤 그동안 만든 버전 파일에 그림을 채웠다

@@ -642,12 +642,12 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin, FigureJobMixin
                     # [G] 그림은 백그라운드(ADR 0045) — 초안 글을 먼저 보인다(drafted).
                     # 그림 작업 락·자리 목록을 run 락을 놓기 전에 만들어 공백이 없게 하고,
                     # 실행은 락을 놓은 뒤에.
-                    # 1차 검토가 켜져 있으면 그림까지 보도록 그림이 끝난 뒤 시작한다
+                    # 1차 검토(켜져 있을 때)는 예전처럼 바로 시작한다 — 그림을 기다리면
+                    # 제안자가 v1 을 고치는 사이 검토가 v2 를 만들어 저장이 어긋난다.
+                    # 검토는 그때까지 도착한 그림만 본다
                     figure_claim = self._prepare_figure_job(
-                        user, run_id, state, ordered, req, snapshot, review_after=auto_review
+                        user, run_id, state, ordered, req, snapshot
                     )
-                    if figure_claim is not None:
-                        auto_review = False
                     state.draft_visible_seconds = figure_job_rules.seconds_between(
                         state.created_at, self._clock()
                     )

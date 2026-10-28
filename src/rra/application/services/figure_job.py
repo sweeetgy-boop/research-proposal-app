@@ -112,8 +112,6 @@ class FigureJobMixin:
         sections: list[Section],
         req: ProposalRequest,
         snapshot: RetrievalSnapshot | None,
-        *,
-        review_after: bool,
     ) -> RunClaim | None:
         """v1 저장 뒤·drafted 전 — 그림 작업 락을 잡고 자리 목록을 쓴다. 그림 단계가 없으면 None."""
         figures = getattr(self, "figures", None)
@@ -139,7 +137,6 @@ class FigureJobMixin:
             base_version=max(state.draft_version, 1),
             now=now,
             submitted_at=state.created_at,
-            review_after=review_after,
         )
         self.store.save_figure_job(user, run_id, job)  # type: ignore[attr-defined]
         step = state.step(FIGURES)
@@ -216,18 +213,15 @@ class FigureJobMixin:
             self._end_job(user, run_id, type(exc).__name__)
             claim.release()
             raise
-        review_after = self._end_job(user, run_id, error)
+        self._end_job(user, run_id, error)
         claim.release()
-        if review_after:  # ③ 1차 검토는 그림까지 본다 — 그림이 끝난 뒤 자동 시작 (켜져 있을 때만)
-            await self._auto_review_after_figures(user, run_id)
 
-    def _end_job(self, user: str, run_id: str, error: str | None) -> bool:
-        """작업 끝 — 상태·시간 기록, 버전 파일에 그림 채우기, 단계·측정 갱신.
-        검토를 이어 갈지 돌려준다."""
+    def _end_job(self, user: str, run_id: str, error: str | None) -> None:
+        """작업 끝 — 상태·시간 기록, 버전 파일에 그림 채우기, 단계·측정 갱신."""
         now = self._clock()  # type: ignore[attr-defined]
         job = self._update_job(user, run_id, lambda j: job_rules.finish(j, now, error=error))
         if job is None:
-            return False
+            return
         job = self._apply_job_to_versions(user, run_id, job)
         state = self.store.load_state(user, run_id)  # type: ignore[attr-defined]
         self._figure_step_status(state, job)
@@ -248,7 +242,6 @@ class FigureJobMixin:
             len(job.figures),
             job.figures_done_seconds,
         )
-        return job.review_after and job.status == "done"
 
     def _figure_step_status(self, state: RunState, job: FigureJob) -> None:
         try:
@@ -371,18 +364,6 @@ class FigureJobMixin:
             self._update_job(user, run_id, done)
 
         await asyncio.gather(defaults(), techniques())
-
-    async def _auto_review_after_figures(self, user: str, run_id: str) -> None:
-        from rra.application.ports import RunBusy
-        from rra.domain.rules.review_flow import InvalidTransition
-
-        try:
-            await self.review(user, run_id)  # type: ignore[attr-defined]
-        except (RunBusy, InvalidTransition, RuntimeError) as exc:
-            logger.warning("run.auto_review_skipped run=%s reason=%s", run_id, type(exc).__name__)
-            state = self.store.load_state(user, run_id)  # type: ignore[attr-defined]
-            self._skip_review(user, run_id, state, "failed")  # type: ignore[attr-defined]
-            self._save(state)  # type: ignore[attr-defined]
 
     # ── 작성 중 섹션 먼저 보기 (ADR 0045 [4]) ──────────────────
     async def sections_progress(self, user: str, run_id: str) -> dict[str, Any]:

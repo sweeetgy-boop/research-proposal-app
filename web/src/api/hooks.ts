@@ -29,6 +29,11 @@ export function useDeployVersion() {
 
 const ACTIVE = new Set<RunState["status"]>(["queued", "running", "draft_reviewing", "final_reviewing"]);
 export const isActive = (s: RunState["status"] | undefined) => !!s && ACTIVE.has(s);
+/** 그림 백그라운드 작업 중 (ADR 0045, features/figures/figureJob.ts 와 같은 규칙) */
+const drawingFigures = (r: RunState | undefined) => {
+  const s = (r as { figures_status?: string | null } | undefined)?.figures_status;
+  return s === "pending" || s === "drawing";
+};
 
 /** 404 는 "없음" 으로 다루는 조회(설계도·임시 저장·검토 결과) */
 function optional<T>(fn: () => Promise<T>): () => Promise<T | null> {
@@ -50,7 +55,8 @@ export function useRun(id: string, opts: { poll?: boolean } = {}) {
   return useQuery({
     queryKey: keys.run(id),
     queryFn: () => api.getRun(id),
-    refetchInterval: (q) => (opts.poll && isActive(q.state.data?.status) ? 2000 : false),
+    // 생성·검토 중이거나 그림을 백그라운드로 그리는 중(ADR 0045)이면 2초마다
+    refetchInterval: (q) => (opts.poll && (isActive(q.state.data?.status) || drawingFigures(q.state.data)) ? 2000 : false),
   });
 }
 

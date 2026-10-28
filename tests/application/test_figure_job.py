@@ -135,14 +135,12 @@ async def test_actions_on_pending_figures_and_finishing_steps_wait(repo):  # noq
         await mgr.add_figure(USER, rid, "process", "method")
     with pytest.raises(EditRejected, match="그림을 그리는 중"):
         await mgr.retry_techniques(USER, rid)
-    # 1차 검토는 그림까지 보도록 그림이 끝난 뒤 자동으로 (이 run 은 1차 검토가 켜져 있다)
-    assert mgr.store.list_reviews(USER, rid) == []
+    # 1차 검토(켜져 있으면)는 그림을 기다리지 않고 바로 — 제안자 편집과 v2 가 어긋나지 않게
+    assert mgr.store.list_reviews(USER, rid) == [1]
     images.gate.set()
     final = await mgr.wait(USER, rid)
-    assert final.review_rounds == 1
-    sent = mgr.reviewer.llm.calls[0]
-    assert "[그림 명세" in sent  # 검토가 그림 명세를 받았다
-    assert final.figures_status == "done"
+    assert final.review_rounds == 1 and final.figures_status == "done"
+    assert len((await mgr.get_draft(USER, rid)).figures) == 3  # 검토가 만든 v2 에도 그림
 
 
 async def test_finalize_waits_for_figures(repo):  # noqa: F811
