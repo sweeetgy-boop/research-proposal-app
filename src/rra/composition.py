@@ -47,12 +47,14 @@ from rra.config_loader import (
     render_slots,
     render_template_path,
     require_credentials,
+    rerank_rule,
     resolve_data_dir,
     retention_days,
     retrieval_mix,
     review_policy,
     rnd_notice_config,
     runs_config,
+    same_judgment_config,
     section_checklists,
     security_config,
     served_model_aliases,
@@ -1431,9 +1433,25 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
     )
 
 
-def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None, pipeline=None):
+def build_precheck(
+    settings: Settings | None = None,
+    repo=None,
+    *,
+    reranker=None,
+    pipeline=None,
+    judge: bool = False,
+    llm=None,
+    local_llm=None,
+    local_slot=None,
+    keyword_source=None,
+):
     """PrecheckOverlap 유스케이스. repo 를 주면 그대로 쓴다(테스트·MCP 조립용).
-    pipeline.reranker 가 켜져 있으면 Q8 reranker 로 k×4 를 다시 순위 매긴다."""
+    pipeline.reranker 가 켜져 있으면 Q8 reranker 로 k×4 를 다시 순위 매긴다 — 점수는 차단 판단의 주
+    점수(overlap.yaml rerank, 레인 A).
+
+    judge=True(REST ②) 면 AI 같음 판정(SameJudge: Argon → 로컬 → 규칙)과 핵심 키워드 출처(실시간
+    검색과 같은 LiveKeywordMaker)를 붙인다. llm 을 주면(가짜 모드·테스트) 그것을 Argon 자리로
+    쓴다."""
     from rra.application.usecases.precheck_overlap import PrecheckOverlap
 
     settings = settings or load_settings()
@@ -1441,6 +1459,13 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
         repo = build_repository(build_embedding(settings), settings)
     if reranker is None and (pipeline or pipeline_config(settings)).reranker:
         reranker = build_reranker(settings)
+    same_judge = None
+    if judge:
+        same_judge = build_same_judge(
+            settings, repo=repo, llm=llm, local_llm=local_llm, local_slot=local_slot
+        )
+        if keyword_source is None:
+            keyword_source = build_live_keywords(settings, llm=llm)
     return PrecheckOverlap(
         repo,
         own=own_unit(settings),
@@ -1448,6 +1473,58 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
         reranker=reranker,
         mix=retrieval_mix(settings),
         candidates=overlap_candidates(settings),
+        rerank=rerank_rule(settings),
+        same_judge=same_judge,
+        keyword_source=keyword_source if judge else None,
+    )
+
+
+def build_same_judge(
+    settings: Settings | None = None, *, repo, llm=None, local_llm=None, local_slot=None
+):
+    """② AI 같음 판정(SameJudge, 레인 A) — overlap.yaml judgment. Argon = judgment.stage(기본
+    review:
+    gemini 면 일일 예산·공유 호출 제한기), 로컬 = judgment.local_stage. 키·설정이 없는 단계는
+    건너뛴다.
+    꺼져 있으면 None(규칙 판정만). llm 을 주면 그것만 Argon 자리로 쓴다(가짜 모드·테스트)."""
+    from rra.application.usecases.judge_sameness import SameJudge
+
+    settings = settings or load_settings()
+    cfg = same_judgment_config(settings)
+    if not cfg["enabled"]:
+        return None
+    primary, local = llm, local_llm
+    provider = model = local_model = None
+    if llm is None and llm_available(settings, stage=cfg["stage"]):
+        try:
+            primary = build_llm(settings, stage=cfg["stage"])
+        except (LLMUnavailable, KeyError, ValueError):
+            primary = None
+    if primary is not None:
+        try:
+            scfg = llm_config(settings, cfg["stage"])
+            provider, model = scfg["provider"], scfg["served_model"] or scfg["model"]
+        except (KeyError, ValueError):
+            pass
+    if local is None and llm is None and cfg["local_stage"]:
+        try:
+            local = build_llm(settings, stage=cfg["local_stage"])
+            lcfg = llm_config(settings, cfg["local_stage"])
+            local_model = lcfg["served_model"] or lcfg["model"]
+        except (LLMUnavailable, KeyError, ValueError):
+            local = None
+    return SameJudge(
+        primary=primary,
+        local=local,
+        repo=repo,
+        include_internal=review_policy(settings)["include_internal"],
+        provider=provider,
+        model=model,
+        local_model=local_model,
+        timeout=cfg["timeout"],
+        local_timeout=cfg["local_timeout"],
+        max_candidates=cfg["max_candidates"],
+        local_slot=local_slot,
     )
 
 
@@ -2010,7 +2087,11 @@ def build_api(
         manager = build_run_manager(settings, repo=repo, llm=llm, runner=runner, live_search=live)
     sessions = build_sessions(settings)
     static = static_dir if static_dir is not None else Path(settings.static_dir)
-    precheck = build_precheck(settings, repo=repo)
+    slot = getattr(manager.generate, "local_slot", None)  # 로컬 모델 — 생성과 같은 슬롯
+    # ② 판정(레인 A): AI 같음 판정 + 핵심 키워드(실시간 검색과 같은 LiveKeywordMaker)
+    precheck = build_precheck(
+        settings, repo=repo, judge=True, llm=llm, local_slot=slot, keyword_source=live.keywords
+    )
     pipeline = pipeline_config(settings)
     auth = auth_config(settings)
     guest_services = None
@@ -2020,18 +2101,24 @@ def build_api(
             public_repository(repo),
             llm=llm,
             ntis_insights=fake["ntis_insights"] if fake else None,
+            local_slot=slot,
+            keyword_source=live.keywords,
         )
     return create_app(
         manager=manager,
         precheck=precheck,
         policy_suggest=build_policy_suggest(settings, repo=repo),
         notice_match=build_notice_match(settings, repo=repo),
-        differentiate=build_differentiator(settings, repo=repo, llm=llm),
-        recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
+        differentiate=build_differentiator(settings, repo=repo, llm=llm, local_slot=slot),
+        recommend=build_recommender(
+            settings, repo=repo, llm=llm, precheck=precheck, local_slot=slot
+        ),
         recommend_auto=recommend_policy(settings)["auto"],
         clarify=build_clarifier(settings, llm=llm) if pipeline.clarify else None,
         structure=build_structurer(settings, llm=llm),
-        compare=build_comparer(settings, repo=repo, precheck=precheck),
+        compare=build_comparer(settings, repo=repo, precheck=precheck, llm=llm, local_slot=slot),
+        polish=build_polisher(settings, llm=llm, local_slot=slot),
+        choice_log=build_choice_log(settings),
         brief=build_briefer(settings, repo=repo, llm=llm),
         ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
@@ -2069,19 +2156,36 @@ def build_version_info(settings: Settings | None = None) -> dict[str, Any]:
 
 
 def build_scoped_services(
-    settings: Settings, repo, *, llm=None, ntis_insights=None
+    settings: Settings,
+    repo,
+    *,
+    llm=None,
+    ntis_insights=None,
+    local_slot=None,
+    keyword_source=None,
 ) -> dict[str, Any]:
     """공용 계정(guest)용 서비스 묶음 — 같은 유스케이스를 internal 제외 저장소로 조립 (레인 A).
     키는 create_app 의 인자 이름과 같다."""
-    precheck = build_precheck(settings, repo=repo)
+    precheck = build_precheck(
+        settings,
+        repo=repo,
+        judge=True,
+        llm=llm,
+        local_slot=local_slot,
+        keyword_source=keyword_source,
+    )
     return {
         "repo": repo,
         "precheck": precheck,
         "policy_suggest": build_policy_suggest(settings, repo=repo),
         "notice_match": build_notice_match(settings, repo=repo),
-        "differentiate": build_differentiator(settings, repo=repo, llm=llm),
-        "recommend": build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
-        "compare": build_comparer(settings, repo=repo, precheck=precheck),
+        "differentiate": build_differentiator(settings, repo=repo, llm=llm, local_slot=local_slot),
+        "recommend": build_recommender(
+            settings, repo=repo, llm=llm, precheck=precheck, local_slot=local_slot
+        ),
+        "compare": build_comparer(
+            settings, repo=repo, precheck=precheck, llm=llm, local_slot=local_slot
+        ),
         "brief": build_briefer(settings, repo=repo, llm=llm),
         "ntis_insights": ntis_insights
         if ntis_insights is not None
@@ -2119,7 +2223,17 @@ def build_purge_runs(settings: Settings | None = None, *, clock=None):
     return PurgeRuns(FileRunStore(Path(settings.runs_dir)), retention_days(settings), **kwargs)
 
 
-def build_differentiator(settings: Settings | None = None, *, repo=None, llm=None):
+def _local_fallback(settings: Settings, *, remote: bool, llm=None):
+    """Argon 단계의 로컬 대체(compose 단계, 레인 A). 이미 로컬이거나 llm 을 주었으면 None."""
+    if not remote or llm is not None:
+        return None
+    try:
+        return build_llm(settings, stage="compose")
+    except (LLMUnavailable, KeyError, ValueError):
+        return None
+
+
+def build_differentiator(settings: Settings | None = None, *, repo=None, llm=None, local_slot=None):
     """기능 2 유스케이스(Differentiate). differentiate 단계 LLM(기본 gemini) 키가 없으면
     compose(로컬) 모델로 대신하고 fallback_local=True. llm 을 주면 그대로 쓴다(테스트용)."""
     from rra.application.usecases.differentiate import Differentiate
@@ -2135,6 +2249,7 @@ def build_differentiator(settings: Settings | None = None, *, repo=None, llm=Non
     if not available:
         stage, fallback = "compose", True
     cfg = llm_config(settings, stage)
+    local = _local_fallback(settings, remote=not fallback, llm=llm)
     if llm is None:
         llm = build_llm(settings, stage=stage)
     return Differentiate(
@@ -2145,6 +2260,8 @@ def build_differentiator(settings: Settings | None = None, *, repo=None, llm=Non
         provider=cfg["provider"],
         model=cfg["served_model"] or cfg["model"],
         fallback_local=fallback,
+        local=local,
+        local_slot=local_slot,
     )
 
 
@@ -2175,16 +2292,72 @@ def build_structurer(settings: Settings | None = None, *, llm=None):
     )
 
 
-def build_comparer(settings: Settings | None = None, *, repo=None, precheck=None):
-    """U4 차별성 비교표(CompareProjects) — LLM 없음. usability.comparison 이 꺼지면 None."""
+def build_comparer(
+    settings: Settings | None = None, *, repo=None, precheck=None, llm=None, local_slot=None
+):
+    """U4 차별성 비교표(CompareProjects). usability.comparison 이 꺼지면 None. 기존 과제 칸은
+    CellExtractor(Argon → 로컬 → 규칙, 레인 A)가 원문에서 뽑는다. llm 을 주면 그것만 Argon
+    자리로."""
     from rra.application.usecases.compare_projects import CompareProjects
+    from rra.application.usecases.extract_cells import CellExtractor
 
     settings = settings or load_settings()
     if not usability_config(settings).comparison:
         return None
     if repo is None:
         repo = build_repository(build_embedding(settings), settings)
-    return CompareProjects(repo, precheck=precheck or build_precheck(settings, repo=repo))
+    primary, local = _argon_and_local(settings, llm=llm)
+    extractor = CellExtractor(
+        primary=primary,
+        local=local,
+        include_internal=review_policy(settings)["include_internal"],
+        local_slot=local_slot,
+    )
+    return CompareProjects(
+        repo, precheck=precheck or build_precheck(settings, repo=repo), extractor=extractor
+    )
+
+
+def _argon_and_local(settings: Settings, *, llm=None):
+    """② AI 기능 공용 — (Argon, 로컬). Argon = overlap.yaml judgment.stage(기본 review: gemini 면
+    일일 예산·공유 호출 제한기), 로컬 = judgment.local_stage. llm 을 주면(가짜 모드·테스트) (llm,
+    None)."""
+    if llm is not None:
+        return llm, None
+    cfg = same_judgment_config(settings)
+    primary = local = None
+    if llm_available(settings, stage=cfg["stage"]):
+        try:
+            primary = build_llm(settings, stage=cfg["stage"])
+        except (LLMUnavailable, KeyError, ValueError):
+            primary = None
+    if cfg["local_stage"]:
+        try:
+            local = build_llm(settings, stage=cfg["local_stage"])
+        except (LLMUnavailable, KeyError, ValueError):
+            local = None
+    return primary, local
+
+
+def build_polisher(settings: Settings | None = None, *, llm=None, local_slot=None):
+    """② 과제안 [AI로 다듬기](PolishField, 레인 A) — Argon → 로컬. 둘 다 없으면 None."""
+    from rra.application.usecases.polish_field import PolishField
+
+    settings = settings or load_settings()
+    primary, local = _argon_and_local(settings, llm=llm)
+    if primary is None and local is None:
+        return None
+    return PolishField(primary=primary, local=local, local_slot=local_slot)
+
+
+def build_choice_log(settings: Settings | None = None):
+    """② 유사과제 선택 기록(JSONL, 레인 A). 가짜 모드는 메모리(데이터 폴더를 건드리지 않는다)."""
+    from rra.adapters.logging.choice_log import JsonlChoiceLog, MemoryChoiceLog
+
+    settings = settings or load_settings()
+    if settings.fake_llm:
+        return MemoryChoiceLog()
+    return JsonlChoiceLog(data_location(settings, "similar_choices"))
 
 
 def build_briefer(settings: Settings | None = None, *, repo=None, llm=None):
@@ -2227,7 +2400,9 @@ def build_clarifier(settings: Settings | None = None, *, llm=None):
     )
 
 
-def build_recommender(settings: Settings | None = None, *, repo=None, llm=None, precheck=None):
+def build_recommender(
+    settings: Settings | None = None, *, repo=None, llm=None, precheck=None, local_slot=None
+):
     """차별화 과제 추천 유스케이스(RecommendProjects, ADR 0012).
 
     recommend 단계 LLM(기본 gemini) 키가 없으면 compose(로컬) 모델로 대신하고 fallback_local=True.
@@ -2248,6 +2423,7 @@ def build_recommender(settings: Settings | None = None, *, repo=None, llm=None, 
     if not available:
         stage, fallback = "compose", True
     cfg = llm_config(settings, stage)
+    local = _local_fallback(settings, remote=not fallback, llm=llm)
     if llm is None:
         llm = build_llm(settings, stage=stage)
     generate = build_generate(settings, repo=repo, llm=llm)  # retrieve 만 쓴다 (LLM 호출 없음)
@@ -2262,6 +2438,8 @@ def build_recommender(settings: Settings | None = None, *, repo=None, llm=None, 
         model=cfg["served_model"] or cfg["model"],
         fallback_local=fallback,
         self_overlap_mode=recommend_policy(settings)["self_overlap"],
+        local=local,
+        local_slot=local_slot,
     )
 
 

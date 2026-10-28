@@ -98,6 +98,7 @@ class InMemoryRunStore:
         self.confirmations: dict[tuple[str, str], Any] = {}
         self.versions: dict[tuple[str, str], dict[int, Any]] = {}
         self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
+        self._idea_versions: dict = {}
         self._recommendations: dict[tuple[str, str], dict[str, Any]] = {}
         self._working: dict[tuple[str, str], dict[str, Any]] = {}
         self._outlines: dict[tuple[str, str], dict[str, Any]] = {}
@@ -206,6 +207,12 @@ class InMemoryRunStore:
 
     def load_recommendations(self, user, run_id):
         return self._recommendations.get((user, run_id))
+
+    def save_idea_versions(self, user, run_id, data):
+        self._idea_versions[(user, run_id)] = list(data)
+
+    def load_idea_versions(self, user, run_id):
+        return self._idea_versions.get((user, run_id))
 
     def save_rewrite(self, user, run_id, key, data):
         self.rewrites.setdefault(self._key(user, run_id), {})[key] = dict(data)

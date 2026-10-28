@@ -43,7 +43,7 @@ describe("② 실시간 검색", () => {
     mockFetch({});
     updateIdea({ precheck: livePre, request });
     const { container } = renderWithProviders(<Precheck />, { route: "/new/precheck" });
-    const table = screen.getByRole("table", { name: "유사과제 목록" });
+    const table = screen.getByRole("table", { name: /유사과제 목록/ });
     const rows = within(table).getAllByRole("row").slice(1);
     expect(within(rows[0]!).queryByText("실시간 검색")).toBeNull();
     expect(within(rows[1]!).getByText("실시간 검색")).toBeInTheDocument();

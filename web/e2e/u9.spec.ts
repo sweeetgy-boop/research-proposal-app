@@ -44,6 +44,9 @@ test.describe("U9 사용성 흐름", () => {
 
     // ② 유사과제·비교표
     await expect(page).toHaveURL(/\/new\/precheck$/);
+    // 2026-10-28 레인 A: 비교표는 [유사함] 으로 고른 과제만 — 첫 행을 고른다
+    await expect(page.getByText("유사한 과제를 고르면 비교표가 만들어집니다")).toBeVisible();
+    await page.getByRole("table", { name: /유사과제 목록/ }).locator("tbody tr").first().getByRole("button", { name: "유사함" }).click();
     await expect(page.getByRole("table", { name: /차별성 비교표/ })).toBeVisible();
     await expect(page.getByRole("rowheader", { name: /제안 과제/ })).toBeVisible();
     await shot(page, 2, "comparison");

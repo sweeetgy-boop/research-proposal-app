@@ -11,6 +11,9 @@ Tier = Literal["own", "national_rnd", "domestic_rail", "external", "procurement"
 # KRRI·외부 / 발주 용역 공고(P2-6, doc_type procurement)
 # own 티어의 세부 구분 — institute: 철도연구원 부서, company: 그 외 공사 부서(사내 과제 기록 출처)
 OwnDetail = Literal["institute", "company"]
+SameVerdict = Literal["same", "partial", "different"]
+JudgedBy = Literal["argon", "local", "rule"]
+SimilarChoiceValue = Literal["similar", "unrelated"]
 
 
 class OverlapAlert(BaseModel):
@@ -28,6 +31,18 @@ class OverlapAlert(BaseModel):
     own_detail: OwnDetail | None = (
         None  # tier=own 일 때: 철도연구원 부서(institute) / 그 외 공사 부서(company)
     )
+    # ── ② 판정 정확도 (2026-10-28 레인 A, ADR 0036) ──
+    # reranker(cross-encoder) 점수 0~1 — 있으면 차단 판단의 주 점수(e5 유사도는 후보 검색용)
+    rerank_score: float | None = None
+    rule_blocking: bool | None = None  # 규칙(점수 + 핵심 키워드) 판정 — AI 판정 전 값
+    # AI 판정(대상·문제·방법이 실제로 같은가): same(같다 → 차단) | partial(일부 겹침) | different
+    judgment: SameVerdict | None = None
+    judgment_reason: str = ""  # 한 줄 이유 (LLM 출력 — 비신뢰, 정리 뒤)
+    judged_by: JudgedBy | None = None  # argon | local | rule(AI 실패·미판정 → 규칙 기준)
+    merged_ids: list[str] = Field(
+        default_factory=list
+    )  # 제목이 같은 다른 문서(NTIS 번호만 다른 중복)
+    choice: SimilarChoiceValue | None = None  # 제안자 선택 [유사함]=similar / [관련 없음]=unrelated
 
 
 class RelatedResearch(BaseModel):
@@ -43,11 +58,31 @@ class RelatedResearch(BaseModel):
     url: str | None = None
 
 
+JudgmentStatus = Literal["ai", "rule_fallback", "off", "no_candidates"]
+
+
+class JudgmentInfo(BaseModel):
+    """② AI 같음 판정의 요약 — 화면 안내와 [다시 시도] 용. 실패 사유는 예외 클래스명만(본문
+    없음)."""
+
+    status: JudgmentStatus = "off"
+    judged_by: JudgedBy | None = None
+    provider: str | None = None
+    model: str | None = None
+    candidates: int = 0  # 판정에 보낸 후보 수 (최대 10)
+    calls: int = 0  # 외부 LLM 호출 수
+    errors: list[str] = Field(default_factory=list)  # 단계별 실패 사유 코드 (argon:timeout 등)
+    excluded_doc_ids: list[str] = Field(default_factory=list)  # 외부 전송에서 뺀 internal 문서
+
+
 class PrecheckResult(BaseModel):
     """② precheck 결과 — 판정 알림(과제형 자료원만) + 관련 연구 목록(참고)."""
 
     alerts: list[OverlapAlert] = Field(default_factory=list)
     related_research: list[RelatedResearch] = Field(default_factory=list)
+    judgment: JudgmentInfo = Field(default_factory=JudgmentInfo)
+    core_keywords: list[str] = Field(default_factory=list)  # 공유 키워드 판정에 쓴 아이디어 핵심어
+    keyword_origin: str = "rule"  # argon | local | rule
 
     @property
     def blocking(self) -> bool:

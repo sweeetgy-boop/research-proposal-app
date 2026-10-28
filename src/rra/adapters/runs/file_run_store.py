@@ -218,6 +218,16 @@ class FileRunStore:
         path = self._run_dir(user, run_id) / "recommendations.json"
         return read_json(path) if path.is_file() else None
 
+    def save_idea_versions(self, user: str, run_id: str, data: list[dict[str, Any]]) -> None:
+        write_json(self._run_dir(user, run_id) / "idea_versions.json", {"versions": list(data)})
+
+    def load_idea_versions(self, user: str, run_id: str) -> list[dict[str, Any]] | None:
+        path = self._run_dir(user, run_id) / "idea_versions.json"
+        if not path.is_file():
+            return None
+        data = read_json(path)
+        return list(data.get("versions") or []) if isinstance(data, dict) else None
+
     # ── U3 다시 쓰기 후보·보완 메모 / U8 usage ─────────────────
     def _rewrite_path(self, user: str, run_id: str, key: str) -> Path:
         if not _SECTION.match(key):

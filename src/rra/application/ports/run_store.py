@@ -92,6 +92,13 @@ class RunStorePort(Protocol):
 
     def load_recommendations(self, user: str, run_id: str) -> dict[str, Any] | None: ...
 
+    def save_idea_versions(self, user: str, run_id: str, data: list[dict[str, Any]]) -> None:
+        """② 과제안 버전(원래 아이디어·고른 카드·직접 고친 안)을 run 에 복사
+        (idea_versions.json)."""
+        ...
+
+    def load_idea_versions(self, user: str, run_id: str) -> list[dict[str, Any]] | None: ...
+
     # U3 섹션 다시 쓰기 후보(rewrite_<key>.json)·제안자 보완 메모(proposer_notes.json)
     def save_rewrite(self, user: str, run_id: str, key: str, data: dict[str, Any]) -> None: ...
 

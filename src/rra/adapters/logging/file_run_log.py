@@ -143,6 +143,7 @@ RECOMMENDATION_KEYS = frozenset(
         "discarded",
         "skipped_reason",
         "chosen",
+        "regenerated",  # 2026-10-28 레인 A: 2건 미만이라 제외 사유를 주고 한 번 다시 받음
     }
 )
 REVIEW_KEYS = frozenset(

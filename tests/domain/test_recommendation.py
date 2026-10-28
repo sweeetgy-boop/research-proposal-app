@@ -41,11 +41,14 @@ def test_valid_recommendation_passes_and_is_cleaned():
     assert rec.evidence == ["own:1", "openalex:W1"] and len(rec.reasons) == 2
 
 
-def test_missing_fields_and_out_of_range_ids_are_discarded():
+def test_missing_core_fields_discard_but_out_of_range_ids_are_only_trimmed():
     assert validate({**GOOD, "title": ""})[1] == rule.DISCARD_EMPTY
-    assert validate({**GOOD, "reasons": []})[1] == rule.DISCARD_EMPTY
-    assert validate({**GOOD, "compared_with": ["ntis:zzz"]})[1] == rule.DISCARD_COMPARED
-    assert validate({**GOOD, "evidence": ["openalex:W9"]})[1] == rule.DISCARD_EVIDENCE
+    rec, reason = validate({**GOOD, "reasons": []})  # 이유 0개도 허용 (2026-10-28 완화)
+    assert reason is None and rec.reasons == []
+    rec, reason = validate({**GOOD, "compared_with": ["ntis:zzz", "own:1"]})
+    assert reason is None and rec.compared_with == ["own:1"]  # 범위 밖 id 만 빠진다
+    rec, reason = validate({**GOOD, "evidence": ["openalex:W9"]})
+    assert reason is None and rec.evidence == []
     # compared_with 도 검색 근거 id(논문)를 허용 — 검색으로 찾은 논문도 비교 대상
     assert validate({**GOOD, "compared_with": ["openalex:W1"]})[1] is None
 
@@ -55,10 +58,31 @@ def test_made_up_numbers_policy_names_and_foreign_script_are_discarded():
     assert (
         validate({**GOOD, "summary": "검측차 이력 분석 과제 2023년 결과를 씀"})[1] is None
     )  # 자료에 있는 수치
-    assert (
-        validate({**GOOD, "risks": "국가철도망 구축계획 반영 필요"})[1] == rule.DISCARD_UNGROUNDED
-    )
+    # 부가 칸(위험·이유)의 지어낸 정책명은 그 칸만 비운다 — 추천은 남는다
+    rec, reason = validate({**GOOD, "risks": "국가철도망 구축계획 반영 필요"})
+    assert reason is None and rec.risks == ""
+    rec, _ = validate({**GOOD, "reasons": ["국가철도망 구축계획과 다름", "own:1 은 이력만 봄"]})
+    assert rec.reasons == ["own:1 은 이력만 봄"]
+    assert validate({**GOOD, "summary": "국가철도망 구축계획 반영"})[1] == rule.DISCARD_UNGROUNDED
     assert validate({**GOOD, "differentiation": "軌道 틀림을 봄"})[1] == rule.DISCARD_FOREIGN
+
+
+def test_card_fields_goal_method_scope_and_labels():
+    rec, _ = validate(
+        {
+            **GOOD,
+            "goal": "구간별 진행 속도를 추정함",
+            "method": "운행 차량 가속도 분석",
+            "scope": "경부선",
+        }
+    )
+    assert (rec.goal, rec.method, rec.scope) == (
+        "구간별 진행 속도를 추정함",
+        "운행 차량 가속도 분석",
+        "경부선",
+    )
+    assert rule.discard_label(rule.DISCARD_NUMBER) == "자료에 없는 수치를 씀"
+    assert "unsupported" not in rule.regeneration_hint([{"reason": rule.DISCARD_NUMBER}])
 
 
 def make(title, summary="요약 문장임", diff="차별점임", **kw):

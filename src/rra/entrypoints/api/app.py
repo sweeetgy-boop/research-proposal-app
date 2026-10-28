@@ -48,7 +48,7 @@ from rra.application.services.run_manager import (
     WorkingRejected,
 )
 from rra.application.usecases.login import LoginFailed
-from rra.domain.models import Principal, ProposalRequest, ProposerInfo
+from rra.domain.models import PrecheckResult, Principal, ProposalRequest, ProposerInfo
 from rra.domain.models.proposer import Person
 from rra.domain.models.request import validation_message
 from rra.domain.models.review import EditRequest, EvidenceDecisionRequest
@@ -56,9 +56,16 @@ from rra.domain.models.run import ACTIVE, is_valid_run_id
 from rra.domain.rules import agent_policy as policy
 from rra.domain.rules import auth_policy
 from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
+from rra.domain.rules.precheck_view import GATE_BLOCKING, RELEASED_NOTE
 from rra.domain.rules.recommendation import apply_recommendation
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.run_title import ascii_filename, hwpx_filename
+from rra.domain.rules.similar_choice import (
+    apply_choices,
+    choice_records,
+    effective_blocking,
+    idea_hash,
+)
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.routes_format import register_format_routes
 from rra.entrypoints.api.schemas import (
@@ -68,6 +75,7 @@ from rra.entrypoints.api.schemas import (
     FigureAddIn,
     FigureTechniquesIn,
     FinalizeIn,
+    PolishIn,
     RecommendationApplyIn,
     RevertIn,
     RewriteApplyIn,
@@ -91,10 +99,12 @@ from rra.entrypoints.views import (
     evidence_items_payload,
     facts_payload,
     figures_payload,
+    judgment_payload,
     live_search_payload,
     notice_matches_payload,
     ntis_insights_payload,
     policy_suggestions_payload,
+    polish_payload,
     recommendation_preview_payload,
     recommendations_payload,
     register_techniques,
@@ -131,6 +141,7 @@ _TITLES = {
 }
 
 auth_log = logging.getLogger("rra.api.auth")
+logger = logging.getLogger("rra.api")
 
 
 def _clean(text: str) -> str:
@@ -278,6 +289,8 @@ def create_app(
     version: dict[str, Any] | None = None,
     availability_notices: Callable[[], dict[str, str]] | None = None,
     live_search: Any | None = None,
+    polish: Any | None = None,
+    choice_log: Any | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api().
 
@@ -526,9 +539,13 @@ def create_app(
     recommendation_sessions = RecommendationSessions()
 
     async def _recommend(
-        request: Request, req: ProposalRequest, alerts: list[Any]
+        request: Request, req: ProposalRequest, alerts: list[Any], *, similar_only: bool = False
     ) -> dict[str, Any]:
-        result = await _svc(request, "recommend")(req, alerts)
+        svc = _svc(request, "recommend")
+        if similar_only:
+            result = await svc(req, alerts, similar_only=True)
+        else:
+            result = await svc(req, alerts)
         rec_id = recommendation_sessions.put(req, result)
         return {"id": rec_id, **recommendations_payload(result, clean=_clean)}
 
@@ -539,36 +556,161 @@ def create_app(
             return None
         return await live_search.prepare(_owner_key(request), req)
 
-    @app.post(f"/{API_VERSION}/precheck")
-    async def precheck_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
-        """유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,
-        과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다.
-        [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초) 판정한다."""
-        live = await _live(request, req)
-        live_ids = list(live.doc_ids) if live is not None else []
-        svc = _svc(request, "precheck")
-        result = await svc.run(req) if hasattr(svc, "run") else None
-        alerts = result.alerts if result is not None else await svc(req)
-        out = {
+    def _choice_view(req: ProposalRequest, alerts: list[Any]) -> dict[str, Any]:
+        """② 제안자 선택을 반영한 행·차단 여부·차단 해제·다음 버튼이 막힌 이유 (레인 A)."""
+        choices = req.choice_map()
+        shown, released = apply_choices(alerts, choices)
+        blocking = effective_blocking(alerts, choices)
+        return {
+            "shown": shown,
+            "blocking": blocking,
+            "released": released,
+            "released_note": RELEASED_NOTE if released else None,
+            "gate_reason": GATE_BLOCKING if blocking else None,
+            "similar_count": sum(1 for a in shown if a.choice == "similar"),
+        }
+
+    def _record_choices(req: ProposalRequest, alerts: list[Any], choices: dict[str, str]) -> None:
+        """임계치 조정용 선택 기록 — doc_id·선택·점수·아이디어 해시만 (개인정보·본문 없음)."""
+        from datetime import UTC, datetime
+
+        _, released = apply_choices(alerts, choices)
+        try:
+            choice_log.append(
+                choice_records(
+                    alerts,
+                    choices,
+                    idea=idea_hash(req.search_text()),
+                    at=datetime.now(UTC).isoformat(timespec="seconds"),
+                    released=released,
+                )
+            )
+        except OSError as exc:
+            logger.warning("similar_choices.append_failed err=%s", type(exc).__name__)
+
+    def _precheck_body(
+        req: ProposalRequest, result: Any, live_ids: list[str], live: Any | None
+    ) -> dict[str, Any]:
+        view = _choice_view(req, list(result.alerts))
+        return {
             "notice": UNTRUSTED_NOTICE,
-            **alerts_payload(alerts, clean=_clean, live_ids=live_ids),
+            **alerts_payload(view["shown"], clean=_clean, live_ids=live_ids),
+            "blocking": view["blocking"],
+            "released": view["released"],
+            "released_note": view["released_note"],
+            "gate_reason": view["gate_reason"],
+            "similar_count": view["similar_count"],
+            "judgment": judgment_payload(result.judgment),
+            "core_keywords": [_clean(k) for k in result.core_keywords],
+            "keyword_origin": result.keyword_origin,
             # 관련 연구(논문·보고서·특허)는 판정이 아니다 — 화면은 "참고" 로 따로 보인다 (ADR 0028)
             "related_research": related_research_payload(
-                result.related_research if result is not None else [],
-                clean=_clean,
-                live_ids=live_ids,
+                result.related_research, clean=_clean, live_ids=live_ids
             ),
             "live_search": live_search_payload(live),
         }
-        try:
-            if out["blocking"] and differentiate is not None:
-                proposal = await _svc(request, "differentiate")(req, alerts)
-                out["differentiation"] = differentiation_payload(proposal, clean=_clean)
+
+    @app.post(f"/{API_VERSION}/precheck")
+    async def precheck_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
+        """유사과제 알림. [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초)
+        판정한다. 2026-10-28 레인 A: reranker 점수·핵심 키워드(실시간 검색의 Argon 키워드) 규칙
+        판정 →
+        상위 10건 AI 같음 판정(Argon → 로컬 → 규칙). 과제 추천 LLM 이 있고 recommend.auto 면 차별화
+        과제안을 AI 판정과 동시에 1회 붙인다. 활용·차별화 제안은 [유사함] 을 고른 뒤에만."""
+        live = await _live(request, req)
+        live_ids = list(live.doc_ids) if live is not None else []
+        core = None
+        origin = None
+        keywords = getattr(live, "keywords", None) if live is not None else None
+        if keywords is not None and getattr(keywords, "ko", None):
+            core, origin = list(keywords.ko), str(keywords.origin)
+        svc = _svc(request, "precheck")
+        rec_out: dict[str, Any] | None = None
+        budget_hit = False
+        if hasattr(svc, "rule_stage"):
+            rule = await svc.rule_stage(req, core_keywords=core, keyword_origin=origin)
+
+            async def _rec() -> dict[str, Any] | None:
+                if recommend is None or not recommend_auto:
+                    return None
+                return await _recommend(request, req, list(rule.alerts), similar_only=True)
+
+            judged, rec_res = await asyncio.gather(
+                svc.judge_stage(req, rule), _rec(), return_exceptions=True
+            )
+            if isinstance(judged, BaseException):
+                raise judged
+            result = judged
+            if isinstance(rec_res, BudgetExhausted):
+                budget_hit = True
+            elif isinstance(rec_res, BaseException):
+                raise rec_res
+            else:
+                rec_out = rec_res
+        else:  # 옛 precheck(테스트 대역) — 알림 목록만
+            result = PrecheckResult(alerts=await svc(req))
             if recommend is not None and recommend_auto:
-                out["recommendations"] = await _recommend(request, req, alerts)
-        except BudgetExhausted:  # 외부 LLM 일일 상한 — 알림만 남기고 유사과제 결과는 돌려준다
+                try:
+                    rec_out = await _recommend(request, req, list(result.alerts), similar_only=True)
+                except BudgetExhausted:
+                    budget_hit = True
+        out = _precheck_body(req, result, live_ids, live)
+        if rec_out is not None:
+            out["recommendations"] = rec_out
+        try:
+            # 활용·차별화 제안은 [유사함] 으로 고른 과제가 있을 때만 (시범: 무관한 차단 과제로
+            # 엉뚱한 제안)
+            if differentiate is not None and out["similar_count"]:
+                proposal = await _svc(request, "differentiate")(
+                    req, list(result.alerts), similar_only=True
+                )
+                out["differentiation"] = differentiation_payload(proposal, clean=_clean)
+        except BudgetExhausted:
+            budget_hit = True
+        if budget_hit:  # 외부 LLM 일일 상한 — 알림만 남기고 유사과제 결과는 돌려준다
             out["llm_budget_exhausted"] = True
         return out
+
+    @app.post(f"/{API_VERSION}/precheck/judgment")
+    async def judgment_retry_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
+        """[다시 시도] — AI 같음 판정만 다시 (규칙 판정은 같은 입력의 메모를 쓴다). 레인 A."""
+        svc = _svc(request, "precheck")
+        if not hasattr(svc, "rejudge"):
+            raise HTTPException(503, "AI 판정을 쓸 수 없습니다.")
+        try:
+            result = await svc.rejudge(req)
+        except BudgetExhausted as exc:
+            raise HTTPException(
+                409, "오늘 외부 AI 호출 한도에 이르렀습니다 — 규칙 기준으로 진행하십시오."
+            ) from exc
+        return _precheck_body(req, result, [], None)
+
+    @app.post(f"/{API_VERSION}/precheck/choices")
+    async def choices_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
+        """② [유사함]/[관련 없음] 선택을 반영한 차단 여부·해제·다음 버튼 사유 (LLM 없음, 레인 A)."""
+        alerts = await _svc(request, "precheck")(req)
+        view = _choice_view(req, list(alerts))
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            **alerts_payload(view["shown"], clean=_clean),
+            "blocking": view["blocking"],
+            "released": view["released"],
+            "released_note": view["released_note"],
+            "gate_reason": view["gate_reason"],
+            "similar_count": view["similar_count"],
+        }
+
+    @app.post(f"/{API_VERSION}/precheck/plan/polish")
+    async def polish_route(body: PolishIn) -> dict[str, Any]:
+        """② 차별화 과제안 [AI로 다듬기] — 그 칸만 (Argon → 로컬). 실패면 원래 글 + 사유 (레인
+        A)."""
+        if polish is None:
+            raise HTTPException(503, "AI 다듬기를 쓸 수 없습니다 (AI 모델 없음).")
+        try:
+            result = await polish(body.request, body.field, body.text)
+        except BudgetExhausted as exc:
+            raise HTTPException(409, "오늘 외부 AI 호출 한도에 이르렀습니다.") from exc
+        return {"notice": UNTRUSTED_NOTICE, **polish_payload(result, clean=_clean)}
 
     @app.post(f"/{API_VERSION}/precheck/ntis-outcomes")
     async def ntis_outcomes_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
@@ -629,8 +771,9 @@ def create_app(
         alerts = await _svc(request, "precheck")(req)
         return {
             "notice": UNTRUSTED_NOTICE,
-            **alerts_payload(alerts, clean=_clean),
-            "recommendations": await _recommend(request, req, alerts),
+            **alerts_payload(_choice_view(req, list(alerts))["shown"], clean=_clean),
+            # [과제안 다시 만들기] — [유사함] 으로 고른 과제와 겹치지 않는 안 (레인 A)
+            "recommendations": await _recommend(request, req, alerts, similar_only=True),
         }
 
     @app.post(f"/{API_VERSION}/precheck/recommendations/{{rec_id}}/apply")
@@ -655,10 +798,11 @@ def create_app(
         if differentiate is None:
             raise HTTPException(503, "차별화 제안을 쓸 수 없습니다 (LLM 없음).")
         alerts = await _svc(request, "precheck")(req)
-        proposal = await _svc(request, "differentiate")(req, alerts)
+        # [유사함] 으로 고른 과제만 (레인 A) — 없으면 건너뜀(no_similar_selected)
+        proposal = await _svc(request, "differentiate")(req, alerts, similar_only=True)
         return {
             "notice": UNTRUSTED_NOTICE,
-            **alerts_payload(alerts, clean=_clean),
+            **alerts_payload(_choice_view(req, list(alerts))["shown"], clean=_clean),
             "differentiation": differentiation_payload(proposal, clean=_clean),
         }
 
@@ -670,10 +814,32 @@ def create_app(
         if svc is None:
             raise HTTPException(503, "차별성 비교표가 꺼져 있습니다 (usability.yaml comparison).")
         alerts = await _svc(request, "precheck")(req)
-        table = await svc(req, alerts)
+        # [유사함] 으로 고른 과제만 (레인 A) — 없으면 "유사한 과제를 고르면 비교표가 만들어집니다"
+        table = await svc(req, alerts, similar_only=True)
         return {
             "notice": UNTRUSTED_NOTICE,
-            **alerts_payload(alerts, clean=_clean),
+            **alerts_payload(_choice_view(req, list(alerts))["shown"], clean=_clean),
+            "comparison": comparison_payload(table, clean=_clean),
+        }
+
+    @app.get(f"/{API_VERSION}/runs/{{run_id}}/comparison")
+    async def run_comparison_route(request: Request, run_id: str) -> dict[str, Any]:
+        """초안이 있는 run 의 차별성 비교표 — 제안 행을 초안 섹션으로 다시 채운다(레인 A). 기존 과제
+        행은 run 입력의 [유사함] 선택에서."""
+        svc = _svc(request, "compare")
+        if svc is None:
+            raise HTTPException(503, "차별성 비교표가 꺼져 있습니다 (usability.yaml comparison).")
+        owner, rid = await _own(request, run_id)
+        try:
+            req = await manager.load_request(owner, rid)
+            view = await manager.get_draft(owner, rid)
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        alerts = await _svc(request, "precheck")(req)
+        table = await svc(req, alerts, similar_only=True, draft=view.sections)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            "run_id": rid,
             "comparison": comparison_payload(table, clean=_clean),
         }
 
@@ -748,10 +914,17 @@ def create_app(
     @app.post(f"/{API_VERSION}/runs", status_code=202)
     async def submit_route(request: Request, body: RunIn) -> dict[str, Any]:
         req = body.request()
+        choices = req.choice_map()
+        alerts = None
+        if not body.acknowledged or choices:
+            alerts = list(await _svc(request, "precheck")(req))
         if not body.acknowledged:  # 차단 경보는 담당자가 확인해야 생성한다 (may_generate)
-            alerts = await _svc(request, "precheck")(req)
-            if not policy.may_generate(alerts, acknowledged=False):
+            # [관련 없음] 으로 고른 차단 행은 빠진다 — 차단 행을 모두 고르면 차단 해제 (레인 A)
+            shown, _ = apply_choices(alerts or [], choices)
+            if not policy.may_generate(shown, acknowledged=False):
                 raise HTTPException(409, "차단 유사과제 있음 — acknowledged=true 확인 뒤 생성.")
+        if choices and choice_log is not None and alerts is not None:
+            _record_choices(req, alerts, choices)
         recommendations = None
         if body.recommendation_id is not None:
             session = recommendation_sessions.get(body.recommendation_id)
@@ -771,6 +944,7 @@ def create_app(
                 recommendations=recommendations,
                 chosen_recommendation=body.recommendation_index,
                 priority_evidence=body.priority_evidence,
+                idea_versions=body.idea_versions,
                 scope="public" if who.kind == "guest" and guest_services is not None else "all",
                 daily_limit=auth_policy.daily_run_limit(who, daily),
             )
