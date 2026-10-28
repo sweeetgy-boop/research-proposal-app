@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -46,8 +46,29 @@ def validation_message(
     return "; ".join(parts)
 
 
-# LLM 에 보내지 않는 입력 — 양식 칸에 그대로 옮기는 값.
-FORM_ONLY_FIELDS = frozenset({"budget", "department"})
+# LLM 에 보내지 않는 입력 — 양식 칸에 그대로 옮기는 값과 ② 유사과제 선택 기록.
+FORM_ONLY_FIELDS = frozenset({"budget", "department", "similar_choices"})
+MAX_SIMILAR_CHOICES = 30
+DOC_ID_MAX = 200
+
+
+class SimilarChoice(BaseModel):
+    """② 유사과제 행 하나에 대한 제안자 선택 — [유사함] similar / [관련 없음] unrelated.
+
+    doc_id 와 선택만 (개인정보 없음). [유사함] 행만 비교표·활용 제안·차별화 과제안·본문 차별성
+    문장(5. 특이사항)에 쓰인다. 차단 행을 모두 [관련 없음] 으로 고르면 차단이 풀린다
+    (domain/rules/similar_choice)."""
+
+    doc_id: str = Field(min_length=1, max_length=DOC_ID_MAX)
+    choice: Literal["similar", "unrelated"]
+
+    @field_validator("doc_id")
+    @classmethod
+    def _strip_id(cls, v: str) -> str:
+        v = v.strip()
+        if not v or any(c in v for c in "<>\"\n\r"):
+            raise ValueError("doc_id 형식이 올바르지 않습니다")
+        return v
 
 
 class Budget(BaseModel):
@@ -86,6 +107,14 @@ class ProposalRequest(BaseModel):
     )
     # Q1 입력 보강 질문의 답 ("질문: 답" 줄). 제안자 입력 근거로 취급 — 설계도·작성 프롬프트에
     supplement: str = Field(default="", description="보충 정보 (보강 질문의 답)")
+    # ② 차별화 과제안에서 고르거나 직접 고친 연구방법·적용범위 (제안자 입력과 같은 신뢰 수준)
+    method: str = Field(default="", description="연구방법 (② 차별화 과제안에서 정한 것)")
+    scope: str = Field(default="", description="적용범위 — 대상 노선·시설·차량 (② 과제안)")
+    similar_choices: list[SimilarChoice] = Field(
+        default_factory=list,
+        max_length=MAX_SIMILAR_CHOICES,
+        description="② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)",
+    )
     department: str = Field(default="", description="제안부서 (양식 칸에만 쓴다)")
     budget: Budget | None = None
 
@@ -112,6 +141,8 @@ class ProposalRequest(BaseModel):
         "beneficiaries",
         "remarks",
         "differentiation",
+        "method",
+        "scope",
     )
     @classmethod
     def _limit(cls, v: str) -> str:
@@ -127,6 +158,19 @@ class ProposalRequest(BaseModel):
         if len(v) > SHORT_MAX:
             raise ValueError(f"길이 {len(v)} > {SHORT_MAX}")
         return v
+
+    @field_validator("similar_choices")
+    @classmethod
+    def _unique_choices(cls, v: list[SimilarChoice]) -> list[SimilarChoice]:
+        """같은 doc_id 가 여러 번이면 마지막 선택만 남긴다 (순서는 처음 나온 자리)."""
+        last: dict[str, SimilarChoice] = {}
+        for c in v:
+            last[c.doc_id] = c
+        return list(last.values())
+
+    def choice_map(self) -> dict[str, str]:
+        """doc_id → similar | unrelated."""
+        return {c.doc_id: c.choice for c in self.similar_choices}
 
     def search_text(self) -> str:
         parts = [self.title_hint, self.current_state, self.root_cause, self.limitation, self.goal]

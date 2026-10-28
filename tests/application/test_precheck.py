@@ -59,8 +59,8 @@ async def test_precheck_searches_project_sources_only_and_reports_related_resear
         (_doc("openalex:W1", "openalex", "paper"), 0.97),
         (_doc("ntis:rep", "ntis", "report"), 0.95),
         (_doc("alio:1", "alio", "internal_report"), 0.90),
-        (_doc("own:1", "own", "rnd_project"), 0.86),
-        (_doc("ntis:prj", "ntis", "rnd_project"), 0.85),
+        (_doc("own:1", "own", "rnd_project", "궤도 틀림 보수 기록"), 0.86),
+        (_doc("ntis:prj", "ntis", "rnd_project", "궤도 틀림 진행 예측"), 0.85),
     ]
     uc = PrecheckOverlap(repo, own=own, candidates=_rule())
     result = await uc.run(req)

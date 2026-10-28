@@ -89,3 +89,11 @@ class CrossEncoderReranker:
         order = sorted(range(len(docs)), key=lambda i: -scores[i])
         out = [docs[i] for i in order]
         return out[:k] if k else out
+
+    async def score_documents(self, query: str, docs: list[tuple[Document, float]]) -> list[float]:
+        """precheck 판정용 — 문서마다 cross-encoder 점수(bge-reranker-v2-m3 는 sigmoid 0~1).
+        순서는 입력 그대로. 2026-10-28 레인 A: 차단 판단의 주 점수."""
+        if not docs or not query.strip():
+            return [0.0 for _ in docs]
+        texts = [document_text(d) for d, _ in docs]
+        return await asyncio.to_thread(self._scores, query, texts)
