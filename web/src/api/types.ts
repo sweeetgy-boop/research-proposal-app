@@ -1,6 +1,7 @@
 /** 응답 모양 — openapi.json 은 요청 본문만 담으므로 응답은 entrypoints/views.py 를 따라 손으로 적는다.
  *  요청 본문 타입은 생성된 schema.d.ts(components.schemas)에서 가져온다. */
 import type { components } from "./schema";
+import type { DocRefOut, LocalReviewView } from "./types-laneB";
 
 /** main 의 ProposalRequest 에는 아직 `supplement`(보강 질문 답)가 없다(feat/draft-quality 에만). 서버는 모르는 칸을 무시한다. */
 export type ProposalRequest = components["schemas"]["ProposalRequest"] & { supplement?: string };
@@ -111,7 +112,7 @@ export interface SectionWriter {
 }
 
 /** 로컬 모델 근거 대조 — Argon 이 쓴 문장의 근거를 로컬 모델이 다시 맞춰 본 결과 */
-export interface LocalCheck {
+export interface LocalCheck extends Omit<LocalReviewView, "enabled" | "mismatches" | "skipped_sections"> {
   enabled: boolean;
   mismatches: number;
   skipped_sections: string[];
@@ -350,6 +351,10 @@ export interface Citation {
   title: string | null;
   /** [4] 실시간 검색에서 가져온 근거 */
   live?: boolean;
+  /** ADR 0040 — 화면은 doc_id 대신 제목·자료원 이름(한국어)·원문 링크(공개 문서만) */
+  source?: string;
+  source_label?: string;
+  url?: string | null;
 }
 
 export interface Problem_ {
@@ -493,6 +498,8 @@ export interface ReviewComment {
   comment: string;
   revised_text: string | null;
   evidence: string[];
+  /** ADR 0040 — 근거 표시 정보 (제목·자료원 이름) */
+  evidence_refs?: DocRefOut[];
   status: "open" | "resolved" | "discarded";
   usable: boolean;
   discard_reason: string | null;
@@ -797,6 +804,8 @@ export interface EvidenceItem {
   trust: "untrusted";
   /** [4] 실시간 검색에서 가져온 근거 */
   live?: boolean;
+  /** 원문 링크 */
+  url?: string | null;
 }
 
 /** GET /v1/runs/{id}/sentences/{sid}/evidence */
@@ -906,3 +915,4 @@ export * from "./types-figures"; // [G] 그림 v2 (레인 C)
 export * from "./types-editai";
 export * from "./types-precheck"; // ② 유사과제 흐름 (레인 A)
 export * from "./types-format"; // 레인 D
+export * from "./types-laneB"; // 레인 B — L2 로컬 2차 검토·문서 표시 (ADR 0040)

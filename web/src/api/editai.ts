@@ -19,14 +19,16 @@ const enc = encodeURIComponent;
 
 export const clarifyV2 = (req: ProposalRequest) => request<ClarifyOutV2>(`${V}/precheck/clarify`, { method: "POST", body: req });
 
-export const ideaPolicyCards = (body: PolicyCardsIn) => request<PolicyCardsOut>(`${V}/ideas/policy-cards`, { method: "POST", body });
-export const ideaPolicyPolish = (req: ProposalRequest, choice: PolicyChoice, text: string) =>
-  request<PolicyPolishOut>(`${V}/ideas/policy-cards/polish`, { method: "POST", body: { ...req, choice, text } });
+// 정책 작성안·[AI로 다듬기] — 시간 제한 없음, signal 로 [취소] (서버 cancel_on_disconnect)
+export const ideaPolicyCards = (body: PolicyCardsIn, signal?: AbortSignal) =>
+  request<PolicyCardsOut>(`${V}/ideas/policy-cards`, { method: "POST", body, signal });
+export const ideaPolicyPolish = (req: ProposalRequest, choice: PolicyChoice, text: string, signal?: AbortSignal) =>
+  request<PolicyPolishOut>(`${V}/ideas/policy-cards/polish`, { method: "POST", body: { ...req, choice, text }, signal });
 
-export const runPolicyCards = (id: string, excludeDocIds: string[] = []) =>
-  request<PolicyCardsOut>(`${V}/runs/${enc(id)}/policy-cards`, { method: "POST", body: { exclude_doc_ids: excludeDocIds } });
-export const runPolicyPolish = (id: string, choice: PolicyChoice, text: string) =>
-  request<PolicyPolishOut>(`${V}/runs/${enc(id)}/policy-cards/polish`, { method: "POST", body: { choice, text } });
+export const runPolicyCards = (id: string, excludeDocIds: string[] = [], signal?: AbortSignal) =>
+  request<PolicyCardsOut>(`${V}/runs/${enc(id)}/policy-cards`, { method: "POST", body: { exclude_doc_ids: excludeDocIds }, signal });
+export const runPolicyPolish = (id: string, choice: PolicyChoice, text: string, signal?: AbortSignal) =>
+  request<PolicyPolishOut>(`${V}/runs/${enc(id)}/policy-cards/polish`, { method: "POST", body: { choice, text }, signal });
 export const runPolicyChoice = (id: string, choice: PolicyChoice, baseVersion?: number | null) =>
   request<VersionWithStatus>(`${V}/runs/${enc(id)}/policy-choice`, { method: "POST", body: { choice, base_version: baseVersion ?? null } });
 

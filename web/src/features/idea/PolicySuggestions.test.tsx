@@ -4,6 +4,7 @@ import { expectNoA11yViolations, mockFetch, problem, renderWithProviders } from 
 import { PolicySuggestions, POLICY_UNAVAILABLE } from "./PolicySuggestions";
 import { formatPolicyQuote } from "@/api/policySuggestions";
 import { emptyRequest } from "@/lib/validation";
+import { hasInternalId } from "@/lib/docRefs";
 
 afterEach(() => vi.unstubAllGlobals());
 const req = {
@@ -15,21 +16,48 @@ const req = {
 }; // 필수 4칸이 차야 [추천 받기] 가 열린다
 
 describe("정책 근거 추천", () => {
-  it("문구 형식", () => {
-    expect(formatPolicyQuote({ document: "제4차 철도산업발전기본계획", year: 2021, page: 12, quote: "유지보수 과학화", url: null })).toBe("유지보수 과학화 (제4차 철도산업발전기본계획, 2021, p.12)");
-    expect(formatPolicyQuote({ document: "", year: null, page: null, quote: "요지", url: null })).toBe("요지");
+  it("문구 형식 — 긴 URL 없이 인용 + (문서, 연도, 위치)", () => {
+    expect(formatPolicyQuote({ document: "제4차 철도산업발전기본계획", year: 2021, page: "표 3", quote: "유지보수 과학화" })).toBe("“유지보수 과학화” (제4차 철도산업발전기본계획, 2021, 표 3)");
+    expect(formatPolicyQuote({ document: "", year: null, page: null, quote: "요지" })).toBe("“요지”");
   });
 
-  it("추천 받기 → 항목 → 고른 것만 onPick, axe 통과", async () => {
-    const { calls } = mockFetch({ "/v1/ideas/policy-suggestions": { items: [{ document: "기본계획", year: 2021, page: 3, quote: "안전 투자 확대", url: null }] } });
+  it("추천 받기 → 제목·자료원 이름·원문 링크, 번호 없음 → 고른 것만 onPick, axe 통과", async () => {
+    const { calls } = mockFetch({
+      "/v1/ideas/policy-suggestions": {
+        suggestions: [
+          {
+            doc_id: "molit:abc123",
+            title: "제4차 국가철도망 구축계획",
+            source: "molit",
+            source_label: "국토교통부",
+            year: 2021,
+            page: "표 3",
+            quote: "안전 투자 확대",
+            url: "https://www.molit.go.kr/x?id=1",
+          },
+        ],
+      },
+    });
     const onPick = vi.fn();
     const { container } = renderWithProviders(<PolicySuggestions request={req} onPick={onPick} />);
     expect(calls).toHaveLength(0); // 화면을 열 때는 부르지 않는다
     await userEvent.click(screen.getByRole("button", { name: "추천 받기" }));
-    expect(await screen.findByText("안전 투자 확대")).toBeInTheDocument();
+    expect(await screen.findByText("“안전 투자 확대”")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /제4차 국가철도망 구축계획 \(국토교통부\) 근거 보기/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /원문/ })).toHaveAttribute("href", "https://www.molit.go.kr/x?id=1");
+    expect(hasInternalId(container.textContent)).toBe(false);
+    expect(container.textContent).not.toContain("https://");
     await expectNoA11yViolations(container);
     await userEvent.click(screen.getByRole("button", { name: "정책 근거에 추가" }));
-    expect(onPick).toHaveBeenCalledWith("안전 투자 확대 (기본계획, 2021, p.3)");
+    expect(onPick).toHaveBeenCalledWith("“안전 투자 확대” (제4차 국가철도망 구축계획, 2021, 표 3)");
+  });
+
+  it("결과 0건이면 사유(해당 없음)와 [다시 시도]", async () => {
+    mockFetch({ "/v1/ideas/policy-suggestions": { suggestions: [], count: 0 } });
+    renderWithProviders(<PolicySuggestions request={req} onPick={() => undefined} />);
+    await userEvent.click(screen.getByRole("button", { name: "추천 받기" }));
+    expect(await screen.findByText(/해당 없음/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
   });
 
   it("404/405/503 이면 영역을 접고 안내 한 줄", async () => {
@@ -40,7 +68,6 @@ describe("정책 근거 추천", () => {
     expect(screen.queryByRole("button", { name: "추천 받기" })).toBeNull();
   });
 });
-
 
 test("필수 4칸이 비면 추천 받기 버튼이 잠긴다", () => {
   renderWithProviders(<PolicySuggestions request={{ ...emptyRequest(), goal: "목표만" }} onPick={() => undefined} />);

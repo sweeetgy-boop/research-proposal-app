@@ -1,6 +1,8 @@
 import * as React from "react";
 import { Eye } from "lucide-react";
-import type { ReviewOut } from "@/api/types";
+import type { Citation, ReviewOut } from "@/api/types";
+import { DocRefList } from "@/components/DocRef";
+import { replaceDocIds } from "@/lib/docRefs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -15,7 +17,9 @@ const STATUS: Record<string, { label: string; variant: "secondary" | "success" |
   discarded: { label: "폐기", variant: "destructive" },
 };
 
-export function ReviewPanel({ review, title }: { review: ReviewOut; title: string }) {
+/** 검토 의견 — 의견 글에 섞인 내부 번호([own:…]·f:method:t1)는 제목·"<섹션> 그림 n" 으로 바꿔 보인다(ADR 0040). */
+export function ReviewPanel({ review, title, citations = [] }: { review: ReviewOut; title: string; citations?: Citation[] }) {
+  const txt = (s: string | null | undefined) => replaceDocIds(s, citations, sectionTitle);
   const [candidate, setCandidate] = React.useState<string | null>(null);
   const candidates = review.candidate_choices ?? {};
   const candidateKeys = Object.keys(candidates);
@@ -58,20 +62,20 @@ export function ReviewPanel({ review, title }: { review: ReviewOut; title: strin
               return (
                 <li key={c.id} className="rounded-md border p-3 text-sm">
                   <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                    <span className="font-mono text-xs text-muted-foreground">{c.id}</span>
                     <Badge variant="outline">{sectionTitle(c.section)}{c.sentence !== null ? ` 문장 ${c.sentence + 1}` : " (섹션)"}</Badge>
                     <Badge variant="secondary">{c.issue_type}</Badge>
                     {c.kind === "addition" && <Badge variant="info">추가 문장</Badge>}
                     <Badge variant={st.variant}>{applied.has(c.id) ? "자동 반영" : st.label}</Badge>
                     {c.discard_reason && <span className="text-xs text-destructive">폐기 사유: {c.discard_reason}</span>}
                   </div>
-                  <UntrustedText as="p" text={c.comment} />
+                  <UntrustedText as="p" text={txt(c.comment)} />
                   {c.revised_text && (
                     <p className="mt-1 rounded bg-muted/60 p-2">
                       <span className="font-medium">{c.kind === "addition" ? "추가안: " : "수정안: "}</span>
-                      <UntrustedText text={c.revised_text} />
+                      <UntrustedText text={txt(c.revised_text)} />
                     </p>
                   )}
+                  {(c.evidence_refs?.length ?? 0) > 0 && <DocRefList refs={c.evidence_refs ?? []} label="의견 근거" />}
                 </li>
               );
             })}
@@ -98,10 +102,10 @@ export function ReviewPanel({ review, title }: { review: ReviewOut; title: strin
                 {candidates[candidate]?.reason && (
                   <p>
                     <span className="font-medium">선택 이유: </span>
-                    <UntrustedText text={String(candidates[candidate]?.reason)} />
+                    <UntrustedText text={txt(String(candidates[candidate]?.reason))} />
                   </p>
                 )}
-                <UntrustedText as="p" text={candidates[candidate]?.rejected_text ?? "(후보 본문 없음)"} className="rounded bg-muted/60 p-2" />
+                <UntrustedText as="p" text={txt(candidates[candidate]?.rejected_text) || "(후보 본문 없음)"} className="rounded bg-muted/60 p-2" />
               </div>
             )}
           </Dialog>

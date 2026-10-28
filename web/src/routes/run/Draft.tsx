@@ -23,7 +23,10 @@ import { EvidenceChips } from "@/features/draft/EvidenceChips";
 import { ReviewPanel } from "@/features/draft/ReviewPanel";
 import { sectionTitle, CHOICE_SECTIONS } from "@/lib/sections";
 import { WriterBadges } from "@/features/draft/WriterBadges";
-import { LiveBadge } from "@/features/live/LiveBadge";
+import { DocRef } from "@/components/DocRef";
+import { LocalReviewSummary, LocalSuggestionCard, LocalVerdictBadge } from "@/features/draft/LocalReview";
+import type { LocalVerdict } from "@/api/types";
+import { replaceDocIds } from "@/lib/docRefs";
 import { LOCAL_EVIDENCE_MISMATCH, LOCAL_EVIDENCE_MISMATCH_LABEL } from "@/lib/writer";
 
 type Row =
@@ -108,12 +111,18 @@ function SentenceLine({
   citations,
   problem,
   onOpen,
+  verdict,
+  suggestion,
 }: {
   row: Extract<Row, { kind: "sentence" }>;
   citations: Citation[];
   problem?: string;
   /** 현재 버전일 때만 — 문장을 누르면 근거 패널 */
   onOpen?: (sid: string) => void;
+  /** L2 로컬 검토 판정 (ADR 0040) */
+  verdict?: LocalVerdict;
+  /** L2 불일치 문장의 Argon 제안 — 카드는 suggestion 노드로 받는다 */
+  suggestion?: React.ReactNode;
 }) {
   return (
     <div id={`sent-${row.key}`} className="flex scroll-mt-24 gap-2 py-1.5">
@@ -128,6 +137,7 @@ function SentenceLine({
         )}
         <div className="mt-1 flex flex-wrap items-center gap-1">
           <OriginBadge origin={row.origin} />
+          <LocalVerdictBadge verdict={verdict} />
           {onOpen && (
             <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => onOpen(row.key)} aria-label={`${sectionTitle(row.section)} 문장 ${row.index + 1} 근거 ${row.evidence.length}건 보기`}>
               근거 {row.evidence.length}건 보기
@@ -141,7 +151,8 @@ function SentenceLine({
             </Badge>
           )}
         </div>
-        <EvidenceChips evidence={row.evidence} citations={citations} />
+        <EvidenceChips evidence={row.evidence} citations={citations} onOpen={onOpen ? () => onOpen(row.key) : undefined} />
+        {suggestion}
       </div>
     </div>
   );
@@ -238,7 +249,24 @@ export default function Draft() {
         )}
       </>
     ) : (
-      <SentenceLine row={row} citations={d.citations} problem={problemBySentence.get(row.key)} onOpen={selected === null ? openEvidence : undefined} />
+      <SentenceLine
+        row={row}
+        citations={d.citations}
+        problem={problemBySentence.get(row.key)}
+        onOpen={selected === null ? openEvidence : undefined}
+        verdict={selected === null ? d.local_check?.verdicts?.[row.key] : undefined}
+        suggestion={
+          selected === null && d.local_check?.suggestions?.[row.key] ? (
+            <LocalSuggestionCard
+              runId={id}
+              suggestion={d.local_check.suggestions[row.key]!}
+              baseVersion={d.version}
+              disabled={d.flow.has_working || d.legacy}
+              disabledReason={d.flow.has_working ? "저장하지 않은 편집이 있어 먼저 저장하십시오." : undefined}
+            />
+          ) : undefined
+        }
+      />
     );
 
   return (
@@ -283,6 +311,7 @@ export default function Draft() {
             <AlertTriangle className="size-4" aria-hidden="true" />
             알림 {d.problems.length}건
           </h2>
+          <LocalReviewSummary view={d.local_check} />
           {d.local_check?.enabled && (
             <p className="mb-2 text-sm" data-testid="local-check">
               <Badge variant={localMismatches > 0 ? "warning" : "success"}>{LOCAL_EVIDENCE_MISMATCH_LABEL} {localMismatches}건</Badge>
@@ -304,7 +333,7 @@ export default function Draft() {
                     {sectionTitle(p.section)}
                     {p.sentence !== null ? ` 문장 ${p.sentence + 1}` : ""}:
                   </span>
-                  <UntrustedText text={p.message} />
+                  <UntrustedText text={replaceDocIds(p.message, d.citations, sectionTitle)} />
                 </li>
               ))}
             </ul>
@@ -323,9 +352,7 @@ export default function Draft() {
             <ol className="space-y-1 text-sm">
               {d.citations.map((c) => (
                 <li key={c.id}>
-                  <UntrustedText text={c.title ?? c.doc_id} className="font-medium" />
-                  <span className="ml-1 font-mono text-xs text-muted-foreground">{c.id}</span>
-                  {c.live && <LiveBadge className="ml-1" />}
+                  <DocRef docRef={c} />
                 </li>
               ))}
             </ol>
@@ -336,7 +363,7 @@ export default function Draft() {
           {review.isPending ? (
             <SkeletonBlock lines={4} />
           ) : review.data ? (
-            <ReviewPanel review={review.data} title="Argon 1차 검토" />
+            <ReviewPanel review={review.data} title="Argon 1차 검토" citations={d.citations} />
           ) : (
             <section>
               <h2 className="text-base font-semibold">Argon 1차 검토</h2>
@@ -353,7 +380,7 @@ export default function Draft() {
             {outline.isPending ? (
               <SkeletonBlock lines={3} />
             ) : outline.data ? (
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded bg-muted/60 p-2 text-xs">{JSON.stringify(outline.data.outline, null, 2)}</pre>
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded bg-muted/60 p-2 text-xs">{replaceDocIds(JSON.stringify(outline.data.outline, null, 2), d.citations, sectionTitle)}</pre>
             ) : (
               <p className="text-muted-foreground">설계도가 없습니다 (pipeline.outline 이 꺼져 있습니다).</p>
             )}

@@ -2106,6 +2106,28 @@ def _fake_policy() -> tuple[list[Any], list[Any]]:
         Chunk(chunk_id=f"{d}#0", doc_id=d, ordinal=0, text=body, basis="full_text")
         for d, _, _, _, body, _ in rows
     ]
+    # 공사 사전정보공표 연구용역(사내 발주) — 정책 근거 추천·작성안에 나오면 안 된다 (ADR 0040, e2e)
+    research = Document(
+        doc_id="korail_web:fake-research",
+        source="korail_web",
+        doc_type="procurement",
+        title="궤도 보수 수송수요 예측 연구 (가짜 연구용역)",
+        body="궤도 검측 이력으로 보수 체계와 안전 수준을 높이는 방안을 연구함.",
+        pub_date=date(2025, 3, 1),
+        url="https://info.korail.com/fake-research",
+        orgs=["korail"],
+        raw={"menu": "preinfo", "native_id": "preinfo:55:1", "doc_class": "research_service"},
+    )
+    docs.append(research)
+    chunks.append(
+        Chunk(
+            chunk_id="korail_web:fake-research#0",
+            doc_id=research.doc_id,
+            ordinal=0,
+            text=research.body or "",
+            basis="full_text",
+        )
+    )
     return docs, chunks
 
 

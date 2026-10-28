@@ -154,8 +154,8 @@ export default function Clarify() {
               )}
               {policyOpen ? (
                 <PolicyCards
-                  load={(exclude) => ideaPolicyCards({ ...idea.request, exclude_doc_ids: exclude })}
-                  polish={(choice, text) => ideaPolicyPolish(idea.request, choice, text)}
+                  load={(exclude, signal) => ideaPolicyCards({ ...idea.request, exclude_doc_ids: exclude }, signal)}
+                  polish={(choice, text, signal) => ideaPolicyPolish(idea.request, choice, text, signal)}
                   value={policyChoice}
                   onChoose={(c) => setPolicyChoice(c)}
                   busy={start.isPending}

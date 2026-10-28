@@ -1,3 +1,4 @@
+import { LocalSuggestionCard, LocalVerdictBadge } from "@/features/draft/LocalReview";
 import * as React from "react";
 import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -236,6 +237,19 @@ export default function Edit() {
             </span>
           ) : null
         }
+        sentenceBadges={(s) => <LocalVerdictBadge verdict={draft.data?.local_check?.verdicts?.[s.sentence_id]} />}
+        sentenceExtra={(s) => {
+          const sugg = draft.data?.local_check?.suggestions?.[s.sentence_id];
+          return sugg ? (
+            <LocalSuggestionCard
+              runId={id}
+              suggestion={sugg}
+              baseVersion={current ?? 0}
+              disabled={!editable || dirty || run.flow.has_working}
+              disabledReason={dirty || run.flow.has_working ? "저장하지 않은 편집이 있어 먼저 저장하십시오." : undefined}
+            />
+          ) : null;
+        }}
         sectionBadges={(sec) => (
           <WriterBadges
             local={(draft.data?.local_sections ?? []).includes(sec.key)}
