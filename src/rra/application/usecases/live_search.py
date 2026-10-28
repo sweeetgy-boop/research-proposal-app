@@ -202,6 +202,9 @@ class LiveSearch:
         self._clock = clock
         self._wall = wall_clock
         self._sessions: dict[str, LiveSession] = {}
+        # 저장 단계는 프로세스 안에서 한 번에 하나 — 동시 run·세션이 같은 문서를 두 번 임베딩·upsert
+        # 하지 않게(중복 판정은 저장 직전 DB 를 다시 본다). 세션 표는 이벤트 루프 하나에서만 바뀐다
+        self._store_lock = asyncio.Lock()
 
     @property
     def enabled(self) -> bool:
@@ -282,7 +285,8 @@ class LiveSearch:
             if cached is None:
                 self._cache_keywords(req, session.keywords)
             fetched = await self._search_all(session)
-            await self._store(session, fetched)
+            async with self._store_lock:
+                await self._store(session, fetched)
         # 세션 실패는 DB 만으로 계속하면 될 뿐 — 기다리는 쪽에 올리지 않는다
         except Exception as exc:
             logger.warning(

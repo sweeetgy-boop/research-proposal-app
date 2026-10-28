@@ -424,3 +424,27 @@ async def test_partial_session_retried_after_five_minutes_and_store_failure():
     summary = await failing.prepare("u1", _req())
     assert summary.doc_ids == [] and summary.status == "partial"
     assert all(r.status == "error" and r.notice for r in summary.sources)
+
+
+async def test_concurrent_sessions_store_each_document_once():
+    """동시 run 3개(다른 입력, 같은 문서) — 저장은 한 번에 하나, 같은 문서는 한 번만
+    임베딩·upsert."""
+
+    class CountingRepo(IdentityRepo):
+        def __init__(self):
+            super().__init__()
+            self.upserted: list[str] = []
+
+        async def upsert(self, docs, chunks):
+            await asyncio.sleep(0.02)  # 임베딩 시간 흉내 — 겹치면 중복 저장이 드러난다
+            self.upserted.extend(d.doc_id for d in docs)
+            await super().upsert(docs, chunks)
+
+    repo = CountingRepo()
+    live = _live(_three(), repo=repo, llm=FakeLLM([KW_JSON] * 3))
+    summaries = await asyncio.gather(
+        *(live.prepare(f"u{i}", _req(goal=f"목표 {i} 문장")) for i in range(3))
+    )
+    assert all(s.status == "done" for s in summaries)
+    assert sorted(repo.upserted) == ["ntis:P1", "openalex:W1", "scienceon:A1"]
+    assert all(sorted(s.doc_ids) == sorted(repo.upserted) for s in summaries)
