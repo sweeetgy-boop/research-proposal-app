@@ -1009,8 +1009,12 @@ class GenerateProposal:
         snapshot: RetrievalSnapshot,
         *,
         keys: set[str] | None = None,
+        allowed: Sequence[str] = (),
     ) -> dict[str, Any]:
-        """local_check(L2 로컬 2차 검토, ADR 0040) — 근거 있는 문장을 로컬 모델이 지지|부분|불일치
+        """allowed: 규칙 불일치에서 근거로 치는 제안자 입력 글
+        (입력의 수치·이름은 근거가 없어도 불일치가 아니다).
+
+        local_check(L2 로컬 2차 검토, ADR 0040) — 근거 있는 문장을 로컬 모델이 지지|부분|불일치
         로만
         판정한다.
 
@@ -1031,6 +1035,7 @@ class GenerateProposal:
         order: list[str] = []
         rule_overrides = 0
         started = time.monotonic()
+        titles = await self._doc_titles({c.doc_id for c in snapshot.chunks})
         for sec, indices in check_batches(sections, keys):
             prompt = batch_prompt(sec, indices, by_id)
             async with self.local_gate():
@@ -1059,7 +1064,10 @@ class GenerateProposal:
                 sent = sec.sentences[ids[sid]]
                 h = text_hash(sent.text)
                 cited = [by_id[e].text for e in sent.evidence if e in by_id]
-                if value != SUPPORT_MISMATCH and rule_mismatch(sent.text, cited):
+                docs = {by_id[e].doc_id for e in sent.evidence if e in by_id}
+                if value != SUPPORT_MISMATCH and rule_mismatch(
+                    sent.text, cited, allowed=[*allowed, *[titles.get(d, "") for d in docs]]
+                ):
                     # 근거에 없는 수치·이름 — 규칙이 불일치로 (모델은 너그럽다)
                     value = SUPPORT_MISMATCH
                     rule_overrides += 1
@@ -1080,6 +1088,18 @@ class GenerateProposal:
             "order": order,
             "rule_overrides": rule_overrides,
         }
+
+    async def _doc_titles(self, doc_ids: set[str]) -> dict[str, str]:
+        """문서 제목 (규칙 불일치 — 계획·정책 이름이 청크가 아니라 제목에만 있을 때)."""
+        out: dict[str, str] = {}
+        for d in sorted(doc_ids):
+            try:
+                doc = await self.repo.get_document(d)
+            except Exception:  # noqa: BLE001 — 제목은 보조 정보
+                doc = None
+            if doc is not None:
+                out[d] = doc.title
+        return out
 
     def _validate(
         self,

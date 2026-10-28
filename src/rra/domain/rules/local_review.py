@@ -142,12 +142,21 @@ def parse_verdicts(raw: str, sent_ids: set[str]) -> dict[str, str]:
     return parse_support(data, sent_ids)
 
 
-def rule_mismatch(text: str, evidence: Sequence[str]) -> bool:
+def request_texts(req: Any) -> list[str]:
+    """제안자 입력 글 — 규칙 불일치에서 근거로 친다(입력에 있는 수치·이름은 불일치가 아니다)."""
+    if req is None:
+        return []
+    data = req.model_dump(exclude={"budget", "policy_choice"})
+    return [v for v in data.values() if isinstance(v, str) and v.strip()]
+
+
+def rule_mismatch(text: str, evidence: Sequence[str], *, allowed: Sequence[str] = ()) -> bool:
     """규칙 불일치 — 문장의 수치·정책/기관/법령 이름이 근거 글에 없다. 로컬 모델이 "부분"·"지지"로
     너그럽게 봐도 이것은 불일치로 둔다(2026-10-28 측정: 7B 가 바꿔 넣은 수치를 "부분"으로 판정)."""
     if not evidence:
         return False
-    if unsupported_numbers(text, evidence) or ungrounded(text, evidence):
+    pool = [*evidence, *allowed]
+    if unsupported_numbers(text, pool) or ungrounded(text, pool):
         return True
     # 한글 근거와 겹치는 핵심어가 하나도 없다 — 문장의 중심 주장이 근거에 없다 (영어 근거는 보지
     # 않는다)

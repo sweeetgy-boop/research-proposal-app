@@ -12,6 +12,7 @@ state.local_check["suggestions"] 에 남고 자동으로 반영되지 않는다.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -40,10 +41,15 @@ def _utcnow() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+async def _done(value: dict[str, Any]) -> dict[str, Any]:
+    return value
+
+
 @dataclass
 class LocalReviewSuggester:
     ask: ArgonFirst
     clock: Callable[[], str] = field(default=_utcnow)
+    concurrency: int = 4
 
     async def suggest_one(
         self,
@@ -123,8 +129,14 @@ class LocalReviewSuggester:
             by_id.setdefault(c.doc_id, c)
         wanted = set(local_check.get("mismatch_hashes") or [])
         prior = {s.get("id"): s for s in local_check.get("suggestions") or []}
-        out: list[dict[str, Any]] = []
         started = time.monotonic()
+        gate = asyncio.Semaphore(max(1, self.concurrency))
+
+        async def one(sec: Section, i: int) -> dict[str, Any]:
+            async with gate:
+                return await self.suggest_one(sec, i, by_id, include_internal=include_internal)
+
+        jobs: list[Any] = []
         for sec in sections:
             for i, s in enumerate(sec.sentences):
                 if not s.evidence or text_hash(s.text) not in wanted:
@@ -132,9 +144,14 @@ class LocalReviewSuggester:
                 sid = suggestion_id(sec.key, s.text)
                 old = prior.get(sid)
                 if old is not None and old.get("status") != "failed":
-                    out.append({**old, "sentence": i, "sentence_id": sentence_id(sec.key, i)})
+                    jobs.append({**old, "sentence": i, "sentence_id": sentence_id(sec.key, i)})
                     continue
-                out.append(await self.suggest_one(sec, i, by_id, include_internal=include_internal))
+                jobs.append(one(sec, i))
+        # Argon 제안은 동시에 concurrency 개씩 (compose.concurrency 와 같은 4 — 공유 호출 제한기가
+        # 상한을 지킨다)
+        out = list(
+            await asyncio.gather(*(j if not isinstance(j, dict) else _done(j) for j in jobs))
+        )
         return {
             **local_check,
             "suggestions": out,

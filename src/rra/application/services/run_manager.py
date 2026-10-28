@@ -117,7 +117,7 @@ from rra.domain.rules.evidence import (
 )
 from rra.domain.rules.lint import has_errors
 from rra.domain.rules.llm_output import clean_sentence
-from rra.domain.rules.local_review import unresolved_sentence_ids
+from rra.domain.rules.local_review import request_texts, unresolved_sentence_ids
 from rra.domain.rules.overlap import SOURCE_LABELS
 from rra.domain.rules.policy_cards import apply_policy_choice
 from rra.domain.rules.request_change import (
@@ -570,7 +570,9 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
                     remote_keys = {
                         k for k, w in state.writers.items() if not w.get("local_fallback")
                     }
-                    state.local_check = await gen.check_locally(ordered, snapshot, keys=remote_keys)
+                    state.local_check = await gen.check_locally(
+                        ordered, snapshot, keys=remote_keys, allowed=request_texts(req)
+                    )
                     if self.local_reviewer is not None and state.local_check.get("mismatches"):
                         state.local_check = await self.local_reviewer.attach(
                             ordered,
