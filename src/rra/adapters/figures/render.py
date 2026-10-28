@@ -45,7 +45,7 @@ CJK_EM = 0.95
 LATIN_EM = 0.55
 LINE_GAP = 1.3
 # 본문 폭 153.8mm 에 넣었을 때 9pt (실물 양식 기준). 예전 하한 11 은 3pt 였다
-MIN_FONT = round(min_font_units(MIN_TEXT_PT, 43606 * 25.4 / 7200), 1)
+MIN_FONT = math.ceil(min_font_units(MIN_TEXT_PT, 43606 * 25.4 / 7200) * 10) / 10
 F_BODY = 37.0  # ≈ 10pt
 F_HEAD = 42.0
 F_TITLE = 46.0
@@ -103,6 +103,35 @@ def wrap_text(text: str, max_chars: int) -> list[str]:
     return lines or [text]
 
 
+def wrap_width(text: str, box_w: float, fs: float) -> list[str]:
+    """[23] 폭(px) 기준 줄바꿈 — 띄어쓰기 단위로 채우고, 한 단어가 폭을 넘으면 글자 단위로 자른다.
+    글자 수 기준(wrap_text)은 숫자·영문이 섞인 짧은 배지("30% 절감")를 불필요하게 두 줄로 나눴다."""
+    lines: list[str] = []
+    cur = ""
+    for word in text.split(" "):
+        if not word:
+            continue
+        while text_width(word, fs) > box_w and len(word) > 1:
+            if cur:
+                lines.append(cur)
+                cur = ""
+            k = len(word)
+            while k > 1 and text_width(word[:k], fs) > box_w:
+                k -= 1
+            lines.append(word[:k])
+            word = word[k:]
+        cand = f"{cur} {word}" if cur else word
+        if text_width(cand, fs) <= box_w:
+            cur = cand
+        else:
+            if cur:
+                lines.append(cur)
+            cur = word
+    if cur:
+        lines.append(cur)
+    return lines or [text]
+
+
 def _fits(lines: Sequence[str], fs: float, box_w: float, box_h: float) -> bool:
     return (
         all(text_width(ln, fs) <= box_w for ln in lines)
@@ -117,8 +146,7 @@ def fit_text(
     fs = float(size)
     lines = [text]
     while True:
-        max_chars = max(1, int(box_w / (CJK_EM * fs)))
-        lines = wrap_text(text, max_chars)
+        lines = wrap_width(text, box_w, fs)
         if _fits(lines, fs, box_w, box_h) or fs <= min_size:
             return lines, fs
         fs = max(min_size, fs - 1.5)
@@ -163,7 +191,7 @@ class _Canvas:
         self.h = height
         self.vh = int(round(BASE_W * height / width))  # viewBox 높이
         self.title = title
-        self.min_font = float(min_font)
+        self.min_font = math.ceil(float(min_font) * 10) / 10  # SVG 에 소수 1자리로 적힌다
         self.overflow = 0
         self.parts: list[str] = []
         self.defs: list[str] = []
@@ -471,7 +499,13 @@ def _process(cv: _Canvas, spec: ProcessSpec) -> None:
             cv.rect(x, out_y, box_w, out_h, fill=cv.p.paper, stroke=cv.p.line, sw=1.5, rx=8)
             head = 52.0
             cv.label(
-                "산출물", x + 12, out_y + 40, size=F_SMALL, anchor="start", color=cv.p.muted, bold=True
+                "산출물",
+                x + 12,
+                out_y + 40,
+                size=F_SMALL,
+                anchor="start",
+                color=cv.p.muted,
+                bold=True,
             )
             cv.line(x + 8, out_y + head, x + box_w - 8, out_y + head, stroke=cv.p.line, sw=1)
             slot_h = (out_h - head - 6) / len(st.outputs)
@@ -575,7 +609,12 @@ def _stat_chart(cv: _Canvas, spec: StatChartSpec) -> None:
         lx += 50 + text_width(s.name, cv.fs(F_SMALL)) + 40
     if spec.unit:
         cv.label(
-            f"(단위: {spec.unit})", BASE_W - m_r, ly + 24, size=F_SMALL, anchor="end", color=cv.p.muted
+            f"(단위: {spec.unit})",
+            BASE_W - m_r,
+            ly + 24,
+            size=F_SMALL,
+            anchor="end",
+            color=cv.p.muted,
         )
     # 축 영역
     y_top = ly + 40 + F_SMALL * 1.4
@@ -598,7 +637,13 @@ def _stat_chart(cv: _Canvas, spec: StatChartSpec) -> None:
         y = sy(v)
         cv.line(x_left, y, x_right, y, stroke=cv.p.line, sw=0.8, dash="4 4")
         cv.label(
-            f"{v:g}", x_left - 12, y + 11, size=F_SMALL, anchor="end", color=cv.p.muted, max_w=m_l - 16
+            f"{v:g}",
+            x_left - 12,
+            y + 11,
+            size=F_SMALL,
+            anchor="end",
+            color=cv.p.muted,
+            max_w=m_l - 16,
         )
     cv.line(x_left, y_top, x_left, y_bot, stroke=cv.p.ink, sw=2)
     cv.line(x_left, sy(0.0), x_right, sy(0.0), stroke=cv.p.ink, sw=2)
@@ -643,7 +688,14 @@ def _stat_chart(cv: _Canvas, spec: StatChartSpec) -> None:
                 )
     for ci, c in enumerate(cats):
         cv.text_box(
-            c, x_left + ci * slot_w, y_bot + 4, slot_w, F_BODY * 1.5, size=F_BODY, valign="top", pad=2
+            c,
+            x_left + ci * slot_w,
+            y_bot + 4,
+            slot_w,
+            F_BODY * 1.5,
+            size=F_BODY,
+            valign="top",
+            pad=2,
         )
 
 
@@ -695,7 +747,9 @@ def _roadmap(cv: _Canvas, spec: RoadmapSpec) -> None:
     top_h = usable * 0.5
     n_m = len(spec.metrics)
     mw = (BASE_W - m - label_w - m - gap * (n_m - 1)) / n_m
-    cv.text_box("성과지표", m, top_y, label_w, top_h, size=F_HEAD, bold=True, color=cv.p.muted, pad=4)
+    cv.text_box(
+        "성과지표", m, top_y, label_w, top_h, size=F_HEAD, bold=True, color=cv.p.muted, pad=4
+    )
     for i, mt in enumerate(spec.metrics):
         x = m + label_w + i * (mw + gap)
         cv.series_rect(0, x, top_y, mw, top_h, rx=12, sw=2.5)
@@ -711,7 +765,9 @@ def _roadmap(cv: _Canvas, spec: RoadmapSpec) -> None:
     n_s = len(spec.stages)
     sgap = 56.0
     sw_ = (BASE_W - m - label_w - m - sgap * (n_s - 1)) / n_s
-    cv.text_box("활용 단계", m, bot_y, label_w, bot_h, size=F_HEAD, bold=True, color=cv.p.muted, pad=4)
+    cv.text_box(
+        "활용 단계", m, bot_y, label_w, bot_h, size=F_HEAD, bold=True, color=cv.p.muted, pad=4
+    )
     for i, st in enumerate(spec.stages):
         x = m + label_w + i * (sw_ + sgap)
         last = i == n_s - 1
@@ -732,7 +788,14 @@ def _roadmap(cv: _Canvas, spec: RoadmapSpec) -> None:
         cv.text_box(st.name, x, bot_y, sw_, name_h, size=F_BODY, bold=True, pad=8)
         if st.desc:
             cv.text_box(
-                st.desc, x, bot_y + name_h - 6, sw_, bot_h - name_h, size=F_BODY, valign="top", pad=8
+                st.desc,
+                x,
+                bot_y + name_h - 6,
+                sw_,
+                bot_h - name_h,
+                size=F_BODY,
+                valign="top",
+                pad=8,
             )
         if not last:
             cv.arrow_between(x + sw_ + 4, x + sw_ + sgap - 4, bot_y + bot_h / 2)
@@ -865,7 +928,9 @@ def _technique(cv: _Canvas, spec: Any, arrange: str) -> None:
     m = 18.0
     title_h = 60.0
     note_h = F_SMALL * 1.4
-    cv.text_box(spec.title, m, m - 4, BASE_W - 2 * m, title_h, size=F_TITLE, bold=True, anchor="start")
+    cv.text_box(
+        spec.title, m, m - 4, BASE_W - 2 * m, title_h, size=F_TITLE, bold=True, anchor="start"
+    )
     cv.label(spec.note, BASE_W - m, cv.vh - m, size=F_SMALL, anchor="end", color=cv.p.muted)
     top = m + title_h + 6
     bottom = cv.vh - m - note_h

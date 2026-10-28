@@ -242,6 +242,91 @@ TECHNIQUE_SAMPLES: dict[str, dict[str, Any]] = {
 }
 
 
+# [23] 가로 배치 샘플 — 배치별(grid·split·flow)·4:1 일정표·글자 줄이기 전후. 가짜 명세 (실제 과제 아님)
+WIDE_SAMPLES: dict[str, tuple[str, dict[str, Any]]] = {
+    "schedule-4to1": (
+        "schedule",
+        {
+            "total_months": 24,
+            "stages": [
+                {"name": "현황 분석", "start_month": 1, "end_month": 6},
+                {"name": "센서 체계 설계", "start_month": 5, "end_month": 12},
+                {"name": "현장 실증", "start_month": 11, "end_month": 20},
+                {"name": "운영 지침화", "start_month": 19, "end_month": 24},
+            ],
+        },
+    ),
+    "as_is_to_be-long": (
+        "as_is_to_be",
+        {
+            "as_is": [
+                {"tag": "현황", "text": "궤도 틀림을 주기 순회로 사람이 직접 수작업 측정"},
+                {"tag": "원인", "text": "영업 구간 상시 감지 센서와 자동 수집 체계가 없음"},
+                {"tag": "한계", "text": "점검 주기 사이 급격한 이상 발생 시 발견과 대응 지연"},
+                {"tag": "현황", "text": "야간 차단 시간에만 점검이 가능해 작업 시간 부족"},
+            ],
+            "to_be": [
+                {"tag": "목표", "text": "영업 중 궤도 상태를 상시 감지하는 체계 마련"},
+                {"tag": "해결 방안", "text": "영업열차 탑재 IMU·가속도 센서로 상시 수집"},
+                {"tag": "기대효과", "text": "이상 구간 조기 발견과 점검 차단 시간 절감 효과"},
+                {"tag": "기대효과", "text": "구간별 상태 지수로 유지보수 우선순위 결정 지원"},
+            ],
+            "solution": "영업열차 탑재 센서로 궤도 상태 상시 감지",
+        },
+    ),
+    "technique-pestel": (
+        "technique",
+        {
+            "technique": "pestel",
+            "title": "PEST(EL) 분석",
+            "groups": [
+                {"name": "정치", "items": [{"text": "디지털 유지보수 정책", "rating": "상"}]},
+                {"name": "경제", "items": [{"text": "센서 단가 하락", "rating": "중"}]},
+                {"name": "사회", "items": [{"text": "야간 작업 안전 요구", "rating": "중"}]},
+                {"name": "기술", "items": [{"text": "IMU·가속도 센서 고도화", "rating": "상"}]},
+                {"name": "환경", "items": [{"text": "점검 차량 운행 감소", "rating": "하"}]},
+                {"name": "법·제도", "items": [{"text": "점검 주기 규정 개정 필요", "rating": "중"}]},
+            ],
+        },
+    ),
+    "technique-force_field": (
+        "technique",
+        {
+            "technique": "force_field",
+            "title": "역장분석(Force Field)",
+            "groups": [
+                {
+                    "name": "추진력",
+                    "items": [
+                        {"text": "영업열차 운행 데이터 보유", "rating": "상"},
+                        {"text": "디지털 유지보수 정책", "rating": "중"},
+                    ],
+                },
+                {
+                    "name": "저항력",
+                    "items": [
+                        {"text": "초기 도입 부담", "rating": "중"},
+                        {"text": "점검 규정 개정 절차", "rating": "하"},
+                    ],
+                },
+            ],
+        },
+    ),
+    "technique-delphi": (
+        "technique",
+        {
+            "technique": "delphi",
+            "title": "델파이 기법",
+            "groups": [
+                {"name": "전문가 패널", "items": [{"text": "궤도·차량·데이터 분야 전문가"}]},
+                {"name": "조사 라운드", "items": [{"text": "센서 방식 적용 범위 의견 수렴"}]},
+                {"name": "합의 기준", "items": [{"text": "이상 구간 판정 기준 합의"}]},
+            ],
+        },
+    ),
+}
+
+
 def load_config() -> dict[str, Any]:
     with CONFIG.open(encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
@@ -258,8 +343,11 @@ def main(argv: list[str] | None = None) -> int:
     sys.path.insert(0, str(ROOT / "src"))
     from rra.adapters.figures import SvgFigureRenderer
     from rra.domain.models.figure import parse_spec
+    from rra.domain.rules.techniques import catalog_from
 
     cfg = load_config()
+    with (ROOT / "config/figures/techniques.yaml").open(encoding="utf-8") as f:
+        catalog = catalog_from(yaml.safe_load(f))
     renderer = SvgFigureRenderer(
         palette=cfg.get("palette") or {},
         aspects=cfg.get("aspect") or {},
@@ -267,6 +355,7 @@ def main(argv: list[str] | None = None) -> int:
         font_files=font_files(),
         dpi=int(cfg.get("dpi") or 300),
         max_bytes=int(cfg.get("max_png_bytes") or 512_000),
+        arrangements={t.key: t.arrangement for t in catalog.items},
     )
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -274,9 +363,10 @@ def main(argv: list[str] | None = None) -> int:
 
     samples = [(k, k, d) for k, d in SAMPLE_SPECS.items()]
     samples += [(f"technique-{k}", "technique", d) for k, d in TECHNIQUE_SAMPLES.items()]
+    samples += [(k, kind, d) for k, (kind, d) in WIDE_SAMPLES.items()]
     for name, kind, data in samples:
         spec = parse_spec(kind, data)
-        svg = renderer.svg(spec, aspect=choose_aspect(spec))  # v2: 내용 양으로 비율
+        svg = renderer.svg(spec, aspect=choose_aspect(spec))  # [23] 가로 비율 (내용 양)
         png = renderer.png(svg)
         svg_path = out_dir / f"{name}.baseline.svg"
         png_path = out_dir / f"{name}.baseline.png"

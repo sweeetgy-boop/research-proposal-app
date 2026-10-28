@@ -181,7 +181,12 @@ def fit_aspect(
         l, t, r, b = box
         margin = int(round(max(im.size) * TRIM_MARGIN))
         im = im.crop(
-            (max(0, l - margin), max(0, t - margin), min(im.width, r + margin), min(im.height, b + margin))
+            (
+                max(0, l - margin),
+                max(0, t - margin),
+                min(im.width, r + margin),
+                min(im.height, b + margin),
+            )
         )
     im = _pad(im, _ratio(aspect))
     out = _save(im, "PNG", optimize=True)

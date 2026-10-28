@@ -45,10 +45,12 @@ from rra.application.ports.figures import (
 from rra.application.ports.generation_slot import GenerationSlot
 from rra.application.ports.llm import LLMPort
 from rra.application.ports.prompt_library import PromptLibraryPort
+from rra.application.ports.vision import OcrPort
 from rra.application.usecases.figure_techniques import TechniqueSteps
 from rra.domain.models.draft import Section
 from rra.domain.models.figure import (
     FIGURE_KINDS,
+    FigureFit,
     KIND_LABEL,
     MAX_CHANGE_LINE,
     MAX_CHANGE_LINES,
@@ -61,6 +63,7 @@ from rra.domain.models.figure import (
 )
 from rra.domain.models.request import ProposalRequest
 from rra.domain.models.run import RetrievalSnapshot
+from rra.domain.rules import figure_fit as fit_rules
 from rra.domain.rules import figures as rules
 from rra.domain.rules.llm_output import parse_object
 from rra.domain.rules.privacy import strip_personal
@@ -90,15 +93,26 @@ class FigureConfig:
     auto_aspect: bool = True  # v2 [4] 내용 양으로 비율 (False 면 aspects 고정)
     max_techniques: int = 2  # [11] 분석 기법 추천 상한 (0 이면 끔)
     auto_kinds: Sequence[str] = rules.AUTO_KINDS  # v2 초안 뒤 자동으로 그리는 종류
+    # [23] 본문 폭 맞춤 — 그림 폭 = 양식 본문 안쪽 폭, 높이 상한 = 쪽 높이 1/3, 글자 ≥ min_text_pt
+    frame: fit_rules.BodyFrame = field(default_factory=fit_rules.BodyFrame)
+    min_text_pt: float = fit_rules.MIN_TEXT_PT
+    max_shorten: int = fit_rules.MAX_SHORTEN  # 글자 줄이기 단계 상한 (밑그림 다시 그리기)
+    max_image_redraws: int = 1  # OCR 로 잰 그림 글자가 작을 때 Nano Banana 다시 부르기 상한
+    ocr_box_em: float = (
+        1.2  # OCR 줄 상자 높이 ÷ 글자 크기 (밑그림으로 잰 값, docs/eval-…-figures-wide)
+    )
+    arrangements: Mapping[str, str] = field(default_factory=dict)  # 분석 기법 key → 배치
 
     def aspect(self, kind: str) -> str:
         return str(self.aspects.get(kind) or "16:9")
 
     def aspect_for(self, spec: BaseModel) -> str:
+        """비율 — 내용 양(auto) 또는 종류별 고정값. [23] 어느 쪽이든 그 종류의 가로 비율로 올린다."""
         kind = str(getattr(spec, "kind", ""))
+        arrange = self.arrangements.get(str(getattr(spec, "technique", "") or ""))
         if self.auto_aspect or kind not in self.aspects:
-            return rules.choose_aspect(spec)
-        return self.aspect(kind)
+            return rules.choose_aspect(spec, arrange=arrange)
+        return fit_rules.wide_aspect(kind, self.aspect(kind))
 
 
 @dataclass
@@ -161,6 +175,10 @@ class MakeFigures(TechniqueSteps):
     include_internal: bool = True
     titles: Mapping[str, str] = field(default_factory=dict)
     shrink: Callable[[bytes, str], tuple[bytes, str]] | None = None  # (bytes, mime) → 상한 축소
+    # [23] (bytes, mime, aspect) → 흰 여백을 잘라 정확히 aspect 로 (4:1 은 21:9 로 만든 뒤 여기서)
+    reframe: Callable[[bytes, str, str], tuple[bytes, str]] | None = None
+    pad_reference: Callable[[bytes, str], bytes] | None = None  # 밑그림 → API 비율 캔버스 가운데
+    ocr: OcrPort | None = None  # [23] Nano Banana 그림 글자 크기 어림 (없으면 밑그림 값)
     clock: Callable[[], str] | None = None
     argon: LLMPort | None = None  # 명세·명세 변경을 먼저 맡는 외부 모델 (review 단계, 예산 래퍼)
     argon_model: str = "argon"
@@ -455,16 +473,84 @@ class MakeFigures(TechniqueSteps):
         return "\n\n".join(parts)
 
     # ── 그림 ─────────────────────────────────────────────
-    async def draw(
-        self, figure: Figure, *, baseline_png: bytes | None = None, style: str = ""
-    ) -> FigureBuild:
-        """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림. style 은 [말로 고치기] 모양 요청."""
-        t0 = time.monotonic()
+    def layout(
+        self, figure: Figure, *, shorten: bool = True
+    ) -> tuple[Figure, str, bytes, FigureFit]:
+        """[23] 밑그림 맞추기 — 가로 비율을 고르고, 본문 폭에 넣었을 때 높이가 쪽 1/3 을 넘으면 더 넓은
+        비율로, 글자가 min_text_pt 보다 작거나 칸을 넘치면 글자를 줄여(shorten_spec) 다시 그린다.
+        → (명세를 줄였으면 바뀐 그림, 비율, 밑그림 PNG, 맞춤 기록). shorten=False(제안자가 고친 글자)면
+        줄이지 않고 기록만 한다."""
+        frame = self.config.frame
         spec = figure.spec
-        aspect = self.config.aspect_for(spec)
-        if baseline_png is None:
+        aspect, widened = fit_rules.fit_aspect_for_frame(
+            figure.kind, self.config.aspect_for(spec), frame
+        )
+        redraws = 1 if widened else 0
+        shortened = 0
+        level = 0
+        tried_taller = False
+        while True:
             svg = self.renderer.svg(spec, caption=figure.caption, aspect=aspect)
-            baseline_png = self.renderer.png(svg)
+            metrics = fit_rules.svg_metrics(svg)
+            min_pt = (
+                None
+                if metrics.min_font is None
+                else fit_rules.font_pt(metrics.min_font, frame.width_mm)
+            )
+            small = metrics.overflow > 0 or (
+                min_pt is not None and min_pt + fit_rules.PT_TOLERANCE < self.config.min_text_pt
+            )
+            if not small:
+                break
+            # 글자를 줄이기 전에 같은 종류의 덜 넓은 가로 비율(높이 상한 안)을 한 번 — 글자를 지킨다
+            taller = fit_rules.narrower(figure.kind, aspect)
+            if not tried_taller and not widened and taller and fit_rules.fits(frame, taller):
+                tried_taller, aspect, redraws = True, taller, redraws + 1
+                continue
+            if not shorten or level >= self.config.max_shorten:
+                break
+            level += 1
+            cut = fit_rules.shorten_spec(spec, level)
+            if cut is None:
+                continue
+            spec, n = cut
+            shortened += n
+            redraws += 1
+        png = self.renderer.png(svg)
+        fit = fit_rules.make_fit(
+            frame,
+            aspect,
+            min_pt=min_pt,
+            min_text_pt=self.config.min_text_pt,
+            method="svg",
+            redraws=redraws,
+            shortened=shortened,
+            widened=widened,
+        )
+        if metrics.overflow:
+            fit = fit.model_copy(update={"text_ok": False})
+        if spec is not figure.spec:
+            figure = figure.model_copy(update={"spec": spec, "alt": rules.alt_text(spec)})
+        return figure, aspect, png, fit
+
+    async def draw(
+        self,
+        figure: Figure,
+        *,
+        baseline_png: bytes | None = None,
+        style: str = "",
+        shorten: bool = True,
+    ) -> FigureBuild:
+        """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림. style 은 [말로 고치기] 모양 요청.
+        [23] 밑그림은 본문 폭 맞춤(layout), 그림은 흰 여백을 잘라 정확한 비율로(reframe), 글자 크기는
+        OCR 로 어림해 작으면 글자를 한 단계 더 줄여 한 번 더 그린다(max_image_redraws)."""
+        t0 = time.monotonic()
+        fit: FigureFit | None = None
+        if baseline_png is None:
+            figure, aspect, baseline_png, fit = self.layout(figure, shorten=shorten)
+        else:
+            aspect = self.config.aspect_for(figure.spec)
+        spec = figure.spec
         adopted, mime, renderer, model, error, calls = (
             baseline_png,
             "image/png",
@@ -474,23 +560,35 @@ class MakeFigures(TechniqueSteps):
             0,
         )
         if self.images is not None:
-            prompt = rules.image_prompt(spec, caption=figure.caption, style=style, aspect=aspect)
-            try:
-                calls = 1
-                result = await self.images.generate(
-                    prompt,
-                    baseline_png,
-                    mime="image/png",
-                    aspect=aspect,
-                    size=self.config.image_size,
+            attempt = 0
+            while True:
+                got = await self._generate(figure, baseline_png, aspect, style)
+                calls += got[4]
+                if got[0] is None:
+                    error = got[3]
+                    break
+                adopted, mime, model = got[0], got[1], got[2]
+                renderer, error = "nano_banana", None
+                ocr_pt = await self._ocr_pt(figure, adopted, mime, fit)
+                if fit is not None:
+                    fit = self._image_fit(fit, ocr_pt)
+                too_small = ocr_pt is not None and ocr_pt + fit_rules.PT_TOLERANCE < self.config.min_text_pt
+                if not too_small or not shorten or attempt >= self.config.max_image_redraws:
+                    break
+                cut = fit_rules.shorten_spec(spec, min(fit_rules.MAX_SHORTEN, attempt + 1))
+                if cut is None:
+                    break
+                attempt += 1
+                spec, n = cut
+                figure = figure.model_copy(update={"spec": spec, "alt": rules.alt_text(spec)})
+                figure, aspect, baseline_png, base_fit = self.layout(figure, shorten=False)
+                fit = base_fit.model_copy(
+                    update={
+                        "redraws": (fit.redraws if fit else 0) + 1,
+                        "shortened": (fit.shortened if fit else 0) + n,
+                        "widened": bool(fit and fit.widened),
+                    }
                 )
-                adopted, mime = self._fit(result.data, result.mime)
-                renderer, model = "nano_banana", result.model
-            except ImageBudgetExhausted:
-                error = "budget"
-            except Exception as exc:  # 네트워크·인증·응답 없음 — 기본 그림
-                error = type(exc).__name__
-                logger.warning("figure.generate_failed id=%s error=%s", figure.id, error)
         else:
             error = "no_image_llm"
         updated = figure.model_copy(
@@ -503,10 +601,74 @@ class MakeFigures(TechniqueSteps):
                 "image_sha": _sha(adopted),
                 "baseline_sha": _sha(baseline_png),
                 "alt": rules.alt_text(spec),
+                "fit": fit if fit is not None else figure.fit,
                 "updated_at": self.clock() if self.clock else None,
             }
         )
         return FigureBuild(updated, baseline_png, adopted, mime, round(time.monotonic() - t0, 1))
+
+    async def _generate(
+        self, figure: Figure, baseline_png: bytes, aspect: str, style: str
+    ) -> tuple[bytes | None, str, str | None, str | None, int]:
+        """Nano Banana 1회 → (그림, mime, 모델, 오류 코드, 호출 수). 4:1 처럼 API 가 받지 않는 비율은
+        밑그림을 21:9 캔버스 가운데에 놓아 보내고, 결과를 reframe 으로 원래 비율에 맞춘다."""
+        assert self.images is not None
+        sent = fit_rules.api_aspect(aspect)
+        reference = baseline_png
+        if sent != aspect and self.pad_reference is not None:
+            reference = self.pad_reference(baseline_png, sent)
+        arrange = self.config.arrangements.get(str(getattr(figure.spec, "technique", "") or ""))
+        prompt = rules.image_prompt(
+            figure.spec, caption=figure.caption, style=style, aspect=aspect, arrange=arrange
+        )
+        try:
+            result = await self.images.generate(
+                prompt, reference, mime="image/png", aspect=sent, size=self.config.image_size
+            )
+        except ImageBudgetExhausted:
+            return None, "", None, "budget", 1
+        except Exception as exc:  # 네트워크·인증·응답 없음 — 기본 그림
+            code = type(exc).__name__
+            logger.warning("figure.generate_failed id=%s error=%s", figure.id, code)
+            return None, "", None, code, 1
+        data, mime = result.data, result.mime
+        if self.reframe is not None:
+            try:
+                data, mime = self.reframe(data, mime, aspect)
+            except ValueError:
+                logger.warning("figure.reframe_failed id=%s", figure.id)
+        data, mime = self._fit(data, mime)
+        return data, mime, result.model, None, 1
+
+    async def _ocr_pt(
+        self, figure: Figure, data: bytes, mime: str, fit: FigureFit | None
+    ) -> float | None:
+        """그림 글자 크기 어림(pt) — OCR 줄 상자 높이 → 본문 폭에 넣은 그림 높이. OCR 이 없거나 실패면
+        None(밑그림 값을 그대로 쓴다)."""
+        if self.ocr is None or fit is None:
+            return None
+        try:
+            result = await self.ocr.recognize(data, mime=mime)
+        except Exception as exc:  # OCR 없음·격리 실패 — 맞춤 기록은 밑그림 값
+            logger.info("figure.ocr_unavailable id=%s error=%s", figure.id, type(exc).__name__)
+            return None
+        lines = [
+            (ln.text, float(ln.box[3])) for ln in result.lines if ln.box and ln.confidence >= 0.3
+        ]
+        return fit_rules.estimate_ocr_pt(
+            lines, fit.height_mm, rules.texts_of(figure.spec), box_em=self.config.ocr_box_em
+        )
+
+    def _image_fit(self, fit: FigureFit, ocr_pt: float | None) -> FigureFit:
+        if ocr_pt is None:
+            return fit.model_copy(update={"text_method": "baseline"})
+        return fit.model_copy(
+            update={
+                "min_text_pt": ocr_pt,
+                "text_ok": ocr_pt + fit_rules.PT_TOLERANCE >= self.config.min_text_pt,
+                "text_method": "ocr",
+            }
+        )
 
     async def edit_by_words(
         self,
@@ -645,11 +807,8 @@ class MakeFigures(TechniqueSteps):
         return replace(got.value, model=got.model)
 
     def baseline(self, figure: Figure) -> FigureBuild:
-        """[기본 그림으로] — 밑그림을 다시 그려 채택 (호출 없음)."""
-        svg = self.renderer.svg(
-            figure.spec, caption=figure.caption, aspect=self.config.aspect_for(figure.spec)
-        )
-        png = self.renderer.png(svg)
+        """[기본 그림으로] — 밑그림을 다시 그려 채택 (호출 없음). 본문 폭 맞춤(layout)을 함께."""
+        figure, _aspect, png, fit = self.layout(figure)
         updated = figure.model_copy(
             update={
                 "renderer": "baseline",
@@ -658,6 +817,7 @@ class MakeFigures(TechniqueSteps):
                 "confirmed": False,
                 "image_sha": _sha(png),
                 "baseline_sha": _sha(png),
+                "fit": fit,
                 "updated_at": self.clock() if self.clock else None,
             }
         )

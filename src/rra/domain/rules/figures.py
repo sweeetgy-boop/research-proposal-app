@@ -718,9 +718,10 @@ def technique_arrangement(spec: TechniqueSpec, arrange: str | None = None) -> st
 def _layout_hint(spec: BaseModel, arrange: str | None = None) -> str:
     if isinstance(spec, AsIsToBeSpec):
         return (
-            f"구조: 왼쪽·오른쪽 두 단. 왼쪽 단 '{AS_IS_HEAD}' 칸 {len(spec.as_is)}개(현황·원인·한계), 오른쪽 단 "
-            f"'{TO_BE_HEAD}' 칸 {len(spec.to_be)}개(목표·해결 방안·기대효과), 두 단 사이 가운데에 "
-            f"오른쪽을 향한 큰 화살표와 핵심 해결 방안 한 줄 '{spec.solution}'. 칸마다 작은 이름표(현황·원인…)를 붙인다."
+            f"구조: 왼쪽·오른쪽 두 단. 왼쪽 단 '{AS_IS_HEAD}' 칸 {len(spec.as_is)}개"
+            f"(현황·원인·한계), 오른쪽 단 '{TO_BE_HEAD}' 칸 {len(spec.to_be)}개"
+            "(목표·해결 방안·기대효과), 두 단 사이 가운데 큰 화살표(오른쪽 방향) 위에 "
+            f"핵심 해결 방안 한 줄 '{spec.solution}'. 칸마다 작은 이름표(현황·원인…)를 붙인다."
         )
     if isinstance(spec, TechniqueSpec):
         if spec.rows:
@@ -742,7 +743,7 @@ def _layout_hint(spec: BaseModel, arrange: str | None = None) -> str:
             f"배지로. 아래에 '{spec.note}' 를 본문과 같은 크기로."
         )
     if isinstance(spec, ConceptSpec):
-        return "구조: 가로 한 줄 4단계 흐름(현황 → 문제 → 해결 방안 → 기대효과), 단계 사이 화살표."
+        return "구조: 4단계 흐름(현황 → 문제 → 해결 방안 → 기대효과)을 가로 한 줄로, 단계 사이 화살표."
     if isinstance(spec, ProcessSpec):
         return (
             f"구조: 단계 {len(spec.stages)}개를 가로 한 줄로 왼쪽에서 오른쪽으로 화살표로 잇고, 단계마다 "

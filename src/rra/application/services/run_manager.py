@@ -2295,7 +2295,8 @@ class RunManager(EditAIMixin):
                 raise EditRejected(str(exc)) from exc
             summary = figure_rules.spec_change_summary(fig.spec, spec)
             fig = fig.model_copy(update={"spec": spec, "alt": figure_rules.alt_text(spec)})
-            build = await self.figures.draw(fig)
+            # [23] 제안자가 고친 글자는 줄이지 않는다 — 맞춤 기록(글자 크기)만 남긴다
+            build = await self.figures.draw(fig, shorten=False)
             self._save_build(user, run_id, build)
             fig = build.figure.model_copy(
                 update={
@@ -2523,7 +2524,12 @@ class RunManager(EditAIMixin):
         if placements:
             by_id = {p.id: p for p in placements}
             state.figures = [
-                {**row, "placement": by_id[row["id"]].placement, "number": by_id[row["id"]].number}
+                {
+                    **row,
+                    "placement": by_id[row["id"]].placement,
+                    "number": by_id[row["id"]].number,
+                    "figure_fit": _fit_row(by_id[row["id"]].fit) or row.get("figure_fit"),
+                }
                 if row.get("id") in by_id
                 else row
                 for row in state.figures
@@ -3155,9 +3161,29 @@ def _figure_summary(figures: list[Figure], previous: list[dict[str, Any]]) -> li
             "error": f.error,
             "placement": prev.get(f.id, {}).get("placement"),
             "number": prev.get(f.id, {}).get("number"),
+            # [23] 본문 폭 맞춤 (폭·높이 mm, 비율, 높이 상한 안, 가장 작은 글자 pt) — 마무리 때 HWPX 실측으로 바뀐다
+            "figure_fit": _fit_row(getattr(f, "fit", None)),
         }
         out.append(row)
     return out
+
+
+def _fit_row(fit: Any) -> dict[str, Any] | None:
+    """manifest figure_fit — 숫자·코드만 (글자 없음)."""
+    if fit is None:
+        return None
+    return {
+        "width_mm": fit.width_mm,
+        "height_mm": fit.height_mm,
+        "ratio": fit.ratio,
+        "fits": fit.fits,
+        "min_text_pt": fit.min_text_pt,
+        "text_ok": fit.text_ok,
+        "text_method": fit.text_method,
+        "redraws": fit.redraws,
+        "shortened": fit.shortened,
+        "widened": fit.widened,
+    }
 
 
 def figure_rules_changed(old: list[Figure], new: list[Figure]) -> list[Figure]:

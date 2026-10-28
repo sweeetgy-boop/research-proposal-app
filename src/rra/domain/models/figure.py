@@ -387,7 +387,9 @@ class FigureFit(BaseModel):
 
     width_mm: float = Field(ge=0)
     height_mm: float = Field(ge=0)
-    ratio: str = Field(default="16:9", max_length=12)  # 고른 비율 (생성 API 비율과 다를 수 있다: 4:1)
+    ratio: str = Field(
+        default="16:9", max_length=12
+    )  # 고른 비율 (생성 API 비율과 다를 수 있다: 4:1)
     fits: bool = True  # 높이 ≤ 쪽 높이 1/3
     min_text_pt: float | None = None
     text_ok: bool = True  # min_text_pt ≥ 하한 (모르면 True)

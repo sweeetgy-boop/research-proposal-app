@@ -37,6 +37,7 @@ MM_PER_INCH = 25.4
 PT_PER_MM = 72.0 / MM_PER_INCH
 HWPUNIT_PER_MM = 7200.0 / MM_PER_INCH  # 1/7200 인치
 MIN_TEXT_PT = 9.0
+PT_TOLERANCE = 0.05  # 반올림 차이 (33.0 단위 = 8.99pt)
 HEIGHT_SHARE = 1.0 / 3.0  # 그림 높이 상한 = 쪽 높이 × 1/3
 # 실물 양식(별지 제2호서식) 본문: A4 210×297mm, 좌우 여백 25mm, 본문 단락 오른쪽 여백 1750 HWPUNIT → 153.8mm
 DEFAULT_BODY_WIDTH_MM = 43606 / HWPUNIT_PER_MM
@@ -103,6 +104,13 @@ def wider(kind: str, aspect: str) -> str | None:
     return None
 
 
+def narrower(kind: str, aspect: str) -> str | None:
+    """같은 종류에서 지금보다 덜 넓은(세로가 긴) 허용 비율 중 가장 가까운 것. 없으면 None."""
+    now = ratio_value(aspect)
+    below = [a for a in allowed_aspects(kind) if ratio_value(a) < now - 1e-6]
+    return below[-1] if below else None
+
+
 def wide_aspect(kind: str, aspect: str) -> str:
     """예전 비율(4:3·3:2 등)을 그 종류의 가로 비율로 — 좁으면 가장 좁은 허용 비율로 올린다."""
     allowed = allowed_aspects(kind)
@@ -129,7 +137,7 @@ def choose_aspect(spec: BaseModel, *, arrange: str | None = None) -> str:
         n = len(spec.groups)
         most = max((len(g.items) for g in spec.groups), default=1)
         if arrange == "grid" or n >= 5:
-            return "16:9"
+            return "21:9" if most <= 1 else "16:9"  # 두 줄 — 칸마다 항목 1개면 낮게
         if n <= 3 and most <= 2:
             return "21:9"
         return "16:9"
@@ -265,7 +273,7 @@ def make_fit(
         ratio=aspect,
         fits=h <= frame.max_height_mm + 1e-6,
         min_text_pt=None if min_pt is None else round(float(min_pt), 1),
-        text_ok=min_pt is None or float(min_pt) + 1e-6 >= float(min_text_pt),
+        text_ok=min_pt is None or float(min_pt) + PT_TOLERANCE >= float(min_text_pt),
         text_method=method,  # type: ignore[arg-type]
         redraws=redraws,
         shortened=shortened,
