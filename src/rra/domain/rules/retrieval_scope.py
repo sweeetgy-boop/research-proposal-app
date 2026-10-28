@@ -16,8 +16,9 @@ from rra.domain.models import Document
 
 # 유사과제 판정(find_similar)에서 빼는 자료 종류. [P2] 감사·통계·공고도 과제가 아니다. 발주
 # 용역(procurement)은 남긴다.
+# 행정 공시(admin_notice)·사업 현황(status_report)도 과제가 아니다(ADR 0046).
 OVERLAP_EXCLUDED_DOC_TYPES: frozenset[str] = frozenset(
-    {"policy", "korail_news", "audit", "statistics", "rnd_notice"}
+    {"policy", "korail_news", "audit", "statistics", "rnd_notice", "admin_notice", "status_report"}
 )
 # 정책 근거 추천에 쓰는 자료 종류 (공고문은 정책 방향·사업 개요를 담아 후보에 넣는다)
 POLICY_DOC_TYPES: frozenset[str] = frozenset({"policy", "rnd_notice"})

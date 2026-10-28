@@ -4,7 +4,9 @@
 바로잡는다.
 - 공사 홈페이지 사전정보공표 연구용역 → doc_type procurement + doc_class research_service
   (유사과제 판정·선행연구에는 남고 정책 근거 추천에서는 빠진다).
-- 행정 공시·사업 현황 → doc_type 그대로, category 만.
+- 행정 공시 → doc_type admin_notice, 사업 현황·소개 → status_report, 통계 → statistics (+ category,
+  2026-10-29 ADR 0046 — ADR 0040 때는 doc_type 을 policy 로 두었다). 2-가-(3) 경영전략 정합성·정책
+  근거에서 빠지고 필요성·현황 섹션 근거로만 쓰인다.
 - 다른 자료원(국토부·감사원·기재부·R&D 공고·사내·알리오·실시간 검색 행)은 규칙대로 점검만 하고
 바뀌는
   것이 있을 때만 쓴다.
@@ -52,6 +54,9 @@ class SourceReport:
     after: Counter[str] = field(default_factory=Counter)
     policy_basis_before: int = 0
     policy_basis_after: int = 0
+    # 바뀌는 doc_type 쌍 — "policy→admin_notice" 처럼
+    # (doc_type 이 같고 분류 키만 바뀐 행은 세지 않음)
+    transitions: Counter[str] = field(default_factory=Counter)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -63,6 +68,7 @@ class SourceReport:
             "after": dict(sorted(self.after.items())),
             "policy_basis_before": self.policy_basis_before,
             "policy_basis_after": self.policy_basis_after,
+            "transitions": dict(sorted(self.transitions.items())),
         }
 
 
@@ -111,6 +117,8 @@ class ReclassifyDocuments:
                 rep.after[_key(doc_type, raw.get(CLASS_KEY))] += 1
                 fixed = doc.model_copy(update={"doc_type": doc_type, "raw": raw})
                 rep.policy_basis_after += int(is_policy_basis(fixed))
+                if doc_type != doc.doc_type:
+                    rep.transitions[f"{doc.doc_type}→{doc_type}"] += 1
                 if doc_type != doc.doc_type or raw != doc.raw:
                     rep.changed += 1
                     changes.append((doc.doc_id, doc_type, raw))

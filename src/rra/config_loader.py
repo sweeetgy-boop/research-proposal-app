@@ -875,13 +875,19 @@ def retrieval_mix(settings: Settings):
         sections[str(key)] = SectionMix(
             allow=tuple(str(x) for x in (item.get("allow") or [])),
             min_scholarly=int(item.get("min_scholarly", 0)),
+            strict=bool(item.get("strict", False)),
         )
+    only_in_raw = cfg.get("only_in") or {}
+    if not isinstance(only_in_raw, dict):
+        raise ValueError("retrieval_mix.yaml only_in 은 {doc_type: [섹션 키…]} 매핑이어야 합니다.")
+    only_in = {str(k): tuple(str(x) for x in (v or [])) for k, v in only_in_raw.items()}
     return RetrievalMix(
         min_per_source=int(cfg.get("min_per_source", 6)),
         section_min_per_source=int(cfg.get("section_min_per_source", 2)),
         scholarly=tuple(str(x) for x in (cfg.get("scholarly") or ["paper", "report", "patent"])),
         sections=sections,
         overlap_exclude=tuple(str(x) for x in (cfg.get("overlap_exclude") or [])),
+        only_in=only_in,
         candidates=overlap_candidates(settings),  # generate 의 판정도 같은 후보 집합(ADR 0028)
     )
 
