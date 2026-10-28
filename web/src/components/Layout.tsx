@@ -8,29 +8,20 @@ import { logout } from "@/api/endpoints";
 import { useDeployVersion } from "@/api/hooks";
 import { formatDeployedAt } from "@/lib/deployVersion";
 import { cn } from "@/lib/utils";
+import { runStepFromSub } from "@/lib/runSteps";
 
+/** 경로 → 흐름 단계. run 안(/runs/:id/…)은 RunLayout 이 run 상태를 알고 단계 링크를 그리므로
+ *  머리의 단계 표시는 /new… 에서만 쓴다 (runInPath). */
 function stepFromPath(pathname: string): number | null {
   if (pathname === "/new") return 1;
   if (pathname === "/new/precheck" || pathname === "/new/brief") return 2;
   if (pathname === "/new/clarify") return 3;
   const m = /^\/runs\/[^/]+(?:\/([a-z-]+))?$/.exec(pathname);
   if (!m) return null;
-  switch (m[1]) {
-    case undefined:
-    case "draft":
-      return 3;
-    case "edit":
-    case "versions":
-      return 4;
-    case "final-review":
-    case "submit-check":
-      return 5;
-    case "finalize":
-      return 6;
-    default:
-      return null;
-  }
+  return runStepFromSub(m[1]);
 }
+
+const runInPath = (pathname: string) => /^\/runs\/[^/]+/.test(pathname);
 
 const NAV = [
   { to: "/new", label: "새 제안서", icon: FilePlus2 },
@@ -99,7 +90,7 @@ export function Layout() {
             )}
           </div>
         </div>
-        {loggedIn && step !== null && (
+        {loggedIn && step !== null && !runInPath(pathname) && (
           <div className="mx-auto max-w-6xl px-4 pb-3">
             <Stepper current={step} />
           </div>

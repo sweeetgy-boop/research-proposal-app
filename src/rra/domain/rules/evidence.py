@@ -205,3 +205,72 @@ def evidence_counts(
 def excerpt(text: str, limit: int = MAX_EXCERPT_CHARS) -> str:
     text = " ".join((text or "").split())
     return text if len(text) <= limit else text[:limit] + "…"
+
+
+# ── 항목 16 제출 전 점검: "확인 필요" 와 일괄 승인 ─────────────────
+SUPPORT_PARTIAL = "부분"
+ATTENTION_SUPPORT: frozenset[str] = frozenset({SUPPORT_MISMATCH, SUPPORT_PARTIAL})
+IMAGE_BASIS = "image_vision"
+
+
+def _is_image(evidence_id: str, basis_of: Mapping[str, str | None]) -> bool:
+    return (basis_of.get(evidence_id) or basis_of.get(doc_of(evidence_id))) == IMAGE_BASIS
+
+
+def evidence_attention(
+    sections: Iterable[Section],
+    decisions: Iterable[EvidenceDecision],
+    support: Mapping[str, str],
+    basis_of: Mapping[str, str | None],
+) -> dict[str, object]:
+    """제안자가 직접 봐야 하는 문장 — Argon 판정 불일치·부분 지지, 또는 이미지 판독 근거가 붙은
+    문장 — 중 아직 판단하지 않은 근거가 남은 것. 그 밖 문장의 판단 없는 근거 참조 수는 bulk
+    ([근거 일괄 승인] 대상). 앱 문장(origin=app)은 세지 않는다."""
+    decided = {d.key for d in decisions}
+    pending: list[str] = []
+    counts = {"mismatch": 0, "partial": 0, "image": 0}
+    bulk = 0
+    for sec in sections:
+        for i, s in enumerate(sec.sentences):
+            if not s.evidence or s.origin == "app":
+                continue
+            sid = sentence_id(sec.key, i)
+            undecided = [e for e in s.evidence if (sid, e) not in decided]
+            verdict = support.get(sid)
+            image = any(_is_image(e, basis_of) for e in s.evidence)
+            if verdict in ATTENTION_SUPPORT or image:
+                if undecided:
+                    pending.append(sid)
+                    if verdict == SUPPORT_MISMATCH:
+                        counts["mismatch"] += 1
+                    elif verdict == SUPPORT_PARTIAL:
+                        counts["partial"] += 1
+                    if image:
+                        counts["image"] += 1
+            else:
+                bulk += len(undecided)
+    return {"sentences": pending, **counts, "bulk": bulk}
+
+
+def bulk_approvals(
+    sections: Iterable[Section],
+    decisions: Iterable[EvidenceDecision],
+    attention: Iterable[str],
+) -> list[EvidenceDecision]:
+    """[근거 일괄 승인] — 확인 필요 문장(attention)을 뺀 문장의 판단 없는 근거를 모두 approve."""
+    skip = set(attention)
+    decided = {d.key for d in decisions}
+    out: list[EvidenceDecision] = []
+    for sec in sections:
+        for i, s in enumerate(sec.sentences):
+            if not s.evidence or s.origin == "app":
+                continue
+            sid = sentence_id(sec.key, i)
+            if sid in skip:
+                continue
+            out.extend(
+                EvidenceDecision(sentence_id=sid, evidence_id=e, action="approve")
+                for e in s.evidence
+                if (sid, e) not in decided
+            )
+    return out

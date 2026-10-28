@@ -1,4 +1,5 @@
 import { GitBranch } from "lucide-react";
+import { reasonLabel } from "@/lib/labels";
 import type { Differentiation } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +34,7 @@ export function DifferentiationPanel({
       {loading && <SkeletonBlock lines={3} />}
       {!loading && diff && diff.items.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          제안 항목이 없습니다{diff.skipped_reason ? ` (${diff.skipped_reason})` : ""}. 차단·근접 유사과제가 없거나 모델이 항목을 만들지 못했습니다.
+          제안 항목이 없습니다{diff.skipped_reason ? ` (${reasonLabel(diff.skipped_reason)})` : ""}. 차단·근접 유사과제가 없거나 모델이 항목을 만들지 못했습니다.
         </p>
       )}
       {!loading && diff && diff.items.length > 0 && (

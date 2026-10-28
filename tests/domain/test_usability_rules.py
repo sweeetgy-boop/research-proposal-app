@@ -250,7 +250,12 @@ def _state():
 
 
 def test_step_durations_merge_sections_and_aggregate_counts_only():
-    assert usage.step_durations(_state()) == {"retrieve": 2.0, "sections": 7.0}
+    # 섹션은 벽시계(첫 시작~마지막 끝)와 합계(보조) — 순서대로 돈 섹션은 둘이 같다
+    assert usage.step_durations(_state()) == {
+        "retrieve": 2.0,
+        "sections": 7.0,
+        "sections_sum": 7.0,
+    }
     assert usage.total_seconds(_state()) == 120.0
     rec = usage.refresh(
         UsageRecord(run_id="r"),

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { reasonLabel } from "@/lib/labels";
 import { Lightbulb, RefreshCw } from "lucide-react";
 import type { RecommendationPreview, Recommendations } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,7 @@ export function RecommendationCards({
   }
 
   if (!rec || rec.recommendations.length === 0) {
-    const reason = rec?.no_recommendation_reason || (rec?.skipped_reason ? SKIP_REASON[rec.skipped_reason] ?? `건너뜀 (${rec.skipped_reason})` : "추천 결과가 없습니다.");
+    const reason = rec?.no_recommendation_reason || (rec?.skipped_reason ? SKIP_REASON[rec.skipped_reason] ?? `추천을 건너뛰었습니다 (${reasonLabel(rec.skipped_reason)}).` : "추천 결과가 없습니다.");
     return (
       <section className="space-y-3">
         {header}

@@ -1,5 +1,6 @@
 {
  "run_id": "20260101000000-00000002",
+ "title": "검측 이력 기반 궤도 틀림 진행 예측과 보수 우선순위 산정 모델 개발 — 2년 과제로 노반 침하 구간까지 포함",
  "status": "drafted",
  "progress": [
   15,
@@ -94,6 +95,7 @@
   "final_reviewed_version": null,
   "stale_edits": 0,
   "stale": false,
-  "has_working": false
+  "has_working": false,
+  "draft_review_skipped_label": null
  }
 }

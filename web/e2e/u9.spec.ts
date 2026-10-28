@@ -117,7 +117,12 @@ test.describe("U9 사용성 흐름", () => {
     // ⑥ 다운로드 → 만족도
     await page.getByRole("link", { name: "최종 마무리 →" }).click();
     await page.getByLabel("제안부서").fill("철도연구원");
-    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "HWPX 내려받기" }).click()]);
+    const downloadP = page.waitForEvent("download");
+    await page.getByRole("button", { name: "HWPX 내려받기" }).click();
+    // 근거 판단·다시 쓰기 뒤에도 그림이 버전에 남는다(레인 D 수정) → 확인 전 그림 확인창
+    const proceed = page.getByRole("dialog").getByRole("button", { name: "그대로 진행" });
+    await proceed.click({ timeout: 3_000 }).catch(() => undefined);
+    const download = await downloadP;
     expect(download.suggestedFilename()).toMatch(/\.hwpx$/);
     await expect(page.getByText("마무리됨")).toBeVisible();
     await subnav(page, "제출 전 점검").click();

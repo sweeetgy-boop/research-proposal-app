@@ -255,9 +255,12 @@ async def test_submit_check_items_and_targets():
         not by_key["choices_confirmed"].ok
         and by_key["choices_confirmed"].target == "section:task_type"
     )
-    # 판단 전: 승인 0/1 → 아직 확인 안 함
-    assert not by_key["evidence_approval"].ok and by_key["evidence_approval"].extra["total"] == 1
-    assert by_key["evidence_approval"].detail == "승인 0/1" and len(check.failing) == 2
+    # 항목 16: 판정 불일치·부분·이미지 판독이 아닌 근거는 "확인 필요"가 아니라 일괄 승인 대상
+    ev = by_key["evidence_approval"]
+    assert (
+        ev.ok and ev.extra["total"] == 1 and ev.extra["bulk"] == 1 and ev.extra["attention"] == []
+    )
+    assert "0/1" not in ev.detail and "[근거 일괄 승인]" in ev.detail and len(check.failing) == 1
     await mgr.decide_evidence(
         "local",
         st.run_id,
@@ -271,15 +274,15 @@ async def test_submit_check_items_and_targets():
     )
     check = await mgr.submit_check("local", st.run_id)
     by_key = {i.key: i for i in check.items}
-    assert (
-        not by_key["evidence_approval"].ok
-        and by_key["evidence_approval"].target == "route:evidence"
-    )
+    assert by_key["evidence_approval"].ok and by_key["evidence_approval"].extra["bulk"] == 0
     assert not by_key["unresolved_alerts"].ok and by_key["unresolved_alerts"].extra["by_code"] == {
         "evidence_all_excluded": 1
     }
+    # 화면은 코드 대신 한국어 설명 (domain/rules/problem_labels.py)
+    assert by_key["unresolved_alerts"].detail == "근거를 모두 제외한 문장 1건"
+    assert by_key["unresolved_alerts"].extra["by_label"][0]["label"] == "근거를 모두 제외한 문장"
     assert by_key["unresolved_alerts"].target == "sentence:s:method:0"
-    assert not check.ok and len(check.failing) == 3
+    assert not check.ok and len(check.failing) == 2
 
 
 async def test_usage_record_and_feedback_after_finalize():

@@ -1,3 +1,5 @@
+import { STEP_LABELS as BACKEND_STEP_LABELS } from "./labels";
+
 /** 섹션 키 → 양식 칸 이름 (config/templates/proposal_korail.rules.yaml titles 와 같다). */
 export const SECTION_TITLES: Record<string, string> = {
   title: "1-가 연구과제명",
@@ -19,17 +21,12 @@ export const sectionTitle = (key: string): string => SECTION_TITLES[key] ?? key;
 /** 선택형 섹션 (체크 칸) — 본문 대신 확정값으로 양식에 들어간다 */
 export const CHOICE_SECTIONS = new Set(["task_type", "utilization", "strategy_alignment"]);
 
-export const STEP_LABELS: Record<string, string> = {
-  retrieve: "근거 검색",
-  outline: "섹션 설계도",
-  finalize: "규칙 검사·v1",
-  draft_review: "Argon 1차 검토",
-  clarify: "입력 보강",
-};
+/** 진행 단계 이름 — lib/labels.ts STEP_LABELS(백엔드 problem_labels.py 와 같은 표)를 그대로 쓴다 */
+export const STEP_LABELS: Record<string, string> = BACKEND_STEP_LABELS;
 
 export function stepLabel(name: string): string {
   if (name.startsWith("section:")) return sectionTitle(name.slice("section:".length));
-  return STEP_LABELS[name] ?? name;
+  return STEP_LABELS[name] ?? "기타 단계";
 }
 
 /** 문장 origin → 배지 이름. 백엔드 origin 값: llm(AI 작성)·argon(Argon 보완)·argon_added·reviewed·proposer_edit·proposer_input·app.

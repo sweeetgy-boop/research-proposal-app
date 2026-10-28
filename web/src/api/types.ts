@@ -73,6 +73,8 @@ export interface StepState {
 export interface FlowSummary {
   status: RunStatus;
   draft_review_skipped: string | null;
+  /** 한국어 설명 (예: "1차 검토 생략(같은 모델 작성)") */
+  draft_review_skipped_label?: string | null;
   final_reviews: number;
   final_reviewed_version: number | null;
   stale_edits: number;
@@ -137,6 +139,8 @@ export interface LiveSearch {
 
 export interface RunState {
   run_id: string;
+  /** 항목 2 — 연구과제명(현재 버전 1-가, 없으면 가제). 모델 출력이라 텍스트로만 그린다 */
+  title?: string | null;
   status: RunStatus;
   progress: [number, number];
   template: string;
@@ -351,7 +355,10 @@ export interface Citation {
 export interface Problem_ {
   section: string;
   code: string;
+  /** 한국어 설명 — 화면은 code 대신 이것 */
+  label?: string;
   severity: string;
+  severity_label?: string;
   message: string;
   sentence: number | null;
 }
@@ -878,7 +885,10 @@ export interface SubmitCheckOut {
 export interface UsageRecord {
   run_id: string;
   step_seconds: Record<string, number>;
+  /** 화면용 줄 목록 (옛 응답에는 없다) */
+  steps?: import("./types-format").UsageStepRow[];
   total_seconds: number;
+  total_label?: string;
   checklist_coverage: number | null;
   evidence: { approve: number; replace: number; exclude: number; total: number; ratios: Record<string, number> };
   rewrites: number;
@@ -893,3 +903,4 @@ export interface UsageOut {
   usage: UsageRecord | null;
 }
 export * from "./types-figures"; // [G] 그림 v2 (레인 C)
+export * from "./types-format"; // 레인 D

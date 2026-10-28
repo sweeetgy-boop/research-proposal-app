@@ -1,6 +1,7 @@
 /** 경로별 호출 함수 — docs/openapi.json 28 경로 중 화면이 쓰는 것. */
 import { rawRequest, request } from "./client";
 import { clearSession, setSession } from "@/auth/session";
+import { filenameFromDisposition } from "./endpoints-format";
 import type {
   ClarifyOut,
   ConfirmIn,
@@ -144,8 +145,7 @@ export interface FinalizeResult {
 export async function finalizeRun(id: string, body: FinalizeIn): Promise<FinalizeResult> {
   const res = await rawRequest(`${V}/runs/${enc(id)}/finalize`, { method: "POST", body });
   const blob = await res.blob();
-  const cd = res.headers.get("content-disposition") ?? "";
-  const m = /filename="?([^";]+)"?/.exec(cd);
+  const cd = res.headers.get("content-disposition");
   let check: RenderCheckOut | null = null;
   const raw = res.headers.get("x-rra-check");
   if (raw) {
@@ -157,7 +157,7 @@ export async function finalizeRun(id: string, body: FinalizeIn): Promise<Finaliz
   }
   return {
     blob,
-    filename: m?.[1] ?? `proposal-${id}.hwpx`,
+    filename: filenameFromDisposition(cd, `proposal-${id}.hwpx`), // 항목 2 — "<과제 제목>_v<번호>.hwpx"
     version: res.headers.get("x-rra-version"),
     status: res.headers.get("x-rra-status"),
     check,

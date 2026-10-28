@@ -1,10 +1,15 @@
 import * as React from "react";
-import { NavLink, Outlet, useParams } from "react-router";
+import { NavLink, Outlet, useLocation, useParams } from "react-router";
+import { Copy } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { isActive, keys, useRun } from "@/api/hooks";
 import { subscribeRunEvents } from "@/api/sse";
 import type { RunState } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Stepper } from "@/components/Stepper";
+import { isEditable, isGenerated, runStepFromSub, runStepTargets } from "@/lib/runSteps";
+import { reviewSkipLabel } from "@/lib/labels";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { statusLabel } from "@/lib/sections";
@@ -25,8 +30,6 @@ const SUBNAV = [
   { to: "submit-check", label: "제출 전 점검" },
   { to: "finalize", label: "최종 마무리" },
 ];
-
-const EDITABLE = new Set(["drafted", "editing", "final_reviewed"]);
 
 function statusVariant(s: string): "default" | "secondary" | "destructive" | "success" | "warning" | "info" {
   if (s === "failed" || s === "invalid") return "destructive";
@@ -62,6 +65,18 @@ export default function RunLayout() {
   const { toast } = useToast();
   const run = q.data;
   const active = isActive(run?.status);
+  const { pathname } = useLocation();
+  const sub = pathname.replace(/^\/runs\/[^/]+\/?/, "").split("/")[0];
+
+  const copyId = async () => {
+    if (!run) return;
+    try {
+      await navigator.clipboard.writeText(run.run_id);
+      toast("run 번호를 복사했습니다.", "success");
+    } catch {
+      toast("복사하지 못했습니다 — 번호를 직접 선택해 복사하십시오.");
+    }
+  };
 
   // SSE: 활성 상태(생성·검토 중)일 때만 구독. 상태를 캐시에 바로 넣고 이름 이벤트는 토스트.
   React.useEffect(() => {
@@ -86,8 +101,10 @@ export default function RunLayout() {
   }
   if (q.error || !run) return <ProblemBanner error={q.error} onRetry={() => q.refetch()} />;
 
-  const generated = !["queued", "running", "failed", "invalid", "interrupted"].includes(run.status);
-  const editable = EDITABLE.has(run.status);
+  const generated = isGenerated(run);
+  const editable = isEditable(run);
+  const title = (run.title ?? "").trim();
+  const skipped = reviewSkipLabel(run.flow.draft_review_skipped, run.flow.draft_review_skipped_label);
   const enabledFor = (to: string): boolean => {
     if (to === "") return true;
     if (!generated) return false;
@@ -97,22 +114,41 @@ export default function RunLayout() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-          run <span className="font-mono text-base sm:text-lg">{run.run_id}</span>
+      <header className="space-y-2">
+        <h1 className="text-xl font-bold leading-snug tracking-tight sm:text-2xl">
+          {/* 두 줄까지 보이고 넘치면 말줄임 — 마우스(title)·키보드 초점(펼침)으로 전체 */}
+          <span
+            tabIndex={0}
+            title={title || undefined}
+            data-testid="run-title"
+            className="line-clamp-2 break-words rounded-sm focus:line-clamp-none focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            {title || "제목 미정"}
+          </span>
         </h1>
-        <Badge variant={statusVariant(run.status)}>{statusLabel(run.status)}</Badge>
-        <span className="text-sm text-muted-foreground">v{run.draft_version}</span>
-        <WriterChip run={run} />
-        {run.legacy && <Badge variant="outline">옛 run (조회 전용)</Badge>}
-        {run.flow.stale && (
-          <Badge variant="warning" role="status">
-            최종 검토 이후 수정 {run.flow.stale_edits}건
-          </Badge>
-        )}
-        {run.flow.draft_review_skipped && <Badge variant="outline">1차 검토 건너뜀 ({run.flow.draft_review_skipped})</Badge>}
-        {run.flow.has_working && <Badge variant="info">임시 저장 있음</Badge>}
-      </div>
+        <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+          <span>run 번호</span>
+          <span className="font-mono">{run.run_id}</span>
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={copyId} aria-label="run 번호 복사">
+            <Copy className="size-3.5" aria-hidden="true" />
+            복사
+          </Button>
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Badge variant={statusVariant(run.status)}>{statusLabel(run.status)}</Badge>
+          <span className="text-sm text-muted-foreground">v{run.draft_version}</span>
+          <WriterChip run={run} />
+          {run.legacy && <Badge variant="outline">옛 run (조회 전용)</Badge>}
+          {run.flow.stale && (
+            <Badge variant="warning" role="status">
+              최종 검토 이후 수정 {run.flow.stale_edits}건
+            </Badge>
+          )}
+          {skipped && <Badge variant="outline">{skipped}</Badge>}
+          {run.flow.has_working && <Badge variant="info">임시 저장 있음</Badge>}
+        </div>
+      </header>
+      <Stepper current={runStepFromSub(sub)} base={`/runs/${run.run_id}`} targets={runStepTargets(run)} />
       <nav aria-label="run 하위 메뉴" className="relative -mx-1 overflow-x-auto border-b">
         <ul className="flex min-w-max gap-1">
           {SUBNAV.map((s) => {

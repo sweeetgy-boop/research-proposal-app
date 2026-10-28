@@ -17,6 +17,12 @@ from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.draft_failures import reason_label
 from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
+from rra.domain.rules.problem_labels import (
+    problem_label,
+    review_skip_label,
+    severity_label,
+    step_label,
+)
 from rra.domain.rules.writer import local_check_view, local_sections, writers_view
 
 
@@ -99,7 +105,9 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
             {
                 "section": p["section"],
                 "code": p["code"],
+                "label": problem_label(p["code"]),  # 화면은 코드 대신 이것 (항목 16)
                 "severity": p.get("severity", "error"),
+                "severity_label": severity_label(p.get("severity", "error")),
                 "message": clean(p["message"]),
                 "sentence": p.get("sentence"),
             }
@@ -367,6 +375,9 @@ def flow_summary(state: Any, has_working: bool = False) -> dict[str, Any]:
     return {
         "status": state.status,
         "draft_review_skipped": getattr(state, "draft_review_skipped", None),
+        "draft_review_skipped_label": review_skip_label(
+            getattr(state, "draft_review_skipped", None)
+        ),
         "final_reviews": getattr(state, "final_reviews", 0),
         "final_reviewed_version": getattr(state, "final_reviewed_version", None),
         "stale_edits": getattr(state, "stale_edits", 0),
@@ -585,7 +596,9 @@ def render_check_payload(
             {
                 "section": p.section,
                 "code": p.code,
+                "label": problem_label(p.code),
                 "severity": p.severity,
+                "severity_label": severity_label(p.severity),
                 "message": clean(p.message),
                 "sentence": p.sentence,
             }
@@ -929,6 +942,16 @@ def submit_check_payload(
 ) -> dict[str, Any]:
     """SubmitCheck → dict. 항목마다 target(section:<key> | sentence:<sid> | route:<hint>)."""
     names = titles or {}
+    slot_names = {**SLOT_LABELS, **names}
+
+    def detail(i: Any) -> str:
+        if i.key == "field_limits" and i.extra.get("overflow"):
+            return ", ".join(
+                f"{slot_names.get(r['slot'], r['slot'])} {r['chars']}자 > {r['limit']}자"
+                for r in i.extra["overflow"]
+            )
+        return i.detail
+
     return {
         "ok": check.ok,
         "failing": len(check.failing),
@@ -937,7 +960,7 @@ def submit_check_payload(
                 "key": i.key,
                 "label": i.label,
                 "ok": i.ok,
-                "detail": clean(i.detail),
+                "detail": clean(detail(i)),
                 "count": i.count,
                 "target": i.target,
                 "target_label": (
@@ -956,10 +979,22 @@ def usage_payload(record: Any) -> dict[str, Any] | None:
     """UsageRecord → dict. 개인정보·본문 없음 (한 줄 소감은 길이 제한된 제안자 입력)."""
     if record is None:
         return None
+    steps = dict(record.step_seconds)
     return {
         "run_id": record.run_id,
-        "step_seconds": dict(record.step_seconds),
+        "step_seconds": steps,
+        # 항목 16 — 화면용 줄 목록. 섹션 작성은 실제 경과(벽시계), 합계는 보조 줄
+        "steps": [
+            {
+                "key": k,
+                "label": step_label(k),
+                "seconds": v,
+                "secondary": k == "sections_sum",
+            }
+            for k, v in steps.items()
+        ],
         "total_seconds": record.total_seconds,
+        "total_label": "전체 경과(사람 작업 포함)",
         "checklist_coverage": record.checklist_coverage,
         "evidence": {**record.evidence.model_dump(), "ratios": record.evidence.ratios()},
         "rewrites": record.rewrites,
@@ -1058,11 +1093,14 @@ def brief_payload(brief: Any, *, clean: Callable[[str], str] = _same) -> dict[st
     }
 
 
-def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
-    """RunState → 상태 조회 응답 (초안 본문 없음)."""
+def run_state_payload(
+    state: Any, *, legacy: bool = False, title: str | None = None
+) -> dict[str, Any]:
+    """RunState → 상태 조회 응답 (초안 본문 없음). title: 연구과제명(항목 2, 비신뢰 문장)."""
     done, total = state.progress
     return {
         "run_id": state.run_id,
+        "title": title,
         "status": state.status,
         "progress": [done, total],
         "template": state.template,
@@ -1514,3 +1552,43 @@ def _eval_idea_integrated_lines(results: list[dict[str, Any]]) -> list[str]:
             lines.append("| " + " | ".join(cells) + " |")
     lines.append("")
     return lines
+
+
+_REGEN_REASON = {
+    "fence": "응답 형식 오류",
+    "json": "응답 형식 오류",
+    "schema": "응답 형식 오류",
+    "choices_only": "본문 없이 선택값만 옴",
+    "empty": "빈 응답",
+    "dropped": "근거 검증에서 모두 빠짐",
+}
+
+
+def regenerate_payload(result: Any, *, titles: dict[str, str] | None = None) -> dict[str, Any]:
+    """항목 17 다시 쓰기 결과 (본문 없음 — 새 버전은 version_payload 로)."""
+    from rra.domain.rules.request_change import change_summary
+
+    names = titles or {}
+    return {
+        "mode": result.mode,
+        "fields": change_summary(result.fields),
+        "regenerated": [{"key": k, "title": names.get(k, k)} for k in result.regenerated],
+        "failed": [
+            {
+                "key": f["key"],
+                "title": names.get(f["key"], f["key"]),
+                "reason_label": _REGEN_REASON.get(f.get("reason", ""), "모델 호출 실패"),
+            }
+            for f in result.failed
+        ],
+        "kept": [{"key": k, "title": names.get(k, k)} for k in result.kept],
+        "saved_only": bool(result.saved_only),
+    }
+
+
+def content_disposition(filename: str, fallback: str) -> str:
+    """내려받기 헤더 — RFC 6266/5987: ASCII 대체 이름 + UTF-8 퍼센트 인코딩 이름(한글 제목)."""
+    from urllib.parse import quote
+
+    ascii_name = "".join(ch for ch in fallback if 32 < ord(ch) < 127 and ch not in '"\\;')
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"
