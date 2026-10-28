@@ -1533,16 +1533,27 @@ def cmd_runs_active(args: argparse.Namespace) -> int:
     """모든 사용자의 대기·실행 중 run (배포 전 확인, tools/deploy.sh). 출력은 run_id·상태·시각."""
     from rra.composition import build_run_manager, load_settings
     from rra.domain.models.run import ACTIVE
+    from rra.domain.rules.figure_job import ACTIVE_JOB
 
     states = build_run_manager(load_settings()).list_all_runs(limit=200)
-    active = [s for s in states if s.status in ACTIVE]
+
+    # 그림을 백그라운드로 그리는 run(ADR 0045)도 센다 — 배포 재시작이 그림 작업을 끊지 않게
+    def drawing(s: Any) -> bool:
+        return getattr(s, "figures_status", None) in ACTIVE_JOB
+
+    active = [s for s in states if s.status in ACTIVE or drawing(s)]
     if args.json:
         print(
             json.dumps(
                 {
                     "count": len(active),
                     "runs": [
-                        {"run_id": s.run_id, "status": s.status, "created_at": s.created_at}
+                        {
+                            "run_id": s.run_id,
+                            "status": s.status,
+                            "figures_status": getattr(s, "figures_status", None),
+                            "created_at": s.created_at,
+                        }
                         for s in active
                     ],
                 },
@@ -1552,7 +1563,8 @@ def cmd_runs_active(args: argparse.Namespace) -> int:
     elif active:
         print(f"대기·실행 중인 생성: {len(active)}건")
         for s in active:
-            print(f"  {s.run_id}  {s.status}  {s.created_at}")
+            note = " (그림 그리는 중)" if drawing(s) else ""
+            print(f"  {s.run_id}  {s.status}{note}  {s.created_at}")
     else:
         print("대기·실행 중인 생성: 0건")
     return EXIT_OK

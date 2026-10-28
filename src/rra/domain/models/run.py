@@ -175,6 +175,14 @@ class RunState(BaseModel):
     # 항목 12 HWPX 서식 점검 — 마지막 마무리 때 고친 단락 수(종류별)·남은 불일치·단계별 단락 수.
     # 건수만 (본문 없음). manifest 에 그대로 간다
     hwpx_format: dict[str, Any] | None = None
+    # 그림 백그라운드 작업(ADR 0045) — 읽을 때 작업 파일(figures_job.json)에서 채운다
+    # (저장값은 참고).
+    # None = 그림 단계 없음·예전 run. figure_slots 는 카드 자리(FigureSlot.model_dump, 본문 없음)
+    figures_status: Literal["pending", "drawing", "done", "failed"] | None = None
+    figure_slots: list[dict[str, Any]] = Field(default_factory=list)
+    # 제출 → 초안 글 보임(drafted), 제출 → 그림 모두 끝남 (초). 측정·manifest 용
+    draft_visible_seconds: float | None = None
+    figures_done_seconds: float | None = None
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

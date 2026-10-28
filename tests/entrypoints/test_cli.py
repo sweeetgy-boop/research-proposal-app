@@ -573,6 +573,18 @@ def test_runs_active_lists_only_queued_or_running_across_users(monkeypatch, caps
     states[:] = [states[1]]
     cli.main(["runs", "active"])
     assert "0건" in capsys.readouterr().out
+    # ADR 0045 — 초안은 보이지만 그림을 백그라운드로 그리는 run 도 센다 (배포가 끊지 않게)
+    states[:] = [
+        SimpleNamespace(
+            run_id="r4", status="drafted", figures_status="drawing", created_at="2026-10-29"
+        ),
+        SimpleNamespace(run_id="r5", status="drafted", figures_status="done", created_at="x"),
+    ]
+    assert cli.main(["runs", "active", "--json"]) == cli.EXIT_OK
+    out = json.loads(capsys.readouterr().out)
+    assert out["count"] == 1 and out["runs"][0]["figures_status"] == "drawing"
+    cli.main(["runs", "active"])
+    assert "r4  drafted (그림 그리는 중)" in capsys.readouterr().out
 
 
 def test_runs_list_and_show(run_env, capsys):

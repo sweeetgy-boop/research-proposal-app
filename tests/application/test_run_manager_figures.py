@@ -292,13 +292,23 @@ async def _ids(mgr, rid, version):
     return [f.id for f in (await mgr.get_version(USER, rid, version)).figures]
 
 
-async def test_status_stays_running_while_figures_are_drawn(repo):
-    """그림을 그리는 동안 저장된 상태는 running — drafted 로 먼저 보이면 편집이 락에 막힌다."""
-    seen: list[str] = []
+async def test_draft_is_visible_while_figures_are_drawn_in_background(repo):
+    """ADR 0045 — 그림을 그리는 동안 상태는 drafted(초안 글이 먼저 보인다).
+    run 락은 풀려 편집이 열리고, 그림 작업 락만 잡혀 있다.
+    상태 조회는 figures_status=drawing·자리 목록을 보인다."""
+    seen: list[tuple[str, bool, bool, str | None]] = []
 
     class Watching(FakeImageGenerator):
         async def generate(self, prompt, reference, **kw):
-            seen.append(mgr.store.load_state(USER, run_id[0]).status)
+            st = await mgr.status(USER, run_id[0])
+            seen.append(
+                (
+                    st.status,
+                    mgr.store.is_alive(USER, run_id[0]),
+                    mgr.store.figures_alive(USER, run_id[0]),
+                    st.figures_status,
+                )
+            )
             return await super().generate(prompt, reference, **kw)
 
     run_id: list[str] = []
@@ -306,8 +316,12 @@ async def test_status_stays_running_while_figures_are_drawn(repo):
     state = await mgr.submit(USER, REQ)
     run_id.append(state.run_id)
     final = await mgr.wait(USER, state.run_id)
-    assert seen and set(seen) == {"running"}
+    assert seen and set(seen) == {("drafted", False, True, "drawing")}
     assert final.status == "drafted" and final.step("finalize").status == "done"
+    assert final.figures_status == "done" and final.step("figures").status == "done"
+    assert final.figure_slots == []  # 다 그렸으면 자리 카드 없음
+    assert final.draft_visible_seconds is not None and final.figures_done_seconds is not None
+    assert not mgr.store.figures_alive(USER, state.run_id)
 
 
 async def test_words_spec_change_makes_version_and_invalid_change_is_rejected(repo):
