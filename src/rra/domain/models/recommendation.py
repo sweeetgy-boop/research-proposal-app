@@ -84,6 +84,7 @@ class RecommendationResult(BaseModel):
     similar_doc_ids: list[str] = Field(default_factory=list)  # [유사함] 으로 고른 과제 (입력 범위)
     overlap_checked: bool = False  # 카드 겹침 재판정을 했다 (ADR 0039)
     overlap_regenerated: int = 0  # 겹쳐서 다시 받은 카드 수
+    overlap_found: int = 0  # 처음 확인에서 "같다" 로 겹친 카드 수 (측정용)
 
     def transfer(self) -> dict[str, object]:
         """manifest 에 남기는 전송 기록 (본문 없음)."""

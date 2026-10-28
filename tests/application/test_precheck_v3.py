@@ -263,7 +263,10 @@ async def test_overlapping_card_is_regenerated_once_before_shown_and_sorted():
     titles = [r.title for r in out.recommendations]
     # 겹친 '기상' 카드만 다시 받았고(한 번), 다시 받은 안은 규칙에 걸리지 않아 판정 없이 통과
     assert "기상 변수 반영 수송수요 예측" not in titles
-    assert "광역철도 월별 계절성 분해 모형" in titles and out.overlap_regenerated == 1
+    assert (
+        "광역철도 월별 계절성 분해 모형" in titles
+        and out.overlap_regenerated == out.overlap_found == 1
+    )
     regen = next(r for r in out.recommendations if r.regenerated)
     assert regen.title == "광역철도 월별 계절성 분해 모형" and not regen.overlap_warning
     assert "[겹침을 피해 다시 쓸 안]" in llm.calls[1] and "기상 반영 수송수요 예측" in llm.calls[1]

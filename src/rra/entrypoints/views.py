@@ -889,6 +889,7 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
         "regenerated": bool(getattr(result, "regenerated", False)),
         "overlap_checked": bool(getattr(result, "overlap_checked", False)),
         "overlap_regenerated": int(getattr(result, "overlap_regenerated", 0) or 0),
+        "overlap_found": int(getattr(result, "overlap_found", 0) or 0),
         "similar_doc_ids": list(getattr(result, "similar_doc_ids", []) or []),
         "no_recommendation_reason": (
             clean(result.no_recommendation_reason) if result.no_recommendation_reason else None

@@ -190,10 +190,10 @@ class RecommendProjects:
                 if again_local:
                     base = {**base, "fallback_local": True}
         kept: list[ProjectRecommendation] = []
-        overlap_regenerated = 0
+        overlap_regenerated = overlap_found = 0
         if self.card_check is not None and items:  # ② 판정과 같은 기준의 카드 겹침 재판정
             before = getattr(self.card_check, "calls", 0)
-            kept, overlap_regenerated, more_calls = await self._check_cards(
+            kept, overlap_found, overlap_regenerated, more_calls = await self._check_cards(
                 req, prompt, docs, sent_chunks, items, similar, core_keywords, shown
             )
             transfer["calls"] = (
@@ -224,6 +224,7 @@ class RecommendProjects:
             regenerated=regenerated,
             overlap_checked=self.card_check is not None,
             overlap_regenerated=overlap_regenerated,
+            overlap_found=overlap_found,
         )
 
     async def _check_cards(
@@ -236,9 +237,9 @@ class RecommendProjects:
         similar: list[OverlapAlert],
         core_keywords: list[str] | None,
         shown: Any,
-    ) -> tuple[list[ProjectRecommendation], int, int]:
+    ) -> tuple[list[ProjectRecommendation], int, int, int]:
         """카드 겹침 재판정 → "같다" 카드만 한 번 다시 받기 → 다시 판정 → 경고 칸·가까움 순 정렬.
-        (카드, 다시 받은 수, 다시 받기 외부 호출 수)."""
+        (카드, 처음 겹친 수, 다시 받은 수, 다시 받기 외부 호출 수)."""
         items = list(items)
         checks = await self.card_check(req, items, core_keywords)
         redo = [i for i, ch in enumerate(checks) if ch.ai_overlap]
@@ -246,7 +247,12 @@ class RecommendProjects:
         replaced: dict[int, ProjectRecommendation] = {}
 
         async def again(i: int) -> tuple[ProjectRecommendation | None, int]:
-            data, _local, n = await self._ask(f"{prompt}\n\n{overlap_hint(items[i], checks[i])}")
+            try:
+                data, _local, n = await self._ask(
+                    f"{prompt}\n\n{overlap_hint(items[i], checks[i])}"
+                )
+            except BudgetExhausted:  # 일일 상한 — 원래 카드에 경고만 붙인다
+                return None, 0
             if data is None:
                 return None, n
             fresh, _ = self._screen(req, docs, chunks, data, similar, shown)
@@ -273,7 +279,7 @@ class RecommendProjects:
             rec.model_copy(update=warning_fields(ch)) for rec, ch in zip(items, checks, strict=True)
         ]
         out.sort(key=lambda r: r.closeness if r.closeness is not None else 0.0)
-        return out, len(replaced), calls
+        return out, len(redo), len(replaced), calls
 
     async def _with_refs(
         self, cards: list[ProjectRecommendation], docs: list[tuple[OverlapAlert, Document]]
