@@ -357,7 +357,9 @@ async def test_finalize_tool_returns_base64_and_keeps_proposer_out_of_storage(fo
             },
         )
     ).structured_content
-    assert out["filename"] == f"proposal-{rid}-v2.hwpx" and out["size"] > 0
+    # 항목 2 — "<과제 제목>_v<번호>.hwpx"
+    assert out["filename"].endswith("_v2.hwpx") and "proposal-" not in out["filename"]
+    assert out["size"] > 0
     assert out["status"] == "finalized" and out["confirmed"]["task_type"] == ["basic"]
     assert out["confirmed"]["utilization"] == ["software"]  # 제안값이 기본
     assert "count" in out["check"]

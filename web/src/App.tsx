@@ -19,6 +19,8 @@ const Versions = lazy(() => import("@/routes/run/Versions"));
 const FinalReview = lazy(() => import("@/routes/run/FinalReview"));
 const Finalize = lazy(() => import("@/routes/run/Finalize"));
 const SubmitCheck = lazy(() => import("@/routes/run/SubmitCheck"));
+const RunIdea = lazy(() => import("@/routes/run/RunIdea"));
+const RunPrecheck = lazy(() => import("@/routes/run/RunPrecheck"));
 const Search = lazy(() => import("@/routes/Search"));
 const Sources = lazy(() => import("@/routes/Sources"));
 
@@ -45,6 +47,8 @@ export default function App() {
             <Route path="/runs" element={<Runs />} />
             <Route path="/runs/:id" element={<RunLayout />}>
               <Route index element={<Progress />} />
+              <Route path="idea" element={<RunIdea />} />
+              <Route path="precheck" element={<RunPrecheck />} />
               <Route path="draft" element={<Draft />} />
               <Route path="edit" element={<Edit />} />
               <Route path="versions" element={<Versions />} />

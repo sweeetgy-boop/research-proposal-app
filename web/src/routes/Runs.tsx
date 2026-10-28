@@ -26,25 +26,31 @@ export default function Runs() {
       )}
       {q.data && q.data.runs.length > 0 && (
         <div className="relative overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[36rem] text-sm">
+          <table className="w-full min-w-[40rem] text-sm">
             <caption className="sr-only">run 목록 (최근 순)</caption>
             <thead className="bg-muted/60 text-left text-muted-foreground">
               <tr>
-                <th scope="col" className="px-3 py-2 font-medium">run</th>
+                <th scope="col" className="px-3 py-2 font-medium">과제 제목</th>
                 <th scope="col" className="px-3 py-2 font-medium">상태</th>
                 <th scope="col" className="px-3 py-2 font-medium">버전</th>
                 <th scope="col" className="px-3 py-2 font-medium">진행</th>
+                <th scope="col" className="px-3 py-2 font-medium">만든 때</th>
                 <th scope="col" className="px-3 py-2 font-medium">갱신</th>
               </tr>
             </thead>
             <tbody>
               {q.data.runs.map((r) => (
                 <tr key={r.run_id} className="border-t">
-                  <td className="px-3 py-2 font-mono">
-                    <Link to={`/runs/${r.run_id}`} className="text-primary underline-offset-2 hover:underline">
-                      {r.run_id}
+                  <td className="max-w-[28rem] px-3 py-2">
+                    <Link
+                      to={`/runs/${r.run_id}`}
+                      title={r.title || undefined}
+                      className="line-clamp-2 break-words font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      {r.title?.trim() || "제목 미정"}
                     </Link>
-                    {r.legacy && <Badge variant="outline" className="ml-2">옛 run</Badge>}
+                    <span className="block font-mono text-xs text-muted-foreground">{r.run_id}</span>
+                    {r.legacy && <Badge variant="outline" className="mt-1">옛 run</Badge>}
                   </td>
                   <td className="px-3 py-2">
                     <Badge variant="secondary">{statusLabel(r.status)}</Badge>
@@ -54,6 +60,7 @@ export default function Runs() {
                   <td className="px-3 py-2 tabular-nums">
                     {r.progress[0]}/{r.progress[1]}
                   </td>
+                  <td className="px-3 py-2 whitespace-nowrap">{formatDate(r.created_at)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{formatDate(r.updated_at)}</td>
                 </tr>
               ))}

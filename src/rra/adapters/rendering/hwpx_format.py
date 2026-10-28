@@ -68,7 +68,7 @@ LEVELS: dict[str, LevelStyle] = {
 LEVEL_LABELS = {
     "chapter": "장 제목(1.)",
     "item": "항목(가.)",
-    "sub": "세부(1))",
+    "sub": "세부((1))",
     "dash": "줄표(-)",
     "bullet_chapter": "본문 ○ (장 아래)",
     "bullet_item": "본문 ○ (항목 아래)",
@@ -693,7 +693,9 @@ def format_hwpx(
     return (_write(infos, parts) if changed else data), report
 
 
-def inspect_hwpx(data: bytes, *, bullet: str = "○") -> list[dict[str, Any]]:
+def inspect_hwpx(
+    data: bytes, *, bullet: str = "○", captions: Collection[str] = ()
+) -> list[dict[str, Any]]:
     """단락별 서식 표 (측정 문서용) — 단계·정렬·왼쪽 여백·내어쓰기·줄 간격·글자 크기·앞 공백.
     본문은 넣지 않고 머리표만 (예: "가.", "○")."""
     infos, parts = _read(data)
@@ -704,7 +706,7 @@ def inspect_hwpx(data: bytes, *, bullet: str = "○") -> list[dict[str, Any]]:
             continue
         xml = parts[info.filename].decode("utf-8")
         paras = scan(xml)
-        plans = _Planner(header, (), bullet).plan(xml, paras)
+        plans = _Planner(header, captions, bullet).plan(xml, paras)
         for p in paras:
             if p.container and not p.pic:
                 continue
