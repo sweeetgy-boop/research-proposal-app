@@ -131,6 +131,8 @@ candidates:
     - {source: alio}
     - {source: ntis, doc_types: [rnd_project]}
     - {source: g2b}
+    # 공사 사전정보공표 연구용역(사내 발주) — doc_type procurement 만 (정책·현황 자료는 판정 밖, ADR 0040)
+    - {source: korail_web, doc_types: [procurement]}
   # 후보 풀(reranker 입력): 자료원마다 상위 per_source 건을 먼저 넣고 나머지는 전체 순위로 size 까지.
   # NTIS 과제 2,000건은 요약이 비슷해 e5 유사도 0.87~0.89 로 사내 기록(0.84~0.86)을 상위 80 밖으로 밀어낸다
   # (2026-10-28 골든셋 01·10). 측정(docs/eval-2026-10-28-precheck.md): 7/28 → 적중 9/10·1.94~2.09s, 6/24 → 8/10(10번 놓침)·

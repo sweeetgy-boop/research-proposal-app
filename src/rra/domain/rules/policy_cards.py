@@ -33,17 +33,27 @@ from rra.domain.models.policy import (
     PolicySentence,
     PolicySource,
 )
+from rra.domain.rules.doc_category import (
+    POLICY_BASIS_DOC_TYPES,
+    POLICY_BASIS_SOURCES,
+    is_policy_basis,
+)
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.llm_output import clean_sentence
+from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.numbers import unsupported_numbers
+from rra.domain.rules.policy_phrases import match_text, pick_quote
 from rra.domain.rules.trust import escape_untrusted, normalize_evidence_id
 
 POLICY_SECTION = "policy_importance"
 # 작성안 검색 자료원·자료 종류 (live 결과도 DB 에 들어오지만 ScienceON·NTIS·OpenAlex 라 정책 종류가
-# 아니다)
-CARD_SOURCES: tuple[str, ...] = ("molit", "rnd_notice", "korail_web", "bai", "mofe")
-CARD_DOC_TYPES: frozenset[str] = frozenset({"policy", "rnd_notice", "audit"})
+# 아니다). 정책 근거 추천(policy_suggest)도 같은 범위·같은 관련도 규칙(policy_passage)을 쓴다
+# — 연구용역(사내 발주)·행정 공시·사업 현황은 빠진다(doc_category.is_policy_basis, ADR 0040).
+CARD_SOURCES: tuple[str, ...] = POLICY_BASIS_SOURCES
+CARD_DOC_TYPES: frozenset[str] = POLICY_BASIS_DOC_TYPES
+# 키워드 겹침이 없는 구간은 이 유사도 이상만 (e5 기준, relevance 하한과 같은 수준)
+MIN_PASSAGE_SIMILARITY = 0.80
 DIRECTIONS: tuple[PolicyDirection, ...] = ("government", "company", "audit", "regional")
 DIRECTION_LABELS: dict[str, str] = {
     "government": "정부 계획",
@@ -90,6 +100,27 @@ POLICY_BASIS_NEEDED_MESSAGE = (
 
 def _squash(text: str) -> str:
     return "".join(text.split())
+
+
+def policy_passage(
+    doc: Document | None,
+    chunk_text: str,
+    similarity: float | None,
+    query: str,
+    rule: KeywordRule | None = None,
+) -> tuple[str, list[str]] | None:
+    """정책 근거 구간 하나 — 정책 문서(is_policy_basis)이고, 고른 인용 문장이 있고, 아이디어와
+    관련(키워드 겹침 ≥ 1 또는 유사도 ≥ MIN_PASSAGE_SIMILARITY)일 때만 (인용, 겹친 키워드).
+
+    ① 정책 근거 추천과 ③ 정책적 중요도 작성안이 같이 쓰는 한 규칙."""
+    if doc is None or not is_policy_basis(doc):
+        return None
+    quote, hits = pick_quote(chunk_text, query, rule)
+    if not quote:
+        return None
+    if not hits and (similarity or 0.0) < MIN_PASSAGE_SIMILARITY:
+        return None
+    return quote, hits
 
 
 def is_regional(quote: str) -> bool:
@@ -345,12 +376,13 @@ def verify_sources(choice: PolicyChoice, docs: Mapping[str, Document | None]) ->
     out: list[Chunk] = []
     for s in choice.sources:
         doc = docs.get(s.doc_id)
-        if doc is None or doc.doc_type not in CARD_DOC_TYPES:
+        if doc is None or not is_policy_basis(doc):
             continue
         if not s.chunk_id.startswith(f"{doc.doc_id}#"):
             continue
-        quote = _squash(s.quote.rstrip("…"))
-        haystack = _squash(
+        # 인용은 URL·앞 글머리를 뗀 문장(policy_phrases.clean_quote) — 원문도 URL 을 지우고 대조
+        quote = match_text(s.quote.rstrip("…"))
+        haystack = match_text(
             " ".join(t for t in (doc.title, doc.abstract or "", doc.body or "") if t)
         )
         if not quote or quote not in haystack:

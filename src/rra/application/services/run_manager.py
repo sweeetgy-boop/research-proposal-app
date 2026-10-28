@@ -291,6 +291,10 @@ class Citation:
     id: str  # 문장 evidence 에 적힌 id (chunk_id 또는 doc_id)
     doc_id: str
     title: str | None  # 수집 문서 제목 — 비신뢰 텍스트
+    # 화면 표시(ADR 0040): 자료원 키·원문 링크·공개 범위 — 화면은 번호 대신 제목·자료원 이름을 보인다
+    source: str | None = None
+    url: str | None = None
+    visibility: str | None = None
 
 
 @dataclass(frozen=True)
@@ -2934,7 +2938,16 @@ class RunManager(EditAIMixin):
                 continue
             seen.add(ev)
             doc = await self.generate.repo.get_document(doc_of[ev])
-            out.append(Citation(id=ev, doc_id=doc_of[ev], title=doc.title if doc else None))
+            out.append(
+                Citation(
+                    id=ev,
+                    doc_id=doc_of[ev],
+                    title=doc.title if doc else None,
+                    source=doc.source if doc else None,
+                    url=doc.url if doc else None,
+                    visibility=doc.visibility if doc else None,
+                )
+            )
         return out
 
 
