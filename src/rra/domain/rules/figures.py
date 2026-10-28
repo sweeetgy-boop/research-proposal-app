@@ -744,8 +744,8 @@ def _layout_hint(spec: BaseModel, arrange: str | None = None) -> str:
                 f"구조: 가로로 넓은 평가 표. 열 {len(spec.columns)}개"
                 f"({', '.join(spec.columns)})를 왼쪽에서 오른쪽으로, "
                 f"기준(행) {len(spec.rows)}개. 칸의 기호(+·0·− 또는 상·중·하)는 "
-                "기호 모양과 색 진하기로 구분한다. "
-                f"표 아래에 '{spec.note}' 를 본문과 같은 크기로."
+                "기호 모양과 색 진하기로 구분한다."
+                # spec.note(예비 평가 표시)는 그림 밖 캡션 줄로 (2026-10-29)
             )
         names = ", ".join(g.name for g in spec.groups)
         n = len(spec.groups)
@@ -756,8 +756,7 @@ def _layout_hint(spec: BaseModel, arrange: str | None = None) -> str:
             "grid": f"묶음 {n}개({names})를 가로 두 줄(한 줄에 {(n + 1) // 2}개)로",
         }[technique_arrangement(spec, arrange)]
         return (
-            f"구조: {how}. 묶음마다 항목 1~4개, 항목 옆 강도·금액(상·중·하, 산출 필요 등)은 "
-            f"배지로. 아래에 '{spec.note}' 를 본문과 같은 크기로."
+            f"구조: {how}. 묶음마다 항목 1~4개, 항목 옆 강도·금액(상·중·하, 산출 필요 등)은 배지로."
         )
     if isinstance(spec, ConceptSpec):
         return (

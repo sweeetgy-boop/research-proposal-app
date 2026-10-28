@@ -125,7 +125,9 @@ async def test_proposer_text_edits_are_not_shortened_only_recorded():
     assert build.figure.fit.text_ok is False and build.figure.fit.shortened == 0
 
 
-async def test_ocr_small_text_on_nano_banana_image_redraws_once_bigger_without_cutting_words():
+async def test_ocr_small_text_on_nano_banana_image_cuts_words_and_redraws_bigger():
+    """그림 글자가 작으면 글자 수를 줄여(4칸 → 3칸, 띄어쓰기 자리) 밑그림부터 다시 그리고 "글자를
+    더 크게" (2026-10-29 — 작은 것은 긴 칸 글자였다)."""
     images = FakeImageGenerator()
     ocr = FakeOcr([0.02, 0.06])  # 첫 그림 "현황" 이 밑그림의 0.4배(≈4pt) → 다시 그린 그림은 1.2배
     uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m))
@@ -136,8 +138,10 @@ async def test_ocr_small_text_on_nano_banana_image_redraws_once_bigger_without_c
     f = build.figure
     assert len(images.calls) == 2 and f.calls == 2 and ocr.calls == 2
     assert "글자를 더 크게" in images.calls[1]["prompt"] and "약 4.0pt" in images.calls[1]["prompt"]
-    assert f.fit.text_method == "ocr" and f.fit.text_ok and f.fit.redraws == 1
-    assert f.spec == fig.spec and f.fit.shortened == 0  # 글자(내용)는 그대로
+    assert f.fit.text_method == "ocr" and f.fit.text_ok and f.fit.redraws >= 1
+    assert len(f.spec.as_is) == 3 and f.fit.shortened >= 1  # 글자 수를 줄였다
+    for t in texts_of(f.spec):
+        assert any(o.startswith(t) for o in texts_of(fig.spec))
 
 
 async def test_ocr_small_text_stops_after_max_image_redraws():
@@ -150,13 +154,12 @@ async def test_ocr_small_text_stops_after_max_image_redraws():
         max_image_redraws=1,
     )
     build = await uc.draw(as_is_figure())
-    # 처음 1 + 이름표 줄여 다시 1 + "글자를 더 크게" 1
-    assert len(images.calls) == 3 and build.figure.fit.text_ok is False
+    assert len(images.calls) == 2 and build.figure.fit.text_ok is False  # 다시 그리기 1회까지
 
 
-async def test_ocr_small_as_is_to_be_shortens_tags_first_and_redraws_only_that_figure():
-    """그림 글자가 9pt 밑이면 이름표 글자 수부터 줄여(해결 방안 → 방안, 기대효과 → 효과) 밑그림부터
-    다시 그린다 — 칸 글자는 그대로 (2026-10-28 밤, 소유자 지시)."""
+async def test_ocr_small_as_is_to_be_shortens_words_and_tags_and_redraws_only_that_figure():
+    """그림 글자가 9pt 밑이면 칸 글자를 띄어쓰기 자리에서 줄이고 이름표도 두 글자로(해결 방안 →
+    방안, 기대효과 → 효과) 밑그림부터 다시 그린다 (2026-10-28 밤, 소유자 지시)."""
     images = FakeImageGenerator()
     ocr = FakeOcr([0.02, 0.06])
     uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m))
@@ -164,12 +167,12 @@ async def test_ocr_small_as_is_to_be_shortens_tags_first_and_redraws_only_that_f
     build = await uc.draw(fig)
     f = build.figure
     assert len(images.calls) == 2 and f.calls == 2
-    assert "글자를 더 크게" not in images.calls[1]["prompt"]
     assert [it.tag for it in f.spec.to_be] == ["목표", "방안", "효과"]
-    assert [it.text for it in f.spec.to_be] == [it.text for it in fig.spec.to_be]
     assert [it.tag for it in f.spec.as_is] == ["현황", "원인", "한계"]
-    assert f.fit.text_ok and f.fit.shortened == 2 and f.fit.redraws >= 1
-    assert build.baseline_png != uc.baseline(fig).baseline_png  # 밑그림도 줄인 이름표로
+    for t in texts_of(f.spec):  # 줄인 글자도 원래 글자의 앞부분(지어내지 않는다)
+        assert any(o.startswith(t) for o in [*texts_of(fig.spec), "방안", "효과"])
+    assert f.fit.text_ok and f.fit.shortened >= 2 and f.fit.redraws >= 1
+    assert build.baseline_png != uc.baseline(fig).baseline_png  # 밑그림도 줄인 글자로
 
 
 def test_short_tags_pass_validation_and_render_bigger():

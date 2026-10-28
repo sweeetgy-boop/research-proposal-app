@@ -78,6 +78,16 @@ class RenderedXmlInvalid(RenderRejected):
     """결과 섹션 XML 이 well-formed 가 아니다 — 출력을 내보내지 않는다."""
 
 
+def _caption_lines(fig: Figure) -> list[str]:
+    """캡션 아래 12pt 줄 — 수치 그래프 출처, 분석 기법 그림의 "제안 내용 기반 예비 평가"
+    (2026-10-29: 그림 안 작은 안내문은 9pt 밑으로 그려져 캡션 줄로 옮겼다. 판단 표시는 그대로)."""
+    out = [sanitize(fig.source_caption)] if fig.source_caption else []
+    note = getattr(fig.spec, "note", "") if fig.kind == "technique" else ""
+    if note:
+        out.append(sanitize(f"※ {note}"))
+    return out
+
+
 def sanitize(value: object, *, limit: int = MAX_SLOT_CHARS) -> str:
     """XML 에 넣을 수 없는 문자 제거 + 길이 상한. escape 는 하지 않는다 (넣는 자리에서 한다)."""
     text = _FORBIDDEN.sub("", "" if value is None else str(value)).replace("\r\n", "\n")
@@ -405,7 +415,7 @@ class HwpxRenderer:
             data = self._generate(values, confirmation)
         data, placements = self._insert_figures(data, numbered)
         captions = [self._caption(n, fig) for n, fig, _d, _m in numbered]
-        captions += [sanitize(fig.source_caption) for _n, fig, _d, _m in numbered]
+        captions += [x for _n, fig, _d, _m in numbered for x in _caption_lines(fig)]
         captions.append(f"별첨 {self.figure_caption_prefix}")
         data = self._format(data, captions)
         verify_hwpx(data)
@@ -445,7 +455,7 @@ class HwpxRenderer:
                     width = min(width, max(int(cell.width) - 2000, 8000))
             width, height, fit = self._fit_size(fig, width, page_h, w_px, h_px)
             caption = self._caption(n, fig)
-            extra = [sanitize(fig.source_caption)] if fig.source_caption else []
+            extra = _caption_lines(fig)
             if inline and cell_para is not None:
                 para = cell_para[1]
                 _clear_paragraph(para)
@@ -476,8 +486,8 @@ class HwpxRenderer:
                 para = doc.add_paragraph("")
                 para.add_picture(item_id, width=width, height=height)
                 doc.add_paragraph(self._caption(n, fig))
-                if fig.source_caption:
-                    doc.add_paragraph(sanitize(fig.source_caption))
+                for text in _caption_lines(fig):
+                    doc.add_paragraph(text)
         return doc.to_bytes(), placements
 
     def _fit_size(

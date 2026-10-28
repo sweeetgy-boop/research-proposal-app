@@ -297,7 +297,8 @@ def test_infographic_prompt_for_new_kinds_keeps_exact_texts_and_colours():
     assert "제목 글자를 새로 쓰지 않는다" in prompt
     swot, _ = analyse("swot", SWOT)
     p2 = rules.image_prompt(swot)
-    assert "SWOT 분석" in p2 and "가로 한 줄에 나란히" in p2 and f"'{PRELIM_NOTE}'" in p2
+    # 예비 평가 표시는 그림 밖 캡션 줄로 (2026-10-29) — 그림 프롬프트에 넣지 않는다
+    assert "SWOT 분석" in p2 and "가로 한 줄에 나란히" in p2 and PRELIM_NOTE not in p2
     assert f"가로세로 비율 {rules.choose_aspect(swot)}" in p2 and "좌우 여백 최소" in p2
     for t in rules.texts_of(swot):
         assert f"- {t}" in p2

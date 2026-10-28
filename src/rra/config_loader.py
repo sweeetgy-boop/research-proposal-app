@@ -629,7 +629,7 @@ def figures_config(settings: Settings) -> dict[str, Any]:
             "body_width_mm": float(fit.get("body_width_mm", 153.8)),
             "page_height_mm": float(fit.get("page_height_mm", 297.0)),
             "max_shorten": int(fit.get("max_shorten", 2)),
-            "max_image_redraws": int(fit.get("max_image_redraws", 1)),
+            "max_image_redraws": int(fit.get("max_image_redraws", 2)),
             "ocr": bool(fit.get("ocr", True)),
             "ocr_box_em": float(fit.get("ocr_box_em", 1.2)),
         },

@@ -54,7 +54,8 @@ MIN_FONT = math.ceil(min_font_units(MIN_TEXT_PT, 43606 * 25.4 / 7200) * 10) / 10
 F_BODY = 37.0  # ≈ 10pt
 F_HEAD = 42.0
 F_TITLE = 46.0
-F_SMALL = 34.0  # ≈ 9.3pt — 이름표·눈금·안내문
+# ≈ 10.1pt — 이름표·눈금·안내문 (2026-10-29 34 → 37: 그림이 조금 작게 그려도 9pt 이상)
+F_SMALL = 37.0
 F_TAG_SHORT = 40.0  # ≈ 10.9pt — 두 글자로 줄인 As-Is/To-Be 이름표
 _DEFAULT_SERIES = (
     {"fill": "#dbe7f3", "stroke": "#1f4e79", "pattern": "solid", "dash": ""},
@@ -938,11 +939,12 @@ def _rating_chip(cv: _Canvas, x: float, cy: float, rating: str, color: str) -> f
 def _technique(cv: _Canvas, spec: Any, arrange: str) -> None:
     m = 18.0
     title_h = 60.0
-    note_h = F_SMALL * 1.4
+    # "제안 내용 기반 예비 평가" 는 그림 밖 캡션 줄(HWPX 12pt)·카드에
+    # — 그림 안 안내문은 9pt 밑으로 작게 그려졌다(2026-10-29)
+    note_h = 0.0
     cv.text_box(
         spec.title, m, m - 4, BASE_W - 2 * m, title_h, size=F_TITLE, bold=True, anchor="start"
     )
-    cv.label(spec.note, BASE_W - m, cv.vh - m, size=F_SMALL, anchor="end", color=cv.p.muted)
     top = m + title_h + 6
     bottom = cv.vh - m - note_h
     if spec.rows:

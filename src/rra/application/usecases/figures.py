@@ -98,7 +98,7 @@ class FigureConfig:
     frame: fit_rules.BodyFrame = field(default_factory=fit_rules.BodyFrame)
     min_text_pt: float = fit_rules.MIN_TEXT_PT
     max_shorten: int = fit_rules.MAX_SHORTEN  # 글자 줄이기 단계 상한 (밑그림 다시 그리기)
-    max_image_redraws: int = 1  # OCR 로 잰 그림 글자가 작을 때 Nano Banana 다시 부르기 상한
+    max_image_redraws: int = 2  # OCR 로 잰 그림 글자가 작을 때 Nano Banana 다시 부르기 상한
     ocr_box_em: float = (
         1.2  # OCR 줄 상자 높이 ÷ 글자 크기 (밑그림으로 잰 값, docs/eval-…-figures-wide)
     )
@@ -571,8 +571,8 @@ class MakeFigures(TechniqueSteps):
         )
         if self.images is not None:
             attempt = 0
+            level = 0  # 그림 글자 때문에 줄인 단계 (shorten_spec)
             bigger = ""
-            tags_cut = False
             while True:
                 got = await self._generate(
                     figure, baseline_png, aspect, " ".join(x for x in (style, bigger) if x)
@@ -593,33 +593,28 @@ class MakeFigures(TechniqueSteps):
                 too_small = (
                     ocr_pt is not None and ocr_pt + fit_rules.PT_TOLERANCE < self.config.min_text_pt
                 )
-                if not too_small or not shorten:
+                if not too_small or not shorten or attempt >= self.config.max_image_redraws:
                     break
-                # As-Is/To-Be: 먼저 이름표 글자 수를 줄여(해결 방안 → 방안) 밑그림부터 다시
-                # 그린다 — 줄인 이름표는 칸에 더 큰 글자로 들어간다(2026-10-28 밤, 소유자 지시)
-                cut = None if tags_cut or fit is None else fit_rules.shorten_tags(figure.spec)
-                if cut is not None:
-                    tags_cut = True
+                attempt += 1
+                # 그림 글자가 작다 — Nano Banana 는 긴 칸 글자를 칸에 맞추려고 작게 그린다
+                # (2026-10-29 측정: SWOT 긴 항목 5.6~7.1pt). 소유자 지시대로 글자 수를 줄여
+                # (띄어쓰기 자리에서 22 → 16자, As-Is/To-Be 는 이름표도 두 글자로) 밑그림부터
+                # 다시 그리고 "글자를 더 크게" 를 붙인다. 줄일 것이 없으면 "글자를 더 크게" 만.
+                cut = None if fit is None else self._shorter(figure.spec, level)
+                if cut is not None and fit is not None:
+                    new_spec, cut_n, level = cut
                     prev = fit
-                    alt = rules.alt_text(cut[0])
-                    figure = figure.model_copy(update={"spec": cut[0], "alt": alt})
+                    alt = rules.alt_text(new_spec)
+                    figure = figure.model_copy(update={"spec": new_spec, "alt": alt})
                     figure, aspect, baseline_png, fit, svg = self.layout(figure, shorten=shorten)
                     fit = fit.model_copy(
                         update={
                             "redraws": prev.redraws + fit.redraws + 1,
-                            "shortened": prev.shortened + fit.shortened + cut[1],
+                            "shortened": prev.shortened + fit.shortened + cut_n,
                         }
                     )
                     spec = figure.spec
-                    continue
-                if attempt >= self.config.max_image_redraws:
-                    break
-                attempt += 1
-                # 글자가 작다 — 밑그림은 이미 9pt 이상(layout)이라 그림의 모양 문제다. 글자(내용)는
-                # 그대로 두고
-                # "글자를 더 크게" 를 붙여 한 번 더 그린다 (10-28 실측: 글자를 줄여도 이름표 글자는
-                # 그대로 작았다)
-                if fit is not None:
+                elif fit is not None:
                     fit = fit.model_copy(update={"redraws": fit.redraws + 1})
                 bigger = fit_rules.BIGGER_TEXT.format(pt=ocr_pt)
         else:
@@ -639,6 +634,23 @@ class MakeFigures(TechniqueSteps):
             }
         )
         return FigureBuild(updated, baseline_png, adopted, mime, round(time.monotonic() - t0, 1))
+
+    @staticmethod
+    def _shorter(spec: Any, level: int) -> tuple[Any, int, int] | None:
+        """그림 글자가 작을 때 다음으로 줄인 명세 → (명세, 줄인 칸 수, 쓴 단계). 실제로 바뀌는
+        단계까지 올리고, As-Is/To-Be 이름표도 두 글자로. 더 줄일 것이 없으면 None."""
+        n = 0
+        out = spec
+        used = level
+        for lv in range(level + 1, fit_rules.MAX_SHORTEN + 1):
+            cut = fit_rules.shorten_spec(spec, lv)
+            if cut is not None:
+                out, n, used = cut[0], cut[1], lv
+                break
+        tags = fit_rules.shorten_tags(out)
+        if tags is not None:
+            out, n = tags[0], n + tags[1]
+        return (out, n, used) if n else None
 
     async def _generate(
         self, figure: Figure, baseline_png: bytes, aspect: str, style: str

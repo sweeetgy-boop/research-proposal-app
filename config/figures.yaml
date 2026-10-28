@@ -42,7 +42,7 @@ fit:
   body_width_mm: 153.8        # 양식을 못 읽을 때 (별지 제2호서식 실측: 210 − 25×2 − 6.2)
   page_height_mm: 297.0
   max_shorten: 2              # 밑그림 글자 줄이기 단계 (22자·항목 3 → 16자·항목 2)
-  max_image_redraws: 1        # OCR 로 잰 그림 글자가 작을 때 Nano Banana 다시 부르기 (그림 호출 +1)
+  max_image_redraws: 2        # OCR 로 잰 그림 글자가 작을 때 글자 수를 줄여(22 → 16자) Nano Banana 다시 부르기 (그림 호출 +1씩, 2026-10-29 1 → 2)
   ocr: true                   # macOS Vision OCR 로 그림 글자 크기 어림 (없으면 밑그림 값)
   ocr_box_em: 1.2             # OCR 줄 상자 높이 ÷ 글자 크기 — 밑그림으로 잰 값 (docs/eval-2026-10-28-figures-wide.md)
 hwpx:
