@@ -622,7 +622,9 @@ def choose_aspect(spec: BaseModel) -> str:
             return "4:3"
         if n >= 5:
             return "3:2"
-        return "4:3" if most >= 4 else "16:9"
+        if most >= 4:
+            return "4:3"
+        return "21:9" if most <= 2 else "16:9"  # 묶음 2~3개에 항목이 적으면 낮고 넓게
     if isinstance(spec, ConceptSpec):
         return "21:9" if sum(len(b.lines) for b in spec.boxes) <= 4 else "16:9"
     if isinstance(spec, ProcessSpec):

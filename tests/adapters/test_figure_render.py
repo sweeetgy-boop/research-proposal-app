@@ -265,3 +265,23 @@ def test_open_failures() -> None:
         image_size(b"not an image")
     with pytest.raises(ValueError, match="열 수 없습니다"):
         shrink_image(b"\x89PNG\r\n\x1a\n garbage", "image/png")
+
+
+# ── v2: 분석 기법 표·경제성, As-Is/To-Be 흑백 구분 ─────────────────
+@pytest.mark.parametrize("key", ["pugh", "cost_benefit"])
+def test_technique_matrix_and_ledger_samples_draw_every_text(key: str) -> None:
+    mod = sys.modules["figure_samples_tool"]
+    spec = parse_spec("technique", mod.TECHNIQUE_SAMPLES[key])
+    svg = render_svg(spec, palette=PALETTE, aspect="16:9")
+    plain = _plain(svg)
+    for t in texts_of(spec):
+        assert t in plain, (key, t)
+    ElementTree.fromstring(svg)
+
+
+def test_as_is_to_be_uses_dash_and_pattern_not_colour_only() -> None:
+    spec = parse_spec("as_is_to_be", SAMPLES["as_is_to_be"])
+    svg = render_svg(spec, palette=PALETTE, aspect="16:9")
+    assert 'stroke-dasharray="14 8"' in svg  # 왼쪽(현재) 점선 테두리
+    assert "pat-hatch" in svg and "pat-dots" in svg  # 쪽마다 다른 무늬
+    assert "<polygon" in svg  # 가운데 화살표

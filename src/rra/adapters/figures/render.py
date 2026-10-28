@@ -874,9 +874,11 @@ def _technique_groups(cv: _Canvas, spec: Any, x0: float, y0: float, w: float, h:
         )
         cv.text_box(g.name, x, y, cw, head_h, size=30, bold=True, anchor="start", pad=20)
         k = max(1, len(g.items))
-        slot = (ch - head_h - 16) / k
+        avail = ch - head_h - 16
+        slot = min(avail / k, 150.0)
+        top = y + head_h + 8 + (avail - slot * k) / 2  # 남는 높이는 위아래로 나눈다
         for j, it in enumerate(g.items):
-            iy = y + head_h + 8 + j * slot
+            iy = top + j * slot
             badge_w = 0.0
             if it.rating:
                 badge_w = 130.0
@@ -911,7 +913,7 @@ def _technique_groups(cv: _Canvas, spec: Any, x0: float, y0: float, w: float, h:
                 iy,
                 cw - badge_w - 20,
                 slot,
-                size=28,
+                size=32,
                 anchor="start",
                 pad=20,
             )
@@ -938,7 +940,7 @@ def _technique_matrix(cv: _Canvas, spec: Any, x0: float, y0: float, w: float, h:
         for j, val in enumerate(r.cells):
             cx = x0 + name_w + j * col_w
             level = shade.get(val, 1)
-            s = cv.p.s(level + 1 if level else 0)
+            s = cv.p.s(1 if level == 2 else 0)  # 글자가 읽히게 옅은 두 단계 + 무늬
             cv.rect(
                 cx,
                 ry,

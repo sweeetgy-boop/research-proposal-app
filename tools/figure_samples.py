@@ -1,4 +1,4 @@
-"""그림 밑그림 샘플 6종 렌더 — `<dir>/<kind>.baseline.svg`·`.png` ([G] 2026-10-28).
+"""그림 밑그림 샘플 8종(+ 분석 기법 2) 렌더 — `<dir>/<kind>.baseline.svg`·`.png` ([G] 2026-10-28).
 
     .venv/bin/python tools/figure_samples.py --out /tmp/figure_samples
 
@@ -270,12 +270,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    for kind, data in SAMPLE_SPECS.items():
+    from rra.domain.rules.figures import choose_aspect
+
+    samples = [(k, k, d) for k, d in SAMPLE_SPECS.items()]
+    samples += [(f"technique-{k}", "technique", d) for k, d in TECHNIQUE_SAMPLES.items()]
+    for name, kind, data in samples:
         spec = parse_spec(kind, data)
-        svg = renderer.svg(spec)
+        svg = renderer.svg(spec, aspect=choose_aspect(spec))  # v2: 내용 양으로 비율
         png = renderer.png(svg)
-        svg_path = out_dir / f"{kind}.baseline.svg"
-        png_path = out_dir / f"{kind}.baseline.png"
+        svg_path = out_dir / f"{name}.baseline.svg"
+        png_path = out_dir / f"{name}.baseline.png"
         svg_path.write_text(svg, encoding="utf-8")
         png_path.write_bytes(png)
         print(f"{svg_path.name}: {len(svg.encode('utf-8')):,} bytes")
