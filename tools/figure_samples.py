@@ -198,7 +198,7 @@ SAMPLE_SPECS: dict[str, dict[str, Any]] = {
 TECHNIQUE_SAMPLES: dict[str, dict[str, Any]] = {
     "pugh": {
         "technique": "pugh",
-        "title": "퓨 매트릭스(Pugh)",
+        "title": "퓨 매트릭스",
         "columns": ["현행 방식", "검측차 고도화", "영업열차 탑재 센서"],
         "rows": [
             {"name": "이상 구간 조기 발견", "cells": ["0", "+", "+"], "source": "s:objective:0"},
@@ -297,7 +297,7 @@ WIDE_SAMPLES: dict[str, tuple[str, dict[str, Any]]] = {
         "technique",
         {
             "technique": "force_field",
-            "title": "역장분석(Force Field)",
+            "title": "역장분석",
             "groups": [
                 {
                     "name": "추진력",

@@ -183,7 +183,8 @@ async def test_figure_actions_create_versions_and_conflict_is_409(client):
     )
     assert conflict.status_code == 409 and "v1" in conflict.json()["detail"]
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "confirm"}, headers=AUTH)
-    assert r.json()["version"] == 3 and r.json()["figures"][0]["confirmed"] is True
+    # 항목 21: [확인함] 은 버전을 만들지 않는다 (v2 그대로, 표시만)
+    assert r.json()["version"] == 2 and r.json()["figures"][0]["confirmed"] is True
     changed = json.loads(json.dumps(PROCESS, ensure_ascii=False))
     changed["stages"][0]["name"] = "검측 자료 분석"  # v2 글자 고치기 값 그대로 (현재 명세)
     changed["stages"][2]["name"] = "구간별 열화 예측"
@@ -219,7 +220,7 @@ async def test_figure_actions_create_versions_and_conflict_is_409(client):
     assert r.status_code == 422
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "exclude"}, headers=AUTH)
     assert r.json()["figures"][0]["included"] is False
-    diff = (await client.get(f"/v1/runs/{rid}/versions/diff?from=1&to=5", headers=AUTH)).json()
+    diff = (await client.get(f"/v1/runs/{rid}/versions/diff?from=1&to=4", headers=AUTH)).json()
     assert r.json()["figures"][0]["last_change"]["kind"] == "content"  # 버전이 바뀌어도 이어진다
     changes = {c["change"] for c in diff["figures_changed"]}
     assert {"texts", "excluded"} <= changes

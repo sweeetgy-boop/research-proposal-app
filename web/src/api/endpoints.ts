@@ -191,8 +191,8 @@ export const mergeStructure = (body: StructureMergeIn) =>
 export const comparison = (req: ProposalRequest) =>
   request<ComparisonOut>(`${V}/precheck/comparison`, { method: "POST", body: req });
 /** U5 선행연구 브리핑 */
-export const brief = (req: ProposalRequest) =>
-  request<BriefOut>(`${V}/precheck/brief`, { method: "POST", body: req });
+export const brief = (req: ProposalRequest, signal?: AbortSignal) =>
+  request<BriefOut>(`${V}/precheck/brief`, { method: "POST", body: req, signal });
 /** U1 문장 근거 원문·적합성·판단 */
 export const sentenceEvidence = (id: string, sid: string) =>
   request<EvidenceOut>(`${V}/runs/${enc(id)}/sentences/${enc(sid)}/evidence`);

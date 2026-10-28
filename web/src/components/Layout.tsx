@@ -25,7 +25,7 @@ const runInPath = (pathname: string) => /^\/runs\/[^/]+/.test(pathname);
 
 const NAV = [
   { to: "/new", label: "새 제안서", icon: FilePlus2 },
-  { to: "/runs", label: "run 목록", icon: ListOrdered },
+  { to: "/runs", label: "내 제안서", icon: ListOrdered },
   { to: "/search", label: "자료 검색", icon: Search },
   { to: "/sources", label: "자료원 상태", icon: Database },
 ];
@@ -44,7 +44,7 @@ export function Layout() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col pb-[var(--stepnav-h)]">
       <a href="#main" className="skip-link">
         본문으로 건너뛰기
       </a>

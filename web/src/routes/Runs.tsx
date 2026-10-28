@@ -14,7 +14,7 @@ export default function Runs() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">run 목록</h1>
+        <h1 className="text-2xl font-bold tracking-tight">내 제안서</h1>
         <Link to="/new" className={buttonVariants()}>
           새 제안서
         </Link>
@@ -22,16 +22,16 @@ export default function Runs() {
       {q.isPending && <SkeletonBlock lines={5} />}
       <ProblemBanner error={q.error} onRetry={() => q.refetch()} />
       {q.data && q.data.runs.length === 0 && (
-        <EmptyState icon={ListOrdered} title="아직 run 이 없습니다" description="새 제안서에서 아이디어를 입력하면 여기에 쌓입니다." />
+        <EmptyState icon={ListOrdered} title="아직 만든 제안서가 없습니다" description="새 제안서에서 아이디어를 입력하면 여기에 쌓입니다." />
       )}
       {q.data && q.data.runs.length > 0 && (
         <div className="relative overflow-x-auto rounded-lg border">
           <table className="w-full min-w-[40rem] text-sm">
-            <caption className="sr-only">run 목록 (최근 순)</caption>
+            <caption className="sr-only">내 제안서 (최근 순)</caption>
             <thead className="bg-muted/60 text-left text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2 font-medium">과제 제목</th>
-                <th scope="col" className="px-3 py-2 font-medium">상태</th>
+                <th scope="col" className="px-3 py-2 font-medium">작성 상태</th>
                 <th scope="col" className="px-3 py-2 font-medium">버전</th>
                 <th scope="col" className="px-3 py-2 font-medium">진행</th>
                 <th scope="col" className="px-3 py-2 font-medium">만든 때</th>
@@ -49,8 +49,11 @@ export default function Runs() {
                     >
                       {r.title?.trim() || "제목 미정"}
                     </Link>
-                    <span className="block font-mono text-xs text-muted-foreground">{r.run_id}</span>
-                    {r.legacy && <Badge variant="outline" className="mt-1">옛 run</Badge>}
+                    <span className="block font-mono text-xs text-muted-foreground">
+                      <span className="sr-only">작성 번호 </span>
+                      {r.run_id}
+                    </span>
+                    {r.legacy && <Badge variant="outline" className="mt-1">예전 방식</Badge>}
                   </td>
                   <td className="px-3 py-2">
                     <Badge variant="secondary">{statusLabel(r.status)}</Badge>

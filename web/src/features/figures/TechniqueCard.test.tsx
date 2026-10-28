@@ -58,7 +58,7 @@ const listOut: FiguresOutV2 = {
   },
   technique_catalog: [
     { key: "swot", label: "SWOT 분석", family: "qualitative", family_label: "정성 분석", section: "tech_importance", summary: "s", fits: "f" },
-    { key: "pugh", label: "퓨 매트릭스(Pugh)", family: "evaluation", family_label: "비교·평가", section: "method", summary: "s", fits: "현행 방식과 제안 방식을 견줄 때" },
+    { key: "pugh", label: "퓨 매트릭스", family: "evaluation", family_label: "비교·평가", section: "method", summary: "s", fits: "현행 방식과 제안 방식을 견줄 때" },
   ],
 };
 

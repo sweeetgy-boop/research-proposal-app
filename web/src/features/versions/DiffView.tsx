@@ -51,10 +51,9 @@ function FiguresChanged({ items }: { items: NonNullable<DiffOut["figures_changed
       <ul className="space-y-1 text-sm">
         {items.map((f, i) => (
           <li key={`${f.figure_id}-${i}`} className="flex flex-wrap items-center gap-1.5">
-            <span className="font-medium">{kindLabel(f.kind)}</span>
+            <span className="font-medium">{(f as { name?: string }).name || kindLabel(f.kind)}</span>
             <span className="text-xs text-muted-foreground">{sectionTitle(f.section)}</span>
             <Badge variant={f.change === "removed" || f.change === "excluded" ? "outline" : f.change === "confirmed" ? "success" : "info"}>{changeLabel(f.change)}</Badge>
-            <span className="font-mono text-xs text-muted-foreground">{f.figure_id}</span>
           </li>
         ))}
       </ul>

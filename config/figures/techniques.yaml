@@ -10,6 +10,7 @@
 # groups: 고정 묶음 이름(그림 머리글). free_groups: true 면 묶음 이름을 제안 내용(대안·시나리오 이름)에서 쓴다.
 # columns: 비교·평가 표의 고정 열(앞쪽). free_columns: true 면 나머지 열은 제안의 대안 이름.
 # section: 그림이 붙는 양식 칸. min_groups: 최소 묶음 수(기본 = groups 개수).
+# label [23]: 화면 이름 — 영어 단어 병기(Pugh·Force Field 등)는 뺐다. 공공 문서에 흔한 약칭(SWOT·AHP·FMEA 등)만 둔다.
 # arrange [23]: 그림 배치 — 모두 가로로 넓게(16:9·21:9). row = 묶음을 가로 한 줄(SWOT 네 칸 한 줄), split = 좌우 두 단
 #   (비용 | 편익, 추진력 | 저항력), flow = 한 줄 + 오른쪽 화살표(절차·투입→산출), grid = 가로 두 줄(묶음 5개 이상),
 #   table = 비교·평가 표(열 = 대안). 밑그림(adapters/figures)과 그림 프롬프트(rules.figures._layout_hint)가 같은 배치.
@@ -43,7 +44,7 @@ techniques:
     fits: 새 방식 도입 제안으로 장단점이 본문에 드러나 있을 때. 대안이 하나뿐일 때.
 
   - key: force_field
-    label: 역장분석(Force Field)
+    label: 역장분석
     family: qualitative
     arrange: split
     section: tech_importance
@@ -83,7 +84,7 @@ techniques:
     fits: 본문에 대안(현행·제안 방식 등) 2개 이상과 비교 기준(비용·정확도·안전성 등)이 있을 때.
 
   - key: pugh
-    label: 퓨 매트릭스(Pugh)
+    label: 퓨 매트릭스
     family: evaluation
     arrange: table
     section: method
@@ -93,7 +94,7 @@ techniques:
     fits: 현행 방식과 제안 방식(또는 여러 기술 대안)을 같은 기준으로 비교할 수 있을 때.
 
   - key: ahp
-    label: AHP(계층분석)
+    label: 계층분석(AHP)
     family: evaluation
     arrange: table
     section: method
@@ -114,7 +115,7 @@ techniques:
     fits: 대안 3개 안팎과 정량 기준이 있는 선정·우선순위 과제(값이 없으면 상·중·하 예비 평가).
 
   - key: fmea
-    label: FMEA(고장모드·영향분석)
+    label: 고장모드·영향분석(FMEA)
     family: evaluation
     arrange: table
     section: method
@@ -142,7 +143,7 @@ techniques:
     fits: 효과가 안전·품질 지표라 금액 환산이 어려울 때.
 
   - key: lcc
-    label: 생애주기비용(LCC)
+    label: 생애주기비용 분석(LCC)
     family: economic
     arrange: flow
     section: expected_management
@@ -181,7 +182,7 @@ techniques:
     fits: 정책·수요·기술 변화에 따라 결과가 크게 갈릴 때.
 
   - key: dea
-    label: DEA(자료포락분석)
+    label: 자료포락분석(DEA)
     family: economic
     arrange: flow
     section: method

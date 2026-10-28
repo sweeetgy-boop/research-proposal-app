@@ -1,6 +1,11 @@
+import * as React from "react";
 import { ClipboardCheck, RefreshCw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRunContext } from "./useRunContext";
-import { isActive, useFinalReview, useStartFinalReview } from "@/api/hooks";
+import { isActive, keys, useFinalReview, useStartFinalReview } from "@/api/hooks";
+import { cancelFinalReview } from "@/api/endpoints-versions";
+import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
+import { useElapsed } from "@/lib/useAiCall";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SkeletonBlock } from "@/components/ui/skeleton";
@@ -21,6 +26,26 @@ export default function FinalReview() {
   const blockedByWorking = run.flow.has_working;
   const canStart = CAN_START.has(run.status) && !blockedByWorking && !run.legacy;
   const skipped = run.flow.draft_review_skipped === "no_review_llm";
+  // 시간 제한 없음 — 기다리는 동안 경과 초와 [취소] (취소하면 검토 전 상태로, 결과·버전 없음)
+  const elapsed = useElapsed(reviewing);
+  const qc = useQueryClient();
+  const [cancelling, setCancelling] = React.useState(false);
+  const [cancelled, setCancelled] = React.useState(false);
+  const [cancelError, setCancelError] = React.useState<unknown>(null);
+  const cancel = async () => {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const state = await cancelFinalReview(id);
+      qc.setQueryData(keys.run(id), state);
+      setCancelled(true);
+    } catch (e) {
+      setCancelError(e);
+    } finally {
+      setCancelling(false);
+      void qc.invalidateQueries({ queryKey: keys.run(id) });
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -29,7 +54,12 @@ export default function FinalReview() {
           <h2 className="text-lg font-semibold">⑤ 최종 검토</h2>
           <p className="text-sm text-muted-foreground">최신 저장 버전(v{run.draft_version})을 Argon 이 최종 점검 관점으로 한 번 검토합니다. 이후 수정은 "최종 검토 이후 수정 n건"으로 표시됩니다.</p>
         </div>
-        <Button onClick={() => start.mutate()} disabled={!canStart || start.isPending || reviewing}>
+        <Button
+          onClick={() => {
+            setCancelled(false);
+            start.mutate();
+          }}
+          disabled={!canStart || start.isPending || reviewing}>
           {reviewing ? (
             <>
               <RefreshCw className="animate-spin" aria-hidden="true" /> 검토 중…
@@ -76,11 +106,12 @@ export default function FinalReview() {
           </div>
         </Alert>
       )}
-      <ProblemBanner error={start.error} />
+      <ProblemBanner error={start.error ?? cancelError} />
+      <AiCancelledNote show={cancelled && !reviewing} />
 
       {reviewing ? (
         <div aria-busy="true" className="space-y-2">
-          <p className="text-sm text-muted-foreground" aria-live="polite">검토 결과를 기다리는 중입니다…</p>
+          <AiWaiting pending={!cancelling} elapsed={elapsed} onCancel={cancel} what="Argon 최종 검토" />
           <SkeletonBlock lines={6} />
         </div>
       ) : run.flow.final_reviews === 0 ? (

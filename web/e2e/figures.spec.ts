@@ -29,7 +29,7 @@ test.describe("[G] 그림 카드", () => {
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThan(box!.height * 1.5);
     await expect(card.getByText(/본문 폭 \d+(\.\d+)?mm/)).toBeVisible();
-    await expect(card.getByText("As-Is / To-Be", { exact: true })).toHaveCount(0);
+    await expect(card.getByText("현재·연구 후 비교 그림", { exact: true })).toHaveCount(0);
     // v2: 개념도·체계도·로드맵은 자동으로 넣지 않는다 — 추천 기법 그림 2장
     await expect(page.getByRole("group", { name: "분석 기법 그림 – SWOT 분석" })).toBeVisible();
     await expect(page.getByRole("group", { name: "분석 기법 그림 – 비용-편익 분석" })).toBeVisible();
@@ -49,7 +49,7 @@ test.describe("[G] 그림 카드", () => {
 
     // 확인함 → 배지 "확인함"(버튼은 사라진다)
     await page.getByRole("group", { name: "현재·연구 후 비교 그림" }).getByRole("button", { name: "현재·연구 후 비교 그림 확인함" }).click();
-    await expect(page.getByText(/으로 저장했습니다/).first()).toBeVisible();
+    await expect(page.getByText("확인 표시를 저장했습니다 (새 버전 없음)").first()).toBeVisible(); // 항목 21
     await expect(page.getByRole("group", { name: "현재·연구 후 비교 그림" }).getByText("확인함", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "현재·연구 후 비교 그림 확인함" })).toHaveCount(0);
 
@@ -114,9 +114,9 @@ test.describe("[G] 그림 카드", () => {
     await expect(swot.getByText("결정 전")).toBeVisible();
     await expect(page.getByText(/제안 내용 기반 예비 평가/).first()).toBeVisible();
 
-    // 넣기 확정 → 새 버전, 배지 "넣기 확정"
+    // 넣기 확정 → 상태 표시(새 버전 없음, 항목 21), 배지 "넣기 확정"
     await page.getByRole("button", { name: "분석 기법 그림 – SWOT 분석 넣기 확정" }).click();
-    await expect(page.getByText(/으로 저장했습니다/).first()).toBeVisible();
+    await expect(page.getByText("확인 표시를 저장했습니다 (새 버전 없음)").first()).toBeVisible();
     await expect(page.getByRole("region", { name: "추천 — SWOT 분석" }).getByText("넣기 확정", { exact: true })).toBeVisible();
 
     // 필요 없음 → 카드가 섹션 아래로 접힌다 → 다시 넣기
@@ -131,8 +131,8 @@ test.describe("[G] 그림 카드", () => {
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("radio", { name: /퓨 매트릭스/ }).check();
     await dialog.getByRole("button", { name: "바꾸기" }).click();
-    await expect(page.getByRole("group", { name: "분석 기법 그림 – 퓨 매트릭스(Pugh)" })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("region", { name: "추천 — 퓨 매트릭스(Pugh)" }).getByText("결정 전")).toBeVisible();
+    await expect(page.getByRole("group", { name: "분석 기법 그림 – 퓨 매트릭스" })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("region", { name: "추천 — 퓨 매트릭스" }).getByText("결정 전")).toBeVisible();
 
     // 버전·비교: 추천 결정도 그림 변경으로 센다
     await subnav(page, "버전·비교").click();

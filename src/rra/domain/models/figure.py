@@ -433,6 +433,12 @@ class Figure(BaseModel):
         return KIND_LABEL.get(self.kind, self.kind)
 
     @property
+    def display_name(self) -> str:
+        """[23] 화면·버전 목록 이름 (한국어) — "현재·연구 후 비교 그림", "분석 기법 그림 – SWOT 분석"."""
+        title = getattr(self.spec, "title", None) if self.kind == "technique" else None
+        return display_name(self.kind, title)
+
+    @property
     def undecided(self) -> bool:
         """[11] 추천 그림인데 [넣기 확정]·[필요 없음] 을 아직 고르지 않았다."""
         return self.recommendation is not None and self.recommendation.status == "pending"
