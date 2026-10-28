@@ -35,10 +35,10 @@ test.describe("U9 사용성 흐름", () => {
     await expect(page.getByRole("radio", { name: "상세 입력(4칸)" })).toBeChecked();
     await expect(page.getByLabel(/발생 원인/)).toHaveValue("다짐 효과가 오래 가지 않음");
     await expect(page.getByLabel(/가제/)).toHaveValue("궤도 보수 우선순위");
-    // 정책 근거 추천 — 엔드포인트가 없으면 접힌 안내, 있어도 가짜 저장소엔 정책 문서가 없어 "없음"
+    // 정책 근거 추천 — 엔드포인트가 없으면 접힌 안내. 가짜 저장소에 정책 문서 3건(레인 B) → 문구가 나온다
     await page.getByRole("button", { name: "추천 받기" }).click();
     await expect(
-      page.getByText(/정책 근거 추천은 정책 자료 적재 뒤 열립니다|추천할 문구가 없습니다/),
+      page.getByText(/정책 근거 추천은 정책 자료 적재 뒤 열립니다|추천할 문구가 없습니다|정책 자료에서 찾은 문구입니다/),
     ).toBeVisible();
     await page.getByRole("button", { name: "유사과제 확인" }).click();
 
@@ -87,7 +87,8 @@ test.describe("U9 사용성 흐름", () => {
     await subnav(page, "직접 수정").click();
     await page.getByRole("button", { name: "2-다 연구 방법 및 주요내용 보완 질문" }).click();
     await expect(dialog.getByText(/체크리스트 충족/)).toBeVisible();
-    await dialog.getByLabel(/산출물/).first().fill("1차년도 분석 보고서");
+    await expect(dialog.getByText("Argon 이 본문을 읽고 물음")).toBeVisible(); // 보완 질문은 Argon (레인 B)
+    await dialog.getByRole("textbox").first().fill("1차년도 분석 보고서");
     await dialog.getByRole("button", { name: "답 저장" }).click();
     await expect(page.getByText(/답을 저장했습니다/).first()).toBeVisible();
     await page.keyboard.press("Escape");

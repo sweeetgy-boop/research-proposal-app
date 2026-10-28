@@ -1,7 +1,42 @@
 # U3 섹션별 필수 요소 체크리스트 — 빠진 요소마다 보완 질문을 낸다 (domain/rules/checklist.py).
 # keywords 중 하나라도 섹션 본문에 있으면 그 요소는 "있음". 비우면 element 이름으로 찾는다.
 # 답은 run 의 proposer_notes.json(제안자 입력)에 저장되어 다음 "AI 다시 쓰기" 프롬프트에 들어간다.
+# 2026-10-28: 보완 질문은 Argon 이 본문·근거·작성 지침을 읽고 먼저 묻는다(usecases/section_questions).
+# 이 목록은 Argon·로컬이 모두 실패했을 때의 대체이자 Argon 에게 주는 점검표다 — 모든 섹션에 둔다
+# (tests/domain/test_section_checklists.py 가 rules.yaml sections 와 대조한다).
 sections:
+  title:
+    - element: 핵심 대상
+      question: 과제명에 연구 대상(노선·설비·차량·업무)이 드러납니까? 무엇을 넣어야 합니까?
+      keywords: [궤도, 차량, 선로, 역, 설비, 시스템, 신호, 전력, 노선]
+    - element: 연구 행위
+      question: 과제명이 무엇을 하는 연구인지(개발·구축·평가·방안 수립) 드러납니까?
+      keywords: [개발, 구축, 연구, 방안, 평가, 고도화, 수립]
+  task_type:
+    - element: 유형 근거
+      question: 이 과제를 기초·응용·개발·정책 중 어느 유형으로 보는 이유는 무엇입니까?
+      keywords: [기초, 응용, 개발, 정책, 연구임, 과제임]
+  policy_importance:
+    - element: 정책 근거
+      question: 이 과제와 이어지는 정부 계획·공사 전략·감사 지적은 무엇입니까? (문서명·연도)
+      keywords: [계획, 전략, 정책, 감사, 지적, 공고, 목표]
+    - element: 정책 연결
+      question: 그 정책 방향이 본 과제의 목표와 어떻게 이어집니까?
+      keywords: [부합, 기여, 이행, 연계, 실현, 달성]
+  tech_importance:
+    - element: 국내외 동향
+      question: 국내·국외 연구 동향은 어떻습니까? (대표 연구·기관·연도)
+      keywords: [동향, 국외, 해외, 국내, 선행연구, 연구는]
+    - element: 기존 기술 한계
+      question: 기존 기술·방법의 한계는 무엇이며 수치로 말할 수 있습니까? (정확도·시간·비용)
+      keywords: [한계, 문제, 부족, 어려움, 미흡]
+    - element: 차별성
+      question: 선행연구와 비교해 본 과제만의 차이는 무엇입니까?
+      keywords: [차별, 차이, 새로운, 반면, 본 연구는, 본 과제는]
+  strategy_alignment:
+    - element: 전략 연결
+      question: 공사 경영전략의 어느 전략방향·전략과제와 이어지며, 어떻게 기여합니까?
+      keywords: [전략, 경영, 기여, 부합, 과제]
   objective:
     - element: 연구 목표
       question: 이 연구로 무엇을 어느 수준까지 이루려 합니까? (한 문장)
@@ -44,3 +79,7 @@ sections:
     - element: 실용화 계획
       question: 연구 결과를 어떤 형태(프로그램·매뉴얼·규정)로 언제 현장에 적용합니까?
       keywords: [실용화, 적용, 배포, 반영, 프로그램, 매뉴얼]
+  overlap_review:
+    - element: 유사과제 검토
+      question: 비슷한 기존 과제가 있습니까? 있다면 본 과제와 무엇이 다릅니까?
+      keywords: [유사, 중복, 검토, 차별, 기존 과제]

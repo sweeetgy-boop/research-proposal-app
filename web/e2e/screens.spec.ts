@@ -27,9 +27,10 @@ test("모든 화면 캡처", async ({ page }) => {
   await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();
   await expect(page).toHaveURL(/brief/);
   await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
-  await expect(page.getByText("보강 질문 없음")).toBeVisible();
+  await expect(page.getByText(/질문 \d개/)).toBeVisible(); // 보강 질문 켬(Argon 먼저) — 정책 작성안 포함
+  await expect(page.getByText("정책적 중요도 작성안").first()).toBeVisible();
   await shot(page, 4, "clarify");
-  await page.getByRole("button", { name: "초안 생성 시작" }).click();
+  await page.getByRole("button", { name: "답하고 생성 시작" }).click();
   await expect(page.getByRole("heading", { name: "초안 본문" })).toBeVisible({ timeout: 30_000 });
   const id = /\/runs\/([0-9a-f-]+)/.exec(page.url())![1]!;
   await subnav(page, "진행").click();
@@ -42,7 +43,8 @@ test("모든 화면 캡처", async ({ page }) => {
   await shot(page, 7, "edit");
   await page.getByRole("textbox", { name: /문장 1 직접 수정/ }).first().fill("궤도 틀림 진행 속도를 추정해 보수 우선순위를 산정하고 현장에 적용함.");
   await page.getByRole("button", { name: "새 버전으로 저장" }).click();
-  await expect(page).toHaveURL(new RegExp(`/runs/${id}/draft$`));
+  await page.getByRole("dialog", { name: "저장했습니다" }).getByRole("button", { name: "취소" }).click();
+  await expect(page).toHaveURL(new RegExp(`/runs/${id}/edit$`));
   await subnav(page, "버전·비교").click();
   await expect(page.locator("ins.diff-ins").first()).toBeVisible();
   await shot(page, 8, "versions");

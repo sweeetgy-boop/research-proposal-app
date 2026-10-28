@@ -6,6 +6,8 @@ from typing import Any
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
+from .policy import PolicyChoice
+
 SLOT_MAX = 2000
 SHORT_MAX = 200
 
@@ -46,8 +48,9 @@ def validation_message(
     return "; ".join(parts)
 
 
-# LLM 에 보내지 않는 입력 — 양식 칸에 그대로 옮기는 값.
-FORM_ONLY_FIELDS = frozenset({"budget", "department"})
+# LLM 에 보내지 않는 입력 — 양식 칸에 그대로 옮기는 값. policy_choice 는 앱이 2-가-(1) 에 그대로
+# 옮기는 제안자 확정값이라 프롬프트에는 policy_basis(요지)로만 들어간다.
+FORM_ONLY_FIELDS = frozenset({"budget", "department", "policy_choice"})
 
 
 class Budget(BaseModel):
@@ -88,6 +91,8 @@ class ProposalRequest(BaseModel):
     supplement: str = Field(default="", description="보충 정보 (보강 질문의 답)")
     department: str = Field(default="", description="제안부서 (양식 칸에만 쓴다)")
     budget: Budget | None = None
+    # 보강 질문 단계에서 제안자가 고른 정책적 중요도 작성안(또는 "정책 근거 없음") — 2026-10-28
+    policy_choice: PolicyChoice | None = None
 
     @model_validator(mode="before")
     @classmethod

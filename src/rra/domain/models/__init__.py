@@ -19,7 +19,16 @@ from .gap import (
 from .notice import MAX_NOTICE_MATCHES, NoticeMatch
 from .outline import Outline, SectionPlan
 from .pipeline import PipelineConfig
-from .policy import MAX_SUGGESTIONS, MIN_SUGGESTIONS, PolicySuggestion
+from .policy import (
+    MAX_POLICY_CARDS,
+    MAX_SUGGESTIONS,
+    MIN_SUGGESTIONS,
+    PolicyCard,
+    PolicyChoice,
+    PolicySentence,
+    PolicySource,
+    PolicySuggestion,
+)
 from .principal import Principal, PrincipalKind
 from .proposer import Person, ProposerInfo
 from .recommendation import (
@@ -46,6 +55,11 @@ from .usability import UsabilityConfig
 from .usage import EvidenceCounts, Satisfaction, UsageRecord
 
 __all__ = [
+    "MAX_POLICY_CARDS",
+    "PolicyCard",
+    "PolicyChoice",
+    "PolicySentence",
+    "PolicySource",
     "BriefItem",
     "GapCandidate",
     "PriorWorkBrief",

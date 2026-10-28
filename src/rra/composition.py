@@ -134,6 +134,9 @@ __all__ = [
     "build_term_candidates",
     "build_outliner",
     "build_clarifier",
+    "build_argon_first",
+    "build_policy_cards",
+    "build_section_questioner",
     "build_repository",
     "build_run_manager",
     "build_scienceon_source",
@@ -1502,6 +1505,10 @@ def build_generate(
     fallback = build_compose_fallback(settings) if writer is None else None
     include_internal = review_policy(settings)["include_internal"]
     local_cfg = llm_config(settings, "compose")
+    # U3 AI 다시 쓰기(2026-10-28 레인 B): 작성자가 로컬이면 다시 쓰기만 Argon(review 단계) 먼저
+    rewrite = build_rewrite_writer(settings, fake_llm=llm if settings.fake_llm else None)
+    if writer is not None:
+        rewrite = None  # Argon 작성이면 다시 쓰기도 같은 작성자(writer_llm)를 쓴다
     return GenerateProposal(
         llm,
         repo,
@@ -1535,6 +1542,84 @@ def build_generate(
         compose_concurrency=policy["concurrency"],
         local_check=policy["local_check"],
         local_check_timeout=policy["local_check_timeout_sec"],
+        rewrite_llm=rewrite["llm"] if rewrite else None,
+        rewrite_provider=rewrite["provider"] if rewrite else "",
+        rewrite_model=rewrite["model"] if rewrite else "",
+    )
+
+
+def build_rewrite_writer(
+    settings: Settings | None = None, *, fake_llm=None
+) -> dict[str, Any] | None:
+    """U3 AI 다시 쓰기의 원격 작성자 — review 단계 provider(Gemini 4 Argon, 예산 래퍼·공유 제한기).
+    키가 없으면 None(로컬만). 가짜 모드는 fake_llm."""
+    settings = settings or load_settings()
+    if fake_llm is not None:
+        return {"llm": fake_llm, "provider": "gemini", "model": "fake/argon"}
+    if not llm_available(settings, stage="review"):
+        return None
+    cfg = llm_config(settings, "review")
+    return {
+        "llm": build_llm(settings, stage="review"),
+        "provider": cfg["provider"],
+        "model": cfg["served_model"] or cfg["model"],
+    }
+
+
+def build_argon_first(settings: Settings | None = None, *, llm=None, local_slot=None):
+    """작성·편집 AI 버튼(보강 질문·정책 작성안·보완 질문)의 호출 순서 — Argon(review 단계 provider,
+    BudgetedLLM·공유 제한기) 먼저, 실패하면 로컬(clarify 단계 = 로컬 모델, local_slot 안에서).
+    review 키가 없으면 로컬만. 가짜 모드는 llm 하나가 Argon 자리를 맡는다(외부 호출 없음).
+    llm 을 주면 로컬 자리에 그대로 쓴다(테스트·가짜 모드)."""
+    from rra.application.usecases.argon_first import ArgonFirst
+
+    settings = settings or load_settings()
+    argon = None
+    if settings.fake_llm:
+        argon = llm
+    elif llm_available(settings, stage="review"):
+        argon = build_llm(settings, stage="review")
+    local = llm if llm is not None else build_llm(settings, stage="clarify")
+    if settings.fake_llm:
+        local = None if argon is local else local
+    review_cfg = llm_config(settings, "review") if argon is not None else None
+    local_cfg = llm_config(settings, "clarify")
+    return ArgonFirst(
+        local,
+        argon,
+        local_gate=local_slot.acquire if local_slot is not None else None,
+        argon_model=str(
+            (review_cfg["served_model"] or review_cfg["model"]) if review_cfg else "argon"
+        ),
+        local_model=str(local_cfg["served_model"] or local_cfg["model"]),
+    )
+
+
+def build_policy_cards(settings: Settings | None = None, *, repo=None, llm=None, local_slot=None):
+    """정책적 중요도 작성안 4개(PolicyCards) — 정책 자료원 검색 + Argon 작성(로컬 대체)."""
+    from rra.application.usecases.policy_cards import PolicyCards
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return PolicyCards(
+        repo,
+        build_argon_first(settings, llm=llm, local_slot=local_slot),
+        keywords=keyword_rule(settings),
+    )
+
+
+def build_section_questioner(settings: Settings | None = None, *, llm=None, local_slot=None):
+    """U3 보완 질문(SectionQuestions) — Argon 이 본문·근거·작성 지침을 읽고 묻는다
+    (실패하면 로컬 → 체크리스트)."""
+    from rra.application.usecases.section_questions import SectionQuestions
+
+    settings = settings or load_settings()
+    return SectionQuestions(
+        build_argon_first(settings, llm=llm, local_slot=local_slot),
+        build_prompt_library(settings),
+        checklists=section_checklists(settings),
+        titles=lint_rules(settings).titles,
     )
 
 
@@ -1766,7 +1851,7 @@ def build_run_manager(
         if generate.writes_remotely
         else None
     )
-    return RunManager(
+    manager = RunManager(
         generate,
         store or FileRunStore(root),
         slot,
@@ -1793,6 +1878,16 @@ def build_run_manager(
         first_pass=review_policy(settings)["first_pass"] if first_pass is None else first_pass,
         live_search=live_search,  # [4] build_api 가 REST 와 같은 인스턴스(세션 공유)를 준다
     )
+    # 2026-10-28 레인 B — ④ 편집의 AI 버튼(보완 질문·빈 2-가-(1) 작성안). Argon 먼저, 로컬은 slot
+    # 안에서
+    manager.section_questioner = build_section_questioner(settings, llm=llm, local_slot=slot)
+    manager.section_questioner_public = manager.section_questioner  # 청크 범위는 run 이 정한다
+    manager.policy_cards = build_policy_cards(settings, repo=repo, llm=llm, local_slot=slot)
+    if generate_public is not None:
+        manager.policy_cards_public = build_policy_cards(
+            settings, repo=public_repository(repo), llm=llm, local_slot=slot
+        )
+    return manager
 
 
 def _with_local_slot(figures, slot):
@@ -1865,6 +1960,61 @@ FAKE_MODE_WARNING = (
 )
 
 
+def _fake_policy() -> tuple[list[Any], list[Any]]:
+    """가짜 모드 정책 자료 3건(국토부·공사 전략·감사원) — 정책적 중요도 작성안 e2e 경로."""
+    from datetime import date
+
+    from rra.domain.models import Chunk, Document
+
+    rows = [
+        (
+            "molit:fake-plan",
+            "molit",
+            "policy",
+            "철도 안전 강화 계획 (가짜)",
+            "정부는 노후 궤도의 검측 고도화와 보수 체계 개선으로 철도 안전을 높이려 함.",
+            "https://www.molit.go.kr/fake-plan",
+        ),
+        (
+            "korail_web:fake-strategy",
+            "korail_web",
+            "policy",
+            "공사 중장기 경영목표 (가짜)",
+            "공사는 데이터 기반 궤도 유지보수로 안전 수준과 보수 효율을 함께 높이려 함.",
+            "https://info.korail.com/fake-strategy",
+        ),
+        (
+            "bai:fake-audit",
+            "bai",
+            "audit",
+            "철도 시설 유지관리 실태 감사 (가짜)",
+            "감사원은 궤도 틀림 보수가 주기 위주라 위험 구간 대응이 늦다고 지적함.",
+            "https://www.bai.go.kr/fake-audit",
+        ),
+    ]
+    docs = [
+        Document(
+            doc_id=d,
+            source=src,
+            doc_type=dt,
+            title=title,
+            body=body,
+            pub_date=date(2025, 3, 1),
+            url=url,
+            orgs=["external"],
+        )
+        for d, src, dt, title, body, url in rows
+    ]
+    chunks = [
+        Chunk(chunk_id=f"{d}#0", doc_id=d, ordinal=0, text=body, basis="full_text")
+        for d, _, _, _, body, _ in rows
+    ]
+    return docs, chunks
+
+
+_FAKE_POLICY_DOCS, _FAKE_POLICY_CHUNKS = _fake_policy()
+
+
 def build_fake_parts(settings: Settings):
     """가짜 모드(RRA_FAKE_LLM=1) 부품 — 가짜 LLM·메모리 저장소·시드 문서. adapters/fake."""
     from datetime import date
@@ -1931,6 +2081,7 @@ def build_fake_parts(settings: Settings):
                 url="https://scienceon.kisti.re.kr/fake-1",
                 text_basis="abstract",
             ),
+            *_FAKE_POLICY_DOCS,
         ],
         [
             Chunk(
@@ -1948,6 +2099,7 @@ def build_fake_parts(settings: Settings):
                 text="Track geometry degradation rate from inspection history",
                 basis="abstract",
             ),
+            *_FAKE_POLICY_CHUNKS,
         ],
         when="2026-10-26",
     )
@@ -2029,7 +2181,10 @@ def build_api(
         differentiate=build_differentiator(settings, repo=repo, llm=llm),
         recommend=build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
         recommend_auto=recommend_policy(settings)["auto"],
-        clarify=build_clarifier(settings, llm=llm) if pipeline.clarify else None,
+        clarify=build_clarifier(settings, llm=llm, local_slot=manager.slot)
+        if pipeline.clarify
+        else None,
+        policy_cards=build_policy_cards(settings, repo=repo, llm=llm, local_slot=manager.slot),
         structure=build_structurer(settings, llm=llm),
         compare=build_comparer(settings, repo=repo, precheck=precheck),
         brief=build_briefer(settings, repo=repo, llm=llm),
@@ -2078,6 +2233,7 @@ def build_scoped_services(
         "repo": repo,
         "precheck": precheck,
         "policy_suggest": build_policy_suggest(settings, repo=repo),
+        "policy_cards": build_policy_cards(settings, repo=repo, llm=llm),
         "notice_match": build_notice_match(settings, repo=repo),
         "differentiate": build_differentiator(settings, repo=repo, llm=llm),
         "recommend": build_recommender(settings, repo=repo, llm=llm, precheck=precheck),
@@ -2215,15 +2371,22 @@ def build_briefer(settings: Settings | None = None, *, repo=None, llm=None):
     )
 
 
-def build_clarifier(settings: Settings | None = None, *, llm=None):
-    """③ 입력 보강 질문 유스케이스(Q1, ClarifyInput) — clarify 단계(로컬 모델). 호출자는
-    pipeline.clarify 가 켜져 있을 때만 부른다(꺼져 있으면 질문 0개)."""
+def build_clarifier(settings: Settings | None = None, *, llm=None, local_slot=None):
+    """③ 입력 보강 질문 유스케이스(Q1, ClarifyInput) — Argon(review 단계) 먼저, 실패하면 로컬
+    (clarify 단계), 둘 다 실패하면 앱 점검 질문 + 사유(2026-10-28 레인 B). 호출자는
+    pipeline.clarify 가 켜져 있을 때만 부른다(꺼져 있으면 상태 off)."""
     from rra.application.usecases.clarify_input import ClarifyInput
 
     settings = settings or load_settings()
+    ask = build_argon_first(settings, llm=llm, local_slot=local_slot)
     return ClarifyInput(
-        llm if llm is not None else build_llm(settings, stage="clarify"),
+        ask.local,
         build_prompt_library(settings),
+        argon=ask.argon,
+        checklists=section_checklists(settings),
+        local_gate=ask.local_gate,
+        argon_model=ask.argon_model,
+        local_model=ask.local_model,
     )
 
 

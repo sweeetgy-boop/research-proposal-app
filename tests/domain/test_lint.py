@@ -51,7 +51,7 @@ def test_empty_input_and_empty_catalog_are_warnings_not_errors(req):
     )
     problems = lint(d, FORM, choice_options=OPTIONS)
     assert {(p.section, p.code, p.severity) for p in problems} == {
-        ("policy", "input_missing", "warning"),
+        ("policy", "policy_basis_needed", "warning"),
         ("strategy", "catalog_empty", "warning"),
     }
     assert not has_errors(problems)  # app 문장은 근거 필수에서 제외
@@ -73,9 +73,40 @@ def test_missing_choice_is_a_warning_and_evidence_in_policy_is_an_error(req):
     assert ("evidence_forbidden", "error") in problems
 
 
+def test_policy_choice_fills_policy_and_its_verified_evidence_is_allowed(req):
+    """고른 정책적 중요도 작성안(2026-10-28) — 빈칸 아님, 원문 대조 통과 구간(policy_ids)은 근거
+    금지
+    섹션에서도 허용, 그 밖의 근거는 여전히 오류. 채워진 섹션에는 빈칸 알림을 남기지 않는다."""
+    from rra.domain.models import PolicyChoice, PolicySentence
+
+    choice = PolicyChoice(
+        mode="card", sentences=[PolicySentence(text="정책 방향과 이어짐.", evidence=["molit:p#0"])]
+    )
+    with_choice = req.model_copy(update={"policy_choice": choice})
+    assert "policy" not in skipped_sections(with_choice, FORM, OPTIONS)
+    none = req.model_copy(update={"policy_choice": PolicyChoice(mode="none")})
+    assert skipped_sections(none, FORM, OPTIONS)["policy"] == "policy_basis_needed"
+    kept = Sentence(text="정책 방향과 이어짐.", evidence=["molit:p#0"], origin="proposer_input")
+    d = Draft(
+        run_id="r",
+        request=req,
+        sections=[
+            Section(
+                key="policy", sentences=[kept, Sentence(text="다른 인용", evidence=["alio:1"])]
+            ),
+            Section(key="tech", sentences=[Sentence(text="앱 판정", origin="app")]),
+            Section(key="task", sentences=[Sentence(text="사유")], choices=["basic"]),
+        ],
+    )
+    problems = lint(d, FORM, choice_options=OPTIONS, policy_ids={"molit:p#0"})
+    forbidden = [p for p in problems if p.code == "evidence_forbidden"]
+    assert [p.sentence for p in forbidden] == [1]
+    assert "policy_basis_needed" not in {p.code for p in problems}  # 채워진 섹션 — 지난 알림
+
+
 def test_skipped_sections_is_shared_by_generation_and_lint(req):
     assert skipped_sections(req, FORM, OPTIONS) == {
-        "policy": "input_missing",
+        "policy": "policy_basis_needed",
         "strategy": "catalog_empty",
     }
     filled = req.model_copy(update={"policy_basis": "x"})

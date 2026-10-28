@@ -224,6 +224,10 @@ class RetrievalSnapshot(BaseModel):
     # P2-8 표 사실 — 검색 집합 문서의 (항목·연도·단위·값). 수치 lint 가 인용 문서의 표 칸을 근거로
     # 인정하는 데 쓴다. 저장소가 사실을 모르면(옛 스냅샷·fake) 빈 값 = 종전 동작
     facts: dict[str, list[TableFact]] = Field(default_factory=dict)
+    # 2-가-(1) 정책적 중요도 — 제안자가 고른 작성안의 인용 구간 중 저장소 원문 대조를 통과한
+    # chunk_id
+    # (domain/rules/policy_cards.verify_sources). 그 섹션의 근거로만 쓴다. 이전 스냅샷은 빈 값
+    policy_ids: list[str] = Field(default_factory=list)
 
     @classmethod
     def of(

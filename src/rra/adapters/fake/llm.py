@@ -16,6 +16,74 @@ _PICK_HEAD = "[분석 기법 추천]"  # [11] 기법 고르기
 _TECH_HEAD = re.compile(r"^\[분석 기법: ([a-z_]+)\]")  # [11] 기법 분석
 _EDIT_REQUEST = re.compile(r"<request>(.*?)</request>", re.S)
 _FREE_TEXT = re.compile(r'"text": "([^"]*)"')
+# 2026-10-28 레인 B — 작성·편집 AI 버튼 프롬프트 머리
+_CLARIFY_HEAD = "[보강 질문]"
+_POLICY_CARDS_HEAD = "[정책적 중요도 작성안]"
+_POLICY_POLISH_HEAD = "[정책적 중요도 다듬기]"
+_SECTION_Q_HEAD = re.compile(r"^\[보완 질문: ([a-z_]+)\]")
+_OPTION = re.compile(r"\[선택지 — 이 id 중에서만 고른다\]\n- ([^:\s]+):")
+_DIRECTION = re.compile(r"^## 방향: ([a-z]+)", re.M)
+_POLISH_TEXT = re.compile(r"\[제안자가 고친 글 — 뜻을 유지한다\]\n(\".*?\")\n\n", re.S)
+
+
+def _policy_cards_answer(prompt: str) -> str:
+    """방향마다 일반 문장 2개 — 고유명·수치 없이, 그 방향의 첫 구획 id 를 근거로 (검증 통과)."""
+    cards = []
+    heads = list(_DIRECTION.finditer(prompt))
+    for i, m in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(prompt)
+        ids = _EVIDENCE.findall(prompt[m.end() : end])
+        if not ids:
+            continue
+        cards.append(
+            {
+                "direction": m.group(1),
+                "sentences": [
+                    {
+                        "text": "인용 자료가 제시한 방향과 본 제안의 해결 목표가 이어짐.",
+                        "evidence": ids[:1],
+                    },
+                    {"text": "현장 적용으로 해당 방향의 이행에 기여함.", "evidence": ids[:1]},
+                ],
+            }
+        )
+    return json.dumps({"cards": cards}, ensure_ascii=False)
+
+
+def _polish_answer(prompt: str) -> str:
+    """제안자 글을 줄마다 문장으로 (뜻 그대로 — 검증은 제안자 글을 허용 텍스트로 본다)."""
+    m = _POLISH_TEXT.search(prompt)
+    text = json.loads(m.group(1)) if m else ""
+    lines = [ln.strip(" ○-") for ln in str(text).splitlines() if ln.strip(" ○-")]
+    return json.dumps(
+        {"sentences": [{"text": ln, "evidence": []} for ln in lines[:4]]}, ensure_ascii=False
+    )
+
+
+def _section_questions_answer(key: str) -> str:
+    rows = {
+        "tech_importance": [
+            {
+                "element": "국외 동향",
+                "question": "국외 선행연구는 어떤 기관이 언제 어떤 결과를 냈습니까?",
+            },
+            {
+                "element": "기존 기술 한계",
+                "question": "기존 방법의 한계를 수치(정확도·시간)로 말할 수 있습니까?",
+            },
+        ],
+    }
+    default = [
+        {
+            "element": "구체 대상",
+            "question": "이 칸에 적용 대상(노선·설비·업무)을 구체적으로 적을 수 있습니까?",
+        },
+        {
+            "element": "정량 목표",
+            "question": "이 칸의 효과를 어떤 지표로 어느 수준까지 보이겠습니까?",
+        },
+    ]
+    return json.dumps({"questions": rows.get(key, default)}, ensure_ascii=False)
 
 
 def _structure_answer(prompt: str) -> str:
@@ -190,6 +258,29 @@ class ScriptedComposeLLM:
 
     async def complete(self, prompt, *, system=None, max_tokens=None, json_mode=False) -> str:
         self.calls.append(prompt)
+        if prompt.startswith(_CLARIFY_HEAD):
+            return json.dumps(
+                {
+                    "questions": [
+                        {
+                            "topic": "target",
+                            "question": "적용할 노선·구간과 활용 부서는 어디입니까?",
+                        },
+                        {
+                            "topic": "metric",
+                            "question": "목표를 어떤 지표로 어느 수준까지 달성하려 합니까?",
+                        },
+                    ]
+                },
+                ensure_ascii=False,
+            )
+        if prompt.startswith(_POLICY_CARDS_HEAD):
+            return _policy_cards_answer(prompt)
+        if prompt.startswith(_POLICY_POLISH_HEAD):
+            return _polish_answer(prompt)
+        sq = _SECTION_Q_HEAD.match(prompt)
+        if sq:
+            return _section_questions_answer(sq.group(1))
         if prompt.startswith(_STRUCTURE_HEAD):
             return _structure_answer(prompt)
         if _BRIEF_HEAD in prompt and "summaries" in prompt:
@@ -233,8 +324,17 @@ class ScriptedComposeLLM:
                 },
                 ensure_ascii=False,
             )
-        if key == "strategy_alignment":
-            return json.dumps({"choices": [], "sentences": []}, ensure_ascii=False)
+        if key == "strategy_alignment":  # 선택지 목록의 첫 id (없으면 빈 답)
+            m = _OPTION.search(prompt)
+            if not m:
+                return json.dumps({"choices": [], "sentences": []}, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "choices": [m.group(1)],
+                    "sentences": [{"text": "경영전략 이행에 기여하는 과제임.", "evidence": []}],
+                },
+                ensure_ascii=False,
+            )
         if key == "title":
             return json.dumps(
                 [{"text": "궤도 검측 이력 기반 보수 우선순위 산정 방법 개발", "evidence": []}],

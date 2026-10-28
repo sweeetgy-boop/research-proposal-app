@@ -15,6 +15,8 @@
 - figures_mismatch: [G] 1차 검토가 "본문과 그림이 어긋남" 으로 지적한 그림(열린 의견)
 - figures_undecided: [11] 추천 그림 중 [넣기 확정]·[필요 없음]을 고르지 않은 것 (그대로 두면
   제안서에 들어간다)
+- policy_basis: 2-가-(1) 정책적 중요도에 정책 근거가 있는가 ("정책 근거 없음" 으로 진행했거나
+  비었으면 "정책 근거 확인 필요" — 2026-10-28 레인 B)
 - review_state: 최종 검토 완료 또는 검토 건너뜀(마무리 가능)인가
 """
 
@@ -28,8 +30,30 @@ from rra.domain.models import DraftVersion, Figure, RunState
 from rra.domain.models.review import sentence_id
 from rra.domain.rules import review_flow
 from rra.domain.rules.lint import LintRules
+from rra.domain.rules.policy_cards import (
+    POLICY_BASIS_NEEDED,
+    POLICY_BASIS_NEEDED_LABEL,
+    POLICY_SECTION,
+)
 
 STRATEGY_KEY = "strategy_alignment"
+# 알림 코드 → 화면 문구 (내부 코드를 그대로 보이지 않는다). 모르는 코드는 "기타 알림"
+CODE_LABELS: dict[str, str] = {
+    "missing": "필수 섹션 비어 있음",
+    "too_long": "분량 초과",
+    "no_evidence": "근거 없음",
+    "evidence_forbidden": "입력만 근거로 써야 함",
+    "unsupported_number": "입력·근거에 없는 수치",
+    "input_missing": "근거 입력 없음",
+    POLICY_BASIS_NEEDED: POLICY_BASIS_NEEDED_LABEL,
+    "catalog_empty": "선택지 목록 비어 있음",
+    "no_choice": "선택지 직접 선택",
+    "no_relevant_evidence": "관련 근거 없음",
+    "foreign_script": "외국 문자 혼입",
+    "long_sentence": "긴 문장",
+    "mixed_style": "문체 혼용",
+    "period_mismatch": "연차 불일치",
+}
 
 
 @dataclass(frozen=True)
@@ -77,7 +101,8 @@ def submit_check(
     skipped = {
         p["section"]
         for p in problems
-        if p["code"] in ("input_missing", "catalog_empty", "no_relevant_evidence")
+        if p["code"]
+        in ("input_missing", POLICY_BASIS_NEEDED, "catalog_empty", "no_relevant_evidence")
     }
     missing = [k for k in missing if k not in skipped]
     items.append(
@@ -126,7 +151,11 @@ def submit_check(
             "unresolved_alerts",
             "미해결 알림",
             total == 0,
-            ", ".join(f"{c} {n}건" for c, n in sorted(by_code.items())) if total else "없음",
+            ", ".join(
+                f"{CODE_LABELS.get(c, '기타 알림')} {n}건" for c, n in sorted(by_code.items())
+            )
+            if total
+            else "없음",
             total,
             first_target,
             {"by_code": by_code},
@@ -280,6 +309,23 @@ def submit_check(
                 else "지적 없음",
                 figure_comments,
                 f"section:{included[0].section}" if figure_comments and included else None,
+            )
+        )
+
+    if POLICY_SECTION in rules.order:
+        policy = sections.get(POLICY_SECTION)
+        flagged = any(p["code"] == POLICY_BASIS_NEEDED for p in problems)
+        empty = policy is None or not policy.sentences
+        items.append(
+            CheckItem(
+                "policy_basis",
+                "정책 근거",
+                not (flagged or empty),
+                f"{POLICY_BASIS_NEEDED_LABEL} — 정책적 중요도 작성안에서 고르거나 직접 작성"
+                if (flagged or empty)
+                else "정책적 중요도 작성됨",
+                1 if (flagged or empty) else 0,
+                f"section:{POLICY_SECTION}" if (flagged or empty) else None,
             )
         )
 

@@ -1,7 +1,7 @@
 # ③ 초안 생성 파이프라인 — 단계별 켜기/끄기 (ADR 0013: 효과가 확인된 것만 기본 켬)
 # 순서: (clarify) → (outline) → (section_search) → 로컬 작성(exemplars·two_candidates) → rule_check → v1
 #       → draft_review(additions, 후보 선택) → 검증 통과분 자동 반영 → v2
-clarify: false          # Q1 입력 보강 질문 (최대 3개, 로컬 모델) — 흐름 안에서 측정 불가(대화형), 요청 시 켬
+clarify: true           # Q1 입력 보강 질문 2~4개 — Argon 먼저·로컬 대체, 정책 근거 없으면 작성안 4개 (2026-10-28 켬, 레인 B)
 outline: false          # Q2 섹션 설계도 — 끔: 빼면 문장 37 vs 14·논문 인용 5 vs 1·invalid 0 vs 1, +20s (2026-10-27 측정, ADR 0013)
 section_search: true    # Q3 섹션별 맞춤 검색 — 켬: 논문 인용 유지(retrieval_mix 논문 최소 보장), 빼면 논문 0 (2026-10-27)
 exemplars: false        # Q4 채택 과제 본보기 — 끔: 빼면 invalid 0 vs 1·문장 29 vs 14·논문 5 vs 1 (2026-10-27)

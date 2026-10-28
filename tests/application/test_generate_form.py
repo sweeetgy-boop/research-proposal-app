@@ -125,7 +125,7 @@ async def test_policy_section_is_skipped_without_basis(req, repo):
     assert composed.mode == "skipped" and composed.section.sentences == []
     assert composed.parse is None and composed.prompt_hash is None and llm.calls == []
     _, problems = uc.finalize("r", req, snap, [composed.section])
-    assert ("policy_importance", "input_missing", "warning") in {
+    assert ("policy_importance", "policy_basis_needed", "warning") in {
         (p.section, p.code, p.severity) for p in problems
     }
 

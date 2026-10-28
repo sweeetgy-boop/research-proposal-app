@@ -59,6 +59,7 @@ from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
 from rra.domain.rules.recommendation import apply_recommendation
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
+from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
     FeedbackIn,
@@ -107,6 +108,7 @@ from rra.entrypoints.views import (
     version_payload,
     versions_payload,
 )
+from rra.entrypoints.views_editai import clarify_off_payload, clarify_payload
 
 API_VERSION = "v1"
 DEFAULT_K = 5
@@ -263,6 +265,7 @@ def create_app(
     fake_mode: bool = False,
     snapshot_status: Callable[[], dict[str, Any]] | None = None,
     policy_suggest: Any | None = None,
+    policy_cards: Any | None = None,
     notice_match: Any | None = None,
     notice_snapshot_status: Callable[[], dict[str, Any]] | None = None,
     ntis_insights: Any | None = None,
@@ -291,6 +294,7 @@ def create_app(
         "compare": compare,
         "brief": brief,
         "policy_suggest": policy_suggest,
+        "policy_cards": policy_cards,
         "notice_match": notice_match,
         "ntis_insights": ntis_insights,
     }
@@ -605,11 +609,18 @@ def create_app(
 
     @app.post(f"/{API_VERSION}/precheck/clarify")
     async def clarify_route(req: ProposalRequest) -> dict[str, Any]:
-        """③ 시작 전 입력 보강 질문(Q1). pipeline.clarify 가 꺼져 있으면 질문 0개."""
-        questions = []
-        if clarify is not None:
-            questions = await clarify(req)
-        return {"questions": questions, "skip_allowed": True}
+        """③ 시작 전 입력 보강 질문(Q1) — Argon 먼저(로컬 대체), 2~4개. 질문이 없으면 status 로
+        사유를
+        가른다: off(꺼짐) | failed(생성 실패 — 다시 시도) | enough(입력 충분). 정책 근거가 없으면
+        topic policy 질문 + policy_needed (화면은 정책적 중요도 작성안을 보인다)."""
+        if clarify is None:
+            return {**clarify_off_payload(), "skip_allowed": True}
+        result = await clarify.inspect(req)
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            **clarify_payload(result, clean=_clean),
+            "skip_allowed": True,
+        }
 
     @app.post(f"/{API_VERSION}/precheck/recommendations")
     async def recommend_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
@@ -1203,11 +1214,15 @@ def create_app(
         }
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/sections/{{key}}/questions")
-    async def section_questions_route(request: Request, run_id: str, key: str) -> dict[str, Any]:
-        """U3 섹션 체크리스트(section_checklists.yaml)에서 빠진 요소 → 보완 질문 + 저장된 답."""
+    async def section_questions_route(
+        request: Request, run_id: str, key: str, refresh: bool = False
+    ) -> dict[str, Any]:
+        """U3 보완 질문 — Argon 이 섹션 본문·근거·작성 지침을 읽고 빠진·약한 부분을 2~4개 묻는다
+        (실패하면 로컬 → 체크리스트). source·reason 으로 누가 물었는지·왜 대신했는지. 같은 버전은
+        보관한 결과(refresh=true 면 새로)."""
         rid = _run_id(run_id)
         try:
-            out = await manager.section_questions(*await _own(request, rid), key)
+            out = await manager.section_questions(*await _own(request, rid), key, refresh=refresh)
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except EditRejected as exc:
@@ -1229,6 +1244,10 @@ def create_app(
         except EditRejected as exc:
             raise HTTPException(404, str(exc)) from exc
         return {"run_id": rid, "section": key, "answers": merged}
+
+    register_edit_ai_routes(
+        app, api_version=API_VERSION, manager=manager, svc=_svc, own=_own, clean=_clean
+    )
 
     # ── U7 제출 전 점검 · U8 측정·만족도 ───────────────────
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/submit-check")
