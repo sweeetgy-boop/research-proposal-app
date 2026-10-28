@@ -404,6 +404,47 @@ def _manifest(rid: str) -> dict[str, Any]:
     return {}
 
 
+async def _concurrent(d: Driver, ideas: list[Any], out: Path, label: str) -> int:
+    """여러 건을 동시에 ② → 생성(초안까지). 각 건 시간과 묶음 전체 시간."""
+    await wait_quiet(set())
+    t0 = time.perf_counter()
+    started = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+    async def go(idea: Any) -> dict[str, Any]:
+        name, req, expected, ns, must_not = idea
+        t = time.perf_counter()
+        row = await d.one(name, req, expected, ns, full=False, must_not=must_not)
+        row["seconds"] = round(time.perf_counter() - t, 1)
+        return row
+
+    try:
+        rows = await asyncio.gather(*(go(i) for i in ideas))
+    finally:
+        await d.close()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps(
+            {
+                "label": label,
+                "started_at": started,
+                "concurrent": len(ideas),
+                "batch_seconds": round(time.perf_counter() - t0, 1),
+                "rows": rows,
+            },
+            ensure_ascii=False,
+            indent=1,
+        ),
+        encoding="utf-8",
+    )
+    for r in rows:
+        print(
+            json.dumps(
+                {k: r.get(k) for k in ("name", "status", "draft_seconds")}, ensure_ascii=False
+            )
+        )
+    return 0
+
+
 async def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base", default="http://127.0.0.1:8012")
@@ -421,10 +462,18 @@ async def main() -> int:
         action="store_true",
         help="--out 의 기존 결과에 이어 붙이고 있는 이름은 건너뛴다",
     )
+    ap.add_argument(
+        "--concurrent",
+        type=int,
+        default=0,
+        help="N 건을 동시에(② + 생성만) — 동시 생성 시간 측정. 0 이면 한 건씩",
+    )
     args = ap.parse_args()
     only = [s.strip() for s in args.only.split(",")] if args.only else None
     ideas = load_ideas(only)
     d = Driver(args.base, _token())
+    if args.concurrent > 0:
+        return await _concurrent(d, ideas[: args.concurrent], Path(args.out), args.label)
     rows: list[dict[str, Any]] = []
     out = Path(args.out)
     if args.append and out.exists():
