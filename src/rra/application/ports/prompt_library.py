@@ -50,6 +50,11 @@ class PromptLibraryPort(Protocol):
         """[G][2] 말로 고치기 — 요청을 명세 변경 {spec, style, summary} 로 바꾸는 지시."""
         ...
 
+    def figure_techniques(self) -> str:
+        """[11] 분석 기법 고르기(0~2)·분석(TechniqueSpec) 지시 — 본문·입력·근거 안에서만,
+        등급은 예비 평가."""
+        ...
+
     def brief(self) -> str:
         """U5 선행연구 브리핑 시스템 프롬프트 — 구획별 한 줄 요약·연구 공백 후보, JSON 객체."""
         ...

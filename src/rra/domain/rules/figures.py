@@ -13,6 +13,11 @@
 - `spec_change_summary`: 명세 두 개의 "바뀐 내용" 한 줄씩 (카드 표시, [2] 말로 고치기).
 - `with_texts`: 이미 받아들인 글자(현재 명세·제안자 요청)를 pool 에 더한다 — [말로 고치기] 검사용.
 - `internal_only_texts`: 공용 계정용 — internal 근거에서만 나온 글자 목록(명세를 폐기하거나 뺀다).
+- v2(2026-10-28, ADR 0033): `choose_default` = As-Is/To-Be 1 (+ 검증 수치 그래프·
+  일정표), 분석 기법은 `technique_slots` 만큼(0~2) — 합쳐 최대 4장. 개념도·체계도·로드맵·
+  비교는 [다른 그림 추가]에서만. `image_prompt` 는 "밑그림 배치 그대로" 대신 인포그래픽
+  (색 강조·아이콘·제목 계층·여백)을 새로 디자인하게 하고 글자는 목록 그대로. 비율은
+  `choose_aspect`(내용 양). 상자 글자는 `MAX_BOX`(1~2줄).
 """
 
 from __future__ import annotations
@@ -28,13 +33,18 @@ from pydantic import BaseModel
 
 from rra.domain.models.draft import Section
 from rra.domain.models.figure import (
+    AS_IS_TAGS,
     FIGURE_KINDS,
     KIND_LABEL,
-    KIND_SECTION,
+    MAX_BOX,
     MAX_CHANGE_LINE,
     MAX_CHANGE_LINES,
     MAX_LABEL,
     MAX_LINE,
+    NEED_CALC,
+    PRELIM_NOTE,
+    TO_BE_TAGS,
+    AsIsToBeSpec,
     ComparisonSpec,
     ConceptSpec,
     Figure,
@@ -42,14 +52,18 @@ from rra.domain.models.figure import (
     RoadmapSpec,
     ScheduleSpec,
     StatChartSpec,
+    TechniqueSpec,
     parse_spec,
 )
 from rra.domain.models.request import ProposalRequest
 from rra.domain.models.table_fact import TableFact
 from rra.domain.rules.numbers import numbers
 from rra.domain.rules.schedule import TARGET_UNKNOWN, research_period_months
+from rra.domain.rules.techniques import LEVELS, PM, technique_texts
 
 NO_INFO = "정보 없음"
+AS_IS_HEAD = "As-Is (현재)"
+TO_BE_HEAD = "To-Be (연구 후)"
 # 개념도 상자 이름은 템플릿 라벨 — 자리별로 고정한다. 모델이 "문제(근본 원인)" 처럼 지시문 라벨을
 # 그대로 쓰면 근거 밖 글자로 걸러져 개념도가 빠졌다 (2026-10-28 배포 시험 3회차)
 CONCEPT_LABELS: tuple[str, ...] = ("현황", "문제(근본 원인)", "해결 방안", "기대효과")
@@ -80,8 +94,20 @@ FIXED_TEXTS: frozenset[str] = frozenset(
         "연도",
         "현재",
         "제안",
+        AS_IS_HEAD,
+        TO_BE_HEAD,
+        *AS_IS_TAGS,
+        *TO_BE_TAGS,
+        NEED_CALC,
+        PRELIM_NOTE,
+        *LEVELS,
+        *PM,
     }
 )
+# v2 기본 그림 — 이 종류만 초안 뒤 자동으로 (분석 기법은 따로 추천). 나머지는 [다른 그림 추가]에서만
+AUTO_KINDS: tuple[str, ...] = ("as_is_to_be", "stat_chart", "schedule")
+MAX_FIGURES = 4  # 초안 1건 기본 그림 상한 (기법 추천 포함)
+MAX_TECHNIQUES = 2
 _WORD = re.compile(r"[0-9A-Za-z가-힣]+")
 _SPACES = re.compile(r"\s+")
 # 위반 코드
@@ -91,6 +117,8 @@ FACT_NOT_FOUND = "figure_fact_not_found"
 SCHEDULE_EXCEEDS = "figure_schedule_exceeds_period"
 SOURCE_MISSING = "figure_source_missing"
 BOX_EMPTY = "figure_box_empty"  # 개념도 상자에 근거 있는 줄이 하나도 없다 (다듬은 뒤)
+# As-Is/To-Be 칸 이름이 정해진 이름(현황·원인·한계 / 목표·해결 방안·기대효과)이 아님
+SIDE_TAG = "figure_side_tag"
 
 
 def _norm(text: str) -> str:
@@ -217,6 +245,16 @@ def texts_of(spec: BaseModel) -> list[str]:
             out.append(s.name)
             if s.desc:
                 out.append(s.desc)
+    elif isinstance(spec, AsIsToBeSpec):
+        out.append(AS_IS_HEAD)
+        for it in spec.as_is:
+            out.extend([it.tag, it.text])
+        out.append(spec.solution)
+        out.append(TO_BE_HEAD)
+        for it in spec.to_be:
+            out.extend([it.tag, it.text])
+    elif isinstance(spec, TechniqueSpec):
+        out.extend(technique_texts(spec))
     seen: dict[str, None] = {}
     for t in out:
         if t and t not in seen:
@@ -260,6 +298,33 @@ def alt_text(spec: BaseModel) -> str:
             + "; 활용 단계 "
             + " → ".join(s.name + (f"({s.desc})" if s.desc else "") for s in spec.stages)
         )
+    elif isinstance(spec, AsIsToBeSpec):
+        body = (
+            "현재 "
+            + ", ".join(f"{it.tag} {it.text}" for it in spec.as_is)
+            + f" → {spec.solution} → 연구 후 "
+            + ", ".join(f"{it.tag} {it.text}" for it in spec.to_be)
+        )
+    elif isinstance(spec, TechniqueSpec):
+        label = spec.title
+        if spec.rows:
+            body = "; ".join(
+                f"{r.name}: "
+                + ", ".join(f"{c} {v}" for c, v in zip(spec.columns, r.cells, strict=False))
+                for r in spec.rows
+            )
+        else:
+            body = "; ".join(
+                f"{g.name}: "
+                + ", ".join(
+                    it.text
+                    + (f"({it.rating})" if it.rating else "")
+                    + (f" {it.amount}" if it.amount else "")
+                    for it in g.items
+                )
+                for g in spec.groups
+            )
+        body = f"{body}. {spec.note}"
     else:
         body = ""
     return f"{label}: {body}"[:600]
@@ -285,6 +350,11 @@ def validate_spec(
             break
     if isinstance(spec, ConceptSpec) and any(not b.lines for b in spec.boxes):
         problems.append(BOX_EMPTY)
+    if isinstance(spec, AsIsToBeSpec) and (
+        any(it.tag not in AS_IS_TAGS for it in spec.as_is)
+        or any(it.tag not in TO_BE_TAGS for it in spec.to_be)
+    ):
+        problems.append(SIDE_TAG)
     if isinstance(spec, StatChartSpec):
         facts = pool.facts.get(spec.source.doc_id) or []
         if not facts:
@@ -320,7 +390,10 @@ def validate_spec(
 
 
 # ── 명세 다듬기 (버리기 전에) ─────────────────────────────────
-_LABEL_KEYS = frozenset({"label", "name", "title"})
+_LABEL_KEYS = frozenset({"label", "name", "title", "tag"})
+# v2 [4] 상자 글자 — 1~2줄(MAX_BOX). 새 명세만 줄인다(저장된 명세는 그대로 읽힌다)
+_BOX_KEYS = frozenset({"text", "solution", "target", "desc"})
+_BOX_LISTS = frozenset({"lines", "outputs"})
 _LIST_LIMITS = {
     "lines": 2,
     "outputs": 3,
@@ -329,6 +402,8 @@ _LIST_LIMITS = {
     "series": 4,
     "aspects": 5,
     "projects": 3,
+    "as_is": 4,
+    "to_be": 4,
 }
 
 
@@ -354,13 +429,16 @@ def normalize_spec_data(data: Any) -> Any:
         out: dict[str, Any] = {}
         for key, value in data.items():
             if isinstance(value, str):
-                out[key] = clip_text(value, MAX_LABEL if key in _LABEL_KEYS else MAX_LINE)
+                limit = (
+                    MAX_LABEL if key in _LABEL_KEYS else MAX_BOX if key in _BOX_KEYS else MAX_LINE
+                )
+                out[key] = clip_text(value, limit)
             elif isinstance(value, list):
                 items = [normalize_spec_data(v) for v in value]
                 if key in _LIST_LIMITS:
                     items = items[: _LIST_LIMITS[key]]
                 out[key] = [
-                    clip_text(v, MAX_LINE) if isinstance(v, str) and key == "lines" else v
+                    clip_text(v, MAX_BOX) if isinstance(v, str) and key in _BOX_LISTS else v
                     for v in items
                 ]
             else:
@@ -410,6 +488,21 @@ def repair_spec(spec: BaseModel, pool: TextPool) -> BaseModel:
             s.model_copy(update={"outputs": [x for x in s.outputs if ok(x)]}) for s in spec.stages
         ]
         return spec.model_copy(update={"stages": stages})
+    if isinstance(spec, AsIsToBeSpec):
+
+        def side(items, tags):
+            fixed = [
+                it.model_copy(
+                    update={"tag": it.tag if it.tag in tags else tags[min(i, len(tags) - 1)]}
+                )
+                for i, it in enumerate(items)
+            ]
+            kept = [it for it in fixed if ok(it.text)]
+            return kept if len(kept) >= 3 else fixed  # 3칸 미만이면 그대로 — 검사가 거절한다
+
+        return spec.model_copy(
+            update={"as_is": side(spec.as_is, AS_IS_TAGS), "to_be": side(spec.to_be, TO_BE_TAGS)}
+        )
     if isinstance(spec, ComparisonSpec):
 
         def cells(p):
@@ -466,40 +559,137 @@ def choose_default(
     has_facts: bool = False,
     has_overlap: bool = False,
     kinds: Sequence[str] = FIGURE_KINDS,
+    auto_kinds: Sequence[str] = AUTO_KINDS,
 ) -> list[tuple[str, str]]:
-    """(종류, 섹션) 목록 — 섹션에 문장이 있을 때만. 우선순위: 개념도 → 체계도 → 수치 그래프(facts
-    있을 때) → 일정표(연구기간 있을 때) → 로드맵 → 비교(유사과제 있을 때)."""
+    """(종류, 섹션) 목록 — v2 기본(auto_kinds): As-Is/To-Be(연구목적, 비면 기술적 중요도) →
+    수치 그래프(검증 수치가 있을 때) → 일정표(연구기간이 있을 때). 개념도·체계도·로드맵·비교는
+    자동으로 넣지 않는다 — 글자가 작고 본문을 되풀이했다(10-28 시범). figures.yaml auto_kinds 로
+    다시 켤 수 있다(우선순위는 아래 order). 분석 기법(0~2)은 `technique_slots` 로 따로 채운다."""
     present = {s.key for s in sections if s.sentences}
     period = research_period_months(request.constraints) if request else None
-    order: list[tuple[str, bool]] = [
-        ("concept", "objective" in present),
-        ("process", "method" in present),
-        ("stat_chart", has_facts and "tech_importance" in present),
-        ("schedule", period is not None and "method" in present),
-        ("roadmap", any(k in present for k in ("expected_technology", "expected_management"))),
-        ("comparison", has_overlap and "tech_importance" in present),
+    as_is_section = next((k for k in ("objective", "tech_importance") if k in present), None)
+    expected = any(k in present for k in ("expected_technology", "expected_management"))
+    order: list[tuple[str, str | None]] = [
+        ("as_is_to_be", as_is_section),
+        ("concept", "objective" if "objective" in present else None),
+        ("process", "method" if "method" in present else None),
+        ("stat_chart", "tech_importance" if has_facts and "tech_importance" in present else None),
+        ("schedule", "method" if period is not None and "method" in present else None),
+        ("roadmap", "expected_technology" if expected else None),
+        ("comparison", "tech_importance" if has_overlap and "tech_importance" in present else None),
     ]
-    out = [(k, KIND_SECTION[k]) for k, ok in order if ok and k in kinds]
-    return out[: max(0, int(max_default))]
+    auto = set(auto_kinds)
+    out = [(k, sec) for k, sec in order if sec and k in kinds and k in auto]
+    return out[: max(0, min(int(max_default), MAX_FIGURES))]
+
+
+def technique_slots(planned: int, *, max_total: int = MAX_FIGURES) -> int:
+    """기본 그림 planned 장 뒤에 남는 분석 기법 자리 (0~2)."""
+    return max(0, min(MAX_TECHNIQUES, int(max_total) - int(planned)))
 
 
 # ── 프롬프트 ─────────────────────────────────────────────
-def image_prompt(spec: BaseModel, *, caption: str = "", style: str = "") -> str:
-    """Nano Banana Pro 프롬프트 — 배치·순서 유지, 글자 목록 그대로, 금지 목록. 명세 글자만
-    보낸다. style 은 [말로 고치기]의 모양 요청(색·굵기·여백) — 밑그림에서 새로 그릴 때 덧붙인다
-    (현재 그림을 다시 그리는 편집 호출은 글자가 변형돼 쓰지 않는다, 2026-10-28 [2])."""
-    label = KIND_LABEL.get(getattr(spec, "kind", ""), "그림")
-    layout = _layout_hint(spec)
+# 종류별 색 — 흑백 인쇄 구분은 명도·무늬·테두리로 함께 (프롬프트 [디자인])
+_PALETTE_HINT: dict[str, str] = {
+    "as_is_to_be": (
+        "왼쪽 As-Is(현재)는 회색·주황 계열(문제 강조는 주황), 오른쪽 To-Be(연구 후)는 "
+        "파랑·초록 계열"
+        "(목표·효과 강조는 초록), 가운데 화살표는 진한 파랑"
+    ),
+    "technique": (
+        "묶음(칸)마다 서로 다른 차분한 색 띠(남색·청록·주황·자주 등 4색 안쪽), "
+        "등급(상·중·하·+·0·−)은 "
+        "같은 색의 진하기와 기호 모양으로 구분"
+    ),
+    "stat_chart": "남색·청록 계열, 가장 최근 값만 진하게",
+    "schedule": "남색·청록 계열, 단계마다 명도를 달리한 막대",
+}
+_DEFAULT_PALETTE = "남색·청록 계열 기본, 핵심 한 곳만 주황 강조"
+# Nano Banana imageConfig.aspectRatio 가 받는 값 중 이 앱이 쓰는 것
+ASPECTS: tuple[str, ...] = ("21:9", "16:9", "3:2", "4:3", "1:1")
+
+
+def choose_aspect(spec: BaseModel) -> str:
+    """내용 양으로 비율을 고른다 — 빈 공간이 크게 남지 않게 (v2 [4]). 밑그림·그림 생성이 같은 값."""
+    if isinstance(spec, AsIsToBeSpec):
+        return "3:2" if max(len(spec.as_is), len(spec.to_be)) >= 4 else "16:9"
+    if isinstance(spec, TechniqueSpec):
+        if spec.rows:
+            return "4:3" if len(spec.rows) >= 5 else "16:9"
+        n = len(spec.groups)
+        most = max((len(g.items) for g in spec.groups), default=1)
+        if n == 4:
+            return "4:3"
+        if n >= 5:
+            return "3:2"
+        if most >= 4:
+            return "4:3"
+        return "21:9" if most <= 2 else "16:9"  # 묶음 2~3개에 항목이 적으면 낮고 넓게
+    if isinstance(spec, ConceptSpec):
+        return "21:9" if sum(len(b.lines) for b in spec.boxes) <= 4 else "16:9"
+    if isinstance(spec, ProcessSpec):
+        return "16:9" if any(len(s.outputs) >= 2 for s in spec.stages) else "21:9"
+    if isinstance(spec, ScheduleSpec):
+        n = len(spec.stages)
+        return "21:9" if n <= 4 else ("16:9" if n <= 6 else "3:2")
+    if isinstance(spec, StatChartSpec):
+        return "21:9" if len(spec.categories) > 6 else "16:9"
+    if isinstance(spec, ComparisonSpec):
+        return "4:3" if len(spec.aspects) >= 4 or len(spec.projects) >= 3 else "16:9"
+    return "16:9"
+
+
+def image_prompt(
+    spec: BaseModel, *, caption: str = "", style: str = "", aspect: str | None = None
+) -> str:
+    """Nano Banana Pro 프롬프트 — v2 [4]: 밑그림은 내용 구조만 알려 주고, 색 강조·아이콘·제목 계층·
+    여백을 갖춘 인포그래픽으로 **새로 디자인**하게 한다(예전 "배치 그대로 유지" 는 회색 밑그림을
+    베낀
+    그림을 만들었다). 글자는 목록 그대로·더하지 않기는 그대로. 데이터 그림(그래프·일정표)은 값·기간
+    비율만 지키게 한다. style 은 [말로 고치기]의 모양 요청 — 밑그림에서 새로 그릴 때 덧붙인다."""
+    kind = str(getattr(spec, "kind", ""))
+    label = spec.title if isinstance(spec, TechniqueSpec) else KIND_LABEL.get(kind, "그림")
+    ratio = aspect or choose_aspect(spec)
+    data_fixed = isinstance(spec, (StatChartSpec, ScheduleSpec))
+    titled = isinstance(spec, (TechniqueSpec, StatChartSpec))  # 제목 글자가 목록에 있는 종류
     lines = [
-        f"공공기관 연구과제 제안서에 넣을 깔끔한 인포그래픽({label})을 그려라.",
-        "흰 배경, 보고서용 단정한 도형, 흑백 인쇄에서도 구분되는 색(명도 차와 선 모양).",
-        "참고 이미지의 배치·순서·화살표 방향·막대 길이와 기간 비율을 그대로 유지하라.",
-        "아래 글자 목록의 글자를 한 글자도 바꾸지 말고 그대로 써라. "
-        "목록에 없는 글자·숫자·로고·사람 얼굴·실제 기관 상표는 넣지 마라.",
-        layout,
+        f"공공기관 연구과제 제안서에 넣을 전문 인포그래픽({label})을 새로 디자인하라. "
+        f"가로세로 비율 {ratio}.",
+        "참고 이미지는 무엇이 어느 묶음에 속하는지, 순서와 화살표 방향만 알려 주는 밑그림이다. "
+        "회색 상자 배치를 그대로 베끼지 말고 아래 디자인 규칙으로 완성도 있게 다시 그려라.",
+        _layout_hint(spec),
+        "[디자인]",
+        (
+            "- 제목 계층: 그림 제목(목록 첫 글자, 가장 크고 굵게) → 묶음 머리글(색 띠) → "
+            "항목(본문 글씨)."
+            if titled
+            else "- 제목 계층: 묶음 머리글(색 띠, 가장 굵게) → 항목(본문 글씨). 그림 맨 위에 제목 "
+            "글자를 새로 쓰지 않는다(제목은 양식 캡션이 붙인다)."
+        ),
+        f"- 색: {_PALETTE_HINT.get(kind, _DEFAULT_PALETTE)}. 가장 중요한 한 곳만 가장 "
+        f"진한 색으로 강조.",
+        "- 묶음마다 단순한 선 아이콘 하나(톱니바퀴·그래프·방패·시계·돋보기·전구·체크 표시 "
+        "같은 일반 "
+        "기호). 아이콘 안에 글자·숫자를 넣지 않는다.",
+        "- 흑백 인쇄에서도 구분되게: 색만으로 나누지 말고 명도 차·무늬(점·빗금)·테두리 "
+        "모양(실선·점선·"
+        "굵기)·도형 모양을 함께 쓴다.",
+        "- 여백은 고르게, 큰 빈 공간 없이 그림 전체를 채운다. 상자 크기는 글자 양에 맞춘다.",
+        "- 글씨는 크게: 제안서 본문 폭(약 15cm)으로 줄여 넣어도 읽히게, 상자 하나에 1~2줄.",
+        "- 흰 배경. 그림 번호·캡션 문구는 그림 안에 넣지 않는다.",
+        (
+            "- 데이터: 막대 길이·기간 비율·값 순서는 참고 이미지와 같게 지킨다."
+            if data_fixed
+            else ""
+        ),
+        "[글자 — 가장 중요]",
+        "- 아래 글자 목록의 글자만, 한 글자도 바꾸지 말고 빼거나 더하지도 말고 그대로 쓴다. "
+        "맞춤법을 고치지 않는다.",
+        "- 목록에 없는 글자·숫자·영문, 로고·사람 얼굴·사진·실제 기관 상표는 넣지 않는다.",
+        "- 한 항목의 글자는 한 상자 안에 둔다(줄바꿈은 띄어쓰기 자리에서만).",
         (
             f"모양 요청(제안자): {' '.join(style.split())} — 색·선 굵기·여백 같은 모양만 바꾸고, "
-            "글자·배치·순서·화살표 방향은 참고 이미지와 글자 목록 그대로 둔다."
+            "글자·묶음·순서·화살표 방향은 글자 목록과 밑그림 그대로 둔다."
         )
         if style.strip()
         else "",
@@ -512,41 +702,61 @@ def image_prompt(spec: BaseModel, *, caption: str = "", style: str = "") -> str:
 
 
 def _layout_hint(spec: BaseModel) -> str:
-    if isinstance(spec, ConceptSpec):
+    if isinstance(spec, AsIsToBeSpec):
         return (
-            "배치: 상자 4개를 왼쪽에서 오른쪽으로 화살표로 잇는다 "
-            "(현황 → 문제 → 해결 방안 → 기대효과)."
+            f"구조: 왼쪽 '{AS_IS_HEAD}' 칸 {len(spec.as_is)}개(현황·원인·한계), 오른쪽 "
+            f"'{TO_BE_HEAD}' 칸 {len(spec.to_be)}개(목표·해결 방안·기대효과), 가운데 "
+            f"큰 화살표 위에 "
+            f"핵심 해결 방안 한 줄 '{spec.solution}'. 칸마다 작은 이름표(현황·원인…)를 붙인다."
         )
+    if isinstance(spec, TechniqueSpec):
+        if spec.rows:
+            return (
+                f"구조: 평가 표. 열 {len(spec.columns)}개({', '.join(spec.columns)}), 기준(행) "
+                f"{len(spec.rows)}개. 칸의 기호(+·0·− 또는 상·중·하)는 기호 모양과 색 진하기로 "
+                f"구분한다. 표 아래에 '{spec.note}' 를 작게."
+            )
+        names = ", ".join(g.name for g in spec.groups)
+        grid = "2×2 사분면" if len(spec.groups) == 4 else f"{len(spec.groups)}개 묶음"
+        return (
+            f"구조: {grid}({names}). 묶음마다 항목 1~4개, 항목 옆 강도·금액(상·중·하, "
+            f"산출 필요 등)은 "
+            f"작은 배지로. 아래에 '{spec.note}' 를 작게."
+        )
+    if isinstance(spec, ConceptSpec):
+        return "구조: 4단계 흐름(현황 → 문제 → 해결 방안 → 기대효과), 단계 사이 화살표."
     if isinstance(spec, ProcessSpec):
         return (
-            f"배치: 단계 상자 {len(spec.stages)}개를 왼쪽에서 오른쪽으로 화살표로 잇고, "
-            "상자 아래에 산출물을 적는다."
+            f"구조: 단계 {len(spec.stages)}개를 왼쪽에서 오른쪽으로 화살표로 잇고, 단계마다 "
+            "산출물을 붙인다."
         )
     if isinstance(spec, ScheduleSpec):
         return (
-            f"배치: 간트 차트. 가로축 1~{spec.total_months}개월, 단계마다 가로 막대 하나. "
+            f"구조: 간트 차트. 가로축 1~{spec.total_months}개월, 단계마다 가로 막대 하나. "
             "막대 길이 비율을 지켜라."
         )
     if isinstance(spec, StatChartSpec):
         kind = "막대 그래프" if spec.chart == "bar" else "꺾은선 그래프"
         return (
-            f"배치: {kind}. 가로축 {len(spec.categories)}개 구분, 값 글자를 막대 위에 표시. "
+            f"구조: {kind}. 가로축 {len(spec.categories)}개 구분, 값 글자를 막대 위에 표시. "
             "값 비율을 지켜라."
         )
     if isinstance(spec, ComparisonSpec):
         return (
-            f"배치: 표. 행은 비교 항목 {len(spec.aspects)}개, 열은 기존 과제 "
+            f"구조: 표. 행은 비교 항목 {len(spec.aspects)}개, 열은 기존 과제 "
             f"{len(spec.projects)}개와 제안 과제(마지막 열 강조)."
         )
     if isinstance(spec, RoadmapSpec):
-        return "배치: 위쪽에 성과지표 상자들, 아래쪽에 활용 단계를 왼쪽에서 오른쪽 화살표로."
+        return "구조: 위쪽에 성과지표 상자들, 아래쪽에 활용 단계를 왼쪽에서 오른쪽 화살표로."
     return ""
 
 
 # ── 버전 비교·편집 ─────────────────────────────────────────
 def figure_diff(old: Sequence[Figure], new: Sequence[Figure]) -> list[dict[str, Any]]:
     """[{figure_id, kind, section, change}] — added | removed | redrawn | texts | included |
-    excluded | confirmed | baseline."""
+    excluded | confirmed | baseline | swapped(다른 기법) | accepted(넣기 확정) | dismissed(필요
+    없음) |
+    restored(다시 넣음). 추천 결정이 바뀐 그림은 넣음·뺌을 따로 세지 않는다 (변경 1건)."""
     before = {f.id: f for f in old}
     after = {f.id: f for f in new}
     out: list[dict[str, Any]] = []
@@ -555,11 +765,16 @@ def figure_diff(old: Sequence[Figure], new: Sequence[Figure]) -> list[dict[str, 
         if o is None:
             out.append(_row(f, "added"))
             continue
-        if o.spec.model_dump() != f.spec.model_dump():
+        if getattr(o.spec, "technique", None) != getattr(f.spec, "technique", None):
+            out.append(_row(f, "swapped"))
+        elif o.spec.model_dump() != f.spec.model_dump():
             out.append(_row(f, "texts"))
         elif o.image_sha != f.image_sha:
             out.append(_row(f, "baseline" if f.renderer == "baseline" else "redrawn"))
-        if o.included != f.included:
+        decision = _decision_change(o, f)
+        if decision:
+            out.append(_row(f, decision))
+        elif o.included != f.included:
             out.append(_row(f, "included" if f.included else "excluded"))
         if o.confirmed != f.confirmed and f.confirmed:
             out.append(_row(f, "confirmed"))
@@ -567,6 +782,19 @@ def figure_diff(old: Sequence[Figure], new: Sequence[Figure]) -> list[dict[str, 
         if fid not in after:
             out.append(_row(o, "removed"))
     return out
+
+
+def _decision_change(old: Figure, new: Figure) -> str | None:
+    """[11] 추천 결정 변화 — pending → accepted | dismissed, dismissed → accepted(다시 넣음)."""
+    a = old.recommendation.status if old.recommendation else None
+    b = new.recommendation.status if new.recommendation else None
+    if a == b or b is None:
+        return None
+    if b == "dismissed":
+        return "dismissed"
+    if b == "accepted":
+        return "restored" if a == "dismissed" else "accepted"
+    return None
 
 
 def _row(f: Figure, change: str) -> dict[str, Any]:
@@ -627,6 +855,26 @@ def editable_texts(spec: BaseModel) -> list[dict[str, str]]:
         rows.append({"path": "proposal.title", "label": "제안 과제", "value": spec.proposal.title})
         for a, v in spec.proposal.cells.items():
             rows.append({"path": f"proposal.cells.{a}", "label": f"제안 과제 · {a}", "value": v})
+    elif isinstance(spec, AsIsToBeSpec):
+        for side, title in (("as_is", "현재"), ("to_be", "연구 후")):
+            for i, it in enumerate(getattr(spec, side)):
+                rows.append(
+                    {"path": f"{side}.{i}.text", "label": f"{title} {it.tag}", "value": it.text}
+                )
+            if side == "as_is":
+                rows.append({"path": "solution", "label": "핵심 해결 방안", "value": spec.solution})
+    elif isinstance(spec, TechniqueSpec):
+        for gi, g in enumerate(spec.groups):
+            for ii, it in enumerate(g.items):
+                rows.append(
+                    {
+                        "path": f"groups.{gi}.items.{ii}.text",
+                        "label": f"{g.name} {ii + 1}",
+                        "value": it.text,
+                    }
+                )
+        for ri, r in enumerate(spec.rows):
+            rows.append({"path": f"rows.{ri}.name", "label": f"기준 {ri + 1}", "value": r.name})
     elif isinstance(spec, RoadmapSpec):
         for i, m in enumerate(spec.metrics):
             rows.append({"path": f"metrics.{i}.name", "label": f"지표 {i + 1}", "value": m.name})
@@ -716,13 +964,20 @@ def _set_path(node: Any, parts: list[str], value: str) -> None:
     _set_path(node[key], rest, value)
 
 
-def next_figure_id(section: str, existing: Iterable[str]) -> str:
+def next_figure_id(section: str, existing: Iterable[str], *, prefix: str = "") -> str:
+    """ "f:<섹션>:<n>" — 분석 기법 추천은 prefix "t" ("f:method:t1") 라 기본 그림과 동시에 만들어도
+    id 가 겹치지 않는다."""
     taken = set(existing)
     n = 1
-    while f"f:{section}:{n}" in taken:
+    while f"f:{section}:{prefix}{n}" in taken:
         n += 1
-    return f"f:{section}:{n}"
+    return f"f:{section}:{prefix}{n}"
 
 
 def unconfirmed(figures: Iterable[Figure]) -> list[Figure]:
     return [f for f in figures if f.included and not f.confirmed]
+
+
+def undecided(figures: Iterable[Figure]) -> list[Figure]:
+    """[11] 추천 그림 중 [넣기 확정]·[필요 없음] 을 고르지 않은 것 (그대로 마무리하면 들어간다)."""
+    return [f for f in figures if f.undecided]

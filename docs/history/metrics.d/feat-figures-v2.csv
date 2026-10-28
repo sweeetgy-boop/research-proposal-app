@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,TBD,[G] 그림 v2 (As-Is/To-Be·분석 기법 추천),2058,,8,,,,,,,,,,,,,,,기존/v2 프롬프트 6종 나란히 13/13 성공·장당 27~35초·Argon 기법 추천 1회 64초(텍스트 3·그림 2)·이미지 15 (docs/eval-2026-10-28-figures-v2.md)

@@ -111,7 +111,8 @@ def make_manager(repo, *, spec_answers=None, images=None, review=None, renderer=
         FakePromptLibrary(),
         FakeFigureRenderer(),
         images=images if images is not None else FakeImageGenerator(),
-        config=FigureConfig(max_default=3),
+        # 예전 기본 세트로 카드 동작을 시험한다 (v2 기본 세트는 test_run_manager_figures_v2.py)
+        config=FigureConfig(max_default=3, auto_kinds=("concept", "process", "roadmap")),
         titles=rules.titles,
         clock=lambda: "2026-10-28T10:00:00+00:00",
     )

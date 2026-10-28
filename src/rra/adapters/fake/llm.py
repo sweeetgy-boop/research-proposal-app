@@ -12,6 +12,8 @@ _STRUCTURE_HEAD = "[자유 입력"  # U2 간편 입력 프롬프트 머리
 _BRIEF_HEAD = "[선행연구"  # U5 브리핑 프롬프트 구획 머리
 _FIGURE_HEAD = re.compile(r"^\[그림 명세: ([a-z_]+)\]")  # [G] 그림 명세 프롬프트 머리
 _FIGURE_EDIT_HEAD = "[그림 수정:"  # [G][2] 말로 고치기 — 명세 변경 프롬프트 머리
+_PICK_HEAD = "[분석 기법 추천]"  # [11] 기법 고르기
+_TECH_HEAD = re.compile(r"^\[분석 기법: ([a-z_]+)\]")  # [11] 기법 분석
 _EDIT_REQUEST = re.compile(r"<request>(.*?)</request>", re.S)
 _FREE_TEXT = re.compile(r'"text": "([^"]*)"')
 
@@ -73,6 +75,20 @@ def _figure_answer(kind: str) -> str:
             "metrics": [{"name": "열화 예측 기술 확보", "target": "목표치 확인 필요"}],
             "stages": [{"name": "시설처 유지보수 계획 반영"}, {"name": "현장 적용"}],
         },
+        # v2 [3] — 글자는 가짜 초안 문장 구절 (30자 안)
+        "as_is_to_be": {
+            "as_is": [
+                {"tag": "현황", "text": "궤도 틀림 진행 속도"},
+                {"tag": "원인", "text": "다짐 효과 지속 기간"},
+                {"tag": "한계", "text": "선행연구는 틀림 진행 속도를 다루지 않음"},
+            ],
+            "to_be": [
+                {"tag": "목표", "text": "보수 우선순위를 산정함"},
+                {"tag": "해결 방안", "text": "검측 이력을 분석해 구간별 진행 속도를 추정함"},
+                {"tag": "기대효과", "text": "유지보수 비용을 절감함"},
+            ],
+            "solution": "이력 기반 열화 예측",
+        },
         "comparison": {
             "aspects": ["연구목표", "연구방법"],
             "projects": [{"title": "궤도 상태 자동 감지 연구", "cells": {"연구목표": "정보 없음"}}],
@@ -85,6 +101,80 @@ def _figure_answer(kind: str) -> str:
     if kind not in specs:
         return json.dumps({"skip": "no_facts" if kind == "stat_chart" else "no_period"})
     return json.dumps(specs[kind], ensure_ascii=False)
+
+
+# [11] 가짜 기법 추천 — SWOT(2-가-(2))·비용-편익(3-가) 두 개. 항목은 가짜 초안 문장과 그 id
+_FAKE_PICKS = {
+    "picks": [
+        {"technique": "swot", "reason": "공사 검측 자료(강점)와 선행연구 공백(기회)이 함께 있음"},
+        {"technique": "cost_benefit", "reason": "기대효과에 유지보수 비용 절감이 있음"},
+    ],
+    "none_reason": "",
+}
+_FAKE_TECHNIQUES = {
+    "swot": {
+        "groups": [
+            {
+                "name": "강점",
+                "items": [{"text": "검측 이력 분석", "rating": "상", "source": "s:method:0"}],
+            },
+            {
+                "name": "약점",
+                "items": [{"text": "다짐 효과 지속 기간", "rating": "중", "source": "s:method:1"}],
+            },
+            {
+                "name": "기회",
+                "items": [
+                    {
+                        "text": "선행연구는 틀림 진행 속도를 다루지 않음",
+                        "rating": "상",
+                        "source": "s:tech_importance:0",
+                    }
+                ],
+            },
+            {
+                "name": "위협",
+                "items": [
+                    {"text": "보수 횟수", "rating": "하", "source": "s:expected_management:0"}
+                ],
+            },
+        ]
+    },
+    "cost_benefit": {
+        "groups": [
+            {
+                "name": "비용",
+                "items": [
+                    {"text": "검측 이력 분석", "amount": "산출 필요", "source": "s:method:0"}
+                ],
+            },
+            {
+                "name": "편익",
+                "items": [
+                    {
+                        "text": "유지보수 비용을 절감함",
+                        "amount": "산출 필요",
+                        "source": "s:expected_management:0",
+                    }
+                ],
+            },
+        ]
+    },
+    "pugh": {
+        "columns": ["현행 방식", "제안 방식"],
+        "rows": [
+            {"name": "구간별 진행 속도", "cells": ["0", "+"], "source": "s:method:0"},
+            {"name": "다짐 효과 지속 기간", "cells": ["0", "+"], "source": "s:method:1"},
+        ],
+    },
+}
+
+
+def _technique_answer(key: str) -> str:
+    """[11] 가짜 기법 분석 — 목록에 없는 기법은 skip(해당 없음)."""
+    if key not in _FAKE_TECHNIQUES:
+        return json.dumps({"skip": "가짜 모드에 없는 기법"}, ensure_ascii=False)
+    return json.dumps(_FAKE_TECHNIQUES[key], ensure_ascii=False)
 
 
 class ScriptedComposeLLM:
@@ -113,6 +203,11 @@ class ScriptedComposeLLM:
         fm = _FIGURE_HEAD.match(prompt)
         if fm:
             return _figure_answer(fm.group(1))
+        if prompt.startswith(_PICK_HEAD):
+            return json.dumps(_FAKE_PICKS, ensure_ascii=False)
+        tm = _TECH_HEAD.match(prompt)
+        if tm:
+            return _technique_answer(tm.group(1))
         m = _SECTION.search(prompt)
         key = m.group(1) if m else "method"
         ids = _EVIDENCE.findall(prompt)

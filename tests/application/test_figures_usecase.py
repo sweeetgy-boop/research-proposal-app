@@ -53,6 +53,19 @@ PROCESS = {
     ]
 }
 BAD = {"boxes": [{"label": "현황", "lines": ["인공지능 로봇 도입"]}] * 4}
+AS_IS = {
+    "as_is": [
+        {"tag": "현황", "text": "궤도 틀림이 반복 발생함"},
+        {"tag": "원인", "text": "다짐 효과가 오래 가지 않음"},
+        {"tag": "한계", "text": "주기적 보수로는 진행 속도를 반영하지 못함"},
+    ],
+    "to_be": [
+        {"tag": "목표", "text": "검측 이력 기반 보수 우선순위 산정"},
+        {"tag": "해결 방안", "text": "검측 이력을 분석해 구간별 진행 속도를 추정함"},
+        {"tag": "기대효과", "text": "이력 기반 열화 예측 기술을 확보함"},
+    ],
+    "solution": "궤도 틀림 진행 속도 추정",
+}
 
 
 def make(llm, images=None, fallback=None, **cfg):
@@ -125,7 +138,8 @@ async def test_draw_uses_nano_banana_once_and_falls_back_to_baseline_on_failure(
         and build.adopted_mime == "image/jpeg"
     )
     assert build.figure.image_sha != build.figure.baseline_sha and build.figure.confirmed is False
-    assert images.calls[0]["aspect"] == "16:9" and "- 현황" in images.calls[0]["prompt"]
+    # v2 [4] 비율은 내용 양으로 — 줄 4개뿐인 개념도는 21:9, 밑그림도 같은 비율
+    assert images.calls[0]["aspect"] == "21:9" and "- 현황" in images.calls[0]["prompt"]
     assert build.figure.alt.startswith("연구 개념도:")
     failed = await make(FakeLLM(), FakeImageGenerator(fail=True)).draw(fig)
     assert failed.figure.renderer == "baseline" and failed.figure.error == "ConnectionError"
@@ -359,8 +373,9 @@ async def test_build_all_plans_and_numbers_figures_and_shrinks_large_images():
     images = FakeImageGenerator()
     uc = make(llm, images, max_bytes=4)
     uc.shrink = lambda data, mime: (data[:4], "image/jpeg")
-    plan = uc.plan(SECTIONS, REQ, SNAP)
-    assert plan == [("concept", "objective"), ("process", "method"), ("schedule", "method")]
+    # v2 기본 계획은 As-Is/To-Be + 일정표 — 개념도·체계도는 [다른 그림 추가]로만 (직접 계획)
+    assert uc.plan(SECTIONS, REQ, SNAP) == [("as_is_to_be", "objective"), ("schedule", "method")]
+    plan = [("concept", "objective"), ("process", "method"), ("schedule", "method")]
     builds, skipped = await uc.build_all(plan, SECTIONS, REQ, SNAP)
     assert [b.figure.id for b in builds] == ["f:method:1", "f:objective:1"]
     assert {b.figure.kind for b in builds} == {"concept", "process"}
@@ -404,22 +419,12 @@ async def test_public_account_drops_internal_only_texts():
     assert "X-9" not in uc.llm.calls[0]  # internal 청크는 프롬프트에도 넣지 않는다
 
 
-async def test_build_default_fills_up_with_next_kind_when_one_is_rejected():
-    roadmap = {
-        "metrics": [{"name": "열화 예측 기술 확보", "target": "목표치 확인 필요"}],
-        "stages": [{"name": "검측 이력 분석"}, {"name": "보수 우선순위 산정"}],
-    }
-    # 계획 concept·process·schedule — schedule 이 두 번 다 형식 오류 → roadmap 으로 채운다
-    llm = FakeLLM(
-        [
-            json.dumps(CONCEPT, ensure_ascii=False),
-            json.dumps(PROCESS, ensure_ascii=False),
-            "{}",
-            "{}",
-            json.dumps(roadmap, ensure_ascii=False),
-        ]
-    )
+async def test_build_default_v2_never_fills_with_concept_process_or_roadmap():
+    # 계획 as_is_to_be·schedule — schedule 이 두 번 다 형식 오류여도 개념도·로드맵으로 채우지 않는다
+    llm = FakeLLM([json.dumps(AS_IS, ensure_ascii=False), "{}", "{}", "{}"])
     uc = make(llm, FakeImageGenerator())
     builds, skipped = await uc.build_default(SECTIONS, REQ, SNAP)
-    assert sorted(b.figure.kind for b in builds) == ["concept", "process", "roadmap"]
+    assert [b.figure.kind for b in builds] == ["as_is_to_be"]
+    assert builds[0].figure.section == "objective"
     assert skipped == [{"kind": "schedule", "section": "method", "reason": "schema"}]
+    assert len(llm.calls) == 3  # As-Is/To-Be 1 + 일정표 1 + 교정 1

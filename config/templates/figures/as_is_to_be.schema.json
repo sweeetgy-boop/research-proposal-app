@@ -1,0 +1,66 @@
+{
+  "$defs": {
+    "SideItem": {
+      "properties": {
+        "tag": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Tag",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 30,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag",
+        "text"
+      ],
+      "title": "SideItem",
+      "type": "object"
+    }
+  },
+  "description": "현재(As-Is: 현황·원인·한계) → 연구 후(To-Be: 목표·해결 방안·기대효과), 쪽마다 3~4칸,\n가운데 화살표에 연구의 핵심 해결 방안 한 줄. 글자는 입력·초안에서만.",
+  "properties": {
+    "kind": {
+      "const": "as_is_to_be",
+      "default": "as_is_to_be",
+      "title": "Kind",
+      "type": "string"
+    },
+    "as_is": {
+      "items": {
+        "$ref": "#/$defs/SideItem"
+      },
+      "maxItems": 4,
+      "minItems": 3,
+      "title": "As Is",
+      "type": "array"
+    },
+    "to_be": {
+      "items": {
+        "$ref": "#/$defs/SideItem"
+      },
+      "maxItems": 4,
+      "minItems": 3,
+      "title": "To Be",
+      "type": "array"
+    },
+    "solution": {
+      "maxLength": 30,
+      "minLength": 1,
+      "title": "Solution",
+      "type": "string"
+    }
+  },
+  "required": [
+    "as_is",
+    "to_be",
+    "solution"
+  ],
+  "title": "AsIsToBeSpec",
+  "type": "object"
+}

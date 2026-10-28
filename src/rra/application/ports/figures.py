@@ -55,6 +55,8 @@ class ImageGeneratorPort(Protocol):
 
 @runtime_checkable
 class FigureRendererPort(Protocol):
-    def svg(self, spec: Any, *, caption: str = "") -> str: ...
+    def svg(self, spec: Any, *, caption: str = "", aspect: str | None = None) -> str:
+        """aspect 가 없으면 종류별 설정 비율 (v2: 유스케이스가 내용 양으로 고른 비율을 준다)."""
+        ...
 
     def png(self, svg: str) -> bytes: ...

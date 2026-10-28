@@ -64,6 +64,7 @@ from rra.entrypoints.api.schemas import (
     FeedbackIn,
     FigureActionIn,
     FigureAddIn,
+    FigureTechniquesIn,
     FinalizeIn,
     RecommendationApplyIn,
     RevertIn,
@@ -93,6 +94,7 @@ from rra.entrypoints.views import (
     policy_suggestions_payload,
     recommendation_preview_payload,
     recommendations_payload,
+    register_techniques,
     related_research_payload,
     render_check_payload,
     review_payload,
@@ -100,6 +102,7 @@ from rra.entrypoints.views import (
     run_state_payload,
     structure_payload,
     submit_check_payload,
+    technique_outcome_payload,
     usage_payload,
     version_payload,
     versions_payload,
@@ -305,6 +308,8 @@ def create_app(
             if hasattr(result, "__await__"):
                 await result
 
+    if hasattr(manager, "technique_catalog"):
+        register_techniques(manager.technique_catalog())  # [11] 기법 이름·종류 (화면 표시)
     app = FastAPI(
         title="rra",
         version=API_VERSION,
@@ -1250,7 +1255,38 @@ def create_app(
             "run_id": rid,
             "version": view.version,
             "figures": figures_payload(view.figures, rid, clean=_clean),
+            # [11] 마지막 분석 기법 추천 결과(빈 결과도 사유)·기법 목록(다른 기법으로 바꾸기)
+            "techniques": technique_outcome_payload(
+                await manager.figure_techniques(*await _own(request, rid)), clean=_clean
+            ),
+            "technique_catalog": manager.technique_catalog(),
         }
+
+    @app.post(f"/{API_VERSION}/runs/{{run_id}}/figures/techniques")
+    async def figure_techniques_route(
+        request: Request, run_id: str, body: FigureTechniquesIn
+    ) -> dict[str, Any]:
+        """[11] 분석 기법 [다시 추천] — 새 그림이 있으면 새 버전(created), 없으면 결과만
+        (해당 없음·호출 실패·규칙에 걸러짐). 기준 버전 불일치·자리 없음 409."""
+        rid = _run_id(run_id)
+        try:
+            version, outcome = await manager.retry_techniques(
+                *await _own(request, rid), base_version=body.base_version
+            )
+            state = await manager.status(*await _own(request, rid))
+        except RunNotFound as exc:
+            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+        except EditRejected as exc:
+            raise HTTPException(409, str(exc)) from exc
+        out: dict[str, Any] = {
+            "run_id": rid,
+            "status": state.status,
+            "created": version is not None,
+            "techniques": technique_outcome_payload(outcome.model_dump(), clean=_clean),
+        }
+        if version is not None:
+            out.update(version_payload(version, clean=_clean, run_id=rid))
+        return out
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/figures/{{figure_id}}/image")
     async def figure_image_route(
@@ -1290,7 +1326,11 @@ def create_app(
         rid = _run_id(run_id)
         try:
             version = await manager.add_figure(
-                *await _own(request, rid), body.kind, body.section, base_version=body.base_version
+                *await _own(request, rid),
+                body.kind,
+                body.section,
+                base_version=body.base_version,
+                technique=body.technique,
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
@@ -1318,6 +1358,7 @@ def create_app(
                 request_text=body.request,
                 texts=body.texts,
                 base_version=body.base_version,
+                technique=body.technique,
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:

@@ -1,0 +1,168 @@
+{
+  "$defs": {
+    "MatrixRow": {
+      "description": "비교·평가 표 한 줄 — 평가 기준(또는 FMEA 고장 유형)과 열마다 평가 기호.",
+      "properties": {
+        "name": {
+          "maxLength": 30,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "cells": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Cells",
+          "type": "array"
+        },
+        "source": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "cells"
+      ],
+      "title": "MatrixRow",
+      "type": "object"
+    },
+    "TechGroup": {
+      "properties": {
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/TechItem"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "items"
+      ],
+      "title": "TechGroup",
+      "type": "object"
+    },
+    "TechItem": {
+      "description": "기법 항목 한 칸 — source 는 본문 문장 id(s:<섹션>:<n>)·근거 청크 id·input:<입력 칸>.",
+      "properties": {
+        "text": {
+          "maxLength": 30,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "maxLength": 4,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rating"
+        },
+        "amount": {
+          "anyOf": [
+            {
+              "maxLength": 30,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount"
+        },
+        "source": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "TechItem",
+      "type": "object"
+    }
+  },
+  "description": "분석 기법 결과 — 정성·경제성은 groups(묶음별 항목), 비교·평가는 columns×rows 표.\ntechnique 는 config/figures/techniques.yaml 의 key. note 는 항상 PRELIM_NOTE.",
+  "properties": {
+    "kind": {
+      "const": "technique",
+      "default": "technique",
+      "title": "Kind",
+      "type": "string"
+    },
+    "technique": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Technique",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "groups": {
+      "items": {
+        "$ref": "#/$defs/TechGroup"
+      },
+      "maxItems": 6,
+      "title": "Groups",
+      "type": "array"
+    },
+    "columns": {
+      "items": {
+        "maxLength": 40,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 5,
+      "title": "Columns",
+      "type": "array"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/$defs/MatrixRow"
+      },
+      "maxItems": 6,
+      "title": "Rows",
+      "type": "array"
+    },
+    "note": {
+      "default": "제안 내용 기반 예비 평가",
+      "maxLength": 60,
+      "title": "Note",
+      "type": "string"
+    }
+  },
+  "required": [
+    "technique",
+    "title"
+  ],
+  "title": "TechniqueSpec",
+  "type": "object"
+}

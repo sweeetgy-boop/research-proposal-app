@@ -1,7 +1,6 @@
 import * as React from "react";
 import { ImagePlus } from "lucide-react";
-import type { FigureKind } from "@/api/types";
-import { useAddFigure } from "@/api/hooks";
+import type { FigureKindV2 } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -10,6 +9,8 @@ import { ProblemBanner } from "@/components/ProblemBanner";
 import { SECTION_TITLES } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 import { FIGURE_KINDS, KIND_LABELS, KIND_SECTION } from "./model";
+import { useAddFigureV2, useFiguresV2 } from "./api";
+import { TechniqueStatus } from "./TechniqueCard";
 
 export interface AddFigureDialogProps {
   runId: string;
@@ -20,17 +21,26 @@ export interface AddFigureDialogProps {
 
 const SECTIONS = Object.keys(SECTION_TITLES).filter((k) => k !== "title");
 
-/** [다른 그림 추가] 버튼 + 대화상자 — 종류(6)·넣을 섹션을 고르면 새 버전에 그림이 생긴다. */
+/** [다른 그림 추가] 버튼 + 대화상자 — 종류(8, 분석 기법은 20개 중 하나)·넣을 섹션을 고르면 새 버전에 그림이
+ *  생긴다. 옆에 마지막 분석 기법 추천 결과(빈 결과도 사유)와 [다시 시도]. */
 export function AddFigureDialog({ runId, baseVersion, disabled, onApplied }: AddFigureDialogProps) {
-  const add = useAddFigure(runId);
+  const add = useAddFigureV2(runId);
+  const list = useFiguresV2(runId);
   const [open, setOpen] = React.useState(false);
-  const [kind, setKind] = React.useState<FigureKind>("concept");
-  const [section, setSection] = React.useState<string>(KIND_SECTION.concept);
+  const [kind, setKind] = React.useState<FigureKindV2>("as_is_to_be");
+  const [section, setSection] = React.useState<string>(KIND_SECTION.as_is_to_be);
+  const [technique, setTechnique] = React.useState<string>("");
   const busy = add.isPending;
+  const catalog = list.data?.technique_catalog ?? [];
 
-  const pick = (k: FigureKind) => {
+  const pick = (k: FigureKindV2) => {
     setKind(k);
     setSection(KIND_SECTION[k]);
+  };
+  const pickTechnique = (key: string) => {
+    setTechnique(key);
+    const row = catalog.find((t) => t.key === key);
+    if (row) setSection(row.section);
   };
   const close = () => {
     if (busy) return;
@@ -39,7 +49,7 @@ export function AddFigureDialog({ runId, baseVersion, disabled, onApplied }: Add
   };
   const submit = async () => {
     try {
-      const out = await add.mutateAsync({ kind, section, base_version: baseVersion });
+      const out = await add.mutateAsync({ kind, section, base_version: baseVersion, ...(kind === "technique" ? { technique } : {}) });
       setOpen(false);
       add.reset();
       onApplied(out.version);
@@ -50,6 +60,7 @@ export function AddFigureDialog({ runId, baseVersion, disabled, onApplied }: Add
 
   return (
     <>
+      <TechniqueStatus runId={runId} baseVersion={baseVersion} disabled={disabled} onApplied={onApplied} />
       <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} disabled={disabled}>
         <ImagePlus aria-hidden="true" />
         다른 그림 추가
@@ -65,7 +76,7 @@ export function AddFigureDialog({ runId, baseVersion, disabled, onApplied }: Add
               <Button variant="outline" onClick={close} disabled={busy}>
                 취소
               </Button>
-              <Button onClick={submit} disabled={busy}>
+              <Button onClick={submit} disabled={busy || (kind === "technique" && !technique)}>
                 {busy ? "만드는 중…" : "추가"}
               </Button>
             </>
@@ -91,6 +102,20 @@ export function AddFigureDialog({ runId, baseVersion, disabled, onApplied }: Add
               })}
             </div>
           </fieldset>
+          {kind === "technique" && (
+            <div className="mt-4 space-y-1">
+              <Label htmlFor="figure-technique">분석 기법</Label>
+              <Select id="figure-technique" value={technique} onChange={(e) => pickTechnique(e.target.value)} disabled={busy}>
+                <option value="">기법을 고르십시오</option>
+                {catalog.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label} ({t.family_label})
+                  </option>
+                ))}
+              </Select>
+              {technique && <p className="text-xs text-muted-foreground">{catalog.find((t) => t.key === technique)?.fits}</p>}
+            </div>
+          )}
           <div className="mt-4 space-y-1">
             <Label htmlFor="figure-section">넣을 섹션</Label>
             <Select id="figure-section" value={section} onChange={(e) => setSection(e.target.value)} disabled={busy}>

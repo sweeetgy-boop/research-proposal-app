@@ -142,11 +142,12 @@ def figures_payload(
     out = []
     for f in figures:
         fid = f.id
+        tech = _technique_view(f, clean)
         out.append(
             {
                 "id": fid,
                 "kind": f.kind,
-                "label": KIND_LABEL.get(f.kind, f.kind),
+                "label": tech["technique_label"] if tech else KIND_LABEL.get(f.kind, f.kind),
                 "section": f.section,
                 "caption": clean(f.caption),
                 "alt": clean(f.alt),
@@ -169,9 +170,146 @@ def figures_payload(
                 "last_change": _last_change(getattr(f, "last_change", None), clean),
                 "updated_at": f.updated_at,
                 "notice": FIGURE_NOTICE,
+                # [11] 분석 기법 — 없으면 None·빈 목록
+                "technique": tech["technique"] if tech else None,
+                "family_label": tech["family_label"] if tech else None,
+                "prelim_note": tech["note"] if tech else None,
+                "provenance": tech["provenance"] if tech else [],
+                "recommendation": _recommendation_view(getattr(f, "recommendation", None), clean),
             }
         )
     return out
+
+
+TECHNIQUE_LABELS: dict[str, str] = {}  # key → 이름 (build_api 가 목록으로 채운다)
+RECOMMENDATION_STATUS_LABEL = {
+    "pending": "결정 전",
+    "accepted": "넣기 확정",
+    "dismissed": "필요 없음",
+}
+TECHNIQUE_OUTCOME_LABEL = {
+    "recommended": "추천함",
+    "none": "해당 없음",
+    "failed": "호출 실패",
+    "filtered": "규칙에 걸러짐",
+    "off": "건너뜀",
+}
+
+
+def _technique_view(f: Any, clean: Callable[[str], str]) -> dict[str, Any] | None:
+    """[11] 기법 그림 — 이름·종류·안내문·항목 출처(문장·입력·근거, 내부 id 대신 사람이 읽는 말)."""
+    if getattr(f, "kind", None) != "technique":
+        return None
+    from rra.domain.models.figure import FAMILY_LABEL
+    from rra.domain.rules.techniques import provenance
+
+    spec = f.spec
+    family = _TECHNIQUE_FAMILY.get(spec.technique, "")
+    rows = []
+    for r in provenance(spec):
+        src = r["source"]
+        parts = src.split(":")
+        kind = (
+            "sentence"
+            if src.startswith("s:")
+            else ("input" if src.startswith("input:") else "evidence")
+        )
+        rows.append(
+            {
+                "group": clean(r["group"]),
+                "text": clean(r["text"]),
+                "rating": r["rating"],
+                "amount": clean(r["amount"]),
+                "source_kind": kind,
+                "section": parts[1] if kind == "sentence" and len(parts) == 3 else None,
+                "sentence_no": int(parts[2]) + 1
+                if kind == "sentence" and len(parts) == 3 and parts[2].isdigit()
+                else None,
+                "source_label": r["source_label"],
+            }
+        )
+    return {
+        "technique": spec.technique,
+        "technique_label": TECHNIQUE_LABELS.get(spec.technique) or spec.title,
+        "family_label": FAMILY_LABEL.get(family, "연구 절차") if family else None,
+        "note": spec.note,
+        "provenance": rows,
+    }
+
+
+_TECHNIQUE_FAMILY: dict[str, str] = {}  # key → family (build_api 가 채운다)
+
+
+def register_techniques(rows: list[dict[str, Any]]) -> None:
+    """기법 목록(이름·종류)을 화면 표시용으로 등록 — 앱 시작 때 한 번."""
+    for r in rows:
+        TECHNIQUE_LABELS[str(r["key"])] = str(r["label"])
+        _TECHNIQUE_FAMILY[str(r["key"])] = str(r["family"])
+
+
+def _recommendation_view(rec: Any, clean: Callable[[str], str]) -> dict[str, Any] | None:
+    """[11] 추천 배지 — {technique, technique_label, reason, status, status_label, swapped_from,
+    swapped_from_label, model}. reason 은 LLM 출력(비신뢰)."""
+    if rec is None:
+        return None
+    return {
+        "technique": rec.technique,
+        "technique_label": TECHNIQUE_LABELS.get(rec.technique, rec.technique),
+        "reason": clean(rec.reason),
+        "status": rec.status,
+        "status_label": RECOMMENDATION_STATUS_LABEL.get(rec.status, rec.status),
+        "swapped_from": rec.swapped_from,
+        "swapped_from_label": TECHNIQUE_LABELS.get(rec.swapped_from or "", rec.swapped_from)
+        if rec.swapped_from
+        else None,
+        "model": rec.model,
+    }
+
+
+def technique_outcome_payload(
+    outcome: dict[str, Any] | None, *, clean: Callable[[str], str] = _same
+) -> dict[str, Any] | None:
+    """[11] 마지막 기법 추천 결과 — 빈 결과도 사유(해당 없음·호출 실패·규칙에 걸러짐) + 다시 시도.
+    reason 원문(코드)은 화면에 보이지 않고, 해당 없음의 모델 사유만 message 에 붙는다."""
+    if not outcome:
+        return None
+    status = str(outcome.get("status") or "none")
+    picks = [str(k) for k in outcome.get("picks") or []]
+    reason = str(outcome.get("reason") or "")
+    if status == "recommended":
+        message = (
+            f"분석 기법 {len(picks)}개를 추천했습니다 — 카드에서 [넣기 확정] 또는 [필요 없음]을 "
+            "고르십시오."
+        )
+    elif status == "none":
+        message = "해당 없음 — " + (
+            clean(reason) if reason else "이 제안 내용으로 의미 있는 분석이 나오는 기법이 없습니다."
+        )
+    elif status == "failed":
+        message = (
+            "호출 실패 — 분석 기법을 고르는 모델이 답하지 않았습니다. [다시 시도]를 누르십시오."
+        )
+    elif status == "filtered":
+        message = (
+            "규칙에 걸러짐 — 추천한 기법의 분석이 출처·형식 검사를 통과하지 못했습니다. "
+            "[다시 시도]하거나 [다른 그림 추가]에서 기법을 고르십시오."
+        )
+    else:
+        message = "기본 그림으로 자리가 차서 분석 기법 추천을 건너뛰었습니다."
+    return {
+        "status": status,
+        "status_label": TECHNIQUE_OUTCOME_LABEL.get(status, status),
+        "message": message,
+        "picks": [{"key": k, "label": TECHNIQUE_LABELS.get(k, k)} for k in picks],
+        "dropped": [
+            {"key": str(k), "label": TECHNIQUE_LABELS.get(str(k), str(k))}
+            for k in outcome.get("dropped") or []
+            if str(k) in TECHNIQUE_LABELS
+        ],
+        "model": outcome.get("model"),
+        "at": outcome.get("at"),
+        "can_retry": True,
+    }
 
 
 def _last_change(change: Any, clean: Callable[[str], str]) -> dict[str, Any] | None:

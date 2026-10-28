@@ -892,3 +892,4 @@ export interface UsageOut {
   run_id: string;
   usage: UsageRecord | null;
 }
+export * from "./types-figures"; // [G] 그림 v2 (레인 C)

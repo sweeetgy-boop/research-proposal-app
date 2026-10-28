@@ -208,7 +208,19 @@ class RunIn(ProposalRequest):
         }
 
 
-FigureAction = Literal["words", "texts", "baseline", "regenerate", "include", "exclude", "confirm"]
+FigureAction = Literal[
+    "words",
+    "texts",
+    "baseline",
+    "regenerate",
+    "include",
+    "exclude",
+    "confirm",
+    "accept",  # [11] 추천 그림 넣기 확정
+    "dismiss",  # [11] 필요 없음 (제안서에서 빠지고 접힘)
+    "restore",  # [11] 다시 넣기
+    "swap",  # [11] 다른 기법으로 바꾸기 — technique 필수
+]
 
 
 class FigureActionIn(BaseModel):
@@ -219,12 +231,30 @@ class FigureActionIn(BaseModel):
     request: str = Field(default="", max_length=500)  # [말로 고치기] 요청 (개인정보 정리 뒤 저장)
     texts: dict[str, str] = Field(default_factory=dict)  # [글자 고치기] path → 글자
     base_version: int | None = Field(default=None, ge=1)
+    technique: str = Field(default="", max_length=40)  # [11] swap 의 새 기법 key
 
 
 class FigureAddIn(BaseModel):
-    """POST /v1/runs/{id}/figures — [다른 그림 추가]."""
+    """POST /v1/runs/{id}/figures — [다른 그림 추가]. kind=technique 면 technique(기법 key) 필수."""
 
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["concept", "process", "schedule", "stat_chart", "comparison", "roadmap"]
+    kind: Literal[
+        "concept",
+        "process",
+        "schedule",
+        "stat_chart",
+        "comparison",
+        "roadmap",
+        "as_is_to_be",
+        "technique",
+    ]
     section: str = Field(min_length=1, max_length=40)
+    base_version: int | None = Field(default=None, ge=1)
+    technique: str = Field(default="", max_length=40)
+
+
+class FigureTechniquesIn(BaseModel):
+    """POST /v1/runs/{id}/figures/techniques — [11] 분석 기법 [다시 추천]."""
+
+    model_config = ConfigDict(extra="forbid")
     base_version: int | None = Field(default=None, ge=1)

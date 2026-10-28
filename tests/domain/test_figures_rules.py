@@ -156,23 +156,28 @@ def test_schedule_must_fit_research_period(pool):
         )
 
 
-def test_choose_default_follows_priority_and_limit():
-    plan = rules.choose_default(SECTIONS, REQ, max_default=3, has_facts=True, has_overlap=True)
+def test_choose_default_v2_as_is_to_be_then_facts_and_schedule_never_concept_process_roadmap():
+    plan = rules.choose_default(SECTIONS, REQ, max_default=4, has_facts=True, has_overlap=True)
     assert plan == [
-        ("concept", "objective"),
-        ("process", "method"),
+        ("as_is_to_be", "objective"),
         ("stat_chart", "tech_importance"),
-    ]
-    plan = rules.choose_default(SECTIONS, REQ, max_default=6, has_facts=False, has_overlap=False)
-    assert plan == [
-        ("concept", "objective"),
-        ("process", "method"),
         ("schedule", "method"),
-        ("roadmap", "expected_technology"),
     ]
+    assert rules.technique_slots(len(plan)) == 1  # 최대 4장 — 기법은 남은 1자리
+    plan = rules.choose_default(SECTIONS, REQ, max_default=6, has_facts=False, has_overlap=False)
+    assert plan == [("as_is_to_be", "objective"), ("schedule", "method")]
+    assert rules.technique_slots(len(plan)) == 2
+    for kind in ("concept", "process", "roadmap", "comparison"):
+        assert kind not in {k for k, _ in plan}
     no_period = REQ.model_copy(update={"constraints": ""})
     assert ("schedule", "method") not in rules.choose_default(SECTIONS, no_period, max_default=6)
     assert rules.choose_default([], REQ) == []
+    # 연구목적이 비면 2-가-(2) 기술적 중요도에
+    no_objective = [s for s in SECTIONS if s.key != "objective"]
+    assert rules.choose_default(no_objective, REQ)[0] == ("as_is_to_be", "tech_importance")
+    # 상한 4 — max_default 가 커도
+    assert len(rules.choose_default(SECTIONS, REQ, max_default=9, has_facts=True)) <= 4
+    assert rules.technique_slots(4) == 0 and rules.technique_slots(0) == 2
 
 
 def test_texts_alt_and_prompt_contain_every_label():
@@ -184,7 +189,13 @@ def test_texts_alt_and_prompt_contain_every_label():
     prompt = rules.image_prompt(spec, caption="연구 개념도")
     for t in texts:
         assert f"- {t}" in prompt
-    assert "로고" in prompt and "한 글자도 바꾸지" in prompt and "배치: 상자 4개" in prompt
+    assert "로고" in prompt and "한 글자도 바꾸지" in prompt and "구조: 4단계 흐름" in prompt
+    # v2 [4] — 밑그림 배치를 베끼지 말고 인포그래픽으로 새로 디자인 (색 강조·아이콘·제목 계층·여백)
+    assert "새로 디자인" in prompt and "그대로 베끼지 말고" in prompt
+    assert "아이콘" in prompt and "제목 계층" in prompt and "빈 공간 없이" in prompt
+    assert "흑백 인쇄" in prompt and "1~2줄" in prompt
+    assert "배치·순서·화살표 방향·막대 길이와 기간 비율을 그대로 유지" not in prompt
+    assert "가로세로 비율 21:9" in prompt  # 줄 4개뿐 → 낮고 넓게 (choose_aspect)
     assert "모양 요청" not in prompt
     styled = rules.image_prompt(spec, style="상자 테두리를 굵게")
     assert "모양 요청(제안자): 상자 테두리를 굵게" in styled

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Check, Image as ImageIcon, Info, MessageSquareText, Minus, Plus, RefreshCw, Type } from "lucide-react";
-import type { Figure, FigureActionIn } from "@/api/types";
+import type { FigureActionIn, FigureV2 } from "@/api/types";
 import { useFigureAction } from "@/api/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { UntrustedText } from "@/components/UntrustedText";
 import { imageSrc } from "./model";
+import { RecommendationPanel, TechniqueDetails } from "./TechniqueCard";
 
 export interface FigureCardProps {
   runId: string;
-  figure: Figure;
+  figure: FigureV2;
   /** 동작의 base_version — 현재 버전 번호 */
   baseVersion: number;
   /** 모든 버튼 비활성 (편집 불가 상태·임시 편집 중·옛 버전) */
@@ -106,6 +107,8 @@ export function FigureCard({ runId, figure, baseVersion, disabled, readOnly, ver
       </CardHeader>
       <CardContent className="space-y-2">
         <ProblemBanner error={mode === null ? act.error : null} />
+        <TechniqueDetails figure={figure} />
+        <RecommendationPanel runId={runId} figure={figure} baseVersion={baseVersion} disabled={disabled} readOnly={readOnly} onApplied={onApplied} />
         <details className="text-sm">
           <summary className="cursor-pointer text-muted-foreground">밑그림 보기</summary>
           <img src={baselineSrc} alt={`${figure.label} 밑그림`} loading="lazy" className="mt-2 max-h-64 w-full rounded border bg-white object-contain" />
@@ -138,7 +141,7 @@ export function FigureCard({ runId, figure, baseVersion, disabled, readOnly, ver
               <RefreshCw aria-hidden="true" />
               다시 만들기
             </Button>
-            {figure.included ? (
+            {figure.recommendation ? null : figure.included ? (
               <Button size="sm" variant="ghost" onClick={() => run({ action: "exclude" })} disabled={off} aria-label={`${figure.label} 빼기`}>
                 <Minus aria-hidden="true" />
                 빼기

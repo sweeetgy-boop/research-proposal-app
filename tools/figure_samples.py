@@ -1,4 +1,4 @@
-"""그림 밑그림 샘플 6종 렌더 — `<dir>/<kind>.baseline.svg`·`.png` ([G] 2026-10-28).
+"""그림 밑그림 샘플 8종(+ 분석 기법 2) 렌더 — `<dir>/<kind>.baseline.svg`·`.png` ([G] 2026-10-28).
 
     .venv/bin/python tools/figure_samples.py --out /tmp/figure_samples
 
@@ -139,6 +139,106 @@ SAMPLE_SPECS: dict[str, dict[str, Any]] = {
             {"name": "유지보수 체계 반영", "desc": "점검 주기·우선순위 규정 개정"},
         ],
     },
+    # v2 [3] — 상자 글자는 30자 안 (MAX_BOX)
+    "as_is_to_be": {
+        "as_is": [
+            {"tag": "현황", "text": "궤도 틀림을 주기 순회로 수작업 측정"},
+            {"tag": "원인", "text": "상시 감지 센서 부재"},
+            {"tag": "한계", "text": "점검 주기 사이 이상 발생 시 대응 지연"},
+        ],
+        "to_be": [
+            {"tag": "목표", "text": "궤도 상태 상시 감지"},
+            {"tag": "해결 방안", "text": "영업열차 탑재 IMU·가속도 센서로 상시 수집"},
+            {"tag": "기대효과", "text": "이상 구간 조기 발견·점검 차단 시간 절감"},
+        ],
+        "solution": "영업열차 탑재 센서로 상시 감지",
+    },
+    # v2 [11] 분석 기법 — 기본 샘플은 SWOT (나머지 기법 샘플은 TECHNIQUE_SAMPLES)
+    "technique": {
+        "technique": "swot",
+        "title": "SWOT 분석",
+        "groups": [
+            {
+                "name": "강점",
+                "items": [
+                    {
+                        "text": "영업열차 운행 데이터 보유",
+                        "rating": "상",
+                        "source": "s:objective:0",
+                    },
+                    {"text": "검측 이력 축적", "rating": "중", "source": "s:method:0"},
+                ],
+            },
+            {
+                "name": "약점",
+                "items": [
+                    {"text": "상시 감지 센서 부재", "rating": "상", "source": "input:root_cause"}
+                ],
+            },
+            {
+                "name": "기회",
+                "items": [
+                    {"text": "센서 단가 하락", "rating": "중", "source": "alio:2024-01#3"},
+                    {
+                        "text": "디지털 유지보수 정책",
+                        "rating": "중",
+                        "source": "input:policy_basis",
+                    },
+                ],
+            },
+            {
+                "name": "위협",
+                "items": [{"text": "야간 차단 시간 축소", "rating": "하", "source": "s:method:1"}],
+            },
+        ],
+    },
+}
+
+# v2 [11] 기법 샘플 — 비교·평가(퓨 매트릭스)·경제성(비용-편익). 가짜 명세 (실제 과제 아님)
+TECHNIQUE_SAMPLES: dict[str, dict[str, Any]] = {
+    "pugh": {
+        "technique": "pugh",
+        "title": "퓨 매트릭스(Pugh)",
+        "columns": ["현행 방식", "검측차 고도화", "영업열차 탑재 센서"],
+        "rows": [
+            {"name": "이상 구간 조기 발견", "cells": ["0", "+", "+"], "source": "s:objective:0"},
+            {"name": "점검 차단 시간", "cells": ["0", "0", "+"], "source": "s:method:1"},
+            {"name": "초기 도입 부담", "cells": ["0", "−", "−"], "source": "s:method:2"},
+            {"name": "전 노선 적용 범위", "cells": ["0", "0", "+"], "source": "input:goal"},
+        ],
+    },
+    "cost_benefit": {
+        "technique": "cost_benefit",
+        "title": "비용-편익 분석",
+        "groups": [
+            {
+                "name": "비용",
+                "items": [
+                    {"text": "센서·통신 장치 탑재", "amount": "산출 필요", "source": "s:method:0"},
+                    {
+                        "text": "데이터 분석 체계 구축",
+                        "amount": "산출 필요",
+                        "source": "s:method:2",
+                    },
+                ],
+            },
+            {
+                "name": "편익",
+                "items": [
+                    {
+                        "text": "점검 인력·차단 시간 절감",
+                        "amount": "30% 절감",
+                        "source": "s:expected_management:0",
+                    },
+                    {
+                        "text": "이상 구간 조기 발견",
+                        "amount": "산출 필요",
+                        "source": "s:objective:0",
+                    },
+                ],
+            },
+        ],
+    },
 }
 
 
@@ -170,12 +270,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    for kind, data in SAMPLE_SPECS.items():
+    from rra.domain.rules.figures import choose_aspect
+
+    samples = [(k, k, d) for k, d in SAMPLE_SPECS.items()]
+    samples += [(f"technique-{k}", "technique", d) for k, d in TECHNIQUE_SAMPLES.items()]
+    for name, kind, data in samples:
         spec = parse_spec(kind, data)
-        svg = renderer.svg(spec)
+        svg = renderer.svg(spec, aspect=choose_aspect(spec))  # v2: 내용 양으로 비율
         png = renderer.png(svg)
-        svg_path = out_dir / f"{kind}.baseline.svg"
-        png_path = out_dir / f"{kind}.baseline.png"
+        svg_path = out_dir / f"{name}.baseline.svg"
+        png_path = out_dir / f"{name}.baseline.png"
         svg_path.write_text(svg, encoding="utf-8")
         png_path.write_bytes(png)
         print(f"{svg_path.name}: {len(svg.encode('utf-8')):,} bytes")

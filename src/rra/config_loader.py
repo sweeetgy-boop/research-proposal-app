@@ -557,7 +557,16 @@ def runs_config(settings: Settings) -> dict[str, Any]:
     return {"max_concurrent": max(1, int(raw.get("max_concurrent", 1)))}
 
 
-FIGURE_KINDS_DEFAULT = ("concept", "process", "schedule", "stat_chart", "comparison", "roadmap")
+FIGURE_KINDS_DEFAULT = (
+    "concept",
+    "process",
+    "schedule",
+    "stat_chart",
+    "comparison",
+    "roadmap",
+    "as_is_to_be",
+    "technique",
+)
 
 
 def figures_config(settings: Settings) -> dict[str, Any]:
@@ -589,12 +598,25 @@ def figures_config(settings: Settings) -> dict[str, Any]:
         "template_dir": template_dir,
         "fonts_dir": fonts_dir,
         "palette": dict(raw.get("palette") or {}),
+        "auto_aspect": bool(raw.get("auto_aspect", True)),
+        "max_techniques": int(raw.get("max_techniques", 2)),
+        "auto_kinds": [
+            str(k) for k in (raw.get("auto_kinds") or ("as_is_to_be", "stat_chart", "schedule"))
+        ],
+        "techniques": str(raw.get("techniques") or "figures/techniques.yaml"),
         "hwpx": {
             "placement": str(hwpx.get("placement", "inline")),
             "max_width_hwp": int(hwpx.get("max_width_hwp", 42000)),
             "caption_prefix": str(hwpx.get("caption_prefix", "그림")),
         },
     }
+
+
+def technique_catalog(settings: Settings):
+    """[11] config/figures/techniques.yaml → TechniqueCatalog (없으면 빈 목록 = 추천 안 함)."""
+    from rra.domain.rules.techniques import catalog_from
+
+    return catalog_from(read_config(figures_config(settings)["techniques"], settings))
 
 
 def pipeline_config(settings: Settings):

@@ -36,8 +36,8 @@ class SvgFigureRenderer:
         self.dpi = int(dpi)
         self.max_bytes = int(max_bytes)
 
-    def svg(self, spec: BaseModel, *, caption: str = "") -> str:
-        aspect = self.aspects.get(str(getattr(spec, "kind", "")), "16:9")
+    def svg(self, spec: BaseModel, *, caption: str = "", aspect: str | None = None) -> str:
+        aspect = aspect or self.aspects.get(str(getattr(spec, "kind", "")), "16:9")
         return render_svg(
             spec, palette=self.palette, aspect=aspect, width_px=self.width_px, caption=caption
         )

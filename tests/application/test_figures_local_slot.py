@@ -51,6 +51,12 @@ CONCEPT = {
     ]
 }
 PROCESS = {"stages": [{"name": "method 문장"}, {"name": "objective 문장"}, {"name": "method"}]}
+AS_IS = {
+    "as_is": [{"tag": t, "text": "objective 문장"} for t in ("현황", "원인", "한계")],
+    "to_be": [{"tag": t, "text": "method 문장"} for t in ("목표", "해결 방안", "기대효과")],
+    "solution": "method 문장",
+}
+SPECS = {"concept": CONCEPT, "process": PROCESS, "as_is_to_be": AS_IS}
 
 
 class Tracking:
@@ -71,7 +77,7 @@ class Tracking:
                 raise ConnectionError("down")
             m = _KIND.match(prompt)
             if m:  # 그림 명세·수정
-                spec = CONCEPT if m.group(1) == "concept" else PROCESS
+                spec = SPECS.get(m.group(1), PROCESS)
                 if prompt.startswith("[그림 수정"):
                     return json.dumps({"spec": None, "style": "테두리 굵게"}, ensure_ascii=False)
                 return json.dumps(spec, ensure_ascii=False)
@@ -185,9 +191,9 @@ async def test_three_concurrent_runs_serialize_only_the_local_figure_fallback():
     assert all(f.status == "drafted" for f in finals)
     for f in finals:
         v1 = mgr.store.load_version(USER, f.run_id, 1)
-        assert sorted(x.kind for x in v1.figures) == ["concept", "process"]
+        assert sorted(x.kind for x in v1.figures) == ["as_is_to_be"]  # v2 기본 (연구기간 없음)
         assert {x.spec_model for x in v1.figures} == {"local"}  # Argon 실패 → 로컬 대체
-    assert len(fig_local.calls) == 6  # run 3 × 그림 2
+    assert len(fig_local.calls) == 3  # run 3 × 그림 1
     assert fig_local.max_active == 1  # 로컬 대체는 한 번에 하나 (슬롯 안)
     assert fig_argon.max_active > 1  # Argon 명세 호출은 run 끼리 겹친다 (슬롯 밖)
     assert images.max_active > 1  # Nano Banana 도 겹친다
@@ -204,7 +210,7 @@ async def test_local_writer_run_does_not_reacquire_the_slot_for_figures():
     )
     st = await mgr.submit(USER, REQ)
     final = await asyncio.wait_for(mgr.wait(USER, st.run_id), timeout=5)
-    assert final.status == "drafted" and len(fig_local.calls) == 2
+    assert final.status == "drafted" and len(fig_local.calls) == 1  # v2 기본 As-Is/To-Be 1
     assert slot.entered == 1  # run 전체가 한 번만 잡았다
 
 
