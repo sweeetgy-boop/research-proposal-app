@@ -2,7 +2,7 @@
 
 ## 전달한 것
 - **[3] 로컬 작성 배지** 초안 보기 섹션 머리(모든 버전 탭)·직접 수정 섹션 제목 옆에 `local_sections` 섹션만 "로컬 작성"
-  (title·sr-only: "Argon 작성 실패(오류|호출 한도|일일 상한|형식 오류) 뒤 로컬 모델이 작성", `writers[key].reason`). 옛 run 의
+  (title·sr-only: "이 섹션은 로컬 모델이 작성 (Argon 작성 실패: 오류|호출 한도|일일 상한|형식 오류)", `writers[key].reason`). 옛 run 의
   "대체 작성"(fallback_sections)은 그대로(`features/draft/WriterBadges.tsx` 로 공용화, 직접 수정에도 표시).
   알림 영역에 `local_check.enabled` 면 "근거 대조(로컬) 불일치 N건"(mismatches 와 `local_evidence_mismatch` 알림 수 중 큰 값)·
   대조 건너뛴 섹션, 알림 항목 중 `local_evidence_mismatch` 에 같은 라벨. run 머리 칩(outline): `writer` gemini → "Argon 작성(· 로컬 N개 섹션)",
@@ -18,7 +18,8 @@
   ip_blocked+notice·timeout 포함 / 필드 없는 옛 흐름) — 전체 17 통과·2 skip. 캡처 `docs/history/screens/2026-10-28-argon-live-0{1,2}-*.png`.
 
 ## 자동 결정
-- 문장 origin 배지(llm → "로컬 작성")와 섹션 배지 문구가 같다(지시대로). 섹션 배지는 제목 안(h3), 문장 배지는 문장 아래라 구분된다.
+- 문장 origin 배지 `llm`(·`local` 별칭) 라벨을 "로컬 작성" → **"AI 작성"** 으로 바꿨다(통합 담당 요청): [3] 이후 llm 문장은 Argon 이
+  쓴 것일 수도 있어, 로컬 대체는 섹션 머리 "로컬 작성" 배지만 알린다. OriginBadge 색은 그대로(origin-local).
 - `local_check.enabled=false` 면 아무것도 표시하지 않는다. 자료원 상태 off 는 결과 수·시간을 "—".
 - run 화면(진행 등)에는 live_search 요약을 그리지 않았다(타입만). 필요하면 LiveSearchPanel 재사용.
 

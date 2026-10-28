@@ -32,7 +32,7 @@ describe("DraftEditor", () => {
   it("섹션 제목과 문장, 출처 배지를 그린다", () => {
     render(<Harness />);
     expect(screen.getByRole("heading", { name: "2-다 연구 방법 및 주요내용" })).toBeInTheDocument();
-    expect(screen.getAllByText("로컬 작성").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("AI 작성").length).toBeGreaterThan(0);
   });
 
   it("수정안 사용 → use_revision + comment_id", async () => {

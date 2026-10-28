@@ -122,7 +122,7 @@ test("② 실시간 검색 배지·자료원별 상태 → 초안 로컬 작성 
 
   // 초안 보기: 로컬 작성 배지(사유 호출 한도)·근거 대조(로컬)·run 머리 칩·인용 문서 실시간 배지
   const objective = page.getByRole("heading", { level: 3, name: /^2-나 연구목적/ });
-  await expect(objective.getByText("로컬 작성", { exact: true })).toHaveAttribute("title", "Argon 작성 실패(호출 한도) 뒤 로컬 모델이 작성");
+  await expect(objective.getByText("로컬 작성", { exact: true })).toHaveAttribute("title", "이 섹션은 로컬 모델이 작성 (Argon 작성 실패: 호출 한도)");
   await expect(page.getByRole("heading", { level: 3, name: /^1-가 연구과제명/ }).getByText("로컬 작성", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("local-check")).toContainText("근거 대조(로컬) 불일치 1건");
   await expect(page.getByText("Argon 작성 · 로컬 1개 섹션")).toBeVisible();
@@ -147,7 +147,8 @@ test("② 실시간 검색 배지·자료원별 상태 → 초안 로컬 작성 
 test("새 필드가 없는 응답(옛 run)에서는 배지·패널 없이 기존 흐름 그대로", async ({ page }) => {
   await login(page);
   await createRun(page);
-  for (const h of await page.getByRole("heading", { level: 3 }).all()) await expect(h.getByText("로컬 작성", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("로컬 작성", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("AI 작성", { exact: true }).first()).toBeVisible(); // 문장 origin llm
   await expect(page.getByTestId("local-check")).toHaveCount(0);
   await expect(page.getByText(/Argon 작성/)).toHaveCount(0);
   await expect(page.getByText("실시간 검색", { exact: true })).toHaveCount(0);

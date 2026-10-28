@@ -32,10 +32,11 @@ export function stepLabel(name: string): string {
   return STEP_LABELS[name] ?? name;
 }
 
-/** 문장 origin → 배지 이름. 백엔드 origin 값: llm(로컬 작성)·argon(Argon 보완)·argon_added·reviewed·proposer_edit·proposer_input·app */
+/** 문장 origin → 배지 이름. 백엔드 origin 값: llm(AI 작성)·argon(Argon 보완)·argon_added·reviewed·proposer_edit·proposer_input·app.
+ *  [3] 이후 llm 은 Argon 이 쓴 문장일 수도 있어 "AI 작성" 이다 — 로컬 모델 대체는 섹션 머리 "로컬 작성" 배지(local_sections)가 따로 알린다. */
 export const ORIGIN_LABELS: Record<string, string> = {
-  llm: "로컬 작성",
-  local: "로컬 작성",
+  llm: "AI 작성",
+  local: "AI 작성",
   argon: "Argon 보완",
   reviewed: "Argon 보완",
   argon_added: "Argon 추가",

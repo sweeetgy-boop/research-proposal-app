@@ -13,7 +13,7 @@ export const writerReasonLabel = (r: string | null | undefined): string | null =
 /** "로컬 작성" 배지 설명 — title 과 화면 낭독용 문구에 같이 쓴다 */
 export function localWriterNote(writer: SectionWriter | undefined): string {
   const reason = writerReasonLabel(writer?.reason);
-  return reason ? `Argon 작성 실패(${reason}) 뒤 로컬 모델이 작성` : "Argon 작성 실패 뒤 로컬 모델이 작성";
+  return reason ? `이 섹션은 로컬 모델이 작성 (Argon 작성 실패: ${reason})` : "이 섹션은 로컬 모델이 작성 (Argon 작성 실패)";
 }
 
 /** 근거 대조(로컬) 불일치 알림 코드 */

@@ -77,8 +77,8 @@ describe("[3] 로컬 작성 배지", () => {
     for (const [name, reason] of cases) {
       const h = heading(name);
       const badge = within(h).getByText("로컬 작성");
-      expect(badge).toHaveAttribute("title", `Argon 작성 실패(${reason}) 뒤 로컬 모델이 작성`);
-      expect(h).toHaveTextContent(`(Argon 작성 실패(${reason}) 뒤 로컬 모델이 작성)`); // sr-only — 배지만으로 뜻을 전하지 않는다
+      expect(badge).toHaveAttribute("title", `이 섹션은 로컬 모델이 작성 (Argon 작성 실패: ${reason})`);
+      expect(h).toHaveTextContent(`(이 섹션은 로컬 모델이 작성 (Argon 작성 실패: ${reason}))`); // sr-only — 배지만으로 뜻을 전하지 않는다
     }
     expect(within(heading(/^1-가 연구과제명/)).queryByText("로컬 작성")).toBeNull();
     expect(within(heading(/^2-가-\(2\) 기술적 중요도/)).getByText("대체 작성")).toHaveAttribute("title", expect.stringContaining("gemini/gemini-4-argon"));
@@ -112,7 +112,9 @@ describe("[3] 로컬 작성 배지", () => {
     mockFetch(routes(draftFx, runFx));
     mount("draft");
     expect(await screen.findByRole("heading", { name: "초안 본문" })).toBeInTheDocument();
-    // 문장 origin 배지(llm → "로컬 작성")와 별개로, 섹션 머리·run 머리에는 없다
+    // 문장 origin 배지는 "AI 작성"(llm) — 섹션 머리·run 머리의 "로컬 작성" 과 겹치지 않는다
+    expect(screen.getAllByText("AI 작성").length).toBeGreaterThan(0);
+    expect(screen.queryByText("로컬 작성")).toBeNull();
     for (const h of screen.getAllByRole("heading", { level: 3 })) expect(within(h).queryByText("로컬 작성")).toBeNull();
     expect(within(screen.getByRole("heading", { level: 1 }).parentElement!).queryByText(/로컬 작성|Argon 작성/)).toBeNull();
     expect(screen.queryByTestId("local-check")).toBeNull();
