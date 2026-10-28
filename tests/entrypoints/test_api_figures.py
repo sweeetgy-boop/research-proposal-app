@@ -206,7 +206,8 @@ async def test_figure_actions_create_versions_and_conflict_is_409(client):
     r = await client.post(
         f"/v1/runs/{rid}/figures/{fid}", json={"action": "words", "request": "x"}, headers=AUTH
     )
-    assert r.status_code == 409 and "json" in r.json()["detail"]
+    assert r.status_code == 409 and "모델 답을 읽지 못했습니다" in r.json()["detail"]
+    assert "json" not in r.json()["detail"]  # 내부 코드 노출 없음
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "words"}, headers=AUTH)
     assert r.status_code == 409
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "fly"}, headers=AUTH)

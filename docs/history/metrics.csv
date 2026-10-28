@@ -47,3 +47,7 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-28,feat-figure-edit-spec,[2] 그림 말로 고치기 = 명세 변경(#70),1913,,8,,,,,,,,,,,,,,,말로 고치기 6회 한글 글자 변형 합계 1(오전 편집 1회 3·2)·31~41초·Nano Banana 6·Argon 6 (docs/eval-2026-10-28-figure-edit.md)
 2026-10-28,feat-argon-first,[3] Argon 먼저 작성(#71),1930,,8,,,,,,,,,,1.0,,,,,골든셋 01 3개 섹션 스모크: 섹션당 6.6~11.8s·동시 벽시계 11.8s·교정 재요청 0·로컬 대체 0·Gemini 3회
 2026-10-28,feat-live-search,[4] 실시간 검색(#72),1984,,8,,,,,,,,,,,,,,,실시간 검색 테스트 +45; 실호출 ScienceON 30·OpenAlex 30·NTIS ip_blocked
+2026-10-28,TBD,[G] 그림 v2 (As-Is/To-Be·분석 기법 추천),2058,,8,,,,,,,,,,,,,,,기존/v2 프롬프트 6종 나란히 13/13 성공·장당 27~35초·Argon 기법 추천 1회 64초(텍스트 3·그림 2)·이미지 15 (docs/eval-2026-10-28-figures-v2.md)
+2026-10-28,e45f018,[D] HWPX 서식·화면 편의,2109,1631,8,10347,12008,19560,8475,303,,,,,,,,,,HWPX 서식 골든 10/10·시범 19/19 남은 불일치 0; web vitest 106·e2e 18(+3 skip)
+2026-10-28,TBD,feat precheck flow,2086,,8,,,,,,,,,,,,,,,② 판정 v2: 상위5 적중 10/10·유사하지 않음 2/2·거짓 차단 0/3; AI 판정 중앙 10.7초; vitest 100·e2e 19 통과; Gemini 39회
+2026-10-28,435a24b,feat/edit-ai 작성·편집 AI,2084,1656,8,11545,13510,19209,8777,308,,,,,,,,,,웹 vitest 112·e2e 20 통과(2 skip); 실호출 확인은 PR 본문

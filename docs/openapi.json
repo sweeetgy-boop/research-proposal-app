@@ -114,7 +114,7 @@
     "/v1/precheck": {
       "post": {
         "summary": "Precheck Route",
-        "description": "유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,\n과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다.\n[4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초) 판정한다.",
+        "description": "유사과제 알림. [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초)\n판정한다. 2026-10-28 레인 A: reranker 점수·핵심 키워드(실시간 검색의 Argon 키워드) 규칙\n판정 →\n상위 10건 AI 같음 판정(Argon → 로컬 → 규칙). 과제 추천 LLM 이 있고 recommend.auto 면 차별화\n과제안을 AI 판정과 동시에 1회 붙인다. 활용·차별화 제안은 [유사함] 을 고른 뒤에만.",
         "operationId": "precheck_route_v1_precheck_post",
         "requestBody": {
           "content": {
@@ -135,6 +135,129 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Precheck Route V1 Precheck Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/precheck/judgment": {
+      "post": {
+        "summary": "Judgment Retry Route",
+        "description": "[다시 시도] — AI 같음 판정만 다시 (규칙 판정은 같은 입력의 메모를 쓴다). 레인 A.",
+        "operationId": "judgment_retry_route_v1_precheck_judgment_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Judgment Retry Route V1 Precheck Judgment Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/precheck/choices": {
+      "post": {
+        "summary": "Choices Route",
+        "description": "② [유사함]/[관련 없음] 선택을 반영한 차단 여부·해제·다음 버튼 사유 (LLM 없음, 레인 A).",
+        "operationId": "choices_route_v1_precheck_choices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Choices Route V1 Precheck Choices Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/precheck/plan/polish": {
+      "post": {
+        "summary": "Polish Route",
+        "description": "② 차별화 과제안 [AI로 다듬기] — 그 칸만 (Argon → 로컬). 실패면 원래 글 + 사유 (레인\nA).",
+        "operationId": "polish_route_v1_precheck_plan_polish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolishIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Polish Route V1 Precheck Plan Polish Post"
                 }
               }
             }
@@ -278,7 +401,7 @@
     "/v1/precheck/clarify": {
       "post": {
         "summary": "Clarify Route",
-        "description": "③ 시작 전 입력 보강 질문(Q1). pipeline.clarify 가 꺼져 있으면 질문 0개.",
+        "description": "③ 시작 전 입력 보강 질문(Q1) — Argon 먼저(로컬 대체), 2~4개. 질문이 없으면 status 로\n사유를\n가른다: off(꺼짐) | failed(생성 실패 — 다시 시도) | enough(입력 충분). 정책 근거가 없으면\ntopic policy 질문 + policy_needed (화면은 정책적 중요도 작성안을 보인다).",
         "operationId": "clarify_route_v1_precheck_clarify_post",
         "requestBody": {
           "content": {
@@ -474,6 +597,48 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Comparison Route V1 Precheck Comparison Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/comparison": {
+      "get": {
+        "summary": "Run Comparison Route",
+        "description": "초안이 있는 run 의 차별성 비교표 — 제안 행을 초안 섹션으로 다시 채운다(레인 A). 기존 과제\n행은 run 입력의 [유사함] 선택에서.",
+        "operationId": "run_comparison_route_v1_runs__run_id__comparison_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Comparison Route V1 Runs  Run Id  Comparison Get"
                 }
               }
             }
@@ -2117,7 +2282,7 @@
     "/v1/runs/{run_id}/sections/{key}/questions": {
       "get": {
         "summary": "Section Questions Route",
-        "description": "U3 섹션 체크리스트(section_checklists.yaml)에서 빠진 요소 → 보완 질문 + 저장된 답.",
+        "description": "U3 보완 질문 — Argon 이 섹션 본문·근거·작성 지침을 읽고 빠진·약한 부분을 2~4개 묻는다\n(실패하면 로컬 → 체크리스트). source·reason 으로 누가 물었는지·왜 대신했는지. 같은 버전은\n보관한 결과(refresh=true 면 새로).",
         "operationId": "section_questions_route_v1_runs__run_id__sections__key__questions_get",
         "parameters": [
           {
@@ -2136,6 +2301,16 @@
             "schema": {
               "type": "string",
               "title": "Key"
+            }
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Refresh"
             }
           }
         ],
@@ -2209,6 +2384,285 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Section Answers Route V1 Runs  Run Id  Sections  Key  Answers Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ideas/policy-cards": {
+      "post": {
+        "summary": "Policy Cards Route",
+        "description": "③ 보강 질문 — 정책 근거가 없을 때 수집 정책 자료(국토부·공사 전략·감사 지적·정부 R&D\n공고)\n에서 아이디어 관련 구간을 찾아 방향이 겹치지 않는 작성안 최대 4개. exclude_doc_ids 는\n[다른 안 보기] 때 이미 본 문서. 결과는 자동으로 들어가지 않는다 — 고른 것만\nRunIn.policy_choice 로.",
+        "operationId": "policy_cards_route_v1_ideas_policy_cards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyCardsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Policy Cards Route V1 Ideas Policy Cards Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ideas/policy-cards/polish": {
+      "post": {
+        "summary": "Policy Polish Route",
+        "description": "[AI로 다듬기] — 고른 안을 제안자가 고친 글을 같은 근거 안에서 다듬는다 (Argon 먼저).",
+        "operationId": "policy_polish_route_v1_ideas_policy_cards_polish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyPolishIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Policy Polish Route V1 Ideas Policy Cards Polish Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/policy-cards": {
+      "post": {
+        "summary": "Run Policy Cards Route",
+        "description": "④ 빈 2-가-(1) — run 의 입력으로 작성안 최대 4개.",
+        "operationId": "run_policy_cards_route_v1_runs__run_id__policy_cards_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunPolicyCardsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Policy Cards Route V1 Runs  Run Id  Policy Cards Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/policy-cards/polish": {
+      "post": {
+        "summary": "Run Policy Polish Route",
+        "operationId": "run_policy_polish_route_v1_runs__run_id__policy_cards_polish_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunPolicyPolishIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Policy Polish Route V1 Runs  Run Id  Policy Cards Polish Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/policy-choice": {
+      "post": {
+        "summary": "Run Policy Choice Route",
+        "description": "고른 작성안(또는 mode none = \"정책 근거 없음\")으로 2-가-(1) 을 바꾼 새 버전. 인용 구간은\n저장소 원문과 대조해 통과한 것만 근거로 남는다.",
+        "operationId": "run_policy_choice_route_v1_runs__run_id__policy_choice_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyChoiceIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Policy Choice Route V1 Runs  Run Id  Policy Choice Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/changes": {
+      "get": {
+        "summary": "Run Changes Route",
+        "description": "④ \"변경 n건\" — 마지막 검토(최종 검토 버전, 없으면 초안) 이후 바뀐 것을 종류별로. 저장하지\n않은 편집은 화면이 더한다.",
+        "operationId": "run_changes_route_v1_runs__run_id__changes_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Changes Route V1 Runs  Run Id  Changes Get"
                 }
               }
             }
@@ -2343,6 +2797,58 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Figure Add Route V1 Runs  Run Id  Figures Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/figures/techniques": {
+      "post": {
+        "summary": "Figure Techniques Route",
+        "description": "[11] 분석 기법 [다시 추천] — 새 그림이 있으면 새 버전(created), 없으면 결과만\n(해당 없음·호출 실패·규칙에 걸러짐). 기준 버전 불일치·자리 없음 409.",
+        "operationId": "figure_techniques_route_v1_runs__run_id__figures_techniques_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FigureTechniquesIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Figure Techniques Route V1 Runs  Run Id  Figures Techniques Post"
                 }
               }
             }
@@ -2631,6 +3137,209 @@
           }
         }
       }
+    },
+    "/v1/runs/{run_id}/request": {
+      "get": {
+        "summary": "Run Request Route",
+        "description": "단계 표시 ①·② 를 run 안에서 열 때 — 그 run 의 저장된 입력. 제안자 입력이라 정리만.",
+        "operationId": "run_request_route_v1_runs__run_id__request_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Request Route V1 Runs  Run Id  Request Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/request/preview": {
+      "post": {
+        "summary": "Request Preview Route",
+        "operationId": "request_preview_route_v1_runs__run_id__request_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestChangeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Request Preview Route V1 Runs  Run Id  Request Preview Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/regenerate": {
+      "post": {
+        "summary": "Regenerate Route",
+        "description": "입력 변경 저장 — 관련 섹션만 다시 쓰기 / 초안 전체 다시 생성. 둘 다 새 버전(이전 버전은\n[버전·비교]에 남는다). 다시 쓰지 못한 섹션은 이전 내용 그대로 + failed 로 알린다.",
+        "operationId": "regenerate_route_v1_runs__run_id__regenerate_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegenerateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Regenerate Route V1 Runs  Run Id  Regenerate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/evidence-decisions/bulk-approve": {
+      "post": {
+        "summary": "Bulk Approve Route",
+        "operationId": "bulk_approve_route_v1_runs__run_id__evidence_decisions_bulk_approve_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/BulkApproveIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bulk Approve Route V1 Runs  Run Id  Evidence Decisions Bulk Approve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2661,6 +3370,26 @@
         "type": "object",
         "title": "Budget",
         "description": "1-나 소요예산(추정액). 사용자 입력 전용 — LLM 이 만들지 않고 프롬프트에도 넣지 않는다."
+      },
+      "BulkApproveIn": {
+        "properties": {
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BulkApproveIn",
+        "description": "POST /v1/runs/{id}/evidence-decisions/bulk-approve — 확인 필요 문장을 뺀 근거 일괄 승인."
       },
       "ConfirmIn": {
         "properties": {
@@ -2957,7 +3686,11 @@
               "regenerate",
               "include",
               "exclude",
-              "confirm"
+              "confirm",
+              "accept",
+              "dismiss",
+              "restore",
+              "swap"
             ],
             "title": "Action"
           },
@@ -2985,6 +3718,12 @@
               }
             ],
             "title": "Base Version"
+          },
+          "technique": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Technique",
+            "default": ""
           }
         },
         "additionalProperties": false,
@@ -3005,7 +3744,9 @@
               "schedule",
               "stat_chart",
               "comparison",
-              "roadmap"
+              "roadmap",
+              "as_is_to_be",
+              "technique"
             ],
             "title": "Kind"
           },
@@ -3026,6 +3767,12 @@
               }
             ],
             "title": "Base Version"
+          },
+          "technique": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Technique",
+            "default": ""
           }
         },
         "additionalProperties": false,
@@ -3035,7 +3782,27 @@
           "section"
         ],
         "title": "FigureAddIn",
-        "description": "POST /v1/runs/{id}/figures — [다른 그림 추가]."
+        "description": "POST /v1/runs/{id}/figures — [다른 그림 추가]. kind=technique 면 technique(기법 key) 필수."
+      },
+      "FigureTechniquesIn": {
+        "properties": {
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FigureTechniquesIn",
+        "description": "POST /v1/runs/{id}/figures/techniques — [11] 분석 기법 [다시 추천]."
       },
       "FinalizeIn": {
         "properties": {
@@ -3131,6 +3898,56 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "IdeaVersion": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "original",
+              "card",
+              "edited"
+            ],
+            "title": "Kind"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Fields"
+          },
+          "card_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Index"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Note",
+            "default": ""
+          },
+          "at": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "At",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "IdeaVersion"
+      },
       "PersonIn": {
         "properties": {
           "rank": {
@@ -3155,6 +3972,475 @@
         "additionalProperties": false,
         "type": "object",
         "title": "PersonIn"
+      },
+      "PolicyCardsIn": {
+        "properties": {
+          "current_state": {
+            "type": "string",
+            "title": "Current State",
+            "description": "현재 상황·문제"
+          },
+          "root_cause": {
+            "type": "string",
+            "title": "Root Cause",
+            "description": "발생 원인"
+          },
+          "limitation": {
+            "type": "string",
+            "title": "Limitation",
+            "description": "현행 대응의 한계"
+          },
+          "goal": {
+            "type": "string",
+            "title": "Goal",
+            "description": "해결 목표"
+          },
+          "constraints": {
+            "type": "string",
+            "title": "Constraints",
+            "description": "예산·기간·현장 제약",
+            "default": ""
+          },
+          "title_hint": {
+            "type": "string",
+            "title": "Title Hint",
+            "description": "가제 (있으면 과제명을 이것으로 다듬는다)",
+            "default": ""
+          },
+          "policy_basis": {
+            "type": "string",
+            "title": "Policy Basis",
+            "description": "정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지",
+            "default": ""
+          },
+          "beneficiaries": {
+            "type": "string",
+            "title": "Beneficiaries",
+            "description": "활용 주체 부서 (차량처·시설처 등)",
+            "default": ""
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks",
+            "description": "특이사항에 덧붙일 내용",
+            "default": ""
+          },
+          "differentiation": {
+            "type": "string",
+            "title": "Differentiation",
+            "description": "제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
+            "default": ""
+          },
+          "supplement": {
+            "type": "string",
+            "title": "Supplement",
+            "description": "보충 정보 (보강 질문의 답)",
+            "default": ""
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "description": "연구방법 (② 차별화 과제안에서 정한 것)",
+            "default": ""
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "description": "적용범위 — 대상 노선·시설·차량 (② 과제안)",
+            "default": ""
+          },
+          "similar_choices": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarChoice"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Similar Choices",
+            "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
+          },
+          "department": {
+            "type": "string",
+            "title": "Department",
+            "description": "제안부서 (양식 칸에만 쓴다)",
+            "default": ""
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Budget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exclude_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Exclude Doc Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_state",
+          "root_cause",
+          "limitation",
+          "goal"
+        ],
+        "title": "PolicyCardsIn",
+        "description": "POST /v1/ideas/policy-cards — 입력 + [다른 안 보기] 때 이미 본 문서 id."
+      },
+      "PolicyChoice": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "card",
+              "merged",
+              "edited",
+              "manual",
+              "none"
+            ],
+            "title": "Mode"
+          },
+          "card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "title": "Card Ids"
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/PolicySentence"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Sentences"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/PolicySource"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "PolicyChoice",
+        "description": "제안자가 정한 정책 근거 — run 의 2-가-(1) 정책적 중요도가 이것으로 쓰인다.\n\nmode: card(안 하나) | merged(두 안 합침) | edited(고른 뒤 직접 수정·AI 다듬기) | manual(직접\n작성)\n| none(정책 근거 없음으로 진행 → 빈칸 대신 \"정책 근거 확인 필요\" 알림, 제출 전 점검에서 다시\n표시).\nsentences 의 evidence 는 sources 의 chunk_id 만 — 생성 때 저장소에서 원문과 대조해 통과한 것만\n근거로 남는다(보안 A)."
+      },
+      "PolicyChoiceIn": {
+        "properties": {
+          "choice": {
+            "$ref": "#/components/schemas/PolicyChoice"
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "choice"
+        ],
+        "title": "PolicyChoiceIn",
+        "description": "POST /v1/runs/{id}/policy-choice — 고른 안 또는 {mode: none}."
+      },
+      "PolicyPolishIn": {
+        "properties": {
+          "current_state": {
+            "type": "string",
+            "title": "Current State",
+            "description": "현재 상황·문제"
+          },
+          "root_cause": {
+            "type": "string",
+            "title": "Root Cause",
+            "description": "발생 원인"
+          },
+          "limitation": {
+            "type": "string",
+            "title": "Limitation",
+            "description": "현행 대응의 한계"
+          },
+          "goal": {
+            "type": "string",
+            "title": "Goal",
+            "description": "해결 목표"
+          },
+          "constraints": {
+            "type": "string",
+            "title": "Constraints",
+            "description": "예산·기간·현장 제약",
+            "default": ""
+          },
+          "title_hint": {
+            "type": "string",
+            "title": "Title Hint",
+            "description": "가제 (있으면 과제명을 이것으로 다듬는다)",
+            "default": ""
+          },
+          "policy_basis": {
+            "type": "string",
+            "title": "Policy Basis",
+            "description": "정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지",
+            "default": ""
+          },
+          "beneficiaries": {
+            "type": "string",
+            "title": "Beneficiaries",
+            "description": "활용 주체 부서 (차량처·시설처 등)",
+            "default": ""
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks",
+            "description": "특이사항에 덧붙일 내용",
+            "default": ""
+          },
+          "differentiation": {
+            "type": "string",
+            "title": "Differentiation",
+            "description": "제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
+            "default": ""
+          },
+          "supplement": {
+            "type": "string",
+            "title": "Supplement",
+            "description": "보충 정보 (보강 질문의 답)",
+            "default": ""
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "description": "연구방법 (② 차별화 과제안에서 정한 것)",
+            "default": ""
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "description": "적용범위 — 대상 노선·시설·차량 (② 과제안)",
+            "default": ""
+          },
+          "similar_choices": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarChoice"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Similar Choices",
+            "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
+          },
+          "department": {
+            "type": "string",
+            "title": "Department",
+            "description": "제안부서 (양식 칸에만 쓴다)",
+            "default": ""
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Budget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "choice": {
+            "$ref": "#/components/schemas/PolicyChoice"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_state",
+          "root_cause",
+          "limitation",
+          "goal",
+          "choice",
+          "text"
+        ],
+        "title": "PolicyPolishIn",
+        "description": "POST /v1/ideas/policy-cards/polish — 입력 + 고른 안 + 제안자가 고친 글."
+      },
+      "PolicySentence": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Text"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "PolicySentence"
+      },
+      "PolicySource": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Chunk Id"
+          },
+          "doc_id": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Doc Id"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Source",
+            "default": ""
+          },
+          "source_label": {
+            "type": "string",
+            "maxLength": 60,
+            "title": "Source Label",
+            "default": ""
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Title",
+            "default": ""
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Quote"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "doc_id",
+          "quote"
+        ],
+        "title": "PolicySource",
+        "description": "작성안이 인용한 원문 구간 하나 — 문서명·연도·쪽·원문 인용·링크. quote 는 문서 그대로."
+      },
+      "PolishIn": {
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/ProposalRequest"
+          },
+          "field": {
+            "type": "string",
+            "enum": [
+              "title_hint",
+              "goal",
+              "method",
+              "scope",
+              "differentiation"
+            ],
+            "title": "Field"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request",
+          "field"
+        ],
+        "title": "PolishIn",
+        "description": "POST /v1/precheck/plan/polish — 과제안 한 칸 [AI로 다듬기] (레인 A). 그 칸만 보낸다."
       },
       "ProposalRequest": {
         "properties": {
@@ -3220,6 +4506,27 @@
             "description": "보충 정보 (보강 질문의 답)",
             "default": ""
           },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "description": "연구방법 (② 차별화 과제안에서 정한 것)",
+            "default": ""
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "description": "적용범위 — 대상 노선·시설·차량 (② 과제안)",
+            "default": ""
+          },
+          "similar_choices": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarChoice"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Similar Choices",
+            "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
+          },
           "department": {
             "type": "string",
             "title": "Department",
@@ -3230,6 +4537,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Budget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyChoice"
               },
               {
                 "type": "null"
@@ -3263,6 +4580,85 @@
         ],
         "title": "RecommendationApplyIn",
         "description": "POST /v1/precheck/recommendations/{id}/apply — 고른 추천 번호. 미리보기만 돌려준다."
+      },
+      "RegenerateIn": {
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/ProposalRequest"
+          },
+          "priority_evidence": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority Evidence"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sections",
+              "all"
+            ],
+            "title": "Mode",
+            "default": "sections"
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request"
+        ],
+        "title": "RegenerateIn",
+        "description": "POST /v1/runs/{id}/regenerate — sections: 바뀐 내용과 관련된 섹션만, all: 초안 전체.\n둘 다 새 버전을 만들고 이전 버전은 남는다. base_version 이 현재와 다르면 409."
+      },
+      "RequestChangeIn": {
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/ProposalRequest"
+          },
+          "priority_evidence": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority Evidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request"
+        ],
+        "title": "RequestChangeIn",
+        "description": "POST /v1/runs/{id}/request/preview — 바뀐 입력(①)과 ② 우선 근거. 저장하지 않는다."
       },
       "RevertIn": {
         "properties": {
@@ -3386,6 +4782,27 @@
             "description": "보충 정보 (보강 질문의 답)",
             "default": ""
           },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "description": "연구방법 (② 차별화 과제안에서 정한 것)",
+            "default": ""
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "description": "적용범위 — 대상 노선·시설·차량 (② 과제안)",
+            "default": ""
+          },
+          "similar_choices": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarChoice"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Similar Choices",
+            "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
+          },
           "department": {
             "type": "string",
             "title": "Department",
@@ -3396,6 +4813,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Budget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyChoice"
               },
               {
                 "type": "null"
@@ -3457,6 +4884,21 @@
               }
             ],
             "title": "Priority Evidence"
+          },
+          "idea_versions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/IdeaVersion"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idea Versions"
           }
         },
         "type": "object",
@@ -3468,6 +4910,41 @@
         ],
         "title": "RunIn",
         "description": "생성 요청 = ProposalRequest + (선택) 차별화 제안 전송 기록 + (선택) 과제 추천 세션 id·번호\n+ (선택) U5 우선 근거 id.\n\nrecommendation_id 가 있으면 서버가 그 세션의 추천 결과 전체를 run 의 recommendations.json 에\n복사하고 manifest 에 전송 기록·chosen 을 남긴다. 모르는 id 는 404.\npriority_evidence 는 브리핑에서 고른 doc_id·chunk_id — 검색 집합 안의 것만\nsnapshot.priority_ids 로."
+      },
+      "RunPolicyCardsIn": {
+        "properties": {
+          "exclude_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Exclude Doc Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RunPolicyCardsIn"
+      },
+      "RunPolicyPolishIn": {
+        "properties": {
+          "choice": {
+            "$ref": "#/components/schemas/PolicyChoice"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "choice",
+          "text"
+        ],
+        "title": "RunPolicyPolishIn"
       },
       "SearchIn": {
         "properties": {
@@ -3688,6 +5165,31 @@
         "type": "object",
         "title": "SessionIn",
         "description": "POST /v1/session — 세션 쿠키를 받는다. kind: token(관리 토큰) | staff(사번) | guest(아이디·\n비밀번호). 값은 본문으로만 (URL·로그 금지). 옛 본문 `{token}` 은 kind=token 으로 본다."
+      },
+      "SimilarChoice": {
+        "properties": {
+          "doc_id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Doc Id"
+          },
+          "choice": {
+            "type": "string",
+            "enum": [
+              "similar",
+              "unrelated"
+            ],
+            "title": "Choice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_id",
+          "choice"
+        ],
+        "title": "SimilarChoice",
+        "description": "② 유사과제 행 하나에 대한 제안자 선택 — [유사함] similar / [관련 없음] unrelated.\n\ndoc_id 와 선택만 (개인정보 없음). [유사함] 행만 비교표·활용 제안·차별화 과제안·본문 차별성\n문장(5. 특이사항)에 쓰인다. 차단 행을 모두 [관련 없음] 으로 고르면 차단이 풀린다\n(domain/rules/similar_choice)."
       },
       "StructureIn": {
         "properties": {

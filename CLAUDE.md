@@ -176,6 +176,13 @@
   `fallback_sections`, 웹 "대체 작성" 배지). **유사과제 판정**(ADR 0028, #56) — 후보는 `config/overlap.yaml candidates` 의 과제형 자료원만
   (`domain/rules/overlap_candidates.py`, `find_similar(sources=)`), 논문·보고서·특허는 `related_research`(웹 ② 관련 연구). 공용 계정 비밀번호
   최소 길이는 `auth.yaml guest.min_password_length`(시범 한정 4, #54).
+- **시범 오류·개선 17건**(2026-10-28 저녁, #81~#84): ② 판정 = reranker ≥ 0.5 + 핵심 키워드 ≥ 1, 상위 10건 Argon 같음 판정(→로컬→규칙),
+  행별 [유사함]/[관련 없음](`ProposalRequest.similar_choices`, 선택 기록 JSONL) — 비교표·활용 제안·과제안·본문 차별성은 [유사함] 행만(ADR 0036).
+  정책적 중요도 작성안 4개(`RunIn.policy_choice`, 원문 재대조, 없음 → `policy_basis_needed`), 보강 질문 켬, AI 다시 쓰기·보완 질문 Argon 먼저,
+  공통 순서 `usecases/argon_first.py`(빈 결과 금지·사유 표시, ADR 0037), "변경 n건" `domain/rules/change_count.py`. 그림 v2: 기본 As-Is/To-Be +
+  분석 기법 추천 0~2(`config/figures/techniques.yaml`, ADR 0033). HWPX 단계별 서식 점검 `adapters/rendering/hwpx_format.py`(ADR 0034), 알림 한국어
+  설명 표 `domain/rules/problem_labels.py` = `web/src/lib/labels.ts`(새 알림 코드는 두 표에 함께), 입력 변경 다시 쓰기 `POST /v1/runs/{id}/regenerate`(ADR 0035).
+  화면 문구에 내부 코드(input_missing·json·no_change 등)를 내보내지 않는다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 
