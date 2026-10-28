@@ -401,3 +401,26 @@ def _no_network(monkeypatch):
         raise AssertionError("network used")
 
     monkeypatch.setattr(httpx.AsyncClient, "send", deny)
+
+
+async def test_partial_session_retried_after_five_minutes_and_store_failure():
+    now = [0.0]
+    broken = FakeSource("scienceon", "ko", error=RuntimeError("down"))
+    live = _live(_three(scienceon=broken), clock=lambda: now[0])
+    first = await live.prepare("u1", _req())
+    assert first.status == "partial"
+    now[0] = 60
+    assert live.start("u1", _req()) is live.find("u1", _req())  # 5분 안 — 같은 세션
+    assert len(broken.calls) == 1
+    now[0] = 301
+    again = await live.prepare("u1", _req())
+    assert again.session == first.session and len(broken.calls) == 2  # 다시 검색
+
+    class FailingRepo(IdentityRepo):
+        async def upsert(self, docs, chunks):
+            raise RuntimeError("disk full")
+
+    failing = _live(_three(), repo=FailingRepo())
+    summary = await failing.prepare("u1", _req())
+    assert summary.doc_ids == [] and summary.status == "partial"
+    assert all(r.status == "error" and r.notice for r in summary.sources)

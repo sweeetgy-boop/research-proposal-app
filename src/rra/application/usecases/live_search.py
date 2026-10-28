@@ -85,6 +85,8 @@ KEYWORD_SYSTEM = (
 )
 NOTICE_NO_KEYWORDS = "검색어가 없어 건너뜀"
 NOTICE_NO_SOURCE = "자료원 키가 없거나 조립되지 않아 건너뜀"
+NOTICE_STORE_FAILED = "받은 자료를 저장하지 못해 이번에는 쓰지 않음"
+RETRY_AFTER_SECONDS = 300  # 일부 자료원이 실패한 세션은 5분 뒤 같은 입력이면 다시 검색한다
 NOTICE_TIMEOUT = "제한 시간 {sec:.0f}초를 넘어 건너뜀"
 SOURCE_ORDER = ("ntis", "scienceon", "openalex")  # 중복이면 앞 자료원(과제·국내 기록)을 남긴다
 
@@ -220,12 +222,21 @@ class LiveSearch:
         self._expire()
         key = session_key(owner, req)
         found = self._sessions.get(key)
-        if found is not None:
+        if found is not None and not self._stale(found):
             return found
         session = LiveSession(key=key, owner=owner, created=self._clock())
         self._sessions[key] = session
-        self.runner.submit(f"live-{session.hash}", self._run(session, req))
+        self.runner.submit(f"live-{session.hash}-{id(session):x}", self._run(session, req))
         return session
+
+    def _stale(self, session: LiveSession) -> bool:
+        """끝났지만 일부 자료원이 실패한 세션이 RETRY_AFTER_SECONDS 를 넘겼다 — 새로 검색한다
+        (검색·키워드 캐시가 있어 성공한 자료원은 다시 호출하지 않는다)."""
+        return (
+            session.finished
+            and session.summary().status == "partial"
+            and self._clock() - session.created > RETRY_AFTER_SECONDS
+        )
 
     def find(self, owner: str, req: ProposalRequest) -> LiveSession | None:
         if not self.enabled:
@@ -272,12 +283,16 @@ class LiveSearch:
                 self._cache_keywords(req, session.keywords)
             fetched = await self._search_all(session)
             await self._store(session, fetched)
-        except (
-            Exception
-        ) as exc:  # 세션 실패는 DB 만으로 계속하면 될 뿐 — 기다리는 쪽에 올리지 않는다
+        # 세션 실패는 DB 만으로 계속하면 될 뿐 — 기다리는 쪽에 올리지 않는다
+        except Exception as exc:
             logger.warning(
                 "live.session_failed session=%s err=%s", session.hash, type(exc).__name__
             )
+            for name, r in list(session.results.items()):
+                if r.status == "ok" and r.count and not session.doc_ids:  # 받았지만 저장 실패
+                    session.results[name] = r.model_copy(
+                        update={"status": "error", "notice": NOTICE_STORE_FAILED}
+                    )
             for name in self.config.enabled_sources():
                 session.results.setdefault(name, LiveSourceResult(source=name, status="error"))  # type: ignore[arg-type]
         finally:
