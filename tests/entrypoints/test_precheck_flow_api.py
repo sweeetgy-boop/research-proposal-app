@@ -15,7 +15,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-TOKEN = "precheck-flow-token"
+TOKEN = "precheck-flow-token"  # noqa: S105 — 테스트용
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 IDEA = {
     "current_state": "궤도 틀림이 반복 발생함 (중복)",
@@ -73,7 +73,9 @@ async def test_precheck_flow_choices_comparison_cards_polish_and_run(parts):
         assert pre["judgment"]["status"] == "ai" and pre["judgment"]["judged_by_label"] == "Argon"
         assert pre["judgment"]["retry_available"] is False
         first = pre["alerts"][0]
-        assert first["blocking"] and first["judgment"] == "same" and first["judgment_label"] == "같다"
+        assert (
+            first["blocking"] and first["judgment"] == "same" and first["judgment_label"] == "같다"
+        )
         assert first["judgment_reason"] and first["judged_by"] == "argon"
         assert all(not a["blocking"] for a in pre["alerts"][1:])
         assert pre["blocking"] and pre["gate_reason"].startswith("차단 경보를 확인해 주세요")
@@ -103,7 +105,9 @@ async def test_precheck_flow_choices_comparison_cards_polish_and_run(parts):
         cmp1 = (await c.post("/v1/precheck/comparison", json=chosen, headers=AUTH)).json()
         table = cmp1["comparison"]
         assert [p["doc_id"] for p in table["projects"]] == others[:1]
-        assert table["extraction"] == "ai" and table["extraction_label"].startswith("기존 과제 칸은")
+        assert table["extraction"] == "ai" and table["extraction_label"].startswith(
+            "기존 과제 칸은"
+        )
         assert table["projects"][0]["cells"]["scope"] == "정보 없음"
 
         diff0 = (await c.post("/v1/precheck/differentiate", json=IDEA, headers=AUTH)).json()
@@ -119,7 +123,11 @@ async def test_precheck_flow_choices_comparison_cards_polish_and_run(parts):
         polished = (
             await c.post(
                 "/v1/precheck/plan/polish",
-                json={"request": chosen, "field": "goal", "text": "검측 이력 기반 보수 우선순위 산정"},
+                json={
+                    "request": chosen,
+                    "field": "goal",
+                    "text": "검측 이력 기반 보수 우선순위 산정",
+                },
                 headers=AUTH,
             )
         ).json()
@@ -130,10 +138,10 @@ async def test_precheck_flow_choices_comparison_cards_polish_and_run(parts):
         assert retry["judgment"]["status"] == "ai"
 
         card = cards[0]
+        # 가제·목표는 원래 입력 그대로(같은 입력의 판정 메모로 차단 해제를 기록), 과제안의
+        # 방법·범위·차이만
         run_body = {
             **chosen,
-            "title_hint": card["title"],
-            "goal": card["goal"],
             "method": card["method"],
             "scope": card["scope"],
             "differentiation": card["differentiation"],
