@@ -121,7 +121,7 @@ async def main(argv: list[str] | None = None) -> int:
 
     global CONF
     CONF = Confirmation(choices={"task_type": ["applied"], "utilization": ["software"]})
-    from rra.domain.models.figure import Figure, parse_spec
+    from rra.domain.models.figure import Figure, display_name, parse_spec
     from rra.settings import Settings
 
     settings = Settings(
@@ -145,7 +145,7 @@ async def main(argv: list[str] | None = None) -> int:
             id=f"f:{section}:1",
             kind=kind,  # type: ignore[arg-type]
             section=section,
-            caption=getattr(spec, "title", None) or name,
+            caption=getattr(spec, "title", None) or display_name(kind),
             spec=spec,
         )
         t0 = time.monotonic()

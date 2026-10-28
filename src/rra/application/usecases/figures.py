@@ -550,7 +550,7 @@ class MakeFigures(TechniqueSteps):
         shorten: bool = True,
     ) -> FigureBuild:
         """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림. style 은 [말로 고치기] 모양 요청.
-        [23] 밑그림은 본문 폭 맞춤(layout), 그림은 흰 여백을 잘라 정확한 비율로(reframe), 글자
+        [23] 밑그림은 본문 폭 맞춤(layout), 그림은 흰 여백을 잘라 비율을 맞추고(reframe), 글자
         크기는
         OCR 로 어림해 작으면 글자를 한 단계 더 줄여 한 번 더 그린다(max_image_redraws)."""
         t0 = time.monotonic()
@@ -595,22 +595,11 @@ class MakeFigures(TechniqueSteps):
                 if not too_small or not shorten or attempt >= self.config.max_image_redraws:
                     break
                 attempt += 1
-                # 글자가 작다 — 줄일 글자가 있으면 줄여 밑그림부터, 없으면 "글자를 더 크게" 를 붙여
-                # 한 번 더
-                cut = fit_rules.shorten_spec(spec, min(fit_rules.MAX_SHORTEN, attempt))
-                prev = fit
-                if cut is not None:
-                    spec, n = cut
-                    figure = figure.model_copy(update={"spec": spec, "alt": rules.alt_text(spec)})
-                    figure, aspect, baseline_png, fit, svg = self.layout(figure, shorten=False)
-                    fit = fit.model_copy(
-                        update={
-                            "redraws": (prev.redraws if prev else 0) + 1,
-                            "shortened": (prev.shortened if prev else 0) + n,
-                            "widened": bool(prev and prev.widened),
-                        }
-                    )
-                elif fit is not None:
+                # 글자가 작다 — 밑그림은 이미 9pt 이상(layout)이라 그림의 모양 문제다. 글자(내용)는
+                # 그대로 두고
+                # "글자를 더 크게" 를 붙여 한 번 더 그린다 (10-28 실측: 글자를 줄여도 이름표 글자는
+                # 그대로 작았다)
+                if fit is not None:
                     fit = fit.model_copy(update={"redraws": fit.redraws + 1})
                 bigger = fit_rules.BIGGER_TEXT.format(pt=ocr_pt)
         else:

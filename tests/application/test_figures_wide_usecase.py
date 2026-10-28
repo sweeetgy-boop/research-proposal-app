@@ -125,16 +125,18 @@ async def test_proposer_text_edits_are_not_shortened_only_recorded():
     assert build.figure.fit.text_ok is False and build.figure.fit.shortened == 0
 
 
-async def test_ocr_small_text_on_nano_banana_image_redraws_once_with_shorter_labels():
+async def test_ocr_small_text_on_nano_banana_image_redraws_once_bigger_without_cutting_words():
     images = FakeImageGenerator()
     ocr = FakeOcr([0.02, 0.06])  # 첫 그림 "현황" 이 밑그림의 0.4배(≈4pt) → 다시 그린 그림은 1.2배
     uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m))
     four = {**AS_IS, "as_is": [*AS_IS["as_is"], AS_IS["as_is"][0]]}
-    build = await uc.draw(as_is_figure(four))
+    fig = as_is_figure(four)
+    build = await uc.draw(fig)
     f = build.figure
     assert len(images.calls) == 2 and f.calls == 2 and ocr.calls == 2
-    assert f.fit.text_method == "ocr" and f.fit.text_ok and f.fit.shortened >= 1
-    assert len(f.spec.as_is) == 3
+    assert "글자를 더 크게" in images.calls[1]["prompt"] and "약 4.0pt" in images.calls[1]["prompt"]
+    assert f.fit.text_method == "ocr" and f.fit.text_ok and f.fit.redraws == 1
+    assert f.spec == fig.spec and f.fit.shortened == 0  # 글자(내용)는 그대로
 
 
 async def test_ocr_small_text_stops_after_max_image_redraws():
