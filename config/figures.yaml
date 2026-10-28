@@ -22,19 +22,32 @@ cache_dir: data/cache/figures # 같은 명세·같은 밑그림(해시)이면 �
 concurrency: 3                # 초안 1건당 그림 동시 생성 수
 image_size: 2K                # 1K | 2K | 4K
 # v2 [4] 비율은 내용 양으로 고른다(rules.choose_aspect). false 면 아래 종류별 비율 고정
+# [23] 모든 그림은 가로로 넓게 (domain/rules/figure_fit.WIDE_ASPECTS): 16:9·21:9, 일정표·로드맵은 21:9·4:1.
+#   4:1 은 Nano Banana 가 받지 않아 21:9 로 만들고 흰 여백을 잘라 4:1 로 맞춘다. 표의 좁은 값(4:3 등)은 가로 비율로 올린다
 auto_aspect: true
 aspect:                       # 종류별 비율 (auto_aspect: false 일 때. Nano Banana imageConfig.aspectRatio, 밑그림도 같은 비율)
-  concept: "16:9"
+  concept: "21:9"
   process: "16:9"
   schedule: "21:9"
   stat_chart: "16:9"
   comparison: "16:9"
-  roadmap: "16:9"
+  roadmap: "21:9"
   as_is_to_be: "16:9"
-  technique: "4:3"
+  technique: "16:9"
+# [23] 본문 폭 맞춤 — 그림 폭 = 양식 본문 안쪽 폭(실물 양식에서 읽음: 쪽 폭 − 좌우 여백 − 단락 오른쪽 여백), 높이는 비율.
+# 높이 > 쪽 높이 × height_share 면 더 넓은 비율로, 그림 안 글자 < min_text_pt 면 글자를 줄여 다시 그린다
+fit:
+  min_text_pt: 9.0            # 본문 폭으로 넣었을 때 그림 안 가장 작은 글자 (캡션·출처 12pt 는 HWPX 단락)
+  height_share: 0.3333        # 쪽 높이 대비 그림 높이 상한
+  body_width_mm: 153.8        # 양식을 못 읽을 때 (별지 제2호서식 실측: 210 − 25×2 − 6.2)
+  page_height_mm: 297.0
+  max_shorten: 2              # 밑그림 글자 줄이기 단계 (22자·항목 3 → 16자·항목 2)
+  max_image_redraws: 1        # OCR 로 잰 그림 글자가 작을 때 Nano Banana 다시 부르기 (그림 호출 +1)
+  ocr: true                   # macOS Vision OCR 로 그림 글자 크기 어림 (없으면 밑그림 값)
+  ocr_box_em: 1.2             # OCR 줄 상자 높이 ÷ 글자 크기 — 밑그림으로 잰 값 (docs/eval-2026-10-28-figures-wide.md)
 hwpx:
   placement: inline           # inline(섹션 칸 안, 본문 뒤) | appendix(문서 끝 "별첨 그림"). render-check 가 깨지면 appendix 로 자동 전환
-  max_width_hwp: 42000        # 칸 안 그림 최대 폭 (HWPUNIT, 1/7200 인치 ≈ 148mm)
+  max_width_hwp: 43606        # [23] 양식을 못 읽을 때의 그림 폭 (HWPUNIT = 본문 안쪽 153.8mm). 읽으면 그 값
   caption_prefix: 그림
 # 색상 토큰 — 흑백 인쇄에서도 구분되게 명도 차 + 무늬(점·빗금)·선 모양을 함께 쓴다. 로고·상표·사진 금지.
 palette:

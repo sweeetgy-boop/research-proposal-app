@@ -38,10 +38,12 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from rra.adapters.rendering.hwpx_format import format_hwpx
+from rra.adapters.rendering.hwpx_geometry import body_width
 from rra.application.ports.renderer import RenderRejected
 from rra.domain.models import Confirmation, Draft, ProposerInfo, StrategyCatalog
-from rra.domain.models.figure import Figure, FigurePlacement
+from rra.domain.models.figure import Figure, FigureFit, FigurePlacement
 from rra.domain.models.selection import TASK_TYPES, UTILIZATION
+from rra.domain.rules import figure_fit as fit_rules
 from rra.domain.rules.llm_output import clean_sentence
 
 FORM_TITLE = "연구과제 제안서"
@@ -293,9 +295,11 @@ class HwpxRenderer:
         required_choices: tuple[str, ...] = ("task_type", "utilization"),
         clock: Callable[[], date] = date.today,
         figure_placement: str = "inline",
-        figure_max_width: int = 42000,
+        figure_max_width: int = 43606,
         figure_caption_prefix: str = "그림",
         format_check: bool = True,
+        figure_height_share: float = 1 / 3,
+        figure_min_text_pt: float = 9.0,
     ):
         self.slots = slots
         # 항목 12 서식 점검(단계별 단락 모양·글자 크기·앞 공백·표 칸·캡션) — 만들 때마다 고치고
@@ -311,6 +315,10 @@ class HwpxRenderer:
         self.figure_placement = figure_placement
         self.figure_max_width = int(figure_max_width)
         self.figure_caption_prefix = figure_caption_prefix
+        # [23] 그림 폭 = 양식 본문 안쪽 폭(hwpx_geometry, 못 읽으면 figure_max_width), 높이 상한 =
+        # 쪽 × share
+        self.figure_height_share = float(figure_height_share)
+        self.figure_min_text_pt = float(figure_min_text_pt)
 
     def __repr__(self) -> str:
         mode = "template" if self.template_path else "generate"
@@ -413,6 +421,7 @@ class HwpxRenderer:
 
         from rra.adapters.figures import image_size
 
+        widths = {fig.id: body_width(data, figure_marker(fig.id)) for _n, fig, _png, _m in figures}
         doc = HwpxDocument.open(data)
         placements: list[FigurePlacement] = []
         appendix: list[tuple[int, Figure, str, int, int]] = []  # (n, fig, item_id, w, h)
@@ -425,11 +434,16 @@ class HwpxRenderer:
             item_id = str(_add_image(doc, png, fmt))
             cell_para = _find_marker(doc, figure_marker(fig.id))
             inline = self.figure_placement == "inline" and cell_para is not None
-            width = self.figure_max_width
+            geo = widths.get(fig.id)
             cell = cell_para[0] if cell_para else None
-            if cell is not None and getattr(cell, "width", None):
-                width = min(width, max(int(cell.width) - 2000, 8000))
-            height = max(1, round(width * h_px / max(w_px, 1)))
+            if geo is not None and inline:
+                width, page_h = geo
+            else:  # 별첨·표식 없음 — 본문 폭
+                whole = body_width(data)
+                width, page_h = whole if whole else (self.figure_max_width, 84189)
+                if cell is not None and getattr(cell, "width", None):
+                    width = min(width, max(int(cell.width) - 2000, 8000))
+            width, height, fit = self._fit_size(fig, width, page_h, w_px, h_px)
             caption = self._caption(n, fig)
             extra = [sanitize(fig.source_caption)] if fig.source_caption else []
             if inline and cell_para is not None:
@@ -442,7 +456,9 @@ class HwpxRenderer:
                 else:  # 본문 단락(실물 양식) — 그림 단락 바로 뒤에 캡션 단락
                     _insert_after(para, [caption, *extra])
                 placements.append(
-                    FigurePlacement(id=fig.id, placement="inline", number=n, bytes=len(png))
+                    FigurePlacement(
+                        id=fig.id, placement="inline", number=n, bytes=len(png), fit=fit
+                    )
                 )
             else:
                 if cell_para is not None:
@@ -450,7 +466,9 @@ class HwpxRenderer:
                     _set_paragraph_text(cell_para[1], note)
                 appendix.append((n, fig, item_id, width, height))
                 placements.append(
-                    FigurePlacement(id=fig.id, placement="appendix", number=n, bytes=len(png))
+                    FigurePlacement(
+                        id=fig.id, placement="appendix", number=n, bytes=len(png), fit=fit
+                    )
                 )
         if appendix:
             doc.add_paragraph(f"별첨 {self.figure_caption_prefix}")
@@ -461,6 +479,41 @@ class HwpxRenderer:
                 if fig.source_caption:
                     doc.add_paragraph(sanitize(fig.source_caption))
         return doc.to_bytes(), placements
+
+    def _fit_size(
+        self, fig: Figure, width: int, page_h: int, w_px: int, h_px: int
+    ) -> tuple[int, int, FigureFit]:
+        """[23] 그림 폭·높이(HWPUNIT)와 맞춤 기록. 높이가 쪽 × share 를 넘으면(옛 비율 그림) 높이에
+        맞춰
+        줄이고 fits=False — 새 그림은 그림 단계가 넓은 비율로 다시 그려 여기서 넘지 않는다."""
+        height = max(1, round(width * h_px / max(w_px, 1)))
+        cap = int(page_h * self.figure_height_share)
+        fits = height <= cap
+        if not fits:
+            width = max(1, round(width * cap / height))
+            height = cap
+        width_mm = width / fit_rules.HWPUNIT_PER_MM
+        planned = fig.fit
+        min_pt = None
+        method = "svg"
+        if planned is not None and planned.min_text_pt is not None and planned.width_mm > 0:
+            min_pt = planned.min_text_pt * width_mm / planned.width_mm
+            method = planned.text_method
+        frame = fit_rules.BodyFrame(
+            width_mm, page_h / fit_rules.HWPUNIT_PER_MM, self.figure_height_share
+        )
+        fit = fit_rules.make_fit(
+            frame,
+            planned.ratio if planned else f"{w_px}:{h_px}",
+            min_pt=min_pt,
+            min_text_pt=self.figure_min_text_pt,
+            pixels=(w_px, h_px),
+            method=method,
+            redraws=planned.redraws if planned else 0,
+            shortened=planned.shortened if planned else 0,
+            widened=planned.widened if planned else False,
+        ).model_copy(update={"fits": fits})
+        return width, height, fit
 
     # ── 템플릿 모드 ───────────────────────────────────────
     def _fill_template(

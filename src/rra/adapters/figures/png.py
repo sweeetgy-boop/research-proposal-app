@@ -126,3 +126,86 @@ def shrink_image(
             break
         im = im.resize((max(1, int(im.width * 0.75)), max(1, int(im.height * 0.75))), Image.LANCZOS)
     return out, "image/jpeg"
+
+
+# ── [23] 비율 맞추기 ─────────────────────────────────────────
+WHITE_THRESHOLD = 245  # 이 값 이상(밝기)은 흰 여백으로 본다
+TRIM_MARGIN = 0.012  # 잘라 낸 뒤 남길 여백 (긴 변 대비)
+
+
+def _ratio(aspect: str) -> float:
+    try:
+        a, b = (float(x) for x in aspect.split(":", 1))
+        if a > 0 and b > 0:
+            return a / b
+    except (ValueError, AttributeError):
+        pass
+    return 16 / 9
+
+
+def _content_box(im: Image.Image) -> tuple[int, int, int, int] | None:
+    """흰 여백을 뺀 내용 상자 (왼, 위, 오른, 아래). 전부 흰색이면 None."""
+    gray = im.convert("L").point(lambda v: 255 if v < WHITE_THRESHOLD else 0)
+    return gray.getbbox()
+
+
+def _pad(im: Image.Image, ratio: float) -> Image.Image:
+    """흰색으로 채워 정확히 ratio(폭/높이)로. 가운데 정렬."""
+    w, h = im.size
+    if abs(w / h - ratio) < 1e-3:
+        return im
+    if w / h > ratio:  # 너무 넓다 → 위아래 채움
+        nw, nh = w, int(round(w / ratio))
+    else:  # 너무 높다 → 좌우 채움
+        nw, nh = int(round(h * ratio)), h
+    out = Image.new("RGB", (nw, nh), (255, 255, 255))
+    out.paste(im, ((nw - w) // 2, (nh - h) // 2))
+    return out
+
+
+def pad_to_aspect(data: bytes, aspect: str) -> bytes:
+    """밑그림 PNG 를 흰 캔버스 가운데에 놓아 aspect 로 (4:1 밑그림 → 21:9 참고 이미지)."""
+    im = _to_rgb(_open(data))
+    return _save(_pad(im, _ratio(aspect)), "PNG", optimize=True)
+
+
+def fit_aspect(
+    data: bytes,
+    mime: str,
+    aspect: str,
+    *,
+    max_bytes: int = 512_000,
+    min_ratio: float | None = None,
+) -> tuple[bytes, str]:
+    """생성 그림의 흰 여백을 잘라 낸다(좌우 여백 최소). 잘라 낸 내용이 aspect 보다 넓으면
+    위아래를
+    흰색으로
+    채워 aspect 로, min_ratio(그 종류에서 가장 덜 넓은 허용 비율)보다 좁으면 좌우를 채워 min_ratio
+    로,
+    그 사이면 그대로 둔다 — 글자를 자르지 않고, 좌우 여백을 일부러 늘리지 않는다. 4:1 처럼 생성 API
+    가
+    받지 않는 비율은 21:9 로 만든 뒤 여기서 맞춘다. 결과는 상한(max_bytes) 안으로."""
+    im = _to_rgb(_open(data))
+    box = _content_box(im)
+    if box is not None:
+        x0, y0, x1, y1 = box
+        margin = int(round(max(im.size) * TRIM_MARGIN))
+        im = im.crop(
+            (
+                max(0, x0 - margin),
+                max(0, y0 - margin),
+                min(im.width, x1 + margin),
+                min(im.height, y1 + margin),
+            )
+        )
+    target = _ratio(aspect)
+    floor = min(target, float(min_ratio)) if min_ratio else target
+    r = im.width / max(1, im.height)
+    if r > target:
+        im = _pad(im, target)
+    elif r < floor:
+        im = _pad(im, floor)
+    out = _save(im, "PNG", optimize=True)
+    if len(out) <= max_bytes:
+        return out, "image/png"
+    return shrink_image(out, "image/png", max_bytes=max_bytes, max_side=max(im.size))

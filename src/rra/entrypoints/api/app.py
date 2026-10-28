@@ -1502,8 +1502,10 @@ def create_app(
         (해당 없음·호출 실패·규칙에 걸러짐). 기준 버전 불일치·자리 없음 409."""
         rid = _run_id(run_id)
         try:
-            version, outcome = await manager.retry_techniques(
-                *await _own(request, rid), base_version=body.base_version
+            # [23] 시간 제한 없음 — 브라우저가 [취소]로 끊으면 그 작업만 멈춘다 (499, 새 버전 없음)
+            version, outcome = await cancel_on_disconnect(
+                request,
+                manager.retry_techniques(*await _own(request, rid), base_version=body.base_version),
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
@@ -1557,12 +1559,15 @@ def create_app(
         """[다른 그림 추가] — 종류·섹션을 골라 명세·그림을 만들고 새 버전."""
         rid = _run_id(run_id)
         try:
-            version = await manager.add_figure(
-                *await _own(request, rid),
-                body.kind,
-                body.section,
-                base_version=body.base_version,
-                technique=body.technique,
+            version = await cancel_on_disconnect(
+                request,
+                manager.add_figure(
+                    *await _own(request, rid),
+                    body.kind,
+                    body.section,
+                    base_version=body.base_version,
+                    technique=body.technique,
+                ),
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:
@@ -1583,14 +1588,18 @@ def create_app(
         regenerate·include·exclude·confirm. 저장은 새 버전(되돌리기 가능). 기준 버전 불일치 409."""
         rid = _run_id(run_id)
         try:
-            version = await manager.figure_action(
-                *await _own(request, rid),
-                figure_id,
-                body.action,
-                request_text=body.request,
-                texts=body.texts,
-                base_version=body.base_version,
-                technique=body.technique,
+            # [23] 다시 만들기·말로 고치기·기법 바꾸기는 AI 호출 — [취소]로 끊으면 멈춘다 (499)
+            version = await cancel_on_disconnect(
+                request,
+                manager.figure_action(
+                    *await _own(request, rid),
+                    figure_id,
+                    body.action,
+                    request_text=body.request,
+                    texts=body.texts,
+                    base_version=body.base_version,
+                    technique=body.technique,
+                ),
             )
             state = await manager.status(*await _own(request, rid))
         except RunNotFound as exc:

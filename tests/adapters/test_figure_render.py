@@ -58,6 +58,8 @@ def test_render_every_kind(kind: str) -> None:
     assert root.tag.endswith("svg")
     plain = _plain(svg)
     for t in texts_of(spec):
+        if kind == "stat_chart" and t == spec.source.caption():
+            continue  # [23] 출처는 HWPX 캡션 아래 12pt 출처 줄이 맡는다
         assert t in plain, (kind, t)
     assert "<script" not in svg and "<image" not in svg and "href=" not in svg
     assert "<style" not in svg
@@ -154,7 +156,7 @@ def test_stat_chart_patterns_and_value_texts() -> None:
     assert len(re.findall(r"<pattern id=", svg)) >= 2  # 3 계열 → dots·hatch
     assert 'fill="url(#pat-dots' in svg and 'fill="url(#pat-hatch' in svg
     assert "1,512" in svg and "2,904" in svg
-    assert "출처: 궤도 유지보수 통계, 2024년, 12쪽" in svg
+    assert "출처: 궤도 유지보수 통계, 2024년, 12쪽" not in svg  # [23] 그림 밖 출처 줄(12pt)
     assert "(단위: 건)" in svg
 
 
@@ -178,7 +180,7 @@ def test_comparison_missing_cell_shows_no_info_and_accent() -> None:
 def test_schedule_axis_ticks() -> None:
     spec = parse_spec("schedule", SAMPLES["schedule"])
     svg = render_svg(spec, palette=PALETTE, aspect="21:9")
-    for mth in (1, 12, 24):
+    for mth in (2, 12, 24):  # [23] 눈금 글자(9pt 이상)가 겹치지 않게 2개월 간격
         assert f">{mth}<" in svg
     assert "1~4개월" in svg and "20~24개월" in svg
     long = parse_spec(
@@ -192,7 +194,7 @@ def test_schedule_axis_ticks() -> None:
         },
     )
     svg = render_svg(long, palette=PALETTE)
-    assert ">60<" in svg and ">3<" in svg and ">4<" not in svg  # 24개월 초과는 3개월 눈금
+    assert ">60<" in svg and ">6<" in svg and ">4<" not in svg  # 60개월은 6개월 눈금
 
 
 def test_concept_and_roadmap_have_arrows() -> None:
@@ -228,7 +230,7 @@ def test_svg_to_png_huge_zoom_still_fits() -> None:
 def test_renderer_class_png() -> None:
     r = SvgFigureRenderer(palette=PALETTE, aspects=ASPECTS, font_files=FONTS, dpi=96)
     png = r.png(r.svg(parse_spec("roadmap", SAMPLES["roadmap"])))
-    assert png[:4] == b"\x89PNG" and image_size(png) == (1600, 900)
+    assert png[:4] == b"\x89PNG" and image_size(png) == (1600, 686)  # [23] 로드맵 21:9
 
 
 # ── 이미지 축소 ──────────────────────────────────────────

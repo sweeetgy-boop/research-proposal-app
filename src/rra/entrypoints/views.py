@@ -148,13 +148,56 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
 
 RENDERER_LABEL = {"nano_banana": "Nano Banana Pro", "baseline": "기본 그림"}
 FIGURE_NOTICE = "AI 가 그린 그림입니다. 숫자와 글자를 원문과 확인하세요"
+# [23] 그림 오류 코드 → 화면 문구 (코드는 내보내지 않는다)
+FIGURE_ERROR_LABEL = {
+    "budget": "오늘 그림 호출 한도에 이르러 기본 그림으로 넣었습니다.",
+    "no_image_llm": "그림 AI 를 쓸 수 없어 기본 그림으로 넣었습니다.",
+}
+FIGURE_ERROR_DEFAULT = (
+    "그림 AI 호출이 실패해 기본 그림으로 넣었습니다. [다시 만들기]로 다시 시도할 수 있습니다."
+)
+
+
+def figure_error_label(code: str | None) -> str | None:
+    if not code:
+        return None
+    return FIGURE_ERROR_LABEL.get(code, FIGURE_ERROR_DEFAULT)
+
+
+def figure_fit_view(fit: Any) -> dict[str, Any] | None:
+    """[23] 본문 폭 맞춤 — 카드가 그림을 이 비율(aspect_css)로 보이고, 한 줄 설명(note)을 붙인다."""
+    if fit is None:
+        return None
+    ratio = str(fit.ratio or "16:9")
+    a, _, b = ratio.partition(":")
+    parts = [f"본문 폭 {fit.width_mm:g}mm × 높이 {fit.height_mm:g}mm"]
+    if fit.min_text_pt is not None:
+        parts.append(f"가장 작은 글자 약 {fit.min_text_pt:g}pt")
+    note = " · ".join(parts)
+    if not fit.fits:
+        note += " — 높이가 쪽의 1/3 을 넘습니다"
+    elif not fit.text_ok:
+        note += " — 글자가 작을 수 있습니다"
+    if fit.shortened:
+        note += f" (글자 크기를 맞추려고 {fit.shortened}곳을 줄였습니다)"
+    return {
+        "ratio": ratio,
+        "aspect_css": f"{a} / {b}" if a and b else "16 / 9",
+        "width_mm": fit.width_mm,
+        "height_mm": fit.height_mm,
+        "fits": fit.fits,
+        "min_text_pt": fit.min_text_pt,
+        "text_ok": fit.text_ok,
+        "shortened": fit.shortened,
+        "note": note,
+    }
 
 
 def figures_payload(
     figures: list[Any], run_id: str, *, clean: Callable[[str], str] = _same
 ) -> list[dict[str, Any]]:
     """[G] 그림 목록 — 명세 글자(editable_texts)·대체 텍스트·배지·그림 URL. 바이트는 별도 경로."""
-    from rra.domain.models.figure import KIND_LABEL
+    from rra.domain.models.figure import KIND_LABEL, display_name
     from rra.domain.rules.figures import editable_texts
 
     out = []
@@ -166,6 +209,8 @@ def figures_payload(
                 "id": fid,
                 "kind": f.kind,
                 "label": tech["technique_label"] if tech else KIND_LABEL.get(f.kind, f.kind),
+                # [23] 화면·버전 목록 이름 (한국어, 영문·코드 없음) — "분석 기법 그림 – SWOT 분석"
+                "display_name": display_name(f.kind, tech["technique_label"] if tech else None),
                 "section": f.section,
                 "caption": clean(f.caption),
                 "alt": clean(f.alt),
@@ -177,6 +222,8 @@ def figures_payload(
                 "confirmed": f.confirmed,
                 "source_caption": clean(f.source_caption),
                 "error": f.error,
+                "error_label": figure_error_label(f.error),
+                "fit": figure_fit_view(getattr(f, "fit", None)),
                 "image_url": f"/v1/runs/{run_id}/figures/{fid}/image",
                 "baseline_url": f"/v1/runs/{run_id}/figures/{fid}/image?variant=baseline",
                 "texts": [
