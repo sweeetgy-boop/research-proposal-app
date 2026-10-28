@@ -97,7 +97,7 @@ def test_top_up_fills_from_rule():
 
 
 def test_source_queries_and_off():
-    assert source_queries(["열차 지연", "예측", "모델"]) == ["열차 지연 예측", "열차 지연", "예측"]
+    assert source_queries(["열차 지연", "예측", "모델", "넷째"]) == ["열차 지연", "예측", "모델"]
     assert source_queries(["하나"]) == ["하나"]
     assert source_queries([]) == []
 

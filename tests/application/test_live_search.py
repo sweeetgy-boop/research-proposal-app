@@ -122,8 +122,8 @@ async def test_all_sources_saved_public_live_and_keywords():
     assert saved.raw["live"] is True and saved.raw["live_first_seen"] == summary.session
     assert {c.doc_id for c in repo.chunks} == set(summary.doc_ids)  # 청크(임베딩 대상)도 저장
     # 영문 키워드는 OpenAlex, 국문은 ScienceON·NTIS
-    assert srcs[2].calls[0][0][0] == "train delay prediction"
-    assert srcs[0].calls[0][0][0] == "열차 지연 예측 운행 데이터"
+    assert srcs[2].calls[0][0][0] == "train delay"
+    assert srcs[0].calls[0][0] == ["열차 지연 예측", "운행 데이터", "머신러닝"]
     assert all(r.status == "ok" and r.count == 1 and r.new == 1 for r in summary.sources)
 
 
@@ -234,22 +234,30 @@ async def test_cache_hit_within_ttl_and_miss_after(tmp_path: Path):
     now = [0.0]
     cache = FileCache(tmp_path / "cache", ttl_sec=24 * 3600, clock=lambda: now[0])
     srcs = _three()
-    live = _live(srcs, cache=cache, llm=FakeLLM([KW_JSON, KW_JSON, KW_JSON]))
+    llm = FakeLLM([KW_JSON, KW_JSON, KW_JSON])
+    live = _live(srcs, cache=cache, llm=llm)
     await live.prepare("u1", _req())
     now[0] = 23 * 3600
     second = await live.prepare("u2", _req())  # 다른 사용자, 같은 키워드 → 캐시
     assert all(r.cached for r in second.sources)
     assert sorted(second.doc_ids) == ["ntis:P1", "openalex:W1", "scienceon:A1"]
     assert [len(s.calls) for s in srcs] == [1, 1, 1]
+    assert len(llm.calls) == 1  # 같은 입력의 키워드도 캐시 (Argon 호출 절약)
     now[0] = 25 * 3600
     third = await live.prepare("u3", _req())
     assert not any(r.cached for r in third.sources)
     assert [len(s.calls) for s in srcs] == [2, 2, 2]
+    assert len(llm.calls) == 2
     # 캐시 파일에 사람 이름·키가 없다 — 정규화(이름 제거)된 문서만
-    files = list((tmp_path / "cache").glob("*.json"))
-    assert len(files) == 3
-    for f in files:
-        for d in json.loads(f.read_text(encoding="utf-8"))["value"]:
+    values = [
+        json.loads(f.read_text(encoding="utf-8"))["value"]
+        for f in (tmp_path / "cache").glob("*.json")
+    ]
+    assert sum(isinstance(v, dict) for v in values) == 1  # 키워드
+    docs = [v for v in values if isinstance(v, list)]
+    assert len(docs) == 3  # 자료원별 검색 결과
+    for value in docs:
+        for d in value:
             assert d["authors"] == [] and d["raw"]["live"] is True
 
 

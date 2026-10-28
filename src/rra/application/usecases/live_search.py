@@ -57,6 +57,7 @@ from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.live_search import (
     cache_key,
     dedup_live,
+    keyword_cache_key,
     keyword_input,
     keywords_from_llm,
     overall_status,
@@ -265,7 +266,10 @@ class LiveSearch:
     # ── 실행 ───────────────────────────────────────────────
     async def _run(self, session: LiveSession, req: ProposalRequest) -> None:
         try:
-            session.keywords = await self.keywords(req)
+            cached = self._cached_keywords(req)
+            session.keywords = cached or await self.keywords(req)
+            if cached is None:
+                self._cache_keywords(req, session.keywords)
             fetched = await self._search_all(session)
             await self._store(session, fetched)
         except (
@@ -432,6 +436,29 @@ class LiveSearch:
         except Exception as exc:
             logger.info("live.public_ip_failed err=%s", type(exc).__name__)
             return None
+
+    def _cached_keywords(self, req: ProposalRequest) -> LiveKeywords | None:
+        """같은 입력의 LLM 키워드(24시간) — Argon 호출을 아끼고 검색 캐시가 맞게 한다."""
+        if self.cache is None or self.config.cache_hours <= 0:
+            return None
+        try:
+            value = self.cache.get(keyword_cache_key(req))
+            return LiveKeywords.model_validate(value) if isinstance(value, dict) else None
+        except Exception as exc:
+            logger.info("live.keyword_cache_bad err=%s", type(exc).__name__)
+            return None
+
+    def _cache_keywords(self, req: ProposalRequest, kw: LiveKeywords) -> None:
+        if (
+            self.cache is None
+            or self.config.cache_hours <= 0
+            or kw.origin not in ("argon", "local")
+        ):
+            return  # 규칙 기반은 언제든 같은 값 — 저장하지 않는다
+        try:
+            self.cache.set(keyword_cache_key(req), kw.model_dump(mode="json"))
+        except Exception as exc:
+            logger.info("live.keyword_cache_write_failed err=%s", type(exc).__name__)
 
     def _cache_get(self, key: str) -> list[Document] | None:
         if self.cache is None or self.config.cache_hours <= 0:

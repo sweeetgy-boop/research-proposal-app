@@ -4,7 +4,7 @@
 연산자
   제거), 모자라면 규칙 기반(keywords.py 토큰)으로 채운다. 정책명·고유명사는 고치지 않는다 — LLM 에게
   원문 그대로 쓰라고 지시하고, 여기서는 글자를 바꾸지 않고 거르기만 한다.
-- 질의: 키워드 앞 둘을 AND(공백)로 먼저, 결과가 모자라면 첫째·둘째 키워드 하나씩
+- 질의: 키워드 앞에서부터 하나씩(키워드 안의 단어는 AND), 결과가 모자랄 때만 다음 키워드
   (ScienceON 공백 = AND, `|` = OR — sources.yaml 주석, 2026-10-28 실호출 확인).
 - 캐시 키: 자료원 + 정규화한 질의 목록 + 건수의 sha256 (비밀 없음, 보안 C).
 - 세션 키: 소유자 키 + 입력 검색 글의 sha256 — 같은 입력으로 run 을 만들면 그 세션을 이어 쓴다.
@@ -150,15 +150,11 @@ def top_up(primary: LiveKeywords, fallback: LiveKeywords) -> LiveKeywords:
 
 # ── 질의·캐시 키·세션 키 ───────────────────────────────────
 def source_queries(keywords: Sequence[str], *, limit: int = MAX_QUERIES) -> list[str]:
-    """[앞 둘 AND, 첫째, 둘째] — 앞 질의로 건수가 차면 어댑터가 뒤 질의를 보내지 않는다."""
-    kws = [k for k in keywords if k]
-    if not kws:
-        return []
-    out = [f"{kws[0]} {kws[1]}"] if len(kws) >= 2 else []
-    out.extend(kws[:2])
+    """키워드 앞에서부터 하나씩(키워드 안 단어는 AND) — 앞 질의로 건수가 차면 어댑터가 뒤 질의를
+    보내지 않는다. 두 키워드를 AND 로 묶으면 0~2건으로 좁아진다(2026-10-28 실호출)."""
     unique: list[str] = []
-    for q in out:
-        if q not in unique:
+    for q in keywords:
+        if q and q not in unique:
             unique.append(q)
     return unique[:limit]
 
@@ -170,6 +166,17 @@ def normalize_query(text: str) -> str:
 def cache_key(source: str, queries: Iterable[str], limit: int) -> str:
     """자료원 + 정규화한 질의 + 건수의 sha256. 키·토큰은 들어가지 않는다 (보안 C)."""
     body = "\n".join([CACHE_VERSION, source, str(int(limit)), *map(normalize_query, queries)])
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def keyword_cache_key(req: ProposalRequest) -> str:
+    """같은 입력의 키워드를 24시간 다시 쓰기 위한 키 (소유자 무관 — 검색 캐시가 맞도록)."""
+    parts = [
+        f"{CACHE_VERSION}:keywords",
+        normalize_query(req.search_text()),
+        normalize_query(req.policy_basis),
+    ]
+    body = "\n".join(parts)
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
