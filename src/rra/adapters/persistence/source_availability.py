@@ -55,6 +55,16 @@ class FileSourceAvailability:
     def notice(self, source: str) -> str | None:
         return self.notices().get(source)
 
+    def recorded_at(self, source: str) -> float | None:
+        """그 자료원 안내가 기록된 시각(epoch 초). 없으면 None (TimedAvailabilityPort)."""
+        row = self._load().get(source) if _NAME.match(source) else None
+        if not isinstance(row, dict) or not row.get("notice"):
+            return None
+        try:
+            return float(row.get("at"))
+        except (TypeError, ValueError):
+            return None
+
     def notices(self) -> dict[str, str]:
         out: dict[str, str] = {}
         for name, row in self._load().items():

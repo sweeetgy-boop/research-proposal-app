@@ -11,6 +11,7 @@ from .catalog import CatalogPort
 from .embedding import EmbeddingPort
 from .figures import FigureRendererPort, ImageBudgetExhausted, ImageGeneratorPort, ImageResult
 from .generation_slot import GenerationSlot
+from .live_search import IdentityLookupPort, LiveSourcePort, TimedAvailabilityPort
 from .llm import LLMPort, ModelListingPort, RateLimited
 from .maintenance import DatabaseMaintenancePort
 from .ntis import CachePort, ProjectOutcomePort, RelatedProjectPort
@@ -44,6 +45,9 @@ __all__ = [
     "ImageResult",
     "GenerationSlot",
     "InboxSource",
+    "IdentityLookupPort",
+    "LiveSourcePort",
+    "TimedAvailabilityPort",
     "LLMPort",
     "ModelListingPort",
     "RateLimited",

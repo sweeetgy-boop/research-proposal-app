@@ -2216,3 +2216,111 @@ def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
         recommend_auto=recommend_policy(settings)["auto"],
         clarify=build_clarifier(settings, llm=llm) if pipeline_config(settings).clarify else None,
     )
+
+
+# ── [4] 실시간 자료 검색 (ADR 0031) ───────────────────────────
+def build_live_sources(settings: Settings | None = None, *, transport=None, resolver=None):
+    """실시간 검색 전용 자료원 어댑터 {scienceon, ntis, openalex}. 야간 적재와 다른 인스턴스라 요청
+    예산이 섞이지 않는다. 키가 없는 자료원(MissingCredential)은 빠진다 — 세션 상태에 error 로
+    보인다."""
+    from rra.adapters.sources.live import LiveNtis, LiveOpenAlex, LiveScienceOn
+    from rra.config_loader import live_search_config
+
+    settings = settings or load_settings()
+    cfg = live_search_config(settings)
+    out: dict[str, Any] = {}
+    kw = {"transport": transport, "resolver": resolver}
+    if cfg.source("scienceon").enabled:
+        try:
+            out["scienceon"] = LiveScienceOn(
+                build_scienceon_source(settings, **kw),
+                max_requests=cfg.source("scienceon").max_requests,
+            )
+        except MissingCredential:
+            logger.info("live.source_missing_key source=scienceon")
+    if cfg.source("ntis").enabled:
+        try:
+            out["ntis"] = LiveNtis(
+                build_ntis_source(settings, **kw),
+                build_ntis_report_source(settings, **kw),
+                max_requests=cfg.source("ntis").max_requests,
+            )
+        except MissingCredential:
+            logger.info("live.source_missing_key source=ntis")
+    if cfg.source("openalex").enabled:
+        out["openalex"] = LiveOpenAlex(
+            build_openalex_source(settings, transport=transport),
+            max_requests=cfg.source("openalex").max_requests,
+        )
+    return out
+
+
+def build_live_keywords(settings: Settings | None = None, *, llm=None, local_llm=None):
+    """키워드 만들기 — Argon(keywords.stage, 기본 review=gemini: 일일 예산·공유 호출 제한기) →
+    로컬(keywords.local_stage) → 규칙. 키가 없는 단계는 건너뛴다. llm 을 주면 그것만 쓴다(가짜
+    모드)."""
+    from rra.application.usecases.live_search import LiveKeywordMaker
+    from rra.config_loader import live_search_config
+
+    settings = settings or load_settings()
+    kcfg = live_search_config(settings).keywords
+    primary, local = llm, local_llm
+    if llm is None:
+        if kcfg.stage and llm_available(settings, stage=kcfg.stage):
+            try:
+                primary = build_llm(settings, stage=kcfg.stage)
+            except (LLMUnavailable, KeyError, ValueError):
+                primary = None
+        if kcfg.local_stage and local_llm is None:
+            try:
+                local = build_llm(settings, stage=kcfg.local_stage)
+            except (LLMUnavailable, KeyError, ValueError):
+                local = None
+    return LiveKeywordMaker(
+        primary=primary,
+        local=local,
+        timeout=kcfg.timeout_seconds,
+        local_timeout=kcfg.local_timeout_seconds,
+        rule=keyword_rule(settings),
+    )
+
+
+def build_live_search(
+    settings: Settings | None = None, *, repo=None, llm=None, sources=None, runner=None
+):
+    """LiveSearch 유스케이스. 가짜 모드(settings.fake_llm)면 가짜 자료원. 설정이 꺼져 있으면
+    enabled=False 인 인스턴스(호출자는 그대로 써도 off 요약만 받는다 — 종전 동작)."""
+    from rra.adapters.persistence.file_cache import FileCache
+    from rra.adapters.runs import AsyncioTaskRunner
+    from rra.application.usecases.live_search import LiveSearch
+    from rra.config_loader import live_search_config
+
+    settings = settings or load_settings()
+    cfg = live_search_config(settings)
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    if sources is None:
+        if settings.fake_llm:
+            from rra.adapters.fake import fake_live_sources
+
+            sources = fake_live_sources()
+        else:
+
+            def sources() -> dict[str, Any]:  # 처음 쓸 때 만든다 (꺼져 있으면 만들지 않는다)
+                return build_live_sources(settings)
+
+    cache = (
+        FileCache(data_location(settings, "live_search_cache"), ttl_sec=cfg.cache_hours * 3600)
+        if cfg.cache_hours > 0
+        else None
+    )
+    return LiveSearch(
+        cfg,
+        repo,
+        runner or AsyncioTaskRunner(),
+        sources=sources,
+        keywords=build_live_keywords(settings, llm=llm),
+        cache=cache,
+        availability=build_source_availability(settings),
+        public_ip=None if settings.fake_llm else build_public_ip_probe(settings),
+    )

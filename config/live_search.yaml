@@ -1,0 +1,23 @@
+# [4] 실시간 자료 검색 (ADR 0031) — 입력 확인(POST /v1/precheck) 직후 ScienceON·NTIS·OpenAlex 동시 검색.
+# 결과는 DB 에 visibility=public, raw.live=true 로 저장되고 ② 유사과제·관련 연구, 선행연구 브리핑,
+# ③ 섹션 검색이 평소 검색으로 함께 본다. 야간 적재(com.rra.ingest)는 그대로.
+# 외부 호출 도메인은 security.yaml allowed_domains 의 기존 세 곳뿐(apigateway.kisti.re.kr·www.ntis.go.kr·
+# api.openalex.org). 키·토큰은 .env(Settings SecretStr) — 여기에는 비밀이 없다.
+enabled: true                      # 시범 운영 기본 켬. false 면 종전 동작(DB 만)
+per_source_timeout_seconds: 10     # 자료원 하나의 제한 시간 — 넘기면 그 자료원만 timeout 으로 건너뜀
+overall_timeout_seconds: 15        # 세 자료원 전체 검색 제한 시간
+wait_seconds: 15                   # 결과가 필요한 곳(②·브리핑·③)이 기다리는 상한. 넘으면 DB 만으로 계속
+cache_hours: 24                    # 같은 자료원·같은 질의는 이 시간 동안 캐시(data/cache/live_search). 0 = 캐시 없음
+cache_dir: data/cache/live_search  # 데이터 폴더 기준. 값은 정규화된 문서(사람 이름 제거)만, 비밀 없음
+ip_block_recheck_minutes: 60       # NTIS IP 거부가 기록된 뒤 이 시간 안에는 호출하지 않고 ip_blocked 로 표시
+session_ttl_minutes: 180           # (소유자, 입력) 세션 보관 시간 — 같은 입력으로 run 을 만들면 이어 쓴다
+max_sessions: 200
+keywords:
+  stage: review                    # Argon(gemini, llm.yaml stages.review). 일일 예산·공유 호출 제한기 적용
+  local_stage: clarify             # Argon 실패 시 로컬 모델. "" 이면 로컬 생략 → 규칙 기반
+  timeout_seconds: 6
+  local_timeout_seconds: 6
+sources:
+  scienceon: {enabled: true, top_n: 30, max_requests: 8}   # 논문·보고서·특허 target 마다 10건, 질의 2개까지
+  ntis:      {enabled: true, top_n: 30, max_requests: 6}   # 과제 15 + 연구보고서 15. IP 거부면 그 세션은 건너뜀
+  openalex:  {enabled: true, top_n: 30, max_requests: 3}   # 영문 키워드, 초록 있는 것만
