@@ -4,6 +4,8 @@ from rra.domain.models import PolicySuggestion, ProposalRequest
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.policy_phrases import (
     apply_policy_suggestion,
+    clean_quote,
+    match_text,
     pick_quote,
     policy_basis_text,
     rank,
@@ -24,10 +26,37 @@ def test_pick_quote_prefers_sentence_with_most_query_keywords():
     assert quote2 == "경영목표는 다섯 가지다." and hits2 == []
 
 
-def test_pick_quote_caps_length():
+def test_pick_quote_never_cuts_a_sentence():
+    """300자를 넘는 문장은 자르지 않고 빼고, 맞는 문장이 없으면 빈 인용 (2026-10-28 레인 B)."""
     long = "가" * 400 + "."
-    quote, _ = pick_quote(long, "질의")
-    assert len(quote) == 300 and quote.endswith("…")
+    assert pick_quote(long, "질의") == ("", [])
+    quote, _ = pick_quote(long + " 짧은 정책 문장으로 유지보수를 강화함.", "유지보수")
+    assert quote == "짧은 정책 문장으로 유지보수를 강화함."
+
+
+def test_pick_quote_strips_urls_and_leading_bullets():
+    text = (
+        "O 이에 상태기반 유지보수 체계를 확대함 "
+        "(https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=1) "
+        "○ 둘째 과제는 데이터 기반 유지보수 첨단화 추진임. ? 셋째 과제는 홍보 강화"
+    )
+    quote, hits = pick_quote(text, "상태기반 유지보수")
+    assert quote == "상태기반 유지보수 체계를 확대함" and "http" not in quote
+    for raw, want in [
+        ("□ (1) 국가철도망 구축계획 반영함", "국가철도망 구축계획 반영함"),
+        ("- 2. 철도안전 종합계획 이행", "철도안전 종합계획 이행"),
+        ("? 노후 시설 개량을 추진함", "노후 시설 개량을 추진함"),
+    ]:
+        assert clean_quote(raw) == want
+    # 청크 끝에서 잘린 조각은 고르지 않는다
+    q2, _ = pick_quote(
+        "첫 문장은 유지보수 확대 계획임. 둘째 문장은 유지보수 데이터 체계를 구", "유지보수 데이터"
+    )
+    assert q2 == "첫 문장은 유지보수 확대 계획임."
+
+
+def test_match_text_ignores_urls_for_source_check():
+    assert match_text("상태 (https://a.b/c?x=1) 확인") == match_text("상태 확인")
 
 
 def _s(doc_id, hits, sim=None, **kw):

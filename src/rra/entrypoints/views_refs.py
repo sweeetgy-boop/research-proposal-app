@@ -1,7 +1,8 @@
 """문서 표시 직렬화 — doc_id 를 내보내는 뷰마다 제목·자료원 이름(한국어)·원문 링크를 함께 싣는다
 (2026-10-28 레인 B, ADR 0040). 규칙은 domain/rules/doc_refs.
 
-프런트엔드 영향: web/src/lib/docRefs.ts 의 ``docRef``/``replaceDocIds`` 와 web/src/components/DocRef.tsx 가
+프런트엔드 영향: web/src/lib/docRefs.ts 의 ``docRef``/``replaceDocIds`` 와
+web/src/components/DocRef.tsx 가
 이 모양({doc_id, title, source, source_label, url})을 쓴다. 화면은 doc_id 를 그대로 보이지 않는다.
 """
 

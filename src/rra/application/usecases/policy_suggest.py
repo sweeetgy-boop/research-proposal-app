@@ -2,8 +2,10 @@
 
 ① 입력(5슬롯 + 있으면 policy_basis)으로 저장소를 정책 자료원만 검색(hybrid_search sources 필터)하고,
 정책 문서의 청크에서 문구를 고른다. 자료원·자료 종류·관련도는 정책적 중요도 작성안(policy_cards)과
-같은 규칙(domain/rules/policy_cards.policy_passage, doc_category.is_policy_basis — 2026-10-28 레인 B,
-ADR 0040): 국토부 계획·공사 경영목표·전략·감사 지적·정부 R&D 공고만, 사전정보공표 연구용역(사내 발주)·
+같은 규칙(domain/rules/policy_cards.policy_passage, doc_category.is_policy_basis — 2026-10-28 레인
+B,
+ADR 0040): 국토부 계획·공사 경영목표·전략·감사 지적·정부 R&D 공고만, 사전정보공표 연구용역(사내
+발주)·
 행정 공시·사업 현황은 빠진다. LLM 을 쓰지 않는다. 결과는 제안서에 자동으로 들어가지 않는다
 — 제안자가 고른 것만 apply_policy_suggestion 으로 policy_basis 에 붙는다.
 """

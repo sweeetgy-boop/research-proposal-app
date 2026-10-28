@@ -17,14 +17,13 @@ from rra.domain.models.policy import MAX_QUOTE
 from rra.domain.rules.keywords import KeywordRule, keyword_overlap
 
 # 문장 경계 — 마침표류 뒤 공백, 줄바꿈, 본문 중간의 글머리 기호(○ □ ■ ◦ • ▶ ※, 영문 O 글머리)
-_SENT = re.compile(
-    r"(?<=[.!?。])\s+|\n+|\s+(?=[○●□■◦•▶▷※]\s)|(?<=[가-힣.])\s+(?=[Oo]\s+[가-힣])"
-)
+_SENT = re.compile(r"(?<=[.!?。])\s+|\n+|\s+(?=[○●□■◦•▶▷※]\s)|(?<=[가-힣.])\s+(?=[Oo]\s+[가-힣])")
 MIN_SENT = 12
 # 원문 링크는 인용 아래 "원문" 링크로만 — 인용 글 안의 긴 주소는 지운다
 _URL_PAREN = re.compile(r"[(（]\s*(?:https?://|www\.)[^)）]*[)）]")
 _URL = re.compile(r"(?:https?://|www\.)\S+")
-# 문장 앞 글머리: ○ □ - ? · ※ ▶, 영문 O·ㅇ 글머리, 번호(1. 1) (1) 가. ①), 이어 주는 말(이에·따라서 …)
+# 문장 앞 글머리: ○ □ - ? · ※ ▶, 영문 O·ㅇ 글머리, 번호(1. 1) (1) 가. ①), 이어 주는 말(이에·따라서
+# …)
 _LEAD = re.compile(
     r"\A\s*(?:[○●□■◦•·▪▶▷※\-–—?*ㅇ]+|[Oo](?=\s)|[(（]?\d{1,2}[.)）]|[(（]\d{1,2}[)）]"
     r"|[(（]?[가-하][.)）]|[①-⑳])\s*"

@@ -90,3 +90,39 @@ async def test_policy_importance_rule_still_uses_only_proposer_input():
     assert "policy_importance" in rules.evidence_forbidden
     assert rules.requires_input["policy_importance"] == ["policy_basis"]
     assert rules.input_grounded["policy_importance"] == ["policy_basis"]
+
+
+async def test_research_service_and_admin_records_are_not_policy_basis():
+    """사전정보공표 연구용역(사내 발주)·행정 공시는 정책 근거 추천에도, 작성안에도 나오지 않는다
+    (ADR 0040 — 두 기능이 같은 규칙 policy_passage 를 쓴다)."""
+    from rra.application.usecases.policy_cards import PolicyCards
+
+    research = POLICY.model_copy(
+        update={
+            "doc_id": "korail_web:r1",
+            "title": "레인보우 비경열차 관광수요 예측 연구",
+            "raw": {"menu": "preinfo", "native_id": "preinfo:55:1"},
+        }
+    )
+    admin = POLICY.model_copy(
+        update={
+            "doc_id": "korail_web:a1",
+            "title": "신규채용자 친인척 재직관련 현황",
+            "raw": {
+                "menu": "preinfo",
+                "native_id": "preinfo:60:1",
+                "page_url": "https://info.korail.com/x?infoRelNo=60&infoRelCategory=IRTYP4",
+            },
+        }
+    )
+    text = "상태기반 유지보수 체계 확립을 위한 궤도 틀림 자동 감지 방안을 마련함."
+    chunks = [
+        Chunk(chunk_id=f"{d}#0", doc_id=d, ordinal=0, text=text, similarity=0.9)
+        for d in ("korail_web:p1", "korail_web:r1", "korail_web:a1")
+    ]
+    repo = InMemoryRepository()
+    repo.seed([POLICY, research, admin], chunks)
+    out = await PolicySuggest(repo)(REQ)
+    assert [s.doc_id for s in out] == ["korail_web:p1"]
+    passages = await PolicyCards(repo=repo, ask=None).passages(REQ)  # type: ignore[arg-type]
+    assert [p.doc_id for p in passages] == ["korail_web:p1"]

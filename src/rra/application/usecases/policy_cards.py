@@ -3,7 +3,8 @@
 1. 정책 자료원(국토부 계획·정부 R&D 공고 / 공사 중장기 경영목표·전략 / 감사원·경영평가 지적)을
    방향별로 검색하고(hybrid_search sources 필터), 정책 문서(doc_category.is_policy_basis — 연구용역·
    행정 공시·사업 현황 제외)의 청크에서 아이디어와 겹치는 문장을 원문 그대로 고른다. 관련 없는 구간
-   (키워드 겹침 0 이고 유사도 하한 미만)은 버린다 — 규칙은 policy_cards.policy_passage 하나로 정책 근거
+   (키워드 겹침 0 이고 유사도 하한 미만)은 버린다 — 규칙은 policy_cards.policy_passage 하나로 정책
+   근거
    추천과 같이 쓴다.
 2. 방향별로 묶는다(domain/rules/policy_cards.group_passages — 한 문서는 한 안에만).
 3. Argon 이 안마다 2~3개 "○" 문장을 쓴다(인용 구간 안에서만, JSON). 실패하면 로컬 모델.

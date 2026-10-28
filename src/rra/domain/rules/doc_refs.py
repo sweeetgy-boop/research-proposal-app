@@ -1,12 +1,14 @@
 """문서 표시 — 화면에 내부 문서 번호를 내보내지 않는다 (2026-10-28 레인 B, ADR 0040).
 
-화면은 ``own:…``·``alio:sum-…``·``ntis:…``·``f:method:t1`` 같은 내부 번호 대신 "제목 · 자료원 이름(한국어)" 을
+화면은 ``own:…``·``alio:sum-…``·``ntis:…``·``f:method:t1`` 같은 내부 번호 대신 "제목 · 자료원
+이름(한국어)" 을
 보이고, 누르면 근거 패널(요약 + 원문 링크)을 연다. 여기에는 그 규칙만 있다(순수).
 
 - ``SOURCE_NAMES``: 자료원 키 → 한국어 이름 (화면 배지). 프런트엔드 ``web/src/lib/docRefs.ts`` 의
   ``SOURCE_NAMES`` 와 같은 값이다(테스트가 둘을 맞춘다).
 - ``doc_ref``: 뷰가 doc_id 옆에 붙이는 {title, source, source_label, url}. url 은 공개 문서만.
-- ``replace_internal_ids``: LLM 출력(검토 의견·알림 문구)에 섞인 내부 번호를 제목·이름으로 바꾸거나 뺀다.
+- ``replace_internal_ids``: LLM 출력(검토 의견·알림 문구)에 섞인 내부 번호를 제목·이름으로 바꾸거나
+뺀다.
 """
 
 from __future__ import annotations

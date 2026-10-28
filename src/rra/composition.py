@@ -126,6 +126,7 @@ __all__ = [
     "build_ntis_source",
     "build_openalex_source",
     "build_policy_suggest",
+    "build_reclassify",
     "build_precheck",
     "build_prompt_library",
     "build_purge_runs",
@@ -192,6 +193,16 @@ def build_db_maintenance(settings: Settings | None = None, *, repo=None):
     return ReindexDocuments(repo), BackupDatabase(
         repo, extra_files=_korail_web_backup_files(settings)
     )
+
+
+def build_reclassify(settings: Settings | None = None, *, repo=None):
+    """자료 분류 이주 (`rra db reclassify`, ADR 0040). 임베딩을 쓰지 않는다."""
+    from rra.application.usecases.reclassify_documents import ReclassifyDocuments
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    return ReclassifyDocuments(repo)
 
 
 def _korail_web_backup_files(settings: Settings) -> list[Path]:

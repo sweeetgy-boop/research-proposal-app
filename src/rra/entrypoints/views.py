@@ -106,7 +106,8 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
             }
             for sec in view.sections
         ],
-        # 인용 문서 — 화면은 id 대신 title·source_label(한국어)·url(공개 문서만)을 보인다 (ADR 0040).
+        # 인용 문서 — 화면은 id 대신 title·source_label(한국어)·url(공개 문서만)을 보인다 (ADR
+        # 0040).
         # live: [4] 실시간 검색에서 가져온 근거
         "citations": [
             citation_ref(c, clean=clean, live=c.doc_id in live_ids) for c in view.citations
@@ -421,7 +422,8 @@ def review_payload(
     """ReviewRound → dict. 의견·수정안은 외부 LLM 출력(비신뢰 텍스트) — clean 을 거친다.
 
     citations: 초안 인용 문서(RunManager.Citation) — 의견 글에 섞인 내부 번호([own:…]·f:method:t1)를
-    제목·"<섹션> 그림 n" 으로 바꾸고(ADR 0040), 의견마다 evidence_refs(제목·자료원 이름)를 싣는다."""
+    제목·"<섹션> 그림 n" 으로 바꾸고(ADR 0040), 의견마다 evidence_refs(제목·자료원 이름)를
+    싣는다."""
     titles = titles_from(citations)
 
     def txt(value: str) -> str:

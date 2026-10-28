@@ -387,7 +387,8 @@ def create_app(
         return getattr(getattr(manager.generate, "rules", None), "titles", None) or {}
 
     async def _citations(owner: str, rid: str) -> list[Any]:
-        """검토 의견 글의 내부 번호를 제목으로 바꿀 인용 문서 (ADR 0040). 실패하면 빈 목록 — 번호는 지운다."""
+        """검토 의견 글의 내부 번호를 제목으로 바꿀 인용 문서 (ADR 0040). 실패하면 빈 목록 — 번호는
+        지운다."""
         try:
             return list((await manager.get_draft(owner, rid)).citations)
         except Exception:  # noqa: BLE001 — 표시용 보조 정보

@@ -40,8 +40,8 @@ from rra.domain.rules.doc_category import (
 )
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.grounding import ungrounded
-from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.keywords import KeywordRule
+from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.numbers import unsupported_numbers
 from rra.domain.rules.policy_phrases import match_text, pick_quote
 from rra.domain.rules.trust import escape_untrusted, normalize_evidence_id
