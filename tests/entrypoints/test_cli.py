@@ -552,6 +552,29 @@ def test_generate_interrupted_then_resume(run_env, capsys):
     }
 
 
+def test_runs_active_lists_only_queued_or_running_across_users(monkeypatch, capsys):
+    """배포 전 확인(tools/deploy.sh): 모든 사용자의 대기·실행 중 run 만, 개수와 id·상태·시각."""
+    from types import SimpleNamespace
+
+    states = [
+        SimpleNamespace(run_id="r3", status="running", created_at="2026-10-28T09:00:00+09:00"),
+        SimpleNamespace(run_id="r2", status="drafted", created_at="2026-10-28T08:00:00+09:00"),
+        SimpleNamespace(run_id="r1", status="queued", created_at="2026-10-28T07:00:00+09:00"),
+    ]
+    manager = SimpleNamespace(list_all_runs=lambda limit=50: states)
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr("rra.composition.build_run_manager", lambda *a, **k: manager)
+    assert cli.main(["runs", "active", "--json"]) == cli.EXIT_OK
+    out = json.loads(capsys.readouterr().out)
+    assert out["count"] == 2 and [r["run_id"] for r in out["runs"]] == ["r3", "r1"]
+    assert cli.main(["runs", "active"]) == cli.EXIT_OK
+    text = capsys.readouterr().out
+    assert "대기·실행 중인 생성: 2건" in text and "r2" not in text
+    states[:] = [states[1]]
+    cli.main(["runs", "active"])
+    assert "0건" in capsys.readouterr().out
+
+
 def test_runs_list_and_show(run_env, capsys):
     run_env["use"]([_sentence("문제"), _sentence("선행", ["alio:1#0"])])
     cli.main(["generate", *GEN_ARGS, "--json"])

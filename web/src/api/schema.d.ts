@@ -11,7 +11,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Healthz */
+        /**
+         * Healthz
+         * @description 인증 없이. `version` 은 배포된 커밋·시각(공개 저장소 해시, 비밀 없음) — 화면 하단
+         *     표시용.
+         */
         get: operations["healthz_healthz_get"];
         put?: never;
         post?: never;
@@ -1443,7 +1447,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        [key: string]: string;
+                        [key: string]: unknown;
                     };
                 };
             };

@@ -151,6 +151,10 @@
   규칙 `domain/rules/staff_roster`(공백·하이픈 제거·숫자 셀·0 채움, 로그인도 같은 정규화), 포트 `RosterReaderPort`·`AuthStorePort.import_staff`,
   출력은 개수만·원본 미복사·API 재시작 불필요. **자료원 IP**(#46, ADR 0025): `sources.yaml registered_ips`,
   `domain/rules/source_ip.py`, IP 거부 응답은 그 자료원만 건너뜀 + `cache/source_availability.json` 안내.
+- **시범 배포 규칙**(2026-10-28, [D2]): PR 을 합쳐도 운영 API 를 자동 재시작하지 않는다 — `docs/history/deploys/pending.md` 에 PR 한 줄을
+  쌓고, 사용자가 "배포해" 하면 `tools/deploy.sh --wait`(main 최신 확인·web 빌드·`rra runs active`·version.json·kickstart·healthz/login/
+  외부 주소 확인·`docs/history/deploys/<시각>.md`). 보안 수정·로그인/접속 차단 오류 수정은 즉시 배포하고 알린다. 배포 버전은
+  `GET /healthz version`(`adapters/deploy/version.py`)·웹 하단. 절차 `docs/pilot-guide.md` §6.3.
 - 시범 운영(2026-10-28, 3명, [D]): launchd com.rra.{mlx,api,backup,ingest} 등록(`deploy/README.md` §2), `max_queued_runs` 6(사용자별),
   동료 안내 `docs/pilot-guide.md`, 준비 상태·사람 할 일은 `docs/final-check-2026-10-27.md` 맨 위. 외부 주소는 DNS 가 Gabia 라 터널 미기동
   (Tailscale 대체 가능). 실측: 한 건 227초(생성 155 + 최종 검토 15), precheck 38~56초(자동 추천 Gemini 포함), 7B JSON 실패 4/10.

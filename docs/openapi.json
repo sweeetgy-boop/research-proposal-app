@@ -8,6 +8,7 @@
     "/healthz": {
       "get": {
         "summary": "Healthz",
+        "description": "인증 없이. `version` 은 배포된 커밋·시각(공개 저장소 해시, 비밀 없음) — 화면 하단\n표시용.",
         "operationId": "healthz_healthz_get",
         "responses": {
           "200": {
@@ -15,9 +16,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Healthz Healthz Get"
                 }

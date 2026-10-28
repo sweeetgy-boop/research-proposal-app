@@ -261,6 +261,7 @@ def create_app(
     trust_cf: bool = False,
     guest_services: dict[str, Any] | None = None,
     client_ip: Callable[..., str] | None = None,
+    version: dict[str, Any] | None = None,
     availability_notices: Callable[[], dict[str, str]] | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api().
@@ -380,8 +381,12 @@ def create_app(
         return (request.client.host if request.client else "") or "unknown"
 
     @app.get("/healthz")
-    async def healthz() -> dict[str, str]:
-        return {"status": "ok"}
+    async def healthz() -> dict[str, Any]:
+        """인증 없이. `version` 은 배포된 커밋·시각(공개 저장소 해시, 비밀 없음) — 화면 하단
+        표시용."""
+        if version is None:
+            return {"status": "ok"}
+        return {"status": "ok", "version": version}
 
     # ── 세션 ────────────────────────────────────────────
     public_host = _origin_host(public_origin)
