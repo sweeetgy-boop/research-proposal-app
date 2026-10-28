@@ -629,6 +629,18 @@ def build_bench(settings: Settings | None = None, *, label: str, repo=None, llm=
     )
 
 
+class LivePrecheck:
+    """[4] 측정용 ② — REST precheck 와 같은 순서: 실시간 검색 시작(또는 이어 쓰기)·최대 wait_seconds
+    대기 → 유사과제 판정. 실시간 결과는 DB 에 들어간 뒤 판정·run 검색이 함께 본다."""
+
+    def __init__(self, precheck, live, owner: str):
+        self.precheck, self.live, self.owner = precheck, live, owner
+
+    async def __call__(self, req):
+        await self.live.prepare(self.owner, req)
+        return await self.precheck(req)
+
+
 def build_eval(
     settings: Settings | None = None,
     *,
@@ -660,16 +672,22 @@ def build_eval(
     if llm is None:
         llm = build_llm(settings, stage="compose")
     reranker = build_reranker(settings) if pipeline.reranker else None
-    manager = build_run_manager(settings, repo=repo, llm=llm, pipeline=pipeline, runs_dir=runs_dir)
+    # [4] 실시간 검색 — 운영 REST 와 같게: run 관리자와 ② precheck 가 한 인스턴스(세션)를 같이 쓴다
+    live = build_live_search(settings, repo=repo)
+    live = live if live.enabled else None
+    manager = build_run_manager(
+        settings, repo=repo, llm=llm, pipeline=pipeline, runs_dir=runs_dir, live_search=live
+    )
     if local_check is not None:  # 측정 구성 B(끔)·C(켬) — 설정 파일을 고치지 않고 덮어쓴다
         for gen in (manager.generate, manager.generate_public):
             if gen is not None:
                 gen.local_check = local_check
     compose_cfg = llm_config(settings, "compose")
     review_cfg = llm_config(settings, "review")
+    precheck = build_precheck(settings, repo=repo, reranker=reranker, pipeline=pipeline)
     return EvaluateQuality(
         manager,
-        build_precheck(settings, repo=repo, reranker=reranker, pipeline=pipeline),
+        LivePrecheck(precheck, live, LOCAL_USER) if live is not None else precheck,
         label=label,
         pipeline=pipeline.model_dump(),
         user=LOCAL_USER,
