@@ -37,6 +37,7 @@ from rra.adapters.persistence.migrations import runner
 from rra.domain.models import Chunk, Document, TableFact
 from rra.domain.rules.fusion import DEFAULT_K as RRF_K
 from rra.domain.rules.fusion import reciprocal_rank_fusion
+from rra.domain.rules.live_search import match_existing, normalized_title
 
 if TYPE_CHECKING:  # 포트는 구조적 타입 — 런타임 의존 없음
     from rra.application.ports.embedding import EmbeddingPort
@@ -115,6 +116,16 @@ _SAMPLE_CHUNKS = (
     "ORDER BY c.id LIMIT ?"
 )
 _DOCUMENTS_OF = "SELECT * FROM documents WHERE source = ? ORDER BY doc_id LIMIT ?"
+# [4] 실시간 결과의 동일성 조회 (find_identities). {marks} 는 placeholders(정수 개수) 로만 채운다.
+_BY_DOI = "SELECT * FROM documents WHERE doi IN ({marks})"
+_BY_APPNO = "SELECT * FROM documents WHERE application_no IN ({marks})"
+_BY_PROJECT_NO = (
+    "SELECT * FROM documents WHERE doc_type IN ('report', 'internal_report') "
+    "AND json_extract(raw_json, '$.project_no') IN ({marks})"
+)
+# rra_norm_title 은 연결에 등록한 파이썬 함수 (domain/rules/live_search.normalized_title)
+_BY_NORM_TITLE = "SELECT * FROM documents WHERE rra_norm_title(title) IN ({marks})"
+MAX_IDENTITY_DOCS = 150  # dois 는 2배까지 — placeholders 상한(MAX_K×4) 안
 
 
 @dataclass(frozen=True)
@@ -141,6 +152,10 @@ class _Filter:
 
 class ReindexRequired(RuntimeError):
     """기존 색인과 임베딩 차원·백엔드가 달라 재색인이 필요할 때."""
+
+
+def _norm_title_sql(title: Any) -> str:
+    return normalized_title(title) if isinstance(title, str) else ""
 
 
 def _secure_paths(db_path: Path) -> None:
@@ -218,6 +233,8 @@ class SQLiteDocumentRepository:
 
     # ── 연결·설정 ────────────────────────────────────────────────
     def _configure(self) -> None:
+        # [4] 제목 정규화 함수 — 질의에서만 쓴다 (스키마·트리거에는 쓰지 않는다, trusted_schema OFF)
+        self.conn.create_function("rra_norm_title", 1, _norm_title_sql, deterministic=True)
         self.conn.execute("PRAGMA trusted_schema = OFF")  # 악성 스키마 방어
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.execute("PRAGMA journal_mode = WAL")
@@ -341,6 +358,40 @@ class SQLiteDocumentRepository:
             str(source): {"count": int(n), "last_ingested": str(last)[:10] if last else None}
             for source, n, last in rows
         }
+
+    async def find_identities(self, docs: list[Document]) -> dict[str, str]:
+        """[4] IdentityLookupPort — {새 doc_id: 저장된 doc_id}. DOI·출원번호·보고서 과제번호·정규화
+        제목으로 후보를 읽고 동일성 키(live_search.identity_keys)로 판정한다. 값은 전부 바인딩
+        (E)."""
+        if not docs:
+            return {}
+        return await asyncio.to_thread(self._find_identities_sync, docs[:MAX_IDENTITY_DOCS])
+
+    def _find_identities_sync(self, docs: list[Document]) -> dict[str, str]:
+        dois = sorted({v for d in docs if d.doi for v in (d.doi, d.doi.lower())})
+        appnos = sorted({d.application_no for d in docs if d.application_no})
+        project_nos = sorted(
+            {
+                str(d.raw["project_no"])
+                for d in docs
+                if d.doc_type in ("report", "internal_report") and d.raw.get("project_no")
+            }
+        )
+        titles = sorted({t for d in docs if len(t := normalized_title(d.title)) >= 8})
+        stored: dict[str, Document] = {}
+        with self._lock:
+            for sql, values in (
+                (_BY_DOI, dois),
+                (_BY_APPNO, appnos),
+                (_BY_PROJECT_NO, project_nos),
+                (_BY_NORM_TITLE, titles),
+            ):
+                if not values:
+                    continue
+                stmt = sql.replace("{marks}", _sql.placeholders(len(values)))
+                for row in self.conn.execute(stmt, tuple(values)):
+                    stored.setdefault(row["doc_id"], _mapping.row_to_document(row))
+        return match_existing(docs, list(stored.values()))
 
     async def get_document(self, doc_id: str) -> Document | None:
         return await asyncio.to_thread(self._get_document_sync, doc_id)

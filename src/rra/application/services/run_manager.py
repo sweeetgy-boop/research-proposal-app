@@ -314,7 +314,10 @@ class RunManager:
         figures: MakeFigures | None = None,
         run_slot: GenerationSlot | None = None,
         first_pass: bool = True,
+        live_search: Any | None = None,
     ):
+        # [4] 실시간 자료 검색(LiveSearch, ADR 0031) — None 이면 종전 동작(DB 만)
+        self.live_search = live_search
         self.usability = usability or UsabilityConfig()  # U1~U8 켜기/끄기
         # Argon 작성(ADR 0032)일 때 run 전체가 잡는 N칸 슬롯(runs.max_concurrent).
         # None 이면 칸 제한 없음
@@ -459,6 +462,7 @@ class RunManager:
 
                 snapshot = self.store.load_snapshot(user, run_id)
                 if snapshot is None:
+                    await self._live_step(user, state, req)
                     current = self._begin(state, RETRIEVE)
                     snapshot = await gen.retrieve(req)
                     snapshot = self._prioritize(user, run_id, snapshot)
@@ -728,6 +732,22 @@ class RunManager:
             retries=composed.retries,
             fallback=f"{fb['provider']}/{fb['model']}" if fb else None,
         )
+
+    async def _live_step(self, user: str, state: RunState, req: ProposalRequest) -> None:
+        """[4] 같은 입력의 실시간 검색 세션을 이어 쓰거나 시작하고 최대 wait_seconds 기다린다.
+        못 끝나면 DB 만으로 계속(pending). 요약·실시간 doc_id 를 run 상태에 남긴다(본문 없음)."""
+        if self.live_search is None or state.live_search is not None:
+            return
+        try:
+            summary = await self.live_search.prepare(user, req)
+        except Exception as exc:  # 실시간 검색 실패가 생성을 막지 않는다
+            logger.warning("run.live_search_failed err=%s", type(exc).__name__)
+            return
+        if summary.status == "off":
+            return
+        state.live_search = summary.payload()
+        state.live_doc_ids = list(summary.doc_ids)
+        self._save(state)
 
     async def _outline_step(
         self,
@@ -2492,6 +2512,32 @@ def manifest(
         "differentiation": dict(state.differentiation) if state.differentiation else None,
         "recommendations": dict(state.recommendations) if state.recommendations else None,
         "figures": [dict(x) for x in state.figures],  # [G] 그림 요약 (본문 없음)
+        "live_search": live_search_manifest(state),
+    }
+
+
+def live_search_manifest(state: RunState) -> dict[str, Any] | None:
+    """[4] manifest 용 실시간 검색 요약 — 상태·자료원별 상태/건수/초·키워드 개수만 (키워드·안내 문구
+    없음)."""
+    live = state.live_search
+    if not live:
+        return None
+    keywords = live.get("keywords") or {}
+    return {
+        "status": live.get("status"),
+        "keywords": {"ko": len(keywords.get("ko") or []), "en": len(keywords.get("en") or [])},
+        "sources": [
+            {
+                "source": r.get("source"),
+                "status": r.get("status"),
+                "count": r.get("count"),
+                "new": r.get("new"),
+                "seconds": r.get("seconds"),
+                "cached": r.get("cached"),
+            }
+            for r in live.get("sources") or []
+        ],
+        "documents": len(state.live_doc_ids),
     }
 
 

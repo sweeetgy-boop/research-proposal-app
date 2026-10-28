@@ -7,12 +7,16 @@ tests/fakes.py 의 fake 와 같은 역할이지만 패키지 안에 있어 설�
 
 from rra.adapters.fake.auth import ScriptedAuthStore
 from rra.adapters.fake.figures import FakeImageGenerator
+from rra.adapters.fake.live import FakeKeywordLLM, FakeLiveSource, fake_live_sources
 from rra.adapters.fake.llm import ScriptedComposeLLM, ScriptedReviewLLM
 from rra.adapters.fake.ntis import ScriptedNtisInsights
 from rra.adapters.fake.stores import InMemoryDocumentRepository, InMemoryRunStore, NoopRunLog
 
 __all__ = [
     "FakeImageGenerator",
+    "FakeKeywordLLM",
+    "FakeLiveSource",
+    "fake_live_sources",
     "ScriptedAuthStore",
     "InMemoryDocumentRepository",
     "InMemoryRunStore",

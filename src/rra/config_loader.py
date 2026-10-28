@@ -297,6 +297,12 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "data/cache/figure_budget.json",
     ),
     "figure_cache": (lambda s: read_config("figures.yaml", s), "cache_dir", "data/cache/figures"),
+    # [4] 실시간 자료 검색 캐시 (자료원+질의 해시 → 정규화 문서, 24시간)
+    "live_search_cache": (
+        lambda s: _live_search_raw(s),
+        "cache_dir",
+        "data/cache/live_search",
+    ),
 }
 DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
 
@@ -601,6 +607,30 @@ def pipeline_config(settings: Settings):
     if unknown:
         raise ValueError(f"config/pipeline.yaml 에 모르는 키: {sorted(unknown)}")
     return PipelineConfig(**(cfg or {}))
+
+
+def _live_search_raw(settings: Settings) -> dict[str, Any]:
+    try:
+        cfg = read_config("live_search.yaml", settings) or {}
+    except FileNotFoundError:
+        return {}
+    if not isinstance(cfg, dict):
+        raise ValueError("config/live_search.yaml 은 매핑이어야 합니다.")
+    return cfg
+
+
+def live_search_config(settings: Settings):
+    """config/live_search.yaml → LiveSearchConfig ([4], ADR 0031). 파일이 없으면 꺼짐(종전 동작).
+    모르는 키는 오류. cache_dir 는 data_location("live_search_cache") 로 따로 읽는다."""
+    from rra.domain.models.live_search import LiveSearchConfig
+
+    cfg = dict(_live_search_raw(settings))
+    cfg.pop("cache_dir", None)
+    known = set(LiveSearchConfig.model_fields)
+    unknown = set(cfg) - known
+    if unknown:
+        raise ValueError(f"config/live_search.yaml 에 모르는 키: {sorted(unknown)}")
+    return LiveSearchConfig(**cfg)
 
 
 def usability_config(settings: Settings):

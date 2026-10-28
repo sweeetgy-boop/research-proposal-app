@@ -203,7 +203,7 @@ async def test_generate_then_poll_draft_over_mcp(write_server):
         "source": "retrieved",
     }
     assert body["citations"] == [
-        {"id": "alio:1#0", "doc_id": "alio:1", "title": "궤도 상태 자동 감지 연구"}
+        {"id": "alio:1#0", "doc_id": "alio:1", "title": "궤도 상태 자동 감지 연구", "live": False}
     ]
 
 

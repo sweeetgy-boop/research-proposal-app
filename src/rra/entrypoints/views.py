@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from typing import Any
 
 from rra.domain.models import STRATEGY_DRAFT_LABEL
@@ -49,6 +49,7 @@ def _choices(sec: Any, view: Any) -> dict[str, Any] | None:
 def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
     """clean: 비신뢰 텍스트(초안 문장·문서 제목·lint 메시지)에 적용할 정리 함수."""
     state = view.state
+    live_ids = set(getattr(state, "live_doc_ids", None) or [])
     return {
         "run_id": state.run_id,
         "status": state.status,
@@ -86,7 +87,12 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
             for sec in view.sections
         ],
         "citations": [
-            {"id": c.id, "doc_id": c.doc_id, "title": clean(c.title) if c.title else None}
+            {
+                "id": c.id,
+                "doc_id": c.doc_id,
+                "title": clean(c.title) if c.title else None,
+                "live": c.doc_id in live_ids,  # [4] 실시간 검색에서 가져온 근거
+            }
             for c in view.citations
         ],
         "problems": [
@@ -526,8 +532,15 @@ def notice_matches_payload(
     ]
 
 
-def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
-    """유사과제 경보 목록 → 출력용 dict (MCP·REST 공용). 제목은 수집 문서에서 온 비신뢰 텍스트."""
+def alerts_payload(
+    alerts: list[Any],
+    *,
+    clean: Callable[[str], str] = _same,
+    live_ids: Collection[str] = (),
+) -> dict[str, Any]:
+    """유사과제 경보 목록 → 출력용 dict (MCP·REST 공용). 제목은 수집 문서에서 온 비신뢰 텍스트.
+    live_ids: 이번 세션의 실시간 검색 결과 doc_id ([4] — 항목마다 live)."""
+    live = set(live_ids)
     return {
         "blocking": any(a.blocking for a in alerts),
         "alerts": [
@@ -545,6 +558,7 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
                 ),  # 용역으로 진행 중/예정 등
                 "own_detail": a.own_detail,
                 "tier_label": tier_label(a.tier, a.own_detail),
+                "live": a.doc_id in live,
             }
             for a in alerts
         ],
@@ -552,11 +566,12 @@ def alerts_payload(alerts: list[Any], *, clean: Callable[[str], str] = _same) ->
 
 
 def related_research_payload(
-    items: list[Any], *, clean: Callable[[str], str] = _same
+    items: list[Any], *, clean: Callable[[str], str] = _same, live_ids: Collection[str] = ()
 ) -> list[dict[str, Any]]:
     """② 관련 연구(참고) 목록 → 출력용 (REST). 판정이 아니다 — 제목은 비신뢰 텍스트(ADR 0028).
 
     프론트엔드 영향: ② 유사과제 확인의 "관련 연구" 목록(related_research[], 배지 "참고")."""
+    live = set(live_ids)
     return [
         {
             "doc_id": r.doc_id,
@@ -567,6 +582,7 @@ def related_research_payload(
             "year": r.year,
             "similarity": round(r.similarity, 4),
             "url": r.url,
+            "live": r.doc_id in live,  # [4] 실시간 검색에서 찾은 자료
         }
         for r in items
     ]
@@ -710,9 +726,11 @@ def recommendation_preview_payload(
 
 # ── U1·U3·U7·U8 ───────────────────────────────────────────
 def evidence_items_payload(
-    items: list[Any], *, clean: Callable[[str], str] = _same
+    items: list[Any], *, clean: Callable[[str], str] = _same, live_ids: Collection[str] = ()
 ) -> list[dict[str, Any]]:
-    """EvidenceItem → dict. 발췌·제목은 수집 자료(비신뢰)."""
+    """EvidenceItem → dict. 발췌·제목은 수집 자료(비신뢰). live_ids: run 의 실시간 검색 doc_id
+    ([4])."""
+    live = set(live_ids)
     return [
         {
             "evidence_id": i.evidence_id,
@@ -733,6 +751,7 @@ def evidence_items_payload(
             "decision": i.decision,
             "in_snapshot": i.in_snapshot,
             "url": getattr(i, "url", None),  # 원본 링크(이미지 판독은 이미지 URL)
+            "live": i.doc_id in live,
             "trust": "untrusted",
         }
         for i in items
@@ -919,7 +938,19 @@ def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
         "fallback_sections": fallback_sections_payload(state),
         "writer": getattr(state, "writer", "local"),  # [3] gemini | local
         "local_sections": local_sections_payload(state),
+        # [4] 실시간 자료 검색 요약 (없으면 null — 꺼짐·예전 run)
+        "live_search": getattr(state, "live_search", None),
     }
+
+
+LIVE_OFF: dict[str, Any] = {"status": "off", "keywords": {"ko": [], "en": []}, "sources": []}
+
+
+def live_search_payload(summary: Any | None) -> dict[str, Any]:
+    """[4] LiveSearchSummary → REST 모양. None 이면 off. 안내 문구는 짧은 앱 문구(비밀 없음)."""
+    if summary is None:
+        return {**LIVE_OFF, "keywords": {"ko": [], "en": []}, "sources": []}
+    return summary.payload()
 
 
 def chunks_payload(

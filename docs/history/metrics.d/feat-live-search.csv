@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,TBD,feat live search,1984,,8,,,,,,,,,,,,,,,실시간 검색 테스트 +45; 실호출 ScienceON 30·OpenAlex 30·NTIS ip_blocked

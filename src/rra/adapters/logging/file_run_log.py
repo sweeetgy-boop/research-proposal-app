@@ -49,6 +49,7 @@ MANIFEST_KEYS = frozenset(
         "local_sections",  # 로컬 대체 작성 섹션 키
         "local_check",  # 로컬 근거 대조 개수·건너뛴 섹션
         "gemini_calls",  # 초안 한 건의 Gemini 호출 수 (작성·검토·그림·합계)
+        "live_search",  # [4] 실시간 검색: 상태·자료원별 상태/건수/초·키워드 개수 (키워드·본문 없음)
     }
 )
 WRITER_KEYS = frozenset(
@@ -67,6 +68,8 @@ LOCAL_CHECK_KEYS = frozenset(
     {"enabled", "mismatches", "skipped_sections", "sentences", "checked_sections"}
 )
 GEMINI_CALL_KEYS = frozenset({"compose", "review", "figures", "total"})
+LIVE_SEARCH_KEYS = frozenset({"status", "keywords", "sources", "documents"})
+LIVE_SOURCE_KEYS = frozenset({"source", "status", "count", "new", "seconds", "cached"})
 FIGURE_KEYS = frozenset(
     {
         "id",
@@ -240,6 +243,18 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
         extra = set(fig) - FIGURE_KEYS
         if extra:
             raise ValueError(f"manifest figures 에 허용되지 않은 키: {sorted(extra)}")
+    live = manifest.get("live_search") or {}
+    extra = set(live) - LIVE_SEARCH_KEYS
+    if extra:
+        raise ValueError(f"manifest live_search 에 허용되지 않은 키: {sorted(extra)}")
+    if set(live.get("keywords") or {}) - {"ko", "en"} or any(
+        not isinstance(v, int) for v in (live.get("keywords") or {}).values()
+    ):
+        raise ValueError("manifest live_search.keywords 는 개수만 남긴다.")
+    for row in live.get("sources") or []:
+        extra = set(row) - LIVE_SOURCE_KEYS
+        if extra:
+            raise ValueError(f"manifest live_search.sources 에 허용되지 않은 키: {sorted(extra)}")
     for value in _strings(manifest):
         if len(value) > MAX_TEXT_CHARS:
             raise ValueError("manifest 에 긴 문자열이 있습니다 — 원문이 섞였을 수 있습니다.")

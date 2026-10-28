@@ -122,6 +122,16 @@ class OpenAlexSource:
                 out.append({**raw, "_field": q["field"]})
         return out[:limit]
 
+    async def search_query(
+        self, query: str, limit: int, *, require_abstract: bool = True
+    ) -> list[dict[str, Any]]:
+        """질의 하나(기간 없음) — [4] 실시간 검색용. require_abstract 면 has_abstract 필터."""
+        if limit <= 0:
+            return []
+        return await self._search_one(
+            query, limit, filter_expr="has_abstract:true" if require_abstract else None
+        )
+
     async def _search_one(
         self, query: str, limit: int, *, filter_expr: str | None
     ) -> list[dict[str, Any]]:
