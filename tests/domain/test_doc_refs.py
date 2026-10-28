@@ -47,7 +47,9 @@ def test_replace_internal_ids_in_review_text():
         "근거 [own:2023-01#3] 와 다름": "근거 「궤도 점검 과제」 와 다름",
         "출처(근거: alio:sum-0f3a12ab#1)를 보면": "출처「알리오 요약」를 보면",
         "ntis:1711234 과제와 겹침": "관련 자료 과제와 겹침",
-        "그림 f:method:t1 은 3단계, f:objective:2": "연구방법 분석 기법 그림 1 은 3단계, 연구목표 그림 2",
+        "그림 f:method:t1 은 3단계, f:objective:2": (
+            "연구방법 분석 기법 그림 1 은 3단계, 연구목표 그림 2"
+        ),
         "s:objective:0 문장이 길다": "연구목표 문장 1 문장이 길다",
         "sum-0f3a12ab 참고": "「알리오 요약」 참고",
         "(doc_id: openalex:W123#0) 인용": "인용",

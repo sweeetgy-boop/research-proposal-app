@@ -3,7 +3,8 @@
 - pick_quote: 청크에서 질의 키워드가 가장 많이 겹치는 문장 하나 (300자 이내, 문장 통째로).
   인용 정리(2026-10-28 레인 B): 글 안의 긴 URL 은 지우고(원문 링크는 화면 아래 "원문"), 앞 글머리
   ("O 이에", "?", "-", "○", "□", 번호)는 떼며, 문장 중간에서 자르지 않는다.
-- policy_basis_text: 제안자가 고른 추천 → "문구 (문서명, 연도, 위치, URL)". 자동으로 넣지 않는다 —
+- policy_basis_text: 제안자가 고른 추천 → "문구 (문서명, 연도, 위치)" — URL 은 넣지 않는다. 자동으로
+넣지 않는다 —
   진입점은 제안자가 고른 뒤에만 apply_policy_suggestion 을 부른다.
 정책적 중요도 섹션의 근거 규칙은 그대로다 (policy_basis 입력만 근거, rules.yaml evidence_forbidden).
 """
@@ -107,7 +108,8 @@ def rank(suggestions: list[PolicySuggestion]) -> list[PolicySuggestion]:
 
 def policy_basis_text(s: PolicySuggestion) -> str:
     where = ", ".join(p for p in (str(s.year) if s.year else "", s.page or "") if p)
-    src = f"{s.title}" + (f", {where}" if where else "") + (f", {s.url}" if s.url else "")
+    # 긴 원문 URL 은 넣지 않는다 — 원문 링크는 화면의 "원문" (2026-10-28 레인 B, ADR 0040)
+    src = f"{s.title}" + (f", {where}" if where else "")
     return f"“{s.quote}” ({src})"
 
 

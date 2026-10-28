@@ -97,9 +97,8 @@ def test_policy_basis_text_and_apply_keeps_existing_input():
     )
     line = policy_basis_text(s)
     assert line == (
-        "“데이터기반 유지보수 첨단화” (중장기 경영목표, 2026, 표 ‘전략목표 및 과제종합’, "
-        "https://info.korail.com/info/contents.do?key=1900)"
-    )
+        "“데이터기반 유지보수 첨단화” (중장기 경영목표, 2026, 표 ‘전략목표 및 과제종합’)"
+    )  # 긴 URL 은 칸에 넣지 않는다 (원문 링크는 화면)
     req = ProposalRequest(
         current_state="a", root_cause="b", limitation="c", goal="d", policy_basis="기존 근거"
     )
