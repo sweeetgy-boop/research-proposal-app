@@ -32,7 +32,7 @@ export function ComparisonTable({ data, loading, error, onRetry, recommendationF
     return (
       <section className="space-y-2">
         {header}
-        <p className="text-sm text-muted-foreground">비교표가 꺼져 있습니다 (usability.yaml comparison).</p>
+        <p className="text-sm text-muted-foreground">비교표 기능이 꺼져 있습니다 (관리자 설정).</p>
       </section>
     );
   }

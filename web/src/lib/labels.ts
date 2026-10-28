@@ -70,3 +70,37 @@ export function reviewSkipLabel(reason: string | null | undefined, label?: strin
 export function stepKeyLabel(key: string): string | null {
   return STEP_LABELS[key] ?? null;
 }
+
+/** 작성·검토·추천을 건너뛰거나 실패한 사유 코드 → 한국어 (화면 표시용, 모르는 코드는 일반 문구) */
+const REASON_LABELS: Record<string, string> = {
+  fence: "응답 형식 오류",
+  json: "응답 형식 오류",
+  schema: "응답 형식 오류",
+  invalid: "응답 형식 오류",
+  choices_only: "본문 없이 선택값만 옴",
+  empty: "빈 응답",
+  dropped: "근거 검증에서 모두 빠짐",
+  error: "모델 호출 오류",
+  rate_limit: "호출 한도 초과",
+  budget: "오늘 호출 상한",
+  parse_failed: "모델 응답을 해석하지 못함",
+  no_llm: "모델 없음",
+  no_review_llm: "검토 모델 없음",
+  no_candidates: "비교할 기존 과제 없음",
+  no_evidence: "검색된 자료 없음",
+  disabled: "설정에서 끔",
+  failed: "실패",
+  self_review: "같은 모델 작성",
+};
+
+export function reasonLabel(reason: string | null | undefined): string {
+  if (!reason) return "사유 없음";
+  return REASON_LABELS[reason] ?? "기타 사유";
+}
+
+/** provider 이름 → 화면 이름 */
+export function providerLabel(provider: string | null | undefined): string {
+  if (provider === "gemini") return "Argon";
+  if (provider === "mlx" || provider === "local") return "로컬 모델";
+  return "외부 모델";
+}

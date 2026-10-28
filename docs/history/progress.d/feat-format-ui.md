@@ -28,3 +28,6 @@
 다음:
 - 웹 마무리·검사 통과, e2e(단계 이동 → 제출 전 점검 → 마무리, 파일 이름), 캡처.
 - 조각 파일: status.d·timeline.d·metrics.d, PR(본문 요약/측정/테스트/프론트엔드 영향/판단).
+
+- 17:55 재개 후: 웹 하위 작업 끝남(lint·typecheck·vitest 99·e2e 17 통과, 직접 다시 돌려 확인). 조각 파일(status·timeline·metrics)
+  작성, PR 준비.

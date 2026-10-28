@@ -186,7 +186,13 @@ describe("run 화면", () => {
       </Routes>,
       { route: "/runs", path: "*" },
     );
-    expect(await screen.findByRole("link", { name: id })).toBeInTheDocument();
+    // 항목 2 — 과제 제목(두 줄 말줄임, 전체는 title)과 만든 때, run 번호는 작게
+    const link = await screen.findByRole("link", { name: /검측 이력 기반 궤도 틀림/ });
+    expect(link).toHaveClass("line-clamp-2");
+    expect(link).toHaveAttribute("title", runsFx.runs[0]!.title);
+    expect(screen.getByRole("columnheader", { name: "만든 때" })).toBeInTheDocument();
+    expect(screen.getByText(id)).toBeInTheDocument();
+    expect(screen.getAllByText("제목 미정").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "본문으로 건너뛰기" })).toBeInTheDocument();
     await expectNoA11yViolations(container);
   });

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { problemLabel, severityLabel } from "@/lib/labels";
 import { Link, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BookOpen, RefreshCw } from "lucide-react";
@@ -296,7 +297,8 @@ export default function Draft() {
             <ul className="space-y-1 text-sm">
               {d.problems.map((p, i) => (
                 <li key={i} className="flex flex-wrap gap-1">
-                  <Badge variant={p.severity === "error" ? "destructive" : "warning"}>{p.severity}</Badge>
+                  <Badge variant={p.severity === "error" ? "destructive" : "warning"}>{severityLabel(p)}</Badge>
+                  <span className="font-medium">{problemLabel(p)}</span>
                   {p.code === LOCAL_EVIDENCE_MISMATCH && <Badge variant="outline">{LOCAL_EVIDENCE_MISMATCH_LABEL}</Badge>}
                   <span className="text-muted-foreground">
                     {sectionTitle(p.section)}

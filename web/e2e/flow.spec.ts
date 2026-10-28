@@ -49,7 +49,7 @@ test.describe("전체 흐름 ①→⑥", () => {
     await page.getByRole("button", { name: "HWPX 내려받기" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "그대로 진행" }).click();
     const download = await downloadP;
-    expect(download.suggestedFilename()).toMatch(/^proposal-.*-v3\.hwpx$/);
+    expect(download.suggestedFilename()).toMatch(/_v3\.hwpx$/); // 항목 2 — "<과제 제목>_v<번호>.hwpx"
     await expect(page.getByText("마무리됨")).toBeVisible();
 
     // 제안자 정보는 어디에도 저장되지 않는다
