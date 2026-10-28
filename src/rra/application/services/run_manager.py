@@ -43,6 +43,7 @@ from rra.application.ports import (
 from rra.application.ports.auth import BudgetExhausted, DailyBudgetPort
 from rra.application.ports.renderer import RenderRejected
 from rra.application.services.edit_ai import EditAIMixin
+from rra.application.services.local_review import LocalReviewMixin
 from rra.application.usecases.figures import FigureBuild, MakeFigures, SpecRejected
 from rra.application.usecases.generate_proposal import CORE_SECTIONS, GenerateProposal
 from rra.application.usecases.outline import OutlineSections
@@ -115,6 +116,7 @@ from rra.domain.rules.evidence import (
 )
 from rra.domain.rules.lint import has_errors
 from rra.domain.rules.llm_output import clean_sentence
+from rra.domain.rules.local_review import unresolved_sentence_ids
 from rra.domain.rules.overlap import SOURCE_LABELS
 from rra.domain.rules.policy_cards import apply_policy_choice
 from rra.domain.rules.request_change import (
@@ -143,6 +145,7 @@ from rra.domain.rules.writer import (
     SELF_REVIEW,
     gemini_calls,
     local_check_problems,
+    local_check_summary,
     local_check_view,
     local_sections,
 )
@@ -333,7 +336,7 @@ def _cleaned(section: Section) -> Section:
     )
 
 
-class RunManager(EditAIMixin):
+class RunManager(EditAIMixin, LocalReviewMixin):
     def __init__(
         self,
         generate: GenerateProposal,
@@ -559,11 +562,19 @@ class RunManager(EditAIMixin):
                 ordered = draft.sections
                 self.store.save_draft(user, run_id, draft)
                 if gen.local_check and gen.writes_remotely:
-                    # 로컬 근거 대조 — Argon 이 쓴 섹션만, 섹션당 시간 상한. 불일치는 경고(알림)만
+                    # L2 로컬 2차 검토(ADR 0040) — Argon 이 쓴 섹션만, 시간 상한 없음. 불일치는
+                    # 알림 + Argon 의 "근거 안에서 다시 쓰기 또는 빼기" 제안(자동 반영 없음)
                     remote_keys = {
                         k for k, w in state.writers.items() if not w.get("local_fallback")
                     }
                     state.local_check = await gen.check_locally(ordered, snapshot, keys=remote_keys)
+                    if self.local_reviewer is not None and state.local_check.get("mismatches"):
+                        state.local_check = await self.local_reviewer.attach(
+                            ordered,
+                            snapshot.chunks,
+                            state.local_check,
+                            include_internal=gen.writer_include_internal,
+                        )
                     problems = [*problems, *local_check_problems(ordered, state.local_check)]
                 # 빈 초안 금지(ADR 0027): 실패 섹션은 빈칸 + 목록·사유, 전부 실패일 때만 invalid
                 failed = draft_failures.failed_sections(
@@ -1930,6 +1941,9 @@ class RunManager(EditAIMixin):
             evidence_attention=attention,
             proposed=proposed,
             choice_options=options,
+            local_mismatch=unresolved_sentence_ids(version.sections, state.local_check)
+            if version
+            else [],
         )
 
     def _evidence_attention(self, user: str, run_id: str, version: DraftVersion) -> dict[str, Any]:
@@ -3046,6 +3060,7 @@ def manifest(
             **(local_check_view(state.local_check) or {}),
             "sentences": int(state.local_check.get("sentences") or 0),
             "checked_sections": list(state.local_check.get("checked_sections") or []),
+            "counts": local_check_summary(state.local_check),
         },
         "gemini_calls": gemini_calls(
             state.writers,

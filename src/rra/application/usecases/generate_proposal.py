@@ -32,11 +32,11 @@ writer_include_internal, 공용 계정 run 은 internal 제외), 호출 실패(e
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import hashlib
 import json
 import logging
+import time
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -59,6 +59,7 @@ from rra.domain.models import (
     StrategyCatalog,
 )
 from rra.domain.models.outline import Outline
+from rra.domain.models.review import SUPPORT_MISMATCH, sentence_id
 from rra.domain.models.selection import (
     STRATEGY_SOURCE,
     TASK_TYPES,
@@ -67,6 +68,7 @@ from rra.domain.models.selection import (
     UTILIZATION_SOURCE,
 )
 from rra.domain.rules import style
+from rra.domain.rules.evidence import parse_support
 from rra.domain.rules.exemplars import pick_exemplars
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.keywords import KeywordRule
@@ -86,8 +88,10 @@ from rra.domain.rules.llm_output import (
     correction_hint,
     dropped_hint,
     parse_choice_section,
+    parse_object,
     parse_sentences,
 )
+from rra.domain.rules.local_review import batch_prompt, check_batches, count_verdicts
 from rra.domain.rules.overlap import (
     OwnUnit,
     judge,
@@ -123,10 +127,7 @@ from rra.domain.rules.similar_choice import missing_similar_ids, rows_for_writin
 from rra.domain.rules.trust import enforce_section_evidence, escape_untrusted, wrap_untrusted
 from rra.domain.rules.writer import (
     LOCAL_CHECK_SYSTEM,
-    LOCAL_CHECK_TIMEOUT_SEC,
-    local_check_prompt,
-    mismatch_hashes,
-    parse_local_check,
+    text_hash,
     writer_record,
 )
 
@@ -312,7 +313,6 @@ class GenerateProposal:
     local_slot: GenerationSlot | None = None
     compose_concurrency: int = 1  # 한 run 안에서 동시에 쓰는 섹션 수 (원격 작성일 때만 쓴다)
     local_check: bool = False  # 근거 있는 문장을 로컬 모델이 지지|부분|불일치 로 판정 (경고만)
-    local_check_timeout: float = LOCAL_CHECK_TIMEOUT_SEC  # 섹션당 상한(초). 넘으면 그 섹션은 건너뜀
     # U3 AI 다시 쓰기 작성자(2026-10-28 레인 B) — writer_llm 이 없을 때(compose.writer: local) 다시
     # 쓰기만 Argon(review 단계 provider, 예산 래퍼)이 먼저 쓰고 실패하면 로컬. None 이면 로컬만
     rewrite_llm: LLMPort | None = None
@@ -1006,11 +1006,15 @@ class GenerateProposal:
         *,
         keys: set[str] | None = None,
     ) -> dict[str, Any]:
-        """local_check — 근거 있는 문장을 로컬 모델이 지지|부분|불일치 로만 판정한다.
+        """local_check(L2 로컬 2차 검토, ADR 0040) — 근거 있는 문장을 로컬 모델이 지지|부분|불일치
+        로만
+        판정한다.
 
-        섹션마다 LLM 1회, local_check_timeout 초 상한(슬롯 대기 시간은 빼고). 넘거나 실패·
-        형식 오류면 그 섹션은 건너뛰고 skipped_sections 에 남긴다. keys 를 주면 그 섹션만
-        본다(원격이 쓴 섹션)."""
+        시간 상한 없음 — 느린 답은 오류가 아니다. 순서는 수치·연도·고유명 문장과 2-가-(1)·2-가-(2)
+        먼저
+        (local_review.check_batches). 오류 응답·형식 오류인 묶음만 건너뛰고 skipped_sections 에
+        남긴다.
+        keys 를 주면 그 섹션만 본다(원격이 쓴 섹션). 판정은 문장 글자 해시 → 값(verdicts)."""
         by_id: dict[str, Chunk] = {}
         for c in snapshot.chunks:
             by_id[c.chunk_id] = c
@@ -1018,34 +1022,41 @@ class GenerateProposal:
         checked: list[str] = []
         skipped: list[str] = []
         hashes: list[str] = []
+        verdict_by_hash: dict[str, str] = {}
         sentences = 0
-        for sec in sections:
-            if keys is not None and sec.key not in keys:
-                continue
-            prompt = local_check_prompt(sec, by_id)
-            if prompt is None:
-                continue
+        order: list[str] = []
+        started = time.monotonic()
+        for sec, indices in check_batches(sections, keys):
+            prompt = batch_prompt(sec, indices, by_id)
             async with self.local_gate():
                 try:
-                    raw = await asyncio.wait_for(
-                        self.llm.complete(prompt, system=LOCAL_CHECK_SYSTEM, json_mode=True),
-                        timeout=self.local_check_timeout,
-                    )
-                except Exception as exc:  # 시간 초과·서버 오류 — 그 섹션만 건너뛴다
-                    skipped.append(sec.key)
+                    raw = await self.llm.complete(prompt, system=LOCAL_CHECK_SYSTEM, json_mode=True)
+                except Exception as exc:  # 서버 오류 — 그 묶음만 건너뛴다 (시간 제한은 없다)
+                    if sec.key not in skipped:
+                        skipped.append(sec.key)
                     logger.warning(
                         "compose.local_check_skipped section=%s error=%s",
                         sec.key,
                         type(exc).__name__,
                     )
                     continue
-            verdicts = parse_local_check(raw, sec)
+            ids = {sentence_id(sec.key, i): i for i in indices}
+            data = parse_object(raw)
+            verdicts = parse_support(data.get("support") if data else None, set(ids))
             if not verdicts:
-                skipped.append(sec.key)
+                if sec.key not in skipped:
+                    skipped.append(sec.key)
                 continue
-            checked.append(sec.key)
+            if sec.key not in checked:
+                checked.append(sec.key)
+            order.append(sec.key)
             sentences += len(verdicts)
-            hashes.extend(mismatch_hashes(sec, verdicts))
+            for sid, value in verdicts.items():
+                h = text_hash(sec.sentences[ids[sid]].text)
+                verdict_by_hash[h] = value
+                if value == SUPPORT_MISMATCH and h not in hashes:
+                    hashes.append(h)
+        skipped = [k for k in skipped if k not in checked]
         return {
             "enabled": True,
             "mismatches": len(hashes),
@@ -1053,6 +1064,10 @@ class GenerateProposal:
             "checked_sections": checked,
             "skipped_sections": skipped,
             "mismatch_hashes": hashes,
+            "verdicts": verdict_by_hash,
+            "counts": count_verdicts(verdict_by_hash),
+            "seconds": round(time.monotonic() - started, 1),
+            "order": order,
         }
 
     def _validate(

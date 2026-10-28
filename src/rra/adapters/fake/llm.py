@@ -25,6 +25,9 @@ _POLICY_POLISH_HEAD = "[정책적 중요도 다듬기]"
 _SECTION_Q_HEAD = re.compile(r"^\[보완 질문: ([a-z_]+)\]")
 _OPTION = re.compile(r"\[선택지 — 이 id 중에서만 고른다\]\n- ([^:\s]+):")
 _DIRECTION = re.compile(r"^## 방향: ([a-z]+)", re.M)
+# L2 로컬 2차 검토(ADR 0040) — 판정 프롬프트·Argon 제안 프롬프트 표식
+_LOCAL_CHECK_MARK = "[질문] 각 문장이 그 문장의 evidence 자료로 뒷받침되는가?"
+_LOCAL_SUGGEST_MARK = '[출력] JSON 객체 하나 — {"action": "rewrite"|"remove"'
 _POLISH_TEXT = re.compile(r"\[제안자가 고친 글 — 뜻을 유지한다\]\n(\".*?\")\n\n", re.S)
 
 
@@ -59,6 +62,31 @@ def _polish_answer(prompt: str) -> str:
     lines = [ln.strip(" ○-") for ln in str(text).splitlines() if ln.strip(" ○-")]
     return json.dumps(
         {"sentences": [{"text": ln, "evidence": []} for ln in lines[:4]]}, ensure_ascii=False
+    )
+
+
+def _local_check_answer(prompt: str) -> str:
+    """결정적 판정 — 2-가-(2) 기술적 중요도 첫 문장은 불일치(e2e 가 [반영]·[무시]를 본다), 둘째는
+    부분, 나머지는 지지."""
+    out = []
+    for sid in _SENT_ID.findall(prompt):
+        value = "지지"
+        if sid == "s:tech_importance:0":
+            value = "불일치"
+        elif sid == "s:tech_importance:1":
+            value = "부분"
+        out.append({"sentence_id": sid, "support": value})
+    return json.dumps({"support": out}, ensure_ascii=False)
+
+
+def _local_suggest_answer() -> str:
+    return json.dumps(
+        {
+            "action": "rewrite",
+            "text": "선행연구는 틀림 진행 속도를 직접 분석하지 않은 것으로 보임.",
+            "reason": "근거 자료는 진행 속도를 다루지 않는다고 단정하지 않음",
+        },
+        ensure_ascii=False,
     )
 
 
@@ -276,6 +304,10 @@ class ScriptedComposeLLM:
                 },
                 ensure_ascii=False,
             )
+        if _LOCAL_CHECK_MARK in prompt:
+            return _local_check_answer(prompt)
+        if _LOCAL_SUGGEST_MARK in prompt:
+            return _local_suggest_answer()
         if prompt.startswith(_POLICY_CARDS_HEAD):
             return _policy_cards_answer(prompt)
         if prompt.startswith(_POLICY_POLISH_HEAD):

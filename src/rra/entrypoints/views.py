@@ -18,6 +18,7 @@ from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.doc_category import CATEGORY_LABELS, RESEARCH_SERVICE
 from rra.domain.rules.doc_refs import UNTITLED, source_name, source_of
 from rra.domain.rules.draft_failures import reason_label
+from rra.domain.rules.local_review import review_view
 from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
 from rra.domain.rules.precheck_view import (
     JUDGED_BY_LABELS,
@@ -136,7 +137,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
         # [3] Argon 먼저 작성(ADR 0032): 섹션별 작성자 — 화면은 local_sections 에 "로컬 작성" 배지
         "writers": writers_payload(state),
         "local_sections": local_sections_payload(state),
-        "local_check": local_check_payload(state),
+        "local_check": local_check_payload(state, view.sections),
         # [G] 그림 카드 — 보고 있는 버전의 그림 목록
         "figures": figures_payload(getattr(view, "figures", []) or [], state.run_id, clean=clean),
         # 전략체계 목록의 출처 — draft 면 2-가-(3) 선택지가 확인 전 초안이라는 뜻
@@ -377,9 +378,13 @@ def local_sections_payload(state: Any) -> list[str]:
     return local_sections(getattr(state, "writers", None) or {}, state.section_keys)
 
 
-def local_check_payload(state: Any) -> dict[str, Any] | None:
-    """local_check 요약 {enabled, mismatches, skipped_sections}. 돌지 않았으면 None."""
-    return local_check_view(getattr(state, "local_check", None))
+def local_check_payload(state: Any, sections: Any = None) -> dict[str, Any] | None:
+    """local_check 요약 {enabled, mismatches, skipped_sections}. 돌지 않았으면 None. sections(보는
+    버전의 본문)를 주면 L2 문장별 판정·Argon 제안·미결정 수도 싣는다 (ADR 0040)."""
+    lc = getattr(state, "local_check", None)
+    if sections is None:
+        return local_check_view(lc)
+    return review_view(lc, list(sections))
 
 
 def flow_summary(state: Any, has_working: bool = False) -> dict[str, Any]:

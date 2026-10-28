@@ -557,7 +557,9 @@ async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_mod
             "local_fallback": False,
             "reason": None,
         }
-        assert draft["local_sections"] == [] and draft["local_check"] is None
+        assert draft["local_sections"] == []
+        # L2(ADR 0040): 가짜 판정은 2-가-(2) 첫 문장 불일치 — 제안이 붙고 자동 반영은 없다
+        assert draft["local_check"]["enabled"] and draft["local_check"]["mismatches"] == 1
         state = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()
         assert state["writer"] == "gemini" and state["local_sections"] == []
         method = next(s for s in draft["sections"] if s["key"] == "method")

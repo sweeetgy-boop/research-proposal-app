@@ -126,6 +126,7 @@ __all__ = [
     "build_ntis_source",
     "build_openalex_source",
     "build_policy_suggest",
+    "build_local_reviewer",
     "build_reclassify",
     "build_precheck",
     "build_prompt_library",
@@ -1629,7 +1630,6 @@ def build_generate(
         local_slot=local_slot,
         compose_concurrency=policy["concurrency"],
         local_check=policy["local_check"],
-        local_check_timeout=policy["local_check_timeout_sec"],
         rewrite_llm=rewrite["llm"] if rewrite else None,
         rewrite_provider=rewrite["provider"] if rewrite else "",
         rewrite_model=rewrite["model"] if rewrite else "",
@@ -1695,6 +1695,14 @@ def build_policy_cards(settings: Settings | None = None, *, repo=None, llm=None,
         build_argon_first(settings, llm=llm, local_slot=local_slot),
         keywords=keyword_rule(settings),
     )
+
+
+def build_local_reviewer(settings: Settings | None = None, *, llm=None, local_slot=None):
+    """L2 로컬 검토 불일치 문장의 Argon 제안(LocalReviewSuggester, ADR 0040) — Argon 먼저, 오류
+    응답일 때만 로컬."""
+    from rra.application.usecases.local_review_suggest import LocalReviewSuggester
+
+    return LocalReviewSuggester(build_argon_first(settings, llm=llm, local_slot=local_slot))
 
 
 def build_section_questioner(settings: Settings | None = None, *, llm=None, local_slot=None):
@@ -1971,6 +1979,7 @@ def build_run_manager(
     manager.section_questioner = build_section_questioner(settings, llm=llm, local_slot=slot)
     manager.section_questioner_public = manager.section_questioner  # 청크 범위는 run 이 정한다
     manager.policy_cards = build_policy_cards(settings, repo=repo, llm=llm, local_slot=slot)
+    manager.local_reviewer = build_local_reviewer(settings, llm=llm, local_slot=slot)
     if generate_public is not None:
         manager.policy_cards_public = build_policy_cards(
             settings, repo=public_repository(repo), llm=llm, local_slot=slot

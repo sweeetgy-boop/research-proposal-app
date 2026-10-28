@@ -69,6 +69,7 @@ from rra.domain.rules.similar_choice import (
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.cancellable import CANCELLED_STATUS, ClientCancelled, cancel_on_disconnect
 from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
+from rra.entrypoints.api.local_review_routes import register as register_local_review_routes
 from rra.entrypoints.api.routes_format import register_format_routes
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
@@ -762,7 +763,7 @@ def create_app(
         svc = _svc(request, "policy_suggest")
         if svc is None:
             raise HTTPException(503, "정책 근거 추천이 꺼져 있습니다.")
-        suggestions = await svc(req)
+        suggestions = await cancel_on_disconnect(request, svc(req))
         return {
             "notice": UNTRUSTED_NOTICE,
             "suggestions": policy_suggestions_payload(suggestions, clean=_clean),
@@ -1471,6 +1472,7 @@ def create_app(
     register_edit_ai_routes(
         app, api_version=API_VERSION, manager=manager, svc=_svc, own=_own, clean=_clean
     )
+    register_local_review_routes(app, api_version=API_VERSION, manager=manager, own=_own)
 
     # ── U7 제출 전 점검 · U8 측정·만족도 ───────────────────
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/submit-check")
