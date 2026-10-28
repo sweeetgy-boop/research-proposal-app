@@ -54,6 +54,8 @@ def extraction_label(extraction: str, by: str | None) -> str:
     return "기존 과제 칸은 요약·초록의 머리말 아래 문장입니다(AI 추출 실패 또는 꺼짐 — 규칙 기준)."
 
 
+PENDING_JUDGMENT = "AI 판정 기다리는 중 — 먼저 규칙 기준(점수·핵심 키워드)으로 보입니다."
+
 GATE_BLOCKING = (
     "차단 경보를 확인해 주세요 — 각 행에서 [유사함]·[관련 없음] 을 고르거나 확인란에 표시하십시오."
 )

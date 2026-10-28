@@ -2,6 +2,7 @@
 import type {
   IdeaVersion,
   IdeaVersionKind,
+  JudgmentLevel,
   PlanField,
   PlanRecommendation,
   PrecheckAlert,
@@ -74,6 +75,55 @@ export function addVersion(
   const next: IdeaVersion = { kind, fields: { ...fields }, card_index: cardIndex ?? null, at };
   const out = [...list, next];
   return out.slice(-MAX_VERSIONS);
+}
+
+// ── ② v3 (ADR 0039): 판정 칸·기본 선택·선택 적용 ─────────────────────────
+export const LEVEL_LABELS: Record<JudgmentLevel, string> = { blocking: "차단", near: "근접", low: "관련 낮음" };
+const VERDICT_LEVEL: Record<string, JudgmentLevel> = { same: "blocking", partial: "near", different: "low" };
+
+/** 판정 칸 — AI 판정(같다→차단·일부 겹침→근접·다르다→관련 낮음), 없으면 규칙 판정(차단·근접, "규칙 기준") */
+export function levelOf(a: PrecheckAlert): { level: JudgmentLevel; label: string; basis: "ai" | "rule" } {
+  const fromAi = a.judgment ? VERDICT_LEVEL[a.judgment] : undefined;
+  if (fromAi) return { level: fromAi, label: LEVEL_LABELS[fromAi], basis: "ai" };
+  const level: JudgmentLevel = a.blocking ? "blocking" : "near";
+  return { level, label: LEVEL_LABELS[level], basis: "rule" };
+}
+
+/** AI "다르다" 행의 기본 [관련 없음] 을 선택이 없는 행에만 채운다 (제안자가 고른 값은 바꾸지 않는다) */
+export function withDefaults(
+  map: ChoiceMap,
+  defaults: SimilarChoice[] | undefined,
+  alerts: PrecheckAlert[],
+): { map: ChoiceMap; added: number } {
+  const next = { ...map };
+  let added = 0;
+  for (const d of defaults ?? []) {
+    const alert = alerts.find((a) => a.doc_id === d.doc_id);
+    if (alert && choiceOf(alert, next) === undefined) {
+      next[d.doc_id] = d.choice;
+      added += 1;
+    }
+  }
+  return { map: next, added };
+}
+
+/** 선택 전체 서명 (유사함·관련 없음 모두) — [선택 적용] 뒤 바뀌었는지 */
+export function fullSignature(map: ChoiceMap): string {
+  return Object.keys(map)
+    .sort()
+    .map((k) => `${k}=${map[k]}`)
+    .join("|");
+}
+
+export function choiceCounts(alerts: PrecheckAlert[], map: ChoiceMap): { similar: number; unrelated: number } {
+  let similar = 0;
+  let unrelated = 0;
+  for (const a of alerts) {
+    const c = choiceOf(a, map);
+    if (c === "similar") similar += 1;
+    else if (c === "unrelated") unrelated += 1;
+  }
+  return { similar, unrelated };
 }
 
 export function changedFields(before: Record<PlanField, string>, after: Record<PlanField, string>): PlanField[] {

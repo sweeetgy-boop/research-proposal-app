@@ -30,15 +30,11 @@ function ProjectCard({ p }: { p: NtisProjectInsight }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="info">{p.tier_label || "국가R&D 과제"}</Badge>
           {p.blocking ? <Badge variant="destructive">차단</Badge> : null}
-          <span className="text-xs text-muted-foreground tabular-nums">유사도 {p.similarity.toFixed(3)}</span>
         </div>
         <h3 className="text-base font-semibold leading-tight tracking-tight">
           <UntrustedText text={p.title} />
         </h3>
-        <p className="text-xs text-muted-foreground">
-          {p.doc_id}
-          {p.cached ? " · 캐시" : ""}
-        </p>
+        {p.cached ? <p className="text-xs text-muted-foreground">저장해 둔 조회 결과</p> : null}
       </CardHeader>
       <CardContent className="space-y-2">
         <h4 className="text-sm font-semibold">주요 성과 (참고용)</h4>
@@ -119,7 +115,7 @@ export function NtisInsights({ data, loading, unavailable }: NtisInsightsProps) 
       {data.ntis_recommended.length > 0 ? (
         <div className="space-y-2 rounded-lg border p-4" data-testid="ntis-recommended">
           <h3 className="text-sm font-semibold">NTIS 추천</h3>
-          <p className="text-xs text-muted-foreground">외부 링크 · 미검증 — 제목·점수는 NTIS 응답을 그대로 보인 것이며 내용은 확인하지 않았습니다.</p>
+          <p className="text-xs text-muted-foreground">외부 링크 · 미검증 — 제목·순위는 NTIS 응답을 그대로 보인 것이며 내용은 확인하지 않았습니다.</p>
           <ol className="space-y-1 text-sm">
             {data.ntis_recommended.map((r) => (
               <li key={r.project_no} className="flex flex-wrap items-baseline gap-x-2">
@@ -128,12 +124,8 @@ export function NtisInsights({ data, loading, unavailable }: NtisInsightsProps) 
                   <ExternalLink className="size-3.5" aria-hidden="true" />
                   <span className="sr-only">(외부 링크, 새 창)</span>
                 </a>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {r.score != null ? `점수 ${r.score.toFixed(2)}` : ""}
-                  {r.score != null && r.rank != null ? " · " : ""}
-                  {r.rank != null ? `${r.rank}위` : ""}
-                  {` · ${r.project_no}`}
-                </span>
+                {/* 과제번호·점수 숫자는 보이지 않는다 (ADR 0039 — ② 화면 내부 번호 없음). 순위만 */}
+                {r.rank != null && <span className="text-xs text-muted-foreground tabular-nums">NTIS 추천 {r.rank}위</span>}
               </li>
             ))}
           </ol>

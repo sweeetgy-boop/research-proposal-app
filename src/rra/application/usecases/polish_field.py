@@ -8,7 +8,6 @@ Argon(review 단계 provider — 일일 예산·공유 호출 제한기) 먼저,
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import json
 import logging
@@ -47,8 +46,6 @@ class PolishResult(BaseModel):
 class PolishField:
     primary: LLMPort | None = None
     local: LLMPort | None = None
-    timeout: float = 20.0
-    local_timeout: float = 40.0
     max_tokens: int = 600
     local_slot: Any | None = None
 
@@ -64,13 +61,10 @@ class PolishField:
         ]
         prompt = self._prompt(req, field, original)
         last_reason = FAILED
-        for llm, timeout, origin in (
-            (self.primary, self.timeout, "argon"),
-            (self.local, self.local_timeout, "local"),
-        ):
+        for llm, origin in ((self.primary, "argon"), (self.local, "local")):
             if llm is None:
                 continue
-            raw = await self._ask(llm, prompt, timeout, origin)
+            raw = await self._ask(llm, prompt, origin)
             if raw is None:
                 continue
             data = parse_object(raw)
@@ -95,7 +89,9 @@ class PolishField:
             ]
         )
 
-    async def _ask(self, llm: LLMPort, prompt: str, timeout: float, origin: str) -> str | None:
+    async def _ask(self, llm: LLMPort, prompt: str, origin: str) -> str | None:
+        """앱 제한 시간 없음 (ADR 0039) — 느린 응답은 오류가 아니다.
+        로컬 대체는 오류 응답·해석 실패만."""
         gate = (
             self.local_slot.acquire()
             if origin == "local" and self.local_slot is not None
@@ -103,11 +99,8 @@ class PolishField:
         )
         try:
             async with gate:
-                return await asyncio.wait_for(
-                    llm.complete(
-                        prompt, system=POLISH_SYSTEM, max_tokens=self.max_tokens, json_mode=True
-                    ),
-                    timeout,
+                return await llm.complete(
+                    prompt, system=POLISH_SYSTEM, max_tokens=self.max_tokens, json_mode=True
                 )
         except BudgetExhausted:
             logger.info("polish.budget origin=%s", origin)

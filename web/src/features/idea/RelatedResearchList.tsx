@@ -38,9 +38,6 @@ export function RelatedResearchList({ items }: { items: RelatedResearch[] }) {
                   {r.source_label}
                   {DOC_TYPE_LABELS[r.doc_type] ? ` · ${DOC_TYPE_LABELS[r.doc_type]}` : ""}
                   {r.year ? ` · ${r.year}` : ""}
-                  {` · 유사도 ${r.similarity.toFixed(3)}`}
-                  {" · "}
-                  {r.doc_id}
                 </p>
               </div>
               {r.url ? (

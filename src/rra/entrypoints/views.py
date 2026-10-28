@@ -15,11 +15,13 @@ from typing import Any
 
 from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
+from rra.domain.rules.card_overlap import DIFFERENCE_LABELS
 from rra.domain.rules.doc_category import CATEGORY_LABELS, RESEARCH_SERVICE
 from rra.domain.rules.doc_refs import UNTITLED, source_name, source_of
 from rra.domain.rules.draft_failures import reason_label
 from rra.domain.rules.local_review import review_view
 from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
+from rra.domain.rules.precheck_levels import level_view
 from rra.domain.rules.precheck_view import (
     JUDGED_BY_LABELS,
     differentiation_skip_label,
@@ -817,7 +819,6 @@ def alerts_payload(
                     if a.tier == "procurement" and source_of(a.doc_id) == "korail_web"
                     else tier_label(a.tier, a.own_detail)
                 ),  # 공사 사전정보공표 연구용역 = "연구용역(사내 발주)" (ADR 0040)
-                "source_label": source_name(source_of(a.doc_id)),
                 "live": a.doc_id in live,
                 # ② 판정 정확도 (레인 A) — reranker 점수·AI 같음 판정·같은 제목 묶음·제안자 선택
                 "rerank_score": getattr(a, "rerank_score", None),
@@ -829,10 +830,20 @@ def alerts_payload(
                 "judged_by_label": JUDGED_BY_LABELS.get(getattr(a, "judged_by", None) or "", None),
                 "merged_ids": list(getattr(a, "merged_ids", []) or []),
                 "choice": getattr(a, "choice", None),
+                # ② v3 (ADR 0039): 판정 칸(같다→차단·일부 겹침→근접·다르다→관련 낮음, AI 전엔
+                # 규칙 기준)·관련도(reranker 높음/보통/낮음)·자료원 이름.
+                # 화면은 유사도·내부 번호를 보이지 않는다
+                **level_view(a),
+                "source_label": source_label_of(a.doc_id),
             }
             for a in alerts
         ],
     }
+
+
+def source_label_of(doc_id: str) -> str:
+    """doc_id 앞머리(own:·alio:·ntis: …) → 자료원 한국어 이름. 모르면 빈 값."""
+    return SOURCE_LABELS.get((doc_id or "").split(":", 1)[0], "")
 
 
 def judgment_payload(info: Any) -> dict[str, Any]:
@@ -961,12 +972,22 @@ def differentiation_payload(
     }
 
 
+OVERLAP_BY_LABELS: dict[str, str] = {
+    "argon": "Argon 판정",
+    "local": "로컬 모델 판정",
+    "rule": "규칙 기준(AI 확인 실패)",
+}
+
+
 def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
     """RecommendationResult → dict (CLI·MCP·REST 공용). 본문은 LLM 출력(비신뢰) → clean."""
     return {
         "skipped_reason": result.skipped_reason,
         "skipped_label": recommendation_skip_label(result.skipped_reason),
         "regenerated": bool(getattr(result, "regenerated", False)),
+        "overlap_checked": bool(getattr(result, "overlap_checked", False)),
+        "overlap_regenerated": int(getattr(result, "overlap_regenerated", 0) or 0),
+        "overlap_found": int(getattr(result, "overlap_found", 0) or 0),
         "similar_doc_ids": list(getattr(result, "similar_doc_ids", []) or []),
         "no_recommendation_reason": (
             clean(result.no_recommendation_reason) if result.no_recommendation_reason else None
@@ -995,6 +1016,28 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
                 "compared_with": list(r.compared_with),
                 "evidence": list(r.evidence),
                 "overlap_warning": list(r.overlap_warning),
+                # ② v3 카드 (ADR 0039) — 근거는 제목·자료원, 겹침은 판정의 제목·한 줄 겹치는 점
+                "refs": [
+                    {
+                        "doc_id": ref.doc_id,
+                        "title": clean(ref.title),
+                        "source_label": SOURCE_LABELS.get(ref.source, "")
+                        or source_label_of(ref.doc_id),
+                    }
+                    for ref in getattr(r, "refs", []) or []
+                ],
+                "overlap_titles": [clean(t) for t in getattr(r, "overlap_titles", []) or []],
+                "overlap_reason": clean(getattr(r, "overlap_reason", "") or ""),
+                "overlap_by": getattr(r, "overlap_by", None),
+                "overlap_by_label": OVERLAP_BY_LABELS.get(
+                    getattr(r, "overlap_by", None) or "", None
+                ),
+                "regenerated": bool(getattr(r, "regenerated", False)),
+                "difference": getattr(r, "difference", None),
+                "difference_label": DIFFERENCE_LABELS.get(
+                    getattr(r, "difference", None) or "", None
+                ),
+                "added": bool(getattr(r, "added", False)),
             }
             for i, r in enumerate(result.recommendations)
         ],

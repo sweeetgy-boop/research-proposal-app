@@ -22,7 +22,7 @@ const LIVE_SEARCH = {
 type Json = Record<string, any>;
 
 async function injectLiveFields(page: Page) {
-  await page.route("**/v1/precheck", async (route) => {
+  await page.route(/\/v1\/precheck(\?.*)?$/, async (route) => {
     if (route.request().method() !== "POST") return route.fallback();
     const res = await route.fetch();
     const body = (await res.json()) as Json;

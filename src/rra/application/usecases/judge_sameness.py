@@ -1,8 +1,10 @@
 """② AI 같음 판정 — 상위 후보(최대 10건)를 한 번에 "대상·문제·방법이 실제로 같은가" 판정한다.
 
 Argon(llm.yaml stages.review provider — gemini 면 일일 예산·공유 호출 제한기, 조립이 붙인다) 먼저,
-실패(예외·제한 시간·예산·해석 실패)면 로컬 모델(로컬 슬롯 안), 둘 다 실패하면 규칙 판정 그대로
+실패(오류 응답·예산·해석 실패)면 로컬 모델(로컬 슬롯 안), 둘 다 실패하면 규칙 판정 그대로
 (JudgmentInfo.status = rule_fallback → 화면 "AI 판정 실패 — 규칙 기준" + [다시 시도]).
+앱 제한 시간은 없다(2026-10-28 밤 레인 A, ADR 0039) — 느린 Argon 은 오류가 아니다. 화면이 경과 초와
+[취소] 를 보이고, 취소는 REST 가 이 코루틴을 취소한다.
 
 전송 범위는 검토 단계와 같다: include_internal=False 면 visibility=internal 문서는 Argon 에 보내지
 않는다
@@ -13,7 +15,6 @@ Argon(llm.yaml stages.review provider — gemini 면 일일 예산·공유 호�
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import json
 import logging
@@ -62,8 +63,6 @@ class SameJudge:
     provider: str | None = None
     model: str | None = None
     local_model: str | None = None
-    timeout: float = 40.0
-    local_timeout: float = 60.0
     max_candidates: int = MAX_JUDGE
     max_doc_chars: int = 700
     max_tokens: int = 1500
@@ -97,9 +96,7 @@ class SameJudge:
             excluded = [i for i in ids if i not in sent]
             if sent:
                 calls += 1
-                verdicts = await self._ask(
-                    self.primary, req, sent, by_id, docs, self.timeout, "argon", errors
-                )
+                verdicts = await self._ask(self.primary, req, sent, by_id, docs, "argon", errors)
                 if verdicts is not None:
                     judged = apply_verdicts(alerts, verdicts, ids, "argon")
                     return judged, JudgmentInfo(
@@ -119,9 +116,7 @@ class SameJudge:
                 else contextlib.nullcontext()
             )
             async with gate:
-                verdicts = await self._ask(
-                    self.local, req, ids, by_id, docs, self.local_timeout, "local", errors
-                )
+                verdicts = await self._ask(self.local, req, ids, by_id, docs, "local", errors)
             if verdicts is not None:
                 judged = apply_verdicts(alerts, verdicts, ids, "local")
                 return judged, JudgmentInfo(
@@ -180,18 +175,14 @@ class SameJudge:
         ids: list[str],
         by_id: dict[str, OverlapAlert],
         docs: dict[str, Document | None],
-        timeout: float,
         origin: str,
         errors: list[str],
     ) -> dict[str, tuple[str, str]] | None:
         prompt = self.build_prompt(req, ids, by_id, docs)
         self.calls += 1
         try:
-            raw = await asyncio.wait_for(
-                llm.complete(
-                    prompt, system=JUDGE_SYSTEM, max_tokens=self.max_tokens, json_mode=True
-                ),
-                timeout,
+            raw = await llm.complete(
+                prompt, system=JUDGE_SYSTEM, max_tokens=self.max_tokens, json_mode=True
             )
         except BudgetExhausted:
             errors.append(f"{origin}:budget")
@@ -199,7 +190,7 @@ class SameJudge:
         except RateLimited:
             errors.append(f"{origin}:rate_limit")
             return None
-        except TimeoutError:
+        except TimeoutError:  # 전송 계층의 연결 오류(무응답 감시) — 앱 제한 시간이 아니다
             errors.append(f"{origin}:timeout")
             return None
         except Exception as exc:  # 판정 실패가 ② 를 막지 않는다 — 다음 단계로
