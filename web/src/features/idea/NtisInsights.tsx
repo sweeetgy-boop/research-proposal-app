@@ -30,15 +30,11 @@ function ProjectCard({ p }: { p: NtisProjectInsight }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="info">{p.tier_label || "국가R&D 과제"}</Badge>
           {p.blocking ? <Badge variant="destructive">차단</Badge> : null}
-          <span className="text-xs text-muted-foreground tabular-nums">유사도 {p.similarity.toFixed(3)}</span>
         </div>
         <h3 className="text-base font-semibold leading-tight tracking-tight">
           <UntrustedText text={p.title} />
         </h3>
-        <p className="text-xs text-muted-foreground">
-          {p.doc_id}
-          {p.cached ? " · 캐시" : ""}
-        </p>
+        {p.cached ? <p className="text-xs text-muted-foreground">저장해 둔 조회 결과</p> : null}
       </CardHeader>
       <CardContent className="space-y-2">
         <h4 className="text-sm font-semibold">주요 성과 (참고용)</h4>

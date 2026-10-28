@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { UntrustedText } from "@/components/UntrustedText";
+import { AiWaiting } from "@/components/AiWaiting";
+import { useAiCall } from "@/lib/useAiCall";
 import { changedFields } from "./model";
 
 /** 과제안 직접 고치기 — 칸마다 고치고 [AI로 다듬기](그 칸만, Argon → 로컬). 원래 아이디어와 나란히 본다. */
@@ -27,24 +29,21 @@ export function PlanEditor({
   const [fields, setFields] = React.useState(initial);
   const [busy, setBusy] = React.useState<PlanField | null>(null);
   const [notes, setNotes] = React.useState<Partial<Record<PlanField, string>>>({});
-  const [error, setError] = React.useState<unknown>(null);
+  // [AI로 다듬기] — 시간 제한 없이 "경과 n초 [취소]" (ADR 0039). 취소하면 칸은 그대로
+  const call = useAiCall((args: { key: PlanField; text: string }, signal: AbortSignal) => polishField(request, args.key, args.text, signal));
 
   const polish = async (key: PlanField) => {
     setBusy(key);
-    setError(null);
-    try {
-      const out = await polishField(request, key, fields[key] ?? "");
-      setFields((f) => ({ ...f, [key]: out.text }));
-      setNotes((n) => ({
-        ...n,
-        [key]: out.changed ? `${out.by_label ?? "AI"} 가 다듬었습니다.` : (out.reason ?? "바뀐 내용이 없습니다."),
-      }));
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(null);
-    }
+    const out = await call.run({ key, text: fields[key] ?? "" });
+    setBusy(null);
+    if (!out) return;
+    setFields((f) => ({ ...f, [key]: out.text }));
+    setNotes((n) => ({
+      ...n,
+      [key]: out.changed ? `${out.by_label ?? "AI"} 가 다듬었습니다.` : (out.reason ?? "바뀐 내용이 없습니다."),
+    }));
   };
+  const error = call.error;
 
   const changed = changedFields(original, fields);
   const empty = !fields.goal.trim();
@@ -67,6 +66,7 @@ export function PlanEditor({
                   {busy === f.key ? "다듬는 중…" : `${f.label} AI로 다듬기`}
                 </Button>
               </div>
+              {busy === f.key && <AiWaiting pending={call.pending} elapsed={call.elapsed} onCancel={call.cancel} what={`${f.label} 다듬기`} />}
               <Textarea
                 id={id}
                 rows={f.short ? 2 : 3}

@@ -108,7 +108,8 @@ describe("유사과제 확인", () => {
     expect(screen.getByRole("heading", { name: /유사과제 1건/ })).toBeInTheDocument();
     const section = screen.getByRole("region", { name: /관련 연구 2건/ });
     expect(section).toHaveTextContent("궤도 틀림 논문 (가짜)");
-    expect(section).toHaveTextContent("ScienceON 국내 논문·보고서 · 논문 · 2024 · 유사도 0.912");
+    expect(section).toHaveTextContent("ScienceON 국내 논문·보고서 · 논문 · 2024");
+    expect(section).not.toHaveTextContent(/유사도|scienceon:/); // 유사도 숫자·내부 번호 없음 (ADR 0039)
     expect(within(section).getAllByText("참고")).toHaveLength(2);
     expect(within(section).queryByText("차단")).toBeNull();
     const link = within(section).getByRole("link", { name: /원문/ });

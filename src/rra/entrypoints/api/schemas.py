@@ -121,7 +121,17 @@ class RecommendationApplyIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    index: int = Field(ge=0, le=4)
+    index: int = Field(ge=0, le=14)  # [더 만들기] 로 15건까지 (ADR 0039)
+
+
+class RecommendMoreIn(BaseModel):
+    """POST /v1/precheck/recommendations/more — [차별화 과제안 더 만들기] (레인 A, ADR 0039).
+    rec_id 의 카드(이미 보인 안)와 다른 안만 더 받는다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request: ProposalRequest
+    rec_id: str = Field(min_length=1, max_length=64)
 
 
 class PolishIn(BaseModel):
