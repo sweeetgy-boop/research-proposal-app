@@ -80,11 +80,74 @@ export interface paths {
         put?: never;
         /**
          * Precheck Route
-         * @description 유사과제 알림. 차단 알림 + 차별화 LLM 이 있으면 차별화 제안(기능 2)을 자동으로 붙이고,
-         *     과제 추천 LLM 이 있고 recommend.auto 면 차별화 과제 추천을 자동 1회 붙인다.
-         *     [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초) 판정한다.
+         * @description 유사과제 알림. [4] 실시간 검색(ScienceON·NTIS·OpenAlex)을 먼저 돌려 DB 에 넣고(최대 15초)
+         *     판정한다. 2026-10-28 레인 A: reranker 점수·핵심 키워드(실시간 검색의 Argon 키워드) 규칙
+         *     판정 →
+         *     상위 10건 AI 같음 판정(Argon → 로컬 → 규칙). 과제 추천 LLM 이 있고 recommend.auto 면 차별화
+         *     과제안을 AI 판정과 동시에 1회 붙인다. 활용·차별화 제안은 [유사함] 을 고른 뒤에만.
          */
         post: operations["precheck_route_v1_precheck_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/precheck/judgment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Judgment Retry Route
+         * @description [다시 시도] — AI 같음 판정만 다시 (규칙 판정은 같은 입력의 메모를 쓴다). 레인 A.
+         */
+        post: operations["judgment_retry_route_v1_precheck_judgment_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/precheck/choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choices Route
+         * @description ② [유사함]/[관련 없음] 선택을 반영한 차단 여부·해제·다음 버튼 사유 (LLM 없음, 레인 A).
+         */
+        post: operations["choices_route_v1_precheck_choices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/precheck/plan/polish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Polish Route
+         * @description ② 차별화 과제안 [AI로 다듬기] — 그 칸만 (Argon → 로컬). 실패면 원래 글 + 사유 (레인
+         *     A).
+         */
+        post: operations["polish_route_v1_precheck_plan_polish_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -168,7 +231,10 @@ export interface paths {
         put?: never;
         /**
          * Clarify Route
-         * @description ③ 시작 전 입력 보강 질문(Q1). pipeline.clarify 가 꺼져 있으면 질문 0개.
+         * @description ③ 시작 전 입력 보강 질문(Q1) — Argon 먼저(로컬 대체), 2~4개. 질문이 없으면 status 로
+         *     사유를
+         *     가른다: off(꺼짐) | failed(생성 실패 — 다시 시도) | enough(입력 충분). 정책 근거가 없으면
+         *     topic policy 질문 + policy_needed (화면은 정책적 중요도 작성안을 보인다).
          */
         post: operations["clarify_route_v1_precheck_clarify_post"];
         delete?: never;
@@ -254,6 +320,27 @@ export interface paths {
          *     기존 과제 칸은 요약·초록의 제목 기반 추출만, 제목뿐이면 "정보 없음(제목 기준)". 양식 밖.
          */
         post: operations["comparison_route_v1_precheck_comparison_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Comparison Route
+         * @description 초안이 있는 run 의 차별성 비교표 — 제안 행을 초안 섹션으로 다시 채운다(레인 A). 기존 과제
+         *     행은 run 입력의 [유사함] 선택에서.
+         */
+        get: operations["run_comparison_route_v1_runs__run_id__comparison_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -801,7 +888,9 @@ export interface paths {
         };
         /**
          * Section Questions Route
-         * @description U3 섹션 체크리스트(section_checklists.yaml)에서 빠진 요소 → 보완 질문 + 저장된 답.
+         * @description U3 보완 질문 — Argon 이 섹션 본문·근거·작성 지침을 읽고 빠진·약한 부분을 2~4개 묻는다
+         *     (실패하면 로컬 → 체크리스트). source·reason 으로 누가 물었는지·왜 대신했는지. 같은 버전은
+         *     보관한 결과(refresh=true 면 새로).
          */
         get: operations["section_questions_route_v1_runs__run_id__sections__key__questions_get"];
         put?: never;
@@ -826,6 +915,129 @@ export interface paths {
          * @description U3 보완 질문의 답을 제안자 입력으로 저장 — 다음 다시 쓰기 프롬프트에 들어간다.
          */
         post: operations["section_answers_route_v1_runs__run_id__sections__key__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ideas/policy-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Policy Cards Route
+         * @description ③ 보강 질문 — 정책 근거가 없을 때 수집 정책 자료(국토부·공사 전략·감사 지적·정부 R&D
+         *     공고)
+         *     에서 아이디어 관련 구간을 찾아 방향이 겹치지 않는 작성안 최대 4개. exclude_doc_ids 는
+         *     [다른 안 보기] 때 이미 본 문서. 결과는 자동으로 들어가지 않는다 — 고른 것만
+         *     RunIn.policy_choice 로.
+         */
+        post: operations["policy_cards_route_v1_ideas_policy_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ideas/policy-cards/polish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Policy Polish Route
+         * @description [AI로 다듬기] — 고른 안을 제안자가 고친 글을 같은 근거 안에서 다듬는다 (Argon 먼저).
+         */
+        post: operations["policy_polish_route_v1_ideas_policy_cards_polish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/policy-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Policy Cards Route
+         * @description ④ 빈 2-가-(1) — run 의 입력으로 작성안 최대 4개.
+         */
+        post: operations["run_policy_cards_route_v1_runs__run_id__policy_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/policy-cards/polish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Policy Polish Route */
+        post: operations["run_policy_polish_route_v1_runs__run_id__policy_cards_polish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/policy-choice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Policy Choice Route
+         * @description 고른 작성안(또는 mode none = "정책 근거 없음")으로 2-가-(1) 을 바꾼 새 버전. 인용 구간은
+         *     저장소 원문과 대조해 통과한 것만 근거로 남는다.
+         */
+        post: operations["run_policy_choice_route_v1_runs__run_id__policy_choice_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Changes Route
+         * @description ④ "변경 n건" — 마지막 검토(최종 검토 버전, 없으면 초안) 이후 바뀐 것을 종류별로. 저장하지
+         *     않은 편집은 화면이 더한다.
+         */
+        get: operations["run_changes_route_v1_runs__run_id__changes_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -871,6 +1083,27 @@ export interface paths {
          * @description [다른 그림 추가] — 종류·섹션을 골라 명세·그림을 만들고 새 버전.
          */
         post: operations["figure_add_route_v1_runs__run_id__figures_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/figures/techniques": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Figure Techniques Route
+         * @description [11] 분석 기법 [다시 추천] — 새 그림이 있으면 새 버전(created), 없으면 결과만
+         *     (해당 없음·호출 실패·규칙에 걸러짐). 기준 버전 불일치·자리 없음 409.
+         */
+        post: operations["figure_techniques_route_v1_runs__run_id__figures_techniques_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -975,6 +1208,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run_id}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Request Route
+         * @description 단계 표시 ①·② 를 run 안에서 열 때 — 그 run 의 저장된 입력. 제안자 입력이라 정리만.
+         */
+        get: operations["run_request_route_v1_runs__run_id__request_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/request/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Preview Route */
+        post: operations["request_preview_route_v1_runs__run_id__request_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Route
+         * @description 입력 변경 저장 — 관련 섹션만 다시 쓰기 / 초안 전체 다시 생성. 둘 다 새 버전(이전 버전은
+         *     [버전·비교]에 남는다). 다시 쓰지 못한 섹션은 이전 내용 그대로 + failed 로 알린다.
+         */
+        post: operations["regenerate_route_v1_runs__run_id__regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/evidence-decisions/bulk-approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Approve Route */
+        post: operations["bulk_approve_route_v1_runs__run_id__evidence_decisions_bulk_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -989,12 +1297,20 @@ export interface components {
              * @description 예산과목
              * @default
              */
-            account: string;
+            account?: string;
             /**
              * Amount Thousand Krw
              * @description 금액(천원)
              */
             amount_thousand_krw?: number | null;
+        };
+        /**
+         * BulkApproveIn
+         * @description POST /v1/runs/{id}/evidence-decisions/bulk-approve — 확인 필요 문장을 뺀 근거 일괄 승인.
+         */
+        BulkApproveIn: {
+            /** Base Version */
+            base_version?: number | null;
         };
         /** ConfirmIn */
         ConfirmIn: {
@@ -1019,7 +1335,7 @@ export interface components {
              * Fallback Local
              * @default false
              */
-            fallback_local: boolean;
+            fallback_local?: boolean;
             /** Public Doc Ids */
             public_doc_ids?: string[];
             /** Internal Doc Ids */
@@ -1030,17 +1346,17 @@ export interface components {
              * Calls
              * @default 0
              */
-            calls: number;
+            calls?: number;
             /**
              * Items
              * @default 0
              */
-            items: number;
+            items?: number;
             /**
              * Discarded
              * @default 0
              */
-            discarded: number;
+            discarded?: number;
             /** Skipped Reason */
             skipped_reason?: string | null;
         };
@@ -1054,7 +1370,7 @@ export interface components {
              * Note
              * @default
              */
-            note: string;
+            note?: string;
             /** Base Version */
             base_version?: number | null;
             /** Done Annotations */
@@ -1074,7 +1390,7 @@ export interface components {
              * @default approve
              * @enum {string}
              */
-            action: "approve" | "replace" | "exclude";
+            action?: "approve" | "replace" | "exclude";
             /** Replacement */
             replacement?: string | null;
         };
@@ -1086,7 +1402,7 @@ export interface components {
              * Note
              * @default
              */
-            note: string;
+            note?: string;
             /** Base Version */
             base_version?: number | null;
         };
@@ -1101,7 +1417,7 @@ export interface components {
              * Comment
              * @default
              */
-            comment: string;
+            comment?: string;
         };
         /**
          * FigureActionIn
@@ -1112,31 +1428,49 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "words" | "texts" | "baseline" | "regenerate" | "include" | "exclude" | "confirm";
+            action: "words" | "texts" | "baseline" | "regenerate" | "include" | "exclude" | "confirm" | "accept" | "dismiss" | "restore" | "swap";
             /**
              * Request
              * @default
              */
-            request: string;
+            request?: string;
             /** Texts */
             texts?: {
                 [key: string]: string;
             };
             /** Base Version */
             base_version?: number | null;
+            /**
+             * Technique
+             * @default
+             */
+            technique?: string;
         };
         /**
          * FigureAddIn
-         * @description POST /v1/runs/{id}/figures — [다른 그림 추가].
+         * @description POST /v1/runs/{id}/figures — [다른 그림 추가]. kind=technique 면 technique(기법 key) 필수.
          */
         FigureAddIn: {
             /**
              * Kind
              * @enum {string}
              */
-            kind: "concept" | "process" | "schedule" | "stat_chart" | "comparison" | "roadmap";
+            kind: "concept" | "process" | "schedule" | "stat_chart" | "comparison" | "roadmap" | "as_is_to_be" | "technique";
             /** Section */
             section: string;
+            /** Base Version */
+            base_version?: number | null;
+            /**
+             * Technique
+             * @default
+             */
+            technique?: string;
+        };
+        /**
+         * FigureTechniquesIn
+         * @description POST /v1/runs/{id}/figures/techniques — [11] 분석 기법 [다시 추천].
+         */
+        FigureTechniquesIn: {
             /** Base Version */
             base_version?: number | null;
         };
@@ -1155,12 +1489,12 @@ export interface components {
              * Proposed On
              * @default
              */
-            proposed_on: string;
+            proposed_on?: string;
             /**
              * Department
              * @default
              */
-            department: string;
+            department?: string;
             proposer?: components["schemas"]["PersonIn"];
             head?: components["schemas"]["PersonIn"];
             /** Version */
@@ -1171,23 +1505,328 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** IdeaVersion */
+        IdeaVersion: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "original" | "card" | "edited";
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            };
+            /** Card Index */
+            card_index?: number | null;
+            /**
+             * Note
+             * @default
+             */
+            note?: string;
+            /**
+             * At
+             * @default
+             */
+            at?: string;
+        };
         /** PersonIn */
         PersonIn: {
             /**
              * Rank
              * @default
              */
-            rank: string;
+            rank?: string;
             /**
              * Name
              * @default
              */
-            name: string;
+            name?: string;
             /**
              * Phone
              * @default
              */
-            phone: string;
+            phone?: string;
+        };
+        /**
+         * PolicyCardsIn
+         * @description POST /v1/ideas/policy-cards — 입력 + [다른 안 보기] 때 이미 본 문서 id.
+         */
+        PolicyCardsIn: {
+            /**
+             * Current State
+             * @description 현재 상황·문제
+             */
+            current_state: string;
+            /**
+             * Root Cause
+             * @description 발생 원인
+             */
+            root_cause: string;
+            /**
+             * Limitation
+             * @description 현행 대응의 한계
+             */
+            limitation: string;
+            /**
+             * Goal
+             * @description 해결 목표
+             */
+            goal: string;
+            /**
+             * Constraints
+             * @description 예산·기간·현장 제약
+             * @default
+             */
+            constraints?: string;
+            /**
+             * Title Hint
+             * @description 가제 (있으면 과제명을 이것으로 다듬는다)
+             * @default
+             */
+            title_hint?: string;
+            /**
+             * Policy Basis
+             * @description 정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지
+             * @default
+             */
+            policy_basis?: string;
+            /**
+             * Beneficiaries
+             * @description 활용 주체 부서 (차량처·시설처 등)
+             * @default
+             */
+            beneficiaries?: string;
+            /**
+             * Remarks
+             * @description 특이사항에 덧붙일 내용
+             * @default
+             */
+            remarks?: string;
+            /**
+             * Differentiation
+             * @description 제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)
+             * @default
+             */
+            differentiation?: string;
+            /**
+             * Supplement
+             * @description 보충 정보 (보강 질문의 답)
+             * @default
+             */
+            supplement?: string;
+            /**
+             * Method
+             * @description 연구방법 (② 차별화 과제안에서 정한 것)
+             * @default
+             */
+            method?: string;
+            /**
+             * Scope
+             * @description 적용범위 — 대상 노선·시설·차량 (② 과제안)
+             * @default
+             */
+            scope?: string;
+            /**
+             * Similar Choices
+             * @description ② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)
+             */
+            similar_choices?: components["schemas"]["SimilarChoice"][];
+            /**
+             * Department
+             * @description 제안부서 (양식 칸에만 쓴다)
+             * @default
+             */
+            department?: string;
+            budget?: components["schemas"]["Budget"] | null;
+            policy_choice?: components["schemas"]["PolicyChoice"] | null;
+            /** Exclude Doc Ids */
+            exclude_doc_ids?: string[];
+        };
+        /**
+         * PolicyChoice
+         * @description 제안자가 정한 정책 근거 — run 의 2-가-(1) 정책적 중요도가 이것으로 쓰인다.
+         *
+         *     mode: card(안 하나) | merged(두 안 합침) | edited(고른 뒤 직접 수정·AI 다듬기) | manual(직접
+         *     작성)
+         *     | none(정책 근거 없음으로 진행 → 빈칸 대신 "정책 근거 확인 필요" 알림, 제출 전 점검에서 다시
+         *     표시).
+         *     sentences 의 evidence 는 sources 의 chunk_id 만 — 생성 때 저장소에서 원문과 대조해 통과한 것만
+         *     근거로 남는다(보안 A).
+         */
+        PolicyChoice: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "card" | "merged" | "edited" | "manual" | "none";
+            /** Card Ids */
+            card_ids?: string[];
+            /** Sentences */
+            sentences?: components["schemas"]["PolicySentence"][];
+            /** Sources */
+            sources?: components["schemas"]["PolicySource"][];
+        };
+        /**
+         * PolicyChoiceIn
+         * @description POST /v1/runs/{id}/policy-choice — 고른 안 또는 {mode: none}.
+         */
+        PolicyChoiceIn: {
+            choice: components["schemas"]["PolicyChoice"];
+            /** Base Version */
+            base_version?: number | null;
+        };
+        /**
+         * PolicyPolishIn
+         * @description POST /v1/ideas/policy-cards/polish — 입력 + 고른 안 + 제안자가 고친 글.
+         */
+        PolicyPolishIn: {
+            /**
+             * Current State
+             * @description 현재 상황·문제
+             */
+            current_state: string;
+            /**
+             * Root Cause
+             * @description 발생 원인
+             */
+            root_cause: string;
+            /**
+             * Limitation
+             * @description 현행 대응의 한계
+             */
+            limitation: string;
+            /**
+             * Goal
+             * @description 해결 목표
+             */
+            goal: string;
+            /**
+             * Constraints
+             * @description 예산·기간·현장 제약
+             * @default
+             */
+            constraints?: string;
+            /**
+             * Title Hint
+             * @description 가제 (있으면 과제명을 이것으로 다듬는다)
+             * @default
+             */
+            title_hint?: string;
+            /**
+             * Policy Basis
+             * @description 정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지
+             * @default
+             */
+            policy_basis?: string;
+            /**
+             * Beneficiaries
+             * @description 활용 주체 부서 (차량처·시설처 등)
+             * @default
+             */
+            beneficiaries?: string;
+            /**
+             * Remarks
+             * @description 특이사항에 덧붙일 내용
+             * @default
+             */
+            remarks?: string;
+            /**
+             * Differentiation
+             * @description 제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)
+             * @default
+             */
+            differentiation?: string;
+            /**
+             * Supplement
+             * @description 보충 정보 (보강 질문의 답)
+             * @default
+             */
+            supplement?: string;
+            /**
+             * Method
+             * @description 연구방법 (② 차별화 과제안에서 정한 것)
+             * @default
+             */
+            method?: string;
+            /**
+             * Scope
+             * @description 적용범위 — 대상 노선·시설·차량 (② 과제안)
+             * @default
+             */
+            scope?: string;
+            /**
+             * Similar Choices
+             * @description ② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)
+             */
+            similar_choices?: components["schemas"]["SimilarChoice"][];
+            /**
+             * Department
+             * @description 제안부서 (양식 칸에만 쓴다)
+             * @default
+             */
+            department?: string;
+            budget?: components["schemas"]["Budget"] | null;
+            policy_choice?: components["schemas"]["PolicyChoice"] | null;
+            choice: components["schemas"]["PolicyChoice"];
+            /** Text */
+            text: string;
+        };
+        /** PolicySentence */
+        PolicySentence: {
+            /** Text */
+            text: string;
+            /** Evidence */
+            evidence?: string[];
+        };
+        /**
+         * PolicySource
+         * @description 작성안이 인용한 원문 구간 하나 — 문서명·연도·쪽·원문 인용·링크. quote 는 문서 그대로.
+         */
+        PolicySource: {
+            /** Chunk Id */
+            chunk_id: string;
+            /** Doc Id */
+            doc_id: string;
+            /**
+             * Source
+             * @default
+             */
+            source?: string;
+            /**
+             * Source Label
+             * @default
+             */
+            source_label?: string;
+            /**
+             * Title
+             * @default
+             */
+            title?: string;
+            /** Year */
+            year?: number | null;
+            /** Page */
+            page?: string | null;
+            /** Quote */
+            quote: string;
+            /** Url */
+            url?: string | null;
+        };
+        /**
+         * PolishIn
+         * @description POST /v1/precheck/plan/polish — 과제안 한 칸 [AI로 다듬기] (레인 A). 그 칸만 보낸다.
+         */
+        PolishIn: {
+            request: components["schemas"]["ProposalRequest"];
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "title_hint" | "goal" | "method" | "scope" | "differentiation";
+            /**
+             * Text
+             * @default
+             */
+            text?: string;
         };
         /**
          * ProposalRequest
@@ -1222,50 +1861,68 @@ export interface components {
              * @description 예산·기간·현장 제약
              * @default
              */
-            constraints: string;
+            constraints?: string;
             /**
              * Title Hint
              * @description 가제 (있으면 과제명을 이것으로 다듬는다)
              * @default
              */
-            title_hint: string;
+            title_hint?: string;
             /**
              * Policy Basis
              * @description 정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지
              * @default
              */
-            policy_basis: string;
+            policy_basis?: string;
             /**
              * Beneficiaries
              * @description 활용 주체 부서 (차량처·시설처 등)
              * @default
              */
-            beneficiaries: string;
+            beneficiaries?: string;
             /**
              * Remarks
              * @description 특이사항에 덧붙일 내용
              * @default
              */
-            remarks: string;
+            remarks?: string;
             /**
              * Differentiation
              * @description 제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)
              * @default
              */
-            differentiation: string;
+            differentiation?: string;
             /**
              * Supplement
              * @description 보충 정보 (보강 질문의 답)
              * @default
              */
-            supplement: string;
+            supplement?: string;
+            /**
+             * Method
+             * @description 연구방법 (② 차별화 과제안에서 정한 것)
+             * @default
+             */
+            method?: string;
+            /**
+             * Scope
+             * @description 적용범위 — 대상 노선·시설·차량 (② 과제안)
+             * @default
+             */
+            scope?: string;
+            /**
+             * Similar Choices
+             * @description ② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)
+             */
+            similar_choices?: components["schemas"]["SimilarChoice"][];
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
              * @default
              */
-            department: string;
+            department?: string;
             budget?: components["schemas"]["Budget"] | null;
+            policy_choice?: components["schemas"]["PolicyChoice"] | null;
         };
         /**
          * RecommendationApplyIn
@@ -1274,6 +1931,33 @@ export interface components {
         RecommendationApplyIn: {
             /** Index */
             index: number;
+        };
+        /**
+         * RegenerateIn
+         * @description POST /v1/runs/{id}/regenerate — sections: 바뀐 내용과 관련된 섹션만, all: 초안 전체.
+         *     둘 다 새 버전을 만들고 이전 버전은 남는다. base_version 이 현재와 다르면 409.
+         */
+        RegenerateIn: {
+            request: components["schemas"]["ProposalRequest"];
+            /** Priority Evidence */
+            priority_evidence?: string[] | null;
+            /**
+             * Mode
+             * @default sections
+             * @enum {string}
+             */
+            mode?: "sections" | "all";
+            /** Base Version */
+            base_version?: number | null;
+        };
+        /**
+         * RequestChangeIn
+         * @description POST /v1/runs/{id}/request/preview — 바뀐 입력(①)과 ② 우선 근거. 저장하지 않는다.
+         */
+        RequestChangeIn: {
+            request: components["schemas"]["ProposalRequest"];
+            /** Priority Evidence */
+            priority_evidence?: string[] | null;
         };
         /** RevertIn */
         RevertIn: {
@@ -1293,7 +1977,7 @@ export interface components {
              * Note
              * @default
              */
-            note: string;
+            note?: string;
         };
         /**
          * RunIn
@@ -1331,50 +2015,68 @@ export interface components {
              * @description 예산·기간·현장 제약
              * @default
              */
-            constraints: string;
+            constraints?: string;
             /**
              * Title Hint
              * @description 가제 (있으면 과제명을 이것으로 다듬는다)
              * @default
              */
-            title_hint: string;
+            title_hint?: string;
             /**
              * Policy Basis
              * @description 정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지
              * @default
              */
-            policy_basis: string;
+            policy_basis?: string;
             /**
              * Beneficiaries
              * @description 활용 주체 부서 (차량처·시설처 등)
              * @default
              */
-            beneficiaries: string;
+            beneficiaries?: string;
             /**
              * Remarks
              * @description 특이사항에 덧붙일 내용
              * @default
              */
-            remarks: string;
+            remarks?: string;
             /**
              * Differentiation
              * @description 제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)
              * @default
              */
-            differentiation: string;
+            differentiation?: string;
             /**
              * Supplement
              * @description 보충 정보 (보강 질문의 답)
              * @default
              */
-            supplement: string;
+            supplement?: string;
+            /**
+             * Method
+             * @description 연구방법 (② 차별화 과제안에서 정한 것)
+             * @default
+             */
+            method?: string;
+            /**
+             * Scope
+             * @description 적용범위 — 대상 노선·시설·차량 (② 과제안)
+             * @default
+             */
+            scope?: string;
+            /**
+             * Similar Choices
+             * @description ② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)
+             */
+            similar_choices?: components["schemas"]["SimilarChoice"][];
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
              * @default
              */
-            department: string;
+            department?: string;
             budget?: components["schemas"]["Budget"] | null;
+            policy_choice?: components["schemas"]["PolicyChoice"] | null;
             differentiation_transfer?: components["schemas"]["DifferentiationTransferIn"] | null;
             /** Recommendation Id */
             recommendation_id?: string | null;
@@ -1384,9 +2086,22 @@ export interface components {
              * Acknowledged
              * @default false
              */
-            acknowledged: boolean;
+            acknowledged?: boolean;
             /** Priority Evidence */
             priority_evidence?: string[] | null;
+            /** Idea Versions */
+            idea_versions?: components["schemas"]["IdeaVersion"][] | null;
+        };
+        /** RunPolicyCardsIn */
+        RunPolicyCardsIn: {
+            /** Exclude Doc Ids */
+            exclude_doc_ids?: string[];
+        };
+        /** RunPolicyPolishIn */
+        RunPolicyPolishIn: {
+            choice: components["schemas"]["PolicyChoice"];
+            /** Text */
+            text: string;
         };
         /** SearchIn */
         SearchIn: {
@@ -1396,7 +2111,7 @@ export interface components {
              * K
              * @default 5
              */
-            k: number;
+            k?: number;
             /** Orgs */
             orgs?: string[] | null;
         };
@@ -1440,7 +2155,7 @@ export interface components {
              * @default keep
              * @enum {string}
              */
-            action: "use_revision" | "keep" | "manual" | "delete" | "insert_after";
+            action?: "use_revision" | "keep" | "manual" | "delete" | "insert_after";
             /** Comment Id */
             comment_id?: string | null;
             /** Text */
@@ -1457,7 +2172,7 @@ export interface components {
              * @default token
              * @enum {string}
              */
-            kind: "token" | "staff" | "guest";
+            kind?: "token" | "staff" | "guest";
             /** Token */
             token?: string | null;
             /** Staff No */
@@ -1466,6 +2181,23 @@ export interface components {
             id?: string | null;
             /** Password */
             password?: string | null;
+        };
+        /**
+         * SimilarChoice
+         * @description ② 유사과제 행 하나에 대한 제안자 선택 — [유사함] similar / [관련 없음] unrelated.
+         *
+         *     doc_id 와 선택만 (개인정보 없음). [유사함] 행만 비교표·활용 제안·차별화 과제안·본문 차별성
+         *     문장(5. 특이사항)에 쓰인다. 차단 행을 모두 [관련 없음] 으로 고르면 차단이 풀린다
+         *     (domain/rules/similar_choice).
+         */
+        SimilarChoice: {
+            /** Doc Id */
+            doc_id: string;
+            /**
+             * Choice
+             * @enum {string}
+             */
+            choice: "similar" | "unrelated";
         };
         /**
          * StructureIn
@@ -1478,7 +2210,7 @@ export interface components {
              * Title
              * @default
              */
-            title: string;
+            title?: string;
         };
         /**
          * StructureMergeIn
@@ -1521,7 +2253,7 @@ export interface components {
              * Note
              * @default
              */
-            note: string;
+            note?: string;
             /** Base Version */
             base_version?: number | null;
         };
@@ -1661,6 +2393,111 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    judgment_retry_route_v1_precheck_judgment_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    choices_route_v1_precheck_choices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    polish_route_v1_precheck_plan_polish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolishIn"];
             };
         };
         responses: {
@@ -1945,6 +2782,39 @@ export interface operations {
                 "application/json": components["schemas"]["ProposalRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_comparison_route_v1_runs__run_id__comparison_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -3142,7 +4012,9 @@ export interface operations {
     };
     section_questions_route_v1_runs__run_id__sections__key__questions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                refresh?: boolean;
+            };
             header?: never;
             path: {
                 run_id: string;
@@ -3189,6 +4061,220 @@ export interface operations {
                 "application/json": components["schemas"]["SectionAnswersIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    policy_cards_route_v1_ideas_policy_cards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyCardsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    policy_polish_route_v1_ideas_policy_cards_polish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyPolishIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_policy_cards_route_v1_runs__run_id__policy_cards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunPolicyCardsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_policy_polish_route_v1_runs__run_id__policy_cards_polish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunPolicyPolishIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_policy_choice_route_v1_runs__run_id__policy_choice_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyChoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_changes_route_v1_runs__run_id__changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -3290,6 +4376,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["FigureAddIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    figure_techniques_route_v1_runs__run_id__figures_techniques_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FigureTechniquesIn"];
             };
         };
         responses: {
@@ -3468,6 +4591,150 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_request_route_v1_runs__run_id__request_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_preview_route_v1_runs__run_id__request_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestChangeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_route_v1_runs__run_id__regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegenerateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_approve_route_v1_runs__run_id__evidence_decisions_bulk_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BulkApproveIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

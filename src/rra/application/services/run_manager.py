@@ -2195,7 +2195,11 @@ class RunManager(EditAIMixin):
         )
         if not builds:
             reason = skipped[0]["reason"] if skipped else "invalid"
-            raise EditRejected(f"그림 명세를 만들지 못했습니다 ({reason}).")
+            hint = (
+                _edit_reject_hint(str(reason))
+                or "그림 형식에 맞는 명세가 나오지 않았습니다 — 다시 시도해 주십시오."
+            )
+            raise EditRejected(f"그림 명세를 만들지 못했습니다. {hint}")
         for b in builds:
             self._save_build(user, run_id, b)
         figures = [*current.figures, *(b.figure for b in builds)]
@@ -2312,7 +2316,7 @@ class RunManager(EditAIMixin):
                 )
             except SpecRejected as exc:
                 raise EditRejected(
-                    f"그림을 고치지 못했습니다 ({exc}). {_edit_reject_hint(str(exc))}".rstrip()
+                    f"그림을 고치지 못했습니다. {_edit_reject_hint(str(exc))}".rstrip()
                 ) from exc
             self._save_build(user, run_id, build)
             fig = build.figure
@@ -3129,8 +3133,9 @@ def _technique_reject(code: str | None) -> str:
 
 
 def _edit_reject_hint(code: str) -> str:
-    """[말로 고치기] 거절 사유 코드 → 안내 한 문장 (앱 문구, 원문 없음)."""
-    return _EDIT_REJECT_HINTS.get(code, "")
+    """[말로 고치기] 거절 사유 코드 → 안내 한 문장 (앱 문구, 원문 없음). 모르는 코드도 코드는
+    보여 주지 않는다(시범 지적: "(no_change)" 노출)."""
+    return _EDIT_REJECT_HINTS.get(code, "다시 시도해 주십시오.")
 
 
 def _figure_summary(figures: list[Figure], previous: list[dict[str, Any]]) -> list[dict[str, Any]]:

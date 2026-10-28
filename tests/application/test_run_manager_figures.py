@@ -335,8 +335,9 @@ async def test_words_spec_change_makes_version_and_invalid_change_is_rejected(re
     ] * 2
     n_versions = len(await mgr.versions(USER, rid))
     n_images = len(mgr.figures.images.calls)
-    with pytest.raises(EditRejected, match="figure_text_not_in_sources"):
+    with pytest.raises(EditRejected, match="없는 글자가 들어갔습니다") as rej:
         await mgr.figure_action(USER, rid, "f:method:1", "words", request_text="1단계를 바꿔")
+    assert "figure_text_not_in_sources" not in str(rej.value)  # 내부 코드는 보이지 않는다
     assert len(await mgr.versions(USER, rid)) == n_versions
     assert len(mgr.figures.images.calls) == n_images  # 그림 호출도 없음
     # 이전 버전으로 가도 "바뀐 내용"은 그 버전의 그림 기록을 따른다
