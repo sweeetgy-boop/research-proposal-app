@@ -29,7 +29,7 @@ public+internal 근거를, 공용 계정은 public 만 보낸다. 화면에 전�
 - 로컬 근거 대조 `compose.local_check`(기본 끔): Argon 이 쓴 섹션의 근거 있는 문장을 로컬 모델이 지지|부분|불일치로만 판정,
   섹션당 20초 상한(넘으면 건너뜀·기록), 불일치는 `local_evidence_mismatch` 경고(문장 글자 해시로 기억 — 고치면 사라진다).
 - 동시성(보안 G 완화, Argon 작성 한정): run 은 `config/runs.yaml max_concurrent`(3)칸 FlockPool(`runs/.run-<i>.lock`)만 잡고,
-  로컬 모델 단계(대체 작성·local_check·설계도·그림)만 기존 FlockSlot(`.generate.lock`)을 잡는다. 임베딩 계산은 프로세스 안
+  로컬 모델 단계(대체 작성·local_check·설계도)만 기존 FlockSlot(`.generate.lock`)을 잡는다. 임베딩 계산은 프로세스 안
   락으로 직렬화(MPS), SQLite 는 기존 RLock, reranker 는 기존 락. 로컬 작성이면 예전처럼 run 전체가 슬롯 1칸 안.
 - 예산: `budget.gemini_daily_calls` 300 → 600.
 

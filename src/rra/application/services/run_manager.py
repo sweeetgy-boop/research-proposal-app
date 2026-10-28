@@ -447,7 +447,7 @@ class RunManager:
         try:
             # 로컬 작성: run 전체가 전역 슬롯 1칸 안에서. Argon 작성(ADR 0032): run 은
             # run_slot(최대 runs.max_concurrent)만 잡고, 로컬 모델 단계(대체 작성·local_check·
-            # 설계도·그림)만 전역 슬롯을 잡는다
+            # 설계도)만 전역 슬롯을 잡는다
             async with self._run_gate(gen):
                 state.status = "running"
                 self._save(state)
@@ -542,8 +542,9 @@ class RunManager:
                 if not invalid and self.figures is not None:
                     # [G] 그림 — v1 에 붙인다(검토 전). 그동안 상태는 running 그대로. drafted 로
                     # 먼저 저장하면 화면이 편집을 열고 편집은 이 실행의 락에 막힌다(10-28 시험)
-                    async with self._local_gate(gen):  # 그림 명세 = 로컬 모델
-                        await self._figures_step(user, run_id, state, ordered, req, snapshot)
+                    # 그림 명세는 Argon 먼저(#70) — 이미지 생성까지 전역 슬롯을 잡으면 동시 run 이
+                    # 그림 단계에서 줄을 선다. 명세의 로컬 대체는 그림 유스케이스 몫(레인 A)
+                    await self._figures_step(user, run_id, state, ordered, req, snapshot)
                 state.status = "invalid" if invalid else "drafted"
                 if not invalid:
                     wants_review = self.pipeline.draft_review and self.review_auto
