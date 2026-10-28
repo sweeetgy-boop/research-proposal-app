@@ -8,6 +8,9 @@ import type {
   DiffOut,
   DraftOut,
   EditRequest,
+  FigureActionIn,
+  FigureAddIn,
+  FiguresOut,
   FinalizeIn,
   HealthOut,
   NtisOutcomesOut,
@@ -119,6 +122,15 @@ export const confirmChoices = (id: string, body: ConfirmIn) =>
   request<ConfirmOut>(`${V}/runs/${enc(id)}/confirm`, { method: "POST", body });
 export const reopenRun = (id: string) =>
   request<RunState>(`${V}/runs/${enc(id)}/reopen`, { method: "POST" });
+
+// ── [G] 그림 카드 ───────────────────────────────
+export const getFigures = (id: string) => request<FiguresOut>(`${V}/runs/${enc(id)}/figures`);
+/** 그림 한 장에 동작(words·texts·baseline·regenerate·include·exclude·confirm) → 새 버전. 409 = base_version 불일치·실패 */
+export const figureAction = (id: string, fid: string, body: FigureActionIn) =>
+  request<VersionWithStatus>(`${V}/runs/${enc(id)}/figures/${enc(fid)}`, { method: "POST", body });
+/** [다른 그림 추가] → 새 버전 */
+export const addFigure = (id: string, body: FigureAddIn) =>
+  request<VersionWithStatus>(`${V}/runs/${enc(id)}/figures`, { method: "POST", body });
 
 export interface FinalizeResult {
   blob: Blob;

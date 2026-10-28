@@ -62,6 +62,15 @@ class EvalIdea:
     failed_sections: list[str] = field(default_factory=list)  # 빈 초안 금지(ADR 0027) 실패 섹션
     fallback_sections: list[str] = field(default_factory=list)  # 대체 작성(Gemini) 섹션
     fallback_calls: int = 0  # 대체 작성 Gemini 호출 수 (gemini_calls 는 검토만)
+    # [G] 그림: 만든 수·Nano Banana 채택 수·기본 그림 수·건너뛴 수·이미지 호출 수·그림 단계
+    # 시간(초)·그림 의견(검토 지적) 수
+    figures_total: int = 0
+    figures_nano: int = 0
+    figures_baseline: int = 0
+    figures_skipped: int = 0
+    figure_calls: int = 0
+    figure_seconds: float | None = None
+    figure_comments: int = 0
 
     @property
     def sentences_v1(self) -> int:
@@ -70,6 +79,11 @@ class EvalIdea:
     @property
     def sentences_v2(self) -> int:
         return sum(self.v2_sentences.values())
+
+
+def _avg(values: list[float | None]) -> float | None:
+    got = [v for v in values if v is not None]
+    return round(sum(got) / len(got), 1) if got else None
 
 
 @dataclass
@@ -122,6 +136,14 @@ class EvalResult:
             "invalid": sum(1 for i in self.ideas if i.status == "invalid"),
             "failed_sections": sum(len(i.failed_sections) for i in self.ideas),
             "fallback_sections": sum(len(i.fallback_sections) for i in self.ideas),
+            # [G] 그림 — 성공률 = Nano Banana 채택 / 만든 그림, 추가 시간 = 그림 단계 평균
+            "figures_total": sum(i.figures_total for i in self.ideas),
+            "figures_nano": sum(i.figures_nano for i in self.ideas),
+            "figures_baseline": sum(i.figures_baseline for i in self.ideas),
+            "figures_skipped": sum(i.figures_skipped for i in self.ideas),
+            "figure_calls": sum(i.figure_calls for i in self.ideas),
+            "figure_seconds_avg": _avg([i.figure_seconds for i in self.ideas]),
+            "figure_comments": sum(i.figure_comments for i in self.ideas),
         }
 
     def to_dict(self) -> dict[str, Any]:
@@ -233,6 +255,9 @@ class EvaluateQuality:
                 idea.style_fixed = step.dropped
             if step.name == "outline" and step.status == "done":
                 idea.outline_sections = step.sentences
+            if step.name == "figures":
+                idea.figure_seconds = dt
+                idea.figures_skipped = step.dropped
         idea.style_warnings = sum(1 for p in state.problems if p.get("code") in STYLE_CODES)
         idea.failed_sections = [f.key for f in getattr(state, "failed_sections", [])]
         idea.fallback_sections = [
@@ -247,6 +272,11 @@ class EvaluateQuality:
             idea.section_search = bool(snapshot.section_chunks)
         v1 = store.load_version(self.user, rid, 1)
         if v1 is not None:
+            figs = list(getattr(v1, "figures", []) or [])
+            idea.figures_total = len(figs)
+            idea.figures_nano = sum(1 for f in figs if f.renderer == "nano_banana")
+            idea.figures_baseline = sum(1 for f in figs if f.renderer == "baseline")
+            idea.figure_calls = sum(f.calls for f in figs)
             idea.v1_alerts = v1.alerts
             idea.v1_sentences = {s.key: len(s.sentences) for s in v1.sections}
             self._citations(idea, v1, snapshot, req)
@@ -267,6 +297,7 @@ class EvaluateQuality:
             idea.additions_applied = sum(1 for c in additions if c.id in review.applied_ids)
             idea.checklist_coverage = review.checklist_coverage
             idea.candidates = {k: v.get("choice", "") for k, v in review.candidate_choices.items()}
+            idea.figure_comments = sum(1 for c in review.comments if c.kind == "figure")
         return idea
 
     def _citations(self, idea: EvalIdea, version: Any, snapshot: Any, req: ProposalRequest) -> None:

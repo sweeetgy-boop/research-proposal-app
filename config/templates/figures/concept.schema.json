@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "ConceptBox": {
+      "properties": {
+        "label": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 2,
+          "title": "Lines",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "ConceptBox",
+      "type": "object"
+    }
+  },
+  "description": "개념도 — 현황 → 문제(근본 원인) → 해결 방안 → 기대효과, 상자 4개.",
+  "properties": {
+    "kind": {
+      "const": "concept",
+      "default": "concept",
+      "title": "Kind",
+      "type": "string"
+    },
+    "boxes": {
+      "items": {
+        "$ref": "#/$defs/ConceptBox"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Boxes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "boxes"
+  ],
+  "title": "ConceptSpec",
+  "type": "object"
+}

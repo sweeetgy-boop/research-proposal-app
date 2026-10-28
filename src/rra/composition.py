@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -24,6 +25,7 @@ from rra.config_loader import (
     data_location,
     data_locations,
     data_path,
+    figures_config,
     input_limits,
     institutions,
     keyword_rule,
@@ -1344,11 +1346,15 @@ def build_renderer(settings: Settings | None = None):
 
     settings = settings or load_settings()
     rules = lint_rules(settings)
+    fig = figures_config(settings)["hwpx"]
     return HwpxRenderer(
         SlotMap.from_config(render_slots(settings)),
         titles=rules.titles,
         strategy=strategy_catalog(settings),
         template_path=render_template_path(settings),
+        figure_placement=fig["placement"],
+        figure_max_width=fig["max_width_hwp"],
+        figure_caption_prefix=fig["caption_prefix"],
     )
 
 
@@ -1481,6 +1487,120 @@ def build_compose_fallback(settings: Settings | None = None) -> dict[str, Any] |
     }
 
 
+def build_figure_renderer(settings: Settings | None = None):
+    """[G] 밑그림 렌더러(SVG → PNG, 번들 Pretendard). config/figures.yaml 팔레트·비율·폭."""
+    from rra.adapters.figures import SvgFigureRenderer
+
+    settings = settings or load_settings()
+    cfg = figures_config(settings)
+    fonts = sorted(Path(cfg["fonts_dir"]).glob("*.otf"))
+    return SvgFigureRenderer(
+        cfg["palette"],
+        cfg["aspects"],
+        width_px=cfg["width_px"],
+        font_files=fonts,
+        dpi=cfg["dpi"],
+        max_bytes=cfg["max_png_bytes"],
+    )
+
+
+_FIGURE_BUDGETS: dict[tuple[str, int], Any] = {}
+
+
+def build_image_generator(settings: Settings | None = None):
+    """[G] Nano Banana Pro(ImageGeneratorPort). gemini 키가 없으면 None → 기본 그림만.
+    일일 상한(figures.daily_image_cap)은 FileDailyBudget 하나를 프로세스 안에서 공유한다."""
+    from rra.adapters.llm.daily_budget import FileDailyBudget
+    from rra.adapters.llm.image_gen import GeminiImageGenerator
+    from rra.adapters.llm.rate_limiter import limiter_for
+
+    settings = settings or load_settings()
+    cfg = figures_config(settings)
+    llm_cfg = llm_config(settings, "review", provider="gemini")
+    if not llm_key_present(settings, llm_cfg):
+        return None
+    key = settings.gemini_api_key.get_secret_value() if settings.gemini_api_key else ""
+    providers = read_config("llm.yaml", settings).get("providers") or {}
+    gemini = providers.get("gemini") or {}
+    budget = None
+    if cfg["daily_image_cap"] > 0:
+        bkey = (str(cfg["budget_counter"]), cfg["daily_image_cap"])
+        if bkey not in _FIGURE_BUDGETS:
+            _FIGURE_BUDGETS[bkey] = FileDailyBudget(cfg["budget_counter"], cfg["daily_image_cap"])
+        budget = _FIGURE_BUDGETS[bkey]
+    rate = llm_cfg.get("rate") or {}
+    return GeminiImageGenerator(
+        base_url=llm_cfg["base_url"],
+        api_key=key,
+        model=str(gemini.get("image_model") or "gemini-3-pro-image"),
+        allowed_hosts=allowed_domains(settings),
+        timeout_sec=float(llm_cfg["timeout"]["read"]),
+        attempts=int(llm_cfg["retry"]["attempts"]),
+        limiter=limiter_for(
+            "gemini",
+            concurrency=int(rate.get("concurrency", 4)),
+            per_minute=int(rate.get("per_minute", 60)),
+        ),
+        budget=budget,
+        cache_dir=cfg["cache_dir"],
+    )
+
+
+def build_figures(
+    settings: Settings | None = None,
+    *,
+    llm=None,
+    images=None,
+    renderer=None,
+    fallback_llm=None,
+):
+    """[G] 그림 유스케이스(MakeFigures). figures.yaml enabled=false 면 None.
+    명세는 로컬 모델(stage figures), 대체는 compose.fallback provider, 그림은 Nano Banana."""
+    import json
+
+    from rra.adapters.figures import shrink_image
+    from rra.application.usecases.figures import FigureConfig, MakeFigures
+
+    settings = settings or load_settings()
+    cfg = figures_config(settings)
+    if not cfg["enabled"]:
+        return None
+    if llm is None:
+        llm = build_llm(settings, stage=cfg["spec_stage"])
+    if images is None and not settings.fake_llm:
+        images = build_image_generator(settings)
+    if fallback_llm is None and not settings.fake_llm:
+        fb = build_compose_fallback(settings)
+        fallback_llm = fb["llm"] if fb else None
+    schemas = {}
+    for kind in cfg["kinds"]:
+        path = Path(cfg["template_dir"]) / f"{kind}.schema.json"
+        if path.is_file():
+            schemas[kind] = json.loads(path.read_text(encoding="utf-8"))
+    rules = lint_rules(settings)
+    return MakeFigures(
+        llm,
+        build_prompt_library(settings),
+        renderer or build_figure_renderer(settings),
+        images=images,
+        fallback_llm=fallback_llm,
+        config=FigureConfig(
+            enabled=True,
+            max_default=cfg["max_default"],
+            concurrency=cfg["concurrency"],
+            image_size=cfg["image_size"],
+            aspects=cfg["aspects"],
+            kinds=tuple(cfg["kinds"]),
+            max_bytes=cfg["max_png_bytes"],
+            schemas=schemas,
+        ),
+        include_internal=review_policy(settings)["include_internal"],
+        titles=rules.titles,
+        shrink=lambda data, mime: shrink_image(data, mime, max_bytes=cfg["max_png_bytes"]),
+        clock=lambda: datetime.now(UTC).isoformat(timespec="seconds"),
+    )
+
+
 def build_run_manager(
     settings: Settings | None = None,
     *,
@@ -1494,6 +1614,7 @@ def build_run_manager(
     run_log=None,
     pipeline=None,
     runs_dir=None,
+    figures=None,
 ):
     """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, 실행기, HWPX 렌더러,
     검토 유스케이스(review 단계 키가 있을 때만; 없으면 None → review_skipped).
@@ -1547,6 +1668,7 @@ def build_run_manager(
         checklists=section_checklists(settings),
         generate_public=generate_public,
         review_budget=build_review_budget(settings),
+        figures=figures if figures is not None else build_figures(settings, llm=llm),
     )
 
 
@@ -1609,6 +1731,7 @@ def build_fake_parts(settings: Settings):
     from datetime import date
 
     from rra.adapters.fake import (
+        FakeImageGenerator,
         InMemoryDocumentRepository,
         InMemoryRunStore,
         NoopRunLog,
@@ -1698,6 +1821,7 @@ def build_fake_parts(settings: Settings):
         "run_log": NoopRunLog(),
         "ntis_insights": NtisProjectInsights(ntis, ntis, repo=repo),
         "auth": ScriptedAuthStore(),  # e2e 고정 계정 — 실제 data/auth 를 쓰지 않는다
+        "images": FakeImageGenerator(),  # [G] 그림: 밑그림을 그대로 돌려준다 (외부 호출 없음)
     }
 
 
@@ -1733,6 +1857,7 @@ def build_api(
             review_llm=fake["review_llm"],
             store=fake["store"],
             run_log=fake["run_log"],
+            figures=build_figures(settings, llm=llm, images=fake["images"]),
         )
     else:
         if repo is None:

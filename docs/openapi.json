@@ -2268,6 +2268,235 @@
         }
       }
     },
+    "/v1/runs/{run_id}/figures": {
+      "get": {
+        "summary": "Figures Route",
+        "description": "현재 버전의 그림 목록(명세 글자·배지·확인 여부·그림 URL).",
+        "operationId": "figures_route_v1_runs__run_id__figures_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Figures Route V1 Runs  Run Id  Figures Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Figure Add Route",
+        "description": "[다른 그림 추가] — 종류·섹션을 골라 명세·그림을 만들고 새 버전.",
+        "operationId": "figure_add_route_v1_runs__run_id__figures_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FigureAddIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Figure Add Route V1 Runs  Run Id  Figures Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/figures/{figure_id}/image": {
+      "get": {
+        "summary": "Figure Image Route",
+        "description": "그림 파일(PNG/JPEG). 소유자만. version 을 주면 그 버전의 그림.",
+        "operationId": "figure_image_route_v1_runs__run_id__figures__figure_id__image_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "figure_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Figure Id"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(adopted|baseline)$",
+              "default": "adopted",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 10000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/figures/{figure_id}": {
+      "post": {
+        "summary": "Figure Action Route",
+        "description": "그림 카드 동작 — words(말로 고치기)·texts(글자 고치기)·baseline(기본 그림으로)·\nregenerate·include·exclude·confirm. 저장은 새 버전(되돌리기 가능). 기준 버전 불일치 409.",
+        "operationId": "figure_action_route_v1_runs__run_id__figures__figure_id__post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "figure_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Figure Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FigureActionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Figure Action Route V1 Runs  Run Id  Figures  Figure Id  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/runs/{run_id}/usage": {
       "get": {
         "summary": "Usage Route",
@@ -2716,6 +2945,97 @@
         ],
         "title": "FeedbackIn",
         "description": "POST /v1/runs/{id}/feedback — 만족도 1~5 + 한 줄(200자, 이메일·전화 금지). 마무리 뒤에만."
+      },
+      "FigureActionIn": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "words",
+              "texts",
+              "baseline",
+              "regenerate",
+              "include",
+              "exclude",
+              "confirm"
+            ],
+            "title": "Action"
+          },
+          "request": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Request",
+            "default": ""
+          },
+          "texts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Texts"
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "FigureActionIn",
+        "description": "POST /v1/runs/{id}/figures/{fid} — 그림 카드 동작 ([G]). words→request, texts→texts 필수."
+      },
+      "FigureAddIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "concept",
+              "process",
+              "schedule",
+              "stat_chart",
+              "comparison",
+              "roadmap"
+            ],
+            "title": "Kind"
+          },
+          "section": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Section"
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "section"
+        ],
+        "title": "FigureAddIn",
+        "description": "POST /v1/runs/{id}/figures — [다른 그림 추가]."
       },
       "FinalizeIn": {
         "properties": {

@@ -102,6 +102,7 @@ class InMemoryRunStore:
         self._working: dict[tuple[str, str], dict[str, Any]] = {}
         self._outlines: dict[tuple[str, str], dict[str, Any]] = {}
         self._candidates: dict[tuple[str, str], dict[str, Any]] = {}
+        self._figure_images: dict[tuple[str, str], dict[str, tuple[bytes, str]]] = {}
         self.rewrites: dict[tuple[str, str], dict[str, Any]] = {}
         self.notes: dict[tuple[str, str], dict[str, Any]] = {}
         self.usage: dict[tuple[str, str], Any] = {}
@@ -175,6 +176,12 @@ class InMemoryRunStore:
 
     def load_outline(self, user, run_id):
         return self._outlines.get((user, run_id))
+
+    def save_figure_image(self, user, run_id, sha, data, mime):
+        self._figure_images.setdefault((user, run_id), {})[sha] = (bytes(data), mime)
+
+    def load_figure_image(self, user, run_id, sha):
+        return self._figure_images.get((user, run_id), {}).get(sha)
 
     def save_candidates(self, user, run_id, data):
         self._candidates[(user, run_id)] = dict(data)

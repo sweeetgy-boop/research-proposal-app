@@ -12,6 +12,9 @@ export type WorkingIn = components["schemas"]["WorkingIn"];
 export type FinalizeIn = components["schemas"]["FinalizeIn"];
 export type ConfirmIn = components["schemas"]["ConfirmIn"];
 export type DifferentiationTransferIn = components["schemas"]["DifferentiationTransferIn"];
+/** [G] 그림 카드 — POST /v1/runs/{id}/figures/{fid} · POST /v1/runs/{id}/figures */
+export type FigureActionIn = components["schemas"]["FigureActionIn"];
+export type FigureAddIn = components["schemas"]["FigureAddIn"];
 
 export interface Problem {
   type: string;
@@ -320,6 +323,57 @@ export interface DraftStep extends StepState {
   retries: number;
 }
 
+// ── [G] 제안서 그림 (figure cards) ─────────────────────────
+export type FigureKind = "concept" | "process" | "schedule" | "stat_chart" | "comparison" | "roadmap";
+export type FigureRenderer = "nano_banana" | "baseline";
+
+/** 그림 안 글자 한 칸 — [글자 고치기] 는 바뀐 path 만 보낸다 */
+export interface FigureText {
+  path: string;
+  label: string;
+  value: string;
+}
+
+/** 그림 한 장. caption·alt·texts·error 는 LLM 출력(비신뢰). image_url 은 같은 출처(쿠키 인증) PNG/JPEG. */
+export interface Figure {
+  id: string;
+  kind: FigureKind;
+  label: string;
+  section: string;
+  caption: string;
+  alt: string;
+  renderer: FigureRenderer;
+  renderer_label: string;
+  model: string | null;
+  calls: number;
+  included: boolean;
+  confirmed: boolean;
+  source_caption: string;
+  error: string | null;
+  image_url: string;
+  baseline_url: string;
+  texts: FigureText[];
+  edit_requests: number;
+  updated_at: string | null;
+  notice: string;
+}
+
+/** GET /v1/runs/{id}/figures */
+export interface FiguresOut {
+  run_id: string;
+  version: number;
+  figures: Figure[];
+}
+
+export type FigureChangeKind = "added" | "removed" | "redrawn" | "texts" | "included" | "excluded" | "confirmed" | "baseline";
+
+export interface FigureChange {
+  figure_id: string;
+  kind: FigureKind | string;
+  section: string;
+  change: FigureChangeKind | string;
+}
+
 export interface DraftOut {
   notice: string;
   run_id: string;
@@ -337,6 +391,8 @@ export interface DraftOut {
   flow: FlowSummary;
   failed_sections?: FailedSection[];
   fallback_sections?: FallbackSection[];
+  /** [G] 그림 카드 — 옛 응답에는 없을 수 있다 */
+  figures?: Figure[];
 }
 
 export interface Score {
@@ -437,15 +493,20 @@ export interface VersionMeta {
   sentences?: number;
   alerts: number;
   open_annotations: number;
+  /** [G] 그 버전의 그림 수 */
+  figures?: number;
 }
 
-export interface VersionOut extends VersionMeta {
+/** 버전 본문 — 목록 행(VersionMeta)과 달리 `figures` 는 그림 배열이다 */
+export interface VersionOut extends Omit<VersionMeta, "figures"> {
   notice?: string;
   run_id?: string;
   status?: RunStatus;
   stale_edits?: number;
   annotations: Annotation[];
   sections: VersionSection[];
+  /** [G] 그 버전의 그림 */
+  figures?: Figure[];
 }
 
 export interface VersionsOut {
@@ -475,6 +536,8 @@ export interface DiffOut {
   from: number;
   to: number;
   sections: DiffSection[];
+  /** [G] 그림 변경 */
+  figures_changed?: FigureChange[];
 }
 
 export interface WorkingSection {

@@ -15,6 +15,8 @@ providers:
     base_url: https://generativelanguage.googleapis.com/v1beta/openai/
     model: gemini-4-argon
     served_model: gemini-4-argon
+    # 그림 생성(Nano Banana Pro, config/figures.yaml) — generateContent 이미지 출력. base_url 의 /openai/ 를 뗀 네이티브 경로를 쓴다
+    image_model: gemini-3-pro-image
     # auto: response_format(json_object) 먼저, 거부(오류)하면 프롬프트 폴백. 실응답 확인 전 기본값.
     json_mode: auto
     # 추론 노력 low|medium|high (none 금지). thinking_level 과 동시 전송 금지 — 어댑터가 거부한다.
@@ -102,6 +104,8 @@ stages:
   vision: {provider: gemini, max_tokens: 3000}
   # U5 선행연구 브리핑 = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
   brief: {provider: gemini, max_tokens: 2500}
+  # [G] 그림 명세(JSON) 작성 = 로컬 모델. 교정 재요청 1회 뒤에도 실패하면 compose.fallback 과 같은 provider 가 대신 쓴다
+  figures: {max_tokens: 1500}
 
 # 검토(review) 단계 정책
 review:

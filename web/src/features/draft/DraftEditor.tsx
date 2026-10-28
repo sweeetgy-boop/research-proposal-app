@@ -31,6 +31,8 @@ export interface DraftEditorProps {
   disabled?: boolean;
   /** 섹션 머리에 붙일 도구 (AI 다시 쓰기·보완 질문) */
   sectionTools?: (section: VersionSection) => React.ReactNode;
+  /** 섹션 머리 아래 한 줄 전체 (그림 카드) */
+  sectionExtra?: (section: VersionSection) => React.ReactNode;
 }
 
 function AnnotationList({ items, state, onChange, disabled }: { items: Annotation[]; state: EditState; onChange: (s: EditState) => void; disabled?: boolean }) {
@@ -165,7 +167,7 @@ function SentenceEditor({
   );
 }
 
-export function DraftEditor({ sections, annotations, revisions, state, onChange, disabled, sectionTools }: DraftEditorProps) {
+export function DraftEditor({ sections, annotations, revisions, state, onChange, disabled, sectionTools, sectionExtra }: DraftEditorProps) {
   const rows: Row[] = [];
   for (const sec of sections) {
     rows.push({ kind: "header", key: `h:${sec.key}`, section: sec });
@@ -215,6 +217,7 @@ export function DraftEditor({ sections, annotations, revisions, state, onChange,
               <p className="text-xs text-muted-foreground">줄마다 한 문장. 같은 문장은 근거를 이어받고 새 문장은 근거 없음으로 저장됩니다.</p>
             </div>
           )}
+          {sectionExtra && <div className="mt-3">{sectionExtra(sec)}</div>}
           <AnnotationList items={secAnn} state={state} onChange={onChange} disabled={disabled} />
         </div>
       );

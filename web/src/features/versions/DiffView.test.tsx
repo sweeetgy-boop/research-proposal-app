@@ -35,4 +35,29 @@ describe("DiffView", () => {
     render(<DiffView diff={{ run_id: "r", notice: "", from: 1, to: 2, sections: [] }} />);
     expect(screen.getByText(/본문이 같습니다/)).toBeInTheDocument();
   });
+
+  it("[G] figures_changed 는 '그림 변경' 목록으로 — 종류·섹션·변경 라벨", () => {
+    const figures_changed = [
+      { figure_id: "fig-concept-1", kind: "concept", section: "objective", change: "texts" },
+      { figure_id: "fig-roadmap-1", kind: "roadmap", section: "expected_technology", change: "excluded" },
+      { figure_id: "fig-process-1", kind: "process", section: "method", change: "confirmed" },
+    ];
+    render(<DiffView diff={{ run_id: "r", notice: "", from: 4, to: 5, sections: [], figures_changed }} />);
+    expect(screen.queryByText(/본문이 같습니다/)).toBeNull();
+    expect(screen.getByRole("heading", { name: /그림 변경/ })).toBeInTheDocument();
+    expect(screen.getByText("연구 개념도")).toBeInTheDocument();
+    expect(screen.getByText("글자 수정")).toBeInTheDocument();
+    expect(screen.getByText("성과지표·활용 로드맵")).toBeInTheDocument();
+    expect(screen.getByText("뺌")).toBeInTheDocument();
+    expect(screen.getByText("확인함")).toBeInTheDocument();
+    expect(screen.getByText("3-나 기대효과 (기술혁신 측면)")).toBeInTheDocument();
+  });
+
+  it("[G] 본문·그림이 함께 바뀌면 둘 다 그린다", () => {
+    const diff = { ...(diffFixture as unknown as DiffOut), figures_changed: [{ figure_id: "fig-concept-1", kind: "concept", section: "objective", change: "redrawn" }] };
+    render(<DiffView diff={diff} />);
+    expect(screen.getByText(/그림 변경 1건/)).toBeInTheDocument();
+    expect(screen.getByText("다시 그림")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /2-다 연구 방법/ })).toBeInTheDocument();
+  });
 });

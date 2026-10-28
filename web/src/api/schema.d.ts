@@ -852,6 +852,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run_id}/figures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Figures Route
+         * @description 현재 버전의 그림 목록(명세 글자·배지·확인 여부·그림 URL).
+         */
+        get: operations["figures_route_v1_runs__run_id__figures_get"];
+        put?: never;
+        /**
+         * Figure Add Route
+         * @description [다른 그림 추가] — 종류·섹션을 골라 명세·그림을 만들고 새 버전.
+         */
+        post: operations["figure_add_route_v1_runs__run_id__figures_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/figures/{figure_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Figure Image Route
+         * @description 그림 파일(PNG/JPEG). 소유자만. version 을 주면 그 버전의 그림.
+         */
+        get: operations["figure_image_route_v1_runs__run_id__figures__figure_id__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run_id}/figures/{figure_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Figure Action Route
+         * @description 그림 카드 동작 — words(말로 고치기)·texts(글자 고치기)·baseline(기본 그림으로)·
+         *     regenerate·include·exclude·confirm. 저장은 새 버전(되돌리기 가능). 기준 버전 불일치 409.
+         */
+        post: operations["figure_action_route_v1_runs__run_id__figures__figure_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run_id}/usage": {
         parameters: {
             query?: never;
@@ -1036,6 +1101,43 @@ export interface components {
              * @default
              */
             comment: string;
+        };
+        /**
+         * FigureActionIn
+         * @description POST /v1/runs/{id}/figures/{fid} — 그림 카드 동작 ([G]). words→request, texts→texts 필수.
+         */
+        FigureActionIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "words" | "texts" | "baseline" | "regenerate" | "include" | "exclude" | "confirm";
+            /**
+             * Request
+             * @default
+             */
+            request: string;
+            /** Texts */
+            texts?: {
+                [key: string]: string;
+            };
+            /** Base Version */
+            base_version?: number | null;
+        };
+        /**
+         * FigureAddIn
+         * @description POST /v1/runs/{id}/figures — [다른 그림 추가].
+         */
+        FigureAddIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "concept" | "process" | "schedule" | "stat_chart" | "comparison" | "roadmap";
+            /** Section */
+            section: string;
+            /** Base Version */
+            base_version?: number | null;
         };
         /**
          * FinalizeIn
@@ -3119,6 +3221,149 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    figures_route_v1_runs__run_id__figures_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    figure_add_route_v1_runs__run_id__figures_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FigureAddIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    figure_image_route_v1_runs__run_id__figures__figure_id__image_get: {
+        parameters: {
+            query?: {
+                variant?: string;
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+                figure_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    figure_action_route_v1_runs__run_id__figures__figure_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                figure_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FigureActionIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

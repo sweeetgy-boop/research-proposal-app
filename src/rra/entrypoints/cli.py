@@ -1503,6 +1503,34 @@ def cmd_runs_active(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_runs_figures(args: argparse.Namespace) -> int:
+    """[G] run 의 그림 목록 — 종류·섹션·채택 방식·확인 여부·호출 수 (그림 파일·명세 본문 없음)."""
+    from rra.composition import LOCAL_USER, build_run_manager, load_settings
+    from rra.entrypoints.views import figures_payload
+
+    async def run():
+        mgr = build_run_manager(load_settings())
+        try:
+            return await mgr.get_draft(LOCAL_USER, args.run_id)
+        finally:
+            await mgr.generate.llm.aclose()
+
+    view = asyncio.run(run())
+    rows = figures_payload(view.figures, args.run_id, clean=lambda t: _safe(t, 120))
+    if args.json:
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    print(f"[그림] run {args.run_id} v{view.version} — {len(rows)}개")
+    for r in rows:
+        mark = "✔" if r["confirmed"] else "확인 전"
+        inc = "" if r["included"] else " (뺌)"
+        print(
+            f"  {r['id']}  {r['label']}  {r['renderer_label']}  호출 {r['calls']}  {mark}{inc}"
+            + (f"  오류 {r['error']}" if r.get("error") else "")
+        )
+    return EXIT_OK
+
+
 def cmd_runs_list(args: argparse.Namespace) -> int:
     from rra.composition import LOCAL_USER, build_run_manager, load_settings
 
@@ -2814,6 +2842,10 @@ def build_parser() -> argparse.ArgumentParser:
     ra = runs_sub.add_parser("active", help="모든 사용자의 대기·실행 중 run (배포 전 확인)")
     ra.add_argument("--json", action="store_true")
     ra.set_defaults(handler=cmd_runs_active)
+    rf = runs_sub.add_parser("figures", help="[G] run 의 그림 목록 (종류·채택 방식·확인 여부)")
+    rf.add_argument("run_id")
+    rf.add_argument("--json", action="store_true")
+    rf.set_defaults(handler=cmd_runs_figures)
     rs = runs_sub.add_parser("show", help="초안(문장별 근거 포함)·진행 상태")
     rs.add_argument("run_id")
     rs.add_argument("--json", action="store_true")

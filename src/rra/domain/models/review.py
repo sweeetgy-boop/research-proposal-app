@@ -14,6 +14,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .draft import Section
+from .figure import Figure
 
 IssueType = Literal[
     "근거 불일치", "수치", "논리", "일관성", "문장", "서식요건", "중복·차별화", "외국 문자"
@@ -59,7 +60,7 @@ ORIGIN_LABEL: dict[str, str] = {
 ReviewStatus = Literal["done", "skipped", "error"]
 ReviewKind = Literal["draft", "final"]  # 1차(초안 생성의 일부, 자동) / 최종(요청 시 1회)
 # 수정안 없는 의견 / 폐기된 수정안의 의견 / 섹션 의견
-AnnotationKind = Literal["opinion", "discarded", "section"]
+AnnotationKind = Literal["opinion", "discarded", "section", "figure"]
 MAX_MEMO_CHARS = 200
 MAX_COMMENT_CHARS = 2000
 MAX_REVISED_CHARS = 4000
@@ -82,7 +83,8 @@ def parse_sentence_id(value: str) -> tuple[str, int] | None:
     return parts[1], int(parts[2])
 
 
-CommentKind = Literal["revision", "addition"]  # 문장 의견·수정안 / Q5 빠진 요소 추가 문장 제안
+# 문장 의견·수정안 / Q5 빠진 요소 추가 문장 제안 / [G] 본문과 그림 명세가 어긋나는 곳(figure_id)
+CommentKind = Literal["revision", "addition", "figure"]
 
 
 class ReviewComment(BaseModel):
@@ -97,6 +99,7 @@ class ReviewComment(BaseModel):
     evidence: list[str] = Field(default_factory=list)  # 기존 근거 id 중에서만
     status: CommentStatus = "open"
     discard_reason: str | None = None  # 규칙 위반으로 폐기된 수정안의 사유 (코드)
+    figure_id: str | None = None  # kind=figure — 어긋난 그림 id ("f:<섹션>:<n>")
 
     @property
     def usable(self) -> bool:
@@ -262,6 +265,8 @@ class DraftVersion(BaseModel):
     annotations: list[Annotation] = Field(default_factory=list)  # 문장 메모 (Argon 의견)
     # U1 제안자 근거 판단 — 버전에 붙어 다음 버전으로 이어진다 (replace 뒤에는 새 id 기준)
     evidence_decisions: list[EvidenceDecision] = Field(default_factory=list)
+    # [G] 그림 — 버전마다 그림 목록(명세·채택 그림 해시·확인 여부). 되돌리기·비교에 포함
+    figures: list[Figure] = Field(default_factory=list)
 
     @property
     def sentence_count(self) -> int:

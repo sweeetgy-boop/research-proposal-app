@@ -43,6 +43,22 @@ MANIFEST_KEYS = frozenset(
         "usage",
         "failed_sections",  # 빈 초안 금지(ADR 0027): 실패 섹션 키·사유만
         "fallback_sections",  # 대체 작성(ADR 0027): 섹션 키·사유·provider/model·전송 doc_id·호출 수
+        "figures",  # [G] 그림: id·종류·섹션·renderer·model·호출 수·포함·확인·배치 (명세·본문 없음)
+    }
+)
+FIGURE_KEYS = frozenset(
+    {
+        "id",
+        "kind",
+        "section",
+        "renderer",
+        "model",
+        "calls",
+        "included",
+        "confirmed",
+        "error",
+        "placement",
+        "number",
     }
 )
 FAILED_SECTION_KEYS = frozenset({"key", "reason"})
@@ -189,6 +205,10 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
         extra = set(fb) - FALLBACK_KEYS
         if extra:
             raise ValueError(f"manifest fallback_sections 에 허용되지 않은 키: {sorted(extra)}")
+    for fig in manifest.get("figures") or []:
+        extra = set(fig) - FIGURE_KEYS
+        if extra:
+            raise ValueError(f"manifest figures 에 허용되지 않은 키: {sorted(extra)}")
     for value in _strings(manifest):
         if len(value) > MAX_TEXT_CHARS:
             raise ValueError("manifest 에 긴 문자열이 있습니다 — 원문이 섞였을 수 있습니다.")

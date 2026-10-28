@@ -151,6 +151,11 @@
   규칙 `domain/rules/staff_roster`(공백·하이픈 제거·숫자 셀·0 채움, 로그인도 같은 정규화), 포트 `RosterReaderPort`·`AuthStorePort.import_staff`,
   출력은 개수만·원본 미복사·API 재시작 불필요. **자료원 IP**(#46, ADR 0025): `sources.yaml registered_ips`,
   `domain/rules/source_ip.py`, IP 거부 응답은 그 자료원만 건너뜀 + `cache/source_availability.json` 안내.
+- **제안서 그림 [G]**(2026-10-28, ADR 0029, architecture §4.20): 명세(JSON, `domain/models/figure.py` 6종, `rules/figures.validate_spec` — 본문·입력·근거·
+  table_facts 글자만) → 밑그림(`adapters/figures` SVG→PNG, 번들 Pretendard, `config/figures.yaml` 팔레트) → Nano Banana Pro(`adapters/llm/image_gen.py`,
+  `gemini-3-pro-image`) 1회 채택, 실패면 기본 그림. 자동 검증 없음 — 제안자가 카드에서 확인(`Figure.confirmed`). 그림은 `DraftVersion.figures`(파일은 run
+  `figures/<sha>`), 동작 `RunManager.figure_action`(새 버전), REST `/v1/runs/{id}/figures…`, 1차 검토 `figures` 의견, 제출 전 점검 `figures_*`,
+  HWPX `render_with_figures`(표식 단락 → 그림, 못 찾으면 별첨), 일일 상한 `figures.daily_image_cap` 150. 끄기 `figures.yaml enabled: false`.
 - **시범 배포 규칙**(2026-10-28, [D2]): PR 을 합쳐도 운영 API 를 자동 재시작하지 않는다 — `docs/history/deploys/pending.md` 에 PR 한 줄을
   쌓고, 사용자가 "배포해" 하면 `tools/deploy.sh --wait`(main 최신 확인·web 빌드·`rra runs active`·version.json·kickstart·healthz/login/
   외부 주소 확인·`docs/history/deploys/<시각>.md`). 보안 수정·로그인/접속 차단 오류 수정은 즉시 배포하고 알린다. 배포 버전은

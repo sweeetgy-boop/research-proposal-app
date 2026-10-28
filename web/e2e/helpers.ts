@@ -56,9 +56,9 @@ export async function createRun(page: Page): Promise<string> {
   await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
   await expect(page).toHaveURL(/\/new\/clarify$/);
   await page.getByRole("button", { name: /초안 생성 시작|답하고 생성 시작/ }).click();
-  await expect(page).toHaveURL(/\/runs\/[0-9-]+(\/draft)?$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/runs\/[0-9a-f-]+(\/draft)?$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "초안 본문" })).toBeVisible({ timeout: 30_000 });
-  const m = /\/runs\/([0-9-]+)/.exec(page.url());
+  const m = /\/runs\/([0-9a-f-]+)/.exec(page.url());
   return m![1]!;
 }
 

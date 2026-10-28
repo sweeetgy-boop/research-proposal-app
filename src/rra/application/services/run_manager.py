@@ -39,6 +39,7 @@ from rra.application.ports import (
 )
 from rra.application.ports.auth import BudgetExhausted, DailyBudgetPort
 from rra.application.ports.renderer import RenderRejected
+from rra.application.usecases.figures import FigureBuild, MakeFigures, SpecRejected
 from rra.application.usecases.generate_proposal import CORE_SECTIONS, GenerateProposal
 from rra.application.usecases.outline import OutlineSections
 from rra.application.usecases.render_check import RenderCheck, render_check
@@ -64,6 +65,7 @@ from rra.domain.models import (
     UsabilityConfig,
     UsageRecord,
 )
+from rra.domain.models.figure import Figure, FigurePlacement
 from rra.domain.models.outline import Outline
 from rra.domain.models.review import (
     EditRequest,
@@ -74,6 +76,7 @@ from rra.domain.models.review import (
 from rra.domain.models.run import (
     ACTIVE,
     DRAFT_REVIEW,
+    FIGURES,
     FINALIZE,
     FINISHED,
     OUTLINE,
@@ -84,6 +87,7 @@ from rra.domain.models.run import (
     section_step,
 )
 from rra.domain.rules import draft_failures, review_flow
+from rra.domain.rules import figures as figure_rules
 from rra.domain.rules.auth_policy import daily_limit_reached
 from rra.domain.rules.checklist import clean_answers, coverage, missing_elements
 from rra.domain.rules.evidence import (
@@ -257,6 +261,7 @@ class DraftView:
     reviews: list[int] = field(default_factory=list)
     has_working: bool = False  # 저장하지 않은 임시 편집(draft_working.json)이 있다
     strategy_status: str = "confirmed"  # draft 면 화면·API 에 "전략체계 초안(확인 전)" 표시
+    figures: list[Figure] = field(default_factory=list)  # [G] 보고 있는 버전의 그림 목록
 
 
 def _utcnow() -> str:
@@ -296,8 +301,10 @@ class RunManager:
         checklists: Mapping[str, list[dict[str, Any]]] | None = None,
         generate_public: GenerateProposal | None = None,
         review_budget: DailyBudgetPort | None = None,
+        figures: MakeFigures | None = None,
     ):
         self.usability = usability or UsabilityConfig()  # U1~U8 켜기/끄기
+        self.figures = figures  # [G] 그림 유스케이스 (None 이면 그림 단계 없음)
         # 공용 계정 run(scope=public)용 — internal 을 뺀 저장소로 조립된 같은 유스케이스
         self.generate_public = generate_public
         self.review_budget = review_budget  # 외부 검토 LLM 일일 상한 (None 이면 상한 없음)
@@ -559,6 +566,8 @@ class RunManager:
                         ),
                     )
                     state.draft_version = 1
+                    if self.figures is not None:  # [G] 그림 — v1 에 붙인다 (검토 전)
+                        await self._figures_step(user, run_id, state, ordered, req, snapshot)
                     wants_review = self.pipeline.draft_review and self.review_auto
                     if wants_review and self.reviewer is None:
                         self._skip_review(user, run_id, state, "no_review_llm")
@@ -735,6 +744,7 @@ class RunManager:
             self.generate.section_keys,
             outline=self.pipeline.outline,
             draft_review=self.pipeline.draft_review,
+            figures=self.figures is not None,
         )
 
     def _normalize(self, state: RunState) -> RunState:
@@ -772,9 +782,15 @@ class RunManager:
         snapshot = self.store.load_snapshot(user, run_id)
         legacy = self.is_legacy(state)
         reviews = self.store.list_reviews(user, run_id)
+        current = (
+            self.store.load_version(user, run_id, state.draft_version)
+            if state.draft_version
+            else None
+        )
         return DraftView(
             state=state,
             sections=sections,
+            figures=list(current.figures) if current else [],
             citations=await self._citations(sections, snapshot),
             legacy=legacy,
             confirmation=self.store.load_confirmation(user, run_id),
@@ -936,6 +952,7 @@ class RunManager:
                     if kind == "draft"
                     else (),
                     candidates=candidates,
+                    figures=[f for f in version.figures if f.included],
                 )
                 last_exc: Exception | None = None
                 result = None
@@ -1095,6 +1112,7 @@ class RunManager:
             note="Argon 1차 검토 반영",
             changed_sections=changed_sections(v1.sections, sections),
             annotations=annotations,
+            figures=list(v1.figures),
         )
         self._store_version(user, run_id, state, v2, state.status)
         return review.model_copy(
@@ -1291,6 +1309,7 @@ class RunManager:
             changed_sections=changed_sections(current.sections, sections),
             annotations=annotations,
             evidence_decisions=decisions_for_sections(sections, current.evidence_decisions),
+            figures=list(current.figures),
         )
         self._store_version(user, run_id, state, new_version, nxt)
         if latest is not None and used:
@@ -1329,6 +1348,7 @@ class RunManager:
             changed_sections=changed_sections(current.sections, target.sections),
             annotations=target.annotations,
             evidence_decisions=decisions_for_sections(target.sections, target.evidence_decisions),
+            figures=list(target.figures),  # 그림도 그 버전의 것으로 (파일은 해시로 남아 있다)
         )
         self._store_version(user, run_id, state, new_version, nxt)
         return self.store.load_version(user, run_id, new_version.version) or new_version
@@ -1361,6 +1381,7 @@ class RunManager:
             p.model_dump() for p in problems
         ]  # 알림만 — 상태를 invalid 로 바꾸지 않는다
         state.draft_version = version.version
+        state.figures = _figure_summary(version.figures, state.figures)
         if state.final_reviewed_version is not None and version.origin != "argon":
             base = self.store.load_version(user, run_id, state.final_reviewed_version)
             if base is not None:
@@ -1700,7 +1721,210 @@ class RunManager:
             else {"total": 0},
             strategy_source=self.usability.strategy_source,
             strategy_options=len(options.get("strategy_alignment", {})),
+            figures=list(version.figures) if version else [],
+            figure_comments=self._open_figure_comments(user, run_id),
         )
+
+    def _open_figure_comments(self, user: str, run_id: str) -> int:
+        rounds = self.store.list_reviews(user, run_id)
+        if not rounds:
+            return 0
+        latest = self.store.load_review(user, run_id, rounds[-1])
+        if latest is None:
+            return 0
+        return sum(1 for c in latest.comments if c.kind == "figure" and c.status == "open")
+
+    # ── [G] 그림 ─────────────────────────────────────────
+    async def _figures_step(
+        self,
+        user: str,
+        run_id: str,
+        state: RunState,
+        sections: list[Section],
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot | None,
+    ) -> None:
+        """v1 저장 직후 — 명세·밑그림·Nano Banana → 그림 파일(해시) 저장, v1.figures 갱신.
+        실패해도 run 은 계속된다(step error 기록)."""
+        if self.figures is None:
+            return
+        try:
+            step = self._begin(state, FIGURES)
+        except KeyError:
+            return
+        self._save(state)
+        try:
+            plan = self.figures.plan(sections, req, snapshot)
+            builds, skipped = await self.figures.build_all(plan, sections, req, snapshot)
+            for b in builds:
+                self._save_build(user, run_id, b)
+            v1 = self.store.load_version(user, run_id, 1)
+            if v1 is not None:
+                v1 = v1.model_copy(update={"figures": [b.figure for b in builds]})
+                self.store.save_version(user, run_id, v1)
+                state.figures = _figure_summary(v1.figures, [])
+            for item in skipped:
+                logger.info(
+                    "figure.skipped run=%s kind=%s reason=%s", run_id, item["kind"], item["reason"]
+                )
+            self._finish(
+                state,
+                step,
+                None,
+                sentences=len(builds),
+                dropped=len(skipped),
+                fallback=",".join(sorted({b.figure.renderer for b in builds})) or None,
+            )
+        except Exception as exc:  # 그림 실패는 초안을 막지 않는다
+            step.status = "error"
+            step.error = type(exc).__name__
+            step.finished_at = self._clock()
+            logger.warning("figure.step_failed run=%s error=%s", run_id, type(exc).__name__)
+
+    def _save_build(self, user: str, run_id: str, build: FigureBuild) -> None:
+        fig = build.figure
+        if build.baseline_png and fig.baseline_sha:
+            self.store.save_figure_image(
+                user, run_id, fig.baseline_sha, build.baseline_png, "image/png"
+            )
+        if fig.image_sha:
+            self.store.save_figure_image(
+                user, run_id, fig.image_sha, build.adopted, build.adopted_mime
+            )
+
+    async def figure_image(self, user: str, run_id: str, sha: str) -> tuple[bytes, str] | None:
+        await self.status(user, run_id)  # 소유자·존재 검사
+        return self.store.load_figure_image(user, run_id, sha)
+
+    async def add_figure(
+        self, user: str, run_id: str, kind: str, section: str, *, base_version: int | None = None
+    ) -> DraftVersion:
+        """[다른 그림 추가] — 종류·섹션을 골라 명세·그림을 만들고 새 버전."""
+        if self.figures is None:
+            raise FeatureDisabled("그림 기능이 꺼져 있습니다 (figures.yaml enabled).")
+        state, current, nxt = await self._figure_edit_base(user, run_id, base_version)
+        req = self.store.load_request(user, run_id)
+        snapshot = self.store.load_snapshot(user, run_id)
+        builds, skipped = await self.figures.build_all(
+            [(kind, section)],
+            current.sections,
+            req,
+            snapshot,
+            existing_ids=[f.id for f in current.figures],
+        )
+        if not builds:
+            reason = skipped[0]["reason"] if skipped else "invalid"
+            raise EditRejected(f"그림 명세를 만들지 못했습니다 ({reason}).")
+        for b in builds:
+            self._save_build(user, run_id, b)
+        figures = [*current.figures, *(b.figure for b in builds)]
+        return self._store_figures(user, run_id, state, current, figures, nxt, note="그림 추가")
+
+    async def figure_action(
+        self,
+        user: str,
+        run_id: str,
+        figure_id: str,
+        action: str,
+        *,
+        request_text: str = "",
+        texts: Mapping[str, str] | None = None,
+        base_version: int | None = None,
+    ) -> DraftVersion:
+        """그림 카드 동작 — words(말로 고치기) | texts(글자 고치기) | baseline(기본 그림으로) |
+        regenerate(다시 만들기) | include | exclude | confirm. 저장은 새 버전(되돌리기 가능)."""
+        if self.figures is None:
+            raise FeatureDisabled("그림 기능이 꺼져 있습니다 (figures.yaml enabled).")
+        state, current, nxt = await self._figure_edit_base(user, run_id, base_version)
+        by_id = {f.id: f for f in current.figures}
+        fig = by_id.get(figure_id)
+        if fig is None:
+            raise EditRejected("그림이 없습니다.")
+        note = f"그림 {action}"
+        if action in ("include", "exclude"):
+            fig = fig.model_copy(update={"included": action == "include"})
+        elif action == "confirm":
+            fig = fig.model_copy(update={"confirmed": True})
+        elif action == "baseline":
+            build = self.figures.baseline(fig)
+            self._save_build(user, run_id, build)
+            fig = build.figure
+        elif action == "regenerate":
+            build = await self.figures.draw(fig)
+            self._save_build(user, run_id, build)
+            fig = build.figure
+        elif action == "texts":
+            try:
+                spec = figure_rules.apply_text_edits(fig.spec, dict(texts or {}))
+            except ValueError as exc:
+                raise EditRejected(str(exc)) from exc
+            fig = fig.model_copy(update={"spec": spec, "alt": figure_rules.alt_text(spec)})
+            build = await self.figures.draw(fig)
+            self._save_build(user, run_id, build)
+            fig = build.figure
+        elif action == "words":
+            if not request_text.strip():
+                raise EditRejected("수정 요청이 비어 있습니다.")
+            current_img = self.store.load_figure_image(user, run_id, fig.image_sha or "")
+            if current_img is None:
+                raise EditRejected("현재 그림 파일이 없습니다.")
+            try:
+                build = await self.figures.edit_by_words(
+                    fig, current_img[0], current_img[1], request_text
+                )
+            except SpecRejected as exc:
+                raise EditRejected(f"그림을 고치지 못했습니다 ({exc}).") from exc
+            self._save_build(user, run_id, build)
+            fig = build.figure
+        else:
+            raise EditRejected(f"알 수 없는 동작입니다: {action}")
+        figures = [fig if f.id == figure_id else f for f in current.figures]
+        return self._store_figures(user, run_id, state, current, figures, nxt, note=note)
+
+    async def _figure_edit_base(
+        self, user: str, run_id: str, base_version: int | None
+    ) -> tuple[RunState, DraftVersion, str]:
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise EditRejected(LEGACY_HINT.format(run_id=run_id))
+        try:
+            nxt = review_flow.transition(state.status, "edit")
+        except InvalidTransition as exc:
+            raise EditRejected(str(exc)) from exc
+        current = self._current_version(user, run_id, state)
+        if base_version is not None and base_version != current.version:
+            raise VersionConflict(
+                f"기준 버전 v{base_version} 과 현재 버전 v{current.version} 이 다릅니다 — "
+                "최신 버전을 불러와 다시 시도하십시오."
+            )
+        return state, current, nxt
+
+    def _store_figures(
+        self,
+        user: str,
+        run_id: str,
+        state: RunState,
+        current: DraftVersion,
+        figures: list[Figure],
+        status: str,
+        *,
+        note: str,
+    ) -> DraftVersion:
+        new_version = DraftVersion(
+            version=current.version + 1,
+            origin="edit",
+            sections=current.sections,
+            created_at=self._clock(),
+            note=note,
+            changed_sections=sorted(
+                {f.section for f in figure_rules_changed(current.figures, figures)}
+            ),
+            annotations=current.annotations,
+            evidence_decisions=current.evidence_decisions,
+            figures=figures,
+        )
+        self._store_version(user, run_id, state, new_version, status)
+        return self.store.load_version(user, run_id, new_version.version) or new_version
 
     # ── U8 시범운영 측정 ─────────────────────────────────
     def _touch_usage(
@@ -1805,12 +2029,27 @@ class RunManager:
             sections=sections,
             template=state.template,
         )
+        figure_files = self._figure_files(user, run_id, picked)
+        placements: list[FigurePlacement] = []
         try:
-            data = self.renderer.render(draft, confirmation=confirmation, proposer=proposer)
+            if figure_files and hasattr(self.renderer, "render_with_figures"):
+                data, placements = self.renderer.render_with_figures(
+                    draft, confirmation=confirmation, proposer=proposer, figures=figure_files
+                )
+            else:
+                data = self.renderer.render(draft, confirmation=confirmation, proposer=proposer)
         except Exception:
             self._touch_usage(user, run_id, state, hwpx_success=False)
             raise
         state = await self.status(user, run_id)
+        if placements:
+            by_id = {p.id: p for p in placements}
+            state.figures = [
+                {**row, "placement": by_id[row["id"]].placement, "number": by_id[row["id"]].number}
+                if row.get("id") in by_id
+                else row
+                for row in state.figures
+            ]
         state.status = review_flow.transition(state.status, "finalize")
         state.finalized_at = self._clock()
         self._touch_usage(user, run_id, state, hwpx_success=True)
@@ -1818,6 +2057,20 @@ class RunManager:
         return FinalizeResult(
             data=data, confirmation=confirmation, check=check, version=picked, state=state
         )
+
+    def _figure_files(
+        self, user: str, run_id: str, version_no: int
+    ) -> list[tuple[Figure, bytes, str]]:
+        """그 버전에서 제안서에 넣는 그림(included)의 (Figure, 바이트, mime). 파일 없으면 건너뜀."""
+        version = self.store.load_version(user, run_id, version_no)
+        out: list[tuple[Figure, bytes, str]] = []
+        for fig in version.figures if version else []:
+            if not fig.included or not fig.image_sha:
+                continue
+            loaded = self.store.load_figure_image(user, run_id, fig.image_sha)
+            if loaded is not None:
+                out.append((fig, loaded[0], loaded[1]))
+        return out
 
     async def _confirm_for_finalize(
         self,
@@ -2057,7 +2310,35 @@ def manifest(
         "finalized_at": state.finalized_at,
         "differentiation": dict(state.differentiation) if state.differentiation else None,
         "recommendations": dict(state.recommendations) if state.recommendations else None,
+        "figures": [dict(x) for x in state.figures],  # [G] 그림 요약 (본문 없음)
     }
+
+
+def _figure_summary(figures: list[Figure], previous: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """RunState.figures(manifest 용) — 배치(placement)는 마무리 때 적히므로 이전 값을 이어받는다."""
+    prev = {str(p.get("id")): p for p in previous}
+    out = []
+    for f in figures:
+        row = {
+            "id": f.id,
+            "kind": f.kind,
+            "section": f.section,
+            "renderer": f.renderer,
+            "model": f.model,
+            "calls": f.calls,
+            "included": f.included,
+            "confirmed": f.confirmed,
+            "error": f.error,
+            "placement": prev.get(f.id, {}).get("placement"),
+            "number": prev.get(f.id, {}).get("number"),
+        }
+        out.append(row)
+    return out
+
+
+def figure_rules_changed(old: list[Figure], new: list[Figure]) -> list[Figure]:
+    changed_ids = {row["figure_id"] for row in figure_rules.figure_diff(old, new)}
+    return [f for f in new if f.id in changed_ids] or [f for f in old if f.id in changed_ids]
 
 
 # ── [5] 순수 함수 ─────────────────────────────────────────

@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "RoadmapMetric": {
+      "properties": {
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "target"
+      ],
+      "title": "RoadmapMetric",
+      "type": "object"
+    },
+    "RoadmapStage": {
+      "properties": {
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "desc": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desc"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "RoadmapStage",
+      "type": "object"
+    }
+  },
+  "description": "성과지표·활용 로드맵 — 기대효과의 성과지표와 활용 단계.",
+  "properties": {
+    "kind": {
+      "const": "roadmap",
+      "default": "roadmap",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/RoadmapMetric"
+      },
+      "maxItems": 6,
+      "minItems": 1,
+      "title": "Metrics",
+      "type": "array"
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/RoadmapStage"
+      },
+      "maxItems": 5,
+      "minItems": 2,
+      "title": "Stages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "metrics",
+    "stages"
+  ],
+  "title": "RoadmapSpec",
+  "type": "object"
+}

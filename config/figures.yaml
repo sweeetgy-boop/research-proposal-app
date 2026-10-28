@@ -9,6 +9,19 @@ fonts_dir: config/templates/figures/fonts   # Pretendard Regular·Bold 서브셋
 template_dir: config/templates/figures      # 종류별 명세 스키마(*.schema.json)
 kinds: [concept, process, schedule, stat_chart, comparison, roadmap]
 spec_stage: figures           # llm.yaml stages.figures (로컬 모델이 명세 JSON 작성). 교정 재요청 1회 뒤 compose.fallback 규칙
+# Nano Banana Pro(그림 생성·말로 고치기) — provider gemini, 모델은 llm.yaml providers.gemini.image_model. 호출은 공용 제한기 경유.
+daily_image_cap: 150          # 그림 호출 일일 상한(생성·말로 고치기·다시 만들기 포함). 넘으면 기본 그림 + 화면 알림. 0 = 없음
+budget_counter: data/cache/figure_budget.json   # {"date","count"} — API·CLI 가 같은 파일을 본다
+cache_dir: data/cache/figures # 같은 명세·같은 밑그림(해시)이면 다시 부르지 않는다
+concurrency: 3                # 초안 1건당 그림 동시 생성 수
+image_size: 2K                # 1K | 2K | 4K
+aspect:                       # 종류별 비율 (Nano Banana imageConfig.aspectRatio, 밑그림도 같은 비율)
+  concept: "16:9"
+  process: "16:9"
+  schedule: "21:9"
+  stat_chart: "16:9"
+  comparison: "16:9"
+  roadmap: "16:9"
 hwpx:
   placement: inline           # inline(섹션 칸 안, 본문 뒤) | appendix(문서 끝 "별첨 그림"). render-check 가 깨지면 appendix 로 자동 전환
   max_width_hwp: 42000        # 칸 안 그림 최대 폭 (HWPUNIT, 1/7200 인치 ≈ 148mm)

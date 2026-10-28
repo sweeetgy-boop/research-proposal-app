@@ -44,7 +44,11 @@ test.describe("전체 흐름 ①→⑥", () => {
     await expect(page.getByRole("radio", { name: "응용연구" })).toBeChecked();
     await page.getByLabel("제안부서").fill("철도연구원");
     await page.getByLabel("제안자 성명").fill("홍길동");
-    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "HWPX 내려받기" }).click()]);
+    // [G] 가짜 run 에는 확인 전 그림이 있다 → 마무리 확인 창에서 "그대로 진행"
+    const downloadP = page.waitForEvent("download");
+    await page.getByRole("button", { name: "HWPX 내려받기" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "그대로 진행" }).click();
+    const download = await downloadP;
     expect(download.suggestedFilename()).toMatch(/^proposal-.*-v3\.hwpx$/);
     await expect(page.getByText("마무리됨")).toBeVisible();
 
