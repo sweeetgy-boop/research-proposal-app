@@ -68,7 +68,6 @@ from rra.domain.models.selection import (
     UTILIZATION_SOURCE,
 )
 from rra.domain.rules import style
-from rra.domain.rules.evidence import parse_support
 from rra.domain.rules.exemplars import pick_exemplars
 from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.keywords import KeywordRule
@@ -88,10 +87,15 @@ from rra.domain.rules.llm_output import (
     correction_hint,
     dropped_hint,
     parse_choice_section,
-    parse_object,
     parse_sentences,
 )
-from rra.domain.rules.local_review import batch_prompt, check_batches, count_verdicts
+from rra.domain.rules.local_review import (
+    batch_prompt,
+    check_batches,
+    count_verdicts,
+    parse_verdicts,
+    rule_mismatch,
+)
 from rra.domain.rules.overlap import (
     OwnUnit,
     judge,
@@ -1025,6 +1029,7 @@ class GenerateProposal:
         verdict_by_hash: dict[str, str] = {}
         sentences = 0
         order: list[str] = []
+        rule_overrides = 0
         started = time.monotonic()
         for sec, indices in check_batches(sections, keys):
             prompt = batch_prompt(sec, indices, by_id)
@@ -1041,8 +1046,7 @@ class GenerateProposal:
                     )
                     continue
             ids = {sentence_id(sec.key, i): i for i in indices}
-            data = parse_object(raw)
-            verdicts = parse_support(data.get("support") if data else None, set(ids))
+            verdicts = parse_verdicts(raw, set(ids))
             if not verdicts:
                 if sec.key not in skipped:
                     skipped.append(sec.key)
@@ -1052,7 +1056,13 @@ class GenerateProposal:
             order.append(sec.key)
             sentences += len(verdicts)
             for sid, value in verdicts.items():
-                h = text_hash(sec.sentences[ids[sid]].text)
+                sent = sec.sentences[ids[sid]]
+                h = text_hash(sent.text)
+                cited = [by_id[e].text for e in sent.evidence if e in by_id]
+                if value != SUPPORT_MISMATCH and rule_mismatch(sent.text, cited):
+                    # 근거에 없는 수치·이름 — 규칙이 불일치로 (모델은 너그럽다)
+                    value = SUPPORT_MISMATCH
+                    rule_overrides += 1
                 verdict_by_hash[h] = value
                 if value == SUPPORT_MISMATCH and h not in hashes:
                     hashes.append(h)
@@ -1068,6 +1078,7 @@ class GenerateProposal:
             "counts": count_verdicts(verdict_by_hash),
             "seconds": round(time.monotonic() - started, 1),
             "order": order,
+            "rule_overrides": rule_overrides,
         }
 
     def _validate(

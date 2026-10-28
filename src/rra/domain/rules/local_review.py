@@ -21,9 +21,10 @@ from typing import Any, Literal
 
 from rra.domain.models import Chunk, Section
 from rra.domain.models.review import SUPPORT_MISMATCH, SUPPORT_VALUES, sentence_id
+from rra.domain.rules.evidence import parse_support
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.grounding import named_references, ungrounded
-from rra.domain.rules.llm_output import clean_sentence, parse_object
+from rra.domain.rules.llm_output import clean_sentence, parse_json_value, parse_object
 from rra.domain.rules.numbers import unsupported_numbers
 from rra.domain.rules.trust import wrap_untrusted
 from rra.domain.rules.writer import LOCAL_CHECK_CHUNK_CHARS, text_hash
@@ -117,9 +118,31 @@ def batch_prompt(
     return (
         f"[섹션: {section.key}]\n"
         "[질문] 각 문장이 그 문장의 evidence 자료로 뒷받침되는가? 지지|부분|불일치 중 하나.\n"
+        "- 지지: 문장의 사실(수치·이름·주장)이 모두 자료에 있다.\n"
+        "- 부분: 일부만 자료에 있고 나머지는 자료에 없지만 자료와 어긋나지는 않는다.\n"
+        "- 불일치: 자료와 다른 수치·이름이 있거나, 문장의 중심 주장이 자료에 없다.\n"
+        '[출력] JSON 객체 하나 — {"support": '
+        '[{"sentence_id": "…", "support": "지지|부분|불일치"}]}\n'
         f"[문장]\n{json.dumps(rows, ensure_ascii=False)}\n\n"
         f"[근거 자료]\n{wrap_untrusted(list(cited.values()))}"
     )
+
+
+def parse_verdicts(raw: str, sent_ids: set[str]) -> dict[str, str]:
+    """로컬 판정 응답 → {문장 id: 지지|부분|불일치}. 7B 는 {"support": [...]} 대신 배열만 내는 일이 많다
+    (2026-10-28 측정: 응답이 전부 배열이라 판정 0건 → "불일치 0건" 으로 보였다) — 둘 다 받는다."""
+    data = parse_json_value(raw)
+    if isinstance(data, dict):
+        data = data.get("support", data.get("results", data.get("verdicts")))
+    return parse_support(data, sent_ids)
+
+
+def rule_mismatch(text: str, evidence: Sequence[str]) -> bool:
+    """규칙 불일치 — 문장의 수치·정책/기관/법령 이름이 근거 글에 없다. 로컬 모델이 "부분"·"지지"로
+    너그럽게 봐도 이것은 불일치로 둔다(2026-10-28 측정: 7B 가 바꿔 넣은 수치를 "부분"으로 판정)."""
+    if not evidence:
+        return False
+    return bool(unsupported_numbers(text, evidence) or ungrounded(text, evidence))
 
 
 def count_verdicts(verdicts: Mapping[str, str]) -> dict[str, int]:
