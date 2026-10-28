@@ -729,7 +729,8 @@ def _layout_hint(spec: BaseModel, arrange: str | None = None) -> str:
             f"구조: 왼쪽·오른쪽 두 단. 왼쪽 단 '{AS_IS_HEAD}' 칸 {len(spec.as_is)}개"
             f"(현황·원인·한계), 오른쪽 단 '{TO_BE_HEAD}' 칸 {len(spec.to_be)}개"
             "(목표·해결 방안·기대효과), 두 단 사이 가운데 큰 화살표(오른쪽 방향) 위에 "
-            f"핵심 해결 방안 한 줄 '{spec.solution}'. 칸마다 작은 이름표(현황·원인…)를 붙인다."
+            f"핵심 해결 방안 한 줄 '{spec.solution}'. 칸마다 이름표(현황·원인…)를 칸 글자와 같은 "
+            "크기의 굵은 머리말로 붙인다(작은 꼬리표로 줄이지 않는다)."
         )
     if isinstance(spec, TechniqueSpec):
         if spec.rows:

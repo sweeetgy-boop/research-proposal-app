@@ -21,6 +21,19 @@
   `types-figures.ts`(FigureFitView·display_name·error_label·fit). e2e 선택자 한국어 이름 + 카드 그림 가로 확인.
 - 도구: `tools/eval_figures_wide.py`(샘플 → 밑그림·Nano Banana·맞춤·실물 양식 HWPX·한/글 Quick Look 쪽 미리보기), `tools/figure_samples.py WIDE_SAMPLES`.
 
+## 측정·테스트
+- 실물 양식 HWPX(한/글 Quick Look 쪽 미리보기) 9/9 본문 폭 153.8mm·높이 ≤ 99mm, 글자 9pt 이상 8/9(As-Is/To-Be 이름표 8.7pt), 다시 그림 2/9,
+  장당 35~43초. 이미지 32회(레인 카운터, 상한 40), 텍스트 0회. `docs/eval-2026-10-28-figures-wide.md`.
+- pytest 2234 passed·21 skipped(새 테스트 함수 48: figure_fit 23·wide 유스케이스 12·wide 어댑터 25 케이스·REST 1, 기존 갱신), lint-imports 8 kept,
+  vitest 139(새 2), e2e 전체 24 passed·3 skipped(figures.spec 가로 그림 확인 추가, 선택자 한국어 이름).
+
+## 통합 담당 할 일
+- docs/openapi.json·schema.d.ts 다시 만들기: 그림 응답에 `display_name`·`error_label`·`fit{ratio,aspect_css,width_mm,height_mm,fits,min_text_pt,text_ok,shortened,note}`
+  (손으로 쓴 타입은 `web/src/api/types-figures.ts`).
+- 시범 배포 때 운영기 config 에 `figures.yaml fit:` 이 들어가는지(기본값이 있어 없어도 돈다). 실물 양식이 있으면 본문 폭은 양식에서 읽는다.
+- 저장된 예전 그림은 `fit` 이 없다(카드 16:9 로 보임, manifest figure_fit null) — [다시 만들기]·[기본 그림으로] 하면 생긴다. HWPX 에는 넣을 때
+  본문 폭·높이 상한이 그대로 적용된다(예전 4:3 은 높이에 맞춰 줄고 fits=false).
+
 ## 판단
 | 항목 | 판단 |
 |---|---|

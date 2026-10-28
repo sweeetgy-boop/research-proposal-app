@@ -10,4 +10,6 @@
   adapters/rendering/hwpx_geometry(양식에서 본문 폭), HWPX 그림 폭·높이 상한·placement.fit, manifest figure_fit, views display_name·fit.
   테스트 +55 백엔드·+2 vitest·e2e 1 확인 추가. OCR 보정 box_em = 1.20(밑그림 16줄, 1.13~1.44).
 - 22:10 한/글 Quick Look 확장(HwpQLExtViewAsThumbnails)으로 실물 쪽 미리보기 가능 확인 (Swift QLThumbnailGenerator, 첫 쪽).
-- 하는 중: Nano Banana 실측(레인 카운터, 상한 40) → 샘플·쪽 미리보기·eval 문서·ADR 0041·PR.
+- 22:20~23:10 Nano Banana 실측 4회(이미지 11·13·6·2 = 32). 절대 OCR 어림이 밑그림에서도 낮게 나와 상대 어림으로 바꿈, 흰 여백 맞춤이 좌우를
+  채우던 것 고침(사이 비율은 그대로), 그림 글자가 작으면 내용은 두고 "글자를 더 크게" 만. 레인 D(#89) 병합 — e2e 선택자·Figure.display_name.
+- 23:20 샘플·쪽 미리보기(screens 35장)·eval 문서·ADR 0041·조각 파일. PR 올림.
