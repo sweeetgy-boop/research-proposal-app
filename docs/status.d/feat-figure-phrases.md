@@ -44,7 +44,7 @@
 - 없음. API 필드 변경 없음(`fit.shortened` 의 뜻만 "다시 쓴 칸 수"). 새 [말로 고치기] 거절 사유 코드 2개는 안내 문장(run_manager `_EDIT_REJECT_HINTS`)으로만 나간다.
 
 ## 통합 담당 할 일
-- docs/status.md 에 위 행, timeline 조각(`docs/history/timeline.d/2026-10-29-feat-figure-phrases.md`)·metrics 조각 옮기기, PR 번호 채우기.
+- docs/status.md 에 위 행, timeline 조각(`docs/history/timeline.d/2026-10-29-feat-figure-phrases.md`)·metrics 조각 옮기기, PR #98.
 - 레인 C(그림 백그라운드 단계)와 합칠 때: `MakeFigures.draw` 에 `pool=`·`local_held=` 인자가 생겼다 — `build_all`·기법 경로는 이미 넘긴다.
   run_manager 의 [다시 만들기](`figures.draw(fig)`)도 `pool=self.figures.pool(...)` 을 넘기면 다시 쓰기가 초안 낱말까지 쓸 수 있다(선택).
 - 6번 측정(골든 10건)에서 그림 글자 9pt·다시 그림 수·미완 구절 0 을 함께 보면 된다(`tools/eval_figure_phrases.py` 의 `phrases.problems` 판정 재사용 가능).
