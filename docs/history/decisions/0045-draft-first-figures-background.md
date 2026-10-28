@@ -36,7 +36,9 @@
   중입니다 — 끝난 뒤 …"(그리는 그림과 id 가 겹치지 않게), ⑤ 최종 검토·⑥ 마무리 → **"그림 준비 중 — 끝나면 진행할 수 있습니다."**
   (그림이 빠진 HWPX·검토를 내지 않는다. 화면 버튼도 같은 문구로 막는다). 도착한 그림의 확인·고치기, 문장 편집·AI 다시 쓰기는 그대로.
   작업이 failed 면 막지 않는다(그림 없이 진행 가능, 카드가 [다시 그리기]).
-- ③ 1차 검토(review.first_pass, 운영은 off)가 켜져 있으면 그림까지 보도록 그림이 끝난 뒤 자동 시작한다.
+- ③ 1차 검토(review.first_pass, 운영은 off·가짜 모드는 on)가 켜져 있으면 예전처럼 초안 직후 바로 시작한다. 그림이 끝난 뒤로 미루면
+  (처음 구현) 제안자가 v1 을 고치는 사이 검토가 v2 를 만들어 저장 기준 버전이 어긋났다(e2e 에서 확인). 그래서 자동 1차 검토는 그때까지
+  도착한 그림만 본다. 그림까지 보는 검토는 ⑤ 최종 검토(그림이 끝난 뒤에만 받을 수 있다).
 - 운영: `rra runs active` 가 그림을 그리는 run 도 센다(`figures_status`, "drafted (그림 그리는 중)") → `tools/deploy.sh --wait` 가 그림
   작업을 끊지 않는다. CLI `rra generate`·`rra eval` 은 `RunManager.wait` 가 그림 작업까지 기다린다.
 - 시간: `draft_visible_seconds`(제출 → drafted), `figures_done_seconds`(제출 → 그림 끝; 그림이 없으면 같은 값) — RunState·usage.json·
