@@ -1524,8 +1524,6 @@ def build_same_judge(
         provider=provider,
         model=model,
         local_model=local_model,
-        timeout=cfg["timeout"],
-        local_timeout=cfg["local_timeout"],
         max_candidates=cfg["max_candidates"],
         local_slot=local_slot,
     )
@@ -2263,7 +2261,14 @@ def build_api(
         notice_match=build_notice_match(settings, repo=repo),
         differentiate=build_differentiator(settings, repo=repo, llm=llm, local_slot=slot),
         recommend=build_recommender(
-            settings, repo=repo, llm=llm, precheck=precheck, local_slot=slot
+            settings,
+            repo=repo,
+            llm=llm,
+            precheck=precheck,
+            local_slot=slot,
+            card_check=build_card_check(
+                settings, precheck=precheck, repo=repo, llm=llm, local_slot=slot
+            ),
         ),
         recommend_auto=recommend_policy(settings)["auto"],
         clarify=build_clarifier(settings, llm=llm, local_slot=manager.slot)
@@ -2337,7 +2342,14 @@ def build_scoped_services(
         "notice_match": build_notice_match(settings, repo=repo),
         "differentiate": build_differentiator(settings, repo=repo, llm=llm, local_slot=local_slot),
         "recommend": build_recommender(
-            settings, repo=repo, llm=llm, precheck=precheck, local_slot=local_slot
+            settings,
+            repo=repo,
+            llm=llm,
+            precheck=precheck,
+            local_slot=local_slot,
+            card_check=build_card_check(
+                settings, precheck=precheck, repo=repo, llm=llm, local_slot=local_slot
+            ),
         ),
         "compare": build_comparer(
             settings, repo=repo, precheck=precheck, llm=llm, local_slot=local_slot
@@ -2563,8 +2575,45 @@ def build_clarifier(settings: Settings | None = None, *, llm=None, local_slot=No
     )
 
 
+def build_card_check(
+    settings: Settings | None = None, *, precheck, repo, llm=None, local_slot=None
+):
+    """② 차별화 과제안 카드 겹침 재판정(CardOverlapCheck, ADR 0039) — 카드 글로 ② 규칙 판정
+    (precheck.rule_stage: 검색 → reranker → 아이디어 핵심 키워드) → Argon 같음 판정(→ 로컬 → 규칙).
+    overlap.yaml judgment.cards 가 꺼져 있거나 precheck 에 rule_stage 가 없으면 None(종전 자기 중복
+    검사)."""
+    from rra.application.usecases.card_overlap import CardOverlapCheck
+
+    settings = settings or load_settings()
+    cfg = same_judgment_config(settings)
+    if not cfg["cards"] or not hasattr(precheck, "rule_stage"):
+        return None
+
+    async def probe(req, core):
+        result = await precheck.rule_stage(
+            req, core_keywords=list(core) or None, keywords=False, research=False
+        )
+        return list(result.alerts)
+
+    primary, local = _argon_and_local(settings, llm=llm)
+    return CardOverlapCheck(
+        probe=probe,
+        primary=primary,
+        local=local,
+        repo=repo,
+        include_internal=review_policy(settings)["include_internal"],
+        local_slot=local_slot,
+    )
+
+
 def build_recommender(
-    settings: Settings | None = None, *, repo=None, llm=None, precheck=None, local_slot=None
+    settings: Settings | None = None,
+    *,
+    repo=None,
+    llm=None,
+    precheck=None,
+    local_slot=None,
+    card_check=None,
 ):
     """차별화 과제 추천 유스케이스(RecommendProjects, ADR 0012).
 
@@ -2603,6 +2652,7 @@ def build_recommender(
         self_overlap_mode=recommend_policy(settings)["self_overlap"],
         local=local,
         local_slot=local_slot,
+        card_check=card_check,
     )
 
 

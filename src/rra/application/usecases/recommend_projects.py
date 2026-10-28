@@ -10,6 +10,13 @@ precheck·검색 안의 doc_id 만, 지어낸 수치·정책명·한자 → 폐�
 자기 중복 검사: 추천의 가제+요약+차별점으로 precheck 를 다시 돌려 blocking 이면 뺀다(로컬, LLM
 호출 없음). 남은 추천이 0 이면 no_recommendation_reason = 모델 사유 + "검증에서 제외됨 n건".
 
+카드 겹침 재판정(2026-10-28 밤 레인 A, ADR 0039): `card_check`(usecases/card_overlap)가
+있으면 자기 중복 검사 대신 ② 판정과 같은 기준(카드 글 규칙 판정 → Argon 같음 판정)으로 본다.
+"같다" 카드는 보이기 전에 그 카드만 한 번 다시 받고, 그래도 겹치면 가까운 과제 제목·겹치는 점을
+경고로 붙인다. 카드는 가까움이 낮은(가장 다른) 순. `shown`([차별화 과제안 더 만들기])이 있으면
+이미 보인 안과 다른 안만 받고 거의 같은 안은 뺀다. 근거 과제·자료는 제목·자료원(`refs`)으로
+돌려준다(화면에 내부 번호 없음).
+
 전송 범위·manifest 기록은 검토·차별화 단계와 같다(include_internal,
 `RecommendationResult.transfer()`).
 모델: llm.yaml stages.recommend (기본 Gemini). 키가 없으면 조립이 로컬(compose) 모델로 바꾸고
@@ -18,6 +25,7 @@ fallback_local=True.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 from collections.abc import Awaitable, Callable
@@ -33,10 +41,15 @@ from rra.domain.models import (
     RecommendationResult,
     RetrievalSnapshot,
 )
+from rra.domain.models.recommendation import RecommendationRef
+from rra.domain.rules.card_overlap import overlap_hint, shown_hint, warning_fields
 from rra.domain.rules.differentiation import candidate_text
 from rra.domain.rules.llm_output import parse_object
+from rra.domain.rules.precheck_levels import basis_alerts
 from rra.domain.rules.recommendation import (
+    DISCARD_DUPLICATE,
     DISCARD_SELF_OVERLAP,
+    near_duplicate,
     no_recommendation_text,
     overlaps_similar,
     regeneration_hint,
@@ -44,7 +57,7 @@ from rra.domain.rules.recommendation import (
     self_overlap_docs,
     validate_recommendation,
 )
-from rra.domain.rules.similar_choice import UNRELATED, choice_for, similar_alerts
+from rra.domain.rules.similar_choice import similar_alerts
 from rra.domain.rules.trust import escape_untrusted
 
 SKIP_NO_INPUT = "no_alerts_or_evidence"
@@ -80,13 +93,22 @@ class RecommendProjects:
     # Argon 실패(예외·해석 실패) 때 로컬 모델 (2026-10-28 레인 A). None 이면 없음
     local: LLMPort | None = None
     local_slot: Any | None = None
+    # 카드 겹침 재판정(CardOverlapCheck, ADR 0039). None 이면 종전 자기 중복 검사(e5)
+    card_check: Any | None = None
 
     async def __call__(
-        self, req: ProposalRequest, alerts: list[OverlapAlert], *, similar_only: bool = False
+        self,
+        req: ProposalRequest,
+        alerts: list[OverlapAlert],
+        *,
+        similar_only: bool = False,
+        core_keywords: list[str] | None = None,
+        shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
     ) -> RecommendationResult:
         """similar_only=True(REST ②) 면 [유사함] 으로 고른 과제만 비교 대상으로(없으면 [관련 없음]
-        을 뺀
-        알림), [유사함] 과제와 겹치는 안은 뺀다."""
+        과 고르지 않은 AI "다르다" 행을 뺀 알림 — precheck_levels.basis_alerts), [유사함] 과제와
+        겹치는 안은 뺀다. core_keywords 는 카드 겹침 재판정의 핵심어(아이디어와 같은 것).
+        shown 은 이미 보인 카드 — 그와 다른 안만 받는다([더 만들기])."""
         base = {
             "provider": self.provider,
             "model": self.model,
@@ -97,7 +119,7 @@ class RecommendProjects:
         choices = req.choice_map() if similar_only else {}
         similar = similar_alerts(alerts, choices)
         if similar_only:
-            alerts = similar or [a for a in alerts if choice_for(a, choices) != UNRELATED]
+            alerts = basis_alerts(alerts, choices)
         picked = _unique_alerts(alerts)[:MAX_ALERTS]
         if not picked and not chunks:
             return RecommendationResult(**base, skipped_reason=SKIP_NO_INPUT)
@@ -134,6 +156,8 @@ class RecommendProjects:
                 skipped_reason=SKIP_NO_DOCUMENTS,
             )
         prompt = self.build_prompt(req, docs, sent_chunks)
+        if shown:
+            prompt = f"{prompt}\n\n{shown_hint(shown)}"
         data, used_local, calls = await self._ask(prompt)
         transfer = {
             "public_doc_ids": public_ids,
@@ -147,7 +171,7 @@ class RecommendProjects:
         if data is None:
             skipped = SKIP_PARSE_FAILED if calls else SKIP_LLM_FAILED
             return RecommendationResult(**base, **transfer, skipped_reason=skipped)
-        items, discarded = self._screen(req, docs, sent_chunks, data, similar)
+        items, discarded = self._screen(req, docs, sent_chunks, data, similar, shown)
         regenerated = False
         if len(items) < MIN_KEEP and discarded:
             # 검증에서 걸러져 2건 미만 → 제외 사유를 주고 한 번 다시 (최소 2건 목표)
@@ -156,7 +180,9 @@ class RecommendProjects:
             transfer["calls"] = calls + more
             regenerated = True
             if again is not None:
-                more_items, more_discarded = self._screen(req, docs, sent_chunks, again, similar)
+                more_items, more_discarded = self._screen(
+                    req, docs, sent_chunks, again, similar, shown
+                )
                 merged, dup = select_recommendations([*items, *more_items])
                 items = merged
                 discarded = [*discarded, *more_discarded, *dup]
@@ -164,12 +190,25 @@ class RecommendProjects:
                 if again_local:
                     base = {**base, "fallback_local": True}
         kept: list[ProjectRecommendation] = []
-        for rec in items:  # 자기 중복 검사 — 추천 글로 precheck 를 다시 돌려 더 가까운 문서
-            close = await self._self_overlaps(req, rec, alerts)
-            if close and self.self_overlap_mode == "exclude":
-                discarded.append({"title": rec.title[:80], "reason": DISCARD_SELF_OVERLAP})
-            else:
-                kept.append(rec.model_copy(update={"overlap_warning": close}))
+        overlap_regenerated = 0
+        if self.card_check is not None and items:  # ② 판정과 같은 기준의 카드 겹침 재판정
+            before = getattr(self.card_check, "calls", 0)
+            kept, overlap_regenerated, more_calls = await self._check_cards(
+                req, prompt, docs, sent_chunks, items, similar, core_keywords, shown
+            )
+            transfer["calls"] = (
+                int(transfer["calls"])
+                + more_calls
+                + (getattr(self.card_check, "calls", 0) - before)
+            )
+        else:
+            for rec in items:  # 자기 중복 검사 — 추천 글로 precheck 를 다시 돌려 더 가까운 문서
+                close = await self._self_overlaps(req, rec, alerts)
+                if close and self.self_overlap_mode == "exclude":
+                    discarded.append({"title": rec.title[:80], "reason": DISCARD_SELF_OVERLAP})
+                else:
+                    kept.append(rec.model_copy(update={"overlap_warning": close}))
+        kept = await self._with_refs(kept, docs)
         reason = None
         model_reason = data.get("no_recommendation_reason")
         if not kept:
@@ -183,7 +222,76 @@ class RecommendProjects:
             discarded=discarded,
             no_recommendation_reason=reason,
             regenerated=regenerated,
+            overlap_checked=self.card_check is not None,
+            overlap_regenerated=overlap_regenerated,
         )
+
+    async def _check_cards(
+        self,
+        req: ProposalRequest,
+        prompt: str,
+        docs: list[tuple[OverlapAlert, Document]],
+        chunks: list[Any],
+        items: list[ProjectRecommendation],
+        similar: list[OverlapAlert],
+        core_keywords: list[str] | None,
+        shown: Any,
+    ) -> tuple[list[ProjectRecommendation], int, int]:
+        """카드 겹침 재판정 → "같다" 카드만 한 번 다시 받기 → 다시 판정 → 경고 칸·가까움 순 정렬.
+        (카드, 다시 받은 수, 다시 받기 외부 호출 수)."""
+        items = list(items)
+        checks = await self.card_check(req, items, core_keywords)
+        redo = [i for i, ch in enumerate(checks) if ch.ai_overlap]
+        calls = 0
+        replaced: dict[int, ProjectRecommendation] = {}
+
+        async def again(i: int) -> tuple[ProjectRecommendation | None, int]:
+            data, _local, n = await self._ask(f"{prompt}\n\n{overlap_hint(items[i], checks[i])}")
+            if data is None:
+                return None, n
+            fresh, _ = self._screen(req, docs, chunks, data, similar, shown)
+            others = [r for j, r in enumerate(items) if j != i] + list(shown)
+            for rec in fresh:
+                if not any(near_duplicate(rec, o) for o in others):
+                    return rec, n
+            return None, n
+
+        if redo:
+            for i, (rec, n) in zip(
+                redo, await asyncio.gather(*(again(i) for i in redo)), strict=True
+            ):
+                calls += n
+                if rec is not None:
+                    replaced[i] = rec
+        if replaced:
+            order = list(replaced)
+            rechecked = await self.card_check(req, [replaced[i] for i in order], core_keywords)
+            for i, ch in zip(order, rechecked, strict=True):
+                items[i] = replaced[i].model_copy(update={"regenerated": True})
+                checks[i] = ch
+        out = [
+            rec.model_copy(update=warning_fields(ch)) for rec, ch in zip(items, checks, strict=True)
+        ]
+        out.sort(key=lambda r: r.closeness if r.closeness is not None else 0.0)
+        return out, len(replaced), calls
+
+    async def _with_refs(
+        self, cards: list[ProjectRecommendation], docs: list[tuple[OverlapAlert, Document]]
+    ) -> list[ProjectRecommendation]:
+        """카드의 비교 과제·근거 id → 제목·자료원 (화면은 내부 번호 대신 이것을 보인다)."""
+        known = {d.doc_id: (d.title, d.source) for _, d in docs}
+        out = []
+        for rec in cards:
+            refs = []
+            for i in dict.fromkeys([*rec.compared_with, *rec.evidence]):
+                if i not in known:
+                    doc = await self.repo.get_document(i)
+                    known[i] = (doc.title, doc.source) if doc is not None else ("", "")
+                title, source = known[i]
+                if title:
+                    refs.append(RecommendationRef(doc_id=i, title=title, source=source))
+            out.append(rec.model_copy(update={"refs": refs}))
+        return out
 
     async def _ask(self, prompt: str) -> tuple[dict[str, Any] | None, bool, int]:
         """Argon 먼저(호출 수 셈), 실패(예외·해석 실패)면 로컬 — (JSON, 로컬을 썼나, 외부 호출
@@ -218,9 +326,19 @@ class RecommendProjects:
         chunks: list[Any],
         data: dict[str, Any],
         similar: list[OverlapAlert],
+        shown: Any = (),
     ) -> tuple[list[ProjectRecommendation], list[dict[str, str]]]:
-        """검증 → [유사함] 과제와 겹치는 안 빼기 → 거의 같은 안 하나만·5건."""
+        """검증 → [유사함] 과제와 겹치는 안 빼기 → 이미 보인 안과 거의 같은 안 빼기 → 거의 같은 안
+        하나만·5건."""
         items, discarded = self._validate(req, docs, chunks, data)
+        if shown:
+            fresh = []
+            for rec in items:
+                if any(near_duplicate(rec, s) for s in shown):
+                    discarded.append({"title": rec.title[:80], "reason": DISCARD_DUPLICATE})
+                else:
+                    fresh.append(rec)
+            items = fresh
         if similar:
             titles = [a.title for a in similar]
             keep = []

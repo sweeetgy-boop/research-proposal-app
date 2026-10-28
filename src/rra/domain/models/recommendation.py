@@ -9,10 +9,20 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-MAX_RECOMMENDATIONS = 5
+MAX_RECOMMENDATIONS = 5  # 한 번에 받는 과제안 상한
+# [차별화 과제안 더 만들기] 로 쌓이는 전체 상한 (2026-10-28 밤 레인 A, ADR 0039)
+MAX_TOTAL_RECOMMENDATIONS = 15
 MAX_REASONS = 3
 MAX_REC_CHARS = 600
 MAX_TITLE_CHARS = 200
+
+
+class RecommendationRef(BaseModel):
+    """카드의 "근거 과제·자료" 한 건 — 화면은 제목 + 자료원 이름만 보인다(내부 번호 없음)."""
+
+    doc_id: str
+    title: str  # 수집 문서 제목 (비신뢰)
+    source: str = ""
 
 
 class ProjectRecommendation(BaseModel):
@@ -35,6 +45,19 @@ class ProjectRecommendation(BaseModel):
     # 자기 중복 검사(추천 글로 precheck)에서 원래 아이디어보다 가깝게 차단된 기존 과제 doc_id.
     # recommend.self_overlap=warn 이면 카드에 경고로 보이고(사람이 판단), exclude 면 추천에서 뺀다
     overlap_warning: list[str] = Field(default_factory=list)
+    # ── 카드 겹침 재판정 (2026-10-28 밤 레인 A, ADR 0039) — ② 판정과 같은 기준
+    # (reranker ≥ 0.5 + 핵심 키워드 + Argon 같음 판정).
+    # overlap_warning 은 "같다" 로 판정된 가까운 과제 1~2건 ──
+    overlap_titles: list[str] = Field(default_factory=list)  # 그 과제 제목 (비신뢰)
+    overlap_reason: str = Field(default="", max_length=MAX_REC_CHARS)  # 판정의 한 줄 겹치는 점
+    overlap_by: str | None = (
+        None  # argon | local | rule(AI 확인 실패 — 규칙 기준) | None(확인 안 함)
+    )
+    regenerated: bool = False  # 겹쳐서 겹치는 부분을 피하라는 지시로 한 번 다시 받은 안
+    closeness: float | None = None  # 가장 가까운 기존 과제와의 가까움(정렬용, 낮을수록 다름)
+    difference: str | None = None  # 차별성 판단: high | mid | low (판단 — 화면에 "판단" 표시)
+    refs: list[RecommendationRef] = Field(default_factory=list)  # 근거 과제·자료 (제목·자료원)
+    added: bool = False  # [더 만들기] 로 보탠 안
 
     def self_check_text(self) -> str:
         """자기 중복 검사(precheck)에 넣는 글 — 가제·요약·차별점."""
@@ -45,7 +68,7 @@ class RecommendationResult(BaseModel):
     """추천 결과 + 외부 전송 범위. recommendations 가 비면 no_recommendation_reason 이 있다."""
 
     recommendations: list[ProjectRecommendation] = Field(
-        default_factory=list, max_length=MAX_RECOMMENDATIONS
+        default_factory=list, max_length=MAX_TOTAL_RECOMMENDATIONS
     )
     no_recommendation_reason: str | None = Field(default=None, max_length=MAX_REC_CHARS)
     discarded: list[dict[str, str]] = Field(default_factory=list)  # {title, reason}
@@ -59,6 +82,8 @@ class RecommendationResult(BaseModel):
     skipped_reason: str | None = None  # no_alerts_or_evidence | no_documents | parse_failed
     regenerated: bool = False  # 검증 뒤 2건 미만이라 제외 사유를 주고 한 번 다시 받았다
     similar_doc_ids: list[str] = Field(default_factory=list)  # [유사함] 으로 고른 과제 (입력 범위)
+    overlap_checked: bool = False  # 카드 겹침 재판정을 했다 (ADR 0039)
+    overlap_regenerated: int = 0  # 겹쳐서 다시 받은 카드 수
 
     def transfer(self) -> dict[str, object]:
         """manifest 에 남기는 전송 기록 (본문 없음)."""
