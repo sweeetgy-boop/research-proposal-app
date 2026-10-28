@@ -57,6 +57,7 @@ REQUEST_KEYS = (
     "remarks",
 )
 WAITING = {"queued", "running", "draft_reviewing", "final_reviewing"}
+FIGURES_WAITING = {"pending", "drawing"}
 
 
 def _token() -> str:
@@ -96,6 +97,34 @@ def _alert_ids(alert: dict[str, Any]) -> list[str]:
     return [str(alert.get("doc_id"))] + [str(x) for x in alert.get("merged_ids") or []]
 
 
+LIVE_OK = ("ok", "cached", "empty", "off", None)
+
+
+def _live_fields(live: Any, *, prefix: str) -> dict[str, Any]:
+    """실시간 검색 요약(REST live_search 모양) → 상태·실패 자료원·자료원별 상태/건수.
+    없으면 None."""
+    if not isinstance(live, dict):
+        return {prefix: None, f"{prefix}_failures": [], f"{prefix}_sources": {}}
+    sources = live.get("sources") or []
+    return {
+        prefix: live.get("status"),
+        f"{prefix}_failures": [
+            {"source": x.get("source"), "status": x.get("status")}
+            for x in sources
+            if x.get("status") not in LIVE_OK
+        ],
+        f"{prefix}_sources": {
+            str(x.get("source")): {
+                "status": x.get("status"),
+                "count": x.get("count"),
+                "new": x.get("new"),
+                "cached": x.get("cached"),
+            }
+            for x in sources
+        },
+    }
+
+
 def _rec_items(rec: Any) -> list[Any]:
     if not isinstance(rec, dict):
         return []
@@ -132,6 +161,21 @@ class Driver:
                 return run if isinstance(run, dict) else {"status": "timeout"}
             await asyncio.sleep(2)
 
+    async def wait_figures(
+        self, rid: str, run: dict[str, Any], *, limit: float = 1200.0
+    ) -> dict[str, Any]:
+        """그림이 백그라운드로 그려지는 동안(figures_status pending·drawing) 기다린다.
+        필드가 없으면 그대로."""
+        t0 = time.perf_counter()
+        while run.get("figures_status") in FIGURES_WAITING:
+            if time.perf_counter() - t0 > limit:
+                break
+            await asyncio.sleep(2)
+            code, nxt = await self.j("GET", f"/v1/runs/{rid}")
+            if code == 200 and isinstance(nxt, dict):
+                run = nxt
+        return run
+
     async def precheck(
         self,
         req: dict[str, Any],
@@ -167,15 +211,12 @@ class Driver:
         alerts = body.get("alerts") or []
         blocking = [a for a in alerts if a.get("blocking")]
         top5 = [i for a in alerts[:5] for i in _alert_ids(a)]
-        # 실시간 검색 상태는 표 먼저 응답(stage=rule)에 있다 — 판정 응답의 live_search 는 비어 "off"
-        live = fast.get("live_search") or body.get("live_search") or {}
-        live_fail = [
-            {"source": s.get("source"), "status": s.get("status")}
-            for s in live.get("sources") or []
-            if s.get("status") not in ("ok", "cached", "empty", "off", None)
-        ]
-        out["live"] = live.get("status")
-        out["live_failures"] = live_fail
+        # 실시간 검색 상태는 표 먼저 응답(stage=rule)에 있다 — 판정 응답의 live_search 는
+        # 비어 "off". 측정 시작 시점 값이 아니라 이 건의 응답 값이고, 생성 run 이 생기면
+        # run 상태 값으로 덮는다
+        out.update(_live_fields(fast.get("live_search"), prefix="live_precheck"))
+        out["live"] = out["live_precheck"]
+        out["live_failures"] = out["live_precheck_failures"]
         if jc != 200 or judgment.get("status") in ("error", "failed"):
             out["excluded"] = f"AI 판정 실패({jc}, {judgment.get('status')})"
         exp = set(expected or [])
@@ -332,7 +373,19 @@ class Driver:
         row["run_id"] = rid
         run = await self.wait_status(rid)
         row["draft_seconds"] = round(time.perf_counter() - t0, 1)
+        # 3차(ADR 0045): 초안 글이 먼저 보이고 그림은 백그라운드 — 두 시간을 따로 잰다
+        row["draft_visible_seconds"] = run.get("draft_visible_seconds") or row["draft_seconds"]
+        run = await self.wait_figures(rid, run)
+        row["figures_status"] = run.get("figures_status")
+        row["figures_done_seconds"] = run.get("figures_done_seconds") or round(
+            time.perf_counter() - t0, 1
+        )
         row["status"] = run.get("status")
+        # 실시간 검색 — 이 run 의 실제 상태(생성 때 이어 쓴 세션)
+        row.update(_live_fields(run.get("live_search"), prefix="live_run"))
+        if row.get("live_run") is not None:
+            row["live"] = row["live_run"]
+            row["live_failures"] = row["live_run_failures"]
         row["writer"] = run.get("writer")
         row["local_sections"] = len(run.get("local_sections") or [])
         code, draft = await self.j("GET", f"/v1/runs/{rid}/draft")
