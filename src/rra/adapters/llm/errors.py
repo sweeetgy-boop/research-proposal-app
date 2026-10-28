@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from rra.application.ports.llm import RateLimited
+
 
 class LLMError(RuntimeError):
     """LLM 호출 실패 일반."""
@@ -13,6 +15,10 @@ class LLMTimeout(LLMError):
 
 class LLMResponseInvalid(LLMError):
     """응답이 OpenAI 호환 스키마가 아님."""
+
+
+class LLMRateLimited(LLMError, RateLimited):
+    """429 — 재시도(Retry-After·공유 백오프)까지 소진. 유스케이스는 rate_limit 으로 기록한다."""
 
 
 class LLMAuthError(LLMError):

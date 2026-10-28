@@ -44,8 +44,29 @@ MANIFEST_KEYS = frozenset(
         "failed_sections",  # 빈 초안 금지(ADR 0027): 실패 섹션 키·사유만
         "fallback_sections",  # 대체 작성(ADR 0027): 섹션 키·사유·provider/model·전송 doc_id·호출 수
         "figures",  # [G] 그림: id·종류·섹션·renderer·model·호출 수·포함·확인·배치 (명세·본문 없음)
+        "writer",  # [3] ADR 0032: 이 run 의 섹션 작성자 gemini | local
+        "writers",  # 섹션별 작성자·로컬 대체 사유·전송 doc_id·원격 호출 수
+        "local_sections",  # 로컬 대체 작성 섹션 키
+        "local_check",  # 로컬 근거 대조 개수·건너뛴 섹션
+        "gemini_calls",  # 초안 한 건의 Gemini 호출 수 (작성·검토·그림·합계)
     }
 )
+WRITER_KEYS = frozenset(
+    {
+        "key",
+        "provider",
+        "model",
+        "local_fallback",
+        "reason",
+        "public_doc_ids",
+        "internal_doc_ids",
+        "calls",
+    }
+)
+LOCAL_CHECK_KEYS = frozenset(
+    {"enabled", "mismatches", "skipped_sections", "sentences", "checked_sections"}
+)
+GEMINI_CALL_KEYS = frozenset({"compose", "review", "figures", "total"})
 FIGURE_KEYS = frozenset(
     {
         "id",
@@ -205,6 +226,16 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
         extra = set(fb) - FALLBACK_KEYS
         if extra:
             raise ValueError(f"manifest fallback_sections 에 허용되지 않은 키: {sorted(extra)}")
+    for writer in manifest.get("writers") or []:
+        extra = set(writer) - WRITER_KEYS
+        if extra:
+            raise ValueError(f"manifest writers 에 허용되지 않은 키: {sorted(extra)}")
+    extra = set(manifest.get("local_check") or {}) - LOCAL_CHECK_KEYS
+    if extra:
+        raise ValueError(f"manifest local_check 에 허용되지 않은 키: {sorted(extra)}")
+    extra = set(manifest.get("gemini_calls") or {}) - GEMINI_CALL_KEYS
+    if extra:
+        raise ValueError(f"manifest gemini_calls 에 허용되지 않은 키: {sorted(extra)}")
     for fig in manifest.get("figures") or []:
         extra = set(fig) - FIGURE_KEYS
         if extra:

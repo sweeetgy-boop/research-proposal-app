@@ -82,3 +82,44 @@ class FlockSlot:
             yield
         finally:
             unlock(fd)
+
+
+class FlockPool:
+    """GenerationSlot 구현 — N 칸짜리 프로세스 간 슬롯 (runs/.run-<i>.lock, i < size).
+
+    Argon 작성(compose.writer: gemini)일 때 run 전체가 잡는다 — 동시에 도는 run 을
+    runs.max_concurrent 개로 묶는다. 로컬 모델 단계는 이 안에서 따로 FlockSlot(.generate.lock)을
+    잡는다(한 번에 하나).
+    """
+
+    def __init__(self, root: Path, size: int, *, name: str = "run", poll_sec: float = POLL_SEC):
+        self.root = Path(root)
+        self.size = max(1, int(size))
+        self.name = name
+        self.poll_sec = poll_sec
+
+    def __repr__(self) -> str:
+        return f"FlockPool(size={self.size})"
+
+    def paths(self) -> list[Path]:
+        return [self.root / f".{self.name}-{i}.lock" for i in range(self.size)]
+
+    def busy(self) -> int:
+        """지금 잡혀 있는 칸 수 (진단용)."""
+        return sum(1 for p in self.paths() if is_locked(p))
+
+    def _try(self) -> int | None:
+        for path in self.paths():
+            fd = try_lock(path)
+            if fd is not None:
+                return fd
+        return None
+
+    @contextlib.asynccontextmanager
+    async def acquire(self) -> AsyncIterator[None]:
+        while (fd := self._try()) is None:
+            await asyncio.sleep(self.poll_sec)
+        try:
+            yield
+        finally:
+            unlock(fd)

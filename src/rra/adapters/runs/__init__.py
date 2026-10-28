@@ -2,6 +2,6 @@
 
 from rra.adapters.runs.asyncio_runner import AsyncioTaskRunner
 from rra.adapters.runs.file_run_store import FileRunStore
-from rra.adapters.runs.locks import FlockSlot
+from rra.adapters.runs.locks import FlockPool, FlockSlot
 
-__all__ = ["AsyncioTaskRunner", "FileRunStore", "FlockSlot"]
+__all__ = ["AsyncioTaskRunner", "FileRunStore", "FlockPool", "FlockSlot"]

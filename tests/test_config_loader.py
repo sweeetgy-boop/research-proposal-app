@@ -228,7 +228,7 @@ def test_stage_provider_resolves_table_entry(provider_dir):
     assert review["api_key_field"] == "gemini_api_key" and not llm_key_present(s, review)
     with_key = settings_for(provider_dir, gemini_api_key="k")
     assert llm_key_present(with_key, llm_config(with_key, "review"))
-    assert review_policy(s) == {"auto": False, "include_internal": False}
+    assert review_policy(s) == {"auto": False, "first_pass": True, "include_internal": False}
 
 
 def test_provider_argument_overrides_stage_and_env_base_url_only_touches_default(
@@ -267,7 +267,7 @@ def test_shipped_llm_yaml_routes_review_to_gemini_and_compose_to_mlx():
     assert review["served_model"] == "gemini-4-argon" and review["reasoning_effort"] == "low"
     assert review["json_mode"] == "auto"
     assert "generativelanguage.googleapis.com" in allowed_domains(s)
-    assert review_policy(s) == {"auto": True, "include_internal": True}
+    assert review_policy(s) == {"auto": True, "first_pass": False, "include_internal": True}
 
 
 # ── [L] model_profiles ────────────────────────────────────

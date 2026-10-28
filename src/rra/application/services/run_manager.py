@@ -19,8 +19,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import Callable, Mapping
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
@@ -115,6 +118,13 @@ from rra.domain.rules.versions import (
     same_content,
     section_from_texts,
     split_sentences,
+)
+from rra.domain.rules.writer import (
+    SELF_REVIEW,
+    gemini_calls,
+    local_check_problems,
+    local_check_view,
+    local_sections,
 )
 
 logger = logging.getLogger("rra.runs")
@@ -302,8 +312,15 @@ class RunManager:
         generate_public: GenerateProposal | None = None,
         review_budget: DailyBudgetPort | None = None,
         figures: MakeFigures | None = None,
+        run_slot: GenerationSlot | None = None,
+        first_pass: bool = True,
     ):
         self.usability = usability or UsabilityConfig()  # U1~U8 켜기/끄기
+        # Argon 작성(ADR 0032)일 때 run 전체가 잡는 N칸 슬롯(runs.max_concurrent).
+        # None 이면 칸 제한 없음
+        self.run_slot = run_slot
+        # llm.yaml review.first_pass — False 면 ③ Argon 1차 검토를 자동으로 돌리지 않는다(자기 검토)
+        self.first_pass = first_pass
         self.figures = figures  # [G] 그림 유스케이스 (None 이면 그림 단계 없음)
         # 공용 계정 run(scope=public)용 — internal 을 뺀 저장소로 조립된 같은 유스케이스
         self.generate_public = generate_public
@@ -363,6 +380,7 @@ class RunManager:
             raise DailyLimitReached(f"오늘 생성 상한 {daily_limit}건에 이르렀습니다.")
         state = self.store.create(user, req, self._plan(), self._clock())
         state.scope = "public" if scope == "public" else "all"
+        state.writer = "gemini" if self._generate_for(state).writes_remotely else "local"
         state.model = self.model
         state.template = self.generate.template
         state.differentiation = dict(differentiation) if differentiation else None
@@ -425,8 +443,12 @@ class RunManager:
         state = self.store.load_state(user, run_id)
         current: StepRecord | None = None
         auto_review = False
+        gen = self._generate_for(state)
         try:
-            async with self.slot.acquire():
+            # 로컬 작성: run 전체가 전역 슬롯 1칸 안에서. Argon 작성(ADR 0032): run 은
+            # run_slot(최대 runs.max_concurrent)만 잡고, 로컬 모델 단계(대체 작성·local_check·
+            # 설계도·그림)만 전역 슬롯을 잡는다
+            async with self._run_gate(gen):
                 state.status = "running"
                 self._save(state)
                 try:
@@ -435,7 +457,6 @@ class RunManager:
                     state.status = "failed"  # 저장된 입력이 깨짐 — 재개해도 소용없다
                     return state
 
-                gen = self._generate_for(state)
                 snapshot = self.store.load_snapshot(user, run_id)
                 if snapshot is None:
                     current = self._begin(state, RETRIEVE)
@@ -452,77 +473,21 @@ class RunManager:
                     current = None
                 self._ensure_done(state, RETRIEVE)
 
-                outline = await self._outline_step(user, run_id, state, req, snapshot, on_step)
+                outline_gate = (  # Q2 설계도 = 로컬 모델 (켜져 있을 때만 슬롯)
+                    self._local_gate(gen)
+                    if self.pipeline.outline and self.outliner is not None
+                    else contextlib.nullcontext()
+                )
+                async with outline_gate:
+                    outline = await self._outline_step(user, run_id, state, req, snapshot, on_step)
                 if self.pipeline.section_search and not snapshot.section_chunks:
                     snapshot = await gen.retrieve_sections(req, snapshot, outline)
                     self.store.save_snapshot(user, run_id, snapshot)  # 재개 때 다시 하지 않는다
 
                 sections = self.store.load_sections(user, run_id)
-                candidates = self.store.load_candidates(user, run_id) or {}
-                want_b = self.pipeline.two_candidates and self.reviewer is not None
-                for key in self.generate.section_keys:
-                    if key in sections:
-                        self._ensure_done(state, section_step(key))
-                        continue
-                    current = self._begin(state, section_step(key))
-                    composed = await gen.compose_section(key, req, snapshot, outline=outline)
-                    self.store.save_section(user, run_id, composed.section)
-                    if want_b and key in CORE_SECTIONS and composed.mode == "llm":
-                        # Q7 후보 B — 같은 섹션을 다른 구성으로 한 번 더. 1차 검토가 고른다
-                        alt = await gen.compose_section(
-                            key, req, snapshot, outline=outline, candidate=composed.section
-                        )
-                        if alt.section.sentences:
-                            candidates[key] = alt.section.model_dump(mode="json")
-                            self.store.save_candidates(user, run_id, candidates)
-                    parse = composed.parse
-                    if parse is not None and parse.stripped:
-                        logger.warning(
-                            "run.tag_fragments_stripped run=%s section=%s n=%d",
-                            run_id,
-                            key,
-                            parse.stripped,
-                        )
-                    if parse is not None and not parse.ok:
-                        partial = parse.status == "choices_only"
-                        event = "parse_partial" if partial else "parse_failed"
-                        logger.warning(
-                            "run.%s run=%s section=%s reason=%s raw_chars=%d",
-                            event,
-                            run_id,
-                            key,
-                            parse.status,
-                            parse.raw_chars,
-                        )
-                    sections[key] = composed.section
-                    fb = getattr(composed, "fallback", None)
-                    if fb:  # 대체 작성(ADR 0027) — 전송 기록만 (본문 없음)
-                        state.fallback_sections = [
-                            x for x in state.fallback_sections if x.get("key") != key
-                        ] + [{"key": key, **fb}]
-                        logger.warning(
-                            "run.section_fallback run=%s section=%s reason=%s provider=%s",
-                            run_id,
-                            key,
-                            fb.get("reason"),
-                            fb.get("provider"),
-                        )
-                    self._finish(
-                        state,
-                        current,
-                        on_step,
-                        sentences=len(composed.section.sentences),
-                        dropped=len(composed.dropped),
-                        evidence=sorted(
-                            {e for s in composed.section.sentences for e in s.evidence}
-                        ),
-                        prompt_hash=composed.prompt_hash,
-                        parse=parse.status if parse is not None else composed.mode,
-                        raw_chars=parse.raw_chars if parse is not None else None,
-                        retries=composed.retries,
-                        fallback=f"{fb['provider']}/{fb['model']}" if fb else None,
-                    )
-                    current = None
+                await self._compose_sections(
+                    user, run_id, state, gen, req, snapshot, outline, sections, on_step
+                )
 
                 current = self._begin(state, FINALIZE)
                 ordered = [sections[k] for k in self.generate.section_keys]
@@ -533,6 +498,13 @@ class RunManager:
                         self.store.save_section(user, run_id, sec)
                 ordered = draft.sections
                 self.store.save_draft(user, run_id, draft)
+                if gen.local_check and gen.writes_remotely:
+                    # 로컬 근거 대조 — Argon 이 쓴 섹션만, 섹션당 시간 상한. 불일치는 경고(알림)만
+                    remote_keys = {
+                        k for k, w in state.writers.items() if not w.get("local_fallback")
+                    }
+                    state.local_check = await gen.check_locally(ordered, snapshot, keys=remote_keys)
+                    problems = [*problems, *local_check_problems(ordered, state.local_check)]
                 # 빈 초안 금지(ADR 0027): 실패 섹션은 빈칸 + 목록·사유, 전부 실패일 때만 invalid
                 failed = draft_failures.failed_sections(
                     state.steps, self.generate.rules.required_sections
@@ -551,7 +523,7 @@ class RunManager:
                         ",".join(f"{f.key}:{f.reason}" for f in failed),
                         invalid,
                     )
-                if not invalid:  # draft_v1 = 로컬 생성
+                if not invalid:  # draft_v1 = 첫 작성 (로컬 또는 Argon)
                     self.store.save_version(
                         user,
                         run_id,
@@ -570,7 +542,8 @@ class RunManager:
                 if not invalid and self.figures is not None:
                     # [G] 그림 — v1 에 붙인다(검토 전). 그동안 상태는 running 그대로. drafted 로
                     # 먼저 저장하면 화면이 편집을 열고 편집은 이 실행의 락에 막힌다(10-28 시험)
-                    await self._figures_step(user, run_id, state, ordered, req, snapshot)
+                    async with self._local_gate(gen):  # 그림 명세 = 로컬 모델
+                        await self._figures_step(user, run_id, state, ordered, req, snapshot)
                 state.status = "invalid" if invalid else "drafted"
                 if not invalid:
                     wants_review = self.pipeline.draft_review and self.review_auto
@@ -578,6 +551,11 @@ class RunManager:
                         self._skip_review(user, run_id, state, "no_review_llm")
                     elif wants_review and self._budget_exhausted():
                         self._skip_review(user, run_id, state, "budget")
+                    elif wants_review and not self.first_pass:
+                        # Argon 이 쓴 초안을 Argon 이 1차 검토하면 자기 검토 — 끈다
+                        # (⑤ 최종 검토는 그대로)
+                        self._skip_review(user, run_id, state, SELF_REVIEW)
+                        wants_review = False
                     elif not wants_review:
                         self._skip_review(user, run_id, state, "disabled")
                     auto_review = (
@@ -604,6 +582,151 @@ class RunManager:
                     )
                     self._skip_review(user, run_id, state, "failed")
                     self._save(state)
+
+    def _run_gate(self, gen: GenerateProposal) -> AbstractAsyncContextManager[None]:
+        """run 전체가 잡는 슬롯 — 로컬 작성이면 전역 슬롯(1칸), Argon 작성이면 run_slot(N칸)."""
+        if not gen.writes_remotely:
+            return self.slot.acquire()
+        if self.run_slot is not None:
+            return self.run_slot.acquire()
+        return contextlib.nullcontext()
+
+    def _local_gate(self, gen: GenerateProposal) -> AbstractAsyncContextManager[None]:
+        """run 안의 로컬 모델 단계 — Argon 작성일 때만 전역 슬롯을 잡는다
+        (로컬 작성은 run 전체가 이미 잡고 있다)."""
+        if gen.writes_remotely:
+            return self.slot.acquire()
+        return contextlib.nullcontext()
+
+    async def _compose_sections(
+        self,
+        user: str,
+        run_id: str,
+        state: RunState,
+        gen: GenerateProposal,
+        req: ProposalRequest,
+        snapshot: RetrievalSnapshot,
+        outline: Outline | None,
+        sections: dict[str, Section],
+        on_step: StepCallback | None,
+    ) -> None:
+        """섹션 작성 — 로컬 작성은 순서대로 하나씩, Argon 작성은 compose_concurrency 개씩 동시에.
+        섹션마다 검증을 통과한 뒤 저장한다(재개 단위). 하나가 실패하면 나머지를 취소하고
+        그 예외를 올린다."""
+        candidates = self.store.load_candidates(user, run_id) or {}
+        want_b = self.pipeline.two_candidates and self.reviewer is not None
+        pending: list[str] = []
+        for key in self.generate.section_keys:
+            if key in sections:
+                self._ensure_done(state, section_step(key))
+            else:
+                pending.append(key)
+
+        async def one(key: str) -> None:
+            step = self._begin(state, section_step(key))
+            try:
+                composed = await gen.compose_section(key, req, snapshot, outline=outline)
+                self.store.save_section(user, run_id, composed.section)
+                if want_b and key in CORE_SECTIONS and composed.mode == "llm":
+                    # Q7 후보 B — 같은 섹션을 다른 구성으로 한 번 더. 1차 검토가 고른다
+                    alt = await gen.compose_section(
+                        key, req, snapshot, outline=outline, candidate=composed.section
+                    )
+                    if alt.section.sentences:
+                        candidates[key] = alt.section.model_dump(mode="json")
+                        self.store.save_candidates(user, run_id, candidates)
+            except BaseException as exc:
+                step.status, step.error, step.finished_at = (
+                    "error",
+                    type(exc).__name__,
+                    self._clock(),
+                )
+                raise
+            self._record_section(run_id, state, step, key, composed, sections, on_step)
+
+        limit = max(1, int(gen.compose_concurrency)) if gen.writes_remotely else 1
+        if limit == 1 or len(pending) <= 1:
+            for key in pending:
+                await one(key)
+            return
+        sem = asyncio.Semaphore(limit)
+
+        async def bounded(key: str) -> None:
+            async with sem:
+                await one(key)
+
+        try:
+            async with asyncio.TaskGroup() as group:
+                for key in pending:
+                    group.create_task(bounded(key))
+        except ExceptionGroup as eg:  # 첫 실패를 그대로 (step 기록·manifest 는 클래스명만)
+            raise eg.exceptions[0] from None
+
+    def _record_section(
+        self,
+        run_id: str,
+        state: RunState,
+        step: StepRecord,
+        key: str,
+        composed: Any,
+        sections: dict[str, Section],
+        on_step: StepCallback | None,
+    ) -> None:
+        parse = composed.parse
+        if parse is not None and parse.stripped:
+            logger.warning(
+                "run.tag_fragments_stripped run=%s section=%s n=%d",
+                run_id,
+                key,
+                parse.stripped,
+            )
+        if parse is not None and not parse.ok:
+            partial = parse.status == "choices_only"
+            event = "parse_partial" if partial else "parse_failed"
+            logger.warning(
+                "run.%s run=%s section=%s reason=%s raw_chars=%d",
+                event,
+                run_id,
+                key,
+                parse.status,
+                parse.raw_chars,
+            )
+        sections[key] = composed.section
+        fb = getattr(composed, "fallback", None)
+        if fb:  # 대체 작성(ADR 0027) — 전송 기록만 (본문 없음)
+            state.fallback_sections = [
+                x for x in state.fallback_sections if x.get("key") != key
+            ] + [{"key": key, **fb}]
+            logger.warning(
+                "run.section_fallback run=%s section=%s reason=%s provider=%s",
+                run_id,
+                key,
+                fb.get("reason"),
+                fb.get("provider"),
+            )
+        writer = getattr(composed, "writer", None)
+        if writer:  # 작성 기록(ADR 0032) — provider/model·로컬 대체·사유·전송 doc_id (본문 없음)
+            state.writers[key] = dict(writer)
+            if writer.get("local_fallback"):
+                logger.warning(
+                    "run.section_local_fallback run=%s section=%s reason=%s",
+                    run_id,
+                    key,
+                    writer.get("reason"),
+                )
+        self._finish(
+            state,
+            step,
+            on_step,
+            sentences=len(composed.section.sentences),
+            dropped=len(composed.dropped),
+            evidence=sorted({e for s in composed.section.sentences for e in s.evidence}),
+            prompt_hash=composed.prompt_hash,
+            parse=parse.status if parse is not None else composed.mode,
+            raw_chars=parse.raw_chars if parse is not None else None,
+            retries=composed.retries,
+            fallback=f"{fb['provider']}/{fb['model']}" if fb else None,
+        )
 
     async def _outline_step(
         self,
@@ -746,7 +869,7 @@ class RunManager:
         return plan_steps(
             self.generate.section_keys,
             outline=self.pipeline.outline,
-            draft_review=self.pipeline.draft_review,
+            draft_review=self.pipeline.draft_review and self.first_pass,
             figures=self.figures is not None,
         )
 
@@ -914,7 +1037,8 @@ class RunManager:
         attempts = 1 + (self.pipeline.draft_review_retries if kind == "draft" else 0)
         step = None
         try:
-            async with self.slot.acquire():
+            # 검토는 Argon 만 쓴다 — Argon 작성이면 run_slot(N칸), 로컬 작성이면 예전대로 전역 슬롯
+            async with self._run_gate(self.generate):
                 if kind == "draft":
                     try:
                         step = self._begin(state, DRAFT_REVIEW)
@@ -1375,7 +1499,7 @@ class RunManager:
             retrieved_ids=snapshot.retrieved_ids if snapshot else set(),
             template=state.template,
         )
-        problems = self._problems_for(user, run_id, draft, snapshot, version)
+        problems = self._problems_for(user, run_id, draft, snapshot, version, state)
         version = version.model_copy(update={"alerts": len(problems)})
         self.store.save_version(user, run_id, version)
         state.failed_sections = draft_failures.still_failed(state.failed_sections, version.sections)
@@ -1407,9 +1531,13 @@ class RunManager:
         draft: Draft,
         snapshot: RetrievalSnapshot | None,
         version: DraftVersion,
+        state: RunState | None = None,
     ) -> list:
-        """규칙 검사 전부 — lint·U6 일정 + U1 검토 판정 불일치·근거 전부 제외 경고."""
+        """규칙 검사 전부 — lint·U6 일정 + U1 검토 판정 불일치·근거 전부 제외 경고 + local_check
+        불일치(ADR 0032)."""
         problems = self.generate.lint_draft(draft, snapshot)
+        if state is not None and state.local_check:
+            problems.extend(local_check_problems(draft.sections, state.local_check))
         review = self.store.load_review(user, run_id, 1)
         if review is not None and review.support:
             problems.extend(support_problems(draft.sections, review.support))
@@ -1430,7 +1558,7 @@ class RunManager:
             retrieved_ids=snapshot.retrieved_ids if snapshot else set(),
             template=state.template,
         )
-        problems = self._problems_for(user, run_id, draft, snapshot, version)
+        problems = self._problems_for(user, run_id, draft, snapshot, version, state)
         state.failed_sections = draft_failures.still_failed(state.failed_sections, version.sections)
         problems = draft_failures.relax_failed(problems, state.failed_sections)
         state.problems = [p.model_dump() for p in problems]
@@ -1588,9 +1716,13 @@ class RunManager:
         if snapshot is None:
             raise RewriteRejected("검색 스냅샷이 없어 다시 쓸 수 없습니다.")
         notes = (self.store.load_notes(user, run_id) or {}).get("answers", {}).get(key) or {}
-        async with self.slot.acquire():
+        # 로컬 작성: 전역 슬롯 안에서. Argon 작성: 로컬 대체가 필요할 때만 유스케이스가
+        # 슬롯을 잡는다
+        gen = self._generate_for(state)  # 공용 계정 run 은 internal 제외 유스케이스
+        gate = self.slot.acquire() if not gen.writes_remotely else contextlib.nullcontext()
+        async with gate:
             try:
-                composed = await self.generate.rewrite_section(
+                composed = await gen.rewrite_section(
                     key, self.store.load_request(user, run_id), snapshot, current, notes=notes
                 )
             except ValueError as exc:
@@ -1953,7 +2085,7 @@ class RunManager:
             return None
         record = self.store.load_usage(user, run_id) or UsageRecord(run_id=run_id)
         record = refresh_usage(record, state, counts=counts, now=self._clock())
-        update: dict[str, Any] = {}
+        update: dict[str, Any] = {"gemini_calls": self._gemini_calls(user, run_id, state)}
         if checklist_coverage is not None:
             update["checklist_coverage"] = float(checklist_coverage)
         if rewrites_add:
@@ -1963,6 +2095,21 @@ class RunManager:
         record = record.model_copy(update=update)
         self.store.save_usage(user, run_id, record)
         return record
+
+    def _gemini_calls(self, user: str, run_id: str, state: RunState) -> dict[str, int]:
+        """초안 한 건의 Gemini 호출 수 — 작성·검토(차수 합)·그림
+        (domain/rules/writer.gemini_calls)."""
+        reviews = [
+            r
+            for n in self.store.list_reviews(user, run_id)
+            if (r := self.store.load_review(user, run_id, n)) is not None
+        ]
+        return gemini_calls(
+            state.writers,
+            state.fallback_sections,
+            [r.transfer.calls for r in reviews],
+            state.figures,
+        )
 
     async def usage(self, user: str, run_id: str) -> UsageRecord | None:
         state = await self.status(user, run_id)
@@ -2303,6 +2450,23 @@ def manifest(
         },
         "failed_sections": [{"key": f.key, "reason": f.reason} for f in state.failed_sections],
         "fallback_sections": [dict(x) for x in state.fallback_sections],
+        # [3] ADR 0032 — 섹션 작성자·로컬 대체 사유·전송 doc_id·원격 호출 수 (본문 없음)
+        "writer": state.writer,
+        "writers": [{"key": k, **dict(w)} for k, w in state.writers.items()],
+        "local_sections": local_sections(state.writers, state.section_keys),
+        "local_check": None
+        if state.local_check is None
+        else {
+            **(local_check_view(state.local_check) or {}),
+            "sentences": int(state.local_check.get("sentences") or 0),
+            "checked_sections": list(state.local_check.get("checked_sections") or []),
+        },
+        "gemini_calls": gemini_calls(
+            state.writers,
+            state.fallback_sections,
+            [r.transfer.calls for r in reviews or []],
+            state.figures,
+        ),
         "versions": [
             {
                 "version": v.version,

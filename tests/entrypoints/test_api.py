@@ -503,7 +503,24 @@ def test_cli_api_refuses_without_token(monkeypatch, capsys):
 
 
 # ── 가짜 모드 (RRA_FAKE_LLM=1) — composition 이 가짜 LLM(작성·검토)·메모리 저장소를 끼운다 ──
-async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_model(tmp_path):
+def _config_with_first_pass(tmp_path, value: str):
+    """배포 설정 사본 — llm.yaml review.first_pass 만 바꾼다 (Argon 1차 검토 경로 시험용)."""
+    import shutil
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[2] / "config"
+    dst = tmp_path / "config"
+    shutil.copytree(src, dst)
+    llm = dst / "llm.yaml"
+    text = llm.read_text(encoding="utf-8")
+    assert "  first_pass: off" in text
+    llm.write_text(text.replace("  first_pass: off", f"  first_pass: {value}"), encoding="utf-8")
+    return dst
+
+
+async def test_fake_mode_default_flow_argon_writes_and_skips_self_review(tmp_path):
+    """[3] 배포 기본(ADR 0032): 가짜 Argon 이 섹션을 쓰고(writers·writer=gemini), 1차 검토는
+    self_review 로 건너뛴 v1 → 편집 v2 → ⑤ 최종 검토 → ⑥ 마무리."""
     from pydantic import SecretStr
 
     from rra.composition import build_api
@@ -515,6 +532,73 @@ async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_mod
         runs_dir=tmp_path / "runs",
         db_path=tmp_path / "never-created.sqlite",
         static_dir=tmp_path / "no-dist",
+    )
+    app = build_api(settings, sse_poll_sec=0.01)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        r = await c.post("/v1/runs", json=SLOTS, headers=AUTH)
+        run_id = r.json()["run_id"]
+        events = await _read_sse(c, run_id)
+        assert events[-1][1]["status"] == "drafted"
+        state = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()
+        assert state["writer"] == "gemini" and state["local_sections"] == []
+        assert state["flow"]["draft_review_skipped"] == "self_review"
+        assert "draft_review" not in [s["name"] for s in state["steps"]]
+        draft = (await c.get(f"/v1/runs/{run_id}/draft", headers=AUTH)).json()
+        assert draft["version"] == 1 and draft["versions"] == [1]
+        assert draft["writers"]["method"] == {
+            "provider": "gemini",
+            "model": "fake/argon",
+            "local_fallback": False,
+            "reason": None,
+        }
+        assert draft["local_sections"] == [] and draft["local_check"] is None
+        review = (await c.get(f"/v1/runs/{run_id}/draft-review", headers=AUTH)).json()
+        assert review["status"] == "skipped"
+        r = await c.post(
+            f"/v1/runs/{run_id}/versions",
+            json={
+                "sentences": [
+                    {"sentence_id": "s:method:0", "action": "manual", "text": "제안자가 고친 문장."}
+                ],
+                "note": "검토 전 수정",
+            },
+            headers=AUTH,
+        )
+        assert r.status_code == 200 and r.json()["version"] == 2
+        # 최종 검토 없이는 마무리할 수 없다 (1차 검토를 건너뛴 것은 review_skipped 가 아니다)
+        r = await c.post(f"/v1/runs/{run_id}/finalize", json={}, headers=AUTH)
+        assert r.status_code == 409
+        r = await c.post(f"/v1/runs/{run_id}/final-review", headers=AUTH)
+        assert r.status_code == 202
+        for _ in range(200):
+            status = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["status"]
+            if status == "final_reviewed":
+                break
+            await asyncio.sleep(0.01)
+        assert status == "final_reviewed"
+        r = await c.post(
+            f"/v1/runs/{run_id}/finalize",
+            json={"department": "철도연구원 기술연구처"},
+            headers=AUTH,
+        )
+        assert r.status_code == 200 and r.headers["x-rra-status"] == "finalized"
+
+
+async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_model(tmp_path):
+    """review.first_pass: on 이면 예전처럼 Argon 1차 검토 → v2 자동 반영까지
+    (설정 사본으로 켠다)."""
+    from pydantic import SecretStr
+
+    from rra.composition import build_api
+
+    settings = Settings(
+        _env_file=None,
+        fake_llm=True,
+        api_token=SecretStr(TOKEN),
+        runs_dir=tmp_path / "runs",
+        db_path=tmp_path / "never-created.sqlite",
+        static_dir=tmp_path / "no-dist",
+        config_dir=_config_with_first_pass(tmp_path, "on"),
     )
     app = build_api(settings, sse_poll_sec=0.01)
     assert app.state.fake_mode is True

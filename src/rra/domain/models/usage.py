@@ -52,3 +52,5 @@ class UsageRecord(BaseModel):
     hwpx_success: bool | None = None  # finalize 성공 여부 (None = 아직)
     satisfaction: Satisfaction | None = None
     updated_at: str | None = None
+    # [3] ADR 0032 — 초안 한 건의 Gemini 호출 수 {compose, review, figures, total}
+    gemini_calls: dict[str, int] = Field(default_factory=dict)

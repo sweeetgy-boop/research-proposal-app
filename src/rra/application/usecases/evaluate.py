@@ -10,7 +10,8 @@
 - 단계별 시간(step 기록, 초 단위)·전체 시간, 서버 RSS, reranker 호출·지연
 
 pipeline 구성(모두 끔·모두 켬·하나씩 끔)별로 한 번씩 돌려 JSON 으로 남기고, 표는
-entrypoints/views.eval_markdown 이 만든다. Gemini 호출 수는 검토 transfer.calls 합이다.
+entrypoints/views.eval_markdown 이 만든다. Gemini 호출 수는 작성(compose_calls —
+Argon 작성·대체 작성) + 검토 transfer.calls 합이다. 그림 이미지 호출은 figure_calls 로 따로 센다.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from rra.domain.models import ProposalRequest
 from rra.domain.rules.keywords import KeywordRule, keyword_overlap
 from rra.domain.rules.lint import STYLE_CODES
 from rra.domain.rules.relevance import has_hangul
+from rra.domain.rules.writer import gemini_calls, local_sections
 
 
 @dataclass
@@ -62,6 +64,14 @@ class EvalIdea:
     failed_sections: list[str] = field(default_factory=list)  # 빈 초안 금지(ADR 0027) 실패 섹션
     fallback_sections: list[str] = field(default_factory=list)  # 대체 작성(Gemini) 섹션
     fallback_calls: int = 0  # 대체 작성 Gemini 호출 수 (gemini_calls 는 검토만)
+    # [3] ADR 0032 — 작성자(gemini|local), 로컬 대체 섹션, 작성 단계 Gemini 호출 수
+    # (Argon 작성 + 대체 작성), 단계별 Gemini 호출 {compose, review, figures, total},
+    # local_check 불일치 수
+    writer: str = "local"
+    local_sections: list[str] = field(default_factory=list)
+    compose_calls: int = 0
+    gemini_by_stage: dict[str, int] = field(default_factory=dict)
+    local_check_mismatches: int | None = None
     # [G] 그림: 만든 수·Nano Banana 채택 수·기본 그림 수·건너뛴 수·이미지 호출 수·그림 단계
     # 시간(초)·그림 의견(검토 지적) 수
     figures_total: int = 0
@@ -100,7 +110,8 @@ class EvalResult:
 
     @property
     def gemini_calls(self) -> int:
-        return sum(i.gemini_calls + i.fallback_calls for i in self.ideas)
+        """작성(Argon·대체) + 검토 호출. 그림 이미지 호출은 figure_calls 로 따로."""
+        return sum(i.gemini_calls + max(i.compose_calls, i.fallback_calls) for i in self.ideas)
 
     def totals(self) -> dict[str, float | int]:
         n = len(self.ideas) or 1
@@ -136,6 +147,8 @@ class EvalResult:
             "invalid": sum(1 for i in self.ideas if i.status == "invalid"),
             "failed_sections": sum(len(i.failed_sections) for i in self.ideas),
             "fallback_sections": sum(len(i.fallback_sections) for i in self.ideas),
+            "local_sections": sum(len(i.local_sections) for i in self.ideas),
+            "compose_calls": sum(i.compose_calls for i in self.ideas),
             # [G] 그림 — 성공률 = Nano Banana 채택 / 만든 그림, 추가 시간 = 그림 단계 평균
             "figures_total": sum(i.figures_total for i in self.ideas),
             "figures_nano": sum(i.figures_nano for i in self.ideas),
@@ -266,6 +279,12 @@ class EvaluateQuality:
         idea.fallback_calls = sum(
             int(x.get("calls", 0) or 0) for x in getattr(state, "fallback_sections", [])
         )
+        writers = dict(getattr(state, "writers", None) or {})
+        idea.writer = str(getattr(state, "writer", "local") or "local")
+        idea.local_sections = local_sections(writers, state.section_keys)
+        local_check = getattr(state, "local_check", None)
+        if local_check:
+            idea.local_check_mismatches = int(local_check.get("mismatches") or 0)
         snapshot = store.load_snapshot(self.user, rid)
         if snapshot is not None:
             idea.exemplars = len(snapshot.exemplars)
@@ -298,6 +317,18 @@ class EvaluateQuality:
             idea.checklist_coverage = review.checklist_coverage
             idea.candidates = {k: v.get("choice", "") for k, v in review.candidate_choices.items()}
             idea.figure_comments = sum(1 for c in review.comments if c.kind == "figure")
+        reviews = [
+            r
+            for n in store.list_reviews(self.user, rid)
+            if (r := store.load_review(self.user, rid, n)) is not None
+        ]
+        idea.gemini_by_stage = gemini_calls(
+            writers,
+            getattr(state, "fallback_sections", []) or [],
+            [r.transfer.calls for r in reviews],
+            getattr(state, "figures", []) or [],
+        )
+        idea.compose_calls = idea.gemini_by_stage["compose"]
         return idea
 
     def _citations(self, idea: EvalIdea, version: Any, snapshot: Any, req: ProposalRequest) -> None:

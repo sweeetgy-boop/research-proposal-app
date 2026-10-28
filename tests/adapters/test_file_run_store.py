@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from rra.adapters.logging import FileRunLog
-from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockSlot
+from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockPool, FlockSlot
 from rra.application.ports import RunBusy, RunNotFound
 from rra.domain.models import Section, Sentence
 
@@ -402,3 +402,25 @@ def test_manifest_usage_allows_counts_only():
         check_manifest({"usage": {"rewrites": 1, "comment": "한 줄 소감"}})
     with pytest.raises(ValueError, match="versions"):
         check_manifest({"versions": [{"version": 1, "evidence_decisions": [{"x": 1}]}]})
+
+
+async def test_pool_admits_up_to_size_runs_and_counts_other_processes(tmp_path):
+    """FlockPool(ADR 0032) — N 칸 중 빈 칸 하나를 잡는다. 다른 프로세스가 잡은 칸도 센다."""
+    root = tmp_path / "runs"
+    root.mkdir()
+    pool = FlockPool(root, 2, poll_sec=0.02)
+    child = hold_lock_in_child(root / ".run-0.lock")  # 다른 프로세스가 한 칸
+    try:
+        async with pool.acquire():  # 남은 한 칸
+            assert pool.busy() == 2
+            with pytest.raises(TimeoutError):
+                async with asyncio.timeout(0.2):
+                    async with pool.acquire():
+                        pytest.fail("칸이 모두 찼는데 들어왔다")
+        assert pool.busy() == 1
+    finally:
+        child.send_signal(signal.SIGKILL)
+        child.wait()
+    async with pool.acquire(), pool.acquire():  # 죽은 프로세스의 칸은 커널이 풀어 준다
+        assert pool.busy() == 2
+    assert pool.busy() == 0

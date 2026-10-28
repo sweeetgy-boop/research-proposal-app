@@ -369,6 +369,22 @@ async def test_429_and_5xx_are_retried_with_backoff():
     assert len(rec.requests) == 3
 
 
+async def test_429_until_retries_run_out_raises_rate_limited_for_the_usecase():
+    """[3] ADR 0032 — 429 로 끝나면 RateLimited(포트 예외) — 유스케이스가 rate_limit 으로
+    기록한다."""
+    from rra.adapters.llm.errors import LLMRateLimited
+    from rra.application.ports import RateLimited
+
+    rec = Recorder(*(httpx.Response(429, text="rate") for _ in range(3)))
+    with pytest.raises(LLMRateLimited) as exc:
+        await build(rec).complete("p")
+    assert isinstance(exc.value, RateLimited) and isinstance(exc.value, LLMError)
+    rec = Recorder(*(httpx.Response(503, text="down") for _ in range(3)))
+    with pytest.raises(LLMError) as exc5:
+        await build(rec).complete("p")
+    assert not isinstance(exc5.value, RateLimited)
+
+
 # ── [L] model_profiles: system 역할 없는 템플릿·stop·usage 집계 ────────────────
 async def test_profile_without_system_role_prepends_system_to_user_and_sends_stop():
     rec = Recorder(

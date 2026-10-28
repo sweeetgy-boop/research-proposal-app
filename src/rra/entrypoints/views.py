@@ -17,6 +17,7 @@ from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.draft_failures import reason_label
 from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
+from rra.domain.rules.writer import local_check_view, local_sections, writers_view
 
 
 def _same(text: str) -> str:
@@ -107,6 +108,10 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
         "failed_sections": failed_sections_payload(state),
         # 대체 작성(ADR 0027): 외부 LLM 이 쓴 섹션 키 — 화면은 "대체 작성" 배지만
         "fallback_sections": fallback_sections_payload(state),
+        # [3] Argon 먼저 작성(ADR 0032): 섹션별 작성자 — 화면은 local_sections 에 "로컬 작성" 배지
+        "writers": writers_payload(state),
+        "local_sections": local_sections_payload(state),
+        "local_check": local_check_payload(state),
         # [G] 그림 카드 — 보고 있는 버전의 그림 목록
         "figures": figures_payload(getattr(view, "figures", []) or [], state.run_id, clean=clean),
         # 전략체계 목록의 출처 — draft 면 2-가-(3) 선택지가 확인 전 초안이라는 뜻
@@ -195,6 +200,22 @@ def fallback_sections_payload(state: Any) -> list[dict[str, str]]:
         }
         for x in getattr(state, "fallback_sections", None) or []
     ]
+
+
+def writers_payload(state: Any) -> dict[str, dict[str, Any]]:
+    """RunState.writers → {섹션: {provider, model, local_fallback, reason}}
+    (doc_id 는 manifest 에만)."""
+    return writers_view(getattr(state, "writers", None) or {})
+
+
+def local_sections_payload(state: Any) -> list[str]:
+    """로컬 모델이 대신 쓴 섹션 키 (Argon 실패) — 섹션 순서대로."""
+    return local_sections(getattr(state, "writers", None) or {}, state.section_keys)
+
+
+def local_check_payload(state: Any) -> dict[str, Any] | None:
+    """local_check 요약 {enabled, mismatches, skipped_sections}. 돌지 않았으면 None."""
+    return local_check_view(getattr(state, "local_check", None))
 
 
 def flow_summary(state: Any, has_working: bool = False) -> dict[str, Any]:
@@ -896,6 +917,8 @@ def run_state_payload(state: Any, *, legacy: bool = False) -> dict[str, Any]:
         "flow": flow_summary(state),
         "failed_sections": failed_sections_payload(state),
         "fallback_sections": fallback_sections_payload(state),
+        "writer": getattr(state, "writer", "local"),  # [3] gemini | local
+        "local_sections": local_sections_payload(state),
     }
 
 
@@ -1104,6 +1127,8 @@ def eval_markdown(results: list[dict[str, Any]], *, date: str) -> str:
         ("invalid", "invalid run"),
         ("failed_sections", "실패 섹션"),
         ("fallback_sections", "대체 작성"),
+        ("local_sections", "로컬 대체"),
+        ("compose_calls", "Gemini 작성 호출"),
         ("figures_total", "그림"),
         ("figures_nano", "Nano Banana 채택"),
         ("figures_baseline", "기본 그림"),

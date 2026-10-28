@@ -21,6 +21,7 @@ from rra.config_loader import (
     allowed_domains,
     api_config,
     auth_config,
+    compose_policy,
     credential_status,
     data_location,
     data_locations,
@@ -51,6 +52,7 @@ from rra.config_loader import (
     retrieval_mix,
     review_policy,
     rnd_notice_config,
+    runs_config,
     section_checklists,
     security_config,
     served_model_aliases,
@@ -1426,10 +1428,20 @@ def build_policy_suggest(settings: Settings | None = None, repo=None):
 
 
 def build_generate(
-    settings: Settings | None = None, *, repo=None, llm=None, reranker=None, pipeline=None
+    settings: Settings | None = None,
+    *,
+    repo=None,
+    llm=None,
+    reranker=None,
+    pipeline=None,
+    local_slot=None,
+    public: bool = False,
 ):
     """GenerateProposal 유스케이스. repo·llm 을 주면 그대로 쓴다(테스트용).
-    [Q] 품질 단계(section_search·exemplars·rule_check·reranker)는 config/pipeline.yaml 을 따른다."""
+    [Q] 품질 단계(section_search·exemplars·rule_check·reranker)는 config/pipeline.yaml 을 따른다.
+    [3] 작성자(llm.yaml compose.writer, ADR 0032): gemini 면 Argon 이 먼저 쓰고 실패 섹션만
+    로컬(llm)이 local_slot 을 잡고 쓴다. public=True(공용 계정 run)면 원격 작성에 internal 을
+    보내지 않는다."""
     from rra.application.usecases.generate_proposal import GenerateProposal
 
     settings = settings or load_settings()
@@ -1441,7 +1453,12 @@ def build_generate(
         llm = build_llm(settings, stage="compose")
     if reranker is None and pipeline.reranker:
         reranker = build_reranker(settings)
-    fallback = build_compose_fallback(settings)
+    policy = compose_policy(settings)
+    writer = build_compose_writer(settings, fake_llm=llm if settings.fake_llm else None)
+    # Argon 이 먼저 쓰면 ADR 0027 대체 작성(로컬 실패 → Gemini)은 쓰지 않는다 — 역할이 뒤집힌다
+    fallback = build_compose_fallback(settings) if writer is None else None
+    include_internal = review_policy(settings)["include_internal"]
+    local_cfg = llm_config(settings, "compose")
     return GenerateProposal(
         llm,
         repo,
@@ -1464,8 +1481,41 @@ def build_generate(
         fallback_llm=fallback["llm"] if fallback else None,
         fallback_provider=fallback["provider"] if fallback else "",
         fallback_model=fallback["model"] if fallback else "",
-        fallback_include_internal=review_policy(settings)["include_internal"],
+        fallback_include_internal=include_internal,
+        writer_llm=writer["llm"] if writer else None,
+        writer_provider=writer["provider"] if writer else "",
+        writer_model=writer["model"] if writer else "",
+        writer_include_internal=include_internal and not public,
+        local_provider=local_cfg["provider"],
+        local_model=local_cfg["served_model"] or local_cfg["model"],
+        local_slot=local_slot,
+        compose_concurrency=policy["concurrency"],
+        local_check=policy["local_check"],
+        local_check_timeout=policy["local_check_timeout_sec"],
     )
+
+
+def build_compose_writer(
+    settings: Settings | None = None, *, fake_llm=None
+) -> dict[str, Any] | None:
+    """[3] 원격 작성 LLM(ADR 0032) — llm.yaml compose.writer=gemini 면 gemini provider 의
+    compose 단계. 키가 없으면 None(자동으로 로컬 작성). 일일 예산 카운터(BudgetedLLM)·공유 호출
+    제한기는 build_llm 이 씌운다. 가짜 모드는 fake_llm 을 Argon 자리에 그대로 쓴다
+    (외부 호출 없음)."""
+    settings = settings or load_settings()
+    if compose_policy(settings)["writer"] != "gemini":
+        return None
+    if fake_llm is not None:
+        return {"llm": fake_llm, "provider": "gemini", "model": "fake/argon"}
+    cfg = llm_config(settings, "compose", provider="gemini")
+    if not llm_key_present(settings, cfg):
+        logger.warning("compose.writer=gemini 의 키가 없어 로컬 작성으로 진행합니다.")
+        return None
+    return {
+        "llm": build_llm(settings, stage="compose", provider="gemini"),
+        "provider": "gemini",
+        "model": cfg["served_model"] or cfg["model"],
+    }
 
 
 def build_compose_fallback(settings: Settings | None = None) -> dict[str, Any] | None:
@@ -1633,7 +1683,7 @@ def build_run_manager(
     로드되지 않는다 (SentenceTransformerEmbedding.loaded).
     """
     from rra.adapters.logging import FileRunLog
-    from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockSlot
+    from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockPool, FlockSlot
     from rra.application.services import RunManager
 
     settings = settings or load_settings()
@@ -1647,7 +1697,8 @@ def build_run_manager(
         repo = build_repository(build_embedding(settings), settings)
     if llm is None:
         llm = build_llm(settings, stage="compose")
-    generate = build_generate(settings, repo=repo, llm=llm, pipeline=pipeline)
+    slot = FlockSlot(root / ".generate.lock")  # 로컬 모델 — 프로세스 간 한 번에 하나
+    generate = build_generate(settings, repo=repo, llm=llm, pipeline=pipeline, local_slot=slot)
     generate_public = None
     if not auth_config(settings)["include_internal"]:  # 공용 계정 run 은 internal 제외 (레인 A)
         generate_public = build_generate(
@@ -1656,11 +1707,20 @@ def build_run_manager(
             llm=llm,
             reranker=generate.reranker,
             pipeline=pipeline,
+            local_slot=slot,
+            public=True,
         )
+    # [3] Argon 작성이면 run 은 N칸 슬롯(runs.max_concurrent)만, 로컬 단계만 slot 을 잡는다
+    # (ADR 0032)
+    run_slot = (
+        FlockPool(root, runs_config(settings)["max_concurrent"])
+        if generate.writes_remotely
+        else None
+    )
     return RunManager(
         generate,
         store or FileRunStore(root),
-        FlockSlot(root / ".generate.lock"),
+        slot,
         run_log or FileRunLog(root),
         runner or AsyncioTaskRunner(),
         max_queued=int(input_limits(settings).get("max_queued_runs", 3)),
@@ -1678,6 +1738,8 @@ def build_run_manager(
         generate_public=generate_public,
         review_budget=build_review_budget(settings),
         figures=figures if figures is not None else build_figures(settings, llm=llm),
+        run_slot=run_slot,
+        first_pass=review_policy(settings)["first_pass"],
     )
 
 
