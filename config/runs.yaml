@@ -1,0 +1,5 @@
+# 생성 실행(run) 동시성 (ADR 0032, 2026-10-28). config_loader.runs_config 가 읽는다.
+# Argon 작성(llm.yaml compose.writer: gemini)일 때만 쓴다 — run 전체는 runs/.run-<i>.lock 중 빈 칸 하나를 잡고,
+# 로컬 모델 단계(로컬 대체 작성·local_check·설계도)만 runs/.generate.lock(한 번에 하나)을 잡는다.
+# 로컬 작성(writer: local)이면 이 값과 무관하게 예전처럼 한 번에 한 건이다 (보안 G "생성 동시성 1" 완화는 Argon 작성 한정).
+max_concurrent: 3   # 시범 운영(3명) — 동시에 도는 run 수. 사용자별 대기·실행 상한은 security.yaml max_queued_runs

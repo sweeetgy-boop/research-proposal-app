@@ -21,7 +21,13 @@ from typing import Any, Literal
 import httpx
 
 from rra.adapters.llm import _endpoint, _payload
-from rra.adapters.llm.errors import LLMAuthError, LLMError, LLMResponseInvalid, LLMTimeout
+from rra.adapters.llm.errors import (
+    LLMAuthError,
+    LLMError,
+    LLMRateLimited,
+    LLMResponseInvalid,
+    LLMTimeout,
+)
 from rra.adapters.llm.rate_limiter import RateLimiter, parse_retry_after
 
 logger = logging.getLogger("rra.llm")
@@ -298,7 +304,9 @@ class OpenAICompatLLM:
                         extra_delay = self.limiter.note_429(retry_after)
                     elif retry_after is not None:
                         extra_delay = min(retry_after, MAX_RETRY_AFTER_SEC)
-                last = LLMError(message)
+                    last = LLMRateLimited(message)
+                else:
+                    last = LLMError(message)
             if attempt < self.retry.attempts:
                 await self._sleep(max(self.retry.delay(attempt), extra_delay))
         raise last or LLMError("LLM 호출에 실패했습니다.")

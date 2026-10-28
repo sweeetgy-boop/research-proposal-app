@@ -94,7 +94,7 @@ def _adapters(tmp_path, monkeypatch):
     import types
 
     from rra.adapters.logging import FileRunLog
-    from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockSlot
+    from rra.adapters.runs import AsyncioTaskRunner, FileRunStore, FlockPool, FlockSlot
     from rra.adapters.sources.alio import AlioSummarySource, CatalogFetcher
     from rra.composition import (
         build_alio_catalog,
@@ -148,6 +148,7 @@ def _adapters(tmp_path, monkeypatch):
         "run_store": FileRunStore(tmp_path / "runs"),
         "run_log": FileRunLog(tmp_path / "runs"),
         "slot": FlockSlot(tmp_path / "runs" / ".lock"),
+        "run_pool": FlockPool(tmp_path / "runs", 3),
         "runner": AsyncioTaskRunner(),
         "renderer": build_renderer(settings),
     }
@@ -167,6 +168,7 @@ ADAPTER_PORTS = {
     "run_store": ["RunStorePort"],
     "run_log": ["RunLogPort"],
     "slot": ["GenerationSlot"],
+    "run_pool": ["GenerationSlot"],
     "runner": ["TaskRunner"],
     "renderer": ["RendererPort"],
 }

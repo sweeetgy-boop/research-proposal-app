@@ -18,6 +18,12 @@
   부르지 않고 빈칸(lint 경고 no_relevant_evidence). 유사과제 판정으로 보탠 청크(#overlap)는 하한을
   적용하지 않는다.
 
+작성자(ADR 0032, [3]): writer_llm(Gemini 4 Argon)이 있으면 섹션을 그쪽이 먼저 쓰고(전송 범위 =
+writer_include_internal, 공용 계정 run 은 internal 제외), 호출 실패(error·rate_limit·budget)나
+교정 재요청 뒤에도 무효(invalid)인 섹션만 로컬 모델(llm)이 local_slot 을 잡고 쓴다. 없으면 예전
+흐름(로컬 먼저 → ADR 0027 대체 작성). 섹션마다 작성 기록(ComposedSection.writer)을 남긴다
+(본문 없음).
+
 상태 저장·재개·동시성은 application/services/run_manager.py 가 맡는다.
 `__call__` 은 세 단계를 한 번에 도는 조합이다 (테스트·일회성 실행용).
 
@@ -26,6 +32,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -34,8 +42,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from rra.application.ports import DocumentRepository, LLMPort, PromptLibraryPort
+from rra.application.ports import DocumentRepository, GenerationSlot, LLMPort, PromptLibraryPort
 from rra.application.ports.auth import BudgetExhausted
+from rra.application.ports.llm import RateLimited
 from rra.application.ports.table_facts import TableFactRepository
 from rra.domain.models import (
     Chunk,
@@ -97,6 +106,14 @@ from rra.domain.rules.schedule import (
 )
 from rra.domain.rules.section_search import clip_chunks, section_queries
 from rra.domain.rules.trust import enforce_section_evidence, escape_untrusted, wrap_untrusted
+from rra.domain.rules.writer import (
+    LOCAL_CHECK_SYSTEM,
+    LOCAL_CHECK_TIMEOUT_SEC,
+    local_check_prompt,
+    mismatch_hashes,
+    parse_local_check,
+    writer_record,
+)
 
 logger = logging.getLogger("rra.generate")
 
@@ -145,6 +162,78 @@ class ComposedSection:
     fallback: dict[str, Any] | None = None
     # 대체 작성을 시도하지 못한/실패한 이유 (budget | 예외 클래스명 | parse 상태). 시도 없으면 None
     fallback_error: str | None = None
+    # 작성 기록(ADR 0032, domain/rules/writer.writer_record): 누가 썼는지·로컬 대체 여부·사유·전송
+    # doc_id·원격 호출 수. LLM 을 쓰지 않은 섹션(skipped·app)은 None
+    writer: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class _Job:
+    """섹션 한 개 작성에 필요한 고정 값 (작성자마다 같은 지시·입력·스냅샷)."""
+
+    key: str
+    instruction: str
+    system: str
+    req: ProposalRequest
+    snapshot: RetrievalSnapshot
+    spec: ChoiceSpec | None
+    options: dict[str, dict[str, str]]
+    required: bool
+    outline: Outline | None = None
+    candidate: Section | None = None
+    notes: Mapping[str, str] | None = None
+    keep: Sequence[str] = ()
+
+    @property
+    def opts(self) -> dict[str, str] | None:
+        return self.options.get(self.key) if self.spec else None
+
+
+@dataclass
+class _Attempt:
+    first: ParseResult
+    parsed: ParseResult
+    section: Section
+    dropped: list[str]
+    lost: list[str]
+    retries: int
+
+
+class _Counted:
+    """원격 작성 호출 수를 센다 — 예산 초과(BudgetExhausted)는 보내지 않았으므로 세지 않는다."""
+
+    def __init__(self, llm: LLMPort):
+        self.llm = llm
+        self.calls = 0
+
+    async def complete(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> str:
+        try:
+            out = await self.llm.complete(
+                prompt, system=system, max_tokens=max_tokens, json_mode=json_mode
+            )
+        except BudgetExhausted:
+            raise
+        except Exception:
+            self.calls += 1
+            raise
+        self.calls += 1
+        return out
+
+
+def remote_failure_reason(exc: BaseException) -> str:
+    """원격 작성 호출 예외 → 로컬 대체 사유 (domain/rules/writer.REASONS)."""
+    if isinstance(exc, BudgetExhausted):
+        return "budget"
+    if isinstance(exc, RateLimited):
+        return "rate_limit"
+    return "error"
 
 
 @dataclass
@@ -188,10 +277,41 @@ class GenerateProposal:
     fallback_provider: str = ""
     fallback_model: str = ""
     fallback_include_internal: bool = True
+    # ── [3] Argon 먼저 작성 (ADR 0032, llm.yaml compose.writer) ──
+    # writer_llm 이 있으면 섹션을 그 LLM 이 먼저 쓰고, 실패 섹션만 로컬(llm)이 쓴다.
+    # None 이면 예전 흐름
+    writer_llm: LLMPort | None = None
+    writer_provider: str = ""
+    writer_model: str = ""
+    # 원격 작성 전송 범위 — False 면 internal 청크·본보기를 빼고 보낸다 (공용 계정 run, 검토 정책)
+    writer_include_internal: bool = True
+    local_provider: str = "mlx"  # 작성 기록에 남길 로컬 provider·model 이름
+    local_model: str = ""
+    # 로컬 모델 단계(로컬 대체 작성·local_check)가 잡는 프로세스 간 슬롯 (원격 작성일 때만 잡는다).
+    # 로컬 작성일 때는 RunManager 가 run 전체를 슬롯 안에서 돌린다
+    local_slot: GenerationSlot | None = None
+    compose_concurrency: int = 1  # 한 run 안에서 동시에 쓰는 섹션 수 (원격 작성일 때만 쓴다)
+    local_check: bool = False  # 근거 있는 문장을 로컬 모델이 지지|부분|불일치 로 판정 (경고만)
+    local_check_timeout: float = LOCAL_CHECK_TIMEOUT_SEC  # 섹션당 상한(초). 넘으면 그 섹션은 건너뜀
 
     @property
     def template(self) -> str | None:
         return self.rules.template
+
+    @property
+    def writes_remotely(self) -> bool:
+        """섹션 작성을 원격 LLM(Argon)이 먼저 하는가 — RunManager 의 동시성 규칙이 이것을 본다."""
+        return self.writer_llm is not None
+
+    @property
+    def writer(self) -> str:
+        return "gemini" if self.writer_llm is not None else "local"
+
+    def local_gate(self) -> contextlib.AbstractAsyncContextManager[None]:
+        """로컬 모델을 부르는 구간 — 원격 작성이면 local_slot 을 잡는다(한 번에 하나)."""
+        if self.writer_llm is not None and self.local_slot is not None:
+            return self.local_slot.acquire()
+        return contextlib.nullcontext()
 
     def choice_options(self) -> dict[str, dict[str, str]]:
         """선택형 섹션 → {선택지 id: 표시 이름}. 전략 목록이 비면 빈 dict."""
@@ -454,6 +574,7 @@ class GenerateProposal:
             ungrounded=composed.ungrounded,
             retries=composed.retries,
             first_parse=composed.first_parse,
+            writer=composed.writer,
         )
 
     async def _compose_llm(
@@ -468,52 +589,27 @@ class GenerateProposal:
         notes: Mapping[str, str] | None = None,
         keep: Sequence[str] = (),
     ) -> ComposedSection:
-        system = self.prompts.system()
-        instruction = self.prompts.section(key)
         spec = self.rules.choices.get(key)
-        prompt = self._prompt(
-            key,
-            instruction,
-            req,
-            snapshot,
-            options.get(key) if spec else None,
+        job = _Job(
+            key=key,
+            instruction=self.prompts.section(key),
+            system=self.prompts.system(),
+            req=req,
+            snapshot=snapshot,
+            spec=spec,
+            options=options,
+            required=key in self.rules.required_sections,
             outline=outline,
             candidate=candidate,
             notes=notes,
             keep=keep,
         )
-        required = key in self.rules.required_sections
-        raw = await self.llm.complete(prompt, system=system, json_mode=True)
-        first = parsed = self._parse(key, raw, spec, options)
-        section, dropped, lost = self._validate(key, parsed, snapshot.retrieved_ids, req, snapshot)
-        retries = 0
-        if self._bad(parsed, section, required):
-            # 스키마·JSON 오류, 필수 섹션의 빈 문장 목록, 검증(근거·고유명)에서 전부 폐기 —
-            # 1회 재요청.
-            # 오류 요약을 붙여 같은 섹션을 다시 묻는다
-            retries = 1
-            hint = self._hint(parsed, dropped, choice_section=spec is not None)
-            # 재요청은 기본 프롬프트로(설계도·본보기·후보·메모 없이) — 긴 지시가 붙을수록 7B 가 JSON
-            # 대신 글을 쓴다(2026-10-27 측정: 제목·활용계획에서 반복)
-            compact = self._prompt(
-                key, instruction, req, snapshot, options.get(key) if spec else None, compact=True
-            )
-            raw2 = await self.llm.complete(
-                f"{compact}\n\n[형식 교정 — 직전 응답은 형식 오류였음]\n{hint}",
-                system=system,
-                json_mode=True,
-            )
-            second = self._parse(key, raw2, spec, options)
-            section2, dropped2, lost2 = self._validate(
-                key, second, snapshot.retrieved_ids, req, snapshot
-            )
-            if not self._bad(second, section2, required) or (
-                second.status == "choices_only" and not parsed.choices
-            ):
-                parsed, section, dropped, lost = second, section2, dropped2, lost2
-            elif second.ok and parsed.ok and second.choices and not parsed.choices:
-                parsed, section, dropped, lost = second, section2, dropped2, lost2
-            # 두 번째도 실패하면 첫 결과로 기존처럼 처리한다
+        if self.writer_llm is not None:
+            return await self._compose_remote_first(job)
+        system, instruction, required = job.system, job.instruction, job.required
+        att = await self._attempt(self.llm, job)
+        first, parsed, section = att.first, att.parsed, att.section
+        dropped, lost, retries = att.dropped, att.lost, att.retries
 
         fallback: dict[str, Any] | None = None
         fallback_error: str | None = None
@@ -570,6 +666,16 @@ class GenerateProposal:
             )
 
         digest = hashlib.sha256(f"{system}\x1f{instruction}".encode()).hexdigest()[:16]
+        if fallback is not None:
+            writer = writer_record(
+                provider=fallback["provider"],
+                model=fallback["model"],
+                public_doc_ids=fallback["public_doc_ids"],
+                internal_doc_ids=fallback["internal_doc_ids"],
+                calls=fallback["calls"],
+            )
+        else:
+            writer = writer_record(provider=self.local_provider, model=self.local_model)
         return ComposedSection(
             section=section,
             dropped=dropped,
@@ -580,7 +686,211 @@ class GenerateProposal:
             first_parse=first,
             fallback=fallback,
             fallback_error=fallback_error,
+            writer=writer,
         )
+
+    async def _attempt(
+        self,
+        llm: LLMPort,
+        job: _Job,
+        *,
+        chunks: list[Chunk] | None = None,
+        allowed: set[str] | None = None,
+        exemplars: bool = True,
+    ) -> _Attempt:
+        """작성 1회 + 형식 교정 재요청 1회. chunks 를 주면 그 [자료] 만 보여 주고(전송 범위),
+        allowed 를 주면 근거 id 를 그 집합과 대조한다(보안 A — 기본은 스냅샷 전체)."""
+        key, snapshot, spec = job.key, job.snapshot, job.spec
+        allowed_ids = snapshot.retrieved_ids if allowed is None else allowed
+        prompt = self._prompt(
+            key,
+            job.instruction,
+            job.req,
+            snapshot,
+            job.opts,
+            outline=job.outline,
+            candidate=job.candidate,
+            notes=job.notes,
+            keep=job.keep,
+            chunks=chunks,
+            exemplars=exemplars,
+        )
+        raw = await llm.complete(prompt, system=job.system, json_mode=True)
+        first = parsed = self._parse(key, raw, spec, job.options)
+        section, dropped, lost = self._validate(key, parsed, allowed_ids, job.req, snapshot)
+        retries = 0
+        if self._bad(parsed, section, job.required):
+            # 스키마·JSON 오류, 필수 섹션의 빈 문장 목록, 검증(근거·고유명)에서 전부 폐기 —
+            # 1회 재요청. 오류 요약을 붙여 같은 섹션을 다시 묻는다
+            retries = 1
+            hint = self._hint(parsed, dropped, choice_section=spec is not None)
+            # 재요청은 기본 프롬프트로(설계도·본보기·후보·메모 없이) — 긴 지시가 붙을수록 7B 가 JSON
+            # 대신 글을 쓴다(2026-10-27 측정: 제목·활용계획에서 반복)
+            compact = self._prompt(
+                key, job.instruction, job.req, snapshot, job.opts, compact=True, chunks=chunks
+            )
+            raw2 = await llm.complete(
+                f"{compact}\n\n[형식 교정 — 직전 응답은 형식 오류였음]\n{hint}",
+                system=job.system,
+                json_mode=True,
+            )
+            second = self._parse(key, raw2, spec, job.options)
+            section2, dropped2, lost2 = self._validate(key, second, allowed_ids, job.req, snapshot)
+            if not self._bad(second, section2, job.required) or (
+                second.status == "choices_only" and not parsed.choices
+            ):
+                parsed, section, dropped, lost = second, section2, dropped2, lost2
+            elif second.ok and parsed.ok and second.choices and not parsed.choices:
+                parsed, section, dropped, lost = second, section2, dropped2, lost2
+            # 두 번째도 실패하면 첫 결과로 기존처럼 처리한다
+        return _Attempt(first, parsed, section, dropped, lost, retries)
+
+    async def _compose_remote_first(self, job: _Job) -> ComposedSection:
+        """ADR 0032 — Argon 이 먼저 쓰고(전송 범위 적용), 실패하면 로컬 모델이 local_slot 을
+        잡고 쓴다. 로컬 대체 사유: 호출 예외 → error | rate_limit | budget, 교정 재요청 뒤에도
+        무효 → invalid."""
+        if self.writer_llm is None:
+            raise RuntimeError("writer_llm missing")
+        key, snapshot = job.key, job.snapshot
+        shown = self._writer_chunks(key, snapshot)
+        # 보안 A: 원격 작성 문장의 근거 id 는 "보여 준 청크" 집합과 대조한다
+        shown_ids = (
+            {c.chunk_id for c in shown}
+            | {c.doc_id for c in shown}
+            | {a.doc_id for a in snapshot.overlap}
+        )
+        remote = _Counted(self.writer_llm)
+        reason: str | None = None
+        att: _Attempt | None = None
+        try:
+            att = await self._attempt(
+                remote,
+                job,
+                chunks=shown,
+                allowed=shown_ids,
+                exemplars=self.writer_include_internal,
+            )
+        except Exception as exc:  # 네트워크·429·예산 — 그 섹션만 로컬로 (메시지 로그 없음)
+            reason = remote_failure_reason(exc)
+            logger.warning(
+                "compose.writer_failed section=%s reason=%s error=%s",
+                key,
+                reason,
+                type(exc).__name__,
+            )
+        else:
+            if self._bad(att.parsed, att.section, job.required):
+                reason = "invalid"
+        internal = internal_doc_ids(snapshot.chunks)
+        sent = shown if remote.calls else []
+        public_ids = [c.doc_id for c in sent if c.doc_id not in internal]
+        internal_ids = [c.doc_id for c in sent if c.doc_id in internal]
+        if reason is None and att is not None:
+            writer = writer_record(
+                provider=self.writer_provider,
+                model=self.writer_model,
+                public_doc_ids=public_ids,
+                internal_doc_ids=internal_ids,
+                calls=remote.calls,
+            )
+            return self._composed(job, att, writer)
+        async with self.local_gate():  # 로컬 모델은 한 번에 하나 (FlockSlot)
+            local = await self._attempt(self.llm, job)
+        logger.warning(
+            "compose.local_fallback section=%s reason=%s result=%s",
+            key,
+            reason,
+            "failed" if self._bad(local.parsed, local.section, job.required) else "ok",
+        )
+        writer = writer_record(
+            provider=self.local_provider,
+            model=self.local_model,
+            local_fallback=True,
+            reason=reason,
+            public_doc_ids=public_ids,
+            internal_doc_ids=internal_ids,
+            calls=remote.calls,
+        )
+        return self._composed(job, local, writer)
+
+    @staticmethod
+    def _composed(job: _Job, att: _Attempt, writer: dict[str, Any]) -> ComposedSection:
+        digest = hashlib.sha256(f"{job.system}\x1f{job.instruction}".encode()).hexdigest()[:16]
+        return ComposedSection(
+            section=att.section,
+            dropped=att.dropped,
+            prompt_hash=digest,
+            parse=att.parsed,
+            ungrounded=att.lost,
+            retries=att.retries,
+            first_parse=att.first,
+            writer=writer,
+        )
+
+    def _writer_chunks(self, key: str, snapshot: RetrievalSnapshot) -> list[Chunk]:
+        """원격 작성에 보여 줄 청크 — 섹션 [자료] 와 같되, 전송 범위가 internal 제외면 뺀다."""
+        chunks = self.chunks_for(key, snapshot)
+        if self.writer_include_internal:
+            return chunks
+        internal = internal_doc_ids(snapshot.chunks)
+        return [c for c in chunks if c.doc_id not in internal]
+
+    # ── local_check ──────────────────────────────────────
+    async def check_locally(
+        self,
+        sections: Sequence[Section],
+        snapshot: RetrievalSnapshot,
+        *,
+        keys: set[str] | None = None,
+    ) -> dict[str, Any]:
+        """local_check — 근거 있는 문장을 로컬 모델이 지지|부분|불일치 로만 판정한다.
+
+        섹션마다 LLM 1회, local_check_timeout 초 상한(슬롯 대기 시간은 빼고). 넘거나 실패·
+        형식 오류면 그 섹션은 건너뛰고 skipped_sections 에 남긴다. keys 를 주면 그 섹션만
+        본다(원격이 쓴 섹션)."""
+        by_id: dict[str, Chunk] = {}
+        for c in snapshot.chunks:
+            by_id[c.chunk_id] = c
+            by_id.setdefault(c.doc_id, c)
+        checked: list[str] = []
+        skipped: list[str] = []
+        hashes: list[str] = []
+        sentences = 0
+        for sec in sections:
+            if keys is not None and sec.key not in keys:
+                continue
+            prompt = local_check_prompt(sec, by_id)
+            if prompt is None:
+                continue
+            async with self.local_gate():
+                try:
+                    raw = await asyncio.wait_for(
+                        self.llm.complete(prompt, system=LOCAL_CHECK_SYSTEM, json_mode=True),
+                        timeout=self.local_check_timeout,
+                    )
+                except Exception as exc:  # 시간 초과·서버 오류 — 그 섹션만 건너뛴다
+                    skipped.append(sec.key)
+                    logger.warning(
+                        "compose.local_check_skipped section=%s error=%s",
+                        sec.key,
+                        type(exc).__name__,
+                    )
+                    continue
+            verdicts = parse_local_check(raw, sec)
+            if not verdicts:
+                skipped.append(sec.key)
+                continue
+            checked.append(sec.key)
+            sentences += len(verdicts)
+            hashes.extend(mismatch_hashes(sec, verdicts))
+        return {
+            "enabled": True,
+            "mismatches": len(hashes),
+            "sentences": sentences,
+            "checked_sections": checked,
+            "skipped_sections": skipped,
+            "mismatch_hashes": hashes,
+        }
 
     def _validate(
         self,
@@ -651,6 +961,7 @@ class GenerateProposal:
         keep: Sequence[str] = (),
         compact: bool = False,  # 형식 교정 재요청용 — 설계도·본보기·후보 없이 기본 지시만
         chunks: list[Chunk] | None = None,  # 대체 작성: 전송 범위를 적용한 [자료] 를 직접 준다
+        exemplars: bool = True,  # 원격 작성 전송 범위가 internal 제외면 본보기(사내 과제)를 뺀다
     ) -> str:
         parts = [
             f"[섹션: {key}]\n{instruction}",
@@ -668,7 +979,7 @@ class GenerateProposal:
             summary = outline.summary_text()
             if summary:
                 parts.append(f"[전체 설계 요약 — 섹션 간 일관성 유지]\n{summary[:600]}")
-        exemplar_rows = "" if compact else self._exemplar_rows(key, snapshot)
+        exemplar_rows = "" if compact or not exemplars else self._exemplar_rows(key, snapshot)
         if exemplar_rows:  # Q4 본보기 — 구성·문체만. doc id 는 주지 않는다 (근거로 못 달게)
             parts.append(
                 "[본보기 — 채택된 과제의 같은 항목 문장. 구성·문체·분량만 참고하고 내용·수치·"

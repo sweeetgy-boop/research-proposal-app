@@ -145,6 +145,17 @@ test("② 실시간 검색 배지·자료원별 상태 → 초안 로컬 작성 
 });
 
 test("새 필드가 없는 응답(옛 run)에서는 배지·패널 없이 기존 흐름 그대로", async ({ page }) => {
+  // 옛 run 흉내: 백엔드(#71 이후)가 돌려주는 [3]·[4] 새 필드를 응답에서 뺀다
+  const NEW_FIELDS = ["writer", "writers", "local_sections", "local_check", "live_search"];
+  await page.route(/\/v1\/(runs\/[^/?]+(\/draft)?|precheck)(\?.*)?$/, async (route) => {
+    const response = await route.fetch();
+    const type = response.headers()["content-type"] ?? "";
+    if (route.request().method() !== "GET" && !route.request().url().includes("/precheck")) return route.fulfill({ response });
+    if (!type.includes("json")) return route.fulfill({ response });
+    const json = await response.json();
+    for (const k of NEW_FIELDS) delete json[k];
+    return route.fulfill({ response, json });
+  });
   await login(page);
   await createRun(page);
   await expect(page.getByText("로컬 작성", { exact: true })).toHaveCount(0);

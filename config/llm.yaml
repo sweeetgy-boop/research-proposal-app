@@ -81,7 +81,8 @@ limits:                  # DoS·메모리 보호 상한
   prompt_max_chars: 120000
 
 budget:                  # 외부(gemini) LLM 일일 전체 호출 상한 (레인 A). 넘으면 검토 없이 진행하고 화면에 알린다.
-  gemini_daily_calls: 300
+  # 2026-10-28 300 → 600: Argon 이 초안을 먼저 쓰면(compose.writer) 한 건에 섹션 수만큼(+교정 재요청) 더 든다 (ADR 0032)
+  gemini_daily_calls: 600
   counter: data/cache/llm_budget.json   # {"date","count"} — API·CLI·MCP 가 같은 파일을 본다
 
 # 단계별 설정. provider 를 적지 않으면 기본 provider. model 을 적지 않으면 provider 표의 model.
@@ -91,6 +92,7 @@ stages:
   # 작성 = mlx(model_profiles 의 로컬 모델). fallback: 로컬 교정 재요청까지 실패한 섹션만 그 provider 가
   # 대신 쓴다(ADR 0027, 시범 기본 켬). 키가 없으면 자동 끔. 전송 범위는 external_llm.include_internal,
   # 일일 예산(budget.gemini_daily_calls) 카운터를 거친다. manifest fallback_sections 에 키·사유·전송 doc_id 기록
+  # writer: gemini 일 때는 이 단계 설정(max_tokens)으로 provider 만 gemini 로 바꿔 부른다 — 위 compose 정책 참고
   compose:   {max_tokens: 2000, fallback: gemini}
   critique:  {max_tokens: 800}
   review:    {provider: gemini, max_tokens: 6000}     # 검토 = gemini-4-argon (키 없으면 review_skipped)
@@ -107,9 +109,25 @@ stages:
   # [G] 그림 명세(JSON) 작성 = 로컬 모델. 교정 재요청 1회 뒤에도 실패하면 compose.fallback 과 같은 provider 가 대신 쓴다
   figures: {max_tokens: 1500}
 
+# [3] 초안 작성 순서 (ADR 0032, 2026-10-28 소유자 승인). 키가 없으면 local(예전 흐름)
+compose:
+  # gemini: 섹션을 Gemini 4 Argon 이 먼저 쓴다(provider 표 gemini, 일일 예산 카운터 공유). 호출 실패(error·
+  #   rate_limit·budget)나 교정 재요청 뒤에도 무효(invalid)인 섹션만 로컬 모델이 쓴다 — 화면 "로컬 작성" 배지.
+  #   키가 없으면 자동으로 local. 전송 범위: 직원 run 은 external_llm.include_internal, 공용 계정 run 은 internal 제외.
+  # local: 로컬 모델이 먼저 쓰고 실패 섹션만 stages.compose.fallback 이 쓴다(ADR 0027, 되돌리기용)
+  writer: gemini
+  concurrency: 4             # Argon 작성일 때 한 run 안에서 동시에 쓰는 섹션 수
+  # 로컬 근거 대조 — Argon 이 쓴 문장 중 근거 있는 것을 로컬 모델이 지지|부분|불일치 로만 판정(불일치 = 알림).
+  # 섹션당 local_check_timeout_sec 초 상한(넘으면 그 섹션 건너뜀). 측정 전이라 기본 끔
+  local_check: off
+  local_check_timeout_sec: 20
+
 # 검토(review) 단계 정책
 review:
   auto: true                 # 초안 완료 뒤 1차 검토 자동 시작
+  # ③ Argon 1차 검토(v1→v2). Argon 이 초안을 쓰면(compose.writer: gemini) 자기 검토라 끈다 — draft_review_skipped
+  # = self_review. ⑤ 최종 검토는 Argon 그대로이고 그 뒤 마무리한다
+  first_pass: off
 # 차별화 과제 추천 정책
 recommend:
   auto: true                 # precheck 가 끝나면 자동 1회. 다시 받기는 사용자 요청 시만

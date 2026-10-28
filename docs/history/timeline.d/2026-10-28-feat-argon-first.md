@@ -1,0 +1,1 @@
+| 2026-10-28 | [3] 초안 작성 순서 변경 — Argon 먼저 작성(섹션 4개 동시)·실패 섹션만 로컬(error·rate_limit·budget·invalid)·섹션별 작성 기록·1차 검토 끔(self_review)·local_check(기본 끔)·동시 run 3(FlockPool, 로컬 단계만 슬롯)·Gemini 일일 600 | 소유자 승인 정책. 7B 로컬 작성 155초·JSON 실패 4/10 대응, ADR 0032 | #TBD | 실측 섹션당 6.6~11.8초, 3섹션 동시 11.8초, Gemini 3회 |

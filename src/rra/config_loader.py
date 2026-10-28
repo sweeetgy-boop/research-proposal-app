@@ -22,6 +22,7 @@ from rra.domain.rules.lint import LintRules
 from rra.domain.rules.overlap import OwnUnit
 from rra.domain.rules.relevance import RelevanceFloor
 from rra.domain.rules.source_ip import IpPolicy
+from rra.domain.rules.writer import LOCAL_CHECK_TIMEOUT_SEC, on_off, parse_writer
 from rra.settings import Settings
 
 DEFAULT_STAGE = "compose"
@@ -506,14 +507,45 @@ def llm_key_present(settings: Settings, cfg: dict[str, Any]) -> bool:
 
 
 def review_policy(settings: Settings) -> dict[str, Any]:
-    """llm.yaml 의 review·external_llm 정책 (기본: auto=true, include_internal=true)."""
+    """llm.yaml 의 review·external_llm 정책 (기본: auto=true, first_pass=on, include_internal=true).
+
+    first_pass: ③ Argon 1차 검토(v1→v2)를 자동으로 돌릴지 — Argon 이 초안을 쓰면 자기 검토라 끈다
+    (ADR 0032). ⑤ 최종 검토는 이 값과 무관하다."""
     cfg = read_config("llm.yaml", settings)
     review = cfg.get("review") or {}
     external = cfg.get("external_llm") or {}
     return {
         "auto": bool(review.get("auto", True)),
+        "first_pass": on_off(review.get("first_pass"), True),
         "include_internal": bool(external.get("include_internal", True)),
     }
+
+
+def compose_policy(settings: Settings) -> dict[str, Any]:
+    """llm.yaml compose — [3] 섹션 작성자(ADR 0032). 키가 없으면 예전 흐름(local).
+
+    writer: gemini(Argon 먼저, 실패 섹션만 로컬) | local(로컬 먼저, 실패 섹션만
+    stages.compose.fallback).
+    concurrency: Argon 작성일 때 한 run 안에서 동시에 쓰는 섹션 수. local_check: 로컬 근거 대조
+    (지지|부분|불일치, 섹션당 local_check_timeout_sec 초)."""
+    raw = read_config("llm.yaml", settings).get("compose") or {}
+    return {
+        "writer": parse_writer(raw.get("writer"), default="local"),
+        "concurrency": max(1, int(raw.get("concurrency", 4))),
+        "local_check": on_off(raw.get("local_check"), False),
+        "local_check_timeout_sec": max(
+            0.1, float(raw.get("local_check_timeout_sec", LOCAL_CHECK_TIMEOUT_SEC))
+        ),
+    }
+
+
+RUNS_FILE = "runs.yaml"
+
+
+def runs_config(settings: Settings) -> dict[str, Any]:
+    """config/runs.yaml — 동시에 도는 run 수(max_concurrent, Argon 작성일 때만 쓴다). 없으면 1."""
+    raw = read_config(RUNS_FILE, settings)
+    return {"max_concurrent": max(1, int(raw.get("max_concurrent", 1)))}
 
 
 FIGURE_KINDS_DEFAULT = ("concept", "process", "schedule", "stat_chart", "comparison", "roadmap")

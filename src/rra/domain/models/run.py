@@ -157,6 +157,14 @@ class RunState(BaseModel):
     # [G] 그림 요약(manifest·목록용, 본문 없음): id·kind·section·renderer·model·calls·included·
     # confirmed·placement·error. 현재 버전의 그림 목록에서 갱신한다
     figures: list[dict[str, Any]] = Field(default_factory=list)
+    # [3] Argon 먼저 작성(ADR 0032) — 이 run 의 섹션 작성자(compose.writer). 예전 run 은 local
+    writer: Literal["gemini", "local"] = "local"
+    # 섹션별 작성 기록 {key: {provider, model, local_fallback, reason, public_doc_ids,
+    # internal_doc_ids, calls}} (domain/rules/writer.py). 본문 없음
+    writers: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # 로컬 근거 대조(compose.local_check) 결과 {enabled, mismatches, sentences, checked_sections,
+    # skipped_sections, mismatch_hashes}. None 이면 돌지 않았다
+    local_check: dict[str, Any] | None = None
 
     def step(self, name: str) -> StepRecord:
         found = next((s for s in self.steps if s.name == name), None)

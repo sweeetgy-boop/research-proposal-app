@@ -504,6 +504,8 @@ def test_cli_api_refuses_without_token(monkeypatch, capsys):
 
 # ── 가짜 모드 (RRA_FAKE_LLM=1) — composition 이 가짜 LLM(작성·검토)·메모리 저장소를 끼운다 ──
 async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_model(tmp_path):
+    """가짜 모드: 가짜 Argon 이 섹션을 쓰고(writer=gemini, ADR 0032), e2e 화면을 위해 1차 검토는
+    켠 채로(build_api) v2 자동 반영 → 편집 → 최종 검토 → 마무리."""
     from pydantic import SecretStr
 
     from rra.composition import build_api
@@ -546,6 +548,15 @@ async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_mod
         ]  # include_internal 기본 true
         draft = (await c.get(f"/v1/runs/{run_id}/draft", headers=AUTH)).json()
         assert draft["version"] == 2 and draft["versions"] == [1, 2]
+        assert draft["writers"]["method"] == {
+            "provider": "gemini",
+            "model": "fake/argon",
+            "local_fallback": False,
+            "reason": None,
+        }
+        assert draft["local_sections"] == [] and draft["local_check"] is None
+        state = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()
+        assert state["writer"] == "gemini" and state["local_sections"] == []
         method = next(s for s in draft["sections"] if s["key"] == "method")
         assert method["sentences"][0]["origin"] == "argon"
         v2 = (await c.get(f"/v1/runs/{run_id}/draft", params={"version": 2}, headers=AUTH)).json()

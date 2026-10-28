@@ -72,6 +72,10 @@ class SentenceTransformerEmbedding:
         self.max_chars = max_chars
         self._model: Any = None
         self._lock = threading.Lock()
+        # 계산도 한 번에 하나 — 동시 생성(runs.max_concurrent)으로 여러 run 의 검색이 to_thread 로
+        # 겹치면 같은 모델을 여러 스레드가 부른다. MPS/Metal 은 이를 보장하지 않는다
+        # (reranker 와 같은 이유)
+        self._encode_lock = threading.Lock()
 
     @property
     def loaded(self) -> bool:
@@ -101,13 +105,15 @@ class SentenceTransformerEmbedding:
     def _encode(self, texts: list[str], prefix: str) -> list[list[float]]:
         if not texts:
             return []
-        vectors = self.model.encode(
-            prepare(texts, prefix, max_chars=self.max_chars),
-            batch_size=self.batch_size,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
+        model = self.model  # 로드는 _lock, 계산은 _encode_lock (서로 다른 락 — 교착 없음)
+        with self._encode_lock:
+            vectors = model.encode(
+                prepare(texts, prefix, max_chars=self.max_chars),
+                batch_size=self.batch_size,
+                normalize_embeddings=True,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
         return [[float(v) for v in row] for row in vectors]
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
