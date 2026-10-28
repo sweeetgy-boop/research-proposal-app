@@ -246,7 +246,7 @@ def build_llm(
         if budget is not None:
             from rra.adapters.llm.daily_budget import BudgetedLLM
 
-            llm = BudgetedLLM(llm, budget)
+            llm = BudgetedLLM(llm, budget, stage=stage)
     return llm
 
 
