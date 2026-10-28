@@ -303,3 +303,20 @@ def test_plan_figure_years_must_come_from_draft_or_input_not_evidence():
     with_year = REQ.model_copy(update={"constraints": "2024년 착수, 연구기간 24개월"})
     pool2 = rules.text_pool(SECTIONS, with_year, ["2024년 보고서 기준 연간 보수 현황"], {})
     assert rules.validate_spec(spec, pool2) == []  # 제안자 입력에 있으면 허용
+
+
+def test_concept_box_labels_are_fixed_template_labels(pool):
+    spec = parse_spec(
+        "concept",
+        {
+            "boxes": [
+                {"label": "현재 상황", "lines": ["궤도 틀림 반복"]},
+                {"label": "문제(근본 원인)", "lines": ["다짐 효과 지속 기간"]},
+                {"label": "해결책", "lines": ["검측 이력 분석"]},
+                {"label": "효과", "lines": ["보수 우선순위 산정"]},
+            ]
+        },
+    )
+    fixed = rules.repair_spec(spec, pool)
+    assert [b.label for b in fixed.boxes] == list(rules.CONCEPT_LABELS)
+    assert rules.validate_spec(fixed, pool) == []

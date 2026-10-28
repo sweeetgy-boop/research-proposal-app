@@ -45,6 +45,9 @@ from rra.domain.rules.numbers import numbers
 from rra.domain.rules.schedule import TARGET_UNKNOWN, research_period_months
 
 NO_INFO = "정보 없음"
+# 개념도 상자 이름은 템플릿 라벨 — 자리별로 고정한다. 모델이 "문제(근본 원인)" 처럼 지시문 라벨을
+# 그대로 쓰면 근거 밖 글자로 걸러져 개념도가 빠졌다 (2026-10-28 배포 시험 3회차)
+CONCEPT_LABELS: tuple[str, ...] = ("현황", "문제(근본 원인)", "해결 방안", "기대효과")
 # 명세에 항상 허용되는 고정 글자 (템플릿 라벨·안내문)
 FIXED_TEXTS: frozenset[str] = frozenset(
     {
@@ -53,6 +56,7 @@ FIXED_TEXTS: frozenset[str] = frozenset(
         "현황",
         "문제",
         "근본 원인",
+        "문제(근본 원인)",
         "해결 방안",
         "기대효과",
         "연구목표",
@@ -372,7 +376,12 @@ def repair_spec(spec: BaseModel, pool: TextPool) -> BaseModel:
         ]
         return spec.model_copy(update={"metrics": metrics, "stages": stages})
     if isinstance(spec, ConceptSpec):
-        boxes = [b.model_copy(update={"lines": [x for x in b.lines if ok(x)]}) for b in spec.boxes]
+        boxes = [
+            b.model_copy(
+                update={"label": CONCEPT_LABELS[i], "lines": [x for x in b.lines if ok(x)]}
+            )
+            for i, b in enumerate(spec.boxes)
+        ]
         return spec.model_copy(update={"boxes": boxes})
     if isinstance(spec, ProcessSpec):
         stages = [
