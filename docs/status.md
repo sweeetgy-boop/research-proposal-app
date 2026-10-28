@@ -81,7 +81,7 @@
 | 알리오 원문 공시 파일·카탈로그 CSV 샘플 | 대기 (skip 2건). 공시용 요약문은 P2 에서 own_docs 로 적재됨 |
 | `config/templates/korail_strategy.yaml` 전략체계 목록(확정본) | 비어 있음 — 확정 전까지 앱은 초안을 쓰고 "전략체계 초안(확인 전)" 라벨 표시 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
-| 시범 계정 등록(`rra auth`) | `rra auth staff add`(사번, 한 명씩)·`rra auth guest set --id korail`(비밀번호 2회)·`rra auth status`. `data/auth/secret` 은 백업에 포함(잃으면 run 소유권 단절). 절차 `docs/status.d/feat-login.md` |
+| 시범 계정 등록(`rra auth`) | 일괄: `rra auth staff import --file <xlsx|csv> [--pad N] [--replace] [--dry-run]`(사번 열만, 출력은 개수만, 2026-10-28 A2) / 한 명씩 `rra auth staff add`·`rra auth guest set --id korail`(비밀번호 2회)·`rra auth status`. `data/auth/secret` 은 백업에 포함(잃으면 run 소유권 단절). 절차 `docs/pilot-guide.md` §6 |
 | 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
 | `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
 | 운영 공개 방식 | 시범 결정: Cloudflare Tunnel + Access + 앱 로그인(ADR 0024, #45). 막힌 점: ai-edu-lab.co.kr DNS 가 Gabia → 존 이전 또는 Tailscale 대체(`docs/deploy-exposure.md` §5). 터널·Access 는 사람 작업 |
@@ -200,4 +200,5 @@ main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기�
 | 2026-10-28 빈 초안 방지 [F1] | 저녁 측정 invalid 원인: 빈 문장 목록이 ok 로 통과 10·JSON 깨짐 11·펜스 2, 섹션 [자료] 글자 2.1×. 수정: 일부 섹션 실패해도 drafted + `failed_sections`(웹 "이 섹션 다시 생성" 버튼, 전부 실패일 때만 invalid, #55); 빈 목록 교정 재요청·섹션 [자료] 상한(청크 500자·10청크)·finish_reason 집계·로컬 2회 실패 섹션만 Gemini 대체 작성(`compose.fallback: gemini`, manifest `fallback_sections`, 웹 "대체 작성" 배지, #57). 재측정 골든셋 유효 10/10·invalid 0·대체 작성 1·Gemini 11회 | ADR 0027, `docs/eval-2026-10-28.md`, `docs/status.d/feat-draft-fallback.md` |
 | 2026-10-28 유사과제 판정 복구 [F2] | 판정·알림 후보는 과제형 자료원(own·alio·NTIS 과제·g2b)만, 논문·보고서·특허는 `related_research`(웹 ② 관련 연구, 참고). `find_similar(sources=)` 사전 필터·자료원별 풀 7/28·reranker 순서 유지(#56). 골든셋 적중 5/10 → 9/10, 지연 중앙값 2.06s | ADR 0028, `docs/eval-2026-10-28-precheck.md`, `docs/status.d/feat-overlap-sources.md` |
 | 2026-10-28 시범 설정 | 공용 계정 비밀번호 최소 길이 4(시범 한정, #54) | `docs/status.d/feat-pilot-password.md` |
+| 2026-10-28 사번 일괄 등록 [A2] | `rra auth staff import --file <xlsx|csv> [--sheet] [--column] [--pad N] [--replace] [--dry-run]` — 샌드박스 자식이 "사번" 열만 돌려줌(`adapters/auth/_roster_worker`·`roster.RosterReader`, 포트 `RosterReaderPort`), 정규화·검증·중복 합침은 `domain/rules/staff_roster`(공백·하이픈 제거, 숫자 셀, `--pad` 0 채움), 저장은 `AuthStorePort.import_staff`(HMAC 만). 출력은 개수·형식 오류 행 번호·길이별 분포뿐, 원본 미복사. 로그인 입력도 같은 정규화(`Login.staff`). API 재시작 불필요(로그인마다 파일 읽음) | `docs/pilot-guide.md` §6 |
 보류·미착수: g2b 실호출(키)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).

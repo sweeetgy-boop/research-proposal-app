@@ -15,6 +15,7 @@ from rra.application.ports.auth import AuthStorePort
 from rra.domain.models import Principal
 from rra.domain.rules import auth_policy
 from rra.domain.rules.auth_policy import LOGIN_FAILED_MESSAGE, LoginGuard
+from rra.domain.rules.staff_roster import normalize_staff_no
 
 
 class LoginFailed(ValueError):
@@ -47,7 +48,7 @@ class Login:
         """사번 로그인. 등록 목록이 비면 비활성(실패)."""
         now = self._clock()
         delay = self.guard.delay(now)
-        staff_no = (staff_no or "").strip()
+        staff_no = normalize_staff_no(staff_no)  # 일괄 등록과 같은 규칙(공백·하이픈 제거)
         digest = self.store.verify_staff(staff_no) if auth_policy.valid_staff_no(staff_no) else None
         # 계정 키는 가명 ID — 미등록 사번은 계정 키 없이 IP·전체만 센다
         account = auth_policy.staff_pseudonym(digest) if digest else None

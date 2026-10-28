@@ -267,6 +267,22 @@ def build_auth_store(settings: Settings | None = None):
     return FileAuthStore(auth_config(settings)["store_dir"])
 
 
+def build_roster_reader(settings: Settings | None = None):
+    """사번 명부 파일(xlsx·csv) 읽기 — 샌드박스 한도는 security.yaml file_limits."""
+    from rra.adapters.auth import RosterReader
+
+    settings = settings or load_settings()
+    return RosterReader(sandbox_limits(settings))
+
+
+def build_staff_importer(settings: Settings | None = None, *, store=None):
+    """사번 일괄 등록 유스케이스 (A2)."""
+    from rra.application.usecases.import_staff import ImportStaff
+
+    settings = settings or load_settings()
+    return ImportStaff(store or build_auth_store(settings))
+
+
 def build_login(settings: Settings | None = None, *, store=None):
     """로그인 유스케이스 — 잠금 정책은 auth.yaml lockout."""
     from rra.application.usecases.login import Login

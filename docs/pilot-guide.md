@@ -48,3 +48,36 @@
 - 앱: `~/Library/Logs/rra-api.log`, `rra-api.err.log` / 로컬 LLM: `rra-mlx*.log` / 터널: `rra-tunnel*.log`
 - run 기록: `data/runs/<run_id>/`(manifest·versions·reviews), 거부 로그는 `rra.api.auth`(IP·해시만)
 - 상태 확인: `launchctl list | grep com.rra`, `curl http://127.0.0.1:8000/healthz`, `rra sources status`
+
+## 6. 계정 관리 (운영자만)
+
+사번·비밀번호는 화면·로그·저장소 어디에도 원문이 남지 않습니다(사번은 HMAC, 비밀번호는 scrypt, `data/auth/` 700/600). 저장소 루트에서 실행합니다.
+
+### 6.1 사번 일괄 등록 (`rra auth staff import`)
+
+인사 명부(xlsx 또는 csv)에서 **"사번" 열만** 읽어 등록합니다. 다른 열(이름·부서 등)은 격리된 자식 프로세스에서 버려지고 본체에 오지 않습니다. 원본 파일은 복사하지 않습니다(저장소·`data/` 밖에 두어도 됩니다). 출력은 개수뿐이며 사번 값은 오류 행도 행 번호만 나옵니다.
+
+```
+.venv/bin/rra auth staff import --file ~/Downloads/사번_전체.xlsx --dry-run      # 1) 집계만 보고 저장 없음
+.venv/bin/rra auth staff import --file ~/Downloads/사번_전체.xlsx                # 2) 기존 목록에 추가
+.venv/bin/rra auth staff import --file ~/Downloads/사번_전체.xlsx --replace      #    기존 목록을 이 파일로 교체
+.venv/bin/rra auth status                                                      # 3) 등록 수 확인
+```
+
+| 옵션 | 뜻 |
+|---|---|
+| `--file <경로>` | `.xlsx` 또는 `.csv`(utf-8·cp949). `.xls` 는 엑셀에서 xlsx 로 다시 저장 |
+| `--sheet <이름>` | 시트 지정(기본: 첫 시트) |
+| `--column <열 제목>` | 열 제목이 "사번"이 아닐 때(앞쪽 8행 안에서 찾음) |
+| `--pad <자릿수>` | 엑셀이 숫자로 저장해 앞자리 0 이 빠진 사번을 이 자릿수까지 0 으로 채움 |
+| `--replace` | 기존 등록 목록을 이 파일로 바꿈(없으면 추가). 파일 안 중복은 하나로 합침 |
+| `--dry-run` | 저장 없이 같은 집계만 |
+
+- 정규화: 앞뒤 공백·하이픈 제거, 문자열로 처리. 로그인 입력도 같은 규칙이라 `00-123-45` 와 `0012345` 는 같은 사번입니다.
+- 출력의 **길이별 분포**("5자리 2건, 7자리 40건")로 0 빠짐을 알아챕니다. 길이가 섞여 있으면 `--pad <원래 자릿수>` 로 다시 실행하세요(이미 등록된 짧은 값은 `--replace` 로 정리).
+- 저장되면 **API 재시작 없이** 다음 로그인부터 반영됩니다(로그인마다 `data/auth/staff.json` 을 읽습니다).
+- 한 명씩: `rra auth staff add|remove`(화면에 안 보이는 입력), 개수 `rra auth staff count`.
+
+### 6.2 공용 계정
+
+`rra auth guest set --id korail`(비밀번호 두 번, 시범 기간 4자 이상) / 끄기 `rra auth guest disable`.

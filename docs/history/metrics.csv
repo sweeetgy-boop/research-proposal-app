@@ -41,3 +41,4 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-28,TBD,F1 빈 초안 금지(#55),1779,,8,,,,,,,,,,,,,,,저녁 측정 15 run 원인 표(docs/status.d/feat-draft-fallback.md)
 2026-10-28,TBD,F1 대체 작성·재측정(#57),1792,,8,,,,,,,,,201,,3.2,3.1,2.1,2.7,골든셋 10건 유효 10/10·invalid 0·실패 섹션 1·대체 작성 1·Gemini 11회(docs/eval-2026-10-28.md)
 2026-10-28,feat/overlap-sources,유사과제 판정 과제형 자료원만·관련 연구 분리(#56),,,8,,,,,,1119,120,2482,,,,,,,precheck 적중 5/10→9/10(골든셋 10, 상위5), 지연 on 1.84~2.09s(reranker 단독 1.65~2.0s), off 0.11~0.17s 7/10, Gemini 0회
+2026-10-28,feat/staff-import,사번 일괄 등록 CLI(A2),1837,,8,,,,,,,,,,,,,,,테스트 +12(domain 5·adapters 9 param·cli 3); OCR 실측 1건은 main 에서도 실패(환경)

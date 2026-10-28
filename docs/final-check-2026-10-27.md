@@ -44,11 +44,13 @@
 
 ① 외부 접속 경로 결정·준비 — (a) Cloudflare: Cloudflare 에 `ai-edu-lab.co.kr` 존 추가 → 기존 레코드(agent A 34.64.53.121 포함) 옮긴 뒤 Gabia 네임서버 변경 → `brew install cloudflared && cloudflared tunnel login` → `cloudflared tunnel create rra` → `deploy/cloudflared/config.example.yml` 의 `<TUNNEL_ID>` 를 넣어 `~/.cloudflared/config.yml`(600) → `cloudflared tunnel route dns rra rra.ai-edu-lab.co.kr`. (b) Tailscale: `brew install --cask tailscale` → 로그인 → `tailscale serve --bg --https=443 http://127.0.0.1:8000` → 동료 초대·ACL 443 만 → `config/api.yaml public_origin` 을 `https://<이 맥>.ts.net` 으로 → `launchctl kickstart -k gui/$(id -u)/com.rra.api`.
 ② (Cloudflare 일 때) Access 설정: Zero Trust → Access → Applications → Self-hosted → `rra.ai-edu-lab.co.kr`, Allow 이메일 3개, One-time PIN, 세션 1주일. 그 다음 `cp deploy/launchd/com.rra.tunnel.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.tunnel.plist` → `curl -sI https://rra.ai-edu-lab.co.kr | head -5` 가 302 + cloudflareaccess 이어야 함. 앱이 바로 보이면 즉시 `launchctl unload -w ~/Library/LaunchAgents/com.rra.tunnel.plist`. 통과하면 `config/api.yaml trust_cf_connecting_ip: true` + api kickstart.
-③ 직원 등록(직원 수만큼 반복):
+③ 직원 등록 — 명부 파일로 한 번에(2026-10-28, 사번 열만 읽고 출력은 개수만, 절차 `docs/pilot-guide.md` §6):
 ```
-cd /Users/chan/projects/research-proposal-app && .venv/bin/rra auth staff add      # 사번 입력(화면에 안 보임)
+cd /Users/chan/projects/research-proposal-app && .venv/bin/rra auth staff import --file ~/Downloads/사번_전체.xlsx --dry-run
+.venv/bin/rra auth staff import --file ~/Downloads/사번_전체.xlsx [--pad <자릿수>] [--replace]
 .venv/bin/rra auth staff count
 ```
+   한 명씩은 `.venv/bin/rra auth staff add`(사번 입력, 화면에 안 보임).
 ④ 공용 계정: `.venv/bin/rra auth guest set --id korail` (비밀번호 두 번, 8자 이상)
 ⑤ `.venv/bin/rra auth status` 확인, `ls -la data/auth`(700/600), `git status` 에 data/auth 없음. `data/auth/secret` 은 백업에 포함(잃으면 run 소유권 단절).
 ⑥ 외부 주소(또는 127.0.0.1:8000)에서 로그인 시험: 등록 사번 → 입력 화면, 미등록 사번 → "사번 또는 아이디·비밀번호를 확인하세요", 공용 계정 → 상단 "공용 계정" 표시, 관리자 토큰 → 모든 run.

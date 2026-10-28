@@ -1,4 +1,12 @@
-from .auth import AuthStorePort, BudgetExhausted, DailyBudgetPort
+from .auth import (
+    AuthStorePort,
+    BudgetExhausted,
+    DailyBudgetPort,
+    RosterCells,
+    RosterReaderPort,
+    RosterReadError,
+    StaffImportResult,
+)
 from .catalog import CatalogPort
 from .embedding import EmbeddingPort
 from .generation_slot import GenerationSlot
@@ -18,6 +26,10 @@ from .task_runner import TaskRunner
 
 __all__ = [
     "AuthStorePort",
+    "RosterCells",
+    "RosterReadError",
+    "RosterReaderPort",
+    "StaffImportResult",
     "BudgetExhausted",
     "DailyBudgetPort",
     "DatabaseMaintenancePort",

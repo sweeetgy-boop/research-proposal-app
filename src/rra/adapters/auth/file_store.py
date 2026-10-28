@@ -16,10 +16,13 @@ import hmac
 import os
 import secrets
 import stat
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 from rra.adapters.runs._fs import DIR_MODE, FILE_MODE, ensure_dir, read_json, write_json
+from rra.application.ports.auth import StaffImportResult
+from rra.domain.rules.staff_roster import normalize_staff_no
 
 SECRET_BYTES = 32
 SCRYPT_N = 2**14
@@ -77,9 +80,10 @@ class FileAuthStore:
     def _save_staff(self, hmacs: list[str]) -> None:
         write_json(self._staff_file(), {"hmacs": sorted(set(hmacs))[:MAX_STAFF]})
 
-    def _digest(self, staff_no: str) -> str:
-        message = staff_no.strip().encode("utf-8")
-        return hmac.new(self._secret(), message, hashlib.sha256).hexdigest()
+    def _digest(self, staff_no: str, secret: bytes | None = None) -> str:
+        """정규화(공백·하이픈 제거) 뒤 HMAC. 등록·조회·일괄 등록·로그인이 같은 규칙을 쓴다."""
+        message = normalize_staff_no(staff_no).encode("utf-8")
+        return hmac.new(secret or self._secret(), message, hashlib.sha256).hexdigest()
 
     # ── 직원(사번) ──────────────────────────────────────
     def verify_staff(self, staff_no: str) -> str | None:
@@ -114,6 +118,27 @@ class FileAuthStore:
 
     def staff_count(self) -> int:
         return len(self._load_staff())
+
+    def import_staff(
+        self, staff_nos: Iterable[str], *, replace: bool = False, dry_run: bool = False
+    ) -> StaffImportResult:
+        """여러 사번을 한 번에 — 다이제스트만 만들어 합친다. 값은 여기서 버린다."""
+        secret = self._secret()
+        incoming: set[str] = set()
+        for staff_no in staff_nos:
+            value = normalize_staff_no(staff_no)
+            if value:
+                incoming.add(self._digest(value, secret))
+        current = set(self._load_staff())
+        added = len(incoming - current)
+        existing = len(incoming & current)
+        removed = len(current - incoming) if replace else 0
+        merged = incoming if replace else current | incoming
+        if len(merged) > MAX_STAFF:
+            raise ValueError(f"등록 사번이 상한({MAX_STAFF}건)을 넘습니다.")
+        if not dry_run:
+            self._save_staff(sorted(merged))
+        return StaffImportResult(added=added, existing=existing, removed=removed, saved=not dry_run)
 
     # ── 공용 계정 ───────────────────────────────────────
     def _load_guest(self) -> dict[str, Any] | None:
