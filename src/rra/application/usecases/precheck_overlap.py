@@ -95,8 +95,25 @@ class PrecheckOverlap:
         keyword_origin: str | None = None,
     ) -> PrecheckResult:
         """검색 → (reranker) → 규칙 판정 → 같은 제목 합치기 → (AI 같음 판정). ai=False 면 규칙만."""
+        rule = await self.rule_stage(
+            req, core_keywords=core_keywords, keyword_origin=keyword_origin, keywords=ai
+        )
+        if not ai:
+            return rule
+        return await self.judge_stage(req, rule)
+
+    async def rule_stage(
+        self,
+        req: ProposalRequest,
+        *,
+        core_keywords: list[str] | None = None,
+        keyword_origin: str | None = None,
+        keywords: bool = True,
+    ) -> PrecheckResult:
+        """규칙 판정까지(AI 판정 전). REST ② 는 이 결과로 과제 추천을 AI 판정과 동시에 돌린다.
+        keywords=True 이고 핵심어가 없으면 keyword_source(Argon 키워드)를 부른다."""
         query = req.search_text()
-        if ai and core_keywords is None and self.keyword_source is not None:
+        if keywords and core_keywords is None and self.keyword_source is not None:
             found = await self._keywords(req)
             if found is not None:
                 core_keywords, keyword_origin = list(found.ko), str(found.origin)
@@ -121,20 +138,21 @@ class PrecheckOverlap:
             rerank=self.rerank if scores is not None else None,
             core_keywords=core_keywords,
         )
-        alerts = merge_same_titles(alerts)
-        info = JudgmentInfo(status="off")
-        rule_alerts = list(alerts)
-        if ai and self.same_judge is not None:
-            alerts, info = await self.same_judge(req, alerts)
-        result = PrecheckResult(
-            alerts=alerts,
+        return PrecheckResult(
+            alerts=merge_same_titles(alerts),
             related_research=research,
-            judgment=info,
+            judgment=JudgmentInfo(status="off"),
             core_keywords=list(core_keywords or []),
             keyword_origin=keyword_origin or "rule",
         )
-        if ai:
-            self._put(req, _Memo(self._clock(), rule_alerts, result))
+
+    async def judge_stage(self, req: ProposalRequest, rule: PrecheckResult) -> PrecheckResult:
+        """규칙 판정 결과에 AI 같음 판정을 붙이고 메모한다 (같은 입력의 후속 화면이 다시 쓴다)."""
+        result = rule
+        if self.same_judge is not None:
+            alerts, info = await self.same_judge(req, list(rule.alerts))
+            result = rule.model_copy(update={"alerts": alerts, "judgment": info})
+        self._put(req, _Memo(self._clock(), list(rule.alerts), result))
         return result
 
     async def rejudge(self, req: ProposalRequest) -> PrecheckResult:

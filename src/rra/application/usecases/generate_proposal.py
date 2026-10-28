@@ -93,7 +93,6 @@ from rra.domain.rules.overlap import (
     tier_of,
     uncollected_sources,
 )
-from rra.domain.rules.similar_choice import missing_similar_ids, rows_for_writing
 from rra.domain.rules.relevance import (
     DropReason,
     RelevanceFloor,
@@ -112,6 +111,7 @@ from rra.domain.rules.schedule import (
     schedule_problems,
 )
 from rra.domain.rules.section_search import clip_chunks, section_queries
+from rra.domain.rules.similar_choice import missing_similar_ids, rows_for_writing
 from rra.domain.rules.trust import enforce_section_evidence, escape_untrusted, wrap_untrusted
 from rra.domain.rules.writer import (
     LOCAL_CHECK_SYSTEM,

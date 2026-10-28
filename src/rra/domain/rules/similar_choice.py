@@ -118,9 +118,7 @@ def rows_for_writing(
     return out
 
 
-def missing_similar_ids(
-    alerts: Iterable[OverlapAlert], choices: Mapping[str, str]
-) -> list[str]:
+def missing_similar_ids(alerts: Iterable[OverlapAlert], choices: Mapping[str, str]) -> list[str]:
     """[유사함] 으로 골랐지만 이번 판정 목록에 없는 doc_id (③ 이 문서를 따로 읽어 넣는다)."""
     have = {i for a in alerts for i in _ids(a)}
     return [d for d, c in choices.items() if c == SIMILAR and d not in have]

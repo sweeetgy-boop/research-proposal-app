@@ -118,7 +118,8 @@ def document_text(doc: Document) -> str:
 
 
 class RerankRule(BaseModel):
-    """reranker 점수 중심 판정 (2026-10-28 레인 A). multilingual-e5 코사인은 철도 문서끼리 0.85~0.86 에
+    """reranker 점수 중심 판정 (2026-10-28 레인 A). multilingual-e5 코사인은 철도 문서끼리
+    0.85~0.86 에
     몰려 같은 과제와 무관한 과제를 가르지 못한다. reranker(cross-encoder, 0~1) 점수가 있으면 그
     점수가 임계치 이상이어야 차단 후보가 된다 — e5 는 후보 검색에만 쓴다. 값은 골든셋 측정으로
     정한다 (config/overlap.yaml rerank, docs/eval-2026-10-28-precheck-v2.md)."""
@@ -163,9 +164,7 @@ def judge(
             over = score >= rerank.threshold
         else:
             over = sim >= th[t]
-        blocking = over and (
-            keywords is None or enough(shared, keywords, core=bool(core_keywords))
-        )
+        blocking = over and (keywords is None or enough(shared, keywords, core=bool(core_keywords)))
         status = doc.raw.get("status")
         alerts.append(
             OverlapAlert(

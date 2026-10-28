@@ -73,7 +73,8 @@ def tidy_sentence(text: str) -> str:
 
 
 def clean_cell(sentences: Iterable[str], limit: int = MAX_CELL_CHARS) -> str:
-    """온전한 문장 최대 2개를 상한 안에서 잇는다. 첫 문장 하나가 상한을 넘을 때만 어절 경계에서 줄이고
+    """온전한 문장 최대 2개를 상한 안에서 잇는다. 첫 문장 하나가 상한을 넘을 때만 어절 경계에서
+    줄이고
     "…" 를 붙인다 (잘린 문장을 그대로 붙이지 않는다)."""
     picked: list[str] = []
     for raw in sentences:
@@ -130,7 +131,8 @@ def source_text(doc: Document | None) -> str:
 
 
 def rule_cells(body: str) -> dict[str, str]:
-    """규칙 추출 칸 {aspect: 글} — 머리말 아래 온전한 문장 1~2개. 머리말이 없으면 첫 문장들을 연구목표에."""
+    """규칙 추출 칸 {aspect: 글} — 머리말 아래 온전한 문장 1~2개. 머리말이 없으면 첫 문장들을
+    연구목표에."""
     parts = section_sentences(body)
     if not parts:
         parts = {"objective": split_sentences(body)[:CELL_MAX_SENTENCES]}
@@ -202,7 +204,8 @@ def proposal_column(
     differentiation: str = "",
     draft: Mapping[str, str] | None = None,
 ) -> ComparisonColumn:
-    """제안 행 — 입력 칸에서: 가제(title_hint), 연구목표(goal), 연구방법(method — ② 과제안), 적용범위
+    """제안 행 — 입력 칸에서: 가제(title_hint), 연구목표(goal), 연구방법(method — ② 과제안),
+    적용범위
     (scope, 없으면 활용 주체·제약), 기대성과(초안 뒤), 차별화 방향. draft({aspect: 글}, 초안 섹션)가
     있으면 그 칸을 초안으로 바꾼다."""
     scope = req.scope or " ".join(x for x in (req.beneficiaries, req.constraints) if x).strip()

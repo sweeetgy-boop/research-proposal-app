@@ -66,7 +66,7 @@ class SimilarChoice(BaseModel):
     @classmethod
     def _strip_id(cls, v: str) -> str:
         v = v.strip()
-        if not v or any(c in v for c in "<>\"\n\r"):
+        if not v or any(c in v for c in '<>"\n\r'):
             raise ValueError("doc_id 형식이 올바르지 않습니다")
         return v
 

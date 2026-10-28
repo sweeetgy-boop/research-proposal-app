@@ -39,7 +39,9 @@ class OverlapAlert(BaseModel):
     judgment: SameVerdict | None = None
     judgment_reason: str = ""  # 한 줄 이유 (LLM 출력 — 비신뢰, 정리 뒤)
     judged_by: JudgedBy | None = None  # argon | local | rule(AI 실패·미판정 → 규칙 기준)
-    merged_ids: list[str] = Field(default_factory=list)  # 제목이 같은 다른 문서(NTIS 번호만 다른 중복)
+    merged_ids: list[str] = Field(
+        default_factory=list
+    )  # 제목이 같은 다른 문서(NTIS 번호만 다른 중복)
     choice: SimilarChoiceValue | None = None  # 제안자 선택 [유사함]=similar / [관련 없음]=unrelated
 
 
@@ -60,7 +62,8 @@ JudgmentStatus = Literal["ai", "rule_fallback", "off", "no_candidates"]
 
 
 class JudgmentInfo(BaseModel):
-    """② AI 같음 판정의 요약 — 화면 안내와 [다시 시도] 용. 실패 사유는 예외 클래스명만(본문 없음)."""
+    """② AI 같음 판정의 요약 — 화면 안내와 [다시 시도] 용. 실패 사유는 예외 클래스명만(본문
+    없음)."""
 
     status: JudgmentStatus = "off"
     judged_by: JudgedBy | None = None

@@ -219,7 +219,8 @@ async def test_more_than_five_are_capped_and_duplicates_collapse():
 
 
 async def test_made_up_ids_are_trimmed_and_made_up_numbers_discarded_with_reasons():
-    """2026-10-28 완화: 범위 밖 id 는 목록에서만 빠지고(추천은 남음), 핵심 칸의 지어낸 수치는 폐기."""
+    """2026-10-28 완화: 범위 밖 id 는 목록에서만 빠지고(추천은 남음), 핵심 칸의 지어낸 수치는
+    폐기."""
     uc, _, _ = make(
         [
             reply(
@@ -246,7 +247,9 @@ async def test_made_up_ids_are_trimmed_and_made_up_numbers_discarded_with_reason
 
 async def test_all_filtered_regenerates_once_with_reasons_to_reach_two():
     """검증에서 전부 걸러지면 제외 사유를 주고 한 번 다시 — 최소 2건 목표 (레인 A 항목 8)."""
-    first = reply([rec("지어낸 수치 1", summary="비용을 37% 절감함"), rec("한자", summary="軌道 감지")])
+    first = reply(
+        [rec("지어낸 수치 1", summary="비용을 37% 절감함"), rec("한자", summary="軌道 감지")]
+    )
     second = reply([rec("다시 받은 과제 1"), rec("두 번째 다른 방향", summary="분기기 구간만 봄")])
     uc, llm, _ = make([first, second])
     out = await uc(REQ, ALERTS)
@@ -286,14 +289,19 @@ async def test_similar_only_uses_chosen_rows_and_drops_cards_overlapping_them():
     out = await uc(req, ALERTS, similar_only=True)
     assert '<doc id="own:1"' in llm.calls[0] and '<doc id="alio:sum-1"' not in llm.calls[0]
     assert out.similar_doc_ids == ["own:1"]
-    assert [r.title for r in out.recommendations] == ["운행 차량 센서 상시 감지", "구간별 진행 속도 지도"]
+    assert [r.title for r in out.recommendations] == [
+        "운행 차량 센서 상시 감지",
+        "구간별 진행 속도 지도",
+    ]
     assert out.discarded[0]["reason"] == "overlaps_similar"
 
 
 async def test_argon_failure_falls_back_to_local_model():
     uc, llm, _ = make([])
     llm.fail_at = {0}
-    uc.local = FakeLLM([reply([rec("로컬이 쓴 과제 하나"), rec("로컬 두 번째", summary="다른 구간")])])
+    uc.local = FakeLLM(
+        [reply([rec("로컬이 쓴 과제 하나"), rec("로컬 두 번째", summary="다른 구간")])]
+    )
     out = await uc(REQ, ALERTS)
     assert out.fallback_local is True and len(out.recommendations) == 2
 

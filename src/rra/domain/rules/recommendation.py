@@ -76,7 +76,8 @@ DISCARD_LABELS: dict[str, str] = {
     "overlaps_similar": "[유사함] 으로 고른 과제와 겹침",
 }
 # 핵심 칸이 아닌 칸(이유·이어받을 점·위험·목표·방법·범위)은 검사에 걸리면 그 칸만 비운다 (2026-10-28
-# 레인 A — 시범에서 "검증에서 제외됨 2건" 으로 추천 0건. 정책명 하나 때문에 추천 전체를 버리지 않는다)
+# 레인 A — 시범에서 "검증에서 제외됨 2건" 으로 추천 0건. 정책명 하나 때문에 추천 전체를 버리지
+# 않는다)
 CORE_FIELDS = ("title", "summary", "differentiation")
 
 
@@ -104,7 +105,8 @@ def validate_recommendation(
 ) -> tuple[ProjectRecommendation | None, str | None]:
     """LLM 추천 하나 → (검증된 추천, None) 또는 (None, 폐기 사유).
 
-    폐기는 핵심 칸(가제·요약·차별점)이 비거나 검사(수치·정책명·한자)에 걸릴 때만. 나머지 칸은 그 칸만
+    폐기는 핵심 칸(가제·요약·차별점)이 비거나 검사(수치·정책명·한자)에 걸릴 때만. 나머지 칸은 그
+    칸만
     비우고, 범위 밖 doc_id 는 목록에서 뺀다(보안 A: 이번 precheck·검색 안의 id 만 남는다)."""
     title = _text(raw.get("title"), MAX_TITLE_CHARS)
     summary = _text(raw.get("summary"))
@@ -124,9 +126,7 @@ def validate_recommendation(
         reasons_raw = [reasons_raw]
     reasons = [t for t in (_text(r) for r in (reasons_raw or []) if isinstance(r, str)) if t]
     reasons = [r for r in dict.fromkeys(reasons) if _bad(r, allowed) is None][:MAX_REASONS]
-    optional = {
-        k: _text(raw.get(k)) for k in ("build_on", "risks", "goal", "method", "scope")
-    }
+    optional = {k: _text(raw.get(k)) for k in ("build_on", "risks", "goal", "method", "scope")}
     optional = {k: (v if v and _bad(v, allowed) is None else "") for k, v in optional.items()}
     compared, _ = _ids(raw.get("compared_with"), known)
     evidence, _ = _ids(raw.get("evidence"), known)
@@ -148,7 +148,8 @@ def validate_recommendation(
 def overlaps_similar(
     rec: ProjectRecommendation, similar_titles: Iterable[str], ratio: float = DUPLICATE_RATIO
 ) -> bool:
-    """과제안이 [유사함] 으로 고른 과제 제목과 거의 같은가 (토큰 자카드 ≥ ratio) — 겹치는 안은 뺀다."""
+    """과제안이 [유사함] 으로 고른 과제 제목과 거의 같은가 (토큰 자카드 ≥ ratio) — 겹치는 안은
+    뺀다."""
     mine = set(tokens(f"{rec.title} {rec.summary}".lower()))
     for t in similar_titles:
         other = set(tokens((t or "").lower()))
@@ -164,7 +165,8 @@ def regeneration_hint(discarded: Iterable[Mapping[str, str]]) -> str:
         return ""
     listed = ", ".join(discard_label(r) for r in reasons)
     return (
-        f"[앞 응답에서 제외된 이유] {listed}. 이 이유에 걸리지 않게 다시 쓴다 — 자료·입력에 없는 수치·"
+        f"[앞 응답에서 제외된 이유] {listed}. 이 이유에 걸리지 않게 다시 쓴다 — "
+        "자료·입력에 없는 수치·"
         "정책명·문서 id 를 쓰지 않고, 가제·요약·차별점을 반드시 채운다. 최소 2건."
     )
 

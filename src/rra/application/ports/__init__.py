@@ -8,6 +8,7 @@ from .auth import (
     StaffImportResult,
 )
 from .catalog import CatalogPort
+from .choice_log import ChoiceLogPort
 from .embedding import EmbeddingPort
 from .figures import FigureRendererPort, ImageBudgetExhausted, ImageGeneratorPort, ImageResult
 from .generation_slot import GenerationSlot
@@ -58,6 +59,7 @@ __all__ = [
     "PublicIpPort",
     "SourceAvailabilityPort",
     "RendererPort",
+    "ChoiceLogPort",
     "DocumentScorerPort",
     "RerankerPort",
     "rerank_stats",

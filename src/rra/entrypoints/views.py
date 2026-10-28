@@ -17,6 +17,15 @@ from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.draft_failures import reason_label
 from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
+from rra.domain.rules.precheck_view import (
+    JUDGED_BY_LABELS,
+    differentiation_skip_label,
+    extraction_label,
+    judgment_message,
+    recommendation_skip_label,
+)
+from rra.domain.rules.recommendation import discard_label
+from rra.domain.rules.same_judgment import VERDICT_LABELS
 from rra.domain.rules.writer import local_check_view, local_sections, writers_view
 
 
@@ -697,9 +706,36 @@ def alerts_payload(
                 "own_detail": a.own_detail,
                 "tier_label": tier_label(a.tier, a.own_detail),
                 "live": a.doc_id in live,
+                # ② 판정 정확도 (레인 A) — reranker 점수·AI 같음 판정·같은 제목 묶음·제안자 선택
+                "rerank_score": getattr(a, "rerank_score", None),
+                "rule_blocking": getattr(a, "rule_blocking", None),
+                "judgment": getattr(a, "judgment", None),
+                "judgment_label": VERDICT_LABELS.get(getattr(a, "judgment", None) or "", None),
+                "judgment_reason": clean(getattr(a, "judgment_reason", "") or ""),
+                "judged_by": getattr(a, "judged_by", None),
+                "judged_by_label": JUDGED_BY_LABELS.get(getattr(a, "judged_by", None) or "", None),
+                "merged_ids": list(getattr(a, "merged_ids", []) or []),
+                "choice": getattr(a, "choice", None),
             }
             for a in alerts
         ],
+    }
+
+
+def judgment_payload(info: Any) -> dict[str, Any]:
+    """② AI 같음 판정 요약 → 화면 안내. 실패면 "AI 판정 실패 — 규칙 기준" + retry_available."""
+    status = getattr(info, "status", "off")
+    judged_by = getattr(info, "judged_by", None)
+    return {
+        "status": status,
+        "judged_by": judged_by,
+        "judged_by_label": JUDGED_BY_LABELS.get(judged_by or "", None),
+        "message": judgment_message(status, judged_by),
+        "retry_available": status == "rule_fallback",
+        "candidates": getattr(info, "candidates", 0),
+        "provider": getattr(info, "provider", None),
+        "model": getattr(info, "model", None),
+        "calls": getattr(info, "calls", 0),
     }
 
 
@@ -785,6 +821,7 @@ def differentiation_payload(
     """DifferentiationProposal → dict (CLI·MCP·REST 공용). 항목 본문은 LLM 출력(비신뢰) → clean."""
     return {
         "skipped_reason": proposal.skipped_reason,
+        "skipped_label": differentiation_skip_label(proposal.skipped_reason),
         "provider": proposal.provider,
         "model": proposal.model,
         "fallback_local": proposal.fallback_local,
@@ -815,6 +852,9 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
     """RecommendationResult → dict (CLI·MCP·REST 공용). 본문은 LLM 출력(비신뢰) → clean."""
     return {
         "skipped_reason": result.skipped_reason,
+        "skipped_label": recommendation_skip_label(result.skipped_reason),
+        "regenerated": bool(getattr(result, "regenerated", False)),
+        "similar_doc_ids": list(getattr(result, "similar_doc_ids", []) or []),
         "no_recommendation_reason": (
             clean(result.no_recommendation_reason) if result.no_recommendation_reason else None
         ),
@@ -833,6 +873,9 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
                 "title": clean(r.title),
                 "summary": clean(r.summary),
                 "differentiation": clean(r.differentiation),
+                "goal": clean(getattr(r, "goal", "") or ""),
+                "method": clean(getattr(r, "method", "") or ""),
+                "scope": clean(getattr(r, "scope", "") or ""),
                 "reasons": [clean(x) for x in r.reasons],
                 "build_on": clean(r.build_on),
                 "risks": clean(r.risks),
@@ -842,7 +885,13 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
             }
             for i, r in enumerate(result.recommendations)
         ],
-        "discarded": [{k: clean(str(v)) for k, v in d.items()} for d in result.discarded],
+        "discarded": [
+            {
+                **{k: clean(str(v)) for k, v in d.items()},
+                "reason_label": discard_label(str(d.get("reason", ""))),
+            }
+            for d in result.discarded
+        ],
     }
 
 
@@ -850,7 +899,7 @@ def recommendation_preview_payload(
     before: Any, after: Any, preview: Any, *, clean: Callable[[str], str] = _same
 ) -> dict[str, Any]:
     """추천 적용 미리보기 — 바뀐 칸과 전/후 값. 사용자가 고쳐 확정한 입력으로 초안을 만든다."""
-    fields = ("title_hint", "goal", "differentiation")
+    fields = ("title_hint", "goal", "method", "scope", "differentiation")
     return {
         "index": preview.index,
         "changed": list(preview.changed),
@@ -1016,10 +1065,29 @@ def comparison_payload(table: Any, *, clean: Callable[[str], str] = _same) -> di
             "cells": {k: clean(v) for k, v in c.cells.items()},
         }
 
+    extraction = getattr(table, "extraction", "rule")
+    by = getattr(table, "extraction_by", None)
     return {
         "aspects": list(table.aspects),
         "proposal": col(table.proposal),
         "projects": [col(c) for c in table.projects],
+        "empty_reason": getattr(table, "empty_reason", None),
+        "proposal_source": getattr(table, "proposal_source", "input"),
+        "extraction": extraction,
+        "extraction_by": by,
+        "extraction_label": extraction_label(extraction, by),
+    }
+
+
+def polish_payload(result: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """② [AI로 다듬기] 결과 — 다듬은 글(LLM 출력, 비신뢰 → clean) 또는 원래 글 + 사유."""
+    return {
+        "field": result.field,
+        "text": clean(result.text),
+        "changed": result.changed,
+        "by": result.by,
+        "by_label": JUDGED_BY_LABELS.get(result.by or "", None),
+        "reason": result.reason,
     }
 
 

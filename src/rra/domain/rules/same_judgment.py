@@ -1,7 +1,8 @@
 """② AI 같음 판정의 순수 규칙 (2026-10-28 레인 A).
 
 상위 후보(최대 10건)를 한 번의 LLM 호출로 "대상·문제·방법이 실제로 같은가" 판정한다. 출력은 JSON
-객체 하나 {"items": [{doc_id, verdict, reason}]} 만 받는다 (보안 A: LLM 출력은 비신뢰 — doc_id 는 보낸
+객체 하나 {"items": [{doc_id, verdict, reason}]} 만 받는다 (보안 A: LLM 출력은 비신뢰 — doc_id 는
+보낸
 후보 안에서만, 이유는 구획 태그 무력화·한 줄 상한·한자/가나 제거).
 
 - same(같다) 만 차단. partial(일부 겹침)·different(다르다) 는 차단하지 않는다.

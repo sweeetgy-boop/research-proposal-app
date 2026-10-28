@@ -1,7 +1,8 @@
 """U4 차별성 비교표 유스케이스 — 유사과제 상위 5건의 문서를 읽어 표를 만든다.
 
 2026-10-28 레인 A:
-- similar_only=True(REST ②) 면 제안자가 [유사함] 으로 고른 행(req.similar_choices)만 넣는다. 고른 행이
+- similar_only=True(REST ②) 면 제안자가 [유사함] 으로 고른 행(req.similar_choices)만 넣는다. 고른
+행이
   없으면 기존 과제 행 없이 "유사한 과제를 고르면 비교표가 만들어집니다".
 - 기존 과제 칸은 CellExtractor(Argon → 로컬 → 규칙)가 원문에서 뽑은 1~2문장. 없으면 규칙 추출.
 - 초안이 있으면(draft: 초안 섹션 목록) 제안 행을 초안으로 채운다.
@@ -80,7 +81,8 @@ class CompareProjects:
     async def _add_missing(
         self, req: ProposalRequest, alerts: list[OverlapAlert]
     ) -> list[OverlapAlert]:
-        """[유사함] 으로 골랐지만 이번 알림에 없는 문서(메모 만료 등)는 문서를 읽어 행으로 더한다."""
+        """[유사함] 으로 골랐지만 이번 알림에 없는 문서(메모 만료 등)는 문서를 읽어 행으로
+        더한다."""
         have = {i for a in alerts for i in [a.doc_id, *a.merged_ids]}
         out = list(alerts)
         for doc_id, choice in req.choice_map().items():

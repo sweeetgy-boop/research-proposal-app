@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from rra.domain.models import ProposalRequest  # noqa: F401 — 요청 본문 모델로 그대로 쓴다
+from rra.domain.models.idea_plan import MAX_IDEA_VERSIONS, IdeaVersion
 from rra.domain.models.review import EditRequest  # noqa: F401 — POST /runs/{id}/edits 본문
 
 _SHORT = 100
@@ -123,6 +124,16 @@ class RecommendationApplyIn(BaseModel):
     index: int = Field(ge=0, le=4)
 
 
+class PolishIn(BaseModel):
+    """POST /v1/precheck/plan/polish — 과제안 한 칸 [AI로 다듬기] (레인 A). 그 칸만 보낸다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request: ProposalRequest
+    field: Literal["title_hint", "goal", "method", "scope", "differentiation"]
+    text: str = Field(default="", max_length=2000)
+
+
 class RewriteApplyIn(BaseModel):
     """POST /v1/runs/{id}/sections/{key}/rewrite/apply — 고른 후보 문장 번호(없으면 전부)."""
 
@@ -185,6 +196,9 @@ class RunIn(ProposalRequest):
     # 차단 경보 확인 — 서버가 precheck 를 다시 돌려 차단 알림이 있는데 False 면 409
     acknowledged: bool = False
     priority_evidence: list[str] | None = Field(default=None, max_length=50)
+    # ② 차별화 과제안 버전 — 원래 아이디어·고른 카드·직접 고친 안 (run 의 idea_versions.json, 레인
+    # A)
+    idea_versions: list[IdeaVersion] | None = Field(default=None, max_length=MAX_IDEA_VERSIONS)
 
     def request(self) -> ProposalRequest:
         return ProposalRequest(
@@ -195,6 +209,7 @@ class RunIn(ProposalRequest):
                     "recommendation_index",
                     "acknowledged",
                     "priority_evidence",
+                    "idea_versions",
                 }
             )
         )

@@ -18,7 +18,7 @@ class FakeRecommend:
         self.recs = recs
         self.reason = reason
 
-    async def __call__(self, req, alerts):
+    async def __call__(self, req, alerts, **kw):
         self.calls.append((req, alerts))
         recs = (
             [

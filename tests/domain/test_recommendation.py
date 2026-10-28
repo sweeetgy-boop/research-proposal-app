@@ -63,15 +63,24 @@ def test_made_up_numbers_policy_names_and_foreign_script_are_discarded():
     assert reason is None and rec.risks == ""
     rec, _ = validate({**GOOD, "reasons": ["국가철도망 구축계획과 다름", "own:1 은 이력만 봄"]})
     assert rec.reasons == ["own:1 은 이력만 봄"]
-    assert (
-        validate({**GOOD, "summary": "국가철도망 구축계획 반영"})[1] == rule.DISCARD_UNGROUNDED
-    )
+    assert validate({**GOOD, "summary": "국가철도망 구축계획 반영"})[1] == rule.DISCARD_UNGROUNDED
     assert validate({**GOOD, "differentiation": "軌道 틀림을 봄"})[1] == rule.DISCARD_FOREIGN
 
 
 def test_card_fields_goal_method_scope_and_labels():
-    rec, _ = validate({**GOOD, "goal": "구간별 진행 속도를 추정함", "method": "운행 차량 가속도 분석", "scope": "경부선"})
-    assert (rec.goal, rec.method, rec.scope) == ("구간별 진행 속도를 추정함", "운행 차량 가속도 분석", "경부선")
+    rec, _ = validate(
+        {
+            **GOOD,
+            "goal": "구간별 진행 속도를 추정함",
+            "method": "운행 차량 가속도 분석",
+            "scope": "경부선",
+        }
+    )
+    assert (rec.goal, rec.method, rec.scope) == (
+        "구간별 진행 속도를 추정함",
+        "운행 차량 가속도 분석",
+        "경부선",
+    )
     assert rule.discard_label(rule.DISCARD_NUMBER) == "자료에 없는 수치를 씀"
     assert "unsupported" not in rule.regeneration_hint([{"reason": rule.DISCARD_NUMBER}])
 

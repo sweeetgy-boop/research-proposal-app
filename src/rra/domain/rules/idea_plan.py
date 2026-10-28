@@ -2,7 +2,8 @@
 
 - validate_polish: [AI로 다듬기] 결과 한 칸 검증. 입력(제안 입력 전체 + 고치기 전 글)에 없는 수치·
   정책명, 한자·가나, 빈 글·너무 긴 글은 쓰지 않는다 → (다듬은 글, None) 또는 (None, 사유 문구).
-- normalize_versions: run 에 남길 과제안 버전 — 과제안 다섯 칸만, 길이 상한, 개인정보 표식, 최대 10개.
+- normalize_versions: run 에 남길 과제안 버전 — 과제안 다섯 칸만, 길이 상한, 개인정보 표식, 최대
+10개.
 """
 
 from __future__ import annotations

@@ -113,7 +113,8 @@ class Differentiate:
         return DifferentiationProposal(**base, **transfer, items=items, discarded=discarded)
 
     async def _ask(self, prompt: str) -> tuple[dict[str, Any] | None, bool]:
-        """Argon 먼저, 실패(예외·해석 실패)면 로컬 — (JSON 또는 None, 로컬을 썼나). 예산 초과는 올린다."""
+        """Argon 먼저, 실패(예외·해석 실패)면 로컬 — (JSON 또는 None, 로컬을 썼나). 예산 초과는
+        올린다."""
         system = self.prompts.differentiate()
         try:
             data = parse_object(await self.llm.complete(prompt, system=system, json_mode=True))
@@ -123,7 +124,9 @@ class Differentiate:
             data = None
         if data is not None or self.local is None:
             return data, False
-        gate = self.local_slot.acquire() if self.local_slot is not None else contextlib.nullcontext()
+        gate = (
+            self.local_slot.acquire() if self.local_slot is not None else contextlib.nullcontext()
+        )
         try:
             async with gate:
                 raw = await self.local.complete(prompt, system=system, json_mode=True)

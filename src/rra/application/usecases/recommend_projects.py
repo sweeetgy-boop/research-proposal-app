@@ -84,7 +84,8 @@ class RecommendProjects:
     async def __call__(
         self, req: ProposalRequest, alerts: list[OverlapAlert], *, similar_only: bool = False
     ) -> RecommendationResult:
-        """similar_only=True(REST ②) 면 [유사함] 으로 고른 과제만 비교 대상으로(없으면 [관련 없음] 을 뺀
+        """similar_only=True(REST ②) 면 [유사함] 으로 고른 과제만 비교 대상으로(없으면 [관련 없음]
+        을 뺀
         알림), [유사함] 과제와 겹치는 안은 뺀다."""
         base = {
             "provider": self.provider,
@@ -185,7 +186,8 @@ class RecommendProjects:
         )
 
     async def _ask(self, prompt: str) -> tuple[dict[str, Any] | None, bool, int]:
-        """Argon 먼저(호출 수 셈), 실패(예외·해석 실패)면 로컬 — (JSON, 로컬을 썼나, 외부 호출 수)."""
+        """Argon 먼저(호출 수 셈), 실패(예외·해석 실패)면 로컬 — (JSON, 로컬을 썼나, 외부 호출
+        수)."""
         calls = 0
         try:
             calls += 1
@@ -197,7 +199,9 @@ class RecommendProjects:
             data = None
         if data is not None or self.local is None:
             return data, False, calls
-        gate = self.local_slot.acquire() if self.local_slot is not None else contextlib.nullcontext()
+        gate = (
+            self.local_slot.acquire() if self.local_slot is not None else contextlib.nullcontext()
+        )
         try:
             async with gate:
                 raw = await self.local.complete(

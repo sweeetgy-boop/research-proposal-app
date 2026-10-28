@@ -28,11 +28,13 @@ class RerankerPort(Protocol):
 
 @runtime_checkable
 class DocumentScorerPort(Protocol):
-    """precheck 판정용 점수 — (문서, 유사도) 목록의 입력 순서대로 reranker 점수(0~1). 있으면 이 점수가
+    """precheck 판정용 점수 — (문서, 유사도) 목록의 입력 순서대로 reranker 점수(0~1). 있으면 이
+    점수가
     차단 판단의 주 점수다 (2026-10-28 레인 A). RerankerPort 어댑터가 함께 구현할 수 있다."""
 
-    async def score_documents(self, query: str, docs: list[tuple[Document, float]]) -> list[float]:
-        ...
+    async def score_documents(
+        self, query: str, docs: list[tuple[Document, float]]
+    ) -> list[float]: ...
 
 
 def rerank_stats(reranker: Any) -> dict[str, float | int]:
