@@ -32,6 +32,9 @@ SourceType = Literal[
 # 필요성), procurement=발주 연구용역 공고(유사과제 판정에 "발주 용역" 티어로 들어간다 — 과제가
 # 아니라
 # 용역).
+# admin_notice=공사 홈페이지 행정 공시·규정(감사·법무·행정·인사), status_report=사업 현황·소개
+# (2026-10-29 ADR 0046). 둘 다 정책 근거가 아니며 필요성·현황 섹션 근거로만 쓴다
+# (retrieval_mix only_in).
 DocType = Literal[
     "paper",
     "report",
@@ -45,6 +48,8 @@ DocType = Literal[
     "statistics",
     "audit",
     "procurement",
+    "admin_notice",
+    "status_report",
 ]
 # 본문의 근거. full_text=원문 파일, summary=공개 요약(원문 비공개), abstract=초록·과제요약,
 # image_vision=웹 페이지 이미지 판독(OCR 대조 + Argon JSON, 화면에는 "이미지 판독" 배지 + 원본 링크)

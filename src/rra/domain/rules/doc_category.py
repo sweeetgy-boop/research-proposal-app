@@ -18,9 +18,13 @@ procurement 는 이미
   유사과제 판정에 "용역" 티어로 들어가고(overlap_exclude 아님) 정책 근거에서는 빠진다. 화면 구분
   이름은
   "연구용역(사내 발주)".
-- 행정 공시·사업 현황 = doc_type 은 그대로(policy), ``raw.doc_class`` 로만 가른다 — 정책 근거
-추천·작성안에서
-  빠진다(``is_policy_basis``). 섹션 근거 구성(retrieval_mix) 은 바꾸지 않는다.
+- 행정 공시 = doc_type ``admin_notice`` + ``raw.doc_class = "admin_record"``,
+  사업 현황·소개 = doc_type ``status_report`` + ``raw.doc_class = "status"``
+  (2026-10-29 레인 D, ADR 0046 — ADR 0040 은 doc_type 을 policy 로 두고 분류 키로만 갈랐다).
+  doc_type 이 policy 가 아니므로 섹션 근거 구성(retrieval_mix)의 ``policy`` 허용 목록
+  — 2-가-(3) 경영전략 정합성·3-다 대외위상 — 에 들어가지 않고, 필요성·현황 섹션
+  (2-가-(2) 기술적 중요도·2-나 연구목적)에서만 근거가 된다(retrieval_mix ``only_in``).
+  정책 근거 추천·작성안(``is_policy_basis``)에서도 빠진다.
 - 통계자료 게시판(biz_stat_docs) = doc_type ``statistics`` (설정과 다르게 policy 로 적재된 옛 행).
 
 규칙은 적재(korail_web normalize)와 기존 행 이주(``rra db reclassify``)가 같이 쓴다. raw.doc_class
@@ -63,6 +67,16 @@ POLICY_BASIS_CATEGORIES: frozenset[str] = frozenset({POLICY, AUDIT, NOTICE})
 # 정책 근거 자료원·자료 종류 — 작성안(policy_cards)과 추천(policy_suggest)이 같이 쓴다
 POLICY_BASIS_SOURCES: tuple[str, ...] = ("molit", "rnd_notice", "korail_web", "bai", "mofe")
 POLICY_BASIS_DOC_TYPES: frozenset[str] = frozenset({"policy", "rnd_notice", "audit"})
+# 정책이 아닌 분류의 doc_type (ADR 0046) — 행정 공시·사업 현황은 policy 가 아니다
+ADMIN_NOTICE_TYPE = "admin_notice"
+STATUS_REPORT_TYPE = "status_report"
+CATEGORY_DOC_TYPE: dict[str, str] = {
+    ADMIN_RECORD: ADMIN_NOTICE_TYPE,
+    STATUS: STATUS_REPORT_TYPE,
+    STATISTICS: "statistics",
+}
+# 정책 근거가 아닌 공사 홈페이지 자료 종류 — 필요성·현황 섹션 근거로만 쓴다(retrieval_mix only_in)
+NON_POLICY_KORAIL_DOC_TYPES: frozenset[str] = frozenset(CATEGORY_DOC_TYPE.values())
 
 # ── 공사 홈페이지 사전정보공표 ────────────────────────────────
 PREINFO_MENUS = frozenset({"preinfo"})
@@ -150,7 +164,23 @@ def classify_korail(
     raw: Mapping[str, Any],
     url: str | None = None,
 ) -> tuple[str, str | None]:
-    """공사 홈페이지 문서 → (doc_type, category). 순수 함수. 보도자료·이미지 판독 문서는 그대로."""
+    """공사 홈페이지 문서 → (doc_type, category). 순수 함수. 보도자료·이미지 판독 문서는 그대로.
+
+    행정 공시·사업 현황·통계는 분류에 맞는 doc_type(admin_notice·status_report·statistics)으로
+    바꾼다(ADR 0046). 이미 바뀐 행을 다시 돌려도 같다."""
+    doc_type, category = _classify_korail(doc_type=doc_type, title=title, raw=raw, url=url)
+    if category in CATEGORY_DOC_TYPE:
+        return CATEGORY_DOC_TYPE[category], category
+    return doc_type, category
+
+
+def _classify_korail(
+    *,
+    doc_type: str,
+    title: str,
+    raw: Mapping[str, Any],
+    url: str | None = None,
+) -> tuple[str, str | None]:
     if doc_type in ("korail_news", "web_page"):
         return doc_type, None
     menu = str(raw.get("menu") or "")
@@ -187,7 +217,7 @@ def classify_korail(
         return "policy", ADMIN_RECORD
     if doc_type == "procurement":
         return "procurement", RESEARCH_SERVICE
-    return doc_type, POLICY if doc_type == "policy" else None
+    return doc_type, _default_category(doc_type)
 
 
 def classify(doc: Document) -> tuple[str, str | None]:
@@ -203,6 +233,8 @@ def _default_category(doc_type: str) -> str | None:
         "audit": AUDIT,
         "rnd_notice": NOTICE,
         "statistics": STATISTICS,
+        ADMIN_NOTICE_TYPE: ADMIN_RECORD,
+        STATUS_REPORT_TYPE: STATUS,
     }.get(doc_type)
 
 

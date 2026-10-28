@@ -126,3 +126,68 @@ async def test_research_service_and_admin_records_are_not_policy_basis():
     assert [s.doc_id for s in out] == ["korail_web:p1"]
     passages = await PolicyCards(repo=repo, ask=None).passages(REQ)  # type: ignore[arg-type]
     assert [p.doc_id for p in passages] == ["korail_web:p1"]
+
+
+async def test_admin_status_statistics_doc_types_never_offered():
+    """ADR 0046 — 이주 뒤 doc_type admin_notice·status_report·statistics 인 행(분류 키가 없어도)은
+    정책 근거 추천·작성안 어디에도 나오지 않는다. 유사도가 정책 문서보다 높아도."""
+    from rra.application.usecases.policy_cards import PolicyCards
+
+    others = []
+    for i, (doc_type, cls) in enumerate(
+        (
+            ("admin_notice", "admin_record"),
+            ("status_report", "status"),
+            ("statistics", "statistics"),
+            ("admin_notice", None),  # 분류 키 없는 행
+            ("status_report", None),
+        )
+    ):
+        raw = {"menu": "biz_maint_track"} | ({"doc_class": cls} if cls else {})
+        others.append(
+            POLICY.model_copy(
+                update={"doc_id": f"korail_web:x{i}", "doc_type": doc_type, "raw": raw}
+            )
+        )
+    text = "상태기반 유지보수 체계 확립을 위한 궤도 틀림 자동 감지 방안을 마련함."
+    chunks = [
+        Chunk(
+            chunk_id="korail_web:p1#0", doc_id="korail_web:p1", ordinal=0, text=text, similarity=0.8
+        )
+    ] + [
+        Chunk(chunk_id=f"{d.doc_id}#0", doc_id=d.doc_id, ordinal=0, text=text, similarity=0.95)
+        for d in others
+    ]
+    repo = InMemoryRepository()
+    repo.seed([POLICY, *others], chunks)
+    out = await PolicySuggest(repo)(REQ)
+    assert [s.doc_id for s in out] == ["korail_web:p1"]
+    passages = await PolicyCards(repo=repo, ask=None).passages(REQ)  # type: ignore[arg-type]
+    assert [p.doc_id for p in passages] == ["korail_web:p1"]
+
+
+def test_overlap_candidates_keep_research_service_and_drop_new_types():
+    """유사과제 판정 — 연구용역(사내 발주, procurement)은 그대로 후보, 행정 공시·사업 현황은
+    아님."""
+    from rra.config_loader import overlap_candidates, retrieval_mix
+    from rra.domain.rules.retrieval_scope import overlap_candidates as scope_candidates
+    from rra.settings import load_settings
+
+    def doc(doc_id, doc_type):
+        return Document(doc_id=doc_id, source="korail_web", doc_type=doc_type, title="t")
+
+    research = doc("korail_web:r", "procurement")
+    hits = [
+        (research, 0.9),
+        (doc("korail_web:a", "admin_notice"), 0.95),
+        (doc("korail_web:s", "status_report"), 0.93),
+        (doc("korail_web:t", "statistics"), 0.92),
+    ]
+    settings = load_settings()
+    rule = overlap_candidates(settings)
+    assert [d.doc_id for d, _ in rule.project_hits(hits)] == ["korail_web:r"]
+    assert [d.doc_id for d, _ in scope_candidates(hits)] == ["korail_web:r"]
+    mix = retrieval_mix(settings)
+    assert [d.doc_id for d, _ in mix.overlap_candidates(hits, lambda d: d.doc_type)] == [
+        "korail_web:r"
+    ]
