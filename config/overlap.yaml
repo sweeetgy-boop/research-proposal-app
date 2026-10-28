@@ -20,6 +20,8 @@ evidence_floor:
   search_multiplier: 4
 keywords:
   min_hits: 2
+  # 아이디어 핵심어(Argon 키워드, 실시간 검색과 같은 것)로 셀 때의 하한 (2026-10-28 레인 A 측정: 2 면 골든셋 8/9, 1 이면 9/9)
+  core_min_hits: 1
   # 철도 과제 문서에 흔해 겹쳐도 근거가 안 되는 말. domain/rules/keywords.DEFAULT_GENERIC_TERMS 에 더해진다.
   # 조사를 뗀 어간으로 적는다 (예: "안전성" 이 아니라 "안전").
   generic_terms:
@@ -59,6 +61,64 @@ keywords:
     - 완료
     - 제출
     - 사내
+    # 2026-10-28 시범 운영 거짓 차단(폐역사 아이디어 ↔ 해외 철도차량 조달정책·터널 여굴 채움재)에서 겹친 서술어·일반 명사
+    # + config/generic_terms.candidates.yaml(rra terms candidates)의 "응용연구"(사내 과제 기록 서식어). 레인 A.
+    - 부족
+    - 정책
+    - 상황
+    - 인식
+    - 필요한
+    - 필요하
+    - 필요성
+    - 이용
+    - 방치
+    - 해결
+    - 해결책
+    - 해결방안
+    - 개선방안
+    - 문제점
+    - 대책
+    - 대응
+    - 실태
+    - 어려움
+    - 어려운
+    - 증가
+    - 감소
+    - 발생
+    - 고려
+    - 측면
+    - 부분
+    - 경우
+    - 중요
+    - 중요한
+    - 다양
+    - 효과적
+    - 효율적
+    - 체계적
+    - 지속적
+    - 종합
+    - 전반
+    - 기초
+    - 응용연구
+    - 있음
+    - 없음
+    - 있는
+    - 없는
+
+# reranker 점수 중심 판정 (2026-10-28 레인 A, domain/rules/overlap.RerankRule). e5 유사도는 철도 문서끼리 0.85~0.86 에
+# 몰려 가르지 못한다 — reranker(bge-reranker-v2-m3, 0~1) 점수가 있으면 threshold 이상 AND 핵심 키워드 min_hits 이상이어야
+# 규칙 차단. e5 는 후보 검색(풀)에만. 값은 골든셋 측정(docs/eval-2026-10-28-precheck-v2.md)으로 정했다.
+rerank:
+  threshold: 0.5
+# AI 같음 판정 (레인 A): 규칙 판정 상위 max_candidates 건을 Argon(review 단계) 한 번에 "대상·문제·방법이 같은가" →
+# same 만 차단. Argon 실패면 로컬 모델(local_stage, 로컬 슬롯 안), 둘 다 실패면 규칙 판정 + 화면 "AI 판정 실패 — 규칙 기준".
+judgment:
+  enabled: true
+  stage: review
+  local_stage: clarify
+  max_candidates: 10
+  timeout_seconds: 25
+  local_timeout_seconds: 60
 
 # 유사과제 판정·알림 후보 자료원 (2026-10-28, ADR 0028, domain/rules/overlap_candidates.py).
 # ScienceON 2,045건·NTIS 연구보고서 1,084건 적재 뒤 논문(유사도 0.88~0.90)이 상위를 메워 사내 기록이 밀렸다

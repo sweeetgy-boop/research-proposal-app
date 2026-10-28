@@ -63,6 +63,38 @@ def _ids(value: Any, allowed: Iterable[str]) -> tuple[list[str], bool]:
     return out, all(i in allowed_set for i in out)
 
 
+DISCARD_LABELS: dict[str, str] = {
+    DISCARD_EMPTY: "필수 칸(가제·요약·차별점)이 비어 있음",
+    DISCARD_COMPARED: "비교한 과제가 이번 확인 범위 밖임",
+    DISCARD_EVIDENCE: "근거 자료가 이번 확인 범위 밖임",
+    DISCARD_NUMBER: "자료에 없는 수치를 씀",
+    DISCARD_UNGROUNDED: "자료·입력에 없는 정책·계획명을 씀",
+    DISCARD_FOREIGN: "한자·가나가 섞임",
+    DISCARD_DUPLICATE: "앞의 과제안과 거의 같음",
+    DISCARD_SELF_OVERLAP: "이 안도 기존 과제와 겹침",
+    DISCARD_OVER_LIMIT: "5건을 넘음",
+    "overlaps_similar": "[유사함] 으로 고른 과제와 겹침",
+}
+# 핵심 칸이 아닌 칸(이유·이어받을 점·위험·목표·방법·범위)은 검사에 걸리면 그 칸만 비운다 (2026-10-28
+# 레인 A — 시범에서 "검증에서 제외됨 2건" 으로 추천 0건. 정책명 하나 때문에 추천 전체를 버리지 않는다)
+CORE_FIELDS = ("title", "summary", "differentiation")
+
+
+def discard_label(reason: str) -> str:
+    return DISCARD_LABELS.get(reason, "검증 규칙에 맞지 않음")
+
+
+def _bad(text: str, allowed: list[str]) -> str | None:
+    """글 하나의 검사 — 어긋나면 사유 코드."""
+    if has_foreign_script(text):
+        return DISCARD_FOREIGN
+    if unsupported_numbers(text, allowed):
+        return DISCARD_NUMBER
+    if ungrounded(text, allowed):
+        return DISCARD_UNGROUNDED
+    return None
+
+
 def validate_recommendation(
     raw: Mapping[str, Any],
     *,
@@ -70,47 +102,70 @@ def validate_recommendation(
     evidence_doc_ids: Iterable[str],
     allowed_texts: Iterable[str],
 ) -> tuple[ProjectRecommendation | None, str | None]:
-    """LLM 추천 하나 → (검증된 추천, None) 또는 (None, 폐기 사유)."""
+    """LLM 추천 하나 → (검증된 추천, None) 또는 (None, 폐기 사유).
+
+    폐기는 핵심 칸(가제·요약·차별점)이 비거나 검사(수치·정책명·한자)에 걸릴 때만. 나머지 칸은 그 칸만
+    비우고, 범위 밖 doc_id 는 목록에서 뺀다(보안 A: 이번 precheck·검색 안의 id 만 남는다)."""
     title = _text(raw.get("title"), MAX_TITLE_CHARS)
     summary = _text(raw.get("summary"))
     differentiation = _text(raw.get("differentiation"))
+    if not (title and summary and differentiation):
+        return None, DISCARD_EMPTY
+    alert_ids = list(alert_doc_ids)
+    evidence_ids = list(evidence_doc_ids)
+    known = [*alert_ids, *evidence_ids]
+    allowed = [*allowed_texts, *alert_ids, *evidence_ids]  # id 표기(own:1·W1)는 수치가 아니다
+    for text in (title, summary, differentiation):
+        bad = _bad(text, allowed)
+        if bad:
+            return None, bad
     reasons_raw = raw.get("reasons")
     if isinstance(reasons_raw, str):
         reasons_raw = [reasons_raw]
     reasons = [t for t in (_text(r) for r in (reasons_raw or []) if isinstance(r, str)) if t]
-    reasons = list(dict.fromkeys(reasons))[:MAX_REASONS]
-    if not (title and summary and differentiation and reasons):
-        return None, DISCARD_EMPTY
-    build_on = _text(raw.get("build_on"))
-    risks = _text(raw.get("risks"))
-    alert_ids = list(alert_doc_ids)
-    known = [*alert_ids, *evidence_doc_ids]
-    compared, ok = _ids(raw.get("compared_with"), known)
-    if not ok:
-        return None, DISCARD_COMPARED
-    evidence, ok = _ids(raw.get("evidence"), known)
-    if not ok:
-        return None, DISCARD_EVIDENCE
-    texts = [title, summary, differentiation, *reasons, build_on, risks]
-    if any(has_foreign_script(t) for t in texts):
-        return None, DISCARD_FOREIGN
-    allowed = [*allowed_texts, *alert_ids, *evidence_doc_ids]  # id 표기(own:1·W1)는 수치가 아니다
-    if any(unsupported_numbers(t, allowed) for t in texts):
-        return None, DISCARD_NUMBER
-    if any(ungrounded(t, allowed) for t in texts):
-        return None, DISCARD_UNGROUNDED
+    reasons = [r for r in dict.fromkeys(reasons) if _bad(r, allowed) is None][:MAX_REASONS]
+    optional = {
+        k: _text(raw.get(k)) for k in ("build_on", "risks", "goal", "method", "scope")
+    }
+    optional = {k: (v if v and _bad(v, allowed) is None else "") for k, v in optional.items()}
+    compared, _ = _ids(raw.get("compared_with"), known)
+    evidence, _ = _ids(raw.get("evidence"), known)
+    known_set = set(known)
     return (
         ProjectRecommendation(
             title=title,
             summary=summary,
             differentiation=differentiation,
             reasons=reasons,
-            build_on=build_on,
-            risks=risks,
-            compared_with=compared,
-            evidence=evidence,
+            compared_with=[i for i in compared if i in known_set],
+            evidence=[i for i in evidence if i in known_set],
+            **optional,
         ),
         None,
+    )
+
+
+def overlaps_similar(
+    rec: ProjectRecommendation, similar_titles: Iterable[str], ratio: float = DUPLICATE_RATIO
+) -> bool:
+    """과제안이 [유사함] 으로 고른 과제 제목과 거의 같은가 (토큰 자카드 ≥ ratio) — 겹치는 안은 뺀다."""
+    mine = set(tokens(f"{rec.title} {rec.summary}".lower()))
+    for t in similar_titles:
+        other = set(tokens((t or "").lower()))
+        if mine and other and len(mine & other) / len(other) >= ratio:
+            return True
+    return False
+
+
+def regeneration_hint(discarded: Iterable[Mapping[str, str]]) -> str:
+    """다시 받을 때 모델에 주는 제외 사유 — 사유 이름만(본문 없음), 중복 없이."""
+    reasons = list(dict.fromkeys(d.get("reason", "") for d in discarded if d.get("reason")))
+    if not reasons:
+        return ""
+    listed = ", ".join(discard_label(r) for r in reasons)
+    return (
+        f"[앞 응답에서 제외된 이유] {listed}. 이 이유에 걸리지 않게 다시 쓴다 — 자료·입력에 없는 수치·"
+        "정책명·문서 id 를 쓰지 않고, 가제·요약·차별점을 반드시 채운다. 최소 2건."
     )
 
 
@@ -185,9 +240,15 @@ def apply_recommendation(
     사용자가 이 값을 고쳐 확정한 입력으로 초안을 만든다. 다른 칸은 손대지 않는다.
     """
     goal = req.goal.rstrip()
-    if rec.summary and rec.summary not in goal:
+    if rec.goal:  # 과제안 카드에 연구목표가 있으면 그것으로 (원래 목표는 idea_versions 에 남는다)
+        goal = rec.goal
+    elif rec.summary and rec.summary not in goal:
         goal = f"{goal}\n{GOAL_SUPPLEMENT}{rec.summary}"
     updates = {"title_hint": rec.title, "goal": goal, "differentiation": rec.differentiation}
+    if rec.method:  # ② 과제안 카드의 연구방법·적용범위 (2026-10-28 레인 A)
+        updates["method"] = rec.method
+    if rec.scope:
+        updates["scope"] = rec.scope
     changed = [k for k, v in updates.items() if getattr(req, k) != v]
     new_req = req.model_copy(update=updates)
     preview = RecommendationPreview(

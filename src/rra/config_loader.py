@@ -278,6 +278,12 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "data/korail_web/snapshots",
     ),
     "eval": (lambda s: {}, "", "data/eval"),
+    # ② 유사과제 선택 기록(JSONL) — 임계치 조정용, doc_id·선택·점수·아이디어 해시만 (레인 A)
+    "similar_choices": (
+        lambda s: read_config("overlap.yaml", s).get("choices") or {},
+        "log",
+        "data/feedback/similar_choices.jsonl",
+    ),
     "bench": (lambda s: {}, "", "data/bench"),
     # 로그인 저장소(secret·staff.json·guest.json, 레인 A)·외부 LLM 일일 예산 카운터
     "auth": (lambda s: read_config("auth.yaml", s), "store_dir", "data/auth"),
@@ -735,11 +741,38 @@ def own_unit(settings: Settings) -> OwnUnit | None:
 def keyword_rule(settings: Settings) -> KeywordRule:
     """유사과제 차단의 키워드 조건 (config/overlap.yaml `keywords`). 파일이 없으면 도메인 기본값."""
     cfg = read_config("overlap.yaml", settings).get("keywords") or {}
-    rule = KeywordRule(min_hits=int(cfg.get("min_hits") or 2))
+    rule = KeywordRule(
+        min_hits=int(cfg.get("min_hits") or 2), core_min_hits=int(cfg.get("core_min_hits") or 1)
+    )
     extra = cfg.get("generic_terms") or []
     if not isinstance(extra, list):
         raise ValueError("overlap.yaml keywords.generic_terms 는 목록이어야 합니다.")
     return rule.with_extra_generic([str(t) for t in extra])
+
+
+def rerank_rule(settings: Settings):
+    """reranker 점수 중심 판정 (config/overlap.yaml `rerank`, 레인 A). 절이 없으면 도메인 기본값."""
+    from rra.domain.rules.overlap import RerankRule
+
+    cfg = read_config("overlap.yaml", settings).get("rerank") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError("overlap.yaml rerank 는 매핑이어야 합니다.")
+    return RerankRule.model_validate({k: cfg[k] for k in ("threshold", "near_ratio") if k in cfg})
+
+
+def same_judgment_config(settings: Settings) -> dict[str, Any]:
+    """AI 같음 판정 (config/overlap.yaml `judgment`, 레인 A). 없으면 켜짐·review→clarify·10건."""
+    cfg = read_config("overlap.yaml", settings).get("judgment") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError("overlap.yaml judgment 는 매핑이어야 합니다.")
+    return {
+        "enabled": bool(cfg.get("enabled", True)),
+        "stage": str(cfg.get("stage") or "review"),
+        "local_stage": str(cfg.get("local_stage") or ""),
+        "max_candidates": max(1, min(10, int(cfg.get("max_candidates", 10)))),
+        "timeout": float(cfg.get("timeout_seconds", 25)),
+        "local_timeout": float(cfg.get("local_timeout_seconds", 60)),
+    }
 
 
 def relevance_floor(settings: Settings) -> RelevanceFloor:

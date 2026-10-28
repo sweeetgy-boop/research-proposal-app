@@ -364,8 +364,12 @@ class RunManager:
         priority_evidence: list[str] | None = None,
         scope: str = "all",
         daily_limit: int | None = None,
+        idea_versions: list[Any] | None = None,
     ) -> RunState:
         """queued 로 저장하고 백그라운드 실행을 시작한 뒤 즉시 돌려준다.
+
+        idea_versions: ② 차별화 과제안 버전(IdeaVersion — 원래 아이디어·고른 카드·직접 고친 안).
+        칸 거르기·개인정보 표식 뒤 run 의 idea_versions.json 에 복사한다 (레인 A).
 
         scope: "public" 이면 검색·근거에서 visibility=internal 을 뺀다 (공용 계정).
         daily_limit: 이 사용자의 오늘 생성 건수 상한 (None 이면 없음). 넘으면 DailyLimitReached.
@@ -404,6 +408,12 @@ class RunManager:
         if priority_evidence:
             ids = [str(x)[:200] for x in priority_evidence if str(x).strip()][:50]
             self.store.save_notes(user, state.run_id, {"priority_evidence": ids})
+        if idea_versions:
+            from rra.domain.rules.idea_plan import normalize_versions
+
+            saver = getattr(self.store, "save_idea_versions", None)
+            if saver is not None:
+                saver(user, state.run_id, normalize_versions(idea_versions))
         self.store.save_state(state)
         claim = self.store.claim(user, state.run_id)  # 백그라운드 시작 전에 잡아 공백을 없앤다
         self._start(state, claim, on_step)

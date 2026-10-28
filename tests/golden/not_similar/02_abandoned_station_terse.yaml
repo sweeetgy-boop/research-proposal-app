@@ -1,0 +1,10 @@
+# "유사하지 않음" 골든셋 2 — 같은 아이디어를 짧은 서술어 위주로 적은 경우 (시범 입력 문체, 레인 A)
+title_hint: ""
+current_state: 폐 역사 이용 방안 마련이 필요한 상황임
+root_cause: 노선이 변경되거나 인구가 줄어 폐 철도역사가 생김
+limitation: 방치되고 있고 활용에 대한 인식이 부족함
+goal: 해결책에 대한 정책적 제시가 필요하고 그 근거를 마련해야 함
+constraints: ""
+policy_basis: ""
+beneficiaries: ""
+must_not_block: ['alio:sum-67c4e0b700003559', 'own:8dbc1ce1e7efd2e8', 'ntis:1615010993']

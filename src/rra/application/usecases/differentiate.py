@@ -16,11 +16,12 @@ fallback_local=True.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from dataclasses import dataclass
 from typing import Any
 
-from rra.application.ports import DocumentRepository, LLMPort, PromptLibraryPort
+from rra.application.ports import BudgetExhausted, DocumentRepository, LLMPort, PromptLibraryPort
 from rra.domain.models import (
     DifferentiationItem,
     DifferentiationProposal,
@@ -37,11 +38,13 @@ from rra.domain.rules.differentiation import (
     validate_item,
 )
 from rra.domain.rules.llm_output import parse_object
+from rra.domain.rules.similar_choice import similar_alerts
 from rra.domain.rules.trust import escape_untrusted
 
 SKIP_NO_CANDIDATES = "no_candidates"
 SKIP_NO_DOCUMENTS = "no_documents"
 SKIP_PARSE_FAILED = "parse_failed"
+SKIP_NO_SIMILAR = "no_similar_selected"  # ② 에서 [유사함] 으로 고른 과제가 없음 (레인 A)
 
 
 @dataclass
@@ -56,16 +59,26 @@ class Differentiate:
     fallback_local: bool = False
     max_candidates: int = MAX_CANDIDATES
     max_doc_chars: int = 1500
+    # Argon 실패(예외·해석 실패) 때 로컬 모델 (2026-10-28 레인 A). None 이면 없음
+    local: LLMPort | None = None
+    local_slot: Any | None = None
 
     async def __call__(
-        self, req: ProposalRequest, alerts: list[OverlapAlert]
+        self, req: ProposalRequest, alerts: list[OverlapAlert], *, similar_only: bool = False
     ) -> DifferentiationProposal:
+        """similar_only=True(REST ②, 레인 A) 면 제안자가 [유사함] 으로 고른 과제만 — 차단·근접이어도
+        고르지 않았으면 쓰지 않는다. 고른 과제가 없으면 건너뛴다(no_similar_selected)."""
         base = {
             "provider": self.provider,
             "model": self.model,
             "fallback_local": self.fallback_local,
         }
-        picked = candidates(alerts, self.thresholds, self.max_candidates)
+        if similar_only:
+            picked = similar_alerts(alerts, req.choice_map())[: self.max_candidates]
+            if not picked:
+                return DifferentiationProposal(**base, skipped_reason=SKIP_NO_SIMILAR)
+        else:
+            picked = candidates(alerts, self.thresholds, self.max_candidates)
         if not picked:
             return DifferentiationProposal(**base, skipped_reason=SKIP_NO_CANDIDATES)
         docs: list[tuple[OverlapAlert, Document]] = []
@@ -85,8 +98,9 @@ class Differentiate:
                 **base, excluded_doc_ids=excluded, skipped_reason=SKIP_NO_DOCUMENTS
             )
         prompt = self.build_prompt(req, docs)
-        raw = await self.llm.complete(prompt, system=self.prompts.differentiate(), json_mode=True)
-        data = parse_object(raw)
+        data, used_local = await self._ask(prompt)
+        if used_local:
+            base = {**base, "fallback_local": True}
         transfer = {
             "public_doc_ids": public_ids,
             "internal_doc_ids": internal_ids,
@@ -97,6 +111,25 @@ class Differentiate:
             return DifferentiationProposal(**base, **transfer, skipped_reason=SKIP_PARSE_FAILED)
         items, discarded = self._validate(req, docs, data)
         return DifferentiationProposal(**base, **transfer, items=items, discarded=discarded)
+
+    async def _ask(self, prompt: str) -> tuple[dict[str, Any] | None, bool]:
+        """Argon 먼저, 실패(예외·해석 실패)면 로컬 — (JSON 또는 None, 로컬을 썼나). 예산 초과는 올린다."""
+        system = self.prompts.differentiate()
+        try:
+            data = parse_object(await self.llm.complete(prompt, system=system, json_mode=True))
+        except BudgetExhausted:
+            raise
+        except Exception:
+            data = None
+        if data is not None or self.local is None:
+            return data, False
+        gate = self.local_slot.acquire() if self.local_slot is not None else contextlib.nullcontext()
+        try:
+            async with gate:
+                raw = await self.local.complete(prompt, system=system, json_mode=True)
+        except Exception:
+            return None, True
+        return parse_object(raw), True
 
     # ── 프롬프트 ──────────────────────────────────────────
     def build_prompt(self, req: ProposalRequest, docs: list[tuple[OverlapAlert, Document]]) -> str:

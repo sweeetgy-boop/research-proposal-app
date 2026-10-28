@@ -145,6 +145,9 @@ class KeywordRule(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     min_hits: int = Field(default=2, ge=1)
+    # 아이디어 핵심어(Argon 키워드)로 셀 때의 하한 — 핵심어는 질의 전체 토큰보다 적고 구체적이라 1
+    # (2026-10-28 골든셋: 2 면 01 궤도 틀림 정답이 "궤도틀림" 붙여 쓰기로 1개만 겹쳐 놓침)
+    core_min_hits: int = Field(default=1, ge=1)
     generic_terms: frozenset[str] = DEFAULT_GENERIC_TERMS
 
     def with_extra_generic(self, terms: list[str] | tuple[str, ...]) -> KeywordRule:
@@ -190,8 +193,8 @@ def keyword_overlap(query: str, doc_text: str, rule: KeywordRule) -> list[str]:
     return [kw for kw in query_keywords(query, rule) if any(d.startswith(kw) for d in doc_tokens)]
 
 
-def enough(hits: list[str], rule: KeywordRule) -> bool:
-    return len(hits) >= rule.min_hits
+def enough(hits: list[str], rule: KeywordRule, *, core: bool = False) -> bool:
+    return len(hits) >= (rule.core_min_hits if core else rule.min_hits)
 
 
 def core_terms(core_keywords: list[str] | tuple[str, ...], rule: KeywordRule) -> list[str]:

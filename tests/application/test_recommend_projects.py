@@ -218,27 +218,84 @@ async def test_more_than_five_are_capped_and_duplicates_collapse():
     )
 
 
-async def test_made_up_ids_and_numbers_are_discarded_with_reasons():
+async def test_made_up_ids_are_trimmed_and_made_up_numbers_discarded_with_reasons():
+    """2026-10-28 완화: 범위 밖 id 는 목록에서만 빠지고(추천은 남음), 핵심 칸의 지어낸 수치는 폐기."""
     uc, _, _ = make(
         [
             reply(
                 [
                     rec("좋은 과제", evidence=["own:1"]),
-                    rec("지어낸 id", compared_with=["own:999"]),
+                    rec(
+                        "지어낸 id 가 섞인 과제",
+                        compared_with=["own:999", "own:1"],
+                        summary="센서 위치를 바꿔 다른 구간을 봄",
+                    ),
                     rec("논문과 비교", compared_with=["openalex:W1"], summary="논문과 비교해 다름"),
-                    rec("지어낸 근거", evidence=["openalex:W777"]),
                     rec("지어낸 수치", summary="비용을 37% 절감함"),
                 ]
             )
         ]
     )
     out = await uc(REQ, ALERTS)
-    assert [r.title for r in out.recommendations] == ["좋은 과제", "논문과 비교"]
-    assert {d["title"]: d["reason"] for d in out.discarded} == {
-        "지어낸 id": rule.DISCARD_COMPARED,
-        "지어낸 근거": rule.DISCARD_EVIDENCE,
-        "지어낸 수치": rule.DISCARD_NUMBER,
-    }
+    titles = [r.title for r in out.recommendations]
+    assert titles == ["좋은 과제", "지어낸 id 가 섞인 과제", "논문과 비교"]
+    assert out.recommendations[1].compared_with == ["own:1"]  # own:999 만 빠짐
+    assert {d["title"]: d["reason"] for d in out.discarded} == {"지어낸 수치": rule.DISCARD_NUMBER}
+    assert out.regenerated is False  # 3건 남음 → 다시 받지 않음
+
+
+async def test_all_filtered_regenerates_once_with_reasons_to_reach_two():
+    """검증에서 전부 걸러지면 제외 사유를 주고 한 번 다시 — 최소 2건 목표 (레인 A 항목 8)."""
+    first = reply([rec("지어낸 수치 1", summary="비용을 37% 절감함"), rec("한자", summary="軌道 감지")])
+    second = reply([rec("다시 받은 과제 1"), rec("두 번째 다른 방향", summary="분기기 구간만 봄")])
+    uc, llm, _ = make([first, second])
+    out = await uc(REQ, ALERTS)
+    assert out.regenerated is True and out.calls == 2
+    assert [r.title for r in out.recommendations] == ["다시 받은 과제 1", "두 번째 다른 방향"]
+    assert "[앞 응답에서 제외된 이유]" in llm.calls[1] and "자료에 없는 수치를 씀" in llm.calls[1]
+    assert {d["reason"] for d in out.discarded} == {rule.DISCARD_NUMBER, rule.DISCARD_FOREIGN}
+
+
+async def test_model_choosing_zero_does_not_regenerate():
+    uc, llm, _ = make([reply([], reason="이미 충분히 다름")])
+    out = await uc(REQ, ALERTS)
+    assert out.regenerated is False and len(llm.calls) == 1
+
+
+async def test_similar_only_uses_chosen_rows_and_drops_cards_overlapping_them():
+    req = REQ.model_copy(
+        update={
+            "similar_choices": [
+                {"doc_id": "own:1", "choice": "similar"},
+                {"doc_id": "alio:sum-1", "choice": "unrelated"},
+            ]
+        }
+    )
+    req = ProposalRequest(**req.model_dump())
+    uc, llm, _ = make(
+        [
+            reply(
+                [
+                    rec("궤도 검측 이력 분석", summary="궤도 검측 이력 분석"),  # 고른 과제와 같음
+                    rec("운행 차량 센서 상시 감지", summary="영업 차량에서 상시로 봄"),
+                    rec("구간별 진행 속도 지도", summary="구간 단위로 진행 속도를 그림"),
+                ]
+            )
+        ]
+    )
+    out = await uc(req, ALERTS, similar_only=True)
+    assert '<doc id="own:1"' in llm.calls[0] and '<doc id="alio:sum-1"' not in llm.calls[0]
+    assert out.similar_doc_ids == ["own:1"]
+    assert [r.title for r in out.recommendations] == ["운행 차량 센서 상시 감지", "구간별 진행 속도 지도"]
+    assert out.discarded[0]["reason"] == "overlaps_similar"
+
+
+async def test_argon_failure_falls_back_to_local_model():
+    uc, llm, _ = make([])
+    llm.fail_at = {0}
+    uc.local = FakeLLM([reply([rec("로컬이 쓴 과제 하나"), rec("로컬 두 번째", summary="다른 구간")])])
+    out = await uc(REQ, ALERTS)
+    assert out.fallback_local is True and len(out.recommendations) == 2
 
 
 async def test_self_overlap_is_a_warning_by_default_and_an_exclusion_in_exclude_mode():

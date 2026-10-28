@@ -104,8 +104,9 @@ def similar_alerts(
 def rows_for_writing(
     alerts: Sequence[OverlapAlert], choices: Mapping[str, str]
 ) -> list[OverlapAlert]:
-    """③ 5. 특이사항 판정표 — 선택이 없으면 그대로. 있으면 [관련 없음] 행을 빼고 [유사함] 행은
-    중복 검토 대상(blocking=True)으로. 고르지 않은 행은 종전 판정 그대로."""
+    """③ 5. 특이사항 판정표 — 선택이 없으면 그대로. 있으면 [관련 없음] 행을 빼고 [유사함] 행만
+    중복 검토 대상(blocking=True)으로, 고르지 않은 행은 참고(blocking=False)로 — 본문 차별성 문장은
+    [유사함] 행에 대해서만 쓴다."""
     if not choices:
         return list(alerts)
     out: list[OverlapAlert] = []
@@ -113,9 +114,7 @@ def rows_for_writing(
         c = choice_for(a, choices)
         if c == UNRELATED:
             continue
-        if c == SIMILAR:
-            a = a.model_copy(update={"blocking": True, "choice": SIMILAR})
-        out.append(a)
+        out.append(a.model_copy(update={"blocking": c == SIMILAR, "choice": c}))
     return out
 
 

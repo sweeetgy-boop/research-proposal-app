@@ -86,7 +86,14 @@ from rra.domain.rules.llm_output import (
     parse_choice_section,
     parse_sentences,
 )
-from rra.domain.rules.overlap import OwnUnit, judge, no_overlap_statement, uncollected_sources
+from rra.domain.rules.overlap import (
+    OwnUnit,
+    judge,
+    no_overlap_statement,
+    tier_of,
+    uncollected_sources,
+)
+from rra.domain.rules.similar_choice import missing_similar_ids, rows_for_writing
 from rra.domain.rules.relevance import (
     DropReason,
     RelevanceFloor,
@@ -118,6 +125,7 @@ from rra.domain.rules.writer import (
 logger = logging.getLogger("rra.generate")
 
 OVERLAP_SECTION = "overlap_review"
+MAX_CHOSEN_EXTRA = 5  # ② 에서 [유사함] 으로 골랐지만 판정에 없는 문서 — 더 읽는 상한
 _OVERLAP_TEXT_CHARS = 1500
 # 제안자가 정한 차별화 방향(기능 2)을 지시문으로 넣는 섹션 — 목적·방법·특이사항
 DIFFERENTIATION_SECTIONS = frozenset({"objective", "method", OVERLAP_SECTION})
@@ -354,6 +362,9 @@ class GenerateProposal:
             alerts = judge(
                 hits[: self.overlap_k], own=self.own, query=query, keywords=self.keywords
             )
+            # ② 제안자 선택(레인 A): [관련 없음] 행은 빼고 [유사함] 행은 중복 검토 대상으로 — 선택한
+            # 문서가 이번 판정에 없으면 문서를 읽어 더한다 (선택이 없으면 종전 그대로)
+            alerts, hits = await self._apply_similar_choices(req, alerts, hits)
             extra = self._overlap_chunks(hits, alerts, chunks)
             snapshot = RetrievalSnapshot.of(query, chunks + extra, alerts)
             snapshot.uncollected = uncollected_sources(await self.repo.count_by_source())
@@ -365,6 +376,35 @@ class GenerateProposal:
         await self._fill_doc_types(snapshot)
         await self._fill_facts(snapshot)
         return snapshot
+
+    async def _apply_similar_choices(
+        self,
+        req: ProposalRequest,
+        alerts: list[OverlapAlert],
+        hits: list[tuple[Document, float]],
+    ) -> tuple[list[OverlapAlert], list[tuple[Document, float]]]:
+        choices = req.choice_map()
+        if not choices:
+            return alerts, hits
+        rows = rows_for_writing(alerts, choices)
+        hits = list(hits)
+        for doc_id in missing_similar_ids(rows, choices)[:MAX_CHOSEN_EXTRA]:
+            doc = await self.repo.get_document(doc_id)
+            if doc is None:  # 공용 계정 run 은 internal 문서를 읽지 못한다 — 그대로 둔다
+                continue
+            rows.append(
+                OverlapAlert(
+                    doc_id=doc.doc_id,
+                    title=doc.title,
+                    tier=tier_of(doc, self.own),
+                    similarity=0.0,
+                    blocking=True,
+                    basis=doc.text_basis,
+                    choice="similar",
+                )
+            )
+            hits.append((doc, 0.0))
+        return rows, hits
 
     async def _fill_facts(self, snapshot: RetrievalSnapshot) -> None:
         """P2-8 표 사실 — 검색 집합 문서의 사실을 스냅샷에 고정한다(수치 lint 근거). 저장소가 사실을
@@ -1028,6 +1068,7 @@ class GenerateProposal:
                 f"- id={a.doc_id} 구분={a.tier} 유사도={a.similarity:.2f} "
                 f"중복기준초과={'예' if a.blocking else '아니오'} basis={a.basis or '-'} "
                 f"겹친키워드={','.join(a.keywords) or '-'}"
+                + (" 제안자판단=유사함(차별성을 쓸 대상)" if a.choice == "similar" else "")
                 for a in snapshot.overlap
             )
             parts.append(f"[유사과제 판정 — 앱 계산]\n{rows}")

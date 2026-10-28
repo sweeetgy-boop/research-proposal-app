@@ -163,7 +163,9 @@ def judge(
             over = score >= rerank.threshold
         else:
             over = sim >= th[t]
-        blocking = over and (keywords is None or enough(shared, keywords))
+        blocking = over and (
+            keywords is None or enough(shared, keywords, core=bool(core_keywords))
+        )
         status = doc.raw.get("status")
         alerts.append(
             OverlapAlert(

@@ -38,6 +38,8 @@ from rra.config_loader import (
     llm_key_present,
     molit_config,
     overlap_candidates,
+    rerank_rule,
+    same_judgment_config,
     own_unit,
     pipeline_config,
     public_ip_config,
@@ -1431,9 +1433,24 @@ def build_ingest(settings: Settings | None = None, *, sources, repo=None, limit:
     )
 
 
-def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None, pipeline=None):
+def build_precheck(
+    settings: Settings | None = None,
+    repo=None,
+    *,
+    reranker=None,
+    pipeline=None,
+    judge: bool = False,
+    llm=None,
+    local_llm=None,
+    local_slot=None,
+    keyword_source=None,
+):
     """PrecheckOverlap 유스케이스. repo 를 주면 그대로 쓴다(테스트·MCP 조립용).
-    pipeline.reranker 가 켜져 있으면 Q8 reranker 로 k×4 를 다시 순위 매긴다."""
+    pipeline.reranker 가 켜져 있으면 Q8 reranker 로 k×4 를 다시 순위 매긴다 — 점수는 차단 판단의 주
+    점수(overlap.yaml rerank, 레인 A).
+
+    judge=True(REST ②) 면 AI 같음 판정(SameJudge: Argon → 로컬 → 규칙)과 핵심 키워드 출처(실시간
+    검색과 같은 LiveKeywordMaker)를 붙인다. llm 을 주면(가짜 모드·테스트) 그것을 Argon 자리로 쓴다."""
     from rra.application.usecases.precheck_overlap import PrecheckOverlap
 
     settings = settings or load_settings()
@@ -1441,6 +1458,13 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
         repo = build_repository(build_embedding(settings), settings)
     if reranker is None and (pipeline or pipeline_config(settings)).reranker:
         reranker = build_reranker(settings)
+    same_judge = None
+    if judge:
+        same_judge = build_same_judge(
+            settings, repo=repo, llm=llm, local_llm=local_llm, local_slot=local_slot
+        )
+        if keyword_source is None:
+            keyword_source = build_live_keywords(settings, llm=llm)
     return PrecheckOverlap(
         repo,
         own=own_unit(settings),
@@ -1448,6 +1472,56 @@ def build_precheck(settings: Settings | None = None, repo=None, *, reranker=None
         reranker=reranker,
         mix=retrieval_mix(settings),
         candidates=overlap_candidates(settings),
+        rerank=rerank_rule(settings),
+        same_judge=same_judge,
+        keyword_source=keyword_source if judge else None,
+    )
+
+
+def build_same_judge(
+    settings: Settings | None = None, *, repo, llm=None, local_llm=None, local_slot=None
+):
+    """② AI 같음 판정(SameJudge, 레인 A) — overlap.yaml judgment. Argon = judgment.stage(기본 review:
+    gemini 면 일일 예산·공유 호출 제한기), 로컬 = judgment.local_stage. 키·설정이 없는 단계는 건너뛴다.
+    꺼져 있으면 None(규칙 판정만). llm 을 주면 그것만 Argon 자리로 쓴다(가짜 모드·테스트)."""
+    from rra.application.usecases.judge_sameness import SameJudge
+
+    settings = settings or load_settings()
+    cfg = same_judgment_config(settings)
+    if not cfg["enabled"]:
+        return None
+    primary, local = llm, local_llm
+    provider = model = local_model = None
+    if llm is None and llm_available(settings, stage=cfg["stage"]):
+        try:
+            primary = build_llm(settings, stage=cfg["stage"])
+        except (LLMUnavailable, KeyError, ValueError):
+            primary = None
+    if primary is not None:
+        try:
+            scfg = llm_config(settings, cfg["stage"])
+            provider, model = scfg["provider"], scfg["served_model"] or scfg["model"]
+        except (KeyError, ValueError):
+            pass
+    if local is None and llm is None and cfg["local_stage"]:
+        try:
+            local = build_llm(settings, stage=cfg["local_stage"])
+            lcfg = llm_config(settings, cfg["local_stage"])
+            local_model = lcfg["served_model"] or lcfg["model"]
+        except (LLMUnavailable, KeyError, ValueError):
+            local = None
+    return SameJudge(
+        primary=primary,
+        local=local,
+        repo=repo,
+        include_internal=review_policy(settings)["include_internal"],
+        provider=provider,
+        model=model,
+        local_model=local_model,
+        timeout=cfg["timeout"],
+        local_timeout=cfg["local_timeout"],
+        max_candidates=cfg["max_candidates"],
+        local_slot=local_slot,
     )
 
 
