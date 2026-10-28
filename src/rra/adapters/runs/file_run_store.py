@@ -103,6 +103,9 @@ class FileRunStore:
             read_json(self._run_dir(user, run_id) / "request.json")
         )
 
+    def save_request(self, user: str, run_id: str, req: ProposalRequest) -> None:
+        write_json(self._run_dir(user, run_id) / "request.json", req.model_dump(mode="json"))
+
     # ── 체크포인트 ───────────────────────────────────────
     def save_snapshot(self, user: str, run_id: str, snapshot: RetrievalSnapshot) -> None:
         write_json(self._run_dir(user, run_id) / "context.json", snapshot.model_dump(mode="json"))

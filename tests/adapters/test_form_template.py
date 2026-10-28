@@ -180,11 +180,12 @@ def test_real_template_renders_without_leftover_placeholders_in_form_order():
     assert "운영방법 개선(   ○   )" in text and "개발 및 제공(   ○   )" in text
     assert "실용화계획 있음(   ○   )" in text and "매뉴얼 작성 및 배포(       )" in text
     # 문장별 단락, 한 줄 칸 인라인, 제안자 표
-    assert "   ○ method 문장 하나.\n   ○ method 문장 둘." in text  # 제목 들여쓰기 + 2칸
-    assert "    ○ policy_importance 문장 하나." in text
-    assert " 가. 연구과제명 : title 문장 하나. title 문장 둘." in text
+    # 줄맞춤은 공백이 아니라 단락 모양(왼쪽 여백·내어쓰기)이 한다 (항목 12)
+    assert "\n○ method 문장 하나.\n○ method 문장 둘." in text
+    assert "\n○ policy_importance 문장 하나." in text
+    assert "\n가. 연구과제명 : title 문장 하나. title 문장 둘." in text
     assert "예산과목 연구개발비  금액 : 150,000 천원" in text
-    assert "   - 전략방향 : \n" in text  # 전략 목록이 비어 있으면 빈칸
+    assert "\n- 전략방향 : \n" in text  # 전략 목록이 비어 있으면 빈칸
     assert "☏ 042-000-0000" in text and "홍길동  (인)" in text and "김철도  (인)" in text
     assert "2026. 10. 26." in text and "철도연구원 기술연구처" in text
     assert "○ 비고 <특이>" in text and "&lt;" not in text

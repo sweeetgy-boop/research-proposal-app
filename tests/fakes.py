@@ -475,6 +475,9 @@ class InMemoryRunStore:
     def load_request(self, user, run_id):
         return self.requests[self._key(user, run_id)]
 
+    def save_request(self, user, run_id, req):
+        self.requests[self._key(user, run_id)] = req
+
     def save_snapshot(self, user, run_id, snapshot):
         self.snapshots[self._key(user, run_id)] = snapshot
 

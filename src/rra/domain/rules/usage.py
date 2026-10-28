@@ -20,19 +20,46 @@ def _seconds(start: str | None, end: str | None) -> float | None:
     return max(0.0, round((b - a).total_seconds(), 3))
 
 
+def _parse(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts)
+    except ValueError:
+        return None
+
+
 def step_durations(state: RunState) -> dict[str, float]:
-    """끝난 step 의 소요 시간(초). 섹션 step 은 'sections' 로 합친다."""
+    """끝난 step 의 소요 시간(초).
+
+    섹션 step 은 여러 개가 동시에 돈다(Argon 작성은 4개씩) — 'sections' 는 첫 섹션 시작부터 마지막
+    섹션 끝까지의 실제 경과(벽시계), 'sections_sum' 은 섹션별 시간의 합(보조 지표)이다
+    (2026-10-28 실측: 합 73초, 실제 20초).
+    """
     out: dict[str, float] = {}
+    starts: list[datetime] = []
+    ends: list[datetime] = []
+    total = 0.0
     for s in state.steps:
         sec = _seconds(s.started_at, s.finished_at)
         if sec is None:
             continue
-        name = "sections" if s.name.startswith("section:") else s.name
-        out[name] = round(out.get(name, 0.0) + sec, 3)
+        if s.name.startswith("section:"):
+            total += sec
+            a, b = _parse(s.started_at), _parse(s.finished_at)
+            if a is not None and b is not None:
+                starts.append(a)
+                ends.append(b)
+            continue
+        out[s.name] = round(out.get(s.name, 0.0) + sec, 3)
+    if starts and ends:
+        out["sections"] = round(max(0.0, (max(ends) - min(starts)).total_seconds()), 3)
+        out["sections_sum"] = round(total, 3)
     return out
 
 
 def total_seconds(state: RunState) -> float | None:
+    """만든 때부터 마무리(없으면 마지막 갱신)까지 — 제안자가 검토·수정한 시간을 포함한 전체 경과."""
     return _seconds(state.created_at, state.finalized_at or state.updated_at)
 
 

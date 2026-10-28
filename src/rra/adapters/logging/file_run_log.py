@@ -50,6 +50,19 @@ MANIFEST_KEYS = frozenset(
         "local_check",  # 로컬 근거 대조 개수·건너뛴 섹션
         "gemini_calls",  # 초안 한 건의 Gemini 호출 수 (작성·검토·그림·합계)
         "live_search",  # [4] 실시간 검색: 상태·자료원별 상태/건수/초·키워드 개수 (키워드·본문 없음)
+        "hwpx_format",  # 항목 12 HWPX 서식 점검: 고친 단락 수·남은 불일치·단계별 단락 수 (건수만)
+    }
+)
+HWPX_FORMAT_KEYS = frozenset(
+    {
+        "mode",
+        "ok",
+        "paragraphs",
+        "fixed",
+        "fixed_total",
+        "remaining",
+        "styles_added",
+        "levels",
     }
 )
 WRITER_KEYS = frozenset(
@@ -255,6 +268,13 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
         extra = set(row) - LIVE_SOURCE_KEYS
         if extra:
             raise ValueError(f"manifest live_search.sources 에 허용되지 않은 키: {sorted(extra)}")
+    fmt = manifest.get("hwpx_format") or {}
+    extra = set(fmt) - HWPX_FORMAT_KEYS
+    if extra:
+        raise ValueError(f"manifest hwpx_format 에 허용되지 않은 키: {sorted(extra)}")
+    for key in ("fixed", "remaining", "levels"):
+        if any(not isinstance(v, int) for v in (fmt.get(key) or {}).values()):
+            raise ValueError("manifest hwpx_format 은 건수만 남긴다.")
     for value in _strings(manifest):
         if len(value) > MAX_TEXT_CHARS:
             raise ValueError("manifest 에 긴 문자열이 있습니다 — 원문이 섞였을 수 있습니다.")
