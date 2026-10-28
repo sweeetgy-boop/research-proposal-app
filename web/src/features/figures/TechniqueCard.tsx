@@ -11,7 +11,9 @@ import { ProblemBanner } from "@/components/ProblemBanner";
 import { UntrustedText } from "@/components/UntrustedText";
 import { sectionTitle } from "@/lib/sections";
 import { cn } from "@/lib/utils";
-import { useFigureActionV2, useFiguresV2, useRetryTechniques } from "./api";
+import { useFigureActionAi, useFigureActionV2, useFiguresV2, useRetryTechniquesAi } from "./api";
+import { figureName } from "./model";
+import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
 
 interface ActProps {
   runId: string;
@@ -92,7 +94,7 @@ export function RecommendationPanel({
               size="sm"
               onClick={() => run("accept")}
               disabled={off}
-              aria-label={`${figure.label} 넣기 확정`}
+              aria-label={`${figureName(figure)} 넣기 확정`}
             >
               <Check aria-hidden="true" />
               넣기 확정
@@ -103,7 +105,7 @@ export function RecommendationPanel({
             variant="outline"
             onClick={() => run("dismiss")}
             disabled={off}
-            aria-label={`${figure.label} 필요 없음`}
+            aria-label={`${figureName(figure)} 필요 없음`}
           >
             <X aria-hidden="true" />
             필요 없음
@@ -113,7 +115,7 @@ export function RecommendationPanel({
             variant="outline"
             onClick={() => setSwap(true)}
             disabled={off}
-            aria-label={`${figure.label} 다른 기법으로 바꾸기`}
+            aria-label={`${figureName(figure)} 다른 기법으로 바꾸기`}
           >
             <Repeat aria-hidden="true" />
             다른 기법으로 바꾸기
@@ -190,29 +192,26 @@ function SwapDialog({
   onApplied,
 }: Omit<ActProps, "disabled" | "readOnly"> & { onClose: () => void }) {
   const list = useFiguresV2(runId);
-  const act = useFigureActionV2(runId);
+  const act = useFigureActionAi(runId);
   const [pick, setPick] = React.useState<string>("");
-  const busy = act.isPending;
+  const busy = act.pending;
   const catalog = (list.data?.technique_catalog ?? []).filter(
     (t) => t.key !== figure.technique,
   );
   const submit = async () => {
-    try {
-      const out = await act.mutateAsync({
-        fid: figure.id,
-        body: { action: "swap", technique: pick, base_version: baseVersion },
-      });
-      onClose();
-      onApplied(out.version);
-    } catch {
-      /* banner */
-    }
+    const out = await act.run({
+      fid: figure.id,
+      body: { action: "swap", technique: pick, base_version: baseVersion },
+    });
+    if (!out) return; // 취소(그대로) 또는 오류(banner)
+    onClose();
+    onApplied(out.version);
   };
   return (
     <Dialog
       open
       onClose={() => !busy && onClose()}
-      title={`${figure.label} — 다른 기법으로 바꾸기`}
+      title={`${figureName(figure)} — 다른 기법으로 바꾸기`}
       description="고른 기법으로 제안 내용을 다시 분석해 새로 그립니다 (같은 자리, 결정 전). 맞지 않으면 그 사유를 보여 줍니다."
       footer={
         <>
@@ -268,6 +267,8 @@ function SwapDialog({
           })}
         </div>
       </fieldset>
+      <AiWaiting pending={act.pending} elapsed={act.elapsed} onCancel={act.cancel} what="다른 기법 분석" className="mt-3" />
+      <AiCancelledNote show={act.cancelled} className="mt-3" />
       <ProblemBanner error={act.error ?? list.error} className="mt-3" />
     </Dialog>
   );
@@ -310,7 +311,7 @@ export function DismissedRecommendations({
       <ul className="mt-2 space-y-2">
         {figures.map((f) => (
           <li key={f.id} className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{f.label}</span>
+            <span className="font-medium">{figureName(f)}</span>
             {f.recommendation && (
               <UntrustedText
                 text={f.recommendation.reason}
@@ -323,7 +324,7 @@ export function DismissedRecommendations({
                 variant="outline"
                 onClick={() => restore(f.id)}
                 disabled={!!disabled || act.isPending}
-                aria-label={`${f.label} 다시 넣기`}
+                aria-label={`${figureName(f)} 다시 넣기`}
               >
                 <Undo2 aria-hidden="true" />
                 다시 넣기
@@ -350,21 +351,17 @@ export function TechniqueStatus({
   onApplied: (version: number) => void;
 }) {
   const list = useFiguresV2(runId);
-  const retry = useRetryTechniques(runId);
+  const retry = useRetryTechniquesAi(runId);
   const [note, setNote] = React.useState<string | null>(null);
   const outcome = retry.data?.techniques ?? list.data?.techniques ?? null;
   if (!outcome) return null;
   const empty = outcome.status !== "recommended";
   const again = async () => {
     setNote(null);
-    try {
-      const out = await retry.mutateAsync({ base_version: baseVersion });
-      if (out.created && typeof out.version === "number")
-        onApplied(out.version);
-      else setNote("새 추천 그림은 없습니다.");
-    } catch {
-      /* banner */
-    }
+    const out = await retry.run({ base_version: baseVersion });
+    if (!out) return; // 취소(그대로) 또는 오류(banner)
+    if (out.created && typeof out.version === "number") onApplied(out.version);
+    else setNote("새 추천 그림은 없습니다.");
   };
   return (
     <div
@@ -389,12 +386,14 @@ export function TechniqueStatus({
           size="sm"
           variant="outline"
           onClick={again}
-          disabled={!!disabled || retry.isPending}
+          disabled={!!disabled || retry.pending}
         >
           <RefreshCw aria-hidden="true" />
-          {retry.isPending ? "다시 고르는 중…" : "다시 시도"}
+          {retry.pending ? "다시 고르는 중…" : "다시 시도"}
         </Button>
       )}
+      <AiWaiting pending={retry.pending} elapsed={retry.elapsed} onCancel={retry.cancel} what="분석 기법 다시 추천" />
+      <AiCancelledNote show={retry.cancelled} />
       {note && <span className="text-muted-foreground">{note}</span>}
       <ProblemBanner error={retry.error} />
     </div>

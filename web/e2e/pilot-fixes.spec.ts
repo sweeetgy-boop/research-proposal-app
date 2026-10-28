@@ -75,11 +75,11 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
 
   // 그림 추천 — 넣기 확정·필요 없음
   await expect(page.getByText("분석 기법 추천: 추천함")).toBeVisible();
-  await page.getByRole("button", { name: "SWOT 분석 넣기 확정" }).click();
+  await page.getByRole("button", { name: "분석 기법 그림 – SWOT 분석 넣기 확정" }).click();
   // 추천 그림 결정은 상태 표시 — 새 버전 없음, "확인 n건" 으로 센다 (항목 21)
   await expect(page.getByText("확인 표시를 저장했습니다 (새 버전 없음)").first()).toBeVisible();
-  await page.getByRole("button", { name: "비용-편익 분석 필요 없음" }).click();
-  await expect(page.getByRole("group", { name: "비용-편익 분석" })).toHaveCount(0);
+  await page.getByRole("button", { name: "분석 기법 그림 – 비용-편익 분석 필요 없음" }).click();
+  await expect(page.getByRole("group", { name: "분석 기법 그림 – 비용-편익 분석" })).toHaveCount(0);
   await expect(page.getByTestId("confirm-count")).toContainText(/확인 [1-9]\d*건/);
 
   // 바뀐 내용이 없으면 "변경된 내용이 없습니다. 최종 검토로 넘어갈까요?" → [확인]

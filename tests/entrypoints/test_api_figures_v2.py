@@ -144,11 +144,11 @@ async def test_figures_route_has_technique_outcome_catalog_and_badge_fields(clie
     body = (await client.get(f"/v1/runs/{rid}/figures", headers=AUTH)).json()
     out = body["techniques"]
     assert out["status"] == "recommended" and out["status_label"] == "추천함"
-    assert out["picks"] == [{"key": "pugh", "label": "퓨 매트릭스(Pugh)"}] and out["can_retry"]
+    assert out["picks"] == [{"key": "pugh", "label": "퓨 매트릭스"}] and out["can_retry"]
     assert len(body["technique_catalog"]) == 20
     assert {"key", "label", "family_label", "summary", "fits"} <= set(body["technique_catalog"][0])
     fig = body["figures"][0]
-    assert fig["kind"] == "technique" and fig["label"] == "퓨 매트릭스(Pugh)"
+    assert fig["kind"] == "technique" and fig["label"] == "퓨 매트릭스"
     assert fig["technique"] == "pugh" and fig["family_label"] == "비교·평가"
     assert fig["prelim_note"] == "제안 내용 기반 예비 평가"
     rec = fig["recommendation"]
@@ -176,7 +176,7 @@ async def test_recommendation_actions_and_swap_over_rest(client):
     assert r.status_code == 200, r.text
     fig = r.json()["figures"][0]
     assert fig["technique"] == "pmi" and fig["included"] is True
-    assert fig["recommendation"]["swapped_from_label"] == "퓨 매트릭스(Pugh)"
+    assert fig["recommendation"]["swapped_from_label"] == "퓨 매트릭스"
     bad = await client.post(
         f"/v1/runs/{rid}/figures/{fid}", json={"action": "swap", "technique": "lcc"}, headers=AUTH
     )

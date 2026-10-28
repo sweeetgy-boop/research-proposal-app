@@ -271,13 +271,15 @@ def test_concept_lines_are_clipped_to_box_length_on_new_specs():
 # ── 비율·프롬프트 ───────────────────────────────────────────
 def test_choose_aspect_follows_content_amount():
     as_is = parse_spec("as_is_to_be", AS_IS)
-    assert rules.choose_aspect(as_is) == "16:9"
+    longest = max(len(i.text) for i in [*as_is.as_is, *as_is.to_be])
+    assert rules.choose_aspect(as_is) == ("21:9" if longest <= 20 else "16:9")
     four = parse_spec("as_is_to_be", {**AS_IS, "as_is": [*AS_IS["as_is"], AS_IS["as_is"][0]]})
-    assert rules.choose_aspect(four) == "3:2"
+    assert rules.choose_aspect(four) == "16:9"  # [23] 모두 가로 비율
     swot, _ = analyse("swot", SWOT)
-    assert rules.choose_aspect(swot) == "4:3"  # 2×2 사분면
+    most = max(len(g.items) for g in swot.groups)
+    assert rules.choose_aspect(swot) == ("21:9" if most <= 2 else "16:9")  # 네 칸 가로 한 줄
     pugh, _ = analyse("pugh", PUGH)
-    assert rules.choose_aspect(pugh) == "16:9"
+    assert rules.choose_aspect(pugh) == ("21:9" if len(pugh.rows) <= 3 else "16:9")
     cb, _ = analyse("cost_benefit", COST_BENEFIT)
     assert rules.choose_aspect(cb) == "21:9"  # 묶음 2개·항목 2개 이하 → 낮고 넓게
     for a in (rules.choose_aspect(x) for x in (as_is, four, swot, pugh, cb)):
@@ -295,8 +297,8 @@ def test_infographic_prompt_for_new_kinds_keeps_exact_texts_and_colours():
     assert "제목 글자를 새로 쓰지 않는다" in prompt
     swot, _ = analyse("swot", SWOT)
     p2 = rules.image_prompt(swot)
-    assert "SWOT 분석" in p2 and "2×2 사분면" in p2 and f"'{PRELIM_NOTE}'" in p2
-    assert "가로세로 비율 4:3" in p2
+    assert "SWOT 분석" in p2 and "가로 한 줄에 나란히" in p2 and f"'{PRELIM_NOTE}'" in p2
+    assert f"가로세로 비율 {rules.choose_aspect(swot)}" in p2 and "좌우 여백 최소" in p2
     for t in rules.texts_of(swot):
         assert f"- {t}" in p2
     pugh, _ = analyse("pugh", PUGH)
