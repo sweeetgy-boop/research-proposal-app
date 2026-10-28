@@ -139,9 +139,16 @@ def test_fit_aspect_trims_white_margins_and_pads_to_exact_ratio():
     assert w >= 1900  # 좌우 여백을 잘랐다 (내용 폭 + 작은 여백)
 
 
+def test_fit_aspect_keeps_in_between_ratio_without_adding_side_margins():
+    data = _png(2100, 900, (400, 100, 1700, 800))  # 21:9 요청인데 내용은 약 1.86:1
+    out, _ = fit_aspect(data, "image/png", "21:9", min_ratio=16 / 9)
+    w, h = Image.open(io.BytesIO(out)).size
+    assert 16 / 9 <= w / h < 21 / 9  # 좌우를 채워 21:9 로 만들지 않는다
+
+
 def test_fit_aspect_pads_sides_when_content_is_taller_and_never_crops_text():
     data = _png(1600, 900, (700, 50, 900, 850))
-    out, _ = fit_aspect(data, "image/png", "16:9")
+    out, _ = fit_aspect(data, "image/png", "16:9", min_ratio=16 / 9)
     im = Image.open(io.BytesIO(out)).convert("RGB")
     assert abs(im.width / im.height - 16 / 9) < 0.01
     dark = sum(1 for px in im.getdata() if px[0] < 100)

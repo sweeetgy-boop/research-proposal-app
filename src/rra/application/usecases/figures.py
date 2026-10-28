@@ -178,9 +178,13 @@ class MakeFigures(TechniqueSteps):
     titles: Mapping[str, str] = field(default_factory=dict)
     shrink: Callable[[bytes, str], tuple[bytes, str]] | None = None  # (bytes, mime) → 상한 축소
     # [23] (bytes, mime, aspect) → 흰 여백을 잘라 정확히 aspect 로 (4:1 은 21:9 로 만든 뒤 여기서)
-    reframe: Callable[[bytes, str, str], tuple[bytes, str]] | None = None
+    # (bytes, mime, aspect, min_ratio) — 흰 여백을 자르고 aspect 보다 넓으면 위아래를, min_ratio
+    # 보다 좁으면
+    # 좌우를 채운다(그 사이면 그대로 — 좌우 여백을 늘리지 않는다)
+    reframe: Callable[[bytes, str, str, float], tuple[bytes, str]] | None = None
     pad_reference: Callable[[bytes, str], bytes] | None = None  # 밑그림 → API 비율 캔버스 가운데
     ocr: OcrPort | None = None  # [23] Nano Banana 그림 글자 크기 어림 (없으면 밑그림 값)
+    image_size: Callable[[bytes], tuple[int, int]] | None = None  # [23] 그림 픽셀 (폭, 높이)
     clock: Callable[[], str] | None = None
     argon: LLMPort | None = None  # 명세·명세 변경을 먼저 맡는 외부 모델 (review 단계, 예산 래퍼)
     argon_model: str = "argon"
@@ -477,7 +481,7 @@ class MakeFigures(TechniqueSteps):
     # ── 그림 ─────────────────────────────────────────────
     def layout(
         self, figure: Figure, *, shorten: bool = True
-    ) -> tuple[Figure, str, bytes, FigureFit]:
+    ) -> tuple[Figure, str, bytes, FigureFit, str]:
         """[23] 밑그림 맞추기 — 가로 비율을 고르고, 본문 폭에 넣었을 때 높이가 쪽 1/3 을 넘으면 더
         넓은
         비율로, 글자가 min_text_pt 보다 작거나 칸을 넘치면 글자를 줄여(shorten_spec) 다시 그린다.
@@ -535,7 +539,7 @@ class MakeFigures(TechniqueSteps):
             fit = fit.model_copy(update={"text_ok": False})
         if spec is not figure.spec:
             figure = figure.model_copy(update={"spec": spec, "alt": rules.alt_text(spec)})
-        return figure, aspect, png, fit
+        return figure, aspect, png, fit, svg
 
     async def draw(
         self,
@@ -551,8 +555,9 @@ class MakeFigures(TechniqueSteps):
         OCR 로 어림해 작으면 글자를 한 단계 더 줄여 한 번 더 그린다(max_image_redraws)."""
         t0 = time.monotonic()
         fit: FigureFit | None = None
+        svg = ""
         if baseline_png is None:
-            figure, aspect, baseline_png, fit = self.layout(figure, shorten=shorten)
+            figure, aspect, baseline_png, fit, svg = self.layout(figure, shorten=shorten)
         else:
             aspect = self.config.aspect_for(figure.spec)
         spec = figure.spec
@@ -566,36 +571,48 @@ class MakeFigures(TechniqueSteps):
         )
         if self.images is not None:
             attempt = 0
+            bigger = ""
             while True:
-                got = await self._generate(figure, baseline_png, aspect, style)
+                got = await self._generate(
+                    figure, baseline_png, aspect, " ".join(x for x in (style, bigger) if x)
+                )
                 calls += got[4]
                 if got[0] is None:
                     error = got[3]
                     break
                 adopted, mime, model = got[0], got[1], got[2]
                 renderer, error = "nano_banana", None
-                ocr_pt = await self._ocr_pt(figure, adopted, mime, fit)
+                ocr_pt: float | None = None
                 if fit is not None:
+                    fit = self._pixel_fit(fit, aspect, adopted)
+                    ocr_pt = await self._ocr_pt(
+                        figure, svg, baseline_png, aspect, adopted, mime, fit
+                    )
                     fit = self._image_fit(fit, ocr_pt)
                 too_small = (
                     ocr_pt is not None and ocr_pt + fit_rules.PT_TOLERANCE < self.config.min_text_pt
                 )
                 if not too_small or not shorten or attempt >= self.config.max_image_redraws:
                     break
-                cut = fit_rules.shorten_spec(spec, min(fit_rules.MAX_SHORTEN, attempt + 1))
-                if cut is None:
-                    break
                 attempt += 1
-                spec, n = cut
-                figure = figure.model_copy(update={"spec": spec, "alt": rules.alt_text(spec)})
-                figure, aspect, baseline_png, base_fit = self.layout(figure, shorten=False)
-                fit = base_fit.model_copy(
-                    update={
-                        "redraws": (fit.redraws if fit else 0) + 1,
-                        "shortened": (fit.shortened if fit else 0) + n,
-                        "widened": bool(fit and fit.widened),
-                    }
-                )
+                # 글자가 작다 — 줄일 글자가 있으면 줄여 밑그림부터, 없으면 "글자를 더 크게" 를 붙여
+                # 한 번 더
+                cut = fit_rules.shorten_spec(spec, min(fit_rules.MAX_SHORTEN, attempt))
+                prev = fit
+                if cut is not None:
+                    spec, n = cut
+                    figure = figure.model_copy(update={"spec": spec, "alt": rules.alt_text(spec)})
+                    figure, aspect, baseline_png, fit, svg = self.layout(figure, shorten=False)
+                    fit = fit.model_copy(
+                        update={
+                            "redraws": (prev.redraws if prev else 0) + 1,
+                            "shortened": (prev.shortened if prev else 0) + n,
+                            "widened": bool(prev and prev.widened),
+                        }
+                    )
+                elif fit is not None:
+                    fit = fit.model_copy(update={"redraws": fit.redraws + 1})
+                bigger = fit_rules.BIGGER_TEXT.format(pt=ocr_pt)
         else:
             error = "no_image_llm"
         updated = figure.model_copy(
@@ -643,30 +660,77 @@ class MakeFigures(TechniqueSteps):
         data, mime = result.data, result.mime
         if self.reframe is not None:
             try:
-                data, mime = self.reframe(data, mime, aspect)
+                narrowest = min(
+                    fit_rules.ratio_value(a) for a in fit_rules.allowed_aspects(figure.kind)
+                )
+                data, mime = self.reframe(data, mime, aspect, narrowest)
             except ValueError:
                 logger.warning("figure.reframe_failed id=%s", figure.id)
         data, mime = self._fit(data, mime)
         return data, mime, result.model, None, 1
 
+    def _pixel_fit(self, fit: FigureFit, aspect: str, data: bytes) -> FigureFit:
+        """생성 그림의 실제 픽셀 크기로 높이·비율·높이 상한을 다시 적는다 (흰 여백을 자른 뒤라
+        고른
+        비율과
+        조금 다를 수 있다)."""
+        if self.image_size is None:
+            return fit
+        try:
+            px = self.image_size(data)
+        except ValueError:
+            return fit
+        h = fit_rules.height_for(fit.width_mm, pixels=px)
+        return fit.model_copy(
+            update={
+                "height_mm": round(h, 1),
+                "ratio": fit_rules.pixel_ratio_label(aspect, px),
+                "fits": h <= self.config.frame.max_height_mm + 1e-6,
+            }
+        )
+
     async def _ocr_pt(
-        self, figure: Figure, data: bytes, mime: str, fit: FigureFit | None
+        self,
+        figure: Figure,
+        svg: str,
+        baseline_png: bytes,
+        aspect: str,
+        data: bytes,
+        mime: str,
+        fit: FigureFit,
     ) -> float | None:
-        """그림 글자 크기 어림(pt) — OCR 줄 상자 높이 → 본문 폭에 넣은 그림 높이. OCR 이 없거나
-        실패면
-        None(밑그림 값을 그대로 쓴다)."""
-        if self.ocr is None or fit is None:
+        """그림 글자 크기 어림(pt) — 밑그림과 그림을 둘 다 OCR 해 같은 글자의 높이 비를 밑그림
+        글자
+        크기(SVG)에
+        곱한다(`estimate_relative_pt`). 함께 찾은 글자가 없으면 그림만으로 어림(`estimate_ocr_pt`,
+        상자 높이 ÷
+        box_em). OCR 이 없거나 실패면 None(밑그림 값을 그대로 쓴다)."""
+        if self.ocr is None:
             return None
         try:
-            result = await self.ocr.recognize(data, mime=mime)
+            image = await self.ocr.recognize(data, mime=mime)
+            base = await self.ocr.recognize(baseline_png, mime="image/png") if svg else None
         except Exception as exc:  # OCR 없음·격리 실패 — 맞춤 기록은 밑그림 값
             logger.info("figure.ocr_unavailable id=%s error=%s", figure.id, type(exc).__name__)
             return None
-        lines = [
-            (ln.text, float(ln.box[3])) for ln in result.lines if ln.box and ln.confidence >= 0.3
-        ]
+
+        def rows(res: Any) -> list[tuple[str, float]]:
+            return [
+                (ln.text, float(ln.box[3])) for ln in res.lines if ln.box and ln.confidence >= 0.3
+            ]
+
+        if base is not None:
+            rel = fit_rules.estimate_relative_pt(
+                rows(base),
+                rows(image),
+                base_height_mm=fit.width_mm / fit_rules.ratio_value(aspect),
+                image_height_mm=fit.height_mm,
+                text_pts=fit_rules.svg_text_pts(svg, fit.width_mm),
+            )
+            if rel is not None:
+                return rel
         return fit_rules.estimate_ocr_pt(
-            lines, fit.height_mm, rules.texts_of(figure.spec), box_em=self.config.ocr_box_em
+            rows(image), fit.height_mm, rules.texts_of(figure.spec), box_em=self.config.ocr_box_em
         )
 
     def _image_fit(self, fit: FigureFit, ocr_pt: float | None) -> FigureFit:
@@ -818,7 +882,7 @@ class MakeFigures(TechniqueSteps):
 
     def baseline(self, figure: Figure) -> FigureBuild:
         """[기본 그림으로] — 밑그림을 다시 그려 채택 (호출 없음). 본문 폭 맞춤(layout)을 함께."""
-        figure, _aspect, png, fit = self.layout(figure)
+        figure, _aspect, png, fit, _svg = self.layout(figure)
         updated = figure.model_copy(
             update={
                 "renderer": "baseline",

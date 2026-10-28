@@ -434,7 +434,9 @@ class Figure(BaseModel):
 
     @property
     def display_name(self) -> str:
-        """[23] 화면·버전 목록 이름 (한국어) — "현재·연구 후 비교 그림", "분석 기법 그림 – SWOT 분석"."""
+        """[23] 화면·버전 목록 이름 (한국어) — "현재·연구 후 비교 그림", "분석 기법 그림 –
+        SWOT
+        분석"."""
         title = getattr(self.spec, "title", None) if self.kind == "technique" else None
         return display_name(self.kind, title)
 

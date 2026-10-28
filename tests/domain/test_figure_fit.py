@@ -198,3 +198,28 @@ def test_display_name_is_korean_without_codes():
     assert display_name("schedule") == "추진 일정표"
     for kind in ("as_is_to_be", "technique", "concept", "process", "schedule", "roadmap"):
         assert "As-Is" not in display_name(kind) and "_" not in display_name(kind)
+
+
+def test_relative_estimate_cancels_the_ocr_box_ratio():
+    svg = (
+        '<svg><text font-size="37.0">현황</text>'
+        '<text font-size="34.0" aria-label="궤도 틀림을 주기 순회로 측정">'
+        "<tspan>궤도 틀림을</tspan><tspan>주기 순회로 측정</tspan></text></svg>"
+    )
+    pts = fit.svg_text_pts(svg, 153.8)
+    assert set(pts) == {"현황", "궤도 틀림을 주기 순회로 측정"}
+    base = [("현황", 0.040), ("주기 순회로 측정", 0.035)]
+    image = [("현황", 0.030), ("주기 순회로 측정", 0.035)]  # 현황만 0.75배로 작게 그렸다
+    got = fit.estimate_relative_pt(
+        base, image, base_height_mm=65.9, image_height_mm=65.9, text_pts=pts
+    )
+    assert got == round(fit.font_pt(37, 153.8) * 0.75, 1)
+    assert (
+        fit.estimate_relative_pt([], image, base_height_mm=1, image_height_mm=1, text_pts=pts)
+        is None
+    )
+
+
+def test_pixel_ratio_label():
+    assert fit.pixel_ratio_label("21:9", (2100, 900)) == "21:9"
+    assert fit.pixel_ratio_label("4:1", (3200, 1000)) == "3.20:1"

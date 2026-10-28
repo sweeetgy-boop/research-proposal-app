@@ -1836,7 +1836,7 @@ def build_figures(
     (stage figures). review 키가 없으면 로컬 → compose.fallback(예전 순서). 그림은 Nano Banana."""
     import json
 
-    from rra.adapters.figures import fit_aspect, shrink_image
+    from rra.adapters.figures import fit_aspect, image_size, shrink_image
     from rra.adapters.figures.png import pad_to_aspect
     from rra.application.usecases.figures import FigureConfig, MakeFigures
 
@@ -1891,9 +1891,10 @@ def build_figures(
         include_internal=review_policy(settings)["include_internal"],
         titles=rules.titles,
         shrink=lambda data, mime: shrink_image(data, mime, max_bytes=cfg["max_png_bytes"]),
-        reframe=lambda data, mime, aspect: fit_aspect(
-            data, mime, aspect, max_bytes=cfg["max_png_bytes"]
+        reframe=lambda data, mime, aspect, min_ratio: fit_aspect(
+            data, mime, aspect, max_bytes=cfg["max_png_bytes"], min_ratio=min_ratio
         ),
+        image_size=image_size,
         pad_reference=pad_to_aspect,
         ocr=_figure_ocr(cfg) if images is not None and not settings.fake_llm else None,
         clock=lambda: datetime.now(UTC).isoformat(timespec="seconds"),

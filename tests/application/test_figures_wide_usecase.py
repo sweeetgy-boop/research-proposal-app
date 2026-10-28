@@ -37,16 +37,22 @@ class SizedRenderer:
 
 
 class FakeOcr:
+    """밑그림(PNG…)에서는 "현황" 줄 높이 base, 생성 그림(NB:…)에서는 heights 를 차례로."""
+
     engine = "fake"
 
-    def __init__(self, heights: list[float]):
+    def __init__(self, heights: list[float], *, base: float = 0.05):
         self.heights = list(heights)
-        self.calls = 0
+        self.base = base
+        self.calls = 0  # 생성 그림 OCR 횟수
 
     async def recognize(self, image, *, mime=None):
-        h = self.heights[min(self.calls, len(self.heights) - 1)]
-        self.calls += 1
-        return OcrResult(lines=[OcrLine(text="궤도 틀림", confidence=0.9, box=[0.1, 0.1, 0.3, h])])
+        if bytes(image).startswith(b"PNG"):
+            h = self.base
+        else:
+            h = self.heights[min(self.calls, len(self.heights) - 1)]
+            self.calls += 1
+        return OcrResult(lines=[OcrLine(text="현황", confidence=0.9, box=[0.1, 0.1, 0.3, h])])
 
 
 def make(renderer, *, images=None, ocr=None, reframe=None, **cfg):
@@ -121,8 +127,8 @@ async def test_proposer_text_edits_are_not_shortened_only_recorded():
 
 async def test_ocr_small_text_on_nano_banana_image_redraws_once_with_shorter_labels():
     images = FakeImageGenerator()
-    ocr = FakeOcr([0.02, 0.06])  # 첫 그림 글자 작음 → 다시 그린 그림은 충분
-    uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a: (d, m))
+    ocr = FakeOcr([0.02, 0.06])  # 첫 그림 "현황" 이 밑그림의 0.4배(≈4pt) → 다시 그린 그림은 1.2배
+    uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m))
     four = {**AS_IS, "as_is": [*AS_IS["as_is"], AS_IS["as_is"][0]]}
     build = await uc.draw(as_is_figure(four))
     f = build.figure
@@ -137,7 +143,7 @@ async def test_ocr_small_text_stops_after_max_image_redraws():
         SizedRenderer(limit=100),
         images=images,
         ocr=FakeOcr([0.01]),
-        reframe=lambda d, m, a: (d, m),
+        reframe=lambda d, m, a, r: (d, m),
         max_image_redraws=1,
     )
     build = await uc.draw(as_is_figure())
@@ -154,8 +160,9 @@ async def test_4_to_1_schedule_is_generated_at_21_9_and_reframed():
     images = FakeImageGenerator()
     seen: list[str] = []
 
-    def reframe(data, mime, aspect):
+    def reframe(data, mime, aspect, min_ratio):
         seen.append(aspect)
+        assert min_ratio == 21 / 9  # 일정표는 21:9 보다 좁게 채우지 않는다
         return data, mime
 
     spec = parse_spec(
@@ -198,3 +205,39 @@ async def test_prompt_asks_for_horizontal_layout_per_technique_arrangement():
     assert "오른쪽 화살표로 잇는다" in image_prompt(swot, arrange="flow")
     six = swot.model_copy(update={"groups": swot.groups + swot.groups[:2]})
     assert "가로 두 줄" in image_prompt(six, arrange="row")  # 5개 이상은 두 줄
+
+
+async def test_small_text_without_anything_to_shorten_asks_for_bigger_text_once():
+    images = FakeImageGenerator()
+    short = {
+        **AS_IS,
+        "as_is": [{**it, "text": it["text"][:8]} for it in AS_IS["as_is"]],
+        "to_be": [{**it, "text": it["text"][:8]} for it in AS_IS["to_be"]],
+        "solution": AS_IS["solution"][:8],
+    }
+    uc = make(
+        SizedRenderer(limit=100),
+        images=images,
+        ocr=FakeOcr([0.02, 0.05]),
+        reframe=lambda d, m, a, r: (d, m),
+    )
+    build = await uc.draw(as_is_figure(short))
+    assert len(images.calls) == 2
+    assert (
+        "글자를 더 크게" in images.calls[1]["prompt"]
+        and "글자를 더 크게" not in images.calls[0]["prompt"]
+    )
+    f = build.figure.fit
+    assert f.text_ok and f.redraws == 1 and f.shortened == 0 and f.text_method == "ocr"
+
+
+async def test_pixel_size_of_generated_image_updates_height_and_ratio():
+    uc = make(
+        SizedRenderer(limit=100),
+        images=FakeImageGenerator(),
+        reframe=lambda d, m, a, r: (d, m),
+    )
+    uc.image_size = lambda data: (2000, 1000)  # 흰 여백을 자른 뒤 2:1
+    build = await uc.draw(as_is_figure())
+    f = build.figure.fit
+    assert f.ratio == "2.00:1" and f.height_mm == round(153.8 / 2, 1) and f.fits

@@ -170,11 +170,21 @@ def pad_to_aspect(data: bytes, aspect: str) -> bytes:
 
 
 def fit_aspect(
-    data: bytes, mime: str, aspect: str, *, max_bytes: int = 512_000
+    data: bytes,
+    mime: str,
+    aspect: str,
+    *,
+    max_bytes: int = 512_000,
+    min_ratio: float | None = None,
 ) -> tuple[bytes, str]:
-    """생성 그림의 흰 여백을 잘라 내고(좌우 여백 최소) 흰색으로 채워 정확히 aspect 로 맞춘다.
-    4:1 처럼 생성 API 가 받지 않는 비율은 21:9 로 만든 뒤 여기서 맞춘다. 내용이 목표보다 세로로 길면
-    좌우를 채운다(글자를 자르지 않는다). 결과는 상한(max_bytes) 안으로."""
+    """생성 그림의 흰 여백을 잘라 낸다(좌우 여백 최소). 잘라 낸 내용이 aspect 보다 넓으면
+    위아래를
+    흰색으로
+    채워 aspect 로, min_ratio(그 종류에서 가장 덜 넓은 허용 비율)보다 좁으면 좌우를 채워 min_ratio
+    로,
+    그 사이면 그대로 둔다 — 글자를 자르지 않고, 좌우 여백을 일부러 늘리지 않는다. 4:1 처럼 생성 API
+    가
+    받지 않는 비율은 21:9 로 만든 뒤 여기서 맞춘다. 결과는 상한(max_bytes) 안으로."""
     im = _to_rgb(_open(data))
     box = _content_box(im)
     if box is not None:
@@ -188,7 +198,13 @@ def fit_aspect(
                 min(im.height, y1 + margin),
             )
         )
-    im = _pad(im, _ratio(aspect))
+    target = _ratio(aspect)
+    floor = min(target, float(min_ratio)) if min_ratio else target
+    r = im.width / max(1, im.height)
+    if r > target:
+        im = _pad(im, target)
+    elif r < floor:
+        im = _pad(im, floor)
     out = _save(im, "PNG", optimize=True)
     if len(out) <= max_bytes:
         return out, "image/png"

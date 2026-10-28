@@ -144,7 +144,8 @@ def choose_aspect(spec: BaseModel, *, arrange: str | None = None) -> str:
         most = max((len(g.items) for g in spec.groups), default=1)
         if arrange == "grid" or n >= 5:
             return "21:9" if most <= 1 else "16:9"  # 두 줄 — 칸마다 항목 1개면 낮게
-        # 한 줄(묶음 4개 이하)에 칸마다 항목 2개 이하면 낮고 넓게 — 실물 양식 미리보기에서 16:9 는 빈 칸이 컸다
+        # 한 줄(묶음 4개 이하)에 칸마다 항목 2개 이하면 낮고 넓게 — 실물 양식 미리보기에서 16:9 는
+        # 빈 칸이 컸다
         return "21:9" if most <= 2 else "16:9"
     if isinstance(spec, ConceptSpec):
         return "21:9" if sum(len(b.lines) for b in spec.boxes) <= 4 else "16:9"
@@ -377,3 +378,88 @@ def shorten_spec(spec: BaseModel, level: int) -> tuple[BaseModel, int] | None:
     if not n[0]:
         return None
     return type(spec).model_validate(data), n[0]
+
+
+# ── [23] 글자 크기 어림: 밑그림 대비 (상대) ─────────────────────
+_TEXT_EL = re.compile(r"<text\b([^>]*)>(.*?)</text>", re.S)
+_ARIA = re.compile(r'aria-label="([^"]*)"')
+_TAG = re.compile(r"<[^>]+>")
+_ENT = {"&lt;": "<", "&gt;": ">", "&quot;": '"', "&#x27;": "'", "&amp;": "&"}
+BIGGER_TEXT = (
+    "글자를 더 크게: 직전 그림은 본문 폭으로 넣으면 가장 작은 글자가 약 {pt}pt 였다. 모든 "
+    "글자(눈금 숫자·"
+    "이름표·안내문 포함)의 높이를 그림 폭의 2.2% 이상으로 하고, 자리가 모자라면 상자를 넓히고 "
+    "여백을 줄인다."
+)
+
+
+def _unescape(text: str) -> str:
+    for k, v in _ENT.items():
+        text = text.replace(k, v)
+    return text
+
+
+def svg_text_pts(svg: str, width_mm: float, viewbox_w: float = VIEWBOX_W) -> dict[str, float]:
+    """밑그림 SVG 의 글자 → 본문 폭에서의 크기(pt). 여러 줄 글자는 aria-label(원문) 기준."""
+    out: dict[str, float] = {}
+    for m in _TEXT_EL.finditer(svg or ""):
+        attrs, body = m.group(1), m.group(2)
+        size = _FONT_SIZE.search(attrs)
+        if not size:
+            continue
+        aria = _ARIA.search(attrs)
+        text = _unescape(aria.group(1) if aria else _TAG.sub("", body)).strip()
+        if not text:
+            continue
+        pt = font_pt(float(size.group(1)), width_mm, viewbox_w)
+        out[text] = min(pt, out.get(text, pt))
+    return out
+
+
+def _height_for(text: str, lines: Sequence[tuple[str, float]]) -> float | None:
+    """명세 글자 하나가 OCR 줄 어디에 있는지 — 같은 줄이 먼저, 없으면 그 글자의 한
+    부분인
+    줄(줄바꿈)."""
+    t = _norm(text)
+    exact = [h for s, h in lines if _norm(s) == t]
+    if exact:
+        return max(exact)
+    parts = [h for s, h in lines if len(_norm(s)) >= 2 and _norm(s) in t]
+    return max(parts) if parts else None
+
+
+def estimate_relative_pt(
+    base_lines: Sequence[tuple[str, float]],
+    image_lines: Sequence[tuple[str, float]],
+    *,
+    base_height_mm: float,
+    image_height_mm: float,
+    text_pts: dict[str, float],
+) -> float | None:
+    """Nano Banana 그림의 가장 작은 글자(pt) 어림 — 같은 글자를 밑그림(크기를 안다)과 그림에서
+    OCR
+    로 재어
+    높이 비(mm 기준)를 밑그림 크기에 곱한다. OCR 상자 높이 ÷ 글자 크기 비(글자 모양마다 다르다)가
+    서로
+    지워진다. 두 그림에서 함께 찾은 글자가 없으면 None."""
+    cands: list[float] = []
+    for text, pt in text_pts.items():
+        if len(_norm(text)) < 2:
+            continue
+        hb = _height_for(text, base_lines)
+        hi = _height_for(text, image_lines)
+        if not hb or not hi:
+            continue
+        cands.append(pt * (hi * image_height_mm) / (hb * base_height_mm))
+    return round(min(cands), 1) if cands else None
+
+
+def pixel_ratio_label(aspect: str, pixels: tuple[int, int]) -> str:
+    """실제 픽셀 비율이 고른 비율과 2% 안이면 그 이름, 아니면 "2.62:1"."""
+    w, h = pixels
+    if h <= 0:
+        return aspect
+    r = w / h
+    if abs(r - ratio_value(aspect)) / ratio_value(aspect) < 0.02:
+        return aspect
+    return f"{r:.2f}:1"
