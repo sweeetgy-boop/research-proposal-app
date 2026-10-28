@@ -63,6 +63,15 @@ cp deploy/launchd/com.rra.tunnel.plist ~/Library/LaunchAgents/ && launchctl load
 ```
 
 순서: mlx → api (api 는 mlx 없이도 뜨지만 생성은 실패한다). 해제는 `launchctl unload -w …`.
+
+**맥 항상 켜짐 (`com.rra.awake.plist`, 시범 2026-10-28)** — `/usr/bin/caffeinate -dimsu` 를 상시 실행(RunAtLoad·KeepAlive)해
+화면·유휴·디스크·시스템 잠자기를 막는다. 덮개를 닫으면(외부 모니터 없이) 그래도 잠들 수 있으니 덮개는 열어 둔다.
+```bash
+cp deploy/launchd/com.rra.awake.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.awake.plist
+launchctl list | grep com.rra.awake          # PID 가 보이면 실행 중
+pmset -g assertions | grep -i caffeinate     # PreventUserIdleSystemSleep·PreventSystemSleep 가 caffeinate 로 잡혀 있어야 한다
+launchctl unload -w ~/Library/LaunchAgents/com.rra.awake.plist   # 끄기 (다시 잠들 수 있게)
+```
 Streamlit 화면(`rra ui`, 127.0.0.1:8501)은 시연 때만 손으로 띄운다.
 
 ## 3. 점검 명령

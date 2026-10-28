@@ -15,3 +15,14 @@
 | 03:15 | [F1] 2차 PR #57 병합(02:5x). main 체크아웃 7bb3929(#57)로 당김(처음 `git pull` 이 'multiple branches' 오류 → `merge --ff-only origin/main`), 검사 1,810 통과·계약 8·ruff 0, web 재빌드, api kickstart → healthz 200·무토큰 401·web 200. 생성 1회 확인은 [F1] 2차 측정(f1_fallback2, 8/10) 종료 뒤 자동 실행 | wrapA2.log |
 | 03:26 | [F1] 2차 재측정(f1_fallback2, main #57 코드): **유효 10/10**, 점수 평균 2.62, 충족률 0.617, 평균 195s, Gemini 15회 → 두 번 합쳐 빈 초안 0. 생성 1회 확인(최신 main, 골든셋 04): precheck 66.5s → drafted 145s → 최종 검토 15s → HWPX 41,136 bytes, 전체 227s. Gemini 이번 작업 약 30/60 | gen0728.log, data/eval/f1_fallback2.json |
 | 03:35 | PR #58([F1] 2차 측정 문서: 유효 10/10·실패 섹션 0·대체 작성 5)·#59(통합 문서) 병합, main 723e336. 열린 PR 없음. 서비스: launchd mlx·api 가동(api 03:15 재시작 = #57 코드, web/dist 03:15), healthz 200. Gemini 이번 작업 약 30/60. 마감 07:30 전 완료 | gh pr, chain59.log |
+
+## 오후 레인 (2026-10-28 13:10~, 지시 [0]~[6] — 판단은 `docs/final-check-2026-10-28.md`)
+
+| 레인 | 작업 | 브랜치 | 상태 | 기다리는 의존 |
+|---|---|---|---|---|
+| 통합 | [0] 상태 확인·public_origin, [1] 맥 항상 켜짐 | chore/ops-awake-origin | 진행 중 | — |
+| A | [2] 그림 말로 고치기 = 명세 변경(+ 그림 명세 생성 Argon) | feat/figure-edit-spec | 진행 중 | — |
+| B | [3] Argon 먼저 작성·로컬 대체·local_check·동시 생성 | feat/argon-first | 진행 중 | — |
+| C | [4] 실시간 검색 ScienceON·NTIS·OpenAlex | feat/live-search | 진행 중 | B 병합 뒤 흐름 파일 통합 |
+| D | [3]·[4] 화면(로컬 작성·실시간 검색 배지, 자료원별 상태, e2e) | feat/web-argon-live | 진행 중 | B·C 응답(정해 둔 형태로 fixture 먼저) |
+| 통합 | [5] 통합 측정·배포, [6] 보고 | — | 대기 | A·B·C·D 병합 |

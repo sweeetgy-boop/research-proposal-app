@@ -13,6 +13,7 @@ PLISTS = {
     "com.rra.backup": ROOT / "deploy/launchd/com.rra.backup.plist",
     "com.rra.ingest": ROOT / "deploy/launchd/com.rra.ingest.plist",
     "com.rra.tunnel": ROOT / "deploy/launchd/com.rra.tunnel.plist",
+    "com.rra.awake": ROOT / "deploy/launchd/com.rra.awake.plist",
 }
 TUNNEL_EXAMPLE = ROOT / "deploy/cloudflared/config.example.yml"
 SECRET_NAMES = ("TOKEN", "KEY", "MAC", "CLIENT_ID", "PASSWORD")
@@ -96,3 +97,11 @@ def test_tunnel_example_config_routes_public_host_to_loopback_only():
     assert all(r["service"].startswith("http://127.0.0.1:") for r in named)
     assert "8501" not in text  # Streamlit 은 공개하지 않는다
     assert "api_token" not in text.lower() and "-----BEGIN" not in text
+
+
+def test_awake_plist_keeps_caffeinate_running():
+    """[1] 맥 항상 켜짐 — /usr/bin/caffeinate -dimsu 를 RunAtLoad·KeepAlive 로."""
+    data = load("com.rra.awake")
+    assert data["ProgramArguments"] == ["/usr/bin/caffeinate", "-dimsu"]
+    assert data["RunAtLoad"] is True and data["KeepAlive"] is True
+
