@@ -31,6 +31,7 @@ from rra.domain.models.proposer import Person
 from rra.domain.models.review import EditRequest
 from rra.domain.models.run import is_valid_run_id
 from rra.domain.rules.review_flow import InvalidTransition
+from rra.domain.rules.run_title import hwpx_filename
 from rra.domain.rules.trust import UNTRUSTED_NOTICE, escape_untrusted
 from rra.entrypoints.mcp.tools import ToolInputError
 from rra.entrypoints.views import (
@@ -402,7 +403,8 @@ class RraRunTools:
             "check": render_check_payload(
                 result.check, titles=self._manager.generate.rules.titles, clean=escape_untrusted
             ),
-            "filename": f"proposal-{rid}-v{result.version}.hwpx",
+            # 항목 2 — "<과제 제목>_v<번호>.hwpx" (파일 이름에 못 쓰는 글자는 뺀다)
+            "filename": hwpx_filename(result.title, result.version),
             "media_type": "application/hwp+zip",
             "size": len(result.data),
             "content_base64": base64.b64encode(result.data).decode("ascii"),

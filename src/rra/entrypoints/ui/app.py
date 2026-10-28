@@ -31,6 +31,7 @@ from rra.domain.rules import agent_policy as policy
 from rra.domain.rules.differentiation import needs_differentiation
 from rra.domain.rules.overlap import SOURCE_LABELS
 from rra.domain.rules.review_flow import InvalidTransition
+from rra.domain.rules.run_title import hwpx_filename
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.ui import service
 from rra.entrypoints.ui.auth import require_token
@@ -730,6 +731,7 @@ def finalize_panel(view, run_id: str) -> None:
         ss["rra_finalized"] = {
             "run_id": run_id,
             "version": result.version,
+            "filename": hwpx_filename(clean(result.title), result.version),  # 항목 2
             "data": result.data,
             "lines": render_check_lines(
                 render_check_payload(result.check, titles=assistant.rules.titles, clean=clean)
@@ -750,7 +752,7 @@ def finalize_panel(view, run_id: str) -> None:
     st.download_button(
         "제안서 받기(hwpx)",
         data=done["data"],
-        file_name=f"proposal-{run_id}-v{done['version']}.hwpx",
+        file_name=done.get("filename") or f"proposal-{run_id}-v{done['version']}.hwpx",
         mime="application/hwp+zip",
         key="download_hwpx_btn",
     )

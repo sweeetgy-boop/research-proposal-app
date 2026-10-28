@@ -103,7 +103,9 @@ from rra.domain.rules.evidence import (
     DecisionRejected,
     apply_decisions,
     basis_label,
+    bulk_approvals,
     decisions_for_sections,
+    evidence_attention,
     evidence_counts,
     excerpt,
     exclusion_problems,
@@ -113,9 +115,19 @@ from rra.domain.rules.evidence import (
 from rra.domain.rules.lint import has_errors
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.overlap import SOURCE_LABELS
+from rra.domain.rules.request_change import (
+    FIELD_LABELS,
+    MODE_NOTES,
+    affected_sections,
+    changed_fields,
+    regen_targets,
+)
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.rewrite import REWRITE_NOTE, pick, side_by_side
+from rra.domain.rules.run_title import draft_title
 from rra.domain.rules.usage import refresh as refresh_usage
+from rra.domain.rules.usage import step_durations as usage_step_durations
+from rra.domain.rules.usage import total_seconds as usage_total_seconds
 from rra.domain.rules.versions import (
     changed_sections,
     count_changed_sentences,
@@ -240,12 +252,27 @@ class RewriteView:
 
 
 @dataclass(frozen=True)
+class RegenerateResult:
+    """항목 17 — 입력 변경 뒤 다시 쓰기 결과. version 은 새 버전(바뀐 섹션이 없으면 현재 버전)."""
+
+    version: DraftVersion
+    mode: str
+    fields: list[str]
+    regenerated: list[str]  # 새로 쓴 섹션
+    failed: list[dict[str, str]]  # 다시 쓰지 못해 이전 내용을 둔 섹션 {key, reason}
+    kept: list[str]  # 앱이 쓰는 섹션 등 그대로 둔 섹션
+    saved_only: bool = False  # 양식 칸(제안부서·예산)만 바뀌어 입력만 저장했다
+
+
+@dataclass(frozen=True)
 class FinalizeResult:
     data: bytes  # HWPX
     confirmation: Confirmation
     check: RenderCheck
     version: int
     state: RunState
+    title: str = ""  # 내려받기 파일 이름용 연구과제명 (그 버전의 1-가, 없으면 가제)
+    hwpx_format: dict[str, Any] | None = None  # 항목 12 서식 점검 결과 (건수만)
 
 
 LEGACY_HINT = (
@@ -1728,6 +1755,7 @@ class RunManager:
             changed_sections=changed_sections(current.sections, sections),
             annotations=current.annotations,
             evidence_decisions=decisions,
+            figures=list(current.figures),  # 근거 판단으로 그림이 빠지지 않게
         )
         self._store_version(user, run_id, state, new_version, nxt)
         return self.store.load_version(user, run_id, new_version.version) or new_version
@@ -1832,6 +1860,7 @@ class RunManager:
             changed_sections=changed_sections(current.sections, sections),
             annotations=current.annotations,
             evidence_decisions=decisions_for_sections(sections, current.evidence_decisions),
+            figures=list(current.figures),  # 다시 쓰기로 그림이 빠지지 않게
         )
         self._store_version(user, run_id, state, new_version, nxt)
         self.store.clear_rewrite(user, run_id, key)
@@ -1881,6 +1910,8 @@ class RunManager:
         check = await self.render_check(user, run_id)
         confirmation = self.store.load_confirmation(user, run_id)
         options = self.generate.choice_options()
+        attention = self._evidence_attention(user, run_id, version) if version else None
+        proposed = {s.key: list(s.choices) for s in version.sections} if version else {}
         return submit_check(
             state=state,
             version=version,
@@ -1895,7 +1926,71 @@ class RunManager:
             strategy_options=len(options.get("strategy_alignment", {})),
             figures=list(version.figures) if version else [],
             figure_comments=self._open_figure_comments(user, run_id),
+            evidence_attention=attention,
+            proposed=proposed,
+            choice_options=options,
         )
+
+    def _evidence_attention(self, user: str, run_id: str, version: DraftVersion) -> dict[str, Any]:
+        """항목 16 — 확인 필요 문장(Argon 불일치·부분 지지·이미지 판독 근거)과 일괄 승인 수."""
+        snapshot = self.store.load_snapshot(user, run_id)
+        basis_of: dict[str, str | None] = {}
+        for c in snapshot.chunks if snapshot else []:
+            basis_of[c.chunk_id] = c.basis
+            basis_of.setdefault(c.doc_id, c.basis)
+        review = self.store.load_review(user, run_id, 1)
+        support = dict(review.support) if review is not None and review.support else {}
+        return evidence_attention(version.sections, version.evidence_decisions, support, basis_of)
+
+    async def bulk_approve_evidence(
+        self, user: str, run_id: str, *, base_version: int | None = None
+    ) -> DraftVersion:
+        """[근거 일괄 승인] — 확인 필요 문장을 뺀 나머지 문장의 판단 없는 근거를 모두 승인 → 새 버전
+        (note "근거 일괄 승인"). 승인할 것이 없으면 현재 버전 그대로."""
+        if not self.usability.evidence_decisions:
+            raise FeatureDisabled(
+                "근거 판단 저장이 꺼져 있습니다 (usability.yaml evidence_decisions)."
+            )
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise EditRejected(LEGACY_HINT.format(run_id=run_id))
+        try:
+            nxt = review_flow.transition(state.status, "edit")
+        except InvalidTransition as exc:
+            raise EditRejected(str(exc)) from exc
+        current = self._current_version(user, run_id, state)
+        if base_version is not None and base_version != current.version:
+            raise VersionConflict(
+                f"기준 버전 v{base_version} 과 현재 버전 v{current.version} 이 다릅니다 — "
+                "최신 버전을 불러와 다시 승인하십시오."
+            )
+        attention = self._evidence_attention(user, run_id, current)
+        decisions = bulk_approvals(
+            current.sections, current.evidence_decisions, attention["sentences"]
+        )
+        if not decisions:
+            return current
+        snapshot = self.store.load_snapshot(user, run_id)
+        allowed = snapshot.retrieved_ids if snapshot else set()
+        try:
+            sections, merged = apply_decisions(
+                current.sections, current.evidence_decisions, decisions, allowed
+            )
+        except DecisionRejected as exc:
+            raise EditRejected(str(exc)) from exc
+        new_version = DraftVersion(
+            version=current.version + 1,
+            origin="edit",
+            sections=sections,
+            created_at=self._clock(),
+            note=f"근거 일괄 승인 {len(decisions)}건",
+            changed_sections=changed_sections(current.sections, sections),
+            annotations=current.annotations,
+            evidence_decisions=merged,
+            figures=list(current.figures),
+        )
+        self._store_version(user, run_id, state, new_version, nxt)
+        return self.store.load_version(user, run_id, new_version.version) or new_version
 
     def _open_figure_comments(self, user: str, run_id: str) -> int:
         rounds = self.store.list_reviews(user, run_id)
@@ -2319,7 +2414,16 @@ class RunManager:
 
     async def usage(self, user: str, run_id: str) -> UsageRecord | None:
         state = await self.status(user, run_id)
-        return self.store.load_usage(user, run_id) or self._touch_usage(user, run_id, state)
+        record = self.store.load_usage(user, run_id)
+        if record is None:
+            return self._touch_usage(user, run_id, state)
+        # 단계 시간은 읽을 때 다시 계산한다 — 섹션 작성은 벽시계(2026-10-28 규칙)로
+        return record.model_copy(
+            update={
+                "step_seconds": usage_step_durations(state),
+                "total_seconds": usage_total_seconds(state),
+            }
+        )
 
     async def feedback(self, user: str, run_id: str, score: int, comment: str = "") -> UsageRecord:
         """마무리 뒤 만족도(1~5 + 한 줄). 개인정보 없음(이메일·전화 금지, 200자)."""
@@ -2405,7 +2509,17 @@ class RunManager:
         except Exception:
             self._touch_usage(user, run_id, state, hwpx_success=False)
             raise
+        fmt = getattr(self.renderer, "last_format", None)  # 동기 렌더 바로 뒤 — 이 호출의 결과
         state = await self.status(user, run_id)
+        state.hwpx_format = dict(fmt) if fmt else None
+        if fmt:
+            logger.info(
+                "run.hwpx_format run=%s fixed=%d remaining=%d paragraphs=%d",
+                run_id,
+                int(fmt.get("fixed_total") or 0),
+                sum((fmt.get("remaining") or {}).values()),
+                int(fmt.get("paragraphs") or 0),
+            )
         if placements:
             by_id = {p.id: p for p in placements}
             state.figures = [
@@ -2419,8 +2533,33 @@ class RunManager:
         self._touch_usage(user, run_id, state, hwpx_success=True)
         self._save(state)
         return FinalizeResult(
-            data=data, confirmation=confirmation, check=check, version=picked, state=state
+            data=data,
+            confirmation=confirmation,
+            check=check,
+            version=picked,
+            state=state,
+            title=draft_title(sections, draft.request),
+            hwpx_format=state.hwpx_format,
         )
+
+    def run_title(self, state: RunState) -> str:
+        """화면 머리·run 목록의 연구과제명 — 현재 버전의 1-가 문장, 없으면 저장된 섹션, 그것도
+        없으면 가제(title_hint). 읽기 실패는 빈 문자열 (화면이 "제목 미정")."""
+        try:
+            version = (
+                self.store.load_version(state.user, state.run_id, state.draft_version)
+                if state.draft_version >= 1
+                else None
+            )
+            sections = (
+                list(version.sections)
+                if version is not None
+                else list(self.store.load_sections(state.user, state.run_id).values())
+            )
+            request = self.store.load_request(state.user, state.run_id)
+        except Exception:  # noqa: BLE001 — 제목 표시는 run 조회를 막지 않는다
+            return ""
+        return draft_title(sections, request)
 
     def _figure_files(
         self, user: str, run_id: str, version_no: int
@@ -2553,6 +2692,233 @@ class RunManager:
         self.store.save_confirmation(user, run_id, confirmation)
         self._record(state)
         return confirmation
+
+    # ── 항목 17 ①·② 입력 변경 → 관련 섹션만 / 전체 다시 쓰기 ─────────────
+    async def run_inputs(self, user: str, run_id: str) -> dict[str, Any]:
+        """단계 표시 ①·② 를 run 안에서 열 때 — 저장된 입력·② 우선 근거·현재 버전·상태."""
+        state = await self.status(user, run_id)
+        req = self.store.load_request(user, run_id)
+        notes = self.store.load_notes(user, run_id) or {}
+        return {
+            "request": req.model_dump(mode="json"),
+            "priority_evidence": [str(x) for x in notes.get("priority_evidence") or []],
+            "draft_version": state.draft_version,
+            "status": state.status,
+        }
+
+    async def request_change_preview(
+        self,
+        user: str,
+        run_id: str,
+        req: ProposalRequest,
+        *,
+        priority_evidence: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """저장 전에 — 바뀐 입력 칸·관련 섹션·다시 쓸 수 있는 상태인지 (저장하지 않는다)."""
+        state = await self.status(user, run_id)
+        old = self.store.load_request(user, run_id)
+        notes = self.store.load_notes(user, run_id) or {}
+        fields = changed_fields(
+            old.model_dump(mode="json"),
+            req.model_dump(mode="json"),
+            old_priority=[str(x) for x in notes.get("priority_evidence") or []],
+            new_priority=priority_evidence,
+        )
+        keys = list(self.generate.section_keys)
+        affected = affected_sections(
+            fields, keys, evidence_sections=self.generate.rules.evidence_required
+        )
+        reason = None
+        if self.is_legacy(state):
+            reason = "이전 양식으로 만든 run 은 다시 쓸 수 없습니다."
+        elif state.draft_version < 1 or not review_flow.can_edit(state.status):
+            reason = "초안이 완성된 뒤(검토 중이 아닐 때) 다시 쓸 수 있습니다."
+        elif self.store.load_working(user, run_id) is not None:
+            reason = "저장하지 않은 임시 편집이 있습니다 — 먼저 저장하거나 버리십시오."
+        return {
+            "fields": fields,
+            "sections": affected,
+            "all_sections": keys,
+            "can_regenerate": reason is None,
+            "reason": reason,
+            "version": state.draft_version,
+        }
+
+    async def regenerate(
+        self,
+        user: str,
+        run_id: str,
+        req: ProposalRequest,
+        *,
+        mode: str = "sections",
+        base_version: int | None = None,
+        priority_evidence: list[str] | None = None,
+    ) -> RegenerateResult:
+        """바뀐 입력으로 새 버전을 만든다.
+
+        mode=sections 는 관련 섹션만 (U3 다시 쓰기와 같은 길 — 제안자 수정·입력 문장은 그 자리에
+        둔다), all 은 모든 섹션을 새로 쓴다 (이전 초안은 이전 버전으로 남는다). 섹션 작성은 생성과
+        같은 길이다 — Argon 먼저·실패하면 로컬, 로컬은 슬롯 안에서. 근거 집합은 다시 검색하지
+        않는다 (보안 A 대조 집합 유지). 다시 쓰지 못한 섹션은 이전 내용을 두고 failed 로 알린다
+        (빈칸으로 바꾸지 않는다). 전부 실패하면 EditRejected (입력도 저장하지 않는다).
+        """
+        if mode not in ("sections", "all"):
+            raise EditRejected(f"알 수 없는 다시 쓰기 방식: {mode}")
+        state = await self.status(user, run_id)
+        if self.is_legacy(state):
+            raise EditRejected(LEGACY_HINT.format(run_id=run_id))
+        try:
+            nxt = review_flow.transition(state.status, "edit")
+        except InvalidTransition as exc:
+            raise EditRejected(str(exc)) from exc
+        if state.draft_version < 1:
+            raise EditRejected("초안이 완성된 뒤 다시 쓸 수 있습니다.")
+        if self.store.load_working(user, run_id) is not None:
+            raise EditRejected("저장하지 않은 임시 편집이 있습니다 — 먼저 저장하거나 버리십시오.")
+        current = self._current_version(user, run_id, state)
+        if base_version is not None and base_version != current.version:
+            raise VersionConflict(
+                f"기준 버전 v{base_version} 과 현재 버전 v{current.version} 이 다릅니다 — "
+                "최신 버전을 불러와 다시 저장하십시오."
+            )
+        preview = await self.request_change_preview(
+            user, run_id, req, priority_evidence=priority_evidence
+        )
+        fields: list[str] = list(preview["fields"])
+        keys = list(self.generate.section_keys)
+        targets = regen_targets(mode, preview["sections"], keys)  # type: ignore[arg-type]
+        if not fields and mode == "sections":
+            return RegenerateResult(current, mode, [], [], [], [])
+        notes = self.store.load_notes(user, run_id) or {}
+        if not targets:  # 양식 칸(제안부서·예산)만 바뀜 — 입력만 저장, 새 버전 없음
+            self.store.save_request(user, run_id, req)
+            self._note_request_change(user, run_id, notes, fields, mode, current.version)
+            return RegenerateResult(current, mode, fields, [], [], [], saved_only=True)
+
+        claim = self.store.claim(user, run_id)  # 생성·검토가 이 run 을 잡고 있으면 RunBusy
+        try:
+            snapshot = self.store.load_snapshot(user, run_id)
+            if snapshot is None:
+                raise EditRejected("검색 스냅샷이 없어 다시 쓸 수 없습니다.")
+            if priority_evidence is not None:
+                ids = [str(x)[:200] for x in priority_evidence if str(x).strip()][:50]
+                notes = {**notes, "priority_evidence": ids}
+                self.store.save_notes(user, run_id, notes)
+                snapshot = self._prioritize(user, run_id, snapshot)
+                self.store.save_snapshot(user, run_id, snapshot)
+            answers = notes.get("answers") or {}
+            gen = self._generate_for(state)  # 공용 계정 run 은 internal 제외 유스케이스
+            composed_by_key: dict[str, Any] = {}
+            failed: list[dict[str, str]] = []
+            kept: list[str] = []
+
+            async def one(key: str) -> None:
+                existing = current.section(key) or Section(key=key, sentences=[])
+                try:
+                    if mode == "sections":
+                        out = await gen.rewrite_section(
+                            key, req, snapshot, existing, notes=answers.get(key) or {}
+                        )
+                    else:
+                        out = await gen.compose_section(key, req, snapshot)
+                except ValueError:  # 앱이 쓰는 섹션(특이사항) — 그대로 둔다
+                    kept.append(key)
+                    return
+                except Exception as exc:  # noqa: BLE001 — 그 섹션만 이전 내용 유지
+                    failed.append({"key": key, "reason": type(exc).__name__})
+                    return
+                composed_by_key[key] = out
+
+            async with self._run_gate(gen):
+                limit = max(1, int(gen.compose_concurrency)) if gen.writes_remotely else 1
+                sem = asyncio.Semaphore(limit)
+
+                async def bounded(key: str) -> None:
+                    async with sem:
+                        await one(key)
+
+                await asyncio.gather(*(bounded(k) for k in targets))
+
+            sections: list[Section] = []
+            regenerated: list[str] = []
+            for sec in current.sections:
+                out = composed_by_key.get(sec.key)
+                if out is None:
+                    sections.append(sec)
+                    continue
+                candidate = _cleaned(out.section)
+                if not candidate.sentences and sec.sentences and out.mode not in ("skipped", "app"):
+                    failed.append({"key": sec.key, "reason": out.mode or "empty"})
+                    sections.append(sec)  # 빈 결과로 덮지 않는다
+                    continue
+                if not candidate.sentences and out.mode == "skipped" and sec.sentences:
+                    kept.append(sec.key)  # 입력이 비어 생략 — 이전 문장 유지
+                    sections.append(sec)
+                    continue
+                sections.append(candidate)
+                regenerated.append(sec.key)
+            for key in targets:  # 이전 버전에 없던 섹션
+                if key not in {s.key for s in current.sections} and key in composed_by_key:
+                    sections.append(_cleaned(composed_by_key[key].section))
+                    regenerated.append(key)
+            if not regenerated:
+                raise EditRejected(
+                    "다시 쓴 섹션이 없습니다 — 모델 응답이 없거나 형식이 맞지 않았습니다. "
+                    "잠시 뒤 다시 시도하거나 직접 수정하십시오."
+                )
+            draft, _problems = self.generate.finalize(run_id, req, snapshot, sections)
+            tidy = {s.key: s for s in draft.sections}  # Q6 자동 정리 — 다시 쓴 섹션에만
+            sections = [tidy.get(s.key, s) if s.key in regenerated else s for s in sections]
+
+            latest = await self.status(user, run_id)
+            if latest.draft_version != current.version:
+                raise VersionConflict(
+                    "다시 쓰는 동안 새 버전이 저장되었습니다 — 다시 시도하십시오."
+                )
+            for key in regenerated:
+                writer = getattr(composed_by_key.get(key), "writer", None)
+                if writer:
+                    latest.writers[key] = dict(writer)
+            labels = ", ".join(FIELD_LABELS.get(f, f) for f in fields) or "입력"
+            new_version = DraftVersion(
+                version=current.version + 1,
+                origin="regenerate",
+                sections=sections,
+                created_at=self._clock(),
+                note=f"{MODE_NOTES[mode]} ({labels})"[:200],
+                changed_sections=changed_sections(current.sections, sections),
+                annotations=[a for a in current.annotations if a.section not in regenerated],
+                evidence_decisions=decisions_for_sections(sections, current.evidence_decisions),
+                figures=list(current.figures),
+            )
+            self.store.save_request(user, run_id, req)
+            self._note_request_change(user, run_id, notes, fields, mode, new_version.version)
+            self._store_version(user, run_id, latest, new_version, nxt)
+            self._touch_usage(user, run_id, latest, rewrites_add=1)
+            if failed:
+                logger.warning(
+                    "run.regenerate_partial run=%s failed=%s",
+                    run_id,
+                    ",".join(f"{f['key']}:{f['reason']}" for f in failed),
+                )
+            stored = self.store.load_version(user, run_id, new_version.version) or new_version
+            return RegenerateResult(stored, mode, fields, regenerated, failed, kept)
+        finally:
+            claim.release()
+
+    def _note_request_change(
+        self,
+        user: str,
+        run_id: str,
+        notes: dict[str, Any],
+        fields: list[str],
+        mode: str,
+        version: int,
+    ) -> None:
+        """입력 변경 이력 — 칸 이름·방식·버전만 (본문 없음)."""
+        history = list(notes.get("request_history") or [])[-49:]
+        history.append({"at": self._clock(), "fields": fields, "mode": mode, "version": version})
+        self.store.save_notes(user, run_id, {**notes, "request_history": history})
 
     async def _citations(
         self, sections: list[Section], snapshot: RetrievalSnapshot | None
@@ -2698,6 +3064,7 @@ def manifest(
         "recommendations": dict(state.recommendations) if state.recommendations else None,
         "figures": [dict(x) for x in state.figures],  # [G] 그림 요약 (본문 없음)
         "live_search": live_search_manifest(state),
+        "hwpx_format": dict(state.hwpx_format) if state.hwpx_format else None,  # 건수만
     }
 
 

@@ -7,6 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { ScoreTable } from "@/components/ScoreTable";
 import { UntrustedText } from "@/components/UntrustedText";
 import { sectionTitle } from "@/lib/sections";
+import { reasonLabel } from "@/lib/labels";
 
 const STATUS: Record<string, { label: string; variant: "secondary" | "success" | "outline" | "destructive" }> = {
   open: { label: "미처리", variant: "secondary" },
@@ -29,7 +30,7 @@ export function ReviewPanel({ review, title }: { review: ReviewOut; title: strin
         <Badge variant="outline">
           {review.transfer.provider ?? "—"} / {review.transfer.model ?? "—"}
         </Badge>
-        {review.status === "skipped" && <Badge variant="warning">건너뜀 ({review.skipped_reason})</Badge>}
+        {review.status === "skipped" && <Badge variant="warning">건너뜀 ({reasonLabel(review.skipped_reason)})</Badge>}
         {review.status === "error" && <Badge variant="destructive">오류</Badge>}
         {review.applied_version && <Badge variant="success">v{review.applied_version} 에 {review.applied_ids.length}건 자동 반영</Badge>}
         {typeof review.checklist_coverage === "number" && (

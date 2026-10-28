@@ -59,6 +59,7 @@ from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
 from rra.domain.rules.precheck_view import GATE_BLOCKING, RELEASED_NOTE
 from rra.domain.rules.recommendation import apply_recommendation
 from rra.domain.rules.review_flow import InvalidTransition
+from rra.domain.rules.run_title import ascii_filename, hwpx_filename
 from rra.domain.rules.similar_choice import (
     apply_choices,
     choice_records,
@@ -66,6 +67,7 @@ from rra.domain.rules.similar_choice import (
     idea_hash,
 )
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
+from rra.entrypoints.api.routes_format import register_format_routes
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
     FeedbackIn,
@@ -90,6 +92,7 @@ from rra.entrypoints.views import (
     brief_payload,
     chunks_payload,
     comparison_payload,
+    content_disposition,
     diff_payload,
     differentiation_payload,
     draft_payload,
@@ -371,6 +374,12 @@ def create_app(
 
     def _titles() -> dict[str, str]:
         return getattr(getattr(manager.generate, "rules", None), "titles", None) or {}
+
+    def _title(state: Any) -> str | None:
+        """항목 2 — 화면 머리·목록의 연구과제명 (LLM 문장이므로 비신뢰 정리)."""
+        if not hasattr(manager, "run_title"):
+            return None
+        return _clean(manager.run_title(state)) or None
 
     # ── 로그인 주체·소유자 (레인 A) ───────────────────────
     def _who(request: Request) -> Principal:
@@ -954,7 +963,10 @@ def create_app(
         else:
             states = manager.list_runs(_owner_key(request), limit)
         return {
-            "runs": [run_state_payload(s, legacy=manager.is_legacy(s)) for s in reversed(states)]
+            "runs": [
+                run_state_payload(s, legacy=manager.is_legacy(s), title=_title(s))
+                for s in reversed(states)
+            ]
         }
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}")
@@ -963,7 +975,7 @@ def create_app(
             state = await manager.status(*await _own(request, run_id))
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
-        return run_state_payload(state, legacy=manager.is_legacy(state))
+        return run_state_payload(state, legacy=manager.is_legacy(state), title=_title(state))
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/events")
     async def events_route(request: Request, run_id: str) -> StreamingResponse:
@@ -1281,12 +1293,14 @@ def create_app(
         except RenderUnavailable as exc:
             raise HTTPException(503, str(exc)) from exc
         check = render_check_payload(result.check, titles=_titles(), clean=_clean)
+        # 항목 2 — "<과제 제목>_v<번호>.hwpx" (RFC 5987 filename*) + ASCII 대체 이름
+        filename = hwpx_filename(_clean(getattr(result, "title", "") or ""), result.version)
         return Response(
             content=result.data,
             media_type=HWPX_MEDIA_TYPE,
             headers={
-                "content-disposition": (
-                    f'attachment; filename="proposal-{run_id}-v{result.version}.hwpx"'
+                "content-disposition": content_disposition(
+                    filename, ascii_filename(run_id, result.version)
                 ),
                 "x-rra-version": str(result.version),
                 "x-rra-status": result.state.status,
@@ -1578,6 +1592,9 @@ def create_app(
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return run_state_payload(state, legacy=manager.is_legacy(state))
+
+    # 레인 D — 단계 이동(run 입력 조회·변경 다시 쓰기)·근거 일괄 승인 (routes_format.py)
+    register_format_routes(app, manager=manager, own=_own, clean=_clean, titles=_titles)
 
     # ── 정적 SPA (web/dist) ──────────────────────────────
     _mount_static(app, static_dir)

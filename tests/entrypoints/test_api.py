@@ -345,7 +345,10 @@ async def test_full_flow_precheck_runs_sse_review_edits_finalize(client):
         headers=AUTH,
     )
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/hwp+zip")
-    assert r.headers["content-disposition"] == f'attachment; filename="proposal-{run_id}-v4.hwpx"'
+    # 항목 2 — ASCII 대체 이름 + RFC 5987 한글 제목 "<과제 제목>_v<번호>.hwpx"
+    disposition = r.headers["content-disposition"]
+    assert disposition.startswith(f'attachment; filename="proposal-{run_id}-v4.hwpx"; ')
+    assert "filename*=UTF-8''" in disposition and disposition.endswith("_v4.hwpx")
     assert r.headers["x-rra-status"] == "finalized" and r.headers["x-rra-version"] == "4"
     assert _check_header(r)["count"] >= 1
     rendered = json.loads(r.content)

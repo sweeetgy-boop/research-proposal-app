@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 from xml.sax.saxutils import escape
 
+from rra.adapters.rendering.hwpx_format import format_hwpx
 from rra.application.ports.renderer import RenderRejected
 from rra.domain.models import Confirmation, Draft, ProposerInfo, StrategyCatalog
 from rra.domain.models.figure import Figure, FigurePlacement
@@ -294,8 +295,13 @@ class HwpxRenderer:
         figure_placement: str = "inline",
         figure_max_width: int = 42000,
         figure_caption_prefix: str = "그림",
+        format_check: bool = True,
     ):
         self.slots = slots
+        # 항목 12 서식 점검(단계별 단락 모양·글자 크기·앞 공백·표 칸·캡션) — 만들 때마다 고치고
+        # 결과(건수만)를 last_format 에 둔다. 렌더 호출 바로 뒤에 읽는다 (동기 호출, await 없음)
+        self.format_check = format_check
+        self.last_format: dict[str, Any] | None = None
         self.titles = dict(titles or {})
         self.strategy = strategy or StrategyCatalog()
         self.template_path = Path(template_path) if template_path else None
@@ -336,7 +342,17 @@ class HwpxRenderer:
             data = self._fill_template(self.template_path.read_bytes(), values)  # type: ignore[union-attr]
         else:
             data = self._generate(values, confirmation)
+        data = self._format(data)
         verify_hwpx(data)
+        return data
+
+    def _format(self, data: bytes, captions: Sequence[str] = ()) -> bytes:
+        """항목 12 서식 점검·고침. 글자는 넣지 않는다 (공백 제거·모양 id 변경만)."""
+        if not self.format_check:
+            self.last_format = None
+            return data
+        data, report = format_hwpx(data, captions=captions, bullet=self.slots.bullet)
+        self.last_format = {"mode": self.mode, **report.payload()}
         return data
 
     def render_with_figures(
@@ -380,8 +396,15 @@ class HwpxRenderer:
         else:
             data = self._generate(values, confirmation)
         data, placements = self._insert_figures(data, numbered)
+        captions = [self._caption(n, fig) for n, fig, _d, _m in numbered]
+        captions += [sanitize(fig.source_caption) for _n, fig, _d, _m in numbered]
+        captions.append(f"별첨 {self.figure_caption_prefix}")
+        data = self._format(data, captions)
         verify_hwpx(data)
         return data, placements
+
+    def _caption(self, n: int, fig: Figure) -> str:
+        return f"{self.figure_caption_prefix} {n}. {sanitize(fig.caption)}".strip()
 
     def _insert_figures(
         self, data: bytes, figures: list[tuple[int, Figure, bytes, str]]
@@ -407,7 +430,7 @@ class HwpxRenderer:
             if cell is not None and getattr(cell, "width", None):
                 width = min(width, max(int(cell.width) - 2000, 8000))
             height = max(1, round(width * h_px / max(w_px, 1)))
-            caption = f"{self.figure_caption_prefix} {n}. {sanitize(fig.caption)}".strip()
+            caption = self._caption(n, fig)
             extra = [sanitize(fig.source_caption)] if fig.source_caption else []
             if inline and cell_para is not None:
                 para = cell_para[1]
@@ -434,7 +457,7 @@ class HwpxRenderer:
             for n, fig, item_id, width, height in appendix:
                 para = doc.add_paragraph("")
                 para.add_picture(item_id, width=width, height=height)
-                doc.add_paragraph(f"{self.figure_caption_prefix} {n}. {sanitize(fig.caption)}")
+                doc.add_paragraph(self._caption(n, fig))
                 if fig.source_caption:
                     doc.add_paragraph(sanitize(fig.source_caption))
         return doc.to_bytes(), placements
@@ -714,6 +737,8 @@ def expand_paragraphs(
     while (idx := xml.find(placeholder, pos)) >= 0:
         start, end = _paragraph_bounds(xml, idx, placeholder)
         para = _LINESEG.sub("", xml[start:end])  # 새 글자·새 위치 — 줄 배치 캐시는 버린다
+        # 공백 들여쓰기는 쓰지 않는다 (항목 12) — 줄맞춤은 단락 모양(왼쪽 여백·내어쓰기)이 한다
+        para = re.sub(r"(<hp:t>)[ \u3000]+(?=" + re.escape(placeholder) + ")", r"\1", para)
         if lines:
             copies = "".join(para.replace(placeholder, escape(bullet + ln)) for ln in lines)
         else:
