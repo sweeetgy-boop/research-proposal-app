@@ -14,7 +14,7 @@ import yaml
 from rra.domain.models import ProposalRequest
 
 GOLDEN = sorted((Path(__file__).parent / "golden").glob("*.yaml"))
-DOC_ID = re.compile(r"^(openalex|scienceon|kipris_kr|kipris_intl|ntis|alio|own):[^\s]+$")
+DOC_ID = re.compile(r"^(openalex|scienceon|kipris_kr|kipris_intl|ntis|alio|own|korail_web):[^\s]+$")
 
 
 def test_golden_set_has_ten_ideas_that_validate_and_carry_answers():
