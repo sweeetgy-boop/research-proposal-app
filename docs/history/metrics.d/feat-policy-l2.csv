@@ -1,1 +1,2 @@
 date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,6e3211d,feat policy-l2 (레인 B),2272,,8,,,,,,,,,238.6,,,,,,자료 분류 이주 korail_web 702건(연구용역 287·행정 270·현황 70·통계 23·정책 52); 정책 근거 후보 702→52; L2 로컬 판정 20~46초+Argon 제안 5~18초; 최종 규칙 02 지지 23 불일치 1/24
