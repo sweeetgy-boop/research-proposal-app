@@ -133,8 +133,10 @@ async def test_bulk_approve_and_submit_check_labels(client):
     r = await client.post(
         f"/v1/runs/{rid}/evidence-decisions/bulk-approve", json={"base_version": 1}, headers=AUTH
     )
-    assert r.status_code == 200 and r.json()["version"] == 2
-    assert "근거 일괄 승인" in r.json()["note"]
+    assert r.status_code == 200 and r.json()["version"] == 1  # 승인은 상태 표시 (항목 21)
+    assert r.json()["evidence_decisions"] and all(
+        d["action"] == "approve" for d in r.json()["evidence_decisions"]
+    )
     check = (await client.get(f"/v1/runs/{rid}/submit-check", headers=AUTH)).json()
     ev = {i["key"]: i for i in check["items"]}["evidence_approval"]
     assert ev["ok"] and ev["bulk"] == 0

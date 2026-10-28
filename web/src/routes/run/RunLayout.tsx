@@ -15,6 +15,7 @@ import { SkeletonBlock } from "@/components/ui/skeleton";
 import { statusLabel } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
+import { RunStepBar } from "@/features/stepnav/RunStepBar";
 
 export interface RunContext {
   run: RunState;
@@ -39,13 +40,13 @@ function statusVariant(s: string): "default" | "secondary" | "destructive" | "su
   return "secondary";
 }
 
-/** [3] run 작성자 — 눈에 덜 띄게 outline. 로컬로 넘어간 섹션이 있으면 수를 붙인다. */
+/** [3] 작성자 — 눈에 덜 띄게 outline. 로컬로 넘어간 섹션이 있으면 "Argon 작성(일부 로컬)" (항목 21). */
 function WriterChip({ run }: { run: RunState }) {
   if (!run.writer) return null;
   const locals = run.local_sections?.length ?? 0;
   if (run.writer === "local") {
     return (
-      <Badge variant="outline" className="font-normal text-muted-foreground" title="이 run 은 로컬 모델이 작성했습니다">
+      <Badge variant="outline" className="font-normal text-muted-foreground" title="이 제안서는 로컬 모델이 작성했습니다">
         로컬 작성
       </Badge>
     );
@@ -53,7 +54,7 @@ function WriterChip({ run }: { run: RunState }) {
   if (run.writer !== "gemini") return null;
   return (
     <Badge variant="outline" className="font-normal text-muted-foreground" title={locals ? `Argon 이 작성, ${locals}개 섹션은 Argon 실패 뒤 로컬 모델이 작성` : "Argon 이 작성했습니다"}>
-      Argon 작성{locals ? ` · 로컬 ${locals}개 섹션` : ""}
+      {locals ? "Argon 작성(일부 로컬)" : "Argon 작성"}
     </Badge>
   );
 }
@@ -72,7 +73,7 @@ export default function RunLayout() {
     if (!run) return;
     try {
       await navigator.clipboard.writeText(run.run_id);
-      toast("run 번호를 복사했습니다.", "success");
+      toast("작성 번호를 복사했습니다.", "success");
     } catch {
       toast("복사하지 못했습니다 — 번호를 직접 선택해 복사하십시오.");
     }
@@ -127,18 +128,19 @@ export default function RunLayout() {
           </span>
         </h1>
         <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-          <span>run 번호</span>
+          <span>작성 번호</span>
           <span className="font-mono">{run.run_id}</span>
-          <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={copyId} aria-label="run 번호 복사">
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={copyId} aria-label="작성 번호 복사">
             <Copy className="size-3.5" aria-hidden="true" />
             복사
           </Button>
         </p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="sr-only">작성 상태:</span>
           <Badge variant={statusVariant(run.status)}>{statusLabel(run.status)}</Badge>
           <span className="text-sm text-muted-foreground">v{run.draft_version}</span>
           <WriterChip run={run} />
-          {run.legacy && <Badge variant="outline">옛 run (조회 전용)</Badge>}
+          {run.legacy && <Badge variant="outline">예전 방식 (조회 전용)</Badge>}
           {run.flow.stale && (
             <Badge variant="warning" role="status">
               최종 검토 이후 수정 {run.flow.stale_edits}건
@@ -149,7 +151,7 @@ export default function RunLayout() {
         </div>
       </header>
       <Stepper current={runStepFromSub(sub)} base={`/runs/${run.run_id}`} targets={runStepTargets(run)} />
-      <nav aria-label="run 하위 메뉴" className="relative -mx-1 overflow-x-auto border-b">
+      <nav aria-label="제안서 화면 메뉴" className="relative -mx-1 overflow-x-auto border-b">
         <ul className="flex min-w-max gap-1">
           {SUBNAV.map((s) => {
             const enabled = enabledFor(s.to);
@@ -179,6 +181,7 @@ export default function RunLayout() {
         </ul>
       </nav>
       <Outlet context={{ run, refetch: () => q.refetch() } satisfies RunContext} />
+      <RunStepBar run={run} sub={sub} />
     </div>
   );
 }

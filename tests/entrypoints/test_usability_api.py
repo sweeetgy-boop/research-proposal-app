@@ -141,7 +141,8 @@ async def test_run_routes_evidence_decisions_rewrite_questions_submit_check_usag
         },
         headers=AUTH,
     )
-    assert r.status_code == 200 and r.json()["version"] == 2 and r.json()["status"] == "editing"
+    # 항목 21: 근거 승인은 상태 표시 — 버전·상태 그대로
+    assert r.status_code == 200 and r.json()["version"] == 1 and r.json()["status"] == "drafted"
     assert r.json()["evidence_decisions"] == [
         {"sentence_id": "s:method:1", "evidence_id": "openalex:W1#0", "action": "approve"}
     ]
@@ -151,7 +152,7 @@ async def test_run_routes_evidence_decisions_rewrite_questions_submit_check_usag
             "decisions": [
                 {"sentence_id": "s:method:1", "evidence_id": "openalex:W1#0", "action": "exclude"}
             ],
-            "base_version": 1,
+            "base_version": 2,
         },
         headers=AUTH,
     )
@@ -187,7 +188,7 @@ async def test_run_routes_evidence_decisions_rewrite_questions_submit_check_usag
     r = await client.post(
         f"/v1/runs/{rid}/sections/method/rewrite/apply", json={"chosen": [0]}, headers=AUTH
     )
-    assert r.status_code == 200 and r.json()["version"] == 3 and r.json()["note"] == "AI 다시 쓰기"
+    assert r.status_code == 200 and r.json()["version"] == 2 and r.json()["note"] == "AI 다시 쓰기"
     assert (
         await client.post(f"/v1/runs/{rid}/sections/method/rewrite/apply", json={}, headers=AUTH)
     ).status_code == 409

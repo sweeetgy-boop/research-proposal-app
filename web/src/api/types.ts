@@ -915,4 +915,5 @@ export * from "./types-figures"; // [G] 그림 v2 (레인 C)
 export * from "./types-editai";
 export * from "./types-precheck"; // ② 유사과제 흐름 (레인 A)
 export * from "./types-format"; // 레인 D
+export * from "./types-versions"; // 레인 D 항목 21
 export * from "./types-laneB"; // 레인 B — L2 로컬 2차 검토·문서 표시 (ADR 0040)

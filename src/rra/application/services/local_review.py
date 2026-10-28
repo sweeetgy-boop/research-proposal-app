@@ -129,6 +129,13 @@ class LocalReviewMixin:
             decided_at=self._clock(),  # type: ignore[attr-defined]
         )
         version = self._current_version(user, run_id, state)  # type: ignore[attr-defined]
+        # 레인 D 확인 기록(versions/marks_vN.json)에도 한 줄 — 상태 표시는 새 버전을 만들지 않는다
+        record = getattr(self, "record_mark", None)
+        if record is not None:
+            where = self._locate(version, sugg) or ""
+            await record(
+                user, run_id, "suggestion_ignore", target=where, label="로컬 검토 제안 무시"
+            )
         return local_review_view(state, version)
 
     async def retry_local_suggestion(

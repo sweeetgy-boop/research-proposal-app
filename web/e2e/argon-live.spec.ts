@@ -126,7 +126,7 @@ test("② 실시간 검색 배지·자료원별 상태 → 초안 로컬 작성 
   await expect(page.getByRole("heading", { level: 3, name: /^1-가 연구과제명/ }).getByText("로컬 작성", { exact: true })).toHaveCount(0);
   // 가짜 판정(L2, ADR 0040)이 1건을 더 낸다 — 개수는 화면 주입과 합쳐진다
   await expect(page.getByTestId("local-check")).toContainText(/근거 대조\(로컬\) 불일치 [12]건/);
-  await expect(page.getByText("Argon 작성 · 로컬 1개 섹션")).toBeVisible();
+  await expect(page.getByText("Argon 작성(일부 로컬)")).toBeVisible();
   await expect(page.getByRole("region", { name: /인용 문서/ }).getByText("실시간 검색", { exact: true }).first()).toBeVisible();
   if (OUT) {
     await objective.scrollIntoViewIfNeeded();

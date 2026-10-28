@@ -28,6 +28,7 @@ import { LocalReviewSummary, LocalSuggestionCard, LocalVerdictBadge } from "@/fe
 import type { LocalVerdict } from "@/api/types";
 import { replaceDocIds } from "@/lib/docRefs";
 import { LOCAL_EVIDENCE_MISMATCH, LOCAL_EVIDENCE_MISMATCH_LABEL } from "@/lib/writer";
+import { SkipEditButton } from "@/features/versions/SkipEditButton";
 
 type Row =
   | { kind: "header"; key: string; section: DraftSection | VersionSection }
@@ -241,7 +242,7 @@ export default function Draft() {
               disabled={selected !== null || d.flow.has_working || d.legacy}
               version={selected}
               onApplied={(v) => {
-                toast(`v${v} 으로 저장했습니다 (그림)`, "success");
+                toast(v === d.version ? "확인 표시를 저장했습니다 (새 버전 없음)" : `v${v} 으로 저장했습니다 (그림)`, "success");
                 qc.invalidateQueries({ queryKey: keys.run(id) });
               }}
             />
@@ -274,9 +275,12 @@ export default function Draft() {
       <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">초안 본문</h2>
-          <Link to={`/runs/${id}/edit`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            직접 수정 →
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <SkipEditButton runId={id} disabled={d.legacy || !["drafted", "editing", "final_reviewed"].includes(run.status)} />
+            <Link to={`/runs/${id}/edit`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              직접 수정 →
+            </Link>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">문장을 누르면 근거 원문·적합성을 보고 승인·교체·제외를 정할 수 있습니다 (현재 버전만).</p>
         {failedByKey.size > 0 && (

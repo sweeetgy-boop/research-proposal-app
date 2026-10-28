@@ -129,7 +129,9 @@ def batch_prompt(
 
 
 def parse_verdicts(raw: str, sent_ids: set[str]) -> dict[str, str]:
-    """로컬 판정 응답 → {문장 id: 지지|부분|불일치}. 7B 는 {"support": [...]} 대신 배열만 내는 일이 많다
+    """로컬 판정 응답 → {문장 id: 지지|부분|불일치}.
+
+    7B 는 {"support": [...]} 대신 배열만 내는 일이 많다
     (2026-10-28 측정: 응답이 전부 배열이라 판정 0건 → "불일치 0건" 으로 보였다) — 둘 다 받는다."""
     data = parse_json_value(raw)
     if isinstance(data, dict):

@@ -442,6 +442,7 @@ class InMemoryRunStore:
         self.drafts: dict[tuple[str, str], Any] = {}
         self.confirmations: dict[tuple[str, str], Any] = {}
         self.versions: dict[tuple[str, str], dict[int, Any]] = {}
+        self._marks: dict[tuple[str, str, int], Any] = {}
         self.reviews: dict[tuple[str, str], dict[int, Any]] = {}
         self.idea_versions: dict = {}
         self.recommendations: dict[tuple[str, str], dict[str, Any]] = {}
@@ -519,6 +520,12 @@ class InMemoryRunStore:
 
     def list_versions(self, user, run_id):
         return sorted(self.versions.get(self._key(user, run_id), {}))
+
+    def save_marks(self, user, run_id, marks):
+        self._marks[(user, run_id, marks.version)] = marks
+
+    def load_marks(self, user, run_id, version):
+        return self._marks.get((user, run_id, version))
 
     def save_outline(self, user, run_id, data):
         self.outlines[self._key(user, run_id)] = dict(data)

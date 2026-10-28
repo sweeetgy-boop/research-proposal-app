@@ -126,7 +126,7 @@ def _settings(tmp_path):
 
 
 async def _drafted(c, run_id):
-    for _ in range(400):
+    for _ in range(3000):  # 병렬 실행(xdist)에서는 느리다
         status = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()["status"]
         if (
             status == "drafted"

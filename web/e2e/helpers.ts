@@ -64,5 +64,13 @@ export async function createRun(page: Page): Promise<string> {
 
 /** run 하위 메뉴(진행·초안 보기·직접 수정·버전·비교·최종 검토·최종 마무리) 링크 */
 export function subnav(page: Page, name: string) {
-  return page.getByRole("navigation", { name: "run 하위 메뉴" }).getByRole("link", { name });
+  return page.getByRole("navigation", { name: "제안서 화면 메뉴" }).getByRole("link", { name });
+}
+
+/** 항목 25 — 보이는 화면 글자에 "run" 낱말이 없다 (대소문자 무시, 낱말 단위). 숨은 속성·주소는 보지 않는다
+ *  (innerText 는 보이는 글자만). 작성 번호(숫자-영문 해시)는 낱말 "run" 이 아니다. */
+export async function expectNoRunWord(page: Page) {
+  const text = await page.locator("body").innerText();
+  const hits = text.split("\n").filter((line) => /(^|[^A-Za-z0-9_-])run([^A-Za-z0-9_-]|$)/i.test(line));
+  expect(hits, `화면에 "run" 이 보입니다: ${hits.join(" | ")}`).toEqual([]);
 }

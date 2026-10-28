@@ -65,7 +65,8 @@ export default function Edit() {
   // 그림 동작은 새 버전을 만든다 — 저장하지 않은 편집이 있으면 기준 버전이 어긋나므로 막는다
   const figuresDisabled = !editable || dirty;
   const onFigureApplied = (v: number) => {
-    toast(`v${v} 으로 저장했습니다 (그림)`, "success");
+    // 그림 확인·추천 그림 결정은 상태 표시 — 버전이 그대로면 새 버전 없이 표시만 저장 (항목 21)
+    toast(v === current ? "확인 표시를 저장했습니다 (새 버전 없음)" : `v${v} 으로 저장했습니다 (그림)`, "success");
     refetch();
     qc.invalidateQueries({ queryKey: keys.run(id) });
     qc.invalidateQueries({ queryKey: editAiKeys.changes(id) });
@@ -179,7 +180,7 @@ export default function Edit() {
           <div>
             <AlertTitle>지금은 편집할 수 없습니다</AlertTitle>
             <AlertDescription>
-              {run.legacy ? "옛 run 은 조회만 됩니다." : "검토 중이거나 마무리된 run 입니다. 마무리된 run 은 최종 마무리 화면에서 다시 열 수 있습니다."}
+              {run.legacy ? "예전 방식으로 만든 제안서는 조회만 됩니다." : "검토 중이거나 마무리된 제안서입니다. 마무리된 제안서는 최종 마무리 화면에서 다시 열 수 있습니다."}
             </AlertDescription>
           </div>
         </Alert>
@@ -306,7 +307,7 @@ export default function Edit() {
         }}
       />
 
-      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-end gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur">
+      <div className="sticky bottom-[var(--stepnav-h)] z-20 -mx-4 flex flex-wrap items-end gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur">
         <div className="min-w-0 flex-1 space-y-1">
           <Label htmlFor="note">저장 메모 (선택, 200자)</Label>
           <Input id="note" value={state.note} maxLength={200} onChange={(e) => setState({ ...state, note: e.target.value })} disabled={!editable} />

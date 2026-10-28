@@ -1,5 +1,5 @@
 import { ListChecks } from "lucide-react";
-import type { ChangesOut } from "@/api/types";
+import type { ChangesOutV2 } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
@@ -45,15 +45,23 @@ export function SaveVersionDialog({
   );
 }
 
-/** "변경 n건" — 저장하지 않은 편집 + 마지막 검토 이후 바로 저장된 변경(그림·근거·정책 근거·보완 메모…) */
-export function ChangeCount({ local, server }: { local: number; server: ChangesOut | null | undefined }) {
+/** "변경 n건" — 저장하지 않은 편집 + 마지막 검토 이후 바뀐 내용(문장·그림·정책 근거·보완 메모…).
+ *  상태 표시(그림 확인·추천 그림 결정·근거 승인·제외·선택형 확정)는 "확인 n건" 으로 따로 (항목 21). */
+export function ChangeCount({ local, server }: { local: number; server: ChangesOutV2 | null | undefined }) {
   const serverTotal = server?.total ?? 0;
   const total = local + serverTotal;
+  const confirms = server?.confirmations ?? 0;
   const parts = [...(local ? [`저장 안 한 편집 ${local}`] : []), ...(server?.items ?? []).map((i) => `${i.label} ${i.count}`)];
+  const confirmParts = (server?.confirm_items ?? []).map((i) => `${i.label} ${i.count}`);
   return (
-    <span className="flex items-center gap-1 text-sm text-muted-foreground" aria-live="polite">
+    <span className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground" aria-live="polite">
       <ListChecks className="size-4" aria-hidden="true" />
-      <span>변경 {total}건</span>
+      <span data-testid="change-count">변경 {total}건</span>
+      {confirms > 0 && (
+        <span data-testid="confirm-count" title={confirmParts.join(" · ")}>
+          · 확인 {confirms}건
+        </span>
+      )}
       {parts.length > 0 && (
         <span className="hidden text-xs sm:inline" title={server ? `v${server.base_version} 이후` : undefined}>
           ({parts.join(" · ")})

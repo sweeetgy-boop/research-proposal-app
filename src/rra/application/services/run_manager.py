@@ -44,6 +44,7 @@ from rra.application.ports.auth import BudgetExhausted, DailyBudgetPort
 from rra.application.ports.renderer import RenderRejected
 from rra.application.services.edit_ai import EditAIMixin
 from rra.application.services.local_review import LocalReviewMixin
+from rra.application.services.status_marks_mixin import StatusMarksMixin
 from rra.application.usecases.figures import FigureBuild, MakeFigures, SpecRejected
 from rra.application.usecases.generate_proposal import CORE_SECTIONS, GenerateProposal
 from rra.application.usecases.outline import OutlineSections
@@ -129,9 +130,11 @@ from rra.domain.rules.request_change import (
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.rewrite import REWRITE_NOTE, pick, side_by_side
 from rra.domain.rules.run_title import draft_title
+from rra.domain.rules.status_marks import carry_figure_marks, is_evidence_mark, is_figure_mark
 from rra.domain.rules.usage import refresh as refresh_usage
 from rra.domain.rules.usage import step_durations as usage_step_durations
 from rra.domain.rules.usage import total_seconds as usage_total_seconds
+from rra.domain.rules.version_history import FIGURE_ACTION_LABELS
 from rra.domain.rules.versions import (
     changed_sections,
     count_changed_sentences,
@@ -336,7 +339,7 @@ def _cleaned(section: Section) -> Section:
     )
 
 
-class RunManager(EditAIMixin, LocalReviewMixin):
+class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
     def __init__(
         self,
         generate: GenerateProposal,
@@ -903,7 +906,7 @@ class RunManager(EditAIMixin, LocalReviewMixin):
         versions = [
             v
             for n in self.store.list_versions(state.user, state.run_id)
-            if (v := self.store.load_version(state.user, state.run_id, n)) is not None
+            if (v := self._version(state.user, state.run_id, n)) is not None
         ]
         self.run_log.record(
             state.run_id,
@@ -996,11 +999,7 @@ class RunManager(EditAIMixin, LocalReviewMixin):
         snapshot = self.store.load_snapshot(user, run_id)
         legacy = self.is_legacy(state)
         reviews = self.store.list_reviews(user, run_id)
-        current = (
-            self.store.load_version(user, run_id, state.draft_version)
-            if state.draft_version
-            else None
-        )
+        current = self._version(user, run_id, state.draft_version)
         return DraftView(
             state=state,
             sections=sections,
@@ -1232,6 +1231,13 @@ class RunManager(EditAIMixin, LocalReviewMixin):
                     state.status = review_flow.transition(state.status, "finish_final_review")
                 state.review_from = None
                 return state
+        except asyncio.CancelledError:  # [취소] (최종 검토만) — 검토 전 상태로, 기록 없음
+            if kind == "final":
+                state.status = review_flow.transition(
+                    "final_reviewing", "fail_final_review", previous=state.review_from
+                )
+                state.review_from = None
+            raise
         except Exception as exc:  # 검토 실패 — 검토 전 상태로 (초안은 그대로)
             over_budget = isinstance(exc, BudgetExhausted)
             if kind == "draft":
@@ -1381,7 +1387,7 @@ class RunManager(EditAIMixin, LocalReviewMixin):
 
     def _current_version(self, user: str, run_id: str, state: RunState) -> DraftVersion:
         n = state.draft_version
-        found = self.store.load_version(user, run_id, n) if n >= 1 else None
+        found = self._version(user, run_id, n)  # 버전 + 상태 표시 (항목 21)
         if found is not None:
             return found
         stored = self.store.load_sections(user, run_id)  # 버전 파일이 없는 예전 run → v1 로 만든다
@@ -1425,7 +1431,7 @@ class RunManager(EditAIMixin, LocalReviewMixin):
         self._current_version(user, run_id, state)
         out = []
         for n in self.store.list_versions(user, run_id):
-            v = self.store.load_version(user, run_id, n)
+            v = self._version(user, run_id, n)
             if v is not None:
                 out.append(v)
         return out
@@ -1453,7 +1459,7 @@ class RunManager(EditAIMixin, LocalReviewMixin):
 
     async def get_version(self, user: str, run_id: str, version: int) -> DraftVersion:
         await self.status(user, run_id)
-        found = self.store.load_version(user, run_id, version) if version >= 1 else None
+        found = self._version(user, run_id, version)
         if found is None:
             raise EditRejected(f"버전 v{version} 이 없습니다.")
         return found
@@ -1550,7 +1556,7 @@ class RunManager(EditAIMixin, LocalReviewMixin):
         except InvalidTransition as exc:
             raise EditRejected(str(exc)) from exc
         current = self._current_version(user, run_id, state)
-        target = self.store.load_version(user, run_id, to) if to >= 1 else None
+        target = self._version(user, run_id, to)
         if target is None:
             raise EditRejected(f"버전 v{to} 이 없습니다.")
         new_version = DraftVersion(
@@ -1563,7 +1569,8 @@ class RunManager(EditAIMixin, LocalReviewMixin):
             changed_sections=changed_sections(current.sections, target.sections),
             annotations=target.annotations,
             evidence_decisions=decisions_for_sections(target.sections, target.evidence_decisions),
-            figures=list(target.figures),  # 그림도 그 버전의 것으로 (파일은 해시로 남아 있다)
+            # 그림도 그 버전의 것으로 (파일은 해시로 남아 있다). 같은 그림의 확인 표시는 이어받는다
+            figures=carry_figure_marks(target.figures, current.figures),
         )
         self._store_version(user, run_id, state, new_version, nxt)
         return self.store.load_version(user, run_id, new_version.version) or new_version
@@ -1650,7 +1657,10 @@ class RunManager(EditAIMixin, LocalReviewMixin):
         state.failed_sections = draft_failures.still_failed(state.failed_sections, version.sections)
         problems = draft_failures.relax_failed(problems, state.failed_sections)
         state.problems = [p.model_dump() for p in problems]
-        self.store.save_version(user, run_id, version.model_copy(update={"alerts": len(problems)}))
+        # 버전 파일엔 상태 표시를 넣지 않는다 (항목 21) — 알림 수만 고친다
+        raw = self.store.load_version(user, run_id, version.version)
+        if raw is not None:
+            self.store.save_version(user, run_id, raw.model_copy(update={"alerts": len(problems)}))
 
     def _prioritize(self, user: str, run_id: str, snapshot: RetrievalSnapshot) -> RetrievalSnapshot:
         """U5 우선 근거 — 검색 집합 안의 id 만 남기고 그 청크를 앞으로."""
@@ -1775,6 +1785,8 @@ class RunManager(EditAIMixin, LocalReviewMixin):
         )
         if same:
             return current
+        if is_evidence_mark(request.decisions):  # 승인·제외만 — 새 버전 없이 표시 (항목 21)
+            return self._save_evidence_marks(user, run_id, state, current, decisions)
         new_version = DraftVersion(
             version=current.version + 1,
             origin="edit",
@@ -1993,6 +2005,8 @@ class RunManager(EditAIMixin, LocalReviewMixin):
             )
         except DecisionRejected as exc:
             raise EditRejected(str(exc)) from exc
+        if same_content(current.sections, sections):  # 승인은 상태 표시 — 새 버전 없음 (항목 21)
+            return self._save_evidence_marks(user, run_id, state, current, merged)
         new_version = DraftVersion(
             version=current.version + 1,
             origin="edit",
@@ -2341,7 +2355,12 @@ class RunManager(EditAIMixin, LocalReviewMixin):
             fig = build.figure
         else:
             raise EditRejected(f"알 수 없는 동작입니다: {action}")
+        if is_figure_mark(action):  # 확인함·추천 결정 — 새 버전 없이 표시 (항목 21)
+            return self._save_figure_mark(user, run_id, state, current, fig, action)
         figures = [fig if f.id == figure_id else f for f in current.figures]
+        label = FIGURE_ACTION_LABELS.get(action)
+        if label is not None:
+            note = f"{label} — {self._figure_name(fig)}"
         return self._store_figures(user, run_id, state, current, figures, nxt, note=note)
 
     async def _figure_edit_base(
@@ -2584,7 +2603,7 @@ class RunManager(EditAIMixin, LocalReviewMixin):
         self, user: str, run_id: str, version_no: int
     ) -> list[tuple[Figure, bytes, str]]:
         """그 버전에서 제안서에 넣는 그림(included)의 (Figure, 바이트, mime). 파일 없으면 건너뜀."""
-        version = self.store.load_version(user, run_id, version_no)
+        version = self._version(user, run_id, version_no)  # 최신 상태 표시(확인·결정) 포함
         out: list[tuple[Figure, bytes, str]] = []
         order = {s.key: i for i, s in enumerate(version.sections)} if version else {}
         figures = sorted(
@@ -2709,6 +2728,7 @@ class RunManager(EditAIMixin, LocalReviewMixin):
             merged[key] = picked
         confirmation = Confirmation(choices=merged, updated_at=self._clock())
         self.store.save_confirmation(user, run_id, confirmation)
+        self._log_mark(user, run_id, state, "choice_confirm", target=",".join(sorted(choices)))
         self._record(state)
         return confirmation
 
