@@ -1674,6 +1674,7 @@ def build_run_manager(
     pipeline=None,
     runs_dir=None,
     figures=None,
+    first_pass: bool | None = None,
 ):
     """RunManager — 파일 저장소(runs/), 프로세스 간 슬롯, manifest 로그, 실행기, HWPX 렌더러,
     검토 유스케이스(review 단계 키가 있을 때만; 없으면 None → review_skipped).
@@ -1739,7 +1740,7 @@ def build_run_manager(
         review_budget=build_review_budget(settings),
         figures=figures if figures is not None else build_figures(settings, llm=llm),
         run_slot=run_slot,
-        first_pass=review_policy(settings)["first_pass"],
+        first_pass=review_policy(settings)["first_pass"] if first_pass is None else first_pass,
     )
 
 
@@ -1929,6 +1930,9 @@ def build_api(
             store=fake["store"],
             run_log=fake["run_log"],
             figures=build_figures(settings, llm=llm, images=fake["images"]),
+            # 가짜 모드는 e2e 화면(③ Argon 1차 검토·v2)을 계속 보여 주려고 1차 검토를 켠다.
+            # 배포 기본(review.first_pass: off, ADR 0032)과 다르다
+            first_pass=True,
         )
     else:
         if repo is None:

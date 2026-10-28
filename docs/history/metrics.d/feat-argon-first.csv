@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,TBD,[3] Argon 먼저 작성,1930,,8,,,,,,,,,,1.0,,,,,골든셋 01 3개 섹션 스모크: 섹션당 6.6~11.8s·동시 벽시계 11.8s·교정 재요청 0·로컬 대체 0·Gemini 3회
