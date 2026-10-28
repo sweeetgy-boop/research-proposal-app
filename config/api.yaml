@@ -9,3 +9,9 @@ public_origin: https://rra.taile5afcf.ts.net   # 시범: Tailscale Funnel 주소
 # trust_cf_connecting_ip: true 면 요청 peer 가 127.0.0.1(같은 호스트의 cloudflared)일 때만 CF-Connecting-IP 헤더를
 #   접속자 IP 로 믿는다(거부 로그·레이트리밋 키). X-Forwarded-* 는 어떤 값이어도 믿지 않는다. 터널 없이 돌릴 때는 false.
 trust_cf_connecting_ip: false
+#
+# trust_forwarded_from_loopback: true 면 peer 가 127.0.0.1(같은 호스트의 Tailscale serve/Funnel)일 때만
+#   X-Forwarded-For 의 **맨 오른쪽** 값(프록시가 직접 붙인 접속자 주소)을 접속자 IP 로 믿는다. 왼쪽 값은 위조 가능해 쓰지 않는다.
+#   Funnel 뒤에서는 모든 외부 접속이 127.0.0.1 로 보여, 이것 없이는 접속자를 구분할 수 없다(2026-10-28 접속 장애).
+#   접속자 IP 를 끝내 모르면(루프백·빈 값) 로그인 IP 별 잠금은 걸지 않는다 — 계정별 잠금·전체 지연은 그대로.
+trust_forwarded_from_loopback: true

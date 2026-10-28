@@ -48,6 +48,7 @@ class Login:
         """사번 로그인. 등록 목록이 비면 비활성(실패)."""
         now = self._clock()
         delay = self.guard.delay(now)
+        ip = auth_policy.lockout_ip(ip)  # 접속자를 모르면(루프백·빈 값) IP 별 잠금 없음
         staff_no = normalize_staff_no(staff_no)  # 일괄 등록과 같은 규칙(공백·하이픈 제거)
         digest = self.store.verify_staff(staff_no) if auth_policy.valid_staff_no(staff_no) else None
         # 계정 키는 가명 ID — 미등록 사번은 계정 키 없이 IP·전체만 센다
@@ -61,6 +62,7 @@ class Login:
     def guest(self, guest_id: str, password: str, *, ip: str | None = None) -> LoginResult:
         now = self._clock()
         delay = self.guard.delay(now)
+        ip = auth_policy.lockout_ip(ip)
         guest_id = (guest_id or "").strip().lower()
         account = f"{auth_policy.GUEST_PREFIX}{guest_id}" if guest_id else None
         if self.guard.locked(account, ip, now):

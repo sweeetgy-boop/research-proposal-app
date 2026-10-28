@@ -1812,12 +1812,13 @@ def build_sessions(settings: Settings | None = None):
 def api_middlewares(
     settings: Settings, token: str, *, sessions=None
 ) -> list[tuple[type, dict[str, Any]]]:
-    """등록 순서(안쪽부터): 인증 → 본문 상한 → 헤더.
+    """등록 순서(안쪽부터): 인증 → 본문 상한 → 헤더 → 접근 로그(4xx·5xx 만).
 
     FastAPI.add_middleware 는 마지막에 넣은 것이 바깥이 된다.
-    → 헤더가 가장 바깥에서 모든 응답에 붙는다.
+    → 접근 로그가 가장 바깥에서 모든 응답 상태를 본다.
     """
     from rra.adapters.security import (
+        AccessLogMiddleware,
         BodyLimitMiddleware,
         SecurityHeadersMiddleware,
         TokenAuthMiddleware,
@@ -1826,6 +1827,13 @@ def api_middlewares(
     limits = input_limits(settings)
     api = api_config(settings)
     outer_to_inner = [
+        (
+            AccessLogMiddleware,
+            {
+                "trust_cf": api["trust_cf_connecting_ip"],
+                "trust_forwarded": api["trust_forwarded_from_loopback"],
+            },
+        ),
         (SecurityHeadersMiddleware, {}),
         (BodyLimitMiddleware, {"max_bytes": int(limits.get("api_max_body_bytes", 64 * 1024))}),
         (
@@ -1835,6 +1843,7 @@ def api_middlewares(
                 "sessions": sessions,
                 "public_origin": api["public_origin"],
                 "trust_cf": api["trust_cf_connecting_ip"],
+                "trust_forwarded": api["trust_forwarded_from_loopback"],
             },
         ),
     ]
@@ -2024,6 +2033,7 @@ def build_api(
         login=build_login(settings, store=fake["auth"] if fake else None),
         auth_limits=auth["limits"],
         trust_cf=auth["trust_cf_connecting_ip"],
+        trust_forwarded=auth["trust_forwarded_from_loopback"],
         client_ip=client_ip,
         guest_services=guest_services,
         user=LOCAL_USER,

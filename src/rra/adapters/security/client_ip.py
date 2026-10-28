@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from typing import Any
 
 CF_CONNECTING_IP = "cf-connecting-ip"
+X_FORWARDED_FOR = "x-forwarded-for"
 CF_ACCESS_EMAIL = "cf-access-authenticated-user-email"
 LOOPBACK_PEER = "127.0.0.1"
 HASH_PREFIX_LEN = 12
@@ -56,16 +57,26 @@ def _valid_ip(value: str) -> str | None:
         return None
 
 
-def client_ip(request: Any, trust_cf: bool) -> str:
-    """접속자 IP. trust_cf 이고 peer 가 127.0.0.1 일 때만 CF-Connecting-IP, 아니면 peer 주소."""
+def client_ip(request: Any, trust_cf: bool, *, trust_forwarded: bool = False) -> str:
+    """접속자 IP. peer 가 127.0.0.1(같은 호스트의 역프록시)일 때만 전달 헤더를 믿는다:
+    trust_cf 면 CF-Connecting-IP(Cloudflare), trust_forwarded 면 X-Forwarded-For 의 **맨 오른쪽**
+    (Tailscale serve/Funnel 이 직접 붙인 값 — 왼쪽은 접속자가 위조할 수 있다). 없으면 peer 주소."""
     scope = _scope_of(request)
     peer = _peer_host(scope)
-    if not trust_cf or peer != LOOPBACK_PEER:
+    if peer != LOOPBACK_PEER:
         return peer
-    forwarded = _header(scope, CF_CONNECTING_IP)
-    if forwarded is None:
-        return peer
-    return _valid_ip(forwarded) or peer
+    if trust_cf:
+        forwarded = _header(scope, CF_CONNECTING_IP)
+        if forwarded is not None and _valid_ip(forwarded):
+            return _valid_ip(forwarded) or peer
+    if trust_forwarded:
+        chain = _header(scope, X_FORWARDED_FOR)
+        if chain:
+            last = chain.split(",")[-1]
+            found = _valid_ip(last)
+            if found:
+                return found
+    return peer
 
 
 def access_user_hash(request: Any) -> str | None:

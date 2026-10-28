@@ -46,6 +46,22 @@ def test_client_ip_rejects_non_ip_header_and_ignores_x_forwarded_for():
     assert client_ip(scope(None), True) == ""
 
 
+def test_forwarded_for_rightmost_only_from_loopback_when_enabled():
+    """Tailscale serve/Funnel: 프록시가 X-Forwarded-For 끝에 접속자를 붙인다. 왼쪽은 위조 가능."""
+    spoofed = scope("127.0.0.1", {"X-Forwarded-For": "1.2.3.4, 198.51.100.20"})
+    assert client_ip(spoofed, False, trust_forwarded=True) == "198.51.100.20"
+    assert client_ip(spoofed, False) == "127.0.0.1"  # 기본은 믿지 않는다
+    one = scope("127.0.0.1", {"X-Forwarded-For": "2001:db8::5"})
+    assert client_ip(one, False, trust_forwarded=True) == "2001:db8::5"
+    remote = scope("10.0.0.9", {"X-Forwarded-For": "198.51.100.20"})
+    assert client_ip(remote, False, trust_forwarded=True) == "10.0.0.9"  # 루프백 peer 만
+    bad = scope("127.0.0.1", {"X-Forwarded-For": "198.51.100.20, not-an-ip"})
+    assert client_ip(bad, False, trust_forwarded=True) == "127.0.0.1"  # 맨 오른쪽이 이상하면 peer
+    both = scope("127.0.0.1", {"X-Forwarded-For": "198.51.100.20", "CF-Connecting-IP": CF_IP})
+    assert client_ip(both, True, trust_forwarded=True) == CF_IP  # Cloudflare 가 먼저
+    assert client_ip(scope("127.0.0.1"), True, trust_forwarded=True) == "127.0.0.1"
+
+
 def test_client_ip_accepts_starlette_request():
     request = Request(scope("127.0.0.1", {"CF-Connecting-IP": CF_IP}))
     assert client_ip(request, True) == CF_IP

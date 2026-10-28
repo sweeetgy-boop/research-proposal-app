@@ -9,7 +9,10 @@
 #   3. 대기·실행 중인 생성 run 확인 (`rra runs active --json`) — 있으면 --wait 는 끝날 때까지 기다리고,
 #      --force 는 무시하고, 둘 다 없으면 중단
 #   4. data/deploy/version.json 기록 (커밋·시각·반영 PR) → `launchctl kickstart -k gui/$(id -u)/com.rra.api`
-#   5. 확인 — 127.0.0.1:8000/healthz 의 version.commit 이 HEAD 인지, /login 이 200 인지, 외부 주소 /healthz
+#   5. 확인 — 127.0.0.1:8000/healthz 의 version.commit 이 HEAD 인지, /login 이 200 인지, 외부 주소 /healthz,
+#      Tailscale `funnel status` 에 "(Funnel on)" 이 있는지(읽기만 — serve/funnel 설정은 절대 바꾸지 않는다).
+#      주의: 이 맥은 tailnet 안이라 외부 주소 확인은 내부 경로로 간다 — Funnel 이 꺼져도 ok 로 보일 수 있어
+#      Funnel 확인을 따로 한다. 인터넷 쪽 확인은 docs/pilot-guide.md "접속이 안 될 때".
 #   6. docs/history/deploys/<시각>.md 기록, pending.md(반영 대기 PR 목록) 비움
 #
 # 규칙(docs/pilot-guide.md §6.3): 시범 기간에는 PR 을 합쳐도 자동으로 재시작하지 않는다. 반영할 PR 은
@@ -26,6 +29,7 @@ VERSION_FILE="$DATA_DIR/deploy/version.json"
 LABEL="com.rra.api"
 LOCAL_URL="${RRA_DEPLOY_LOCAL_URL:-http://127.0.0.1:8000}"
 EXTERNAL_URL="${RRA_DEPLOY_EXTERNAL_URL:-https://rra.taile5afcf.ts.net}"
+TAILSCALE="${RRA_TAILSCALE_BIN:-/Applications/Tailscale.app/Contents/MacOS/Tailscale}"
 DEPLOY_DIR="$ROOT/docs/history/deploys"
 PENDING="$DEPLOY_DIR/pending.md"
 
@@ -165,6 +169,16 @@ if [ "$EXTERNAL" = 1 ]; then
   EXT_GOT="$(check_health "$EXTERNAL_URL" 10)"
   if [ "$EXT_GOT" = "$HEAD_SHA" ]; then EXT_OK="ok"; log "외부 주소 $EXTERNAL_URL ok."; else EXT_OK="실패"; log "경고: 외부 주소 $EXTERNAL_URL 확인 실패 (Tailscale/Funnel 상태 확인)."; fi
 fi
+FUNNEL_OK="생략"
+if [ "$EXTERNAL" = 1 ]; then  # 읽기 전용 — funnel/serve 설정을 바꾸는 명령은 이 스크립트에 없다
+  if [ -x "$TAILSCALE" ] && "$TAILSCALE" funnel status 2>/dev/null | grep -q "(Funnel on)"; then
+    FUNNEL_OK="on"; log "Tailscale Funnel on."
+  else
+    FUNNEL_OK="꺼짐"
+    log "경고: Tailscale Funnel 이 꺼져 있습니다 — 외부에서 접속할 수 없습니다. 운영자가 직접:"
+    log "  $TAILSCALE funnel --bg --https=443 http://127.0.0.1:8000"
+  fi
+fi
 
 # ── 6. 기록 ───────────────────────────────────────────────
 mkdir -p "$DEPLOY_DIR"
@@ -180,7 +194,8 @@ RECORD="$DEPLOY_DIR/$(date +%Y-%m-%d-%H%M).md"
   echo "| 생성 run 대기 | ${WAITED}초 (force=$FORCE) |"
   echo "| healthz | $([ "$HEALTH_OK" = 1 ] && echo ok || echo 실패) |"
   echo "| 로그인 화면 | $([ "$LOGIN_OK" = 1 ] && echo ok || echo "실패($LOGIN_CODE)") |"
-  echo "| 외부 주소 | $EXT_OK ($EXTERNAL_URL) |"
+  echo "| 외부 주소 | $EXT_OK ($EXTERNAL_URL, 이 맥에서는 tailnet 경로) |"
+  echo "| Funnel on | $FUNNEL_OK |"
   if [ -n "$PENDING_LINES" ]; then
     echo
     echo "## 반영 대기 목록(pending.md)에서 옮김"
@@ -198,4 +213,4 @@ open(path, "w", encoding="utf-8").write("\n".join(kept).rstrip("\n") + "\n")
 EOF
 fi
 log "기록: ${RECORD#$ROOT/} (pending.md 비움). 이 파일은 docs PR 로 커밋한다."
-[ "$HEALTH_OK" = 1 ] && [ "$LOGIN_OK" = 1 ] || exit 1
+[ "$HEALTH_OK" = 1 ] && [ "$LOGIN_OK" = 1 ] && [ "$FUNNEL_OK" != "꺼짐" ] || exit 1

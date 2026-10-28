@@ -790,7 +790,7 @@ def _prompt_secret(label: str) -> str:
 
 
 def cmd_auth(args: argparse.Namespace) -> int:
-    """`rra auth staff add|remove|count`, `rra auth guest set --id <아이디>|disable`,
+    """`rra auth staff add|remove|count|check`, `rra auth guest set --id <아이디>|disable`,
     `rra auth status`.
     사번·비밀번호는 getpass 로만 받고 출력·기록하지 않는다. 저장은 <data_dir>/auth (700/600)."""
     from rra.composition import build_auth_store, load_settings
@@ -819,10 +819,15 @@ def cmd_auth(args: argparse.Namespace) -> int:
             return EXIT_OK
         if args.staff_cmd == "import":
             return _auth_staff_import(args, settings, store)
-        staff_no = _prompt_secret("사번")
+        from rra.domain.rules.staff_roster import normalize_staff_no
+
+        staff_no = normalize_staff_no(_prompt_secret("사번"))  # 로그인과 같은 정규화
         if not valid_staff_no(staff_no):
             _eprint("사번 형식이 올바르지 않습니다 (영숫자·하이픈 2~32자).")
             return EXIT_USAGE
+        if args.staff_cmd == "check":  # 로그인과 같은 정규화·HMAC 대조, 결과 한 단어만
+            print("등록됨" if store.verify_staff(staff_no) else "미등록")
+            return EXIT_OK
         if args.staff_cmd == "add":
             added = store.add_staff(staff_no)
             print("등록했습니다." if added else "이미 등록된 사번입니다.")
@@ -2426,6 +2431,23 @@ def cmd_api_schema(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _api_logging() -> None:
+    """`rra.api.*`(거부·로그인 실패·4xx/5xx 접근 로그) INFO 를 stderr 로 — launchd 는
+    ~/Library/Logs/rra-api.err.log. uvicorn 은 warning 이라 이것이 없으면 INFO 가 버려졌다
+    (2026-10-28 접속 장애 때 4xx 를 셀 수 없었다). 값(사번·토큰·본문)은 싣지 않는다."""
+    import logging
+
+    logger = logging.getLogger("rra.api")
+    if any(getattr(h, "_rra_api", False) for h in logger.handlers):
+        return
+    handler = logging.StreamHandler()
+    handler._rra_api = True  # type: ignore[attr-defined]
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+
 def cmd_api(args: argparse.Namespace) -> int:
     """REST API (uvicorn). 기본 127.0.0.1:8000. 토큰 없으면 기동 거부 (G)."""
     if getattr(args, "api_cmd", None) == "schema":
@@ -2448,6 +2470,7 @@ def cmd_api(args: argparse.Namespace) -> int:
         _eprint(
             f"경고: {host} 에 바인딩합니다 — HTTPS 역프록시 뒤에서만 공개하십시오. deploy/README.md"
         )
+    _api_logging()
     uvicorn.run(
         app, host=host, port=port, log_level="warning", access_log=False, server_header=False
     )
@@ -2612,6 +2635,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("add", "사번 등록 (getpass 입력)"),
         ("remove", "사번 삭제 (getpass 입력)"),
         ("count", "등록된 사번 개수만"),
+        ("check", "사번 등록 여부만 (getpass 입력, 출력은 등록됨/미등록)"),
     ):
         a_staff_sub.add_parser(name, help=desc).set_defaults(handler=cmd_auth)
     a_imp = a_staff_sub.add_parser(

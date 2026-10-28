@@ -162,9 +162,11 @@ class TokenAuthMiddleware:
         protected_prefixes: Iterable[str] = API_PREFIXES,
         public_origin: str = "",
         trust_cf: bool = False,
+        trust_forwarded: bool = False,
     ):
         self.app = app
         self.token = token or ""
+        self.trust_forwarded = bool(trust_forwarded)
         self.exempt = frozenset(exempt_paths)
         self.sessions = sessions
         self.session_path = session_path
@@ -190,7 +192,9 @@ class TokenAuthMiddleware:
             await self.app(scope, receive, send)
             return
         state = scope.setdefault("state", {})
-        state["rra_client_ip"] = client_ip(scope, self.trust_cf)
+        state["rra_client_ip"] = client_ip(
+            scope, self.trust_cf, trust_forwarded=self.trust_forwarded
+        )
         state["rra_access_user"] = access_user_hash(scope)
         if path == self.session_path and method == "POST":  # 로그인 — 라우트가 토큰을 검사
             if not origin_allowed(scope, self.public_origin):
@@ -294,3 +298,38 @@ class BodyLimitMiddleware:
             return message
 
         await self.app(scope, limited_receive, send)
+
+
+access_log = logging.getLogger("rra.api.access")
+
+
+class AccessLogMiddleware:
+    """4xx·5xx 응답만 한 줄씩 남긴다(상태·메서드·경로·접속자 IP). 본문·쿼리·헤더 값·토큰 없음.
+    접속 장애를 상태 코드별로 셀 수 있게 (2026-10-28 — uvicorn 접근 로그는 꺼져 있다)."""
+
+    def __init__(self, app: ASGIApp, trust_cf: bool = False, trust_forwarded: bool = False):
+        self.app = app
+        self.trust_cf = bool(trust_cf)
+        self.trust_forwarded = bool(trust_forwarded)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        status_holder: dict[str, int] = {}
+
+        async def wrapped(message: Message) -> None:
+            if message.get("type") == "http.response.start":
+                status_holder["status"] = int(message.get("status", 0))
+            await send(message)
+
+        await self.app(scope, receive, wrapped)
+        status = status_holder.get("status", 0)
+        if status >= 400:
+            access_log.info(
+                "api.access status=%s method=%s path=%s ip=%s",
+                status,
+                scope.get("method", ""),
+                (scope.get("path", "") or "")[:200],
+                client_ip(scope, self.trust_cf, trust_forwarded=self.trust_forwarded) or "-",
+            )

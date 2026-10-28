@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import secrets
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -122,6 +123,8 @@ _TITLES = {
     429: "요청 과다",
     503: "사용 불가",
 }
+
+auth_log = logging.getLogger("rra.api.auth")
 
 
 def _clean(text: str) -> str:
@@ -263,6 +266,7 @@ def create_app(
     login: Any | None = None,
     auth_limits: dict[str, int] | None = None,
     trust_cf: bool = False,
+    trust_forwarded: bool = False,
     guest_services: dict[str, Any] | None = None,
     client_ip: Callable[..., str] | None = None,
     version: dict[str, Any] | None = None,
@@ -382,7 +386,7 @@ def create_app(
         if found:
             return str(found)
         if client_ip is not None:
-            return client_ip(request, trust_cf=trust_cf)
+            return client_ip(request, trust_cf=trust_cf, trust_forwarded=trust_forwarded)
         return (request.client.host if request.client else "") or "unknown"
 
     @app.get("/healthz")
@@ -421,6 +425,8 @@ def create_app(
                 else:
                     result = login.guest(body.id or "", body.password or "", ip=_ip(request))
             except LoginFailed as exc:
+                # 사번·아이디 값은 남기지 않는다 — 종류·접속자 IP 만 (접속 장애 진단용)
+                auth_log.info("api.login.fail kind=%s ip=%s", body.kind, _ip(request) or "-")
                 if exc.delay_sec > 0:
                     await asyncio.sleep(exc.delay_sec)
                 raise HTTPException(401, auth_policy.LOGIN_FAILED_MESSAGE) from exc
