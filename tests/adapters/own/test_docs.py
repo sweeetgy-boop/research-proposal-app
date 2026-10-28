@@ -168,3 +168,19 @@ async def test_plain_summary_without_disclosure_copy_is_internal(tmp_path):
     doc = src.normalize(raw)
     assert doc.visibility == "internal" and doc.raw["disclosed"] is False
     assert normalize_own_summary({**raw, "disclosed": True}).visibility == "public"
+
+
+def test_summary_form_head_is_stripped_from_title_but_doc_id_is_stable():
+    """공시용 요약문 첫 줄 "요 약 문 1. 연구 제목 …" — 제목은 머리를 떼고, 문서 번호는 뗀 전
+    제목에서 나온 그대로 (다시 적재하면 같은 문서를 덮어쓴다, ADR 0043)."""
+    text = SUMMARY_TEXT.replace(
+        "KTX-1 차세대차량 교체 타당성 평가 연구",
+        "요 약 문 1. 연구 제목 KTX-1 차세대차량 교체 타당성 평가 연구",
+    )
+    raw = {"sha256": "ab" * 32, "lines": text.splitlines(), "fmt": "hwp", "folder_title": "x"}
+    doc = normalize_own_summary(raw, institutions=INSTITUTIONS)
+    assert doc.title == "KTX-1 차세대차량 교체 타당성 평가 연구"
+    plain = normalize_own_summary(
+        {**raw, "lines": SUMMARY_TEXT.splitlines()}, institutions=INSTITUTIONS
+    )
+    assert doc.doc_id != plain.doc_id  # 번호는 원래 첫 줄 기준 (이미 적재된 문서와 같은 번호)

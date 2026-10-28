@@ -57,6 +57,7 @@ from rra.config_loader import (
     same_judgment_config,
     section_checklists,
     security_config,
+    series_rule,
     served_model_aliases,
     source_config,
     source_ip_policy,
@@ -1506,6 +1507,7 @@ def build_precheck(
         mix=retrieval_mix(settings),
         candidates=overlap_candidates(settings),
         rerank=rerank_rule(settings),
+        series=series_rule(settings),  # 같은 연작 한 줄 (ADR 0043)
         same_judge=same_judge,
         keyword_source=keyword_source if judge else None,
     )
@@ -2178,6 +2180,35 @@ def _fake_policy() -> tuple[list[Any], list[Any]]:
 _FAKE_POLICY_DOCS, _FAKE_POLICY_CHUNKS = _fake_policy()
 
 
+def _fake_series() -> list[Any]:
+    """가짜 모드 ② 같은 연작 표본 (ADR 0043) — 제목이 연도만 다른 사내 과제 3판(한 판은
+    알리오에도)과 다른 과제 하나. 청크 없이 문서만(precheck 에만 잡힌다). 낱말은 다른 e2e
+    아이디어와 겹치지 않게 "광역철도·수송수요예측" 만 쓴다."""
+    from rra.domain.models import Document
+
+    def doc(doc_id: str, title: str, source: str = "own") -> Document:
+        return Document(
+            doc_id=doc_id,
+            source=source,
+            doc_type="rnd_project" if source == "own" else "internal_report",
+            title=title,
+            body=f"{title} — 광역철도 수송수요예측 연작 표본",
+            orgs=["korail"],
+            text_basis="summary",
+        )
+
+    return [
+        doc("own:fake-series-2023", "2023년도 광역철도 수송수요예측 (가짜)"),
+        doc("own:fake-series-2024", "2024년도 광역철도 수송수요예측 (가짜)"),
+        doc("alio:fake-series-2024", "2024년도 광역철도 수송수요예측 (가짜)", "alio"),
+        doc("own:fake-series-2025", "광역철도 2025년도 수송수요예측 (가짜)"),
+        doc("own:fake-series-other", "광역철도 신설역 개통 효과 분석 (가짜)"),
+    ]
+
+
+_FAKE_SERIES_DOCS = _fake_series()
+
+
 def build_fake_parts(settings: Settings):
     """가짜 모드(RRA_FAKE_LLM=1) 부품 — 가짜 LLM·메모리 저장소·시드 문서. adapters/fake."""
     from datetime import date
@@ -2245,6 +2276,7 @@ def build_fake_parts(settings: Settings):
                 text_basis="abstract",
             ),
             *_FAKE_POLICY_DOCS,
+            *_FAKE_SERIES_DOCS,
         ],
         [
             Chunk(

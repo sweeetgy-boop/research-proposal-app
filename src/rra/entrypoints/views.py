@@ -37,9 +37,11 @@ from rra.domain.rules.problem_labels import (
 )
 from rra.domain.rules.recommendation import discard_label
 from rra.domain.rules.same_judgment import VERDICT_LABELS
+from rra.domain.rules.series import display_title
 from rra.domain.rules.writer import local_check_view, local_sections, writers_view
 from rra.entrypoints.views_editai import rewrite_reason_label
 from rra.entrypoints.views_refs import citation_ref, no_ids, refs_for, titles_from
+from rra.entrypoints.views_series import series_payload
 
 
 def _same(text: str) -> str:
@@ -803,7 +805,7 @@ def alerts_payload(
         "alerts": [
             {
                 "doc_id": a.doc_id,
-                "title": clean(a.title),
+                "title": clean(display_title(a.title)),  # 공시용 요약문 머리 뗌 (ADR 0043)
                 "tier": a.tier,
                 "similarity": round(a.similarity, 4),
                 "blocking": a.blocking,
@@ -835,6 +837,8 @@ def alerts_payload(
                 # 화면은 유사도·내부 번호를 보이지 않는다
                 **level_view(a),
                 "source_label": source_label_of(a.doc_id),
+                # 같은 연작 묶음 (ADR 0043) — "광역철도 수송수요 예측(연작 7건)" + 연도별 목록
+                "series": series_payload(getattr(a, "series", None), clean=clean),
             }
             for a in alerts
         ],

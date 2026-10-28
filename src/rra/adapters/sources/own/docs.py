@@ -42,6 +42,7 @@ from rra.adapters.sources.own._names import (
     strip_person,
 )
 from rra.domain.models import Document
+from rra.domain.rules.series import display_title
 
 logger = logging.getLogger("rra.sources.own_docs")
 
@@ -239,6 +240,9 @@ def normalize_own_summary(
     }
     return doc.model_copy(
         update={
+            # 공시용 요약문 머리("요 약 문 1. 연구 제목 …")·꼬리("□ 개 요")를 뗀 제목 (ADR 0043).
+            # doc_id 는 뗀 전 제목에서 나온 그대로 — 다시 적재해도 같은 문서로 덮어쓴다
+            "title": display_title(doc.title),
             "authors": [],
             "visibility": "public" if disclosed else "internal",
             "raw": {**doc.raw, **extra},
