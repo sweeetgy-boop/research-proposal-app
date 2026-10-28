@@ -55,7 +55,8 @@ HEADINGS: dict[str, tuple[str, ...]] = {
     "outcome": ("기대효과", "기대 효과", "활용계획", "활용 계획", "성과", "Results", "Conclusion"),
 }
 _HEAD = re.compile(r"^\s*[■◦○●□\-\*·\d\.\)\(]*\s*([가-힣A-Za-z ]{2,12})\s*[:：]?\s*(.*)$")
-_LEAD_SYMBOLS = re.compile(r"^[\s■□◦○●◎◆◇▶▷►•·※\-\*•‣▪▫\d\.\)\(]+")
+# 앞 기호와 목록 번호("1." "2)" "(3)")만 — "350km/h급" 같은 수치는 지우지 않는다
+_LEAD_SYMBOLS = re.compile(r"^(?:[\s■□◦○●◎◆◇▶▷►•·※\-\*‣▪▫]+|\(?\d{1,2}[.)]\s+)+")
 _INNER_SYMBOLS = re.compile(r"[■□◦○●◎◆◇▶▷►•※]+")
 # LLM 이 원문에서 뽑은 칸: 칸 토큰 중 원문에 있는 비율 하한 — 원문 밖 내용을 막는다
 MIN_SOURCE_OVERLAP = 0.6

@@ -199,6 +199,8 @@ def test_rule_cells_drop_symbols_and_never_cut_mid_sentence():
     cells = comparison.rule_cells(body)
     assert cells["objective"] == "궤도 상태를 자동으로 감지함. 점검 비용을 줄임."
     assert cells["scope"] == comparison.NO_INFO
+    assert comparison.tidy_sentence("1. 350km/h급 궤도 결함 진단") == "350km/h급 궤도 결함 진단"
+    assert comparison.tidy_sentence("(2) ◦ 전차선 감시") == "전차선 감시"
     long = ["가" * 50 + " " + "나" * 500]
     assert comparison.clean_cell(long).endswith("…") and len(comparison.clean_cell(long)) < 410
 

@@ -15,3 +15,6 @@
 - 다음: (1) 위 테스트 수정 + 도메인 단위 테스트(같은 제목 합치기·선택·같음 판정·비교표 칸·다듬기 검증) (2) 웹: `web/src/features/precheck/`
   새 컴포넌트(행별 선택·AI 판정 안내·[다시 시도], 비교표 최소 폭/카드, 과제안 카드+수정 폼+[AI로 다듬기], 다음 버튼 사유), `api/types-precheck.ts`,
   vitest·axe·e2e 1개 (3) 최종 측정(AI 판정 포함 hit·거짓 차단·지연) → `docs/eval-2026-10-28-precheck-v2.md` (4) status·timeline·metrics 조각·ADR·PR.
+- 18:40 재개: 선택 기록 단언 수정(같은 입력 글로 제출해야 판정 메모로 차단 해제가 기록됨 — 판단 기록에 남김), 규칙·유스케이스·설정 테스트, 웹 ②
+  화면(features/precheck/*)·vitest·e2e, 최종 측정(실제 코드 경로, Gemini 15회 — 누적 39), origin/main(#81) 위로 rebase(types.ts 재수출 충돌만),
+  ADR 0036·측정 문서·조각 파일. 백엔드 2086·웹 vitest 100·e2e 19 통과(flow 추천 0건 경로 전체 실행 때 1회 실패 → 단독 재실행 통과).
