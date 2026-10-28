@@ -177,13 +177,29 @@ async def test_guest_login_and_account_lockout_after_five_failures():
         assert r.status_code == 200
 
 
-async def test_ip_lockout_after_twenty_failures_from_one_address():
+async def test_ip_lockout_after_twenty_failures_from_one_address(caplog):
+    """Funnel 경유(peer 127.0.0.1 + X-Forwarded-For 맨 오른쪽) 접속자별로 잠근다. 다른 접속자는
+    영향 없음, 접속자를 모르는 요청(헤더 없는 127.0.0.1)은 IP 잠금 없음 (2026-10-28 접속 장애)."""
     app, _, _ = build()
-    async with client_for(app) as c:
-        for i in range(20):
-            await c.post("/v1/session", json={"kind": "staff", "staff_no": f"NO-{i}"})
-        r = await c.post("/v1/session", json={"kind": "staff", "staff_no": STAFF_A})
-        assert r.status_code == 401  # 같은 IP 는 등록된 사번도 잠긴다
+    one = {"X-Forwarded-For": "198.51.100.20"}
+    with caplog.at_level(logging.INFO, logger="rra.api.auth"):
+        async with client_for(app) as c:
+            for i in range(20):
+                await c.post(
+                    "/v1/session", json={"kind": "staff", "staff_no": f"NO-{i}"}, headers=one
+                )
+            body = {"kind": "staff", "staff_no": STAFF_A}
+            r = await c.post("/v1/session", json=body, headers=one)
+            assert r.status_code == 401  # 같은 접속자는 등록된 사번도 잠긴다
+            other = {"X-Forwarded-For": "198.51.100.21"}
+            assert (await c.post("/v1/session", json=body, headers=other)).status_code == 200
+            for i in range(25):  # 접속자를 모르면 몇 번 틀려도 IP 잠금 없음
+                await c.post("/v1/session", json={"kind": "staff", "staff_no": f"NO-{i}"})
+            assert (await c.post("/v1/session", json=body)).status_code == 200
+    fails = [r.getMessage() for r in caplog.records if "api.login.fail" in r.getMessage()]
+    assert fails and all("kind=staff" in m for m in fails)
+    assert any("ip=198.51.100.20" in m for m in fails)
+    assert not any("NO-" in m or STAFF_A in m for m in fails)  # 사번 값은 남기지 않는다
 
 
 async def test_owner_isolation_other_staff_gets_404_admin_sees_everything(caplog):

@@ -80,6 +80,7 @@ def auth_config(settings: Settings) -> dict[str, Any]:
         },
         "lockout": {k: v for k, v in lockout.items() if isinstance(v, int | float)},
         "trust_cf_connecting_ip": api_config(settings)["trust_cf_connecting_ip"],
+        "trust_forwarded_from_loopback": api_config(settings)["trust_forwarded_from_loopback"],
     }
 
 
@@ -93,13 +94,14 @@ def llm_budget(settings: Settings) -> dict[str, Any]:
 
 
 API_CONFIG_FILE = "api.yaml"
-API_CONFIG_KEYS = ("public_origin", "trust_cf_connecting_ip")
+API_CONFIG_KEYS = ("public_origin", "trust_cf_connecting_ip", "trust_forwarded_from_loopback")
 
 
 def api_config(settings: Settings) -> dict[str, Any]:
-    """config/api.yaml → {"public_origin": str, "trust_cf_connecting_ip": bool} (보안 G).
+    """config/api.yaml → {"public_origin": str, "trust_cf_connecting_ip": bool,
+    "trust_forwarded_from_loopback": bool} (보안 G).
 
-    파일이 없으면 public_origin "" · trust_cf_connecting_ip False. 모르는 키는 오류.
+    파일이 없으면 public_origin "" · 나머지 False. 모르는 키는 오류.
     public_origin 은 `https://host[:port]` 만(경로·쿼리 없음, 끝 슬래시 제거) — 공개 주소는
     항상 TLS 종단(역프록시) 뒤에 있어야 한다.
     """
@@ -119,12 +121,13 @@ def api_config(settings: Settings) -> dict[str, Any]:
                 f"{origin!r}"
             )
         origin = f"https://{parts.netloc.lower()}"
-    trust = raw.get("trust_cf_connecting_ip", False)
-    if not isinstance(trust, bool):
-        raise ValueError(
-            f"config/{API_CONFIG_FILE} trust_cf_connecting_ip 는 true/false 여야 합니다."
-        )
-    return {"public_origin": origin, "trust_cf_connecting_ip": trust}
+    flags: dict[str, bool] = {}
+    for key in ("trust_cf_connecting_ip", "trust_forwarded_from_loopback"):
+        value = raw.get(key, False)
+        if not isinstance(value, bool):
+            raise ValueError(f"config/{API_CONFIG_FILE} {key} 는 true/false 여야 합니다.")
+        flags[key] = value
+    return {"public_origin": origin, **flags}
 
 
 def retention_days(settings: Settings, default: int = 180) -> int:

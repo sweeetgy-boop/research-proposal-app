@@ -152,14 +152,13 @@ def settings_with(tmp_path, body: str | None) -> Settings:
 
 
 def test_api_config_defaults_when_file_missing(tmp_path):
-    assert api_config(settings_with(tmp_path, None)) == {
+    empty = {
         "public_origin": "",
         "trust_cf_connecting_ip": False,
+        "trust_forwarded_from_loopback": False,
     }
-    assert api_config(settings_with(tmp_path, "public_origin: ''\n")) == {
-        "public_origin": "",
-        "trust_cf_connecting_ip": False,
-    }
+    assert api_config(settings_with(tmp_path, None)) == empty
+    assert api_config(settings_with(tmp_path, "public_origin: ''\n")) == empty
 
 
 def test_api_config_normalizes_and_validates(tmp_path):
@@ -168,12 +167,17 @@ def test_api_config_normalizes_and_validates(tmp_path):
             tmp_path, "public_origin: HTTPS://RRA.Example.test/\ntrust_cf_connecting_ip: true\n"
         )
     )
-    assert cfg == {"public_origin": "https://rra.example.test", "trust_cf_connecting_ip": True}
+    assert cfg == {
+        "public_origin": "https://rra.example.test",
+        "trust_cf_connecting_ip": True,
+        "trust_forwarded_from_loopback": False,
+    }
     for bad in (
         "public_origin: http://rra.example.test\n",
         "public_origin: https://rra.example.test/app\n",
         "public_origin: rra.example.test\n",
         "trust_cf_connecting_ip: yes-please\n",
+        "trust_forwarded_from_loopback: 1\n",
         "unknown_key: 1\n",
     ):
         with pytest.raises(ValueError):
@@ -188,3 +192,20 @@ def test_repo_api_yaml_sets_public_origin_and_middleware_gets_it():
     (_, auth_kw), *_ = api_middlewares(settings, TOKEN)
     assert auth_kw["public_origin"] == cfg["public_origin"]
     assert auth_kw["trust_cf"] is False
+    assert cfg["trust_forwarded_from_loopback"] is True  # Funnel 뒤 접속자 구분 (2026-10-28)
+    assert auth_kw["trust_forwarded"] is True
+    (log_cls, log_kw) = api_middlewares(settings, TOKEN)[-1]  # 가장 바깥 = 접근 로그
+    assert log_cls.__name__ == "AccessLogMiddleware" and log_kw["trust_forwarded"] is True
+
+
+async def test_access_log_counts_4xx_with_forwarded_ip_and_no_secrets(caplog):
+    app = make_app(public_origin=PUBLIC)
+    headers = {"X-Forwarded-For": "198.51.100.20", "X-RRA-Token": "wrong-token-value"}
+    with caplog.at_level(logging.INFO, logger="rra.api.access"):
+        async with client_for(app) as c:
+            assert (await c.get("/healthz")).status_code == 200  # 2xx 는 남기지 않는다
+            assert (await c.get("/v1/runs?q=secret-query", headers=headers)).status_code == 401
+    lines = [r.getMessage() for r in caplog.records if r.name == "rra.api.access"]
+    assert len(lines) == 1 and "status=401" in lines[0] and "path=/v1/runs" in lines[0]
+    assert "ip=198.51.100.20" in lines[0]  # 저장소 api.yaml 이 trust_forwarded 를 켠다
+    assert "wrong-token-value" not in lines[0] and "secret-query" not in lines[0]

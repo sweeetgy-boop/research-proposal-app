@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from collections import deque
 from dataclasses import dataclass, field
@@ -45,6 +46,20 @@ def valid_password(value: str, min_length: int = DEFAULT_MIN_PASSWORD_LENGTH) ->
 def valid_staff_no(value: str) -> bool:
     """사번 형식(영숫자·하이픈 2~32자). 값은 검사만 하고 어디에도 남기지 않는다."""
     return bool(_STAFF_NO.match(value or ""))
+
+
+def lockout_ip(ip: str | None) -> str | None:
+    """IP 별 잠금에 쓸 키. 접속자를 알 수 없는 주소(빈 값·루프백 — 역프록시 Funnel 뒤에서는
+    모든 외부 접속이 127.0.0.1 로 보인다)는 None → IP 별 잠금을 걸지 않는다(계정별 잠금·전체
+    지연은 그대로). 한 사람의 오타가 동료 전원을 잠그던 문제(2026-10-28)."""
+    value = (ip or "").strip()
+    if not value or value in ("unknown", "-"):
+        return None
+    try:
+        addr = ipaddress.ip_address(value)
+    except ValueError:
+        return None
+    return None if addr.is_loopback or addr.is_unspecified else str(addr)
 
 
 def staff_pseudonym(digest_hex: str) -> str:

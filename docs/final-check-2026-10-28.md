@@ -40,4 +40,7 @@
 | 15:03 | 동시 3건 재측정 | 3/3 유효·HWPX 3/3·묶음 266s(같은 3건 순차 401s, 34% 단축)·1건 240s(순차 평균 134s) — Gemini 공용 제한기 동시 4 를 나눠 씀. 시범 3명 규모에서는 그대로 둠(호출 제한기 상향은 Gemini 분당 한도 확인 뒤) | data/eval/argon_b_c3.json |
 | 15:1x | [5]-3 배포 판단 | 기준(빈 초안 0, 유효 9/10+, 유사과제 9/10+, 생성 완료 단축 195→107s, HWPX 정상)을 B 가 모두 충족 → 배포. local_check 는 기본 끔 유지 — 18:07 C 측정에서 걸러 내는 것이 의미 있으면 그때 켬 | 이 표 |
 | 15:1x | [5]-4 시범 안내 | pilot-guide §2·§3·§5.5·§6.5 를 Argon 작성·실시간 검색 배지·동시 3건·그림 말로 고치기로 고침 | docs/pilot-guide.md |
+| 15:11 | [5]-3 배포 | `tools/deploy.sh --wait`(대기 run 0) → `4406e89`(#69~#78). 외부 주소 직원 로그인·공용 계정 거부 경로·하단 버전 확인, 실제 흐름 1건 성공(생성 111s·그림 3장 Nano Banana·최종 5/5/5/4·HWPX 정상) → 유지 | `docs/history/deploys/2026-10-28-1511.md` |
+| 15:16 | ② 시간 | 배포 직후 첫 ② 69.7s — 모델 적재 + 실시간 검색 대기(최대 15s) + 자동 추천·차별화(Gemini). 이어진 ② 는 측정에서 15.6s(B 평균). 시범 중 동료가 느끼면 `live_search.wait_seconds` 를 줄이거나 자동 추천(`llm.yaml recommend.auto`)을 끄는 것을 검토 | 위 기록 |
+| 16:xx | 외부 접속 장애 | 원인 조사: Funnel on·공개 DNS 2개·외부망 healthz 정상(서버 쪽 공개 경로는 열려 있음). 앱 쪽 결함 — Funnel 경유는 peer 가 전부 127.0.0.1 이라 로그인 IP 잠금(10분 20회)을 모든 외부 접속자가 한 키로 나눠 씀 → 누군가 미등록 사번으로 여러 번 시도하면 전원이 잠김. 거부·4xx 로그는 INFO 라 uvicorn warning 설정에서 버려져 상태 코드별 집계 불가였음. 수정: `X-Forwarded-For` 맨 오른쪽(127.0.0.1 peer 일 때만, `api.yaml trust_forwarded_from_loopback`), 접속자 IP 모르면 IP 잠금 없음(계정 잠금·전체 지연 유지), `rra.api.*` INFO 로그 + 4xx/5xx 접근 로그, `rra auth staff check`, deploy.sh "Funnel on" 확인(읽기만), pilot-guide §1 주소 정정(Tailscale 앱 설치 불필요)·§1.5. 접속 차단 수정이라 즉시 배포 | `fix/funnel-access` PR |
 

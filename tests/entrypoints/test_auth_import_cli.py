@@ -68,3 +68,19 @@ def test_errors_show_guidance_without_values(store, tmp_path, capsys, caplog):
     assert code == cli.EXIT_ERROR and "열 수 없습니다" in err
     code, _, err = run(capsys, caplog, "--file", str(path), "--pad", "99")
     assert code == cli.EXIT_USAGE
+
+
+@pytest.mark.parametrize(("typed", "expected"), [(" 00-123 45 ", "등록됨"), ("9999999", "미등록")])
+def test_staff_check_prints_registered_or_not_only(
+    store, monkeypatch, capsys, caplog, typed, expected
+):
+    store.add_staff("0012345")
+    monkeypatch.setattr("getpass.getpass", lambda *a, **k: typed)
+    with caplog.at_level(logging.DEBUG):
+        code = cli.main(["auth", "staff", "check"])
+    captured = capsys.readouterr()
+    text = captured.out + captured.err + caplog.text
+    assert code == cli.EXIT_OK and captured.out.strip() == expected
+    for secret in ("0012345", "00-123", "9999999", typed.strip()):
+        assert secret not in text
+    assert store.staff_count() == 1  # 조회만

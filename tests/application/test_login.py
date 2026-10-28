@@ -124,3 +124,20 @@ def test_global_failure_flood_adds_delay_to_the_result():
         login.staff("NO-x", ip="10.0.0.9")
     assert exc.value.delay_sec == 2.0
     assert login.staff("K-1", ip="10.0.0.9").delay_sec == 2.0  # 성공에도 지연
+
+
+def test_unknown_client_ip_has_no_ip_lockout_but_account_lockout_stays():
+    """Funnel 뒤에서는 모든 외부 접속이 127.0.0.1 — 누군가 20번 틀려도 동료 전원이 잠기면 안 된다
+    (2026-10-28 접속 장애). 계정별 잠금은 그대로."""
+    now = [50.0]
+    login = Login(FakeAuthStore(staff={"K-1"}, guest=("team", "pw-secret-1")), clock=lambda: now[0])
+    for ip in ("127.0.0.1", "::1", "", None, "unknown"):
+        for i in range(25):
+            with pytest.raises(LoginFailed):
+                login.staff(f"NO-{i}", ip=ip)
+        assert login.staff("K-1", ip=ip).principal.kind == "staff"
+    for _ in range(5):
+        with pytest.raises(LoginFailed):
+            login.guest("team", "nope", ip="127.0.0.1")
+    with pytest.raises(LoginFailed):  # 계정 잠금은 IP 를 몰라도 걸린다
+        login.guest("team", "pw-secret-1", ip="127.0.0.1")
