@@ -1,10 +1,11 @@
 """정책적 중요도 작성안 4개 (보강 질문 단계 · 편집 단계의 빈 2-가-(1), 2026-10-28 레인 B).
 
 1. 정책 자료원(국토부 계획·정부 R&D 공고 / 공사 중장기 경영목표·전략 / 감사원·경영평가 지적)을
-   방향별로 검색하고(hybrid_search sources 필터), 정책 종류 문서의 청크에서 아이디어와 겹치는 문장을
-   원문 그대로 고른다(policy_phrases.pick_quote). 관련 없는 구간(키워드 겹침 0 이고 유사도 하한
-   미만)은
-   버린다.
+   방향별로 검색하고(hybrid_search sources 필터), 정책 문서(doc_category.is_policy_basis — 연구용역·
+   행정 공시·사업 현황 제외)의 청크에서 아이디어와 겹치는 문장을 원문 그대로 고른다. 관련 없는 구간
+   (키워드 겹침 0 이고 유사도 하한 미만)은 버린다 — 규칙은 policy_cards.policy_passage 하나로 정책
+   근거
+   추천과 같이 쓴다.
 2. 방향별로 묶는다(domain/rules/policy_cards.group_passages — 한 문서는 한 안에만).
 3. Argon 이 안마다 2~3개 "○" 문장을 쓴다(인용 구간 안에서만, JSON). 실패하면 로컬 모델.
    검증(validate_sentences)을 통과한 문장만 남고, 문장이 없는 안은 빠진다 — 근거가 받쳐 주는
@@ -31,15 +32,14 @@ from rra.domain.models.policy import PolicyCard, PolicyChoice, PolicySource
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.llm_output import parse_object
 from rra.domain.rules.policy_cards import (
-    CARD_DOC_TYPES,
     CARD_SOURCE_LABELS,
     DIRECTION_LABELS,
     build_card,
     group_passages,
     limit_cards,
+    policy_passage,
     validate_sentences,
 )
-from rra.domain.rules.policy_phrases import pick_quote
 from rra.domain.rules.trust import wrap_untrusted
 
 POLICY_CARDS_SYSTEM = (
@@ -72,9 +72,6 @@ SEARCH_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("government", ("molit", "rnd_notice")),
     ("company", ("korail_web",)),
     ("audit", ("bai", "mofe")),
-)
-MIN_SIMILARITY = (
-    0.80  # 키워드 겹침이 없는 구간은 이 유사도 이상만 (e5 기준, relevance 하한과 같은 수준)
 )
 
 
@@ -129,14 +126,12 @@ class PolicyCards:
                 if chunk.doc_id not in docs:
                     docs[chunk.doc_id] = await self.repo.get_document(chunk.doc_id)
                 doc = docs[chunk.doc_id]
-                if doc is None or doc.doc_type not in CARD_DOC_TYPES:
+                found = policy_passage(doc, chunk.text, chunk.similarity, query, self.keywords)
+                if found is None or doc is None:
                     continue
-                quote, hits = pick_quote(chunk.text, query, self.keywords)
-                sim = chunk.similarity or 0.0
-                if not hits and sim < MIN_SIMILARITY:
-                    continue
+                quote, hits = found
                 seen.add(chunk.doc_id)
-                scored.append((len(hits), sim, self._source(doc, chunk, quote)))
+                scored.append((len(hits), chunk.similarity or 0.0, self._source(doc, chunk, quote)))
         scored.sort(key=lambda x: (-x[0], -x[1], x[2].doc_id))
         return [s for _, _, s in scored]
 

@@ -225,6 +225,12 @@ def dropped_hint(dropped: Sequence[str]) -> str:
     )
 
 
+def parse_json_value(raw: str) -> object | None:
+    """JSON 값 하나(객체·배열) — 펜스 하나는 벗기고 관용 복구. 실패면 None."""
+    status, data, _, _ = _load(raw)
+    return data if status == "ok" else None
+
+
 def parse_object(raw: str) -> dict[str, Any] | None:
     """JSON 객체 하나만 수용 (검토 응답). 펜스 하나는 벗긴다. 그 외는 None — 폐기."""
     status, data, _, _ = _load(raw)

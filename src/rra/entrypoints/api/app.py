@@ -71,6 +71,7 @@ from rra.domain.rules.similar_choice import (
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.cancellable import CANCELLED_STATUS, ClientCancelled, cancel_on_disconnect
 from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
+from rra.entrypoints.api.local_review_routes import register as register_local_review_routes
 from rra.entrypoints.api.routes_format import register_format_routes
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
@@ -396,6 +397,25 @@ def create_app(
 
     def _titles() -> dict[str, str]:
         return getattr(getattr(manager.generate, "rules", None), "titles", None) or {}
+
+    async def _citations(owner: str, rid: str) -> list[Any]:
+        """검토 의견 글의 내부 번호를 제목으로 바꿀 인용 문서 (ADR 0040). 실패하면 빈 목록 — 번호는
+        지운다."""
+        try:
+            return list((await manager.get_draft(owner, rid)).citations)
+        except Exception:  # noqa: BLE001 — 표시용 보조 정보
+            return []
+
+    async def _review_out(owner: str, rid: str, review: Any) -> dict[str, Any]:
+        return {
+            "notice": UNTRUSTED_NOTICE,
+            **review_payload(
+                review,
+                clean=_clean,
+                citations=await _citations(owner, rid),
+                section_titles=_titles(),
+            ),
+        }
 
     def _title(state: Any) -> str | None:
         """항목 2 — 화면 머리·목록의 연구과제명 (LLM 문장이므로 비신뢰 정리)."""
@@ -795,7 +815,7 @@ def create_app(
         svc = _svc(request, "policy_suggest")
         if svc is None:
             raise HTTPException(503, "정책 근거 추천이 꺼져 있습니다.")
-        suggestions = await svc(req)
+        suggestions = await cancel_on_disconnect(request, svc(req))
         return {
             "notice": UNTRUSTED_NOTICE,
             "suggestions": policy_suggestions_payload(suggestions, clean=_clean),
@@ -1234,12 +1254,13 @@ def create_app(
         request: Request, run_id: str, round: int | None = Query(default=None, ge=1, le=10_000)
     ) -> dict[str, Any]:
         try:
-            review = await manager.get_review(*await _own(request, run_id), round)
+            owner, rid = await _own(request, run_id)
+            review = await manager.get_review(owner, rid, round)
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         if review is None:
             raise HTTPException(404, "검토 결과가 없습니다.")
-        return {"notice": UNTRUSTED_NOTICE, **review_payload(review, clean=_clean)}
+        return await _review_out(owner, rid, review)
 
     async def _save(request: Request, run_id: str, body: EditRequest) -> dict[str, Any]:
         rid = _run_id(run_id)
@@ -1354,12 +1375,13 @@ def create_app(
     async def draft_review_route(request: Request, run_id: str) -> dict[str, Any]:
         """③ Argon 1차 검토 결과(review_draft.json) — 점수·의견·자동 반영 여부·폐기 사유."""
         try:
-            review = await manager.get_review(*await _own(request, run_id), kind="draft")
+            owner, rid = await _own(request, run_id)
+            review = await manager.get_review(owner, rid, kind="draft")
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         if review is None:
             raise HTTPException(404, "1차 검토 결과가 없습니다.")
-        return {"notice": UNTRUSTED_NOTICE, **review_payload(review, clean=_clean)}
+        return await _review_out(owner, rid, review)
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/final-review", status_code=202)
     async def final_review_route(request: Request, run_id: str) -> dict[str, Any]:
@@ -1392,12 +1414,13 @@ def create_app(
     ) -> dict[str, Any]:
         """⑤ 최종 검토 결과(review_final_rN.json). round 는 최종 검토 차수(1..), 없으면 최신."""
         try:
-            review = await manager.get_review(*await _own(request, run_id), round, kind="final")
+            owner, rid = await _own(request, run_id)
+            review = await manager.get_review(owner, rid, round, kind="final")
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         if review is None:
             raise HTTPException(404, "최종 검토 결과가 없습니다.")
-        return {"notice": UNTRUSTED_NOTICE, **review_payload(review, clean=_clean)}
+        return await _review_out(owner, rid, review)
 
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/confirm")
     async def confirm_route(request: Request, run_id: str, body: ConfirmIn) -> dict[str, Any]:
@@ -1586,6 +1609,7 @@ def create_app(
     register_edit_ai_routes(
         app, api_version=API_VERSION, manager=manager, svc=_svc, own=_own, clean=_clean
     )
+    register_local_review_routes(app, api_version=API_VERSION, manager=manager, own=_own)
 
     # ── U7 제출 전 점검 · U8 측정·만족도 ───────────────────
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/submit-check")

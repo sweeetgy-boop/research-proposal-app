@@ -120,10 +120,10 @@ compose:
   # local: 로컬 모델이 먼저 쓰고 실패 섹션만 stages.compose.fallback 이 쓴다(ADR 0027, 되돌리기용)
   writer: gemini
   concurrency: 4             # Argon 작성일 때 한 run 안에서 동시에 쓰는 섹션 수
-  # 로컬 근거 대조 — Argon 이 쓴 문장 중 근거 있는 것을 로컬 모델이 지지|부분|불일치 로만 판정(불일치 = 알림).
-  # 섹션당 local_check_timeout_sec 초 상한(넘으면 그 섹션 건너뜀). 측정 전이라 기본 끔
-  local_check: off
-  local_check_timeout_sec: 20
+  # L2 로컬 2차 검토(ADR 0040) — Argon 이 쓴 문장 중 근거 있는 것을 로컬 모델이 지지|부분|불일치 로만 판정.
+  # 시간 상한 없음(시간 때문에 건너뛰는 섹션 없음). 수치·고유명 문장과 2-가-(1)·(2) 먼저. 불일치 문장만 Argon 이
+  # "근거 안에서 다시 쓰기 또는 빼기" 제안 → 제안자가 [반영](새 버전)·[무시](결정 기록) — 자동 반영 없음.
+  local_check: on
 
 # 검토(review) 단계 정책
 review:

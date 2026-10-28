@@ -16,7 +16,10 @@ from typing import Any
 from rra.domain.models import STRATEGY_DRAFT_LABEL
 from rra.domain.models.review import ORIGIN_LABEL
 from rra.domain.rules.card_overlap import DIFFERENCE_LABELS
+from rra.domain.rules.doc_category import CATEGORY_LABELS, RESEARCH_SERVICE
+from rra.domain.rules.doc_refs import UNTITLED, source_name, source_of
 from rra.domain.rules.draft_failures import reason_label
+from rra.domain.rules.local_review import review_view
 from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
 from rra.domain.rules.precheck_levels import level_view
 from rra.domain.rules.precheck_view import (
@@ -36,6 +39,7 @@ from rra.domain.rules.recommendation import discard_label
 from rra.domain.rules.same_judgment import VERDICT_LABELS
 from rra.domain.rules.writer import local_check_view, local_sections, writers_view
 from rra.entrypoints.views_editai import rewrite_reason_label
+from rra.entrypoints.views_refs import citation_ref, no_ids, refs_for, titles_from
 
 
 def _same(text: str) -> str:
@@ -68,6 +72,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
     """clean: 비신뢰 텍스트(초안 문장·문서 제목·lint 메시지)에 적용할 정리 함수."""
     state = view.state
     live_ids = set(getattr(state, "live_doc_ids", None) or [])
+    titles = titles_from(view.citations)
     return {
         "run_id": state.run_id,
         "status": state.status,
@@ -104,14 +109,11 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
             }
             for sec in view.sections
         ],
+        # 인용 문서 — 화면은 id 대신 title·source_label(한국어)·url(공개 문서만)을 보인다 (ADR
+        # 0040).
+        # live: [4] 실시간 검색에서 가져온 근거
         "citations": [
-            {
-                "id": c.id,
-                "doc_id": c.doc_id,
-                "title": clean(c.title) if c.title else None,
-                "live": c.doc_id in live_ids,  # [4] 실시간 검색에서 가져온 근거
-            }
-            for c in view.citations
+            citation_ref(c, clean=clean, live=c.doc_id in live_ids) for c in view.citations
         ],
         "problems": [
             {
@@ -120,7 +122,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
                 "label": problem_label(p["code"]),  # 화면은 코드 대신 이것 (항목 16)
                 "severity": p.get("severity", "error"),
                 "severity_label": severity_label(p.get("severity", "error")),
-                "message": clean(p["message"]),
+                "message": no_ids(clean(p["message"]), titles),
                 "sentence": p.get("sentence"),
             }
             for p in state.problems
@@ -137,7 +139,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
         # [3] Argon 먼저 작성(ADR 0032): 섹션별 작성자 — 화면은 local_sections 에 "로컬 작성" 배지
         "writers": writers_payload(state),
         "local_sections": local_sections_payload(state),
-        "local_check": local_check_payload(state),
+        "local_check": local_check_payload(state, view.sections),
         # [G] 그림 카드 — 보고 있는 버전의 그림 목록
         "figures": figures_payload(getattr(view, "figures", []) or [], state.run_id, clean=clean),
         # 전략체계 목록의 출처 — draft 면 2-가-(3) 선택지가 확인 전 초안이라는 뜻
@@ -148,6 +150,7 @@ def draft_payload(view: Any, *, clean: Callable[[str], str] = _same) -> dict[str
     }
 
 
+RESEARCH_SERVICE_LABEL = CATEGORY_LABELS[RESEARCH_SERVICE]
 RENDERER_LABEL = {"nano_banana": "Nano Banana Pro", "baseline": "기본 그림"}
 FIGURE_NOTICE = "AI 가 그린 그림입니다. 숫자와 글자를 원문과 확인하세요"
 # [23] 그림 오류 코드 → 화면 문구 (코드는 내보내지 않는다)
@@ -424,9 +427,13 @@ def local_sections_payload(state: Any) -> list[str]:
     return local_sections(getattr(state, "writers", None) or {}, state.section_keys)
 
 
-def local_check_payload(state: Any) -> dict[str, Any] | None:
-    """local_check 요약 {enabled, mismatches, skipped_sections}. 돌지 않았으면 None."""
-    return local_check_view(getattr(state, "local_check", None))
+def local_check_payload(state: Any, sections: Any = None) -> dict[str, Any] | None:
+    """local_check 요약 {enabled, mismatches, skipped_sections}. 돌지 않았으면 None. sections(보는
+    버전의 본문)를 주면 L2 문장별 판정·Argon 제안·미결정 수도 싣는다 (ADR 0040)."""
+    lc = getattr(state, "local_check", None)
+    if sections is None:
+        return local_check_view(lc)
+    return review_view(lc, list(sections))
 
 
 def flow_summary(state: Any, has_working: bool = False) -> dict[str, Any]:
@@ -459,8 +466,23 @@ def review_summary(state: Any, latest: Any) -> dict[str, Any]:
     }
 
 
-def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
-    """ReviewRound → dict. 의견·수정안은 외부 LLM 출력(비신뢰 텍스트) — clean 을 거친다."""
+def review_payload(
+    review: Any,
+    *,
+    clean: Callable[[str], str] = _same,
+    citations: Collection[Any] = (),
+    section_titles: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """ReviewRound → dict. 의견·수정안은 외부 LLM 출력(비신뢰 텍스트) — clean 을 거친다.
+
+    citations: 초안 인용 문서(RunManager.Citation) — 의견 글에 섞인 내부 번호([own:…]·f:method:t1)를
+    제목·"<섹션> 그림 n" 으로 바꾸고(ADR 0040), 의견마다 evidence_refs(제목·자료원 이름)를
+    싣는다."""
+    titles = titles_from(citations)
+
+    def txt(value: str) -> str:
+        return no_ids(clean(value), titles, section_titles)
+
     return {
         "round": review.round,
         "kind": getattr(review, "kind", "draft"),
@@ -471,7 +493,7 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
         "score_delta": dict(getattr(review, "score_delta", {}) or {}),
         # Q7 후보 선택 {섹션: {choice, reason, rejected, rejected_text}} / Q5 필수 요소 충족
         "candidate_choices": {
-            k: {kk: clean(str(vv)) for kk, vv in v.items()}
+            k: {kk: txt(str(vv)) for kk, vv in v.items()}
             for k, v in (getattr(review, "candidate_choices", {}) or {}).items()
         },
         "checklist": {k: dict(v) for k, v in (getattr(review, "checklist", {}) or {}).items()},
@@ -486,7 +508,7 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
                 "criterion": s.criterion,
                 "score": s.score,
                 "weak": s.weak,
-                "reason": clean(s.reason),
+                "reason": txt(s.reason),
                 "sentence_ids": list(s.sentence_ids),
             }
             for s in getattr(review, "scores", []) or []
@@ -511,9 +533,10 @@ def review_payload(review: Any, *, clean: Callable[[str], str] = _same) -> dict[
                 "kind": getattr(c, "kind", "revision"),  # revision / addition(Q5 추가 문장)
                 "after": getattr(c, "after", None),
                 "issue_type": c.issue_type,
-                "comment": clean(c.comment),
-                "revised_text": clean(c.revised_text) if c.revised_text else None,
+                "comment": txt(c.comment),
+                "revised_text": txt(c.revised_text) if c.revised_text else None,
                 "evidence": list(c.evidence),
+                "evidence_refs": refs_for(list(c.evidence), citations),
                 "status": c.status,
                 "usable": c.usable,
                 "discard_reason": c.discard_reason,
@@ -679,7 +702,7 @@ def render_check_payload(
                 "label": problem_label(p.code),
                 "severity": p.severity,
                 "severity_label": severity_label(p.severity),
-                "message": clean(p.message),
+                "message": no_ids(clean(p.message), None, names),
                 "sentence": p.sentence,
             }
             for p in check.unresolved
@@ -730,6 +753,9 @@ def policy_suggestions_payload(
         {
             "doc_id": s.doc_id,
             "title": clean(s.title),
+            # ADR 0040 — 화면은 doc_id 대신 제목·자료원 이름. 인용 아래 "원문" 링크는 url
+            "source": source_of(s.doc_id),
+            "source_label": source_name(source_of(s.doc_id)),
             "year": s.year,
             "page": clean(s.page) if s.page else None,
             "quote": clean(s.quote),
@@ -788,7 +814,11 @@ def alerts_payload(
                     a.status or "", a.status
                 ),  # 용역으로 진행 중/예정 등
                 "own_detail": a.own_detail,
-                "tier_label": tier_label(a.tier, a.own_detail),
+                "tier_label": (
+                    RESEARCH_SERVICE_LABEL
+                    if a.tier == "procurement" and source_of(a.doc_id) == "korail_web"
+                    else tier_label(a.tier, a.own_detail)
+                ),  # 공사 사전정보공표 연구용역 = "연구용역(사내 발주)" (ADR 0040)
                 "live": a.doc_id in live,
                 # ② 판정 정확도 (레인 A) — reranker 점수·AI 같음 판정·같은 제목 묶음·제안자 선택
                 "rerank_score": getattr(a, "rerank_score", None),
@@ -1050,7 +1080,7 @@ def evidence_items_payload(
             "doc_id": i.doc_id,
             "chunk_id": i.chunk_id,
             "text": clean(i.text),
-            "title": clean(i.title) if i.title else None,
+            "title": clean(i.title) if i.title else UNTITLED,  # 화면은 번호를 보이지 않는다
             "source": i.source,
             "source_label": i.source_label,
             "orgs": list(i.orgs),
@@ -1144,7 +1174,7 @@ def submit_check_payload(
                 "key": i.key,
                 "label": i.label,
                 "ok": i.ok,
-                "detail": clean(detail(i)),
+                "detail": no_ids(clean(detail(i)), None, names),
                 "count": i.count,
                 "target": i.target,
                 "target_label": (

@@ -78,7 +78,15 @@ WRITER_KEYS = frozenset(
     }
 )
 LOCAL_CHECK_KEYS = frozenset(
-    {"enabled", "mismatches", "skipped_sections", "sentences", "checked_sections"}
+    {
+        "enabled",
+        "mismatches",
+        "skipped_sections",
+        "sentences",
+        "checked_sections",
+        # L2 로컬 2차 검토 개수 (ADR 0040) — 지지/부분/불일치·Argon 제안 수·상태별 수·초 (본문 없음)
+        "counts",
+    }
 )
 GEMINI_CALL_KEYS = frozenset({"compose", "review", "figures", "total"})
 LIVE_SEARCH_KEYS = frozenset({"status", "keywords", "sources", "documents"})

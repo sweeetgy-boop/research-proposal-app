@@ -25,7 +25,7 @@ import logging
 import os
 import sqlite3
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -722,6 +722,20 @@ class SQLiteDocumentRepository:
         with self._lock:
             rows = self.conn.execute(_DOCUMENTS_OF, (source, limit)).fetchall()
         return [_mapping.row_to_document(r) for r in rows]
+
+    async def reclassify(self, changes: Sequence[tuple[str, str, dict[str, Any]]]) -> int:
+        """자료 분류 이주 (ADR 0040) — doc_type·raw_json 만 바꾼다. 파라미터 바인딩(보안 E)."""
+        rows = [(str(t), _mapping.dumps(raw), str(d)) for d, t, raw in changes]
+        return await asyncio.to_thread(self._reclassify_sync, rows)
+
+    def _reclassify_sync(self, rows: list[tuple[str, str, str]]) -> int:
+        if not rows:
+            return 0
+        with self._lock, self.conn:
+            cur = self.conn.executemany(
+                "UPDATE documents SET doc_type = ?, raw_json = ? WHERE doc_id = ?", rows
+            )
+        return int(cur.rowcount or 0)
 
     def _load_chunks(self, chunk_ids: list[str]) -> list[Chunk]:
         if not chunk_ids:

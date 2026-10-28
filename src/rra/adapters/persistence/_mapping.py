@@ -46,6 +46,11 @@ def _dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
 
 
+def dumps(value: Any) -> str:
+    """raw_json 직렬화 (적재와 같은 방식)."""
+    return _dumps(value)
+
+
 def document_to_row(doc: Document) -> tuple[Any, ...]:
     start, end = doc.project_period if doc.project_period else (None, None)
     values: dict[str, Any] = {

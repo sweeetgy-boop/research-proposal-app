@@ -20,6 +20,15 @@ import { SUPPORT_VARIANT } from "@/lib/sections";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { LiveBadge } from "@/features/live/LiveBadge";
+import { refSource, refTitle, replaceDocIds } from "@/lib/docRefs";
+import { sectionTitle } from "@/lib/sections";
+
+/** "s:<섹션>:<n>" → "<섹션 제목> 문장 n" (번호를 그대로 보이지 않는다) */
+function sentenceLabel(sid: string | null): string | undefined {
+  if (!sid) return undefined;
+  const [, key, n] = sid.split(":");
+  return key ? `${sectionTitle(key)} 문장 ${Number(n ?? 0) + 1}` : undefined;
+}
 
 export const EVIDENCE_ALERT_CODES = new Set(["evidence_mismatch", "evidence_all_excluded"]);
 const ACTIONS: { id: DecisionAction; label: string }[] = [
@@ -63,8 +72,12 @@ function EvidenceCard({
   return (
     <li className="space-y-2 rounded-md border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-1">
-        <UntrustedText text={item.title ?? item.doc_id} className="font-medium" />
-        <span className="font-mono text-xs text-muted-foreground">{item.evidence_id}</span>
+        <UntrustedText text={refTitle({ title: item.title })} className="font-medium" />
+        {item.url && item.basis !== "image_vision" && (
+          <a href={item.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-0.5 text-xs underline">
+            원문 <ExternalLink className="size-3" aria-hidden="true" />
+          </a>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-1 text-xs">
         <Badge variant="secondary">{item.source_label}</Badge>
@@ -93,8 +106,8 @@ function EvidenceCard({
         <UntrustedText as="p" text={item.text || "(발췌 없음)"} />
       </blockquote>
       <fieldset disabled={disabled} className="space-y-2">
-        <legend className="sr-only">{item.evidence_id} 판단</legend>
-        <div role="radiogroup" aria-label={`${item.title ?? item.evidence_id} 판단`} className="flex flex-wrap gap-1">
+        <legend className="sr-only">{refTitle({ title: item.title })} 판단</legend>
+        <div role="radiogroup" aria-label={`${refTitle({ title: item.title })} 판단`} className="flex flex-wrap gap-1">
           {ACTIONS.map((a) => {
             const on = action === a.id;
             return (
@@ -125,7 +138,7 @@ function EvidenceCard({
               <Select id={`rep-${item.evidence_id}`} value={pending?.replacement ?? ""} onChange={(e) => onChange({ action: "replace", replacement: e.target.value })}>
                 {others.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.title ?? c.doc_id} ({c.id})
+                    {refTitle(c)} · {refSource(c)}
                   </option>
                 ))}
               </Select>
@@ -179,7 +192,7 @@ export function EvidencePanel({ runId, sentenceId, sentenceText, citations, prob
   };
 
   return (
-    <Dialog open={sentenceId !== null} onClose={onClose} title="근거 보기" description={sentenceId ?? undefined} className="w-[min(96vw,48rem)]">
+    <Dialog open={sentenceId !== null} onClose={onClose} title="근거 보기" description={sentenceLabel(sentenceId)} className="w-[min(96vw,48rem)]">
       {sentenceText && <UntrustedText as="p" text={sentenceText} className="mb-3 rounded border-l-4 border-primary bg-muted/40 p-2 text-sm" />}
       {strategyDraft && (
         <Badge variant="warning" className="mb-2">
@@ -191,7 +204,7 @@ export function EvidencePanel({ runId, sentenceId, sentenceText, citations, prob
           <div>
             <AlertTitle>{p.code === "evidence_mismatch" ? "Argon 판정: 근거가 문장을 뒷받침하지 않음" : "근거가 모두 제외됨"}</AlertTitle>
             <AlertDescription>
-              <UntrustedText text={p.message} />
+              <UntrustedText text={replaceDocIds(p.message, citations, sectionTitle)} />
             </AlertDescription>
           </div>
         </Alert>

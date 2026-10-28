@@ -1,19 +1,10 @@
 import type { Citation } from "@/api/types";
+import { DocRefList } from "@/components/DocRef";
+import { docRef } from "@/lib/docRefs";
 
-/** 문장 근거 id → 인용 문서 제목(비신뢰) 칩. */
-export function EvidenceChips({ evidence, citations }: { evidence: string[]; citations: Citation[] }) {
+/** 문장 근거 → "제목 · 자료원 이름" 칩 (내부 번호 없음, ADR 0040). 누르면 onOpen(근거 패널), 없으면 요약·원문 창. */
+export function EvidenceChips({ evidence, citations, onOpen }: { evidence: string[]; citations: Citation[]; onOpen?: () => void }) {
   if (evidence.length === 0) return null;
-  const byId = new Map(citations.map((c) => [c.id, c]));
-  return (
-    <ul className="mt-1 flex flex-wrap gap-1" aria-label="근거">
-      {evidence.map((id) => {
-        const c = byId.get(id);
-        return (
-          <li key={id} className="rounded border bg-muted/50 px-1.5 py-0.5 text-xs text-muted-foreground" title={id}>
-            {c?.title ? <span className="whitespace-pre-wrap">{c.title}</span> : id}
-          </li>
-        );
-      })}
-    </ul>
-  );
+  const refs = evidence.map((id) => docRef(id, citations));
+  return <DocRefList refs={refs} onOpen={onOpen ? () => onOpen() : undefined} />;
 }

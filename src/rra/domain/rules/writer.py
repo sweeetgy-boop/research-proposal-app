@@ -34,7 +34,6 @@ LOCAL_EVIDENCE_MISMATCH = "local_evidence_mismatch"
 SELF_REVIEW = (
     "self_review"  # review.first_pass off — Argon 이 쓴 초안을 Argon 이 1차 검토하지 않는다
 )
-LOCAL_CHECK_TIMEOUT_SEC = 20.0
 LOCAL_CHECK_CHUNK_CHARS = 600  # 판정 프롬프트에 넣는 근거 청크 글자 상한
 
 LOCAL_CHECK_SYSTEM = (
@@ -196,6 +195,13 @@ def local_check_problems(
     if not local_check:
         return []
     wanted = set(local_check.get("mismatch_hashes") or [])
+    # L2(ADR 0040): 제안자가 [무시]·[반영] 으로 결정한 문장은 알림에서 뺀다 (결정 기록, 새 버전
+    # 없음)
+    wanted -= {
+        str(x.get("text_hash"))
+        for x in local_check.get("suggestions") or []
+        if isinstance(x, Mapping) and x.get("status") in ("dismissed", "applied")
+    }
     if not wanted:
         return []
     out: list[LintProblem] = []
@@ -222,4 +228,25 @@ def local_check_view(local_check: Mapping[str, Any] | None) -> dict[str, Any] | 
         "enabled": bool(local_check.get("enabled")),
         "mismatches": int(local_check.get("mismatches") or 0),
         "skipped_sections": [str(k) for k in local_check.get("skipped_sections") or []],
+    }
+
+
+def local_check_summary(local_check: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """manifest·사용 기록용 L2 개수 (본문 없음) — 지지/부분/불일치·Argon 제안 수·제안 상태·초."""
+    if not local_check:
+        return None
+    counts = dict(local_check.get("counts") or {})
+    suggestions = [x for x in local_check.get("suggestions") or [] if isinstance(x, Mapping)]
+    status: dict[str, int] = {}
+    for x in suggestions:
+        key = str(x.get("status") or "open")
+        status[key] = status.get(key, 0) + 1
+    return {
+        "supported": int(counts.get("지지") or 0),
+        "partial": int(counts.get("부분") or 0),
+        "mismatch": int(counts.get("불일치") or 0),
+        "suggestions": len(suggestions),
+        "suggestion_status": status,
+        "seconds": float(local_check.get("seconds") or 0.0),
+        "suggest_seconds": float(local_check.get("suggest_seconds") or 0.0),
     }

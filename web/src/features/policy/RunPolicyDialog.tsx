@@ -50,8 +50,8 @@ export function RunPolicyDialog({
       <ProblemBanner error={error} className="mb-3" />
       {open && (
         <PolicyCards
-          load={(exclude) => runPolicyCards(runId, exclude)}
-          polish={(choice, text) => runPolicyPolish(runId, choice, text)}
+          load={(exclude, signal) => runPolicyCards(runId, exclude, signal)}
+          polish={(choice, text, signal) => runPolicyPolish(runId, choice, text, signal)}
           value={value}
           onChoose={choose}
           busy={busy || disabled}
