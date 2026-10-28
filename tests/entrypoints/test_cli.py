@@ -1257,6 +1257,52 @@ def test_eval_pipeline_presets_and_overrides(monkeypatch):
         cli._eval_pipeline(None, args(on="bogus"))
 
 
+def test_eval_integrated_flags_reach_build_eval(monkeypatch, tmp_path, capsys):
+    """[5] --final-review·--finalize·--concurrent·--local-check·--department 가 조립까지 간다."""
+    from types import SimpleNamespace
+
+    from rra.application.usecases.evaluate import EvalResult
+    from rra.entrypoints import cli
+
+    seen: dict = {}
+
+    class FakeEval:
+        def __init__(self, **kw):
+            seen.update(kw)
+
+            async def aclose():
+                seen["closed"] = True
+
+            self.manager = SimpleNamespace(
+                generate=SimpleNamespace(llm=SimpleNamespace(aclose=aclose))
+            )
+
+        async def __call__(self, ideas):
+            seen["ideas"] = [n for n, _ in ideas]
+            return EvalResult(
+                label="B",
+                pipeline={},
+                ideas=[],
+                total_seconds=0,
+                started_at="",
+                mode="concurrent",
+                concurrent=3,
+                batches=[{"batch": 0, "ideas": ["01"], "draft_seconds": 1.0, "seconds": 2.0}],
+            )
+
+    monkeypatch.setattr("rra.composition.build_eval", lambda settings, **kw: FakeEval(**kw))
+    out = tmp_path / "B.json"
+    argv = ["eval", "--label", "B", "--only", "01", "--runs-dir", str(tmp_path / "runs")]
+    argv += ["--out", str(out), "--finalize", "--concurrent", "3", "--local-check", "off"]
+    assert cli.main(argv) == cli.EXIT_OK
+    assert seen["final_review"] is True and seen["finalize"] is True  # --finalize 는 ⑤ 포함
+    assert seen["concurrent"] == 3 and seen["local_check"] is False
+    assert seen["department"] is None and seen["ideas"] == ["01_track_irregularity"]
+    assert seen["closed"] and json.loads(out.read_text(encoding="utf-8"))["mode"] == "concurrent"
+    assert "묶음 0 (1건 동시)" in capsys.readouterr().out
+    assert cli.main(["eval", "--label", "B", "--concurrent", "0"]) == cli.EXIT_USAGE
+
+
 # ── 자료원 IP 확인 (레인 I) ───────────────────────────────
 IP_NOTICE = "현재 IP 203.0.113.9 가 NTIS 국가R&D 과제 등록 IP 에 없습니다. 활용신청에 추가하세요"
 
