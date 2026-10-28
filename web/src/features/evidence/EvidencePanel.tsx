@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import { SUPPORT_VARIANT } from "@/lib/sections";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { LiveBadge } from "@/features/live/LiveBadge";
 
 export const EVIDENCE_ALERT_CODES = new Set(["evidence_mismatch", "evidence_all_excluded"]);
 const ACTIONS: { id: DecisionAction; label: string }[] = [
@@ -67,6 +68,7 @@ function EvidenceCard({
       </div>
       <div className="flex flex-wrap items-center gap-1 text-xs">
         <Badge variant="secondary">{item.source_label}</Badge>
+        {item.live && <LiveBadge />}
         {item.orgs.length > 0 && <span className="text-muted-foreground">{item.orgs.join(", ")}</span>}
         <span className="text-muted-foreground">{item.year ?? "연도 미상"}</span>
         <span className="text-muted-foreground">수집 {item.ingested_at ? formatDate(item.ingested_at) : "미상"}</span>

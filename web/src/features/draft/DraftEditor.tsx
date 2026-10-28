@@ -33,6 +33,8 @@ export interface DraftEditorProps {
   sectionTools?: (section: VersionSection) => React.ReactNode;
   /** 섹션 머리 아래 한 줄 전체 (그림 카드) */
   sectionExtra?: (section: VersionSection) => React.ReactNode;
+  /** 섹션 제목 옆 배지 (로컬 작성·대체 작성) */
+  sectionBadges?: (section: VersionSection) => React.ReactNode;
 }
 
 function AnnotationList({ items, state, onChange, disabled }: { items: Annotation[]; state: EditState; onChange: (s: EditState) => void; disabled?: boolean }) {
@@ -167,7 +169,7 @@ function SentenceEditor({
   );
 }
 
-export function DraftEditor({ sections, annotations, revisions, state, onChange, disabled, sectionTools, sectionExtra }: DraftEditorProps) {
+export function DraftEditor({ sections, annotations, revisions, state, onChange, disabled, sectionTools, sectionExtra, sectionBadges }: DraftEditorProps) {
   const rows: Row[] = [];
   for (const sec of sections) {
     rows.push({ kind: "header", key: `h:${sec.key}`, section: sec });
@@ -190,7 +192,10 @@ export function DraftEditor({ sections, annotations, revisions, state, onChange,
       return (
         <div className="mt-6 border-b pb-2 first:mt-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-base font-semibold">{sectionTitle(sec.key)}</h3>
+            <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
+              {sectionTitle(sec.key)}
+              {sectionBadges?.(sec)}
+            </h3>
             {sectionTools?.(sec)}
             {!CHOICE_SECTIONS.has(sec.key) || sec.sentences.length > 0 ? (
               <Label className="flex items-center gap-1.5 text-sm">

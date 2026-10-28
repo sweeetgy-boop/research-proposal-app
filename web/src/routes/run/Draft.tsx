@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BookOpen, RefreshCw } from "lucide-react";
 import { useRunContext } from "./useRunContext";
 import { keys, useDraft, useDraftReview, useOutline, useSubmitCheck, useVersion } from "@/api/hooks";
-import type { Citation, DraftSection, FailedSection, FallbackSection, Problem_, VersionSection } from "@/api/types";
+import type { Citation, DraftSection, FailedSection, FallbackSection, Problem_, SectionWriter, VersionSection } from "@/api/types";
 import { SectionRewrite } from "@/features/rewrite/SectionRewrite";
 import { useToast } from "@/components/ui/toast";
 import { EvidencePanel } from "@/features/evidence/EvidencePanel";
@@ -21,6 +21,9 @@ import { VirtualList } from "@/components/VirtualList";
 import { EvidenceChips } from "@/features/draft/EvidenceChips";
 import { ReviewPanel } from "@/features/draft/ReviewPanel";
 import { sectionTitle, CHOICE_SECTIONS } from "@/lib/sections";
+import { WriterBadges } from "@/features/draft/WriterBadges";
+import { LiveBadge } from "@/features/live/LiveBadge";
+import { LOCAL_EVIDENCE_MISMATCH, LOCAL_EVIDENCE_MISMATCH_LABEL } from "@/lib/writer";
 
 type Row =
   | { kind: "header"; key: string; section: DraftSection | VersionSection }
@@ -42,6 +45,8 @@ function SectionHeader({
   failed,
   onRegenerate,
   fallback,
+  local,
+  writer,
 }: {
   section: DraftSection | VersionSection;
   /** 빈 초안 금지(ADR 0027): 로컬 작성 실패 → 빈칸 + "이 섹션 다시 생성" (현재 버전에서만) */
@@ -49,17 +54,16 @@ function SectionHeader({
   onRegenerate?: (key: string) => void;
   /** 대체 작성(ADR 0027): 로컬 2회 실패 뒤 외부 LLM 이 쓴 섹션 — 배지만 */
   fallback?: FallbackSection;
+  /** [3] Argon 실패 뒤 로컬 모델이 쓴 섹션 — "로컬 작성" 배지 */
+  local?: boolean;
+  writer?: SectionWriter;
 }) {
   const choices = "choices" in section && section.choices && !Array.isArray(section.choices) ? section.choices : null;
   return (
     <div id={`sec-${section.key}`} className="mt-6 scroll-mt-24 border-b pb-1 first:mt-0">
       <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
         {sectionTitle(section.key)}
-        {fallback && (
-          <Badge variant="secondary" title={`로컬 모델 실패(${fallback.reason}) 뒤 ${fallback.provider}/${fallback.model} 이 작성`}>
-            대체 작성
-          </Badge>
-        )}
+        <WriterBadges local={local} writer={writer} fallback={fallback} />
       </h3>
       {choices && (
         <p className="mt-1 text-sm">
@@ -190,6 +194,10 @@ export default function Draft() {
   const d = draft.data;
   const failedByKey = new Map<string, FailedSection>((d.failed_sections ?? []).map((f) => [f.key, f]));
   const fallbackByKey = new Map<string, FallbackSection>((d.fallback_sections ?? []).map((f) => [f.key, f]));
+  const localKeys = new Set(d.local_sections ?? []);
+  const writers = d.writers ?? {};
+  const localMismatchProblems = d.problems.filter((p) => p.code === LOCAL_EVIDENCE_MISMATCH).length;
+  const localMismatches = Math.max(d.local_check?.mismatches ?? 0, localMismatchProblems);
   const sections: (DraftSection | VersionSection)[] = selected === null ? d.sections : (version.data?.sections ?? []);
   const figures = selected === null ? (d.figures ?? []) : (version.data?.figures ?? []);
   const rows = toRows(sections);
@@ -209,7 +217,7 @@ export default function Draft() {
   const renderRow = (row: Row) =>
     row.kind === "header" ? (
       <>
-        <SectionHeader section={row.section} failed={selected === null ? failedByKey.get(row.section.key) : undefined} onRegenerate={selected === null ? setRegenerateKey : undefined} fallback={fallbackByKey.get(row.section.key)} />
+        <SectionHeader section={row.section} failed={selected === null ? failedByKey.get(row.section.key) : undefined} onRegenerate={selected === null ? setRegenerateKey : undefined} fallback={fallbackByKey.get(row.section.key)} local={localKeys.has(row.section.key)} writer={writers[row.section.key]} />
         {row.section.key !== "title" && (
           <div className="mt-3">
             <FigureList
@@ -274,6 +282,14 @@ export default function Draft() {
             <AlertTriangle className="size-4" aria-hidden="true" />
             알림 {d.problems.length}건
           </h2>
+          {d.local_check?.enabled && (
+            <p className="mb-2 text-sm" data-testid="local-check">
+              <Badge variant={localMismatches > 0 ? "warning" : "success"}>{LOCAL_EVIDENCE_MISMATCH_LABEL} {localMismatches}건</Badge>
+              {d.local_check.skipped_sections.length > 0 && (
+                <span className="ml-2 text-muted-foreground">대조 건너뜀: {d.local_check.skipped_sections.map(sectionTitle).join(", ")}</span>
+              )}
+            </p>
+          )}
           {d.problems.length === 0 ? (
             <p className="text-sm text-muted-foreground">규칙 검사 알림이 없습니다.</p>
           ) : (
@@ -281,6 +297,7 @@ export default function Draft() {
               {d.problems.map((p, i) => (
                 <li key={i} className="flex flex-wrap gap-1">
                   <Badge variant={p.severity === "error" ? "destructive" : "warning"}>{p.severity}</Badge>
+                  {p.code === LOCAL_EVIDENCE_MISMATCH && <Badge variant="outline">{LOCAL_EVIDENCE_MISMATCH_LABEL}</Badge>}
                   <span className="text-muted-foreground">
                     {sectionTitle(p.section)}
                     {p.sentence !== null ? ` 문장 ${p.sentence + 1}` : ""}:
@@ -306,6 +323,7 @@ export default function Draft() {
                 <li key={c.id}>
                   <UntrustedText text={c.title ?? c.doc_id} className="font-medium" />
                   <span className="ml-1 font-mono text-xs text-muted-foreground">{c.id}</span>
+                  {c.live && <LiveBadge className="ml-1" />}
                 </li>
               ))}
             </ol>

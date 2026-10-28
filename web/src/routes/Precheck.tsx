@@ -12,6 +12,7 @@ import { RelatedResearchList } from "@/features/idea/RelatedResearchList";
 import { RecommendationCards } from "@/features/idea/RecommendationCards";
 import { DifferentiationPanel } from "@/features/idea/DifferentiationPanel";
 import { NtisInsights } from "@/features/idea/NtisInsights";
+import { LiveSearchPanel } from "@/features/live/LiveSearchPanel";
 import { NATIONAL_RND } from "@/lib/tiers";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -149,6 +150,8 @@ export default function Precheck() {
       </section>
 
       {pre.related_research ? <RelatedResearchList items={pre.related_research} /> : null}
+
+      {pre.live_search ? <LiveSearchPanel live={pre.live_search} /> : null}
 
       {hasNtis ? <NtisInsights data={ntis.data} loading={ntis.isPending} unavailable={!!ntis.error} /> : null}
 

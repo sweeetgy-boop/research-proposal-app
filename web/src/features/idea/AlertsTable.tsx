@@ -4,6 +4,7 @@ import { UntrustedText } from "@/components/UntrustedText";
 import { EmptyState } from "@/components/EmptyState";
 import { ShieldCheck } from "lucide-react";
 import { tierLabel } from "@/lib/tiers";
+import { LiveBadge } from "@/features/live/LiveBadge";
 
 export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
   if (alerts.length === 0) {
@@ -29,6 +30,7 @@ export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
               <td className="px-3 py-2 whitespace-nowrap">{tierLabel(a)}</td>
               <td className="px-3 py-2">
                 <UntrustedText text={a.title} className="font-medium" />
+                {a.live && <LiveBadge className="ml-2 align-middle" />}
                 <p className="text-xs text-muted-foreground">{a.doc_id}{a.basis ? ` · ${a.basis}` : ""}</p>
               </td>
               <td className="px-3 py-2 tabular-nums">{a.similarity.toFixed(3)}</td>

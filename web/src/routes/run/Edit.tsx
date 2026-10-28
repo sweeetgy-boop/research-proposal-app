@@ -22,6 +22,7 @@ import { ProblemBanner } from "@/components/ProblemBanner";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
 import { sectionTitle } from "@/lib/sections";
+import { WriterBadges } from "@/features/draft/WriterBadges";
 
 const EDITABLE = new Set(["drafted", "editing", "final_reviewed"]);
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "saved"; at: string } | { kind: "error"; error: unknown };
@@ -207,6 +208,13 @@ export default function Edit() {
             </span>
           ) : null
         }
+        sectionBadges={(sec) => (
+          <WriterBadges
+            local={(draft.data?.local_sections ?? []).includes(sec.key)}
+            writer={draft.data?.writers?.[sec.key]}
+            fallback={(draft.data?.fallback_sections ?? []).find((f) => f.key === sec.key)}
+          />
+        )}
         sectionExtra={(sec) =>
           sec.key !== "title" ? (
             <FigureList runId={id} figures={figures} section={sec.key} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} />

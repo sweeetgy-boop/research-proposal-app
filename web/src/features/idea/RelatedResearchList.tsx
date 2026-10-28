@@ -2,6 +2,7 @@ import { BookOpen, ExternalLink } from "lucide-react";
 import type { RelatedResearch } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { UntrustedText } from "@/components/UntrustedText";
+import { LiveBadge } from "@/features/live/LiveBadge";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   paper: "논문",
@@ -30,6 +31,7 @@ export function RelatedResearchList({ items }: { items: RelatedResearch[] }) {
           {items.map((r) => (
             <li key={r.doc_id} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-sm">
               <Badge variant="outline">참고</Badge>
+              {r.live && <LiveBadge />}
               <div className="min-w-0 flex-1">
                 <UntrustedText text={r.title} className="font-medium" />
                 <p className="text-xs text-muted-foreground">
