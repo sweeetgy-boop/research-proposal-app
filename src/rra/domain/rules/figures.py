@@ -57,6 +57,7 @@ from rra.domain.models.figure import (
 )
 from rra.domain.models.request import ProposalRequest
 from rra.domain.models.table_fact import TableFact
+from rra.domain.rules import figure_fit
 from rra.domain.rules.numbers import numbers
 from rra.domain.rules.schedule import TARGET_UNKNOWN, research_period_months
 from rra.domain.rules.techniques import LEVELS, PM, technique_texts
@@ -605,42 +606,22 @@ _PALETTE_HINT: dict[str, str] = {
     "schedule": "남색·청록 계열, 단계마다 명도를 달리한 막대",
 }
 _DEFAULT_PALETTE = "남색·청록 계열 기본, 핵심 한 곳만 주황 강조"
-# Nano Banana imageConfig.aspectRatio 가 받는 값 중 이 앱이 쓰는 것
-ASPECTS: tuple[str, ...] = ("21:9", "16:9", "3:2", "4:3", "1:1")
+# [23] 가로 비율만 쓴다 (domain/rules/figure_fit). 4:1 은 생성 API 가 받지 않아 21:9 로 만든 뒤 맞춘다
+ASPECTS: tuple[str, ...] = ("16:9", "21:9", "4:1")
 
 
-def choose_aspect(spec: BaseModel) -> str:
-    """내용 양으로 비율을 고른다 — 빈 공간이 크게 남지 않게 (v2 [4]). 밑그림·그림 생성이 같은 값."""
-    if isinstance(spec, AsIsToBeSpec):
-        return "3:2" if max(len(spec.as_is), len(spec.to_be)) >= 4 else "16:9"
-    if isinstance(spec, TechniqueSpec):
-        if spec.rows:
-            return "4:3" if len(spec.rows) >= 5 else "16:9"
-        n = len(spec.groups)
-        most = max((len(g.items) for g in spec.groups), default=1)
-        if n == 4:
-            return "4:3"
-        if n >= 5:
-            return "3:2"
-        if most >= 4:
-            return "4:3"
-        return "21:9" if most <= 2 else "16:9"  # 묶음 2~3개에 항목이 적으면 낮고 넓게
-    if isinstance(spec, ConceptSpec):
-        return "21:9" if sum(len(b.lines) for b in spec.boxes) <= 4 else "16:9"
-    if isinstance(spec, ProcessSpec):
-        return "16:9" if any(len(s.outputs) >= 2 for s in spec.stages) else "21:9"
-    if isinstance(spec, ScheduleSpec):
-        n = len(spec.stages)
-        return "21:9" if n <= 4 else ("16:9" if n <= 6 else "3:2")
-    if isinstance(spec, StatChartSpec):
-        return "21:9" if len(spec.categories) > 6 else "16:9"
-    if isinstance(spec, ComparisonSpec):
-        return "4:3" if len(spec.aspects) >= 4 or len(spec.projects) >= 3 else "16:9"
-    return "16:9"
+def choose_aspect(spec: BaseModel, *, arrange: str | None = None) -> str:
+    """내용 양으로 비율 — [23] 모두 가로로 넓게(16:9·21:9, 일정표·로드맵 21:9·4:1). 밑그림·그림 생성이 같은 값."""
+    return figure_fit.choose_aspect(spec, arrange=arrange)
 
 
 def image_prompt(
-    spec: BaseModel, *, caption: str = "", style: str = "", aspect: str | None = None
+    spec: BaseModel,
+    *,
+    caption: str = "",
+    style: str = "",
+    aspect: str | None = None,
+    arrange: str | None = None,
 ) -> str:
     """Nano Banana Pro 프롬프트 — v2 [4]: 밑그림은 내용 구조만 알려 주고, 색 강조·아이콘·제목 계층·
     여백을 갖춘 인포그래픽으로 **새로 디자인**하게 한다(예전 "배치 그대로 유지" 는 회색 밑그림을
@@ -649,15 +630,23 @@ def image_prompt(
     비율만 지키게 한다. style 은 [말로 고치기]의 모양 요청 — 밑그림에서 새로 그릴 때 덧붙인다."""
     kind = str(getattr(spec, "kind", ""))
     label = spec.title if isinstance(spec, TechniqueSpec) else KIND_LABEL.get(kind, "그림")
-    ratio = aspect or choose_aspect(spec)
+    ratio = aspect or choose_aspect(spec, arrange=arrange)
+    sent = figure_fit.api_aspect(ratio)
     data_fixed = isinstance(spec, (StatChartSpec, ScheduleSpec))
     titled = isinstance(spec, (TechniqueSpec, StatChartSpec))  # 제목 글자가 목록에 있는 종류
     lines = [
         f"공공기관 연구과제 제안서에 넣을 전문 인포그래픽({label})을 새로 디자인하라. "
-        f"가로세로 비율 {ratio}.",
+        f"가로세로 비율 {sent}.",
+        (
+            f"내용은 캔버스 가운데 가로 {ratio} 띠 안에만 그리고 위아래는 흰 여백으로 둔다(띠 밖은 잘라 낸다)."
+            if sent != ratio
+            else ""
+        ),
+        "가로로 넓게 배치, 좌우 여백 최소: 묶음·상자는 왼쪽에서 오른쪽으로 나란히 놓고, 그림이 캔버스 폭을 "
+        "거의 다 쓰게 한다. 세로로 쌓지 않는다.",
         "참고 이미지는 무엇이 어느 묶음에 속하는지, 순서와 화살표 방향만 알려 주는 밑그림이다. "
         "회색 상자 배치를 그대로 베끼지 말고 아래 디자인 규칙으로 완성도 있게 다시 그려라.",
-        _layout_hint(spec),
+        _layout_hint(spec, arrange),
         "[디자인]",
         (
             "- 제목 계층: 그림 제목(목록 첫 글자, 가장 크고 굵게) → 묶음 머리글(색 띠) → "
@@ -675,7 +664,8 @@ def image_prompt(
         "모양(실선·점선·"
         "굵기)·도형 모양을 함께 쓴다.",
         "- 여백은 고르게, 큰 빈 공간 없이 그림 전체를 채운다. 상자 크기는 글자 양에 맞춘다.",
-        "- 글씨는 크게: 제안서 본문 폭(약 15cm)으로 줄여 넣어도 읽히게, 상자 하나에 1~2줄.",
+        "- 글씨는 크게: 제안서 본문 폭(약 15cm)으로 줄여 넣어도 9~10pt 이상으로 읽히게(그림 폭의 약 2% 이상 "
+        "높이), 상자 하나에 1~2줄. 작은 보조 글씨를 따로 두지 않는다.",
         "- 흰 배경. 그림 번호·캡션 문구는 그림 안에 넣지 않는다.",
         (
             "- 데이터: 막대 길이·기간 비율·값 순서는 참고 이미지와 같게 지킨다."
@@ -694,45 +684,73 @@ def image_prompt(
         if style.strip()
         else "",
         "글자 목록:",
-        *[f"- {t}" for t in texts_of(spec)],
+        *[f"- {t}" for t in _drawn_texts(spec)],
     ]
     if caption:
         lines.append(f"그림 제목(그림 안에 넣지 않는다): {caption}")
     return "\n".join(x for x in lines if x)
 
 
-def _layout_hint(spec: BaseModel) -> str:
+def _drawn_texts(spec: BaseModel) -> list[str]:
+    """그림 안에 그릴 글자 — [23] 수치 그래프 출처는 HWPX 캡션 아래 12pt 출처 줄이 맡으므로 그림에서 뺀다."""
+    texts = texts_of(spec)
+    if isinstance(spec, StatChartSpec):
+        cap = spec.source.caption()
+        texts = [t for t in texts if t != cap]
+    return texts
+
+
+def technique_arrangement(spec: TechniqueSpec, arrange: str | None = None) -> str:
+    """분석 기법 그림 배치 — techniques.yaml arrange, 없으면 모양으로 (표 / 2묶음 좌우 / 5묶음 이상 두 줄 /
+    나머지 한 줄)."""
+    if spec.rows:
+        return "table"
+    if arrange in figure_fit.ARRANGEMENTS and arrange != "table":
+        if arrange in ("row", "flow") and len(spec.groups) >= 5:
+            return "grid"
+        return arrange
+    n = len(spec.groups)
+    if n == 2:
+        return "split"
+    return "grid" if n >= 5 else "row"
+
+
+def _layout_hint(spec: BaseModel, arrange: str | None = None) -> str:
     if isinstance(spec, AsIsToBeSpec):
         return (
-            f"구조: 왼쪽 '{AS_IS_HEAD}' 칸 {len(spec.as_is)}개(현황·원인·한계), 오른쪽 "
-            f"'{TO_BE_HEAD}' 칸 {len(spec.to_be)}개(목표·해결 방안·기대효과), 가운데 "
-            f"큰 화살표 위에 "
-            f"핵심 해결 방안 한 줄 '{spec.solution}'. 칸마다 작은 이름표(현황·원인…)를 붙인다."
+            f"구조: 왼쪽·오른쪽 두 단. 왼쪽 단 '{AS_IS_HEAD}' 칸 {len(spec.as_is)}개(현황·원인·한계), 오른쪽 단 "
+            f"'{TO_BE_HEAD}' 칸 {len(spec.to_be)}개(목표·해결 방안·기대효과), 두 단 사이 가운데에 "
+            f"오른쪽을 향한 큰 화살표와 핵심 해결 방안 한 줄 '{spec.solution}'. 칸마다 작은 이름표(현황·원인…)를 붙인다."
         )
     if isinstance(spec, TechniqueSpec):
         if spec.rows:
             return (
-                f"구조: 평가 표. 열 {len(spec.columns)}개({', '.join(spec.columns)}), 기준(행) "
-                f"{len(spec.rows)}개. 칸의 기호(+·0·− 또는 상·중·하)는 기호 모양과 색 진하기로 "
-                f"구분한다. 표 아래에 '{spec.note}' 를 작게."
+                f"구조: 가로로 넓은 평가 표. 열 {len(spec.columns)}개({', '.join(spec.columns)})를 왼쪽에서 "
+                f"오른쪽으로, 기준(행) {len(spec.rows)}개. 칸의 기호(+·0·− 또는 상·중·하)는 기호 모양과 색 "
+                f"진하기로 구분한다. 표 아래에 '{spec.note}' 를 본문과 같은 크기로."
             )
         names = ", ".join(g.name for g in spec.groups)
-        grid = "2×2 사분면" if len(spec.groups) == 4 else f"{len(spec.groups)}개 묶음"
+        n = len(spec.groups)
+        how = {
+            "row": f"묶음 {n}개({names})를 가로 한 줄에 나란히(세로로 쌓지 않는다)",
+            "split": f"묶음 2개({names})를 왼쪽·오른쪽 두 단으로 마주 보게, 가운데에 구분선",
+            "flow": f"묶음 {n}개({names})를 가로 한 줄에 놓고 묶음 사이를 오른쪽 화살표로 잇는다",
+            "grid": f"묶음 {n}개({names})를 가로 두 줄(한 줄에 {(n + 1) // 2}개)로",
+        }[technique_arrangement(spec, arrange)]
         return (
-            f"구조: {grid}({names}). 묶음마다 항목 1~4개, 항목 옆 강도·금액(상·중·하, "
-            f"산출 필요 등)은 "
-            f"작은 배지로. 아래에 '{spec.note}' 를 작게."
+            f"구조: {how}. 묶음마다 항목 1~4개, 항목 옆 강도·금액(상·중·하, 산출 필요 등)은 "
+            f"배지로. 아래에 '{spec.note}' 를 본문과 같은 크기로."
         )
     if isinstance(spec, ConceptSpec):
-        return "구조: 4단계 흐름(현황 → 문제 → 해결 방안 → 기대효과), 단계 사이 화살표."
+        return "구조: 가로 한 줄 4단계 흐름(현황 → 문제 → 해결 방안 → 기대효과), 단계 사이 화살표."
     if isinstance(spec, ProcessSpec):
         return (
-            f"구조: 단계 {len(spec.stages)}개를 왼쪽에서 오른쪽으로 화살표로 잇고, 단계마다 "
-            "산출물을 붙인다."
+            f"구조: 단계 {len(spec.stages)}개를 가로 한 줄로 왼쪽에서 오른쪽으로 화살표로 잇고, 단계마다 "
+            "아래에 산출물을 붙인다."
         )
     if isinstance(spec, ScheduleSpec):
         return (
-            f"구조: 간트 차트. 가로축 1~{spec.total_months}개월, 단계마다 가로 막대 하나. "
+            f"구조: 가로로 긴 간트 차트. 가로축 1~{spec.total_months}개월, 단계마다 가로 막대 하나. "
             "막대 길이 비율을 지켜라."
         )
     if isinstance(spec, StatChartSpec):
@@ -747,7 +765,10 @@ def _layout_hint(spec: BaseModel) -> str:
             f"{len(spec.projects)}개와 제안 과제(마지막 열 강조)."
         )
     if isinstance(spec, RoadmapSpec):
-        return "구조: 위쪽에 성과지표 상자들, 아래쪽에 활용 단계를 왼쪽에서 오른쪽 화살표로."
+        return (
+            "구조: 가로로 긴 두 줄 — 위 줄에 성과지표 상자들을 나란히, 아래 줄에 활용 단계를 왼쪽에서 "
+            "오른쪽 화살표로."
+        )
     return ""
 
 

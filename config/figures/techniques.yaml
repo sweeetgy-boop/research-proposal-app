@@ -10,11 +10,15 @@
 # groups: 고정 묶음 이름(그림 머리글). free_groups: true 면 묶음 이름을 제안 내용(대안·시나리오 이름)에서 쓴다.
 # columns: 비교·평가 표의 고정 열(앞쪽). free_columns: true 면 나머지 열은 제안의 대안 이름.
 # section: 그림이 붙는 양식 칸. min_groups: 최소 묶음 수(기본 = groups 개수).
+# arrange [23]: 그림 배치 — 모두 가로로 넓게(16:9·21:9). row = 묶음을 가로 한 줄(SWOT 네 칸 한 줄), split = 좌우 두 단
+#   (비용 | 편익, 추진력 | 저항력), flow = 한 줄 + 오른쪽 화살표(절차·투입→산출), grid = 가로 두 줄(묶음 5개 이상),
+#   table = 비교·평가 표(열 = 대안). 밑그림(adapters/figures)과 그림 프롬프트(rules.figures._layout_hint)가 같은 배치.
 
 techniques:
   - key: swot
     label: SWOT 분석
     family: qualitative
+    arrange: row
     section: tech_importance
     groups: [강점, 약점, 기회, 위협]
     summary: 연구 대상(기술·조직·사업)의 내부 강점·약점과 외부 기회·위협을 네 칸으로 정리한다.
@@ -23,6 +27,7 @@ techniques:
   - key: tows
     label: TOWS 전략 매트릭스
     family: qualitative
+    arrange: row
     section: method
     groups: [SO 전략, WO 전략, ST 전략, WT 전략]
     summary: SWOT 의 내부·외부 요인을 짝지어 강점-기회(SO)·약점-기회(WO)·강점-위협(ST)·약점-위협(WT) 전략을 도출한다.
@@ -31,6 +36,7 @@ techniques:
   - key: pmi
     label: PMI 분석
     family: qualitative
+    arrange: row
     section: tech_importance
     groups: [Plus(장점), Minus(단점), Interesting(흥미로운 점)]
     summary: 제안하는 방안의 장점·단점·흥미로운 점(추가 검토 거리)을 나눠 본다.
@@ -39,6 +45,7 @@ techniques:
   - key: force_field
     label: 역장분석(Force Field)
     family: qualitative
+    arrange: split
     section: tech_importance
     groups: [추진력, 저항력]
     summary: 변화(연구 결과 적용)를 밀어 주는 힘과 가로막는 힘을 양쪽에 놓고 강도를 비교한다.
@@ -47,6 +54,7 @@ techniques:
   - key: six_hats
     label: 6색 사고모자
     family: qualitative
+    arrange: grid
     section: method
     groups: [하양(사실), 빨강(직관), 검정(위험), 노랑(이점), 초록(대안), 파랑(진행)]
     min_groups: 4
@@ -56,6 +64,7 @@ techniques:
   - key: pestel
     label: PEST(EL) 분석
     family: qualitative
+    arrange: grid
     section: tech_importance
     groups: [정치, 경제, 사회, 기술, 환경, 법·제도]
     min_groups: 4
@@ -65,6 +74,7 @@ techniques:
   - key: weighted_matrix
     label: 가중치 평가 매트릭스
     family: evaluation
+    arrange: table
     section: method
     scale: level
     columns: [가중치]
@@ -75,6 +85,7 @@ techniques:
   - key: pugh
     label: 퓨 매트릭스(Pugh)
     family: evaluation
+    arrange: table
     section: method
     scale: pm
     free_columns: true
@@ -84,6 +95,7 @@ techniques:
   - key: ahp
     label: AHP(계층분석)
     family: evaluation
+    arrange: table
     section: method
     scale: level
     columns: [중요도]
@@ -94,6 +106,7 @@ techniques:
   - key: topsis
     label: TOPSIS
     family: evaluation
+    arrange: table
     section: method
     scale: level
     free_columns: true
@@ -103,6 +116,7 @@ techniques:
   - key: fmea
     label: FMEA(고장모드·영향분석)
     family: evaluation
+    arrange: table
     section: method
     scale: level
     columns: [심각도, 발생도, 검출 난이도]
@@ -112,6 +126,7 @@ techniques:
   - key: cost_benefit
     label: 비용-편익 분석
     family: economic
+    arrange: split
     section: expected_management
     groups: [비용, 편익]
     summary: 연구·적용에 드는 비용과 얻는 편익을 항목별로 나누고 금액으로 견준다.
@@ -120,6 +135,7 @@ techniques:
   - key: cost_effectiveness
     label: 비용-효과 분석
     family: economic
+    arrange: split
     section: expected_management
     groups: [비용, 효과]
     summary: 비용 대비 금액으로 바꾸기 어려운 효과(안전도·정확도·시간)를 견준다.
@@ -128,6 +144,7 @@ techniques:
   - key: lcc
     label: 생애주기비용(LCC)
     family: economic
+    arrange: flow
     section: expected_management
     groups: [초기 투자비, 운영·유지비, 교체·폐기비]
     min_groups: 2
@@ -137,6 +154,7 @@ techniques:
   - key: sensitivity
     label: 민감도 분석
     family: economic
+    arrange: flow
     section: expected_management
     groups: [주요 변수, 영향 받는 결과]
     summary: 핵심 변수(단가·수요·고장률 등)가 바뀔 때 결과가 얼마나 달라지는지 본다.
@@ -145,6 +163,7 @@ techniques:
   - key: decision_tree
     label: 의사결정나무
     family: economic
+    arrange: flow
     section: method
     free_groups: true
     min_groups: 2
@@ -154,6 +173,7 @@ techniques:
   - key: scenario
     label: 시나리오 분석
     family: economic
+    arrange: row
     section: expected_management
     groups: [낙관 시나리오, 기준 시나리오, 비관 시나리오]
     min_groups: 2
@@ -163,6 +183,7 @@ techniques:
   - key: dea
     label: DEA(자료포락분석)
     family: economic
+    arrange: flow
     section: method
     groups: [투입 요소, 산출 요소]
     summary: 여러 단위(사업소·노선·설비)의 투입 대비 산출 효율을 비교한다.
@@ -171,6 +192,7 @@ techniques:
   - key: delphi
     label: 델파이 기법
     family: procedure
+    arrange: flow
     section: method
     groups: [전문가 패널, 조사 라운드, 합의 기준]
     min_groups: 2
@@ -180,6 +202,7 @@ techniques:
   - key: systematic_review
     label: 체계적 문헌고찰·메타분석
     family: procedure
+    arrange: flow
     section: method
     groups: [검색 범위, 선정 기준, 분석·종합]
     min_groups: 2
