@@ -159,7 +159,7 @@ describe("② 화면 조각", () => {
     const onPick = vi.fn();
     const onRegenerate = vi.fn();
     const { container } = renderWithProviders(
-      <PlanCards rec={CARDS} loading={false} chosenIndex={null} stale onPick={onPick} onKeepOriginal={vi.fn()} onWrite={vi.fn()} onRegenerate={onRegenerate} />,
+      <PlanCards rec={CARDS} waiting={{ pending: false, elapsed: 0, cancelled: false, onCancel: vi.fn() }} chosenIndex={null} stale onPick={onPick} onKeepOriginal={vi.fn()} onWrite={vi.fn()} onRegenerate={onRegenerate} />,
     );
     expect(screen.getByText("구간별 진행 속도 추정")).toBeInTheDocument();
     expect(screen.getByText("검측 이력 분석")).toBeInTheDocument();

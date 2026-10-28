@@ -30,6 +30,8 @@ export interface IdeaState {
   originalPlan: Record<PlanField, string> | null;
   /** 지금 입력의 과제안 출처 */
   planSource: "original" | "card" | "edited";
+  /** ② [선택 적용] 한 선택 — 비교표·활용 제안·과제안 근거는 이 선택으로 만든다 (레인 A, ADR 0039) */
+  appliedChoices: Record<string, SimilarChoiceValue> | null;
 }
 
 const KEY = "rra-idea";
@@ -54,6 +56,7 @@ function initial(): IdeaState {
     planSig: null,
     originalPlan: null,
     planSource: "original",
+    appliedChoices: null,
   };
 }
 
@@ -87,7 +90,7 @@ export function updateIdea(patch: Partial<IdeaState>): void {
   // 새 유사과제 확인 결과가 오면(① 에서 다시 확인) 이전 아이디어의 선택·과제안 상태를 비운다
   const fresh = patch.precheck !== undefined && patch.precheck !== state.precheck && !("similarChoices" in patch);
   state = fresh
-    ? { ...state, similarChoices: {}, planSig: null, originalPlan: null, planSource: "original", ...patch }
+    ? { ...state, similarChoices: {}, planSig: null, originalPlan: null, planSource: "original", appliedChoices: null, ...patch }
     : { ...state, ...patch };
   persist();
 }

@@ -16,12 +16,20 @@ A — e5 유사도는 철도 문서끼리 0.85~0.86 에 몰려 가르지 못한�
 - 결과는 입력 글(search_text) 해시로 메모한다(기본 30분). `__call__`(REST 후속 경로·MCP·추천·측정)은
   메모가 있으면 그 결과를, 없으면 AI 판정 없이 규칙 판정만 돌린다 — 추천의 자기 중복 검사가 추천마다
   외부 LLM 을 부르지 않게.
+
+2026-10-28 밤 레인 A (ADR 0039) — 표 먼저:
+- REST ② 는 `rule_stage(remember=True)` 로 규칙 판정 표를 먼저 돌려주고(메모에 "판정 전" 으로 남김),
+  AI 같음 판정은 `judgment(req)` 가 따로 한다. 같은 입력의 판정이 이미 돌고 있으면 새로 부르지 않고
+  그 작업을 기다린다(과제안 요청과 판정 요청이 같은 작업을 공유). 기다리는 쪽이 모두 취소되면 작업도
+  취소한다 — 화면 [취소] 는 그 작업만 멈춘다.
+- `current(req)` 는 지금 판정(진행 중이면 기다린 결과, 없으면 메모의 규칙 판정) — 과제안 근거용.
 """
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import time
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
@@ -37,6 +45,7 @@ from rra.domain.rules.overlap_candidates import OverlapCandidateRule
 from rra.domain.rules.retrieval_scope import overlap_candidates
 from rra.domain.rules.similar_choice import merge_same_titles
 
+logger = logging.getLogger("rra.precheck")
 KeywordSource = Callable[[ProposalRequest], Awaitable[Any]]  # → LiveKeywords (ko·origin)
 MEMO_MAX = 200
 
@@ -46,6 +55,17 @@ class _Memo:
     at: float
     rule_alerts: list[OverlapAlert]  # AI 판정 전(규칙) — [다시 시도] 가 다시 판정한다
     result: PrecheckResult
+    judged: bool = True  # False = 규칙 판정만(표 먼저 — AI 판정 전)
+
+
+class JudgmentCancelled(Exception):
+    """같은 입력의 AI 판정 작업이 (다른 요청의 [취소]로) 멈췄다."""
+
+
+@dataclass
+class _Inflight:
+    task: asyncio.Task
+    waiters: int = 0
 
 
 class PrecheckOverlap:
@@ -74,6 +94,7 @@ class PrecheckOverlap:
         self.memo_ttl = memo_ttl
         self._clock = clock
         self._memo: OrderedDict[str, _Memo] = OrderedDict()
+        self._inflight: dict[str, _Inflight] = {}
 
     async def __call__(self, req: ProposalRequest) -> list[OverlapAlert]:
         memo = self._get(req)
@@ -109,9 +130,13 @@ class PrecheckOverlap:
         core_keywords: list[str] | None = None,
         keyword_origin: str | None = None,
         keywords: bool = True,
+        research: bool = True,
+        remember: bool = False,
     ) -> PrecheckResult:
-        """규칙 판정까지(AI 판정 전). REST ② 는 이 결과로 과제 추천을 AI 판정과 동시에 돌린다.
-        keywords=True 이고 핵심어가 없으면 keyword_source(Argon 키워드)를 부른다."""
+        """규칙 판정까지(AI 판정 전). keywords=True 이고 핵심어가 없으면 keyword_source(Argon
+        키워드)를 부른다. research=False 면 관련 연구 검색을 건너뛴다(과제안 겹침 확인).
+        remember=True 면 "판정 전" 메모로 남겨 뒤의 `judgment` 가 검색을 다시 하지
+        않는다(표 먼저, ADR 0039)."""
         query = req.search_text()
         if keywords and core_keywords is None and self.keyword_source is not None:
             found = await self._keywords(req)
@@ -122,12 +147,12 @@ class PrecheckOverlap:
         scores: dict[str, float] | None = None
         if self.reranker is not None:
             # 관련 연구 검색은 reranker(스레드) 와 겹쳐 돌린다 — 지연 상한 2초
-            (hits, scores), research = await asyncio.gather(
-                self._rerank(query, hits), self._research(query)
+            (hits, scores), related = await asyncio.gather(
+                self._rerank(query, hits), self._research(query) if research else _nothing()
             )
         else:
             hits = sorted(hits, key=lambda ds: -ds[1])[: self.k]
-            research = await self._research(query)
+            related = await self._research(query) if research else []
         # judge 는 입력 순서(유사도 순 또는 reranker 순)를 차단 여부 안에서 유지한다
         alerts = judge(
             hits,
@@ -138,13 +163,18 @@ class PrecheckOverlap:
             rerank=self.rerank if scores is not None else None,
             core_keywords=core_keywords,
         )
-        return PrecheckResult(
+        result = PrecheckResult(
             alerts=merge_same_titles(alerts),
-            related_research=research,
+            related_research=related,
             judgment=JudgmentInfo(status="off"),
             core_keywords=list(core_keywords or []),
             keyword_origin=keyword_origin or "rule",
         )
+        if remember:
+            memo = self._get(req)
+            if memo is None or not memo.judged:  # 이미 AI 판정한 같은 입력은 덮어쓰지 않는다
+                self._put(req, _Memo(self._clock(), list(result.alerts), result, judged=False))
+        return result
 
     async def judge_stage(self, req: ProposalRequest, rule: PrecheckResult) -> PrecheckResult:
         """규칙 판정 결과에 AI 같음 판정을 붙이고 메모한다 (같은 입력의 후속 화면이 다시 쓴다)."""
@@ -154,6 +184,66 @@ class PrecheckOverlap:
             result = rule.model_copy(update={"alerts": alerts, "judgment": info})
         self._put(req, _Memo(self._clock(), list(rule.alerts), result))
         return result
+
+    async def judgment(self, req: ProposalRequest, *, retry: bool = False) -> PrecheckResult:
+        """AI 같음 판정(표 먼저 뒤). 같은 입력의 AI 판정 메모가 있으면 그것(retry=False), 진행 중인
+        판정이 있으면 그 작업을 기다린다. 메모가 없으면 전체(검색부터). 앱 제한 시간 없음 — 기다리는
+        쪽(화면 요청)이 모두 취소되면 작업도 취소된다."""
+        memo = self._get(req)
+        if (
+            not retry
+            and memo is not None
+            and memo.judged
+            and memo.result.judgment.status in ("ai", "no_candidates", "off")
+        ):
+            return memo.result
+        return await self._join(req, lambda: self.rejudge(req))
+
+    async def current(self, req: ProposalRequest) -> PrecheckResult | None:
+        """지금 판정 — 판정 전 메모면 AI 판정을 시작(또는 진행 중인 작업에 합류)해 기다린
+        결과, 판정이 끝난 메모면 그것, 메모가 없으면 None. 과제안(추천)이 AI 판정을
+        근거로 쓰게 한다 — 과제안 요청이 판정 요청보다 먼저 와도 판정은 한 번만 돈다."""
+        memo = self._get(req)
+        if memo is None:
+            return None
+        if self.same_judge is None or (memo.judged and self._key(req) not in self._inflight):
+            return memo.result
+        try:
+            return await self._join(req, lambda: self.rejudge(req))
+        except JudgmentCancelled:  # 판정을 화면이 취소 — 과제안은 규칙 판정으로
+            logger.info("precheck.judgment_cancelled")
+        except Exception as exc:  # 판정 작업 실패는 과제안을 막지 않는다 — 메모(규칙)로
+            logger.warning("precheck.judgment_failed err=%s", type(exc).__name__)
+        latest = self._get(req) or memo
+        return latest.result
+
+    async def _join(self, req: ProposalRequest, start: Callable[[], Awaitable[PrecheckResult]]):
+        key = self._key(req)
+        entry = self._inflight.get(key)
+        if entry is None or entry.task.done():
+            task = asyncio.ensure_future(start())
+            entry = _Inflight(task)
+            self._inflight[key] = entry
+
+            def _clear(_t: asyncio.Task, key: str = key, entry: _Inflight = entry) -> None:
+                if self._inflight.get(key) is entry:
+                    self._inflight.pop(key, None)
+                if not _t.cancelled():
+                    _t.exception()  # 결과를 아무도 안 읽어도 경고가 남지 않게
+
+            task.add_done_callback(_clear)
+        entry.waiters += 1
+        try:
+            return await asyncio.shield(entry.task)
+        except asyncio.CancelledError:
+            me = asyncio.current_task()
+            if me is not None and me.cancelling() == 0 and entry.task.cancelled():
+                raise JudgmentCancelled from None  # 다른 화면의 [취소]로 작업이 멈췄다
+            if not entry.task.done() and entry.waiters <= 1:
+                entry.task.cancel()  # 기다리는 화면이 없으면 작업도 멈춘다 ([취소])
+            raise
+        finally:
+            entry.waiters -= 1
 
     async def rejudge(self, req: ProposalRequest) -> PrecheckResult:
         """[다시 시도] — 규칙 판정(메모)은 그대로 두고 AI 같음 판정만 다시. 메모가 없으면 전체."""
@@ -239,3 +329,7 @@ class PrecheckOverlap:
             query, k=rule.research_k * 2, sources=rule.research_sources()
         )
         return rule.related_research(hits)
+
+
+async def _nothing() -> list:
+    return []

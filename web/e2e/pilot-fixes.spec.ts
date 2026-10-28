@@ -23,6 +23,7 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
   await rows.filter({ has: page.getByText("차단", { exact: true }) }).first().getByRole("button", { name: "관련 없음" }).click();
   await expect(next).toBeEnabled();
   await rows.filter({ hasNot: page.getByText("차단 해제") }).first().getByRole("button", { name: "유사함" }).click();
+  await page.getByRole("button", { name: "선택 적용" }).click(); // v3: [선택 적용] 으로 반영 (ADR 0039)
   await expect(page.getByRole("table", { name: /차별성 비교표/ })).toBeVisible();
 
   // 차별화 과제안 고르기

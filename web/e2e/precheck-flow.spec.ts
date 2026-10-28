@@ -23,6 +23,7 @@ test("② 유사함·관련 없음 선택 → 비교표 → 과제안 고르기�
 
   const other = rows.filter({ hasNot: page.getByText("차단 해제") }).first();
   await other.getByRole("button", { name: "유사함" }).click();
+  await page.getByRole("button", { name: "선택 적용" }).click(); // v3: 선택은 [선택 적용] 으로 반영 (ADR 0039)
   const compare = page.getByRole("table", { name: /차별성 비교표/ });
   await expect(compare).toBeVisible();
   await expect(compare.getByText("제안 과제")).toBeVisible();
