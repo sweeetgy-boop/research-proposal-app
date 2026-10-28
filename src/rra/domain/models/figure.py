@@ -50,6 +50,28 @@ KIND_LABEL: dict[str, str] = {
     "as_is_to_be": "As-Is / To-Be",
     "technique": "분석 기법",
 }
+# [23] 화면·버전 목록에 보이는 한국어 이름 (영문·내부 코드 없음). 분석 기법은 "분석 기법 그림 –
+# <기법 이름>"
+DISPLAY_NAME: dict[str, str] = {
+    "concept": "연구 개념도",
+    "process": "추진 체계도",
+    "schedule": "추진 일정표",
+    "stat_chart": "현황 수치 그래프",
+    "comparison": "차별성 비교표",
+    "roadmap": "성과지표·활용 로드맵",
+    "as_is_to_be": "현재·연구 후 비교 그림",
+    "technique": "분석 기법 그림",
+}
+
+
+def display_name(kind: str, technique_label: str | None = None) -> str:
+    """그림 종류 → 화면 이름. 분석 기법은 기법 이름을 붙인다 ("분석 기법 그림 – SWOT 분석")."""
+    base = DISPLAY_NAME.get(kind, "그림")
+    if kind == "technique" and technique_label:
+        return f"{base} – {technique_label}"
+    return base
+
+
 # 종류별 기본 섹션 (그림이 붙는 양식 칸). 같은 섹션에 여러 그림이 올 수 있다.
 KIND_SECTION: dict[str, str] = {
     "concept": "objective",
@@ -355,6 +377,30 @@ class TechniqueOutcome(BaseModel):
     at: str | None = None
 
 
+TextMethod = Literal["svg", "ocr", "baseline"]
+
+
+class FigureFit(BaseModel):
+    """[23] 그림이 본문 폭에 맞게 들어가는가 — 그림 단계(draw)가 남기고 HWPX 삽입 때 다시 잰다
+    (manifest `figure_fit`). 폭은 양식 본문 안쪽 폭, 높이는 비율로. 높이 상한은 쪽 높이의 1/3.
+    min_text_pt 는 본문 폭으로 넣었을 때 그림 안 가장 작은 글자 크기(pt) — 밑그림은 SVG 글자 크기로
+    계산(svg), Nano Banana 그림은 OCR 글자 상자 높이로 어림(ocr), OCR 을 못 쓰면 밑그림
+    값(baseline)."""
+
+    width_mm: float = Field(ge=0)
+    height_mm: float = Field(ge=0)
+    ratio: str = Field(
+        default="16:9", max_length=12
+    )  # 고른 비율 (생성 API 비율과 다를 수 있다: 4:1)
+    fits: bool = True  # 높이 ≤ 쪽 높이 1/3
+    min_text_pt: float | None = None
+    text_ok: bool = True  # min_text_pt ≥ 하한 (모르면 True)
+    text_method: TextMethod = "svg"
+    redraws: int = 0  # 넓은 비율·글자 줄이기로 다시 그린 횟수 (밑그림 + 그림)
+    shortened: int = 0  # 글자 크기를 맞추려고 줄인 칸 수
+    widened: bool = False  # 높이 상한 때문에 더 넓은 비율로 바꿨다
+
+
 class Figure(BaseModel):
     id: str  # "f:<section>:<n>"
     kind: FigureKind
@@ -378,12 +424,21 @@ class Figure(BaseModel):
     spec_model: str | None = None  # 명세를 쓴 모델 라벨 (Argon 먼저, 실패면 로컬 — [2])
     last_change: FigureChange | None = None  # 마지막 명세·모양 변경 요약 (버전이 바뀌어도 이어진다)
     recommendation: FigureRecommendation | None = None  # [11] 앱 추천 그림이면 (분석 기법)
+    fit: FigureFit | None = None  # [23] 본문 폭 맞춤 (비율·높이·글자 크기)
     created_at: str | None = None
     updated_at: str | None = None
 
     @property
     def label(self) -> str:
         return KIND_LABEL.get(self.kind, self.kind)
+
+    @property
+    def display_name(self) -> str:
+        """[23] 화면·버전 목록 이름 (한국어) — "현재·연구 후 비교 그림", "분석 기법 그림 –
+        SWOT
+        분석"."""
+        title = getattr(self.spec, "title", None) if self.kind == "technique" else None
+        return display_name(self.kind, title)
 
     @property
     def undecided(self) -> bool:
@@ -398,3 +453,4 @@ class FigurePlacement(BaseModel):
     placement: Placement = "inline"
     number: int = 1  # "그림 n"
     bytes: int = 0
+    fit: FigureFit | None = None  # [23] HWPX 에 넣은 실제 폭·높이·비율·글자 크기

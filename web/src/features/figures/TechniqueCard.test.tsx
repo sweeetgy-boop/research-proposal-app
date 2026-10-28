@@ -58,7 +58,7 @@ const listOut: FiguresOutV2 = {
   },
   technique_catalog: [
     { key: "swot", label: "SWOT 분석", family: "qualitative", family_label: "정성 분석", section: "tech_importance", summary: "s", fits: "f" },
-    { key: "pugh", label: "퓨 매트릭스(Pugh)", family: "evaluation", family_label: "비교·평가", section: "method", summary: "s", fits: "현행 방식과 제안 방식을 견줄 때" },
+    { key: "pugh", label: "퓨 매트릭스", family: "evaluation", family_label: "비교·평가", section: "method", summary: "s", fits: "현행 방식과 제안 방식을 견줄 때" },
   ],
 };
 
@@ -83,8 +83,8 @@ describe("분석 기법 추천 카드", () => {
     await userEvent.click(screen.getByText("항목 출처 2개"));
     expect(screen.getByText(/2-다 연구 방법 및 주요내용 문장 1/)).toBeInTheDocument();
     expect(screen.getByText(/제안 입력: 발생 원인/)).toBeInTheDocument();
-    for (const name of ["SWOT 분석 넣기 확정", "SWOT 분석 필요 없음", "SWOT 분석 다른 기법으로 바꾸기"]) expect(screen.getByRole("button", { name })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "SWOT 분석 빼기" })).toBeNull();
+    for (const name of ["분석 기법 그림 – SWOT 분석 넣기 확정", "분석 기법 그림 – SWOT 분석 필요 없음", "분석 기법 그림 – SWOT 분석 다른 기법으로 바꾸기"]) expect(screen.getByRole("button", { name })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "분석 기법 그림 – SWOT 분석 빼기" })).toBeNull();
     expect(container.textContent).not.toMatch(/s:method|input:root/); // 내부 id 를 보이지 않는다
     await expectNoA11yViolations(container);
   });
@@ -92,9 +92,9 @@ describe("분석 기법 추천 카드", () => {
   it("[넣기 확정]·[필요 없음] → action POST, 저장 뒤 onApplied", async () => {
     const { calls } = mockFetch({ [url]: saved });
     const { onApplied } = mount(swot);
-    await userEvent.click(screen.getByRole("button", { name: "SWOT 분석 넣기 확정" }));
+    await userEvent.click(screen.getByRole("button", { name: "분석 기법 그림 – SWOT 분석 넣기 확정" }));
     await waitFor(() => expect(onApplied).toHaveBeenCalledWith(3));
-    await userEvent.click(screen.getByRole("button", { name: "SWOT 분석 필요 없음" }));
+    await userEvent.click(screen.getByRole("button", { name: "분석 기법 그림 – SWOT 분석 필요 없음" }));
     await waitFor(() => expect(bodies(calls, url)).toHaveLength(2));
     expect(bodies(calls, url)).toEqual([
       { action: "accept", base_version: 2 },
@@ -105,7 +105,7 @@ describe("분석 기법 추천 카드", () => {
   it("[다른 기법으로 바꾸기] — 목록(현재 기법 제외)에서 골라 swap POST, axe 통과", async () => {
     const { calls } = mockFetch({ [`/v1/runs/${id}/figures`]: listOut, [url]: saved });
     const { onApplied } = mount(swot);
-    await userEvent.click(screen.getByRole("button", { name: "SWOT 분석 다른 기법으로 바꾸기" }));
+    await userEvent.click(screen.getByRole("button", { name: "분석 기법 그림 – SWOT 분석 다른 기법으로 바꾸기" }));
     const dialog = await screen.findByRole("dialog");
     const radio = await within(dialog).findByRole("radio", { name: /퓨 매트릭스/ });
     expect(within(dialog).queryByRole("radio", { name: /SWOT/ })).toBeNull();
@@ -129,9 +129,9 @@ describe("분석 기법 추천 카드", () => {
     const { calls } = mockFetch({ [url]: saved });
     const onApplied = vi.fn();
     const { container } = renderWithProviders(<FigureList runId={id} figures={[dismissed]} section="tech_importance" baseVersion={2} onApplied={onApplied} />);
-    expect(screen.queryByRole("group", { name: "SWOT 분석" })).toBeNull(); // 카드는 접힌다
+    expect(screen.queryByRole("group", { name: "분석 기법 그림 – SWOT 분석" })).toBeNull(); // 카드는 접힌다
     await userEvent.click(screen.getByText("필요 없다고 한 추천 그림 1장"));
-    await userEvent.click(screen.getByRole("button", { name: "SWOT 분석 다시 넣기" }));
+    await userEvent.click(screen.getByRole("button", { name: "분석 기법 그림 – SWOT 분석 다시 넣기" }));
     await waitFor(() => expect(onApplied).toHaveBeenCalledWith(3));
     expect(bodies(calls, url)).toEqual([{ action: "restore", base_version: 2 }]);
     await expectNoA11yViolations(container);

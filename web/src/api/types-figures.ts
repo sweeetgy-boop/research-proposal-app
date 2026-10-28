@@ -36,8 +36,31 @@ export interface FigureProvenanceRow {
   source_label: string;
 }
 
+/** [23] 본문 폭 맞춤 — 카드는 그림을 aspect_css 비율로 보이고 note 한 줄을 붙인다 */
+export interface FigureFitView {
+  /** 고른 비율 "16:9" | "21:9" | "4:1" */
+  ratio: string;
+  /** CSS aspect-ratio 값 "21 / 9" */
+  aspect_css: string;
+  width_mm: number;
+  height_mm: number;
+  /** 높이 ≤ 쪽 높이 1/3 */
+  fits: boolean;
+  min_text_pt: number | null;
+  text_ok: boolean;
+  shortened: number;
+  /** "본문 폭 153.8mm × 높이 65.9mm · 가장 작은 글자 약 9.3pt" */
+  note: string;
+}
+
 /** 그림 v2 필드 — 기법 그림이 아니면 technique 등은 null, provenance 는 빈 목록 */
 export interface FigureV2Fields {
+  /** [23] 화면·버전 목록 이름 (한국어) — "현재·연구 후 비교 그림", "분석 기법 그림 – SWOT 분석" */
+  display_name: string;
+  /** [23] 오류 코드 대신 보이는 한국어 한 줄 (오류 없으면 null) */
+  error_label: string | null;
+  /** [23] 본문 폭 맞춤 (옛 그림은 null) */
+  fit: FigureFitView | null;
   technique: string | null;
   family_label: string | null;
   prelim_note: string | null;

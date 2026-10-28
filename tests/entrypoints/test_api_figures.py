@@ -147,6 +147,11 @@ async def test_draft_lists_figures_and_image_routes_serve_files(client):
     )
     assert fig["texts"][0]["path"] == "stages.0.name" and fig["notice"].startswith("AI 가 그린")
     assert fig["spec_model"] == "local" and fig["last_change"] is None
+    # [23] 한국어 이름·오류 문구·본문 폭 맞춤 (가로 비율, 카드는 aspect_css 로 보인다)
+    assert fig["display_name"] == "추진 체계도" and fig["error_label"] is None
+    fit = fig["fit"]
+    assert fit["ratio"] in ("16:9", "21:9") and fit["aspect_css"] in ("16 / 9", "21 / 9")
+    assert fit["width_mm"] == 153.8 and fit["fits"] is True and fit["note"].startswith("본문 폭")
     assert fig["image_url"] == f"/v1/runs/{rid}/figures/{fig['id']}/image"
     img = await client.get(fig["image_url"], headers=AUTH)
     assert img.status_code == 200 and img.headers["content-type"] == "image/jpeg"
@@ -240,3 +245,17 @@ async def test_add_figure_route(client):
         f"/v1/runs/{rid}/figures", json={"kind": "poster", "section": "method"}, headers=AUTH
     )
     assert bad.status_code == 422
+
+
+def test_figure_view_labels_are_korean_without_codes():
+    from rra.domain.rules import figure_fit as fit
+    from rra.entrypoints.views import figure_error_label, figure_fit_view
+
+    assert figure_error_label(None) is None
+    assert "한도" in figure_error_label("budget")
+    assert "ConnectError" not in figure_error_label("ConnectError")
+    view = figure_fit_view(fit.make_fit(fit.BodyFrame(), "4:1", min_pt=9.3, shortened=2))
+    assert view["aspect_css"] == "4 / 1" and view["height_mm"] == 38.5
+    assert "2곳을 줄였습니다" in view["note"]
+    tall = figure_fit_view(fit.make_fit(fit.BodyFrame(153.8, 150.0), "16:9", min_pt=8.0))
+    assert "쪽의 1/3" in tall["note"]

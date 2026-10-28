@@ -91,6 +91,20 @@ LOCAL_CHECK_KEYS = frozenset(
 GEMINI_CALL_KEYS = frozenset({"compose", "review", "figures", "total"})
 LIVE_SEARCH_KEYS = frozenset({"status", "keywords", "sources", "documents"})
 LIVE_SOURCE_KEYS = frozenset({"source", "status", "count", "new", "seconds", "cached"})
+FIGURE_FIT_KEYS = frozenset(
+    {
+        "width_mm",
+        "height_mm",
+        "ratio",
+        "fits",
+        "min_text_pt",
+        "text_ok",
+        "text_method",
+        "redraws",
+        "shortened",
+        "widened",
+    }
+)
 FIGURE_KEYS = frozenset(
     {
         "id",
@@ -104,6 +118,7 @@ FIGURE_KEYS = frozenset(
         "error",
         "placement",
         "number",
+        "figure_fit",  # [23] 숫자·코드만 (FIGURE_FIT_KEYS)
     }
 )
 FAILED_SECTION_KEYS = frozenset({"key", "reason"})
@@ -265,6 +280,9 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
         extra = set(fig) - FIGURE_KEYS
         if extra:
             raise ValueError(f"manifest figures 에 허용되지 않은 키: {sorted(extra)}")
+        extra = set(fig.get("figure_fit") or {}) - FIGURE_FIT_KEYS
+        if extra:
+            raise ValueError(f"manifest figures.figure_fit 에 허용되지 않은 키: {sorted(extra)}")
     live = manifest.get("live_search") or {}
     extra = set(live) - LIVE_SEARCH_KEYS
     if extra:
