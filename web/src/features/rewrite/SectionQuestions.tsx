@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Wand2 } from "lucide-react";
 import { saveSectionAnswers } from "@/api/endpoints";
 import { sectionQuestionsV2 } from "@/api/editai";
+import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
+import { useElapsed } from "@/lib/useAiCall";
 import { isApiError } from "@/api/client";
 import { usabilityKeys } from "@/api/hooks";
 import { Badge } from "@/components/ui/badge";
@@ -30,11 +32,13 @@ export function SectionQuestions({
   onRewrite?: (key: string) => void;
 }) {
   const [refresh, setRefresh] = React.useState(0);
+  const qKey = [...usabilityKeys.questions(runId, sectionKey ?? ""), refresh];
+  // 시간 제한 없음 — 기다리는 동안 경과 초와 [취소] (취소하면 서버 작업도 멈추고 화면은 이전 상태)
   const q = useQuery({
-    queryKey: [...usabilityKeys.questions(runId, sectionKey ?? ""), refresh],
-    queryFn: async () => {
+    queryKey: qKey,
+    queryFn: async ({ signal }) => {
       try {
-        return await sectionQuestionsV2(runId, sectionKey ?? "", refresh > 0);
+        return await sectionQuestionsV2(runId, sectionKey ?? "", refresh > 0, signal);
       } catch (e) {
         if (isApiError(e) && e.status === 503) return null;
         throw e;
@@ -43,6 +47,10 @@ export function SectionQuestions({
     enabled: sectionKey !== null,
   });
   const qc = useQueryClient();
+  const waiting = q.fetchStatus === "fetching";
+  const elapsed = useElapsed(waiting);
+  const cancelled = q.isPending && q.fetchStatus === "idle" && sectionKey !== null;
+  const cancel = () => void qc.cancelQueries({ queryKey: qKey });
   const { toast } = useToast();
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
   React.useEffect(() => setAnswers({}), [sectionKey]);
@@ -89,7 +97,15 @@ export function SectionQuestions({
         ) : undefined
       }
     >
-      {q.isPending ? (
+      {waiting && <AiWaiting pending elapsed={elapsed} onCancel={cancel} what="Argon 보완 질문" className="mb-3" />}
+      {cancelled ? (
+        <div className="space-y-2">
+          <AiCancelledNote show />
+          <Button size="sm" variant="outline" onClick={() => q.refetch()}>
+            다시 시도
+          </Button>
+        </div>
+      ) : q.isPending ? (
         <SkeletonBlock lines={4} />
       ) : q.error ? (
         <ProblemBanner error={q.error} onRetry={() => q.refetch()} />
