@@ -770,7 +770,7 @@ def same_judgment_config(settings: Settings) -> dict[str, Any]:
         "stage": str(cfg.get("stage") or "review"),
         "local_stage": str(cfg.get("local_stage") or ""),
         "max_candidates": max(1, min(10, int(cfg.get("max_candidates", 10)))),
-        "timeout": float(cfg.get("timeout_seconds", 25)),
+        "timeout": float(cfg.get("timeout_seconds", 40)),
         "local_timeout": float(cfg.get("local_timeout_seconds", 60)),
     }
 

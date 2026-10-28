@@ -62,7 +62,7 @@ class SameJudge:
     provider: str | None = None
     model: str | None = None
     local_model: str | None = None
-    timeout: float = 25.0
+    timeout: float = 40.0
     local_timeout: float = 60.0
     max_candidates: int = MAX_JUDGE
     max_doc_chars: int = 700

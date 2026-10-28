@@ -117,7 +117,7 @@ judgment:
   stage: review
   local_stage: clarify
   max_candidates: 10
-  timeout_seconds: 25
+  timeout_seconds: 40   # 2026-10-28 측정: Argon 7~35초, 60초 넘은 1건(07) — 40초 넘으면 로컬 → 규칙
   local_timeout_seconds: 60
 
 # 유사과제 판정·알림 후보 자료원 (2026-10-28, ADR 0028, domain/rules/overlap_candidates.py).
