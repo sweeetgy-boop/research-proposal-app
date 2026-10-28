@@ -49,12 +49,16 @@ async def test_as_is_to_be_spec_from_input_and_draft_with_auto_aspect():
     assert kinds == ["as_is_to_be"] and skipped[0]["kind"] == "schedule"  # 일정 명세는 없음
     fig = builds[0].figure
     assert fig.section == "objective" and fig.spec.solution == AS_IS["solution"]
-    assert renderer.aspects[0] == "16:9"  # 내용 양으로 고른 비율이 밑그림에도
+    # 내용 양으로 고른 비율이 밑그림에도 — 칸 글자 상한(20자) 안·3칸이면 낮고 넓게 21:9
+    assert renderer.aspects[0] == "21:9"
     prompt = uc.images.calls[0]["prompt"]
-    assert uc.images.calls[0]["aspect"] == "16:9" and "새로 디자인" in prompt
+    assert uc.images.calls[0]["aspect"] == "21:9" and "새로 디자인" in prompt
     assert "- 궤도 틀림이 반복 발생함" in prompt
     spec_prompt = local.prompts_for("[그림 명세: as_is_to_be]")[0]
     assert "[제안 입력]" in spec_prompt and "[초안]" in spec_prompt
+    # 2026-10-29(ADR 0044): 칸마다 글자 수 상한과 완결 구절 규칙을 준다
+    assert "[칸 글자 수 상한]" in spec_prompt and "20자 안" in spec_prompt
+    assert "14자 안" in spec_prompt and "뜻이 완결된 짧은" in spec_prompt
 
 
 async def test_as_is_to_be_with_text_outside_sources_is_dropped():

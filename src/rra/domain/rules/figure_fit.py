@@ -10,7 +10,9 @@
   크기(viewBox 1600 기준)
   × 폭 비로 계산(`svg_metrics`·`font_pt`), Nano Banana 그림은 OCR 글자 상자 높이로
   어림(`estimate_ocr_pt`).
-  작으면 글자를 줄여(`shorten_spec` — 띄어쓰기 자리에서 자르고 항목 수를 줄인다) 다시 그린다.
+  작으면 칸 글자를 잘라 줄이지 않고 더 짧은 완결 구절로 다시 써서(유스케이스 `rewrite_texts`,
+  2026-10-29
+  ADR 0044) 다시 그린다.
 - 4:1 은 Nano Banana imageConfig.aspectRatio 가 받지 않는다 — 생성은 21:9(`api_aspect`)로 하고,
   밑그림을 21:9
   캔버스 가운데 4:1 띠로 넣어 보낸 뒤 결과의 흰 여백을 잘라 4:1 로 맞춘다(어댑터 `fit_aspect`).
@@ -21,7 +23,6 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -69,12 +70,6 @@ API_ASPECTS: frozenset[str] = frozenset(
 )
 # 분석 기법 그림 배치 (techniques.yaml arrange) — 모두 가로로 놓는다
 ARRANGEMENTS: tuple[str, ...] = ("row", "split", "flow", "grid", "table")
-# 글자 줄이기 단계 — (상자 글자 상한, 묶음당 항목 상한, 표 행 상한, 일정 단계 이름 상한)
-SHORTEN_LEVELS: dict[int, tuple[int, int, int, int]] = {
-    1: (22, 3, 5, 14),
-    2: (16, 2, 4, 10),
-}
-MAX_SHORTEN = max(SHORTEN_LEVELS)
 
 _FONT_SIZE = re.compile(r'font-size="([0-9]+(?:\.[0-9]+)?)"')
 _OVERFLOW = re.compile(r'data-overflow="([0-9]+)"')
@@ -290,31 +285,10 @@ def make_fit(
     )
 
 
-# ── 글자 줄이기 ───────────────────────────────────────────
-def clip_words(text: str, limit: int) -> str:
-    """limit 자를 넘으면 띄어쓰기 자리에서만 자른다(글자 중간·숫자 중간은 자르지 않는다 — 앞부분이
-    원문
-    그대로라 출처 검사를 그대로 통과한다). 자를 자리가 없으면 그대로."""
-    value = " ".join(str(text).split())
-    if len(value) <= limit:
-        return value
-    cut = value[: limit + 1]
-    i = cut.rfind(" ")
-    if i < 2:
-        return value
-    return value[:i].rstrip(" ,·")
-
-
-def _clip_all(items: list[Any], key: str, limit: int, counter: list[int]) -> None:
-    for it in items:
-        old = it[key]
-        if isinstance(old, str):
-            new = clip_words(old, limit)
-            if new != old:
-                it[key] = new
-                counter[0] += 1
-
-
+# ── 이름표 줄이기 ─────────────────────────────────────────
+# 칸 글자는 자르지 않는다(2026-10-29, ADR 0044) — 9pt 미달이면 유스케이스가 Argon 으로 칸 글자를 더
+# 짧은
+# 완결 구절로 다시 쓴다(figure_phrases). 이름표 두 글자(방안·효과)는 정해진 낱말이라 여기서 바꾼다.
 def shorten_tags(spec: BaseModel) -> tuple[BaseModel, int] | None:
     """As-Is/To-Be 이름표를 두 글자로(해결 방안 → 방안, 기대효과 → 효과) — 그림 글자가 9pt 밑일 때
     칸 글자는 그대로 두고 이름표만 줄여 다시 그린다. 줄일 것이 없으면 None.
@@ -330,72 +304,6 @@ def shorten_tags(spec: BaseModel) -> tuple[BaseModel, int] | None:
                 it["tag"] = short
                 n += 1
     return (spec.model_validate(data), n) if n else None
-
-
-def shorten_spec(spec: BaseModel, level: int) -> tuple[BaseModel, int] | None:
-    """글자 크기를 맞추려고 글자를 줄인 명세 → (새 명세, 줄인 칸 수). 줄일 것이 없으면 None.
-    수치 그래프는 값·이름을 건드리지 않는다. 일정표는 단계 이름만 줄이고 단계·기간은 그대로."""
-    if level not in SHORTEN_LEVELS or isinstance(spec, StatChartSpec):
-        return None
-    box, per_group, max_rows, stage_name = SHORTEN_LEVELS[level]
-    data = spec.model_dump()
-    n = [0]
-    if isinstance(spec, AsIsToBeSpec):
-        for side in ("as_is", "to_be"):
-            if len(data[side]) > 3:
-                n[0] += len(data[side]) - 3
-                data[side] = data[side][:3]
-            _clip_all(data[side], "text", box, n)
-        new = clip_words(data["solution"], box)
-        if new != data["solution"]:
-            data["solution"], n[0] = new, n[0] + 1
-    elif isinstance(spec, TechniqueSpec):
-        for g in data["groups"]:
-            if len(g["items"]) > per_group:
-                n[0] += len(g["items"]) - per_group
-                g["items"] = g["items"][:per_group]
-            _clip_all(g["items"], "text", box, n)
-        if len(data["rows"]) > max_rows:
-            n[0] += len(data["rows"]) - max_rows
-            data["rows"] = data["rows"][:max_rows]
-        _clip_all(data["rows"], "name", box, n)
-    elif isinstance(spec, ConceptSpec):
-        for b in data["boxes"]:
-            keep = 1 if level >= 2 else 2
-            if len(b["lines"]) > keep:
-                n[0] += len(b["lines"]) - keep
-                b["lines"] = b["lines"][:keep]
-            new_lines = [clip_words(x, box) for x in b["lines"]]
-            n[0] += sum(1 for a, c in zip(b["lines"], new_lines, strict=True) if a != c)
-            b["lines"] = new_lines
-    elif isinstance(spec, ProcessSpec):
-        for st in data["stages"]:
-            keep = 1 if level >= 2 else 2
-            if len(st["outputs"]) > keep:
-                n[0] += len(st["outputs"]) - keep
-                st["outputs"] = st["outputs"][:keep]
-            new_out = [clip_words(x, box) for x in st["outputs"]]
-            n[0] += sum(1 for a, c in zip(st["outputs"], new_out, strict=True) if a != c)
-            st["outputs"] = new_out
-        _clip_all(data["stages"], "name", stage_name + 6, n)
-    elif isinstance(spec, ScheduleSpec):
-        _clip_all(data["stages"], "name", stage_name, n)
-    elif isinstance(spec, RoadmapSpec):
-        _clip_all(data["metrics"], "target", box, n)
-        for st in data["stages"]:
-            if st.get("desc"):
-                new = clip_words(st["desc"], box)
-                if new != st["desc"]:
-                    st["desc"], n[0] = new, n[0] + 1
-    elif isinstance(spec, ComparisonSpec):
-        for proj in [*data["projects"], data["proposal"]]:
-            for k, v in list(proj["cells"].items()):
-                new = clip_words(v, box)
-                if new != v:
-                    proj["cells"][k], n[0] = new, n[0] + 1
-    if not n[0]:
-        return None
-    return type(spec).model_validate(data), n[0]
 
 
 # ── [23] 글자 크기 어림: 밑그림 대비 (상대) ─────────────────────

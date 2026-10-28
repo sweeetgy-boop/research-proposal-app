@@ -1,5 +1,5 @@
-"""[23] 그림 모양 규칙 — 종류별 가로 비율, 본문 폭·높이 상한 → 넓은 비율, 글자 크기 계산, 글자
-줄이기, OCR 어림."""
+"""[23] 그림 모양 규칙 — 종류별 가로 비율, 본문 폭·높이 상한 → 넓은 비율, 글자 크기 계산,
+OCR 어림. 칸 글자를 잘라 줄이는 길은 없다(2026-10-29, ADR 0044)."""
 
 import pytest
 
@@ -131,65 +131,18 @@ def test_ocr_estimate_uses_lines_that_match_spec_texts():
     assert fit.estimate_ocr_pt([("관계없음", 0.1)], 65.9, texts, box_em=1.2) is None
 
 
-# ── 글자 줄이기 ───────────────────────────────────────────
-def test_clip_words_cuts_only_at_spaces():
-    assert (
-        fit.clip_words("영업열차 탑재 IMU·가속도 센서로 상시 수집", 16)
-        == "영업열차 탑재 IMU·가속도"
-    )
-    assert (
-        fit.clip_words("띄어쓰기없는아주긴단어로된글자입니다", 8)
-        == "띄어쓰기없는아주긴단어로된글자입니다"
-    )
-    assert fit.clip_words("짧음", 16) == "짧음"
-
-
-def test_shorten_as_is_to_be_drops_fourth_item_and_clips_texts():
-    four = {**AS_IS, "as_is": [*AS_IS["as_is"], AS_IS["as_is"][0]]}
-    spec = parse_spec("as_is_to_be", four)
-    cut = fit.shorten_spec(spec, 1)
-    assert cut is not None
-    new, n = cut
-    assert len(new.as_is) == 3 and n >= 1
-    src = rules.texts_of(spec)
-    for t in rules.texts_of(new):  # 줄인 글자는 원래 글자의 앞부분 — 출처 검사를 그대로 통과
-        assert any(o.startswith(t) for o in src), t
-
-
-def test_shorten_technique_limits_items_and_rows_and_stat_chart_is_untouched():
-    swot = parse_spec(
-        "technique",
-        {
-            "technique": "swot",
-            "title": "SWOT 분석",
-            "groups": [
-                {
-                    "name": "강점",
-                    "items": [{"text": f"강점 항목 {i}", "rating": "상"} for i in range(4)],
-                },
-                {"name": "약점", "items": [{"text": "약점", "rating": "중"}]},
-            ],
-        },
-    )
-    new, n = fit.shorten_spec(swot, 2)
-    assert len(new.groups[0].items) == 2 and n == 2
-    chart = parse_spec(
-        "stat_chart",
-        {
-            "title": "t",
-            "categories": ["a"],
-            "series": [{"name": "s", "values": [1]}],
-            "source": {"doc_id": "d"},
-        },
-    )
-    assert fit.shorten_spec(chart, 1) is None
-
-
-def test_shorten_schedule_clips_names_but_keeps_stages_and_months():
-    spec = parse_spec("schedule", _schedule(3, "센서 체계 설계 및 시작품 제작 시험"))
-    new, n = fit.shorten_spec(spec, 2)
-    assert [s.start_month for s in new.stages] == [s.start_month for s in spec.stages]
-    assert all(len(s.name) <= 10 for s in new.stages) and n == 3
+# ── 글자 줄이기는 없다 (2026-10-29, ADR 0044) ─────────────────────
+def test_truncating_helpers_are_retired():
+    """칸 글자를 띄어쓰기 자리에서 잘라 줄이던 길(22 → 16자)은 없앴다 — 9pt 미달이면 유스케이스가
+    칸 글자를 더 짧은 완결 구절로 다시 쓴다(rewrite_texts). 이름표 두 글자(정해진 낱말)만 남는다."""
+    for name in ("shorten_spec", "clip_words", "SHORTEN_LEVELS", "MAX_SHORTEN"):
+        assert not hasattr(fit, name), name
+    assert not hasattr(rules, "clip_text")
+    short, n = fit.shorten_tags(parse_spec("as_is_to_be", AS_IS))
+    assert n == 2 and [it.tag for it in short.to_be] == ["목표", "방안", "효과"]
+    assert [it.text for it in short.to_be] == [
+        it["text"] for it in AS_IS["to_be"]
+    ]  # 칸 글자 그대로
 
 
 def test_display_name_is_korean_without_codes():

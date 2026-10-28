@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-29,TBD,그림 칸 글자 완결 구절(잘라 줄이지 않음),2329,,8,,,,,,,,,,,,,,,골든 run 5건 사본 그림 13장: 9pt 이상 13/13(최소 9.0·중앙 10.1pt)·본문 폭 13/13·최종 미완 구절 0(이전 14)·다시 그림 1/13·장당 중앙 54초·Gemini 텍스트 25·그림 14 (docs/eval-2026-10-29-figure-phrases.md)

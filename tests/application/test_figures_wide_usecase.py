@@ -1,7 +1,6 @@
-"""[23] 그림 단계 본문 폭 맞춤 — 가로 비율, 높이 상한 → 넓은 비율로 다시 그림, 글자 하한 → 글자
-줄여 다시
-그림, OCR 로 잰 Nano Banana 글자가 작으면 한 번 더, 4:1 은 21:9 로 생성 뒤 맞춤, 제안자 글자는
-줄이지 않음."""
+"""[23] 그림 단계 본문 폭 맞춤 — 가로 비율, 높이 상한 → 넓은 비율로 다시 그림, 글자 하한 → 칸
+글자를 다시 써서(잘라 줄이지 않는다, 2026-10-29 ADR 0044) 다시 그림, OCR 로 잰 Nano Banana 글자가
+작으면 한 번 더(max_image_redraws 1), 4:1 은 21:9 로 생성 뒤 맞춤, 제안자 글자는 다시 쓰지 않음."""
 
 from xml.sax.saxutils import escape
 
@@ -9,9 +8,20 @@ from rra.application.usecases.figures import FigureConfig, MakeFigures
 from rra.domain.models.figure import Figure, parse_spec
 from rra.domain.models.vision import OcrLine, OcrResult
 from rra.domain.rules import figure_fit as fit
+from rra.domain.rules import figure_phrases as phrases
 from rra.domain.rules.figures import texts_of
 from tests.fakes import FakeImageGenerator, FakePromptLibrary
-from tests.figure_v2_helpers import AS_IS, CATALOG, RoutingLLM
+from tests.figure_v2_helpers import AS_IS, CATALOG, RoutingLLM, rewrite_rows
+
+# 긴 칸 글자(상한 20자 안, 다시 쓰기 상한 15자 밖) — 시범에서 9pt 밑으로 그려진 길이
+LONG_AS_IS = {
+    **AS_IS,
+    "as_is": [
+        {"tag": "현황", "text": "궤도 틀림이 구간마다 반복 발생함"},
+        {"tag": "원인", "text": "다짐 효과가 오래 가지 않음"},
+        {"tag": "한계", "text": "진행 속도를 반영하지 못함"},
+    ],
+}
 
 
 class SizedRenderer:
@@ -55,9 +65,9 @@ class FakeOcr:
         return OcrResult(lines=[OcrLine(text="현황", confidence=0.9, box=[0.1, 0.1, 0.3, h])])
 
 
-def make(renderer, *, images=None, ocr=None, reframe=None, **cfg):
+def make(renderer, *, images=None, ocr=None, reframe=None, llm=None, **cfg):
     return MakeFigures(
-        RoutingLLM(),
+        llm or RoutingLLM(),
         FakePromptLibrary(),
         renderer,
         images=images,
@@ -83,19 +93,6 @@ async def test_baseline_fit_is_recorded_at_body_width():
     assert f.text_method == "svg" and f.redraws == 0 and f.shortened == 0
 
 
-async def test_small_text_shortens_labels_and_redraws_until_readable():
-    renderer = SizedRenderer(limit=16)
-    uc = make(renderer)
-    build = uc.baseline(as_is_figure())
-    f = build.figure.fit
-    assert f.text_ok and f.shortened >= 1 and f.redraws >= 1
-    assert max(len(t) for t in texts_of(build.figure.spec)) <= 16
-    longest = [n for _a, n in renderer.calls]
-    assert longest[0] > 16 and longest[-1] <= 16  # 처음엔 작았고 줄인 뒤 다시 그렸다
-    for t in texts_of(build.figure.spec):  # 줄인 글자도 원래 글자의 앞부분
-        assert any(o.startswith(t) for o in texts_of(as_is_figure().spec))
-
-
 async def test_tries_the_taller_wide_ratio_before_cutting_words():
     renderer = SizedRenderer(limit=100, cramped=("21:9",))
     short = {
@@ -112,7 +109,8 @@ async def test_tries_the_taller_wide_ratio_before_cutting_words():
 
 async def test_height_over_page_third_redraws_with_wider_ratio():
     uc = make(SizedRenderer(limit=100), frame=fit.BodyFrame(153.8, 200.0))  # 상한 66.7mm
-    build = uc.baseline(as_is_figure())
+    four = {**AS_IS, "as_is": [*AS_IS["as_is"], AS_IS["as_is"][0]]}  # 4칸 → 16:9 로 시작
+    build = uc.baseline(as_is_figure(four))
     f = build.figure.fit
     assert f.ratio == "21:9" and f.widened and f.fits and f.redraws >= 1
 
@@ -123,25 +121,6 @@ async def test_proposer_text_edits_are_not_shortened_only_recorded():
     build = await uc.draw(fig, shorten=False)
     assert build.figure.spec == fig.spec  # 제안자가 고친 글자는 그대로
     assert build.figure.fit.text_ok is False and build.figure.fit.shortened == 0
-
-
-async def test_ocr_small_text_on_nano_banana_image_cuts_words_and_redraws_bigger():
-    """그림 글자가 작으면 글자 수를 줄여(4칸 → 3칸, 띄어쓰기 자리) 밑그림부터 다시 그리고 "글자를
-    더 크게" (2026-10-29 — 작은 것은 긴 칸 글자였다)."""
-    images = FakeImageGenerator()
-    ocr = FakeOcr([0.02, 0.06])  # 첫 그림 "현황" 이 밑그림의 0.4배(≈4pt) → 다시 그린 그림은 1.2배
-    uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m))
-    four = {**AS_IS, "as_is": [*AS_IS["as_is"], AS_IS["as_is"][0]]}
-    fig = as_is_figure(four)
-    fig = fig.model_copy(update={"spec": fit.shorten_tags(fig.spec)[0]})  # 이름표는 이미 두 글자
-    build = await uc.draw(fig)
-    f = build.figure
-    assert len(images.calls) == 2 and f.calls == 2 and ocr.calls == 2
-    assert "글자를 더 크게" in images.calls[1]["prompt"] and "약 4.0pt" in images.calls[1]["prompt"]
-    assert f.fit.text_method == "ocr" and f.fit.text_ok and f.fit.redraws >= 1
-    assert len(f.spec.as_is) == 3 and f.fit.shortened >= 1  # 글자 수를 줄였다
-    for t in texts_of(f.spec):
-        assert any(o.startswith(t) for o in texts_of(fig.spec))
 
 
 async def test_ocr_small_text_stops_after_max_image_redraws():
@@ -155,24 +134,6 @@ async def test_ocr_small_text_stops_after_max_image_redraws():
     )
     build = await uc.draw(as_is_figure())
     assert len(images.calls) == 2 and build.figure.fit.text_ok is False  # 다시 그리기 1회까지
-
-
-async def test_ocr_small_as_is_to_be_shortens_words_and_tags_and_redraws_only_that_figure():
-    """그림 글자가 9pt 밑이면 칸 글자를 띄어쓰기 자리에서 줄이고 이름표도 두 글자로(해결 방안 →
-    방안, 기대효과 → 효과) 밑그림부터 다시 그린다 (2026-10-28 밤, 소유자 지시)."""
-    images = FakeImageGenerator()
-    ocr = FakeOcr([0.02, 0.06])
-    uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m))
-    fig = as_is_figure()
-    build = await uc.draw(fig)
-    f = build.figure
-    assert len(images.calls) == 2 and f.calls == 2
-    assert [it.tag for it in f.spec.to_be] == ["목표", "방안", "효과"]
-    assert [it.tag for it in f.spec.as_is] == ["현황", "원인", "한계"]
-    for t in texts_of(f.spec):  # 줄인 글자도 원래 글자의 앞부분(지어내지 않는다)
-        assert any(o.startswith(t) for o in [*texts_of(fig.spec), "방안", "효과"])
-    assert f.fit.text_ok and f.fit.shortened >= 2 and f.fit.redraws >= 1
-    assert build.baseline_png != uc.baseline(fig).baseline_png  # 밑그림도 줄인 글자로
 
 
 def test_short_tags_pass_validation_and_render_bigger():
@@ -281,3 +242,124 @@ async def test_pixel_size_of_generated_image_updates_height_and_ratio():
     build = await uc.draw(as_is_figure())
     f = build.figure.fit
     assert f.ratio == "2.00:1" and f.height_mm == round(153.8 / 2, 1) and f.fits
+
+
+# ── 2026-10-29 ADR 0044: 잘라 줄이지 않고 다시 쓴다 ─────────────────────────────
+def _is_whole_words_of(new: str, old: str) -> bool:
+    """new 의 낱말이 모두 old 의 온전한 낱말(끝 낱말만 조사·어미를 덜 수 있다)인가."""
+    old_words = old.split()
+    toks = new.split()
+    return all(
+        t in old_words or (i == len(toks) - 1 and any(w.startswith(t) for w in old_words))
+        for i, t in enumerate(toks)
+    )
+
+
+async def test_small_baseline_text_is_rewritten_by_argon_not_cut():
+    """밑그림 글자가 작으면 칸 글자를 잘라 줄이지 않고 Argon 에게 상한 −25% 안의 완결 구절로 다시
+    쓰게 한 뒤 밑그림부터 다시 그린다. 이름표(해결 방안·기대효과)는 두 글자로."""
+    llm = RoutingLLM()
+    renderer = SizedRenderer(limit=15)
+    uc = make(renderer, llm=llm)
+    fig = as_is_figure(LONG_AS_IS)
+    build = await uc.draw(fig)
+    f = build.figure
+    calls = llm.prompts_for("[그림 글자 다시 쓰기: as_is_to_be]")
+    assert len(calls) == 1
+    rows = rewrite_rows(calls[0])
+    assert {r["상한"] for r in rows} == {15, 10}  # 20·14자 × 0.75
+    assert "뜻이 완결된 짧은 구절" in calls[0] and "잘라" in calls[0]
+    assert f.fit.text_ok and f.fit.shortened >= 1 and f.fit.redraws >= 1
+    before = {it["text"] for it in LONG_AS_IS["as_is"]}
+    for it in f.spec.as_is:
+        assert len(it.text) <= 15 and phrases.is_complete(it.text)
+        if it.text not in before:  # 다시 쓴 칸 — 원래 글자의 온전한 낱말로만
+            orig = next(o for o in before if _is_whole_words_of(it.text, o))
+            assert orig
+    assert [it.tag for it in f.spec.to_be] == ["목표", "방안", "효과"]
+    assert renderer.calls[-1][1] <= 15  # 다시 그린 밑그림은 다시 쓴 글자로
+
+
+async def test_ocr_small_text_rewrites_box_text_and_redraws_once():
+    """그림 글자가 9pt 밑이면 Argon 이 다시 쓴 글자로 밑그림부터 다시 그리고 "글자를 더 크게" —
+    다시 그리기는 기본 1회(max_image_redraws 2 → 1)."""
+    answer = {
+        "texts": [
+            {"path": "as_is.0.text", "value": "궤도 틀림 반복 발생"},
+            {"path": "to_be.0.text", "value": "보수 우선순위 산정"},
+            {"path": "solution", "value": "진행 속도 추정"},
+        ]
+    }
+    llm = RoutingLLM(rewrites={"as_is_to_be": answer})
+    images = FakeImageGenerator()
+    ocr = FakeOcr([0.02, 0.02, 0.06])  # 다시 그려도 작다 — 그래도 1회까지만
+    uc = make(
+        SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m), llm=llm
+    )
+    assert uc.config.max_image_redraws == 1
+    build = await uc.draw(as_is_figure(LONG_AS_IS))
+    f = build.figure
+    assert len(images.calls) == 2 and f.calls == 2
+    assert "글자를 더 크게" in images.calls[1]["prompt"]
+    assert len(llm.prompts_for("[그림 글자 다시 쓰기: as_is_to_be]")) == 1
+    assert f.spec.as_is[0].text == "궤도 틀림 반복 발생"  # 모델이 다시 쓴 완결 구절 그대로
+    assert f.spec.to_be[0].text == "보수 우선순위 산정"
+    assert "- 궤도 틀림 반복 발생" in images.calls[1]["prompt"]  # 다시 그린 그림에 새 글자
+    assert f.fit.shortened >= 1 and f.fit.text_ok is False  # 작으면 기록 (카드 안내)
+
+
+async def test_rewrite_that_cuts_a_phrase_is_corrected_then_kept_whole():
+    """다시 쓴 글자가 끊긴 구절이면 교정 재요청, 그래도 끊기면 그 칸의 온전한 낱말 묶음 —
+    출처에 없는 낱말을 쓴 칸은 원래 글자 그대로 둔다. 낱말을 자르지 않는다."""
+    bad = {
+        "texts": [
+            {"path": "as_is.0.text", "value": "궤도 틀림이 구간마다"},  # 끊김 (…마다)
+            {"path": "as_is.1.text", "value": "다짐 효과 단기 소멸"},  # 출처 밖 낱말
+        ]
+    }
+    llm = RoutingLLM(rewrites={"as_is_to_be": bad})
+    uc = make(SizedRenderer(limit=15), llm=llm)
+    build = await uc.draw(as_is_figure(LONG_AS_IS))
+    calls = llm.prompts_for("[그림 글자 다시 쓰기: as_is_to_be]")
+    assert len(calls) == 2 and "끝맺지 않은 구절" in calls[1]  # 교정 재요청이 이유를 알려 준다
+    f = build.figure
+    texts = [it.text for it in f.spec.as_is]
+    assert all(phrases.is_complete(t) for t in texts)
+    assert texts[0] != "궤도 틀림이 구간마다"
+    assert _is_whole_words_of(texts[0], LONG_AS_IS["as_is"][0]["text"])
+    assert "다짐 효과 단기 소멸" not in texts
+
+
+async def test_short_texts_are_not_sent_for_rewrite():
+    """이미 다시 쓰기 상한 안이면 Argon 을 부르지 않는다(글자가 커지지 않는다) — "글자를 더
+    크게" 만."""
+    llm = RoutingLLM()
+    images = FakeImageGenerator()
+    short = {
+        **AS_IS,
+        "as_is": [{**it, "text": "궤도 틀림"} for it in AS_IS["as_is"]],
+        "to_be": [{**it, "text": "보수 우선순위"} for it in AS_IS["to_be"]],
+        "solution": "진행 속도 추정",
+    }
+    uc = make(
+        SizedRenderer(limit=100),
+        images=images,
+        ocr=FakeOcr([0.02, 0.05]),
+        reframe=lambda d, m, a, r: (d, m),
+        llm=llm,
+    )
+    fig = as_is_figure(short)
+    fig = fig.model_copy(update={"spec": fit.shorten_tags(fig.spec)[0]})
+    await uc.draw(fig)
+    assert llm.prompts_for("[그림 글자 다시 쓰기") == [] and len(images.calls) == 2
+
+
+async def test_proposer_request_words_are_protected_from_rewrite():
+    llm = RoutingLLM()
+    uc = make(SizedRenderer(limit=15), llm=llm)
+    fig = as_is_figure(LONG_AS_IS)
+    keep = LONG_AS_IS["as_is"][0]["text"]
+    build = await uc.draw(fig, protect=(f"현황 칸을 '{keep}' 로",))
+    assert build.figure.spec.as_is[0].text == keep  # 제안자가 적은 글자는 그대로
+    rows = rewrite_rows(llm.prompts_for("[그림 글자 다시 쓰기")[0])
+    assert "as_is.0.text" not in {r["path"] for r in rows}

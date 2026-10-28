@@ -27,7 +27,7 @@ from typing import Any
 
 from rra.domain.models.draft import Section
 from rra.domain.models.figure import (
-    MAX_BOX,
+    MAX_BOX,  # noqa: F401 — 예전 import 호환
     NEED_CALC,
     PRELIM_NOTE,
     MatrixRow,
@@ -311,13 +311,13 @@ def _rating(value: Any) -> str | None:
 
 
 def _box(value: Any) -> str:
-    from rra.domain.rules.figures import clip_text
-
-    return clip_text(str(value or ""), MAX_BOX)
+    """칸 글자 — 띄어쓰기만 정리한다. 자르지 않는다(2026-10-29, ADR 0044): 상한을 넘거나 끊긴
+    구절은 figure_phrases 가 교정 재요청·온전한 낱말 묶음으로 바꾼다."""
+    return " ".join(str(value or "").split())
 
 
 def normalize_technique_data(data: Any, tech: Technique) -> dict[str, Any]:
-    """모델 답 → TechniqueSpec 입력: key·제목·안내문 고정, 글자는 MAX_BOX 로 줄이고 등급 "
+    """모델 답 → TechniqueSpec 입력: key·제목·안내문 고정, 글자는 자르지 않고 등급 "
     "표기를 맞춘다."""
     src = data if isinstance(data, Mapping) else {}
     out: dict[str, Any] = {
@@ -326,7 +326,7 @@ def normalize_technique_data(data: Any, tech: Technique) -> dict[str, Any]:
         "note": PRELIM_NOTE,
     }
     if tech.layout == "matrix":
-        out["columns"] = [" ".join(str(c).split())[:40] for c in (src.get("columns") or [])][:5]
+        out["columns"] = [" ".join(str(c).split()) for c in (src.get("columns") or [])][:5]
         rows = []
         for r in (src.get("rows") or [])[:6]:
             if not isinstance(r, Mapping):
@@ -355,13 +355,13 @@ def normalize_technique_data(data: Any, tech: Technique) -> dict[str, Any]:
                     {
                         "text": _box(it.get("text")),
                         "rating": _rating(it.get("rating") or it.get("strength")),
-                        "amount": (" ".join(str(it["amount"]).split())[:MAX_BOX] or None)
+                        "amount": (" ".join(str(it["amount"]).split()) or None)
                         if it.get("amount") not in (None, "")
                         else None,
                         "source": str(it.get("source") or "")[:200],
                     }
                 )
-            groups.append({"name": " ".join(str(g.get("name") or "").split())[:40], "items": items})
+            groups.append({"name": " ".join(str(g.get("name") or "").split()), "items": items})
         out["groups"] = groups
         out["columns"] = []
         out["rows"] = []

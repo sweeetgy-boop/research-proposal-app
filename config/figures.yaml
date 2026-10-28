@@ -35,14 +35,15 @@ aspect:                       # 종류별 비율 (auto_aspect: false 일 때. Na
   as_is_to_be: "16:9"
   technique: "16:9"
 # [23] 본문 폭 맞춤 — 그림 폭 = 양식 본문 안쪽 폭(실물 양식에서 읽음: 쪽 폭 − 좌우 여백 − 단락 오른쪽 여백), 높이는 비율.
-# 높이 > 쪽 높이 × height_share 면 더 넓은 비율로, 그림 안 글자 < min_text_pt 면 글자를 줄여 다시 그린다
+# 높이 > 쪽 높이 × height_share 면 더 넓은 비율로, 그림 안 글자 < min_text_pt 면 칸 글자를 다시 써서 다시 그린다.
+# 칸 글자는 자르지 않는다(2026-10-29, ADR 0044): 명세를 만들 때 칸마다 글자 수 상한(domain/rules/figure_phrases.FIELD_LIMITS)을
+# 주고 뜻이 완결된 짧은 구절로 쓰게 하며, 9pt 미달이면 Argon 이 상한 −25% 안의 완결 구절로 다시 쓴다(Argon → 오류면 로컬).
 fit:
   min_text_pt: 9.0            # 본문 폭으로 넣었을 때 그림 안 가장 작은 글자 (캡션·출처 12pt 는 HWPX 단락)
   height_share: 0.3333        # 쪽 높이 대비 그림 높이 상한
   body_width_mm: 153.8        # 양식을 못 읽을 때 (별지 제2호서식 실측: 210 − 25×2 − 6.2)
   page_height_mm: 297.0
-  max_shorten: 2              # 밑그림 글자 줄이기 단계 (22자·항목 3 → 16자·항목 2)
-  max_image_redraws: 2        # OCR 로 잰 그림 글자가 작을 때 글자 수를 줄여(22 → 16자) Nano Banana 다시 부르기 (그림 호출 +1씩, 2026-10-29 1 → 2)
+  max_image_redraws: 1        # OCR 로 잰 그림 글자가 작을 때 칸 글자를 다시 써서 Nano Banana 다시 부르기 (그림 호출 +1씩, 2026-10-29 2 → 1)
   ocr: true                   # macOS Vision OCR 로 그림 글자 크기 어림 (없으면 밑그림 값)
   ocr_box_em: 1.2             # OCR 줄 상자 높이 ÷ 글자 크기 — 밑그림으로 잰 값 (docs/eval-2026-10-28-figures-wide.md)
 hwpx:
