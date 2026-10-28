@@ -1,0 +1,1 @@
+| 2026-10-28 | [4] 실시간 자료 검색 — 입력 확인 때 Argon 키워드(→로컬→규칙)로 ScienceON·NTIS·OpenAlex 동시 검색(자료원 10초·전체 15초, 상위 30), 이름 제거·public·raw.live 로 DB 에 넣고 평소 판정·검색이 함께 본다. 24시간 캐시, NTIS IP 거부는 건너뜀, REST live_search·live 배지 | 야간 적재 질의 밖 주제는 ②·브리핑·③ 근거가 비었다 | #TBD | 실호출: 키워드 4초, ScienceON 30건 7.3초, OpenAlex 30건 1.2초, NTIS ip_blocked, 캐시 재사용 0.00초, e5 60청크 1.07초 (ADR 0031) |
