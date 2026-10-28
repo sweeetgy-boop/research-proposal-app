@@ -1,10 +1,13 @@
 """Argon 먼저, 실패면 로컬 — 작성·편집 AI 버튼(보강 질문·정책 작성안·보완 질문)의 공용 호출 순서.
 
-원칙(2026-10-28, 레인 B · ADR "작성·편집 AI 버튼"): 외부 모델(Gemini 4 Argon, review 단계 provider —
-일일 예산 래퍼·공유 호출 제한기는 조립이 씌운다)이 먼저 답하고, 호출이 실패하거나(오류·429·예산)
-교정 재요청 뒤에도 형식이 틀리면 로컬 모델이 같은 프롬프트로 답한다. 로컬 호출은 전역 슬롯
-(local_gate) 안에서만. 끝내 값이 없으면 **사유 코드**를 돌려준다 — 화면은 빈 결과로 조용히 끝내지
-않고 사유와 [다시 시도] 를 보인다.
+원칙(2026-10-28, 레인 B · ADR "작성·편집 AI 버튼"): 외부 모델(Gemini 4 Argon, review 단계
+provider — 일일 예산 래퍼·공유 호출 제한기는 조립이 씌운다)이 먼저 답하고, **오류 응답일 때만**
+(호출 오류·429·예산, 교정 재요청 뒤에도 형식 오류) 로컬 모델이 같은 프롬프트로 답한다.
+2026-10-28 밤(ADR 0038): 응답 시간 제한은 두지 않는다 — 늦은 답은 오류가 아니다(통신 10분
+무응답만 연결 오류, llm.yaml timeout.read). 규칙에 걸러진 답(filtered)·"해당 없음"(empty)은
+오류가 아니므로 로컬에 다시 묻지 않고 사유를 돌려준다. 로컬 호출은 전역 슬롯(local_gate)
+안에서만. 끝내 값이 없으면 **사유 코드**를 돌려준다 — 화면은 빈 결과로 조용히 끝내지 않고
+사유와 [다시 시도] 를 보인다.
 
 사유 코드(REASON_LABELS): error·rate_limit·budget = 호출 실패, invalid = 형식 오류(교정 뒤에도),
 filtered = 규칙에 걸러짐(근거·정책명·수치 검사로 전부 폐기), empty = 해당 없음(모델이 "없음" 이라고
@@ -119,9 +122,9 @@ class ArgonFirst:
         local_prompt: str | None = None,
         max_tokens: int | None = None,
     ) -> AskResult[Any]:
-        """모델마다 1회 + 형식 오류(invalid)면 교정 재요청 1회. filtered·empty 는 그 답을 존중해
-        멈추지 않고 다음 모델에 한 번 더 묻지 않는다 — 단 filtered 는 로컬에 한 번 더 묻는다(원격이
-        규칙을 어긴 답을 냈을 수 있다). local_prompt: 로컬용 짧은 프롬프트(없으면 같은 것)."""
+        """모델마다 1회 + 형식 오류(invalid)면 교정 재요청 1회. 다음 모델(로컬)로 넘어가는 것은 오류
+        응답(호출 실패·교정 뒤에도 형식 오류)일 때만 — filtered·empty 는 그 답을 존중해 멈춘다.
+        local_prompt: 로컬용 짧은 프롬프트(없으면 같은 것)."""
         out: AskResult[Any] = AskResult()
         chain = self._chain()
         if not chain:
@@ -169,7 +172,7 @@ class ArgonFirst:
                 out.value, out.model, out.fallback, out.reason = value, label, i > 0, None
                 return out
             out.reason = reason or "invalid"
-            if reason == "empty":  # 모델이 "해당 없음" 이라고 답했다 — 다른 모델에 다시 묻지 않는다
+            if reason in ("empty", "filtered"):  # 오류가 아니다 — 다른 모델에 다시 묻지 않는다
                 out.model = label
                 return out
         return out

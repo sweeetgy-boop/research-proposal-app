@@ -67,6 +67,7 @@ from rra.domain.rules.similar_choice import (
     idea_hash,
 )
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
+from rra.entrypoints.api.cancellable import CANCELLED_STATUS, ClientCancelled, cancel_on_disconnect
 from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
 from rra.entrypoints.api.routes_format import register_format_routes
 from rra.entrypoints.api.schemas import (
@@ -139,6 +140,7 @@ _TITLES = {
     413: "본문 너무 큼",
     422: "입력 오류",
     429: "요청 과다",
+    499: "요청 취소",
     503: "사용 불가",
 }
 
@@ -365,6 +367,11 @@ def create_app(
         return problem_response(
             503, "외부 LLM 의 오늘 호출 상한에 이르렀습니다 — 내일 다시 시도하십시오."
         )
+
+    @app.exception_handler(ClientCancelled)
+    async def _cancelled(_req: Request, _exc: ClientCancelled) -> JSONResponse:
+        # 브라우저는 이미 떠났다 — 받을 사람은 없지만 접근 로그에 499 로 남는다
+        return problem_response(CANCELLED_STATUS, "요청을 취소했습니다.")
 
     @app.exception_handler(RequestValidationError)
     async def _request_validation(_req: Request, exc: RequestValidationError) -> JSONResponse:
@@ -1363,11 +1370,14 @@ def create_app(
     # ── U3 섹션별 AI 다시 쓰기·보완 질문 ─────────────────
     @app.post(f"/{API_VERSION}/runs/{{run_id}}/sections/{{key}}/rewrite")
     async def rewrite_route(request: Request, run_id: str, key: str) -> dict[str, Any]:
-        """U3 섹션 하나를 로컬 모델로 다시 쓴 후보 (반영 전, 현재 문장과 나란히). 제안자가 고친
-        문장은 보존, 선택값 불변. 반영은 …/rewrite/apply."""
+        """U3 섹션 하나를 Argon 이 다시 쓴 후보 (반영 전, 현재 문장과 나란히; 오류면 로컬). 제안자가
+        고친 문장은 보존, 선택값 불변. 반영은 …/rewrite/apply. 시간 제한 없음 — 브라우저가 끊으면
+        작업을 멈춘다(cancel_on_disconnect)."""
         rid = _run_id(run_id)
         try:
-            view = await manager.rewrite_section(*await _own(request, rid), key)
+            view = await cancel_on_disconnect(
+                request, manager.rewrite_section(*await _own(request, rid), key)
+            )
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except RewriteRejected as exc:
@@ -1410,7 +1420,10 @@ def create_app(
         보관한 결과(refresh=true 면 새로)."""
         rid = _run_id(run_id)
         try:
-            out = await manager.section_questions(*await _own(request, rid), key, refresh=refresh)
+            out = await cancel_on_disconnect(
+                request,
+                manager.section_questions(*await _own(request, rid), key, refresh=refresh),
+            )
         except RunNotFound as exc:
             raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
         except EditRejected as exc:

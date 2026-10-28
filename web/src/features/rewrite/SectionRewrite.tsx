@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Wand2 } from "lucide-react";
 import { rewriteSectionV2 } from "@/api/editai";
 import { keys, useApplyRewrite } from "@/api/hooks";
@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
+import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
+import { useAiCall } from "@/lib/useAiCall";
 import { OriginBadge } from "@/components/OriginBadge";
 import { UntrustedText } from "@/components/UntrustedText";
 import { sectionTitle } from "@/lib/sections";
@@ -35,16 +37,20 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
   const qc = useQueryClient();
   const [chosen, setChosen] = React.useState<number[]>([]);
   const [conflict, setConflict] = React.useState(false);
-  const rewrite = useMutation({
-    mutationFn: (key: string) => rewriteSectionV2(runId, key),
-    onSuccess: (out) => setChosen(defaultChosen(out)),
-  });
+  // 시간 제한 없음 — 기다리는 동안 경과 초와 [취소] (취소하면 서버 작업도 멈춘다)
+  const rewrite = useAiCall((key: string, signal: AbortSignal) => rewriteSectionV2(runId, key, signal));
   const apply = useApplyRewrite(runId, sectionKey ?? "");
+  const start = React.useCallback(
+    (key: string) => {
+      void rewrite.run(key).then((out) => out && setChosen(defaultChosen(out)));
+    },
+    [rewrite.run],
+  );
 
   React.useEffect(() => {
     setConflict(false);
-    if (sectionKey) rewrite.mutate(sectionKey);
-    else rewrite.reset();
+    rewrite.reset();
+    if (sectionKey) start(sectionKey);
   }, [sectionKey]);
 
   const out = rewrite.data;
@@ -76,8 +82,8 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
       title={`${isNew ? "AI 새로 쓰기" : "AI 다시 쓰기"} — ${sectionKey ? sectionTitle(sectionKey) : ""}`}
       description={
         isNew
-          ? "빈 섹션입니다. Argon 이 이 섹션의 근거와 작성 규칙으로 새로 씁니다(실패하면 로컬 모델). 선택값은 바뀌지 않습니다."
-          : "Argon 이 같은 지시·근거로 다시 씁니다(실패하면 로컬 모델). 제안자가 고친 문장은 보존되고 선택값은 바뀌지 않습니다."
+          ? "빈 섹션입니다. Argon 이 이 섹션의 근거와 작성 규칙으로 새로 씁니다(오류가 나면 로컬 모델). 선택값은 바뀌지 않습니다."
+          : "Argon 이 같은 지시·근거로 다시 씁니다(오류가 나면 로컬 모델). 제안자가 고친 문장은 보존되고 선택값은 바뀌지 않습니다."
       }
       className="w-[min(96vw,56rem)]"
       footer={
@@ -113,10 +119,18 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
           </div>
         </Alert>
       )}
-      {rewrite.isPending ? (
+      {rewrite.pending ? (
         <div aria-busy="true" className="space-y-2">
-          <p className="text-sm text-muted-foreground" aria-live="polite">후보를 쓰는 중입니다… (Argon, 실패하면 로컬 모델)</p>
+          <p className="text-sm text-muted-foreground">후보를 쓰는 중입니다… (Argon, 오류가 나면 로컬 모델)</p>
+          <AiWaiting pending={rewrite.pending} elapsed={rewrite.elapsed} onCancel={rewrite.cancel} what="Argon 다시 쓰기" />
           <SkeletonBlock lines={5} />
+        </div>
+      ) : rewrite.cancelled && !out ? (
+        <div className="space-y-2">
+          <AiCancelledNote show />
+          <Button size="sm" variant="outline" onClick={() => sectionKey && start(sectionKey)}>
+            다시 시도
+          </Button>
         </div>
       ) : unavailable ? (
         <Alert variant="info" role="status">
@@ -133,7 +147,7 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
           </div>
         </Alert>
       ) : rewrite.error ? (
-        <ProblemBanner error={rewrite.error} onRetry={() => sectionKey && rewrite.mutate(sectionKey)} />
+        <ProblemBanner error={rewrite.error} onRetry={() => sectionKey && start(sectionKey)} />
       ) : out && newCount === 0 ? (
         <Alert variant="warning" role="status">
           <div className="flex-1">
@@ -146,7 +160,7 @@ export function SectionRewrite({ runId, sectionKey, baseVersion, dirty, onClose,
                 </Button>
               )}
               {out.reason !== "app_section" && out.reason !== "policy_basis_needed" && (
-                <Button size="sm" variant="outline" onClick={() => sectionKey && rewrite.mutate(sectionKey)}>
+                <Button size="sm" variant="outline" onClick={() => sectionKey && start(sectionKey)}>
                   다시 시도
                 </Button>
               )}
