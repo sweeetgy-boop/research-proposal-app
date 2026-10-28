@@ -24,6 +24,7 @@ from rra.domain.models.review import SUPPORT_MISMATCH, SUPPORT_VALUES, sentence_
 from rra.domain.rules.evidence import parse_support
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.grounding import named_references, ungrounded
+from rra.domain.rules.keywords import KeywordRule, keyword_overlap
 from rra.domain.rules.llm_output import clean_sentence, parse_json_value, parse_object
 from rra.domain.rules.numbers import unsupported_numbers
 from rra.domain.rules.trust import wrap_untrusted
@@ -32,6 +33,8 @@ from rra.domain.rules.writer import LOCAL_CHECK_CHUNK_CHARS, text_hash
 PRIORITY_SECTIONS: tuple[str, ...] = ("policy_importance", "tech_importance")
 VERDICT_LABELS: dict[str, str] = {"지지": "지지", "부분": "부분", "불일치": "불일치"}
 _DIGIT = re.compile(r"\d")
+_HANGUL = re.compile(r"[가-힣]")
+_KEYWORDS = KeywordRule()
 # 고유명 — grounding.named_references(정책·계획·법령·기관 접미사, 따옴표 이름) + 낫표·법령
 _PROPER = re.compile(r"「|『|“|법\b|법률|시행령|규칙|공사\b|공단|위원회|연구원|부\b|청\b")
 
@@ -144,7 +147,14 @@ def rule_mismatch(text: str, evidence: Sequence[str]) -> bool:
     너그럽게 봐도 이것은 불일치로 둔다(2026-10-28 측정: 7B 가 바꿔 넣은 수치를 "부분"으로 판정)."""
     if not evidence:
         return False
-    return bool(unsupported_numbers(text, evidence) or ungrounded(text, evidence))
+    if unsupported_numbers(text, evidence) or ungrounded(text, evidence):
+        return True
+    # 한글 근거와 겹치는 핵심어가 하나도 없다 — 문장의 중심 주장이 근거에 없다 (영어 근거는 보지
+    # 않는다)
+    joined = " ".join(evidence)
+    if len(_HANGUL.findall(joined)) >= 20 and not keyword_overlap(text, joined, _KEYWORDS):
+        return True
+    return False
 
 
 def count_verdicts(verdicts: Mapping[str, str]) -> dict[str, int]:

@@ -202,3 +202,28 @@ async def test_fake_flow_mismatch_suggestion_apply_and_dismiss(tmp_path):
         assert r.status_code == 409
         r = await c.post(f"/v1/runs/{rid2}/local-review/nope/dismiss", headers=AUTH)
         assert r.status_code == 404
+
+
+def test_rule_mismatch_catches_changed_numbers_and_unrelated_claims():
+    """2026-10-28 실측: 7B 는 바꿔 넣은 수치를 "지지", 무관한 주장을 "부분" 으로 봤다
+    — 규칙이 불일치로."""
+    from rra.domain.rules.local_review import parse_verdicts, rule_mismatch
+
+    ev = [
+        "정부는 노후 궤도의 검측 고도화와 보수 체계 개선으로 철도 안전을 높이려 함. "
+        "2025년까지 궤도 검측 차량 3대를 추가 도입할 계획이다."
+    ]
+    assert not rule_mismatch("정부는 노후 궤도 검측 고도화로 철도 안전을 높이려 함.", ev)
+    assert rule_mismatch("2025년까지 궤도 검측 차량 10대를 추가 도입할 계획임.", ev)
+    assert rule_mismatch("공사는 전차선 아크 감지를 위해 드론 점검을 전면 도입함.", ev)
+    assert not rule_mismatch(
+        "Track geometry 열화 예측을 다룸.", ["Track geometry degradation " * 5]
+    )
+    ids = {"s:a:0", "s:a:1"}
+    bare = (
+        '[{"sentence_id": "s:a:0", "support": "지지"}, '
+        '{"sentence_id": "s:a:1", "support": "불일치"}]'
+    )
+    assert parse_verdicts(bare, ids) == {"s:a:0": "지지", "s:a:1": "불일치"}  # 배열만 와도
+    one = '{"support": [{"sentence_id": "s:a:0", "support": "부분"}]}'
+    assert parse_verdicts(one, ids) == {"s:a:0": "부분"}
