@@ -43,6 +43,7 @@ from rra.domain.models.figure import (
     MAX_LINE,
     NEED_CALC,
     PRELIM_NOTE,
+    SHORT_TAGS,
     TO_BE_TAGS,
     AsIsToBeSpec,
     ComparisonSpec,
@@ -99,6 +100,7 @@ FIXED_TEXTS: frozenset[str] = frozenset(
         TO_BE_HEAD,
         *AS_IS_TAGS,
         *TO_BE_TAGS,
+        *SHORT_TAGS.values(),
         NEED_CALC,
         PRELIM_NOTE,
         *LEVELS,
@@ -353,7 +355,7 @@ def validate_spec(
         problems.append(BOX_EMPTY)
     if isinstance(spec, AsIsToBeSpec) and (
         any(it.tag not in AS_IS_TAGS for it in spec.as_is)
-        or any(it.tag not in TO_BE_TAGS for it in spec.to_be)
+        or any(it.tag not in (*TO_BE_TAGS, *SHORT_TAGS.values()) for it in spec.to_be)
     ):
         problems.append(SIDE_TAG)
     if isinstance(spec, StatChartSpec):
@@ -494,7 +496,11 @@ def repair_spec(spec: BaseModel, pool: TextPool) -> BaseModel:
         def side(items, tags):
             fixed = [
                 it.model_copy(
-                    update={"tag": it.tag if it.tag in tags else tags[min(i, len(tags) - 1)]}
+                    update={
+                        "tag": it.tag
+                        if it.tag in tags or it.tag in SHORT_TAGS.values()  # 줄인 이름표는 그대로
+                        else tags[min(i, len(tags) - 1)]
+                    }
                 )
                 for i, it in enumerate(items)
             ]

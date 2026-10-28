@@ -131,6 +131,7 @@ async def test_ocr_small_text_on_nano_banana_image_redraws_once_bigger_without_c
     uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m))
     four = {**AS_IS, "as_is": [*AS_IS["as_is"], AS_IS["as_is"][0]]}
     fig = as_is_figure(four)
+    fig = fig.model_copy(update={"spec": fit.shorten_tags(fig.spec)[0]})  # 이름표는 이미 두 글자
     build = await uc.draw(fig)
     f = build.figure
     assert len(images.calls) == 2 and f.calls == 2 and ocr.calls == 2
@@ -149,7 +150,39 @@ async def test_ocr_small_text_stops_after_max_image_redraws():
         max_image_redraws=1,
     )
     build = await uc.draw(as_is_figure())
-    assert len(images.calls) == 2 and build.figure.fit.text_ok is False
+    # 처음 1 + 이름표 줄여 다시 1 + "글자를 더 크게" 1
+    assert len(images.calls) == 3 and build.figure.fit.text_ok is False
+
+
+async def test_ocr_small_as_is_to_be_shortens_tags_first_and_redraws_only_that_figure():
+    """그림 글자가 9pt 밑이면 이름표 글자 수부터 줄여(해결 방안 → 방안, 기대효과 → 효과) 밑그림부터
+    다시 그린다 — 칸 글자는 그대로 (2026-10-28 밤, 소유자 지시)."""
+    images = FakeImageGenerator()
+    ocr = FakeOcr([0.02, 0.06])
+    uc = make(SizedRenderer(limit=100), images=images, ocr=ocr, reframe=lambda d, m, a, r: (d, m))
+    fig = as_is_figure()
+    build = await uc.draw(fig)
+    f = build.figure
+    assert len(images.calls) == 2 and f.calls == 2
+    assert "글자를 더 크게" not in images.calls[1]["prompt"]
+    assert [it.tag for it in f.spec.to_be] == ["목표", "방안", "효과"]
+    assert [it.text for it in f.spec.to_be] == [it.text for it in fig.spec.to_be]
+    assert [it.tag for it in f.spec.as_is] == ["현황", "원인", "한계"]
+    assert f.fit.text_ok and f.fit.shortened == 2 and f.fit.redraws >= 1
+    assert build.baseline_png != uc.baseline(fig).baseline_png  # 밑그림도 줄인 이름표로
+
+
+def test_short_tags_pass_validation_and_render_bigger():
+    from rra.adapters.figures.render import F_SMALL, F_TAG_SHORT
+    from rra.domain.rules import figures as rules
+    from tests.domain.test_figures_v2_rules import pool_for
+
+    short, n = fit.shorten_tags(as_is_figure().spec)
+    assert n == 2 and fit.shorten_tags(short) is None
+    pool = pool_for()
+    assert rules.SIDE_TAG not in rules.validate_spec(short, pool)
+    assert rules.repair_spec(short, pool).to_be[1].tag == "방안"  # 다듬기가 되돌리지 않는다
+    assert F_TAG_SHORT > F_SMALL and fit.font_pt(F_TAG_SHORT, 153.8) >= 10
 
 
 async def test_without_ocr_the_baseline_estimate_is_kept():
@@ -223,7 +256,9 @@ async def test_small_text_without_anything_to_shorten_asks_for_bigger_text_once(
         ocr=FakeOcr([0.02, 0.05]),
         reframe=lambda d, m, a, r: (d, m),
     )
-    build = await uc.draw(as_is_figure(short))
+    fig = as_is_figure(short)
+    fig = fig.model_copy(update={"spec": fit.shorten_tags(fig.spec)[0]})  # 이름표도 이미 두 글자
+    build = await uc.draw(fig)
     assert len(images.calls) == 2
     assert (
         "글자를 더 크게" in images.calls[1]["prompt"]

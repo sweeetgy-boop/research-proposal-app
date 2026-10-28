@@ -572,6 +572,7 @@ class MakeFigures(TechniqueSteps):
         if self.images is not None:
             attempt = 0
             bigger = ""
+            tags_cut = False
             while True:
                 got = await self._generate(
                     figure, baseline_png, aspect, " ".join(x for x in (style, bigger) if x)
@@ -592,7 +593,26 @@ class MakeFigures(TechniqueSteps):
                 too_small = (
                     ocr_pt is not None and ocr_pt + fit_rules.PT_TOLERANCE < self.config.min_text_pt
                 )
-                if not too_small or not shorten or attempt >= self.config.max_image_redraws:
+                if not too_small or not shorten:
+                    break
+                # As-Is/To-Be: 먼저 이름표 글자 수를 줄여(해결 방안 → 방안) 밑그림부터 다시
+                # 그린다 — 줄인 이름표는 칸에 더 큰 글자로 들어간다(2026-10-28 밤, 소유자 지시)
+                cut = None if tags_cut or fit is None else fit_rules.shorten_tags(figure.spec)
+                if cut is not None:
+                    tags_cut = True
+                    prev = fit
+                    alt = rules.alt_text(cut[0])
+                    figure = figure.model_copy(update={"spec": cut[0], "alt": alt})
+                    figure, aspect, baseline_png, fit, svg = self.layout(figure, shorten=shorten)
+                    fit = fit.model_copy(
+                        update={
+                            "redraws": prev.redraws + fit.redraws + 1,
+                            "shortened": prev.shortened + fit.shortened + cut[1],
+                        }
+                    )
+                    spec = figure.spec
+                    continue
+                if attempt >= self.config.max_image_redraws:
                     break
                 attempt += 1
                 # 글자가 작다 — 밑그림은 이미 9pt 이상(layout)이라 그림의 모양 문제다. 글자(내용)는

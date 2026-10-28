@@ -228,6 +228,9 @@ class RoadmapSpec(BaseModel):
 # ── v2 [3] As-Is / To-Be ─────────────────────────────────
 AS_IS_TAGS: tuple[str, ...] = ("현황", "원인", "한계")
 TO_BE_TAGS: tuple[str, ...] = ("목표", "해결 방안", "기대효과")
+# 그림 글자가 9pt 밑이면 이름표를 두 글자로 줄여 다시 그린다(2026-10-28 밤, 소유자 지시 —
+# 이름표 글자 수를 줄이면 같은 칸에 더 큰 글자가 들어간다). 줄인 이름도 정해진 이름으로 본다
+SHORT_TAGS: dict[str, str] = {"해결 방안": "방안", "기대효과": "효과"}
 Box = Annotated[str, Field(min_length=1, max_length=MAX_BOX)]
 
 

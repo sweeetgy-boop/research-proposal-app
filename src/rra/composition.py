@@ -1767,6 +1767,8 @@ def build_figure_renderer(settings: Settings | None = None):
     settings = settings or load_settings()
     cfg = figures_config(settings)
     fonts = sorted(Path(cfg["fonts_dir"]).glob("*.otf"))
+    if not fonts:  # 번들 글꼴이 없으면 밑그림 글자가 비어 나온다(시스템 글꼴은 쓰지 않는다)
+        logging.getLogger("rra.figures").warning("figure.fonts_missing dir=%s", cfg["fonts_dir"])
     frame = build_figure_frame(settings)
     return SvgFigureRenderer(
         cfg["palette"],
