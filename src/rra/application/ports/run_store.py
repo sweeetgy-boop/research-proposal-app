@@ -12,6 +12,7 @@ from rra.domain.models import (
     RunState,
     Section,
     UsageRecord,
+    VersionMarks,
 )
 
 
@@ -65,6 +66,11 @@ class RunStorePort(Protocol):
     def load_version(self, user: str, run_id: str, version: int) -> DraftVersion | None: ...
 
     def list_versions(self, user: str, run_id: str) -> list[int]: ...
+
+    # 항목 21 상태 표시(확인 기록) — 버전 파일은 그대로 두고 버전마다 표시 파일(marks_vN)에 쌓는다
+    def save_marks(self, user: str, run_id: str, marks: VersionMarks) -> None: ...
+
+    def load_marks(self, user: str, run_id: str, version: int) -> VersionMarks | None: ...
 
     def save_outline(self, user: str, run_id: str, data: dict[str, Any]) -> None:
         """Q2 섹션 설계도(Outline.model_dump) — outline.json."""

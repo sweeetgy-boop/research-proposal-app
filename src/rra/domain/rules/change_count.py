@@ -7,6 +7,11 @@
 
 종류(CHANGE_LABELS): 문장 수정·삭제·추가, 선택값(제안값) 변경, 그림 추가·변경·확인·빼기·다시 넣기,
 근거 승인·교체·제외, 선택형 확정, 정책 근거 선택, 보완 메모.
+
+항목 21(ADR 0042): 상태 표시(STATUS_TYPES — 그림 확인·추천 그림 결정·근거 승인·제외·선택형 확정)는
+"변경 n건"(total)에 넣지 않고 "확인 n건"(confirmations)으로 따로 센다. 상태 표시는 버전을 만들지
+않으므로
+기준 버전은 표시를 합치지 않은 버전 파일, 현재 버전은 표시를 합친 것을 넘긴다.
 """
 
 from __future__ import annotations
@@ -36,6 +41,10 @@ CHANGE_LABELS: dict[str, str] = {
     "policy_choice": "정책 근거 선택",
     "memo": "보완 메모",
 }
+# 상태 표시 — "확인 n건" 으로 따로 센다 (버전을 만들지 않는다)
+STATUS_TYPES = frozenset(
+    {"figure_confirm", "figure_decision", "evidence_approve", "evidence_exclude", "choice_confirm"}
+)
 # 비교 기준 버전으로 보는 origin — 초안(로컬·Argon 작성). 최종 검토 뒤에는 그 버전이 기준
 BASE_ORIGINS = frozenset({"local", "argon"})
 
@@ -48,18 +57,29 @@ class ChangeSummary:
 
     @property
     def total(self) -> int:
-        return sum(self.counts.values())
+        """변경 n건 — 내용 변경만 (상태 표시 제외)."""
+        return sum(n for k, n in self.counts.items() if k not in STATUS_TYPES)
+
+    @property
+    def confirmations(self) -> int:
+        """확인 n건 — 상태 표시(그림 확인·추천 그림 결정·근거 승인·제외·선택형 확정)."""
+        return sum(n for k, n in self.counts.items() if k in STATUS_TYPES)
 
     def dump(self) -> dict[str, Any]:
+        def rows(status: bool) -> list[dict[str, Any]]:
+            return [
+                {"type": k, "label": CHANGE_LABELS.get(k, k), "count": n}
+                for k, n in self.counts.items()
+                if n and (k in STATUS_TYPES) == status
+            ]
+
         return {
             "base_version": self.base_version,
             "current_version": self.current_version,
             "total": self.total,
-            "items": [
-                {"type": k, "label": CHANGE_LABELS.get(k, k), "count": n}
-                for k, n in self.counts.items()
-                if n
-            ],
+            "items": rows(False),
+            "confirmations": self.confirmations,
+            "confirm_items": rows(True),
         }
 
 

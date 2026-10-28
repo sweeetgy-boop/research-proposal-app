@@ -2,16 +2,7 @@ import * as React from "react";
 import { Link } from "react-router";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { StepTarget } from "@/lib/runSteps";
-
-export const FLOW_STEPS = [
-  { n: 1, label: "아이디어 입력", hint: "간편·상세, 정책 근거" },
-  { n: 2, label: "유사과제 확인", hint: "추천·비교표·브리핑" },
-  { n: 3, label: "초안 생성", hint: "근거 패널" },
-  { n: 4, label: "직접 수정", hint: "다시 쓰기·보완 질문" },
-  { n: 5, label: "최종 검토", hint: "제출 전 점검" },
-  { n: 6, label: "최종 마무리", hint: "다운로드" },
-] as const;
+import { FLOW_STEPS, type StepTarget } from "@/lib/runSteps";
 
 const CIRCLED = ["①", "②", "③", "④", "⑤", "⑥"];
 
