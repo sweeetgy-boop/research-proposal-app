@@ -527,10 +527,22 @@ def version_payload(
     }
 
 
-def versions_payload(versions: list[Any]) -> list[dict[str, Any]]:
-    """버전 목록 — 본문 없이 메타만(번호·시각·경로·메모·바뀐 섹션·문장 수·알림 수·남은 메모 수)."""
-    return [
-        {
+def versions_payload(versions: list[Any], rows: list[Any] | None = None) -> list[dict[str, Any]]:
+    """버전 목록 — 본문 없이 메타만(번호·시각·경로·메모·바뀐 섹션·문장 수·알림 수·남은 메모 수).
+
+    항목 21(ADR 0042): changed_sections 는 이전 버전과의 실제 차이, changed_figures 는 바뀐 그림
+    이름,
+    marks·confirmations 는 그 버전에 쌓인 확인 기록, status_only 는 예전 run 의 상태만 바뀐
+    버전(화면이
+    "확인 기록" 으로 접는다), description 은 메모를 한국어로 고친 설명("그림 확인 — 연구 개념도").
+    rows 는 RunManager.version_history 의 설명 줄(없으면 버전만으로 계산, 확인 기록·작성자 없음)."""
+    from rra.domain.rules.version_history import version_rows
+
+    by_no = {r.version: r for r in (rows if rows is not None else version_rows(versions))}
+    out: list[dict[str, Any]] = []
+    for v in versions:
+        row = by_no.get(v.version)
+        item = {
             "version": v.version,
             "origin": v.origin,
             "origin_label": ORIGIN_LABEL.get(v.origin, v.origin),
@@ -544,8 +556,12 @@ def versions_payload(versions: list[Any]) -> list[dict[str, Any]]:
             "open_annotations": getattr(v, "open_annotations", 0),
             "figures": len(getattr(v, "figures", []) or []),
         }
-        for v in versions
-    ]
+        if row is not None:
+            item.update(row.dump())
+            if row.origin_label:
+                item["origin_label"] = row.origin_label
+        out.append(item)
+    return out
 
 
 def diff_payload(from_v: Any, to_v: Any, diff: list[dict], *, clean: Callable[[str], str] = _same):
@@ -558,13 +574,18 @@ def diff_payload(from_v: Any, to_v: Any, diff: list[dict], *, clean: Callable[[s
         ]
 
     from rra.domain.rules.figures import figure_diff
+    from rra.domain.rules.version_history import figure_name
 
+    old_figs = getattr(from_v, "figures", []) or []
+    new_figs = getattr(to_v, "figures", []) or []
+    names = {f.id: figure_name(f) for f in [*old_figs, *new_figs]}  # 화면은 이름만 (내부 id 없음)
     return {
         "from": from_v.version,
         "to": to_v.version,
-        "figures_changed": figure_diff(
-            getattr(from_v, "figures", []) or [], getattr(to_v, "figures", []) or []
-        ),
+        "figures_changed": [
+            {**row, "name": names.get(row["figure_id"], "")}
+            for row in figure_diff(old_figs, new_figs)
+        ],
         "sections": [
             {
                 **d,

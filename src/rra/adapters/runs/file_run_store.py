@@ -8,6 +8,8 @@
                         draft.json           완성 초안
                         confirmed.json       사용자가 확정한 선택값 (선택지 id 만)
                         versions/draft_vN.json  초안 버전 (v1=로컬 초안, 편집·되돌리기마다 +1)
+                        versions/marks_vN.json  그 버전의 상태 표시(그림 확인·근거 승인 …, 버전
+                        아님)
                         reviews/review_rN.json  검토 차수 결과 (의견·수정안·전송 범위)
                         manifest.json        해시·id 만 (FileRunLog)
                         .lock                run 락 (살아있는 실행 표시)
@@ -39,6 +41,7 @@ from rra.domain.models import (
     Section,
     StepRecord,
     UsageRecord,
+    VersionMarks,
 )
 from rra.domain.models.run import is_valid_run_id
 
@@ -165,6 +168,16 @@ class FileRunStore:
 
     def list_versions(self, user: str, run_id: str) -> list[int]:
         return self._numbers(self._run_dir(user, run_id) / "versions", "draft_v")
+
+    def save_marks(self, user: str, run_id: str, marks: VersionMarks) -> None:
+        n = self._number(marks.version, "버전")
+        path = ensure_dir(self._run_dir(user, run_id) / "versions")
+        write_json(path / f"marks_v{n}.json", marks.model_dump(mode="json"))
+
+    def load_marks(self, user: str, run_id: str, version: int) -> VersionMarks | None:
+        n = self._number(version, "버전")
+        path = self._run_dir(user, run_id) / "versions" / f"marks_v{n}.json"
+        return VersionMarks.model_validate(read_json(path)) if path.is_file() else None
 
     def save_outline(self, user: str, run_id: str, data: dict[str, Any]) -> None:
         write_json(self._run_dir(user, run_id) / "outline.json", data)

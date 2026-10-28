@@ -88,7 +88,7 @@ describe("[3] 로컬 작성 배지", () => {
     expect(screen.getByRole("heading", { name: /알림 2건/ })).toBeInTheDocument();
     expect(screen.getAllByText("근거 대조(로컬) 불일치")).toHaveLength(1);
     // run 머리 칩 (작게)
-    expect(screen.getByText("Argon 작성 · 로컬 4개 섹션")).toBeInTheDocument();
+    expect(screen.getByText("Argon 작성(일부 로컬)")).toBeInTheDocument();
     // [4] 인용 문서: live 인용에만 배지
     const cites = within(screen.getByRole("region", { name: /인용 문서 2건/ })).getAllByRole("listitem");
     expect(within(cites[0]!).queryByText("실시간 검색")).toBeNull();

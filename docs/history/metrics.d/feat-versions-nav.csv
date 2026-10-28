@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,TBD,[D] 상태 표시·이동 막대·쉬운 말,2174,1734,8,13280,15055,20257,9384,330,,,,,,,,,,시범 run 36건 버전 63개 중 상태만 바뀐 버전 12개 접음(바뀐 섹션 잘못 표시 11→0); vitest 137·e2e 27(+3 skip)

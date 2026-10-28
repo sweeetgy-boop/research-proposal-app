@@ -60,9 +60,9 @@ describe("항목 2 과제 제목", () => {
     expect(title).toHaveAttribute("tabindex", "0");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/검측 이력 기반/);
     expect(screen.getByText(id)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "run 번호 복사" }));
+    await userEvent.click(screen.getByRole("button", { name: "작성 번호 복사" }));
     expect(writeText).toHaveBeenCalledWith(id);
-    expect((await screen.findAllByText("run 번호를 복사했습니다."))[0]).toBeInTheDocument();
+    expect((await screen.findAllByText("작성 번호를 복사했습니다."))[0]).toBeInTheDocument();
     await expectNoA11yViolations(container);
   });
 
@@ -99,7 +99,7 @@ describe("항목 17 단계 표시 이동", () => {
     mockFetch({ [`/v1/runs/${id}`]: runFx });
     const { container } = renderRun(`/runs/${id}/draft`);
     const steps = await screen.findByRole("navigation", { name: "작성 단계" });
-    const tabs = screen.getByRole("navigation", { name: "run 하위 메뉴" });
+    const tabs = screen.getByRole("navigation", { name: "제안서 화면 메뉴" });
     expect(within(steps).getByRole("link", { name: /3단계 진행 중:\s*초안 생성/ })).toHaveAttribute("aria-current", "step");
     const finalize = within(steps).getByRole("link", { name: /최종 마무리/ });
     expect(finalize).toHaveAttribute("aria-disabled", "true");

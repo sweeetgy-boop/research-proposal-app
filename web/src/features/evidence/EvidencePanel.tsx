@@ -118,7 +118,7 @@ function EvidenceCard({
         </div>
         {action === "replace" && (
           <div className="space-y-1">
-            <Label htmlFor={`rep-${item.evidence_id}`}>바꿀 근거 (이번 run 의 검색 집합 안에서만)</Label>
+            <Label htmlFor={`rep-${item.evidence_id}`}>바꿀 근거 (이 제안서를 쓸 때 찾은 자료 안에서만)</Label>
             {others.length === 0 ? (
               <p className="text-xs text-destructive">바꿀 다른 근거가 없습니다.</p>
             ) : (
@@ -164,7 +164,8 @@ export function EvidencePanel({ runId, sentenceId, sentenceText, citations, prob
     try {
       const out = await decide.mutateAsync({ decisions, base_version: baseVersion, note: "근거 판단" });
       setPending({});
-      toast(out.version === baseVersion ? "바뀐 판단이 없어 새 버전을 만들지 않았습니다." : `근거 판단을 v${out.version} 으로 저장했습니다.`, "success");
+      // 승인·제외는 상태 표시 — 버전 그대로 (항목 21). 교체는 본문 근거가 바뀌어 새 버전
+      toast(out.version === baseVersion ? "근거 판단을 저장했습니다 (새 버전 없음)." : `근거 판단을 v${out.version} 으로 저장했습니다.`, "success");
       onClose();
     } catch (e) {
       if (isApiError(e) && e.status === 409) setConflict(true);

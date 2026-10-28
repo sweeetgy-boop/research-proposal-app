@@ -59,7 +59,7 @@ test("키보드만으로 로그인 → 입력 → 유사과제 확인 → 다음
 test("Esc 로 대화상자 닫기 (버전 복원 확인창)", async ({ page }) => {
   await login(page);
   await page.goto("/runs");
-  await page.getByRole("table").or(page.getByText("아직 run 이 없습니다")).waitFor();
+  await page.getByRole("table").or(page.getByText("아직 만든 제안서가 없습니다")).waitFor();
   const first = page.getByRole("link", { name: /^\d{14}-\d{8}$/ }).first();
   test.skip((await first.count()) === 0, "앞 테스트가 만든 run 이 필요");
   await first.click();

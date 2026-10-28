@@ -129,6 +129,7 @@ class EditAIMixin:
     # ── 변경 세기 ────────────────────────────────────────
     async def changes(self, user: str, run_id: str) -> ChangeSummary:
         state = await self.status(user, run_id)  # type: ignore[attr-defined]
+        # 현재 = 버전 + 상태 표시, 기준 = 버전 파일 그대로 (표시는 "확인 n건" 으로 센다, 항목 21)
         current = self._current_version(user, run_id, state)  # type: ignore[attr-defined]
         numbers = self.store.list_versions(user, run_id) or [current.version]  # type: ignore[attr-defined]
         versions: list[DraftVersion] = [

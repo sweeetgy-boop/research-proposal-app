@@ -55,7 +55,7 @@ test("모든 화면 캡처", async ({ page }) => {
   await subnav(page, "최종 마무리").click();
   await expect(page.getByRole("radio", { name: "응용연구" })).toBeChecked();
   await shot(page, 10, "finalize");
-  await page.getByRole("link", { name: "run 목록" }).click();
+  await page.getByRole("link", { name: "내 제안서" }).click();
   await expect(page.getByRole("table")).toBeVisible();
   await shot(page, 11, "runs");
   await page.getByRole("link", { name: "자료 검색" }).click();

@@ -49,7 +49,7 @@ async def test_draft_review_support_is_stored_and_mismatch_becomes_a_warning():
         await mgr.sentence_evidence("local", st.run_id, "s:method:9")
 
 
-async def test_evidence_decisions_create_a_version_and_exclusion_warns_in_required_sections():
+async def test_evidence_decisions_are_marks_and_exclusion_warns_in_required_sections():
     mgr, store, log = build()
     st = await run(mgr)
     # 근거 필수 섹션 흉내: method 를 evidence_required 로
@@ -66,10 +66,12 @@ async def test_evidence_decisions_create_a_version_and_exclusion_warns_in_requir
             base_version=1,
         ),
     )
-    assert v.version == 2 and v.origin == "edit" and v.note == "근거 판단"
+    # 항목 21: 근거 승인·제외는 상태 표시 — 버전을 만들지 않는다 (상태도 그대로)
+    assert v.version == 1 and store.list_versions("local", st.run_id) == [1]
     assert [d.action for d in v.evidence_decisions] == ["exclude"]
+    assert store.load_version("local", st.run_id, 1).evidence_decisions == []
     state = await mgr.status("local", st.run_id)
-    assert state.status == "editing"
+    assert state.status == "drafted" and state.draft_version == 1
     assert ("evidence_all_excluded", 0) in [(p["code"], p["sentence"]) for p in state.problems]
     items = await mgr.sentence_evidence("local", st.run_id, "s:method:0")
     assert items[0].decision == "exclude"
@@ -84,7 +86,7 @@ async def test_evidence_decisions_create_a_version_and_exclusion_warns_in_requir
             ]
         ),
     )
-    assert same.version == 2  # 같은 판단 → 새 버전 없음
+    assert same.version == 1  # 같은 판단 → 기록도 그대로
     with pytest.raises(VersionConflict):
         await mgr.decide_evidence(
             "local",
@@ -95,7 +97,7 @@ async def test_evidence_decisions_create_a_version_and_exclusion_warns_in_requir
                         sentence_id="s:method:0", evidence_id="openalex:W1#0", action="approve"
                     )
                 ],
-                base_version=1,
+                base_version=2,
             ),
         )
     with pytest.raises(EditRejected, match="검색 집합"):

@@ -28,7 +28,7 @@ export default function RunIdea() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">① 아이디어 입력 (이 run 의 입력)</h2>
+        <h2 className="text-lg font-semibold">① 아이디어 입력 (이 제안서의 입력)</h2>
         <p className="text-sm text-muted-foreground">초안을 만들 때 쓴 입력입니다. 고쳐 저장하면 바뀐 내용과 관련된 섹션만, 또는 초안 전체를 새 버전으로 다시 쓸 수 있습니다.</p>
       </div>
       {blocked && (
@@ -45,7 +45,7 @@ export default function RunIdea() {
       <ProblemBanner error={change.previewError} />
       {value && (
         <fieldset disabled={!!blocked} className="min-w-0">
-          <legend className="sr-only">이 run 의 아이디어 입력</legend>
+          <legend className="sr-only">이 제안서의 아이디어 입력</legend>
           <IdeaForm
             value={value}
             onChange={(patch) => setValue((v) => (v ? { ...v, ...patch } : v))}

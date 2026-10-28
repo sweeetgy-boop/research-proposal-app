@@ -136,20 +136,19 @@ async def test_default_set_is_as_is_to_be_plus_recommended_techniques(repo):
     assert "넣기 확정" in check["figures_undecided"].detail
 
 
-async def test_recommendation_actions_make_versions_and_count_as_changes(repo):
+async def test_recommendation_decisions_are_marks_and_swap_makes_a_version(repo):
     mgr = make_manager(repo)
     state = await _run(mgr)
     rid = state.run_id
     figs = _by_kind(mgr.store.load_version(USER, rid, 1).figures)
     swot, cb = figs["swot"].id, figs["cost_benefit"].id
+    # 항목 21: 넣기 확정·필요 없음·다시 넣기는 상태 표시 — 버전 번호 그대로
     v2 = await mgr.figure_action(USER, rid, swot, "accept", base_version=1)
-    assert (
-        v2.version == 2 and v2.note == "그림 accept" and v2.changed_sections == ["tech_importance"]
-    )
+    assert v2.version == 1 and mgr.store.list_versions(USER, rid) == [1]
     assert _by_kind(v2.figures)["swot"].recommendation.status == "accepted"
-    v1 = mgr.store.load_version(USER, rid, 1)
+    v1 = mgr.store.load_version(USER, rid, 1)  # 버전 파일은 그대로
     assert [r["change"] for r in figure_rules.figure_diff(v1.figures, v2.figures)] == ["accepted"]
-    v3 = await mgr.figure_action(USER, rid, cb, "dismiss")
+    v3 = await mgr.figure_action(USER, rid, cb, "dismiss", base_version=1)
     dismissed = _by_kind(v3.figures)["cost_benefit"]
     assert dismissed.included is False and dismissed.recommendation.status == "dismissed"
     check = {i.key: i for i in (await mgr.submit_check(USER, rid)).items}
@@ -157,7 +156,11 @@ async def test_recommendation_actions_make_versions_and_count_as_changes(repo):
     v4 = await mgr.figure_action(USER, rid, cb, "include")  # 추천 그림의 [넣기] = 다시 넣기
     restored = _by_kind(v4.figures)["cost_benefit"]
     assert restored.included and restored.recommendation.status == "accepted"
-    assert v4.note == "그림 restore"
+    assert v4.version == 1
+    kinds = [m.kind for m in mgr.store.load_marks(USER, rid, 1).log]
+    assert kinds == ["figure_accept", "figure_dismiss", "figure_restore"]
+    changes = await mgr.changes(USER, rid)
+    assert changes.total == 0 and changes.confirmations >= 2  # "변경 0건 · 확인 n건"
     # 다른 기법으로 바꾸기 — 같은 자리·id, 다시 결정 전, 바뀐 기법 기록
     v5 = await mgr.figure_action(USER, rid, swot, "swap", technique="pugh")
     swapped = next(f for f in v5.figures if f.id == swot)
@@ -165,6 +168,7 @@ async def test_recommendation_actions_make_versions_and_count_as_changes(repo):
     assert (
         swapped.recommendation.status == "pending" and swapped.recommendation.swapped_from == "swot"
     )
+    assert v5.version == 2 and v5.note.startswith("분석 기법 바꾸기 — 분석 기법 그림 – ")
     assert [r["change"] for r in figure_rules.figure_diff(v4.figures, v5.figures)] == ["swapped"]
     with pytest.raises(EditRejected):
         await mgr.figure_action(USER, rid, swot, "swap", technique="magic")
@@ -173,7 +177,7 @@ async def test_recommendation_actions_make_versions_and_count_as_changes(repo):
     as_is = _by_kind(v5.figures)["as_is_to_be"].id
     with pytest.raises(EditRejected):
         await mgr.figure_action(USER, rid, as_is, "accept")  # 추천 그림이 아님
-    assert len(await mgr.versions(USER, rid)) == 5
+    assert len(await mgr.versions(USER, rid)) == 2
 
 
 async def test_retry_recommendation_respects_slots_and_reports_empty_result(repo):

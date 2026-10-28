@@ -477,7 +477,21 @@ def test_change_count_covers_every_type():
     assert (c["figure_change"], c["figure_add"], c["figure_decision"]) == (1, 1, 1)
     assert (c["evidence_approve"], c["evidence_replace"], c["evidence_exclude"]) == (1, 1, 1)
     assert (c["choice_confirm"], c["policy_choice"], c["memo"]) == (1, 1, 1)
-    assert summary.total == sum(c.values()) and summary.dump()["items"][0]["label"] == "문장 수정"
+    # 항목 21: 상태 표시(그림 확인·추천 결정·근거 승인·제외·선택형 확정 = 5건)는 "확인 n건" 으로
+    # 따로
+    assert summary.confirmations == 5
+    assert (
+        summary.total == sum(c.values()) - 5 and summary.dump()["items"][0]["label"] == "문장 수정"
+    )
+    dumped = summary.dump()
+    assert {i["type"] for i in dumped["confirm_items"]} == {
+        "figure_confirm",
+        "figure_decision",
+        "evidence_approve",
+        "evidence_exclude",
+        "choice_confirm",
+    }
+    assert not {i["type"] for i in dumped["items"]} & {i["type"] for i in dumped["confirm_items"]}
     assert count_changes(base, base).total == 0
 
 
