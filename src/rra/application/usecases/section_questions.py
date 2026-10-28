@@ -71,6 +71,7 @@ SOURCE_LABELS = {
     "argon": "Argon 이 본문을 읽고 물음",
     "local": "로컬 모델이 대신 물음",
     "checklist": "체크리스트로 물음",
+    "strengthen": "빠진 요소는 없습니다 — 더 보강할 점을 묻습니다",
     "none": "빠진 요소 없음",
 }
 
@@ -182,4 +183,14 @@ class SectionQuestions:
         reason = None if res.reason == "empty" else res.reason
         if fallback:
             return SectionQuestionsResult(fallback, "checklist", reason, cov, res.record())
+        # 빠진 요소가 없어도 체크리스트 질문을 "더 보강할 점"으로 묻는다 — 과제유형처럼 AI 가
+        # 고른 값을 제안자가 확인해야 하는 섹션에서 질문 0개로 끝나지 않게
+        # (2026-10-28 측정: 05 과제유형 0개)
+        strengthen = [
+            {"element": str(i.get("element") or ""), "question": str(i.get("question") or "")}
+            for i in checklist
+            if i.get("element") and i.get("question")
+        ][:MAX_QUESTIONS]
+        if strengthen:
+            return SectionQuestionsResult(strengthen, "strengthen", reason, cov, res.record())
         return SectionQuestionsResult([], "none", reason, cov, res.record())

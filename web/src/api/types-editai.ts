@@ -112,7 +112,7 @@ export interface RewriteOutV2 extends RewriteOut {
 
 /** GET /v1/runs/{id}/sections/{key}/questions — 새 필드 */
 export interface SectionQuestionsOutV2 extends SectionQuestionsOut {
-  source?: "argon" | "local" | "checklist" | "none";
+  source?: "argon" | "local" | "checklist" | "strengthen" | "none";
   source_label?: string;
   reason?: string | null;
   reason_label?: string | null;
