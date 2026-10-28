@@ -27,6 +27,8 @@
   --info: 221 83% 45%;
   --ring: 221 83% 45%;
   --radius: 0.5rem;
+  /* 단계 화면 아래 이동 막대 높이 (StepNavBar 가 실제 높이로 바꾼다, 없으면 0) */
+  --stepnav-h: 0px;
   /* origin 배지 */
   --origin-local: 215 16% 40%;
   --origin-argon: 262 60% 42%;

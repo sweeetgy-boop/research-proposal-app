@@ -51,6 +51,7 @@ describe("DiffView", () => {
     expect(screen.getByText("뺌")).toBeInTheDocument();
     expect(screen.getByText("확인함")).toBeInTheDocument();
     expect(screen.getByText("3-나 기대효과 (기술혁신 측면)")).toBeInTheDocument();
+    expect(screen.queryByText("fig-concept-1")).toBeNull(); // 내부 그림 id 는 화면에 없다 (레인 D)
   });
 
   it("[G] 본문·그림이 함께 바뀌면 둘 다 그린다", () => {

@@ -62,12 +62,15 @@ export function IdeaForm({
   onSubmit,
   busy,
   submitLabel = "유사과제 확인",
+  hideSubmit = false,
 }: {
   value: ProposalRequest;
   onChange: (patch: Partial<ProposalRequest>) => void;
   onSubmit: (req: ProposalRequest) => void;
   busy?: boolean;
   submitLabel?: string;
+  /** 아래 이동 막대가 [다음: 유사과제 확인] 으로 이 폼을 제출할 때 (id="idea-form") — 폼 안 단추는 숨긴다 */
+  hideSubmit?: boolean;
 }) {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [touched, setTouched] = React.useState(false);
@@ -90,7 +93,7 @@ export function IdeaForm({
   const summary = summarizeErrors(live);
 
   return (
-    <form onSubmit={submit} noValidate className="space-y-6">
+    <form id="idea-form" onSubmit={submit} noValidate className="space-y-6">
       <div ref={summaryRef} tabIndex={-1} className="min-h-6" aria-live="assertive">
         {summary && touched && (
           <p role="alert" className="rounded-md border border-destructive/60 p-3 text-sm text-destructive">
@@ -153,11 +156,13 @@ export function IdeaForm({
         </div>
       </details>
 
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button type="submit" disabled={busy}>
-          {busy ? "확인 중…" : submitLabel}
-        </Button>
-      </div>
+      {!hideSubmit && (
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="submit" disabled={busy}>
+            {busy ? "확인 중…" : submitLabel}
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

@@ -78,7 +78,7 @@ test.describe("U9 사용성 흐름", () => {
     await shot(page, 4, "evidence-panel");
     await dialog.getByText("승인", { exact: true }).click();
     await dialog.getByRole("button", { name: "판단 저장" }).click();
-    await expect(page.getByText(/근거 판단을 v3 으로 저장했습니다/).first()).toBeVisible();
+    await expect(page.getByText(/근거 판단을 저장했습니다 \(새 버전 없음\)/).first()).toBeVisible(); // 항목 21
     await expect(dialog).toBeHidden();
     // Esc 로도 닫힌다
     await page.getByRole("button", { name: /2-나 연구목적 문장 1 근거 \d+건 보기/ }).click();
@@ -99,7 +99,7 @@ test.describe("U9 사용성 흐름", () => {
     await expect(dialog.getByRole("table", { name: /현재 문장과 다시 쓴 후보/ })).toBeVisible({ timeout: 20_000 });
     await shot(page, 5, "rewrite");
     await dialog.getByRole("button", { name: /문장 반영/ }).click();
-    await expect(page.getByText(/AI 다시 쓰기를 v4 으로 반영했습니다/).first()).toBeVisible();
+    await expect(page.getByText(/AI 다시 쓰기를 v3 으로 반영했습니다/).first()).toBeVisible();
     await expect(dialog).toBeHidden();
 
     // ⑤ 최종 검토 → 제출 전 점검

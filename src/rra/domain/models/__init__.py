@@ -16,6 +16,7 @@ from .gap import (
     RelatedResearch,
     Tier,
 )
+from .marks import MARK_LABELS, FigureMark, StatusMark, VersionMarks
 from .notice import MAX_NOTICE_MATCHES, NoticeMatch
 from .outline import Outline, SectionPlan
 from .pipeline import PipelineConfig
@@ -108,6 +109,10 @@ __all__ = [
     "MAX_NOTICE_MATCHES",
     "CriterionScore",
     "DraftVersion",
+    "MARK_LABELS",
+    "FigureMark",
+    "StatusMark",
+    "VersionMarks",
     "EvidenceDecision",
     "EvidenceCounts",
     "Satisfaction",

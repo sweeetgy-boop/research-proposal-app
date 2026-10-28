@@ -41,7 +41,7 @@ test.describe("[G] 그림 카드", () => {
 
     // 확인함 → 배지 "확인함"(버튼은 사라진다)
     await page.getByRole("group", { name: "As-Is / To-Be" }).getByRole("button", { name: "As-Is / To-Be 확인함" }).click();
-    await expect(page.getByText(/으로 저장했습니다/).first()).toBeVisible();
+    await expect(page.getByText("확인 표시를 저장했습니다 (새 버전 없음)").first()).toBeVisible(); // 항목 21
     await expect(page.getByRole("group", { name: "As-Is / To-Be" }).getByText("확인함", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "As-Is / To-Be 확인함" })).toHaveCount(0);
 
@@ -106,9 +106,9 @@ test.describe("[G] 그림 카드", () => {
     await expect(swot.getByText("결정 전")).toBeVisible();
     await expect(page.getByText(/제안 내용 기반 예비 평가/).first()).toBeVisible();
 
-    // 넣기 확정 → 새 버전, 배지 "넣기 확정"
+    // 넣기 확정 → 상태 표시(새 버전 없음, 항목 21), 배지 "넣기 확정"
     await page.getByRole("button", { name: "SWOT 분석 넣기 확정" }).click();
-    await expect(page.getByText(/으로 저장했습니다/).first()).toBeVisible();
+    await expect(page.getByText("확인 표시를 저장했습니다 (새 버전 없음)").first()).toBeVisible();
     await expect(page.getByRole("region", { name: "추천 — SWOT 분석" }).getByText("넣기 확정", { exact: true })).toBeVisible();
 
     // 필요 없음 → 카드가 섹션 아래로 접힌다 → 다시 넣기
