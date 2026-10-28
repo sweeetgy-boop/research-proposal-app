@@ -87,16 +87,19 @@ export default function Precheck() {
     const out = await judge.run({ r: req, retry });
     const cur = currentPre();
     if (!out?.alerts || !cur) return;
-    const { map, added } = withDefaults(getIdea().similarChoices, out.default_choices, out.alerts);
+    // 판정 응답에는 실시간 검색 표시가 없다 — 표 먼저 응답의 live 를 이어받는다
+    const live = new Set(cur.alerts.filter((a) => a.live).map((a) => a.doc_id));
+    const alerts = out.alerts.map((a) => (live.has(a.doc_id) ? { ...a, live: true } : a));
+    const { map, added } = withDefaults(getIdea().similarChoices, out.default_choices, alerts);
     setDefaultsAdded(added);
     setPre(
       {
         ...cur,
-        alerts: out.alerts,
+        alerts,
         judgment: out.judgment,
         default_choices: out.default_choices,
         core_keywords: out.core_keywords ?? cur.core_keywords,
-        blocking: effectiveBlocking(out.alerts, map),
+        blocking: effectiveBlocking(alerts, map),
       },
       { similarChoices: map },
     );
