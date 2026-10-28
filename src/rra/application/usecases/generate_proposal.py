@@ -90,6 +90,7 @@ from rra.domain.rules.llm_output import (
     parse_sentences,
 )
 from rra.domain.rules.local_review import (
+    RULE_SKIP_SECTIONS,
     batch_prompt,
     check_batches,
     count_verdicts,
@@ -1065,8 +1066,12 @@ class GenerateProposal:
                 h = text_hash(sent.text)
                 cited = [by_id[e].text for e in sent.evidence if e in by_id]
                 docs = {by_id[e].doc_id for e in sent.evidence if e in by_id}
-                if value != SUPPORT_MISMATCH and rule_mismatch(
-                    sent.text, cited, allowed=[*allowed, *[titles.get(d, "") for d in docs]]
+                if (
+                    value != SUPPORT_MISMATCH
+                    and sec.key not in RULE_SKIP_SECTIONS
+                    and rule_mismatch(
+                        sent.text, cited, allowed=[*allowed, *[titles.get(d, "") for d in docs]]
+                    )
                 ):
                     # 근거에 없는 수치·이름 — 규칙이 불일치로 (모델은 너그럽다)
                     value = SUPPORT_MISMATCH

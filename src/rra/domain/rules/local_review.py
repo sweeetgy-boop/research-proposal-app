@@ -34,10 +34,21 @@ PRIORITY_SECTIONS: tuple[str, ...] = ("policy_importance", "tech_importance")
 VERDICT_LABELS: dict[str, str] = {"지지": "지지", "부분": "부분", "불일치": "불일치"}
 _DIGIT = re.compile(r"\d")
 _HANGUL = re.compile(r"[가-힣]")
+_STRICT_NAME = re.compile(
+    r"「([^」]{2,60})」|『([^』]{2,60})』|“([^”]{2,60})”"
+    r"|(제\s?\d+\s?차\s?[가-힣A-Za-z·\s]{2,30}?(?:계획|전략|방안|로드맵))"
+    r"|([가-힣·]{2,30}(?:법|법률|시행령|시행규칙))(?=[\s,.)」]|$|[을를이가의에])"
+)
+# 규칙 불일치를 보지 않는 섹션 — 5. 특이사항은 앱 판정(유사도·구분)을 옮겨 쓴 문장이라 근거 글과
+# 다르다
+RULE_SKIP_SECTIONS: frozenset[str] = frozenset({"overlap_review"})
 # 문장 속 번호(수치 아님) — 세부 목표 3:, 2단계, 1차년도, (1), ①
 _ENUM = re.compile(
     r"(?:세부\s*)?(?:목표|과제|단계|항목|방안|방향|내용)\s*\d{1,2}\s*[:.)]"
-    r"|\d{1,2}\s*(?:차년도|단계|차\b)|[(（]\d{1,2}[)）]|\A\s*\d{1,2}[.)]\s"
+    r"|\d{1,2}\s*(?:차년도|단계)"
+    # 일정 표기(연구기간에서 나온 1~2개월·1년) — 4자리 연도는 그대로 본다
+    r"|(?<!\d)\d{1,2}\s*(?:~\s*\d{1,2}\s*)?(?:개월|년)(?![0-9가-힣])"
+    r"|[(（]\d{1,2}[)）]|\A\s*\d{1,2}[.)]\s"
 )
 _KEYWORDS = KeywordRule()
 # 고유명 — grounding.named_references(정책·계획·법령·기관 접미사, 따옴표 이름) + 낫표·법령
@@ -147,6 +158,20 @@ def parse_verdicts(raw: str, sent_ids: set[str]) -> dict[str, str]:
     return parse_support(data, sent_ids)
 
 
+def strict_names_missing(text: str, pool: Sequence[str]) -> list[str]:
+    """이름이 분명한 것만 — 낫표·따옴표 이름, "제N차 …", 법령명.
+
+    grounding.named_references 는 "개발계획"·"공간계획" 같은 일반 합성어도 잡아
+    (2026-10-28 실측 거짓 불일치 5건) 규칙 불일치에는 쓰지 않는다."""
+    hay = "".join(" ".join(pool).split())
+    out = []
+    for m in _STRICT_NAME.finditer(text):
+        name = next((g for g in m.groups() if g), m.group(0))
+        if "".join(name.split()) not in hay:
+            out.append(name)
+    return out
+
+
 def request_texts(req: Any) -> list[str]:
     """제안자 입력 글 — 규칙 불일치에서 근거로 친다(입력에 있는 수치·이름은 불일치가 아니다)."""
     if req is None:
@@ -162,7 +187,7 @@ def rule_mismatch(text: str, evidence: Sequence[str], *, allowed: Sequence[str] 
         return False
     pool = [*evidence, *allowed]
     body = _ENUM.sub(" ", text)  # "세부 목표 3:"·"1차년도"·"(2)" 같은 번호는 수치가 아니다
-    if unsupported_numbers(body, pool) or ungrounded(body, pool):
+    if unsupported_numbers(body, pool) or strict_names_missing(text, pool):
         return True
     # 한글 근거와 겹치는 핵심어가 하나도 없다 — 문장의 중심 주장이 근거에 없다 (영어 근거는 보지
     # 않는다)

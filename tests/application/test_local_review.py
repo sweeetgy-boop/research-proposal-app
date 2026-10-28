@@ -216,6 +216,10 @@ def test_rule_mismatch_catches_changed_numbers_and_unrelated_claims():
     assert not rule_mismatch("정부는 노후 궤도 검측 고도화로 철도 안전을 높이려 함.", ev)
     assert rule_mismatch("2025년까지 궤도 검측 차량 10대를 추가 도입할 계획임.", ev)
     assert rule_mismatch("공사는 전차선 아크 감지를 위해 드론 점검을 전면 도입함.", ev)
+    # 일반 합성어("개발계획")는 이름이 아니다, 낫표 이름·"제N차 …계획" 은 근거에 있어야 한다
+    assert not rule_mismatch("부지를 선정하여 개발계획을 구상하고 노후 궤도 검측을 고도화함.", ev)
+    assert rule_mismatch("「궤도혁신 종합계획」에 따라 노후 궤도 검측을 고도화함.", ev)
+    assert rule_mismatch("제5차 국가철도망 구축계획에 따라 노후 궤도 검측을 고도화함.", ev)
     # 번호는 수치가 아니다 (2026-10-28 실측 거짓 불일치: "세부 목표 3:")
     assert not rule_mismatch("세부 목표 3: 노후 궤도 검측 고도화로 철도 안전을 높이려 함.", ev)
     assert not rule_mismatch("2차년도에 노후 궤도 검측 고도화를 추진함.", ev)
