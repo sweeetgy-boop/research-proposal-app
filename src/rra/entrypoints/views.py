@@ -154,11 +154,26 @@ def figures_payload(
                     for r in editable_texts(f.spec)
                 ],
                 "edit_requests": len(f.edit_requests),
+                "spec_model": getattr(f, "spec_model", None),
+                "last_change": _last_change(getattr(f, "last_change", None), clean),
                 "updated_at": f.updated_at,
                 "notice": FIGURE_NOTICE,
             }
         )
     return out
+
+
+def _last_change(change: Any, clean: Callable[[str], str]) -> dict[str, Any] | None:
+    """[2] 카드 "바뀐 내용" — {kind: content|style, summary, style, model, at}. 없으면 None."""
+    if change is None:
+        return None
+    return {
+        "kind": change.kind,
+        "summary": [clean(x) for x in change.summary],
+        "style": clean(change.style),
+        "model": change.model,
+        "at": change.at,
+    }
 
 
 def failed_sections_payload(state: Any) -> list[dict[str, str]]:

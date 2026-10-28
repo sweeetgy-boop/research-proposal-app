@@ -1553,9 +1553,11 @@ def build_figures(
     images=None,
     renderer=None,
     fallback_llm=None,
+    argon=None,
 ):
     """[G] 그림 유스케이스(MakeFigures). figures.yaml enabled=false 면 None.
-    명세는 로컬 모델(stage figures), 대체는 compose.fallback provider, 그림은 Nano Banana."""
+    명세·[말로 고치기] 명세 변경은 Argon(review 단계 provider, 예산 래퍼) 먼저, 실패면 로컬 모델
+    (stage figures). review 키가 없으면 로컬 → compose.fallback(예전 순서). 그림은 Nano Banana."""
     import json
 
     from rra.adapters.figures import shrink_image
@@ -1569,9 +1571,13 @@ def build_figures(
         llm = build_llm(settings, stage=cfg["spec_stage"])
     if images is None and not settings.fake_llm:
         images = build_image_generator(settings)
-    if fallback_llm is None and not settings.fake_llm:
+    if argon is None and not settings.fake_llm and llm_available(settings, stage="review"):
+        argon = build_llm(settings, stage="review")  # gemini 면 BudgetedLLM (일일 상한 공유)
+    if fallback_llm is None and argon is None and not settings.fake_llm:
         fb = build_compose_fallback(settings)
         fallback_llm = fb["llm"] if fb else None
+    review_cfg = llm_config(settings, "review")
+    local_cfg = llm_config(settings, cfg["spec_stage"])
     schemas = {}
     for kind in cfg["kinds"]:
         path = Path(cfg["template_dir"]) / f"{kind}.schema.json"
@@ -1598,6 +1604,9 @@ def build_figures(
         titles=rules.titles,
         shrink=lambda data, mime: shrink_image(data, mime, max_bytes=cfg["max_png_bytes"]),
         clock=lambda: datetime.now(UTC).isoformat(timespec="seconds"),
+        argon=argon,
+        argon_model=str(review_cfg["served_model"] or review_cfg["model"]),
+        local_model=str(local_cfg["served_model"] or local_cfg["model"]),
     )
 
 

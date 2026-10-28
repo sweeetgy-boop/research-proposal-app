@@ -1,5 +1,5 @@
-"""[G] MakeFigures — 명세(교정 1회·대체)·검사·밑그림·Nano Banana 1회·실패면 기본 그림·말로 고치기·
-동시 생성."""
+"""[G] MakeFigures — 명세(Argon → 로컬, 교정 1회)·검사·밑그림·Nano Banana 1회·실패면 기본 그림·
+말로 고치기(명세 변경 → 밑그림 → 새로 그림, 편집 호출 없음)·동시 생성."""
 
 import json
 
@@ -136,36 +136,216 @@ async def test_draw_uses_nano_banana_once_and_falls_back_to_baseline_on_failure(
     assert none.figure.error == "no_image_llm" and none.figure.calls == 0
 
 
-async def test_edit_by_words_strips_personal_data_and_records_request():
-    fig = Figure(
+# 지금 생성되는 개념도처럼 상자 이름이 템플릿 라벨 (repair_spec 이 자리별로 고정한다)
+CONCEPT2 = {
+    "boxes": [
+        {**box, "label": label}
+        for box, label in zip(
+            CONCEPT["boxes"], ("현황", "문제(근본 원인)", "해결 방안", "기대효과"), strict=True
+        )
+    ]
+}
+
+
+def _fig(**kw):
+    return Figure(
         id="f:objective:1",
         kind="concept",
         section="objective",
-        spec=parse_spec("concept", CONCEPT),
-        image_sha="x",
+        spec=parse_spec("concept", CONCEPT2),
+        image_sha="current-image",
+        renderer="nano_banana",
+        confirmed=True,
+        **kw,
     )
+
+
+def _edit_answer(spec=None, style="", summary=()):
+    return json.dumps({"spec": spec, "style": style, "summary": list(summary)}, ensure_ascii=False)
+
+
+def _changed_concept(line):
+    data = json.loads(json.dumps(CONCEPT2, ensure_ascii=False))
+    data["boxes"][3]["lines"] = [line]
+    return data
+
+
+def _baseline(spec, caption=""):
+    r = FakeFigureRenderer()
+    return r.png(r.svg(spec, caption=caption))
+
+
+async def test_words_text_change_becomes_spec_change_then_redraw_from_new_baseline():
+    """[2] 글자 변경 요청 → Argon 명세 변경 → 검사 → 새 밑그림 → generate(밑그림 참고).
+    이미지 편집(edit) 호출은 쓰지 않는다."""
+    new = _changed_concept("이상 구간 조기 발견")
+    argon = FakeLLM(
+        [_edit_answer(new, summary=["기대효과 줄 1 '보수 우선순위 산정' → '이상 구간 조기 발견'"])]
+    )
+    local = FakeLLM()
     images = FakeImageGenerator()
-    build = await make(FakeLLM(), images).edit_by_words(
-        fig, b"IMG", "image/png", "화살표를 굵게. 담당 홍길동 010-1234-5678"
+    uc = make(local, images)
+    uc.argon, uc.argon_model = argon, "gemini-4-argon"
+    uc.config = FigureConfig(schemas={"concept": {"title": "ConceptSpec"}})
+    fig = _fig(caption="연구 개념도")
+    build = await uc.edit_by_words(
+        fig,
+        "기대효과 첫 줄을 '이상 구간 조기 발견'으로 바꿔. 담당 홍길동 010-1234-5678",
+        sections=SECTIONS,
+        request=REQ,
+        snapshot=SNAP,
     )
+    out = build.figure
+    assert out.spec.boxes[3].lines == ["이상 구간 조기 발견"] and out.confirmed is False
+    assert [c["kind"] for c in images.calls] == ["generate"]  # 이미지 편집 호출은 쓰지 않는다
     assert (
-        build.adopted == b"EDIT:IMG" and build.figure.calls == 1 and build.figure.confirmed is False
-    )
+        build.baseline_png
+        == _baseline(out.spec, "연구 개념도")
+        != _baseline(fig.spec, "연구 개념도")
+    )  # 새 명세의 밑그림
+    assert build.adopted == b"NB:" + build.baseline_png  # 참고 이미지 = 새 밑그림 (현재 그림 아님)
+    assert out.image_sha != "current-image" and out.renderer == "nano_banana" and out.calls == 1
     assert (
-        build.figure.edit_requests[0].ok
-        and "010-1234-5678" not in build.figure.edit_requests[0].text
+        "- 이상 구간 조기 발견" in images.calls[0]["prompt"]
+        and "모양 요청" not in images.calls[0]["prompt"]
     )
-    assert (
-        "010-1234-5678" not in images.calls[0]["prompt"]
-        and "화살표를 굵게" in images.calls[0]["prompt"]
+    change = out.last_change
+    assert change.kind == "content" and change.model == "gemini-4-argon" and change.at
+    assert change.summary == ["기대효과 줄 1 '보수 우선순위 산정' → '이상 구간 조기 발견'"]
+    assert out.edit_requests[-1].ok and "010-1234-5678" not in out.edit_requests[-1].text
+    sent = argon.calls[0]
+    assert sent.startswith("[그림 수정: concept]") and "010-1234-5678" not in sent
+    assert "[현재 명세]" in sent and "보수 우선순위 산정" in sent and "[현재 글자 목록]" in sent
+    assert "ConceptSpec" in sent and argon.systems[0].startswith("FIGURE_EDIT:")
+    assert local.calls == []  # Argon 이 됐으면 로컬은 부르지 않는다
+
+
+async def test_words_summary_falls_back_to_rule_diff_when_model_gives_none():
+    new = _changed_concept("이상 구간 조기 발견")
+    uc = make(FakeLLM(), FakeImageGenerator())
+    uc.argon = FakeLLM([_edit_answer(new)])
+    build = await uc.edit_by_words(
+        _fig(),
+        "기대효과 첫 줄을 '이상 구간 조기 발견'으로",
+        sections=SECTIONS,
+        request=REQ,
+        snapshot=SNAP,
     )
-    assert "- 궤도 틀림 반복" in images.calls[0]["prompt"]  # 명세 글자 목록을 함께 보낸다
-    with pytest.raises(SpecRejected):
-        await make(FakeLLM(), FakeImageGenerator(exhausted=True)).edit_by_words(
-            fig, b"IMG", "image/png", "x"
+    assert build.figure.last_change.summary == [
+        "상자 4 줄 1 '보수 우선순위 산정' → '이상 구간 조기 발견'"
+    ]
+
+
+async def test_words_style_only_keeps_spec_and_redraws_baseline_with_style_and_text_list():
+    images = FakeImageGenerator()
+    uc = make(FakeLLM(), images)
+    uc.argon = FakeLLM([_edit_answer(CONCEPT2, style="상자 테두리를 조금 더 굵게")])
+    fig = _fig()
+    build = await uc.edit_by_words(
+        fig, "상자 테두리를 조금 더 굵게", sections=SECTIONS, request=REQ, snapshot=SNAP
+    )
+    assert build.figure.spec.model_dump() == fig.spec.model_dump()
+    assert [c["kind"] for c in images.calls] == ["generate"]
+    prompt = images.calls[0]["prompt"]
+    assert "모양 요청(제안자): 상자 테두리를 조금 더 굵게" in prompt
+    for text in ("현황", "궤도 틀림 반복", "보수 우선순위 산정"):  # 글자 목록은 늘 함께
+        assert f"- {text}" in prompt
+    assert build.adopted == b"NB:" + _baseline(fig.spec)  # 밑그림에서 새로 (현재 그림 아님)
+    assert build.figure.last_change.kind == "style"
+    assert build.figure.last_change.summary == ["모양: 상자 테두리를 조금 더 굵게"]
+    assert build.figure.confirmed is False
+    # 모양만 바꾸는데 그림 호출이 실패하면 기본 그림으로 바꾸지 않고 거절
+    failing = make(FakeLLM(), FakeImageGenerator(fail=True))
+    failing.argon = FakeLLM([_edit_answer(None, style="테두리 굵게")])
+    with pytest.raises(SpecRejected, match="ConnectionError"):
+        await failing.edit_by_words(
+            fig, "테두리 굵게", sections=SECTIONS, request=REQ, snapshot=SNAP
         )
-    with pytest.raises(SpecRejected):
-        await make(FakeLLM(), None).edit_by_words(fig, b"IMG", "image/png", "x")
+    with pytest.raises(SpecRejected, match="no_image_llm"):
+        none = make(FakeLLM(), None)
+        none.argon = FakeLLM([_edit_answer(None, style="테두리 굵게")])
+        await none.edit_by_words(fig, "테두리 굵게", sections=SECTIONS, request=REQ, snapshot=SNAP)
+
+
+async def test_words_content_change_with_image_failure_adopts_new_baseline():
+    uc = make(FakeLLM(), FakeImageGenerator(exhausted=True))
+    uc.argon = FakeLLM([_edit_answer(_changed_concept("이상 구간 조기 발견"))])
+    build = await uc.edit_by_words(
+        _fig(),
+        "기대효과 첫 줄을 '이상 구간 조기 발견'으로",
+        sections=SECTIONS,
+        request=REQ,
+        snapshot=SNAP,
+    )
+    assert build.figure.renderer == "baseline" and build.figure.error == "budget"
+    assert build.figure.spec.boxes[3].lines == ["이상 구간 조기 발견"]
+
+
+async def test_words_invalid_spec_change_is_rejected_with_reason_and_no_image_call():
+    bad = json.loads(json.dumps(CONCEPT2, ensure_ascii=False))
+    bad["boxes"][2]["lines"] = [
+        "인공지능 로봇 도입"
+    ]  # 출처·요청 어디에도 없다 → 줄이 빠져 상자가 빔
+    images = FakeImageGenerator()
+    argon = FakeLLM([_edit_answer(bad), _edit_answer(bad)])
+    local = FakeLLM([_edit_answer(bad), "not json"])
+    uc = make(local, images)
+    uc.argon = argon
+    with pytest.raises(SpecRejected) as err:
+        await uc.edit_by_words(
+            _fig(), "해결 방안을 바꿔", sections=SECTIONS, request=REQ, snapshot=SNAP
+        )
+    assert str(err.value) == "figure_box_empty"  # 먼저 답한 Argon 의 사유
+    assert len(argon.calls) == 2 and "[형식 교정" in argon.calls[1]  # 교정 재요청 1회
+    assert "인공지능 로봇 도입" in argon.calls[1]  # 무엇이 근거 밖인지 알려 준다
+    assert len(local.calls) == 2 and images.calls == []
+    # 아무것도 바꾸지 않은 답 → no_change
+    same = make(FakeLLM(["{}"]), images)
+    same.argon = FakeLLM([_edit_answer(CONCEPT2), _edit_answer(None)])
+    with pytest.raises(SpecRejected, match="no_change"):
+        await same.edit_by_words(_fig(), "좋게 해줘", sections=SECTIONS, request=REQ, snapshot=SNAP)
+    with pytest.raises(SpecRejected, match="empty_request"):
+        await same.edit_by_words(_fig(), "   ", sections=SECTIONS, request=REQ, snapshot=SNAP)
+
+
+async def test_words_argon_failure_falls_back_to_local_model():
+    argon = FakeLLM(fail_at={0})  # 429·예산·네트워크 — 예외
+    local = FakeLLM([_edit_answer(_changed_concept("이상 구간 조기 발견"))])
+    uc = make(local, FakeImageGenerator())
+    uc.argon, uc.local_model = argon, "qwen-7b"
+    build = await uc.edit_by_words(
+        _fig(),
+        "기대효과 첫 줄을 '이상 구간 조기 발견'으로",
+        sections=SECTIONS,
+        request=REQ,
+        snapshot=SNAP,
+    )
+    assert build.figure.last_change.model == "qwen-7b" and len(local.calls) == 1
+    assert local.calls[0].startswith("[그림 수정: concept]")
+
+
+async def test_spec_generation_asks_argon_first_then_local_on_failure():
+    argon = FakeLLM([json.dumps(CONCEPT, ensure_ascii=False)])
+    local = FakeLLM([json.dumps(CONCEPT, ensure_ascii=False)])
+    uc = make(local)
+    uc.argon, uc.argon_model, uc.local_model = argon, "gemini-4-argon", "qwen-7b"
+    result = await uc.make_spec("concept", "objective", SECTIONS, REQ, SNAP)
+    assert result.spec is not None and result.model == "gemini-4-argon" and not result.fallback
+    assert len(argon.calls) == 1 and local.calls == []
+    assert argon.calls[0].startswith("[그림 명세: concept]")
+    # Argon 예외(예산·429) → 로컬
+    uc.argon = FakeLLM(fail_at={0})
+    result = await uc.make_spec("concept", "objective", SECTIONS, REQ, SNAP)
+    assert result.spec is not None and result.model == "qwen-7b" and result.fallback
+    # Argon 이 교정 뒤에도 형식 오류 → 로컬
+    uc.argon = FakeLLM(["{}", "{}"])
+    local.responses = [json.dumps(CONCEPT, ensure_ascii=False)]
+    result = await uc.make_spec("concept", "objective", SECTIONS, REQ, SNAP)
+    assert result.model == "qwen-7b" and result.retries == 1 and result.calls == 3
+    # 그림 기록에 명세를 쓴 모델이 남는다
+    uc.argon = FakeLLM([json.dumps(CONCEPT, ensure_ascii=False)])
+    builds, _ = await uc.build_all([("concept", "objective")], SECTIONS, REQ, SNAP)
+    assert builds[0].figure.spec_model == "gemini-4-argon"
 
 
 async def test_build_all_plans_and_numbers_figures_and_shrinks_large_images():

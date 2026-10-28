@@ -217,10 +217,19 @@ async def test_card_actions_make_versions_and_restore_brings_old_figure_back(rep
         v.version == 3 and fig.spec.boxes[0].lines[0] == "궤도 틀림 급증" and fig.confirmed is False
     )
     assert fig.calls == 2 and "f:objective:1" in await _ids(mgr, rid, 3)
+    assert fig.last_change.kind == "content"  # 글자 고치기도 "바뀐 내용"을 남긴다
+    assert fig.last_change.summary == ["상자 1 줄 1 '궤도 틀림 반복' → '궤도 틀림 급증'"]
+    # 말로 고치기(모양만) — 명세 그대로, 밑그림에서 새로 그림 (편집 호출 없음)
+    mgr.figures.llm.responses = [
+        json.dumps({"spec": None, "style": "화살표를 굵게", "summary": []}, ensure_ascii=False)
+    ]
     v = await mgr.figure_action(USER, rid, "f:objective:1", "words", request_text="화살표를 굵게")
     fig = next(f for f in v.figures if f.id == "f:objective:1")
     assert v.version == 4 and fig.calls == 3 and fig.edit_requests[0].text == "화살표를 굵게"
-    assert mgr.store.load_figure_image(USER, rid, fig.image_sha)[0].startswith(b"EDIT:")
+    assert fig.last_change.kind == "style" and fig.last_change.summary == ["모양: 화살표를 굵게"]
+    assert fig.spec.boxes[0].lines[0] == "궤도 틀림 급증" and fig.confirmed is False
+    assert mgr.store.load_figure_image(USER, rid, fig.image_sha)[0].startswith(b"NB:")
+    assert {c["kind"] for c in mgr.figures.images.calls} == {"generate"}
     v = await mgr.figure_action(USER, rid, "f:objective:1", "baseline")
     fig = next(f for f in v.figures if f.id == "f:objective:1")
     assert fig.renderer == "baseline" and fig.image_sha == fig.baseline_sha
@@ -287,3 +296,53 @@ async def test_status_stays_running_while_figures_are_drawn(repo):
     final = await mgr.wait(USER, state.run_id)
     assert seen and set(seen) == {"running"}
     assert final.status == "drafted" and final.step("finalize").status == "done"
+
+
+async def test_words_spec_change_makes_version_and_invalid_change_is_rejected(repo):
+    """[2] 말로 고치기 = 명세 변경 → 밑그림 → 새로 그림. 검사 실패면 409 사유, 버전 없음."""
+    mgr, _ = make_manager(repo)
+    state = await mgr.wait(USER, (await mgr.submit(USER, REQ)).run_id)
+    rid = state.run_id
+    before = next(f for f in state_figures(mgr, rid) if f.id == "f:method:1")
+    new_spec = json.loads(json.dumps(PROCESS, ensure_ascii=False))
+    new_spec["stages"].insert(2, {"name": "열화 예측 모델 검증"})
+    mgr.figures.llm.responses = [
+        json.dumps(
+            {"spec": new_spec, "style": "", "summary": ["단계 3 추가 '열화 예측 모델 검증'"]},
+            ensure_ascii=False,
+        )
+    ]
+    v = await mgr.figure_action(
+        USER, rid, "f:method:1", "words", request_text="3단계로 '열화 예측 모델 검증'을 넣어"
+    )
+    fig = next(f for f in v.figures if f.id == "f:method:1")
+    assert v.version == 2 and v.note == "그림 words" and fig.confirmed is False
+    assert [s.name for s in fig.spec.stages][2] == "열화 예측 모델 검증"
+    assert fig.last_change.kind == "content" and fig.last_change.summary == [
+        "단계 3 추가 '열화 예측 모델 검증'"
+    ]
+    assert fig.baseline_sha != before.baseline_sha  # 새 명세의 밑그림
+    adopted = mgr.store.load_figure_image(USER, rid, fig.image_sha)[0]
+    baseline = mgr.store.load_figure_image(USER, rid, fig.baseline_sha)[0]
+    assert adopted == b"NB:" + baseline  # 참고 이미지 = 새 밑그림
+    assert all(c["kind"] == "generate" for c in mgr.figures.images.calls)
+    # 근거에도 요청에도 없는 단계 → 거절(사유 코드 + 안내), 버전을 만들지 않는다
+    bad = json.loads(json.dumps(PROCESS, ensure_ascii=False))
+    bad["stages"][0]["name"] = "드론 자율 비행 점검"
+    mgr.figures.llm.responses = [
+        json.dumps({"spec": bad, "style": "", "summary": []}, ensure_ascii=False)
+    ] * 2
+    n_versions = len(await mgr.versions(USER, rid))
+    n_images = len(mgr.figures.images.calls)
+    with pytest.raises(EditRejected, match="figure_text_not_in_sources"):
+        await mgr.figure_action(USER, rid, "f:method:1", "words", request_text="1단계를 바꿔")
+    assert len(await mgr.versions(USER, rid)) == n_versions
+    assert len(mgr.figures.images.calls) == n_images  # 그림 호출도 없음
+    # 이전 버전으로 가도 "바뀐 내용"은 그 버전의 그림 기록을 따른다
+    v3 = await mgr.figure_action(USER, rid, "f:method:1", "confirm")
+    kept = next(f for f in v3.figures if f.id == "f:method:1")
+    assert kept.confirmed is True and kept.last_change.summary == fig.last_change.summary
+
+
+def state_figures(mgr, rid):
+    return mgr.store.load_version(USER, rid, 1).figures

@@ -156,6 +156,8 @@
   `gemini-3-pro-image`) 1회 채택, 실패면 기본 그림. 자동 검증 없음 — 제안자가 카드에서 확인(`Figure.confirmed`). 그림은 `DraftVersion.figures`(파일은 run
   `figures/<sha>`), 동작 `RunManager.figure_action`(새 버전), REST `/v1/runs/{id}/figures…`, 1차 검토 `figures` 의견, 제출 전 점검 `figures_*`,
   HWPX `render_with_figures`(표식 단락 → 그림, 못 찾으면 별첨), 일일 상한 `figures.daily_image_cap` 150. 끄기 `figures.yaml enabled: false`.
+  명세는 Argon 먼저·실패면 로컬(`Figure.spec_model`). [말로 고치기] = 명세 변경(`edit_by_words`→`change_spec`, 생성과 같은 검사) → 밑그림 → 새로 그림,
+  현재 그림은 보내지 않는다(편집 호출 없음), 결과 `Figure.last_change`(카드 "바뀐 내용") — ADR 0030.
 - **시범 배포 규칙**(2026-10-28, [D2]): PR 을 합쳐도 운영 API 를 자동 재시작하지 않는다 — `docs/history/deploys/pending.md` 에 PR 한 줄을
   쌓고, 사용자가 "배포해" 하면 `tools/deploy.sh --wait`(main 최신 확인·web 빌드·`rra runs active`·version.json·kickstart·healthz/login/
   외부 주소 확인·`docs/history/deploys/<시각>.md`). 보안 수정·로그인/접속 차단 오류 수정은 즉시 배포하고 알린다. 배포 버전은

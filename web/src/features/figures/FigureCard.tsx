@@ -83,6 +83,20 @@ export function FigureCard({ runId, figure, baseVersion, disabled, readOnly, ver
         <img src={src} alt={figure.alt || figure.label} loading="lazy" className="max-h-64 w-full rounded border bg-white object-contain" />
         <UntrustedText as="p" text={figure.caption} className="text-sm" />
         {figure.source_caption && <UntrustedText as="p" text={figure.source_caption} className="text-xs text-muted-foreground" />}
+        {figure.last_change && figure.last_change.summary.length > 0 && (
+          <section aria-labelledby={`${headingId}-change`} className="rounded border bg-muted/40 p-2 text-xs">
+            <h5 id={`${headingId}-change`} className="font-semibold">
+              바뀐 내용{figure.last_change.kind === "style" ? " (모양만)" : ""}
+            </h5>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              {figure.last_change.summary.map((line, i) => (
+                <li key={i}>
+                  <UntrustedText text={line} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {figure.notice && (
           <p className="flex items-start gap-1 text-xs text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -149,7 +163,7 @@ export function FigureCard({ runId, figure, baseVersion, disabled, readOnly, ver
           open
           onClose={() => setMode(null)}
           title={`${figure.label} 말로 고치기`}
-          description="바꾸고 싶은 점을 한두 문장으로 적으면 그림을 다시 그립니다 (500자)."
+          description="바꾸고 싶은 점을 한두 문장으로 적으십시오 (500자). 글자·단계·순서를 바꾸는 요청은 그림 명세를 고친 뒤 밑그림에서 새로 그리고, 색·굵기·여백 같은 모양 요청은 명세는 그대로 두고 밑그림에서 다시 그립니다. 고친 그림은 다시 확인 전이 됩니다."
           footer={
             <>
               <Button variant="outline" onClick={() => setMode(null)} disabled={busy}>

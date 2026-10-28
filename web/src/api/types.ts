@@ -407,8 +407,21 @@ export interface Figure {
   baseline_url: string;
   texts: FigureText[];
   edit_requests: number;
+  /** 명세를 쓴 모델 (Argon 먼저, 실패면 로컬). 옛 run 은 없음 */
+  spec_model?: string | null;
+  /** 마지막 [말로 고치기]·[글자 고치기] 의 "바뀐 내용". summary·style 은 LLM 출력(비신뢰) */
+  last_change?: FigureLastChange | null;
   updated_at: string | null;
   notice: string;
+}
+
+/** content = 명세(글자·단계·순서)가 바뀌어 밑그림부터 새로 그림, style = 명세 그대로 모양만 */
+export interface FigureLastChange {
+  kind: "content" | "style";
+  summary: string[];
+  style: string;
+  model: string | null;
+  at: string | null;
 }
 
 /** GET /v1/runs/{id}/figures */

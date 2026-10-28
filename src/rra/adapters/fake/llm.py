@@ -11,6 +11,8 @@ _EVIDENCE = re.compile(r'<doc id="([^"<>]+)"')
 _STRUCTURE_HEAD = "[자유 입력"  # U2 간편 입력 프롬프트 머리
 _BRIEF_HEAD = "[선행연구"  # U5 브리핑 프롬프트 구획 머리
 _FIGURE_HEAD = re.compile(r"^\[그림 명세: ([a-z_]+)\]")  # [G] 그림 명세 프롬프트 머리
+_FIGURE_EDIT_HEAD = "[그림 수정:"  # [G][2] 말로 고치기 — 명세 변경 프롬프트 머리
+_EDIT_REQUEST = re.compile(r"<request>(.*?)</request>", re.S)
 _FREE_TEXT = re.compile(r'"text": "([^"]*)"')
 
 
@@ -102,6 +104,12 @@ class ScriptedComposeLLM:
             return _structure_answer(prompt)
         if _BRIEF_HEAD in prompt and "summaries" in prompt:
             return _brief_answer(prompt)
+        if prompt.startswith(_FIGURE_EDIT_HEAD):  # 가짜: 명세 그대로, 요청을 모양 요청으로
+            m = _EDIT_REQUEST.search(prompt)
+            style = (m.group(1) if m else "").strip()[:200]
+            return json.dumps(
+                {"spec": None, "style": style, "summary": [f"모양: {style}"]}, ensure_ascii=False
+            )
         fm = _FIGURE_HEAD.match(prompt)
         if fm:
             return _figure_answer(fm.group(1))

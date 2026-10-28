@@ -1,7 +1,12 @@
 """[G] 제안서 그림 유스케이스 — 명세(JSON) → 밑그림(SVG→PNG) → Nano Banana Pro 1회 → 채택.
 
-- 명세는 로컬 모델이 JSON 스키마대로 쓴다. 형식·검사 실패면 교정 재요청 1회, 그래도 실패면
-  `fallback_llm`(compose.fallback 과 같은 provider)이 한 번 더. 끝내 실패면 그 그림은 만들지 않는다.
+- 명세는 Argon(review 단계 provider, 예산 래퍼 경유)이 먼저 JSON 스키마대로 쓰고, 오류·429·예산·
+  끝내 형식 실패면 로컬 모델이 쓴다(2026-10-28 [2]). 모델마다 형식·검사 실패면 교정 재요청 1회.
+  끝내 실패면 그 그림은 만들지 않는다. 명세를 쓴 모델은 `Figure.spec_model`.
+- [말로 고치기]는 그림을 편집하지 않는다 — 요청 → **명세 변경**(Argon, 실패면 로컬; 생성과 같은
+  검사) → 밑그림 → Nano Banana 새로 그림. 모양만 바꾸는 요청(색·굵기·여백)은 명세 그대로 밑그림에서
+  다시 그리고 프롬프트에 모양 요청을 덧붙인다. 현재(채택) 그림은 모델에 보내지 않는다 — 이전 그림을
+  다시 그리면 글자가 변형됐다(10-28 실측 "상태→샹태"). 결과는 `Figure.last_change`("바뀐 내용").
 - 명세의 글자·수치는 `domain/rules/figures.validate_spec` 으로 검사한다(본문·입력·근거·table_facts
   밖이면 폐기). 공용 계정(include_internal=False)이면 internal 근거에만 있는 글자가 든 명세는 폐기.
 - 그림: 밑그림 PNG 를 참고 이미지로 Nano Banana Pro 에 1회 → 그대로 채택(renderer=nano_banana).
@@ -35,8 +40,13 @@ from rra.domain.models.draft import Section
 from rra.domain.models.figure import (
     FIGURE_KINDS,
     KIND_LABEL,
+    MAX_CHANGE_LINE,
+    MAX_CHANGE_LINES,
+    MAX_EDIT_HISTORY,
+    MAX_EDIT_REQUEST,
     EditRequestRecord,
     Figure,
+    FigureChange,
     parse_spec,
 )
 from rra.domain.models.request import ProposalRequest
@@ -49,6 +59,7 @@ from rra.domain.rules.schedule import research_period_months
 logger = logging.getLogger("rra.figures")
 
 SPEC_HEAD = "[그림 명세: {kind}]"
+EDIT_HEAD = "[그림 수정: {kind}]"
 MAX_SECTION_CHARS = 2500
 MAX_CHUNK_CHARS = 400
 MAX_CHUNKS = 8
@@ -76,8 +87,32 @@ class SpecResult:
     reason: str | None = None  # skip 사유 또는 실패 코드
     calls: int = 0
     retries: int = 0
-    fallback: bool = False
+    fallback: bool = False  # 첫 모델(Argon)이 아닌 모델이 썼다
     internal: bool = False
+    model: str | None = None  # 명세를 쓴 모델 라벨
+
+
+@dataclass
+class _Attempt:
+    """모델 순서대로 묻기 결과 — value 는 검사를 통과한 값."""
+
+    value: Any = None
+    reason: str | None = None
+    model: str | None = None
+    calls: int = 0
+    retries: int = 0
+    fallback: bool = False
+
+
+@dataclass(frozen=True)
+class SpecChange:
+    """[말로 고치기] 모델 답 — 검사를 통과한 새 명세, 모양 요청, 모델 요약, 쓴 모델."""
+
+    spec: BaseModel
+    style: str
+    summary: tuple[str, ...]
+    exact: bool  # 다듬기(repair_spec)로 덜어 낸 글자가 없다 — 모델 요약을 그대로 믿어도 된다
+    model: str | None = None
 
 
 @dataclass
@@ -97,7 +132,7 @@ class SpecRejected(ValueError):
 
 @dataclass
 class MakeFigures:
-    llm: LLMPort
+    llm: LLMPort  # 로컬 모델 (stage figures) — Argon 이 없거나 실패하면
     prompts: PromptLibraryPort
     renderer: FigureRendererPort
     images: ImageGeneratorPort | None = None
@@ -107,6 +142,58 @@ class MakeFigures:
     titles: Mapping[str, str] = field(default_factory=dict)
     shrink: Callable[[bytes, str], tuple[bytes, str]] | None = None  # (bytes, mime) → 상한 축소
     clock: Callable[[], str] | None = None
+    argon: LLMPort | None = None  # 명세·명세 변경을 먼저 맡는 외부 모델 (review 단계, 예산 래퍼)
+    argon_model: str = "argon"
+    local_model: str = "local"
+    fallback_model: str = "fallback"
+
+    def _chain(self) -> list[tuple[str, LLMPort]]:
+        chain: list[tuple[str, LLMPort]] = []
+        if self.argon is not None:
+            chain.append((self.argon_model, self.argon))
+        chain.append((self.local_model, self.llm))
+        if self.fallback_llm is not None:
+            chain.append((self.fallback_model, self.fallback_llm))
+        return chain
+
+    async def _ask(
+        self,
+        prompt: str,
+        system: str,
+        check: Callable[[str], tuple[Any, str | None]],
+        correction: Callable[[str, str | None], str],
+    ) -> _Attempt:
+        """Argon → 로컬(→ 대체) 순서로 묻는다. 모델마다 1회 + 형식·검사 실패면 교정 재요청 1회.
+        예외(오류·429·예산)나 끝내 실패면 다음 모델. "skip" 답이면 멈춘다. 예외 메시지는 남기지
+        않는다(제안 내용이 섞일 수 있다)."""
+        out = _Attempt()
+        answered: str | None = None  # 먼저 답한 모델의 거절 사유 (Argon 의 사유가 더 쓸모 있다)
+        for i, (label, llm) in enumerate(self._chain()):
+            reason: str | None = None
+            try:
+                raw = await llm.complete(prompt, system=system, json_mode=True)
+                out.calls += 1
+                value, reason = check(raw)
+                if value is None and reason != "skip":
+                    out.retries += 1
+                    hint = correction(raw, reason)
+                    raw = await llm.complete(f"{prompt}\n\n{hint}", system=system, json_mode=True)
+                    out.calls += 1
+                    value, reason = check(raw)
+            except Exception as exc:  # 예산·네트워크·429 — 사유 코드만
+                code = type(exc).__name__
+                logger.info("figure.llm_failed model=%s error=%s", label, code)
+                answered = answered or reason
+                out.reason = answered or code
+                continue
+            if value is not None:
+                out.value, out.model, out.fallback, out.reason = value, label, i > 0, None
+                return out
+            answered = answered or reason
+            out.reason = answered
+            if reason == "skip":
+                return out
+        return out
 
     # ── 계획 ─────────────────────────────────────────────
     def plan(
@@ -197,13 +284,18 @@ class MakeFigures:
         if kind == "stat_chart" and not (snapshot and snapshot.facts):
             return SpecResult(None, "no_facts")
         prompt = self._prompt(kind, section, sections, request, snapshot, comparison, period)
-        system = self.prompts.figures()
-        result = SpecResult(None)
-        raw = await self.llm.complete(prompt, system=system, json_mode=True)
-        result.calls += 1
-        spec, reason = self._parse_and_check(kind, raw, pool, period)
-        if spec is None and reason not in ("skip",):
-            result.retries = 1
+
+        def check(raw: str) -> tuple[BaseModel | None, str | None]:
+            spec, reason = self._parse_and_check(kind, raw, pool, period)
+            if (
+                spec is not None
+                and not self.include_internal
+                and rules.internal_only_texts(spec, pool)
+            ):
+                return None, "internal_text"
+            return spec, reason
+
+        def correction(raw: str, reason: str | None) -> str:
             hint = (
                 f"[형식 교정 — 직전 응답은 형식 오류였음: {reason}] "
                 "스키마의 키만 써서 JSON 객체 하나로."
@@ -214,23 +306,17 @@ class MakeFigures:
                     " 다음 글자는 초안·입력·인용 근거에 없으니 초안 구절을 그대로 쓰거나 뺀다: "
                     + json.dumps(missing, ensure_ascii=False)
                 )
-            raw = await self.llm.complete(f"{prompt}\n\n{hint}", system=system, json_mode=True)
-            result.calls += 1
-            spec, reason = self._parse_and_check(kind, raw, pool, period)
-        if spec is None and reason != "skip" and self.fallback_llm is not None:
-            try:
-                raw = await self.fallback_llm.complete(prompt, system=system, json_mode=True)
-                result.calls += 1
-                result.fallback = True
-                spec, reason = self._parse_and_check(kind, raw, pool, period)
-            except Exception as exc:  # 예산·네트워크 — 메시지 로그 없음
-                reason = type(exc).__name__
-        if spec is not None and not self.include_internal:
-            if rules.internal_only_texts(spec, pool):
-                spec, reason = None, "internal_text"
-        result.spec = spec
-        result.reason = None if spec is not None else (reason or "invalid")
-        return result
+            return hint
+
+        got = await self._ask(prompt, self.prompts.figures(), check, correction)
+        return SpecResult(
+            got.value,
+            None if got.value is not None else (got.reason or "invalid"),
+            calls=got.calls,
+            retries=got.retries,
+            fallback=got.fallback,
+            model=got.model,
+        )
 
     @staticmethod
     def _missing(kind: str, raw: str, pool: rules.TextPool) -> list[str]:
@@ -325,8 +411,10 @@ class MakeFigures:
         return "\n\n".join(parts)
 
     # ── 그림 ─────────────────────────────────────────────
-    async def draw(self, figure: Figure, *, baseline_png: bytes | None = None) -> FigureBuild:
-        """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림."""
+    async def draw(
+        self, figure: Figure, *, baseline_png: bytes | None = None, style: str = ""
+    ) -> FigureBuild:
+        """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림. style 은 [말로 고치기] 모양 요청."""
         t0 = time.monotonic()
         spec = figure.spec
         if baseline_png is None:
@@ -341,7 +429,7 @@ class MakeFigures:
             0,
         )
         if self.images is not None:
-            prompt = rules.image_prompt(spec, caption=figure.caption)
+            prompt = rules.image_prompt(spec, caption=figure.caption, style=style)
             try:
                 calls = 1
                 result = await self.images.generate(
@@ -376,43 +464,140 @@ class MakeFigures:
         return FigureBuild(updated, baseline_png, adopted, mime, round(time.monotonic() - t0, 1))
 
     async def edit_by_words(
-        self, figure: Figure, current: bytes, mime: str, request_text: str
+        self,
+        figure: Figure,
+        request_text: str,
+        *,
+        sections: Sequence[Section],
+        request: ProposalRequest,
+        snapshot: RetrievalSnapshot | None,
     ) -> FigureBuild:
-        """[말로 고치기] — 현재 그림 + 요청 → 편집 호출 1회. 요청 원문은 개인정보 정리 뒤 기록."""
+        """[말로 고치기] — 요청 → 명세 변경(Argon, 실패면 로컬) → 생성과 같은 검사 → 밑그림 →
+        Nano Banana 새로 그림(draw). 모양만 바꾸는 요청은 명세 그대로 다시 그린다. 현재 그림은
+        보내지 않는다. 검사 실패·변경 없음이면 SpecRejected(사유 코드) — 버전을 만들지 않는다."""
         t0 = time.monotonic()
-        cleaned = strip_personal(request_text).text
-        record = EditRequestRecord(
-            text=cleaned[:500], at=self.clock() if self.clock else None, ok=True
+        cleaned = " ".join(strip_personal(request_text).text.split())[:MAX_EDIT_REQUEST]
+        if not cleaned:
+            raise SpecRejected("empty_request")
+        # 이미 받아들인 글자(현재 명세)와 제안자 요청 글자는 출처로 친다 — [글자 고치기]와 같은 원칙
+        pool = rules.with_texts(
+            self.pool(sections, request, snapshot), [*rules.texts_of(figure.spec), cleaned]
         )
-        if self.images is None:
+        period = research_period_months(request.constraints)
+        change = await self.change_spec(figure, cleaned, pool=pool, period=period)
+        content = change.spec.model_dump() != figure.spec.model_dump()
+        if not content and self.images is None:
             raise SpecRejected("no_image_llm")
-        try:
-            result = await self.images.edit(
-                rules.edit_prompt(cleaned, rules.texts_of(figure.spec)),
-                current,
-                mime=mime,
-                aspect=self.config.aspect(figure.kind),
-                size=self.config.image_size,
-            )
-        except ImageBudgetExhausted as exc:
-            raise SpecRejected("budget") from exc
-        except Exception as exc:
-            raise SpecRejected(type(exc).__name__) from exc
-        adopted, out_mime = self._fit(result.data, result.mime)
-        updated = figure.model_copy(
+        update: dict[str, Any] = {"spec": change.spec, "alt": rules.alt_text(change.spec)}
+        if figure.caption == _caption(figure.spec, figure.kind):
+            update["caption"] = _caption(change.spec, figure.kind)
+        if figure.kind == "stat_chart":
+            update["source_caption"] = change.spec.source.caption()  # type: ignore[attr-defined]
+        build = await self.draw(figure.model_copy(update=update), style=change.style)
+        if not content and build.figure.renderer != "nano_banana":
+            # 모양만 바꾸는 요청인데 그리지 못했다 — 기본 그림으로 바꾸지 않고 거절
+            raise SpecRejected(build.figure.error or "image")
+        now = self.clock() if self.clock else None
+        last = FigureChange(
+            kind="content" if content else "style",
+            summary=_change_lines(figure.spec, change, content),
+            style=change.style,
+            model=change.model,
+            at=now,
+        )
+        record = EditRequestRecord(text=cleaned, at=now, ok=True)
+        build.figure = build.figure.model_copy(
             update={
-                "renderer": "nano_banana",
-                "model": result.model,
-                "calls": figure.calls + 1,
-                "error": None,
-                "confirmed": False,
-                "image_sha": _sha(adopted),
-                "edit_requests": [*figure.edit_requests, record][-20:],
-                "updated_at": self.clock() if self.clock else None,
+                "edit_requests": [*figure.edit_requests, record][-MAX_EDIT_HISTORY:],
+                "last_change": last,
             }
         )
-        baseline = b""
-        return FigureBuild(updated, baseline, adopted, out_mime, round(time.monotonic() - t0, 1))
+        build.seconds = round(time.monotonic() - t0, 1)
+        return build
+
+    async def change_spec(
+        self, figure: Figure, request_text: str, *, pool: rules.TextPool, period: int | None
+    ) -> SpecChange:
+        """요청 → {"spec", "style", "summary"} (Argon → 로컬). 새 명세는 생성과 똑같이
+        normalize_spec_data → repair_spec → validate_spec. 통과 못 하면 SpecRejected(사유)."""
+        kind = figure.kind
+        current = figure.spec.model_dump()
+        current.pop("kind", None)
+        rows = [
+            {"label": r["label"], "value": r["value"]} for r in rules.editable_texts(figure.spec)
+        ]
+        schema = self.config.schemas.get(kind) or {}
+        prompt = "\n\n".join(
+            [
+                EDIT_HEAD.format(kind=kind),
+                f"[종류] {KIND_LABEL.get(kind, kind)}",
+                "[스키마 — spec 은 이 키만 쓴다]\n" + json.dumps(schema, ensure_ascii=False),
+                "[현재 명세]\n" + json.dumps(current, ensure_ascii=False),
+                "[현재 글자 목록]\n" + json.dumps(rows, ensure_ascii=False),
+                "[제안자 요청] 아래 구획은 제안자가 적은 그림 수정 요청이다.\n"
+                f"<request>{request_text}</request>",
+                '[답 형식] {"spec": <새 명세 전체>, '
+                '"style": "<모양만 바꾸는 요청 또는 빈 문자열>", '
+                '"summary": ["바뀐 내용 한 줄", ...]}',
+            ]
+        )
+
+        def check(raw: str) -> tuple[SpecChange | None, str | None]:
+            data = parse_object(raw)
+            if data is None:
+                return None, "json"
+            style = " ".join(str(data.get("style") or "").split())[:MAX_EDIT_REQUEST]
+            raw_summary = data.get("summary")
+            summary = tuple(
+                " ".join(x.split())[:MAX_CHANGE_LINE]
+                for x in (raw_summary if isinstance(raw_summary, list) else [])[:MAX_CHANGE_LINES]
+                if isinstance(x, str) and x.strip()
+            )
+            spec_data = data.get("spec")
+            if not spec_data:
+                spec, exact = figure.spec, True
+            else:
+                if not isinstance(spec_data, dict):
+                    return None, "schema"
+                try:
+                    parsed = parse_spec(kind, rules.normalize_spec_data(spec_data))
+                except (ValidationError, KeyError, TypeError):
+                    return None, "schema"
+                if parsed.model_dump() == figure.spec.model_dump():
+                    spec, exact = figure.spec, True  # 그대로 돌려줌 — 이미 받아들인 명세
+                else:
+                    spec = rules.repair_spec(parsed, pool)
+                    exact = spec.model_dump() == parsed.model_dump()
+                problems = rules.validate_spec(spec, pool, period_months=period)
+                if problems:
+                    return None, problems[0]
+                if not self.include_internal and rules.internal_only_texts(spec, pool):
+                    return None, "internal_text"
+            if spec.model_dump() == figure.spec.model_dump() and not style:
+                return None, "no_change"
+            return SpecChange(spec, style, summary, exact), None
+
+        def correction(raw: str, reason: str | None) -> str:
+            hint = (
+                f"[형식 교정 — 직전 응답은 받아들일 수 없었음: {reason}] "
+                '"spec"·"style"·"summary" 키만 쓴 JSON 객체 하나로. spec 은 스키마의 키만.'
+            )
+            if reason == "no_change":
+                hint += " 요청이 반영되지 않았다 — 글자·단계 변경은 spec 에, 모양만이면 style 에."
+            data = parse_object(raw) or {}
+            spec_data = data.get("spec")
+            if isinstance(spec_data, dict):
+                missing = self._missing(kind, json.dumps(spec_data, ensure_ascii=False), pool)
+                if missing:
+                    hint += " 다음 글자는 초안·입력·근거·요청에 없으니 쓰지 않는다: " + json.dumps(
+                        missing, ensure_ascii=False
+                    )
+            return hint
+
+        got = await self._ask(prompt, self.prompts.figure_edit(), check, correction)
+        if got.value is None:
+            raise SpecRejected(got.reason or "invalid")
+        return replace(got.value, model=got.model)
 
     def baseline(self, figure: Figure) -> FigureBuild:
         """[기본 그림으로] — 밑그림을 다시 그려 채택 (호출 없음)."""
@@ -466,6 +651,7 @@ class MakeFigures:
                     spec=spec.spec,  # type: ignore[arg-type]
                     source_caption=spec.spec.source.caption() if kind == "stat_chart" else "",
                     internal=spec.internal,
+                    spec_model=spec.model,
                     calls=0,
                     created_at=self.clock() if self.clock else None,
                 )
@@ -485,6 +671,21 @@ class MakeFigures:
         if self.shrink is not None and len(data) > self.config.max_bytes:
             return self.shrink(data, mime)
         return data, mime
+
+
+def _change_lines(old: BaseModel, change: SpecChange, content: bool) -> list[str]:
+    """카드 "바뀐 내용" — 명세가 바뀌면 모델 요약은 다듬기로 덜어 낸 글자가 없을 때만 쓰고(아니면
+    규칙으로 직접 비교한 줄), 모양 요청은 모델 요약이 없을 때 "모양: …" 한 줄."""
+    lines: list[str] = []
+    if content:
+        derived = rules.spec_change_summary(old, change.spec)
+        lines = list(change.summary) if change.summary and change.exact else derived
+        lines = lines or list(change.summary)
+        if change.style:
+            lines.append(f"모양: {change.style}"[:MAX_CHANGE_LINE])
+    else:
+        lines = list(change.summary) or [f"모양: {change.style}"[:MAX_CHANGE_LINE]]
+    return lines[:MAX_CHANGE_LINES]
 
 
 def _sections_for(kind: str, section: str) -> set[str]:

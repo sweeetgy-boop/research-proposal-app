@@ -146,6 +146,7 @@ async def test_draft_lists_figures_and_image_routes_serve_files(client):
         fig["renderer_label"] == "Nano Banana Pro" and fig["confirmed"] is False and fig["included"]
     )
     assert fig["texts"][0]["path"] == "stages.0.name" and fig["notice"].startswith("AI 가 그린")
+    assert fig["spec_model"] == "local" and fig["last_change"] is None
     assert fig["image_url"] == f"/v1/runs/{rid}/figures/{fig['id']}/image"
     img = await client.get(fig["image_url"], headers=AUTH)
     assert img.status_code == 200 and img.headers["content-type"] == "image/jpeg"
@@ -178,13 +179,34 @@ async def test_figure_actions_create_versions_and_conflict_is_409(client):
     assert conflict.status_code == 409 and "v1" in conflict.json()["detail"]
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "confirm"}, headers=AUTH)
     assert r.json()["version"] == 3 and r.json()["figures"][0]["confirmed"] is True
+    changed = json.loads(json.dumps(PROCESS, ensure_ascii=False))
+    changed["stages"][0]["name"] = "검측 자료 분석"  # v2 글자 고치기 값 그대로 (현재 명세)
+    changed["stages"][2]["name"] = "구간별 열화 예측"
+    client.mgr.figures.llm.responses = [
+        json.dumps({"spec": changed, "style": "화살표를 진하게", "summary": []}, ensure_ascii=False)
+    ]
     r = await client.post(
         f"/v1/runs/{rid}/figures/{fid}",
-        json={"action": "words", "request": "화살표를 굵게"},
+        json={"action": "words", "request": "3단계를 '구간별 열화 예측'으로, 화살표를 진하게"},
         headers=AUTH,
     )
-    assert r.status_code == 200 and r.json()["figures"][0]["edit_requests"] == 1
-    assert client.images.calls[-1]["kind"] == "edit"
+    assert r.status_code == 200, r.text
+    fig = r.json()["figures"][0]
+    assert fig["edit_requests"] == 1 and fig["confirmed"] is False
+    assert fig["last_change"] == {
+        "kind": "content",
+        "summary": ["단계 3 '열화 예측' → '구간별 열화 예측'", "모양: 화살표를 진하게"],
+        "style": "화살표를 진하게",
+        "model": "local",
+        "at": "2026-10-28T10:00:00+00:00",
+    }
+    assert {c["kind"] for c in client.images.calls} == {"generate"}  # 편집 호출 없음
+    assert "모양 요청(제안자): 화살표를 진하게" in client.images.calls[-1]["prompt"]
+    client.mgr.figures.llm.responses = ["[]", "[]"]  # 읽을 수 없는 답 → 409 사유, 버전 없음
+    r = await client.post(
+        f"/v1/runs/{rid}/figures/{fid}", json={"action": "words", "request": "x"}, headers=AUTH
+    )
+    assert r.status_code == 409 and "json" in r.json()["detail"]
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "words"}, headers=AUTH)
     assert r.status_code == 409
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "fly"}, headers=AUTH)
@@ -192,6 +214,7 @@ async def test_figure_actions_create_versions_and_conflict_is_409(client):
     r = await client.post(f"/v1/runs/{rid}/figures/{fid}", json={"action": "exclude"}, headers=AUTH)
     assert r.json()["figures"][0]["included"] is False
     diff = (await client.get(f"/v1/runs/{rid}/versions/diff?from=1&to=5", headers=AUTH)).json()
+    assert r.json()["figures"][0]["last_change"]["kind"] == "content"  # 버전이 바뀌어도 이어진다
     changes = {c["change"] for c in diff["figures_changed"]}
     assert {"texts", "excluded"} <= changes
     versions = (await client.get(f"/v1/runs/{rid}/versions", headers=AUTH)).json()["versions"]
