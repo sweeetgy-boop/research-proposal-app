@@ -182,7 +182,9 @@ async def test_comparison_uses_only_similar_rows_and_extracts_cells_from_source(
                     "items": [
                         {
                             "doc_id": "own:station",
-                            "objective": "폐철도역사 유휴 공간을 지역 문화시설로 활용하는 방안을 연구함",
+                            "objective": (
+                                "폐철도역사 유휴 공간을 지역 문화시설로 활용하는 방안을 연구함"
+                            ),
                             # 원문 밖 → 규칙 칸
                             "method": "드론과 인공지능으로 교량을 촬영함",
                             "scope": "",

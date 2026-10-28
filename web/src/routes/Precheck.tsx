@@ -1,18 +1,32 @@
 import * as React from "react";
 import { Navigate, useNavigate } from "react-router";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { comparison, differentiate, ntisOutcomes, recommend } from "@/api/endpoints";
-import { isApiError } from "@/api/client";
-import { ComparisonTable } from "@/features/idea/ComparisonTable";
-import type { RecommendationPreview } from "@/api/types";
-import { updateIdea, updateRequest, useIdea } from "@/features/idea/store";
-import { AlertsTable } from "@/features/idea/AlertsTable";
+import { applyRecommendation, ntisOutcomes } from "@/api/endpoints";
+import { comparisonFlow, differentiateFlow, recommendFlow, retryJudgment } from "@/api/endpoints-precheck";
+import type { PlanField, PlanRecommendation, PrecheckFlowOut, PrecheckOut, PrecheckRequest, SimilarChoiceValue } from "@/api/types";
+import { updateIdea, useIdea } from "@/features/idea/store";
 import { RelatedResearchList } from "@/features/idea/RelatedResearchList";
-import { RecommendationCards } from "@/features/idea/RecommendationCards";
 import { DifferentiationPanel } from "@/features/idea/DifferentiationPanel";
 import { NtisInsights } from "@/features/idea/NtisInsights";
 import { LiveSearchPanel } from "@/features/live/LiveSearchPanel";
+import { SimilarRowsTable } from "@/features/precheck/SimilarRowsTable";
+import { JudgmentNotice } from "@/features/precheck/JudgmentNotice";
+import { ComparisonView } from "@/features/precheck/ComparisonView";
+import { PlanCards } from "@/features/precheck/PlanCards";
+import { PlanEditor } from "@/features/precheck/PlanEditor";
+import { NextGate } from "@/features/precheck/NextGate";
+import {
+  GATE_REASON,
+  RELEASED_NOTE,
+  addVersion,
+  cardFields,
+  choiceList,
+  choicesSignature,
+  effectiveBlocking,
+  planFields,
+  released as isReleased,
+} from "@/features/precheck/model";
 import { NATIONAL_RND } from "@/lib/tiers";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -25,18 +39,40 @@ export default function Precheck() {
   const idea = useIdea();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const pre = idea.precheck;
+  const pre = idea.precheck as PrecheckFlowOut | null;
+  const choices = idea.similarChoices;
+  const [editing, setEditing] = React.useState(false);
 
-  // U4 차별성 비교표 — 입력이 바뀌면 다시 받는다 (LLM 없음)
+  // 서버로 보내는 입력 = 입력 + 가제(간편 입력 가제가 있으면) + 행별 선택
+  const req: PrecheckRequest = React.useMemo(
+    () => ({
+      ...idea.request,
+      title_hint: idea.request.title_hint || idea.quickTitle || "",
+      similar_choices: choiceList(choices),
+    }),
+    [idea.request, idea.quickTitle, choices],
+  );
+  const original = idea.originalPlan ?? planFields(idea.request);
+
+  React.useEffect(() => {
+    if (pre && !idea.originalPlan) {
+      updateIdea({
+        originalPlan: planFields(idea.request),
+        planSig: choicesSignature(choices),
+        similarChoices: choices,
+        request: { ...idea.request, idea_versions: addVersion(undefined, "original", planFields(idea.request)) },
+      });
+    }
+  }, [pre, idea.originalPlan, idea.request, choices]);
+
+  // 차별성 비교표 — [유사함] 행만. 선택·입력이 바뀌면 다시 받는다(서버는 판정 메모를 쓴다)
   const cmp = useQuery({
-    queryKey: ["comparison", idea.request],
-    queryFn: () => comparison(idea.request),
+    queryKey: ["comparison-flow", req],
+    queryFn: () => comparisonFlow(req),
     enabled: !!pre,
     staleTime: Infinity,
     retry: false,
   });
-  // NTIS 과제(tier national_rnd)가 알림에 있을 때만 1회 — 503·오류는 한 줄 안내, 흐름을 막지 않는다.
-  // 비교표가 끝난 뒤에 보낸다: 두 경로 모두 서버에서 precheck(reranker)를 다시 돌리므로 동시에 보내지 않는다
   const hasNtis = !!pre?.alerts.some((a) => a.tier === NATIONAL_RND);
   const ntis = useQuery({
     queryKey: ["ntis-outcomes", idea.request],
@@ -45,124 +81,167 @@ export default function Precheck() {
     staleTime: Infinity,
     retry: false,
   });
-  const recFor = React.useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of pre?.recommendations?.recommendations ?? []) for (const d of r.compared_with) if (!m.has(d)) m.set(d, r.index);
-    return m;
-  }, [pre]);
 
-  const recommendM = useMutation({
-    mutationFn: () => recommend(idea.request),
+  const setPrecheck = (next: PrecheckFlowOut) => updateIdea({ precheck: next as unknown as PrecheckOut, similarChoices: choices });
+
+  const retryM = useMutation({
+    mutationFn: () => retryJudgment(req),
     onSuccess: (out) => {
-      updateIdea({
-        precheck: { ...(idea.precheck ?? out), ...out, differentiation: idea.precheck?.differentiation ?? out.differentiation },
-        recommendationId: out.recommendations?.id ?? null,
-        recommendationIndex: null,
-      });
+      if (!pre) return;
+      setPrecheck({ ...pre, alerts: out.alerts, judgment: out.judgment, blocking: out.blocking });
+      toast(out.judgment?.retry_available ? "AI 판정이 다시 실패했습니다 — 규칙 기준을 유지합니다." : "AI 판정을 다시 받았습니다.", out.judgment?.retry_available ? "error" : "success");
+    },
+  });
+  const recommendM = useMutation({
+    mutationFn: () => recommendFlow(req),
+    onSuccess: (out) => {
+      if (!pre) return;
+      setPrecheck({ ...pre, recommendations: out.recommendations });
+      updateIdea({ recommendationId: out.recommendations?.id ?? null, recommendationIndex: null, planSig: choicesSignature(choices), similarChoices: choices });
     },
   });
   const differentiateM = useMutation({
-    mutationFn: () => differentiate(idea.request),
+    mutationFn: () => differentiateFlow(req),
     onSuccess: (out) => {
+      if (!pre) return;
       const d = out.differentiation;
+      setPrecheck({ ...pre, differentiation: d });
       updateIdea({
-        precheck: { ...(idea.precheck ?? out), differentiation: d },
-        differentiationTransfer: d
-          ? {
-              provider: d.provider,
-              model: d.model,
-              fallback_local: d.fallback_local,
-              public_doc_ids: d.transfer.public_doc_ids,
-              internal_doc_ids: d.transfer.internal_doc_ids,
-              excluded_doc_ids: d.transfer.excluded_doc_ids,
-              calls: d.transfer.calls,
-              items: d.items.length,
-              discarded: d.discarded.length,
-              skipped_reason: d.skipped_reason,
-            }
-          : null,
+        similarChoices: choices,
+        differentiationTransfer:
+          d && d.items.length
+            ? {
+                provider: d.provider,
+                model: d.model,
+                fallback_local: d.fallback_local,
+                public_doc_ids: d.transfer.public_doc_ids,
+                internal_doc_ids: d.transfer.internal_doc_ids,
+                excluded_doc_ids: d.transfer.excluded_doc_ids,
+                calls: d.transfer.calls,
+                items: d.items.length,
+                discarded: d.discarded.length,
+                skipped_reason: d.skipped_reason,
+              }
+            : null,
       });
     },
   });
-
-  // 자동 차별화 제안(차단 때)의 전송 기록도 run 에 남긴다
-  React.useEffect(() => {
-    const d = pre?.differentiation;
-    if (d && !idea.differentiationTransfer) {
+  const pickM = useMutation({
+    mutationFn: async (card: PlanRecommendation) => {
+      const rid = pre?.recommendations?.id;
+      if (rid) await applyRecommendation(rid, card.index); // 서버 미리보기 확인(세션 유효성) — 칸은 카드 그대로
+      return card;
+    },
+    onSuccess: (card) => {
+      const fields = cardFields(card, idea.request);
       updateIdea({
-        differentiationTransfer: {
-          provider: d.provider,
-          model: d.model,
-          fallback_local: d.fallback_local,
-          public_doc_ids: d.transfer.public_doc_ids,
-          internal_doc_ids: d.transfer.internal_doc_ids,
-          excluded_doc_ids: d.transfer.excluded_doc_ids,
-          calls: d.transfer.calls,
-          items: d.items.length,
-          discarded: d.discarded.length,
-          skipped_reason: d.skipped_reason,
-        },
+        request: { ...idea.request, ...fields, idea_versions: addVersion(idea.request.idea_versions, "card", fields, card.index) },
+        recommendationIndex: card.index,
+        planSource: "card",
+        similarChoices: choices,
       });
-    }
-  }, [pre, idea.differentiationTransfer]);
+      setEditing(false);
+      toast(`과제안 ${card.index + 1}번을 입력에 반영했습니다. 비교표의 제안 과제 칸도 바뀝니다.`, "success");
+    },
+  });
 
   if (!pre) return <Navigate to="/new" replace />;
 
-  const gateOk = !pre.blocking || idea.acknowledged;
+  const blocking = effectiveBlocking(pre.alerts, choices);
+  const released = isReleased(pre.alerts, choices);
+  const gateOk = !blocking || idea.acknowledged;
+  const similarCount = Object.values(choices).filter((c) => c === "similar").length;
+  const stale = idea.planSig !== null && idea.planSig !== choicesSignature(choices);
 
-  const chooseRecommendation = (index: number, preview: RecommendationPreview) => {
-    updateIdea({ request: { ...idea.request, ...preview.request }, recommendationIndex: index });
-    toast(`추천 ${index + 1}번을 입력에 반영했습니다. 가제·목표를 확인한 뒤 진행하십시오.`, "success");
+  const choose = (docId: string, value: SimilarChoiceValue | null) => {
+    const next = { ...choices };
+    if (value) next[docId] = value;
+    else delete next[docId];
+    const nextBlocking = effectiveBlocking(pre.alerts, next);
+    updateIdea({
+      similarChoices: next,
+      precheck: { ...pre, blocking: nextBlocking } as unknown as PrecheckOut,
+      // 선택이 바뀌면 활용 제안은 다시 받아야 한다
+      differentiationTransfer: null,
+    });
   };
 
-  const next = () => navigate("/new/brief");
+  const keepOriginal = () => {
+    updateIdea({
+      request: { ...idea.request, ...original, idea_versions: addVersion(idea.request.idea_versions, "original", original) },
+      recommendationIndex: null,
+      planSource: "original",
+      similarChoices: choices,
+    });
+    setEditing(false);
+    toast("원래 아이디어로 진행합니다.", "success");
+    if (gateOk) next();
+  };
+
+  const confirmEdit = (fields: Record<PlanField, string>) => {
+    updateIdea({
+      request: { ...idea.request, ...fields, idea_versions: addVersion(idea.request.idea_versions, "edited", fields) },
+      recommendationIndex: null,
+      planSource: "edited",
+      similarChoices: choices,
+    });
+    setEditing(false);
+    toast("고친 과제안을 입력에 반영했습니다.", "success");
+  };
+
+  function next() {
+    // 차단 해제(모든 차단 행 [관련 없음])면 ③ 화면 게이트도 풀리게 precheck.blocking 을 맞춘다
+    updateIdea({ precheck: { ...pre!, blocking } as unknown as PrecheckOut, similarChoices: choices, request: req });
+    navigate("/new/brief");
+  }
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">② 유사과제 확인</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          유사도와 공유 키워드가 함께 기준을 넘는 기존 과제(사내 기록·알리오·NTIS 과제·발주 용역)입니다. 제목은 수집 자료의 텍스트입니다.
+          관련도(reranker 점수)와 아이디어 핵심 키워드로 찾은 기존 과제(사내 기록·알리오·NTIS 과제·발주 용역)입니다. 행마다 [유사함]·[관련 없음] 을 고르면 비교표·차별화 과제안·본문 차별성 문장에 [유사함] 과제만 쓰입니다. 제목은 수집 자료의 텍스트입니다.
         </p>
       </div>
 
-      {pre.blocking && (
+      {blocking && (
         <Alert variant="destructive" role="alert">
           <ShieldAlert aria-hidden="true" />
           <div className="flex-1 space-y-3">
             <div>
-              <AlertTitle>차단 경보 — 중복 가능성이 높은 과제가 있습니다</AlertTitle>
+              <AlertTitle>차단 경보 — 대상·문제·방법이 같은 과제가 있습니다</AlertTitle>
               <AlertDescription>
-                그대로 제출하면 심사에서 중복으로 걸릴 수 있습니다. 아래 차별화 제안·과제 추천을 보고 방향을 정하거나, 알고도 진행하려면 확인란에 표시하십시오.
+                그대로 제출하면 심사에서 중복으로 걸릴 수 있습니다. 실제로 관련 없는 과제면 그 행에서 [관련 없음] 을 고르십시오(모두 고르면 차단이 풀립니다). 알고도 진행하려면 확인란에 표시하십시오.
               </AlertDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Checkbox id="ack" checked={idea.acknowledged} onChange={(e) => updateIdea({ acknowledged: e.target.checked })} />
+              <Checkbox id="ack" checked={idea.acknowledged} onChange={(e) => updateIdea({ acknowledged: e.target.checked, similarChoices: choices })} />
               <Label htmlFor="ack">차단 경보를 확인했고 그래도 진행합니다</Label>
             </div>
           </div>
         </Alert>
       )}
+      {released && (
+        <Alert role="status">
+          <ShieldCheck aria-hidden="true" />
+          <AlertDescription>{RELEASED_NOTE}</AlertDescription>
+        </Alert>
+      )}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">유사과제 {pre.alerts.length}건</h2>
-        <AlertsTable alerts={pre.alerts} />
+        <h2 className="text-lg font-semibold">
+          유사과제 {pre.alerts.length}건 <span className="text-sm font-normal text-muted-foreground">· 유사함 {similarCount}건</span>
+        </h2>
+        <JudgmentNotice judgment={pre.judgment} coreKeywords={pre.core_keywords} onRetry={() => retryM.mutate()} retrying={retryM.isPending} />
+        <ProblemBanner error={retryM.error} />
+        <SimilarRowsTable alerts={pre.alerts} choices={choices} onChoose={choose} />
       </section>
 
       {pre.related_research ? <RelatedResearchList items={pre.related_research} /> : null}
-
       {pre.live_search ? <LiveSearchPanel live={pre.live_search} /> : null}
-
       {hasNtis ? <NtisInsights data={ntis.data} loading={ntis.isPending} unavailable={!!ntis.error} /> : null}
 
-      <ComparisonTable
-        data={cmp.data?.comparison}
-        loading={cmp.isPending}
-        error={isApiError(cmp.error) && cmp.error.status === 503 ? null : cmp.error}
-        unavailable={isApiError(cmp.error) && cmp.error.status === 503}
-        onRetry={() => cmp.refetch()}
-        recommendationFor={recFor}
-      />
+      <ComparisonView data={cmp.data?.comparison} loading={cmp.isPending} error={cmp.error} onRetry={() => cmp.refetch()} />
 
       <ProblemBanner error={differentiateM.error} />
       <DifferentiationPanel
@@ -170,33 +249,33 @@ export default function Precheck() {
         loading={differentiateM.isPending}
         onRequest={() => differentiateM.mutate()}
         picked={idea.request.differentiation ?? ""}
+        similarCount={similarCount}
         onPick={(text) => {
-          updateRequest({ differentiation: text });
+          updateIdea({ request: { ...idea.request, differentiation: text }, similarChoices: choices });
           toast("차별화 방향을 입력에 반영했습니다.", "success");
         }}
       />
 
-      <ProblemBanner error={recommendM.error} />
-      <RecommendationCards
+      <ProblemBanner error={recommendM.error ?? pickM.error} />
+      <PlanCards
         rec={pre.recommendations}
+        loading={recommendM.isPending}
         chosenIndex={idea.recommendationIndex}
-        onChoose={chooseRecommendation}
-        onProceedOriginal={() => {
-          updateIdea({ recommendationIndex: null });
-          if (gateOk) next();
-          else toast("차단 경보 확인란에 먼저 표시하십시오.", "error");
-        }}
-        onRetry={() => recommendM.mutate()}
-        retrying={recommendM.isPending}
+        stale={stale}
+        onPick={(card) => pickM.mutate(card)}
+        onKeepOriginal={keepOriginal}
+        onWrite={() => setEditing(true)}
+        onRegenerate={() => recommendM.mutate()}
       />
+      {editing && (
+        <PlanEditor request={req} initial={planFields(idea.request)} original={original} onConfirm={confirmEdit} onCancel={() => setEditing(false)} />
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
         <Button variant="outline" onClick={() => navigate("/new")}>
           ← 입력 고치기
         </Button>
-        <Button onClick={next} disabled={!gateOk} aria-disabled={!gateOk}>
-          다음: 선행연구 브리핑 →
-        </Button>
+        <NextGate label="다음: 선행연구 브리핑 →" reason={gateOk ? null : GATE_REASON} onNext={next} />
       </div>
     </div>
   );
