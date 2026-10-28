@@ -29,7 +29,8 @@
    같은 글자의 줄 상자 높이(mm 로 환산) 비를 그 글자의 밑그림 크기(SVG font-size → pt)에 곱하고, 가장 작은 값을 쓴다(`estimate_relative_pt`).
    OCR 상자 높이 ÷ 글자 크기 비는 글자 모양마다 다르다(한글 두 글자 0.95, 괄호가 든 줄 1.2 — 밑그림 보정 16줄 1.13~1.44) — 같은 글자끼리
    나누면 지워진다. 함께 찾은 글자가 없으면 그림만으로 상자 높이 ÷ `ocr_box_em`(1.2). OCR 이 없으면(리눅스·CI) 밑그림 값. 9pt 미만이면 한 번 더
-   (`max_image_redraws` 1, 그림 호출 +1): 줄일 글자가 있으면 줄여 밑그림부터, 없으면 프롬프트에 "글자를 더 크게: 직전 그림은 약 n pt" 를 붙인다.
+   (`max_image_redraws` 1, 그림 호출 +1): 밑그림은 이미 9pt 이상이므로 그림의 모양 문제로 보고, 글자(내용)는 그대로 둔 채 프롬프트에
+   "글자를 더 크게: 직전 그림은 약 n pt" 를 붙인다(실측: 글자를 줄여도 작은 것은 이름표 꼬리표라 그대로였다).
 7. **기록** — `Figure.fit`(FigureFit: width_mm·height_mm·ratio·fits·min_text_pt·text_ok·text_method svg|ocr|baseline·redraws·shortened·widened),
    HWPX 삽입 결과 `FigurePlacement.fit`(넣은 실제 폭으로 글자 pt 를 다시 계산), manifest `figures[].figure_fit`(숫자·코드만, 허용 키 검사).
    통합 점검 "그림이 본문 폭에 맞게 들어감 n/n" = `figure_fit.fits` 이고 `width_mm` 이 본문 폭.

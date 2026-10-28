@@ -10,7 +10,7 @@
   "가로로 넓게 배치, 좌우 여백 최소"·배치별 구조·글자 높이 2%·일정표 눈금, `technique_arrangement`, 그림 안 글자에서 수치 그래프 출처 제외),
   `rules/techniques.py`(Technique.arrange·arrangement), `config/figures/techniques.yaml`(arrange 20개, 기법 이름 영어 병기 정리).
 - application: `usecases/figures.py` — `layout()`(비율·높이 상한·글자 하한·넘침 → 덜 넓은 비율 → 글자 줄이기), `draw(shorten=)`(4:1 패딩 참고 이미지,
-  reframe, 실제 픽셀 맞춤, OCR 상대 어림, 작으면 1회 다시), `FigureConfig.frame·min_text_pt·max_shorten·max_image_redraws·ocr_box_em·arrangements`,
+  reframe, 실제 픽셀 맞춤, OCR 상대 어림, 작으면 "글자를 더 크게" 1회), `FigureConfig.frame·min_text_pt·max_shorten·max_image_redraws·ocr_box_em·arrangements`,
   캡션 기본값 한국어 이름. `run_manager` — [글자 고치기]는 줄이지 않음(shorten=False), manifest `figure_fit`(생성 때 + 마무리 때 HWPX 실측).
 - adapters: `figures/render.py`(가로 배치·글자 하한 33.1·data-overflow·폭 기준 줄바꿈 `wrap_width`), `figures/png.py`(`fit_aspect`·`pad_to_aspect`),
   `rendering/hwpx_geometry.py`(양식 본문 폭), `rendering/hwpx.py`(그림 폭 = 표식 자리 폭, 높이 상한, placement.fit), `logging/file_run_log.py`
@@ -46,7 +46,7 @@
 | 글자 줄이기 | 띄어쓰기 자리에서만 자르고(숫자·낱말 중간 안 자름) 항목 수를 줄인다 — 원래 글자의 앞부분이라 출처 검사를 그대로 통과. 수치 그래프·일정 기간은 손대지 않는다. 줄인 칸 수는 카드 안내에 "n곳을 줄였습니다". |
 | 제안자 글자 | [글자 고치기]로 쓴 글자는 줄이지 않는다(기록만, `text_ok=false` 가능). [말로 고치기]는 AI 가 명세를 바꾸는 것이라 줄이기 대상. |
 | Nano Banana 글자 크기 | OCR 상대 어림(같은 글자의 밑그림/그림 높이 비 × 밑그림 pt). 처음 쓴 절대 어림(상자 높이 ÷ 1.2)은 밑그림(실제 9.3pt)에서 6.3~8.5pt 로 낮게 나와 버렸다 — 짧은 한글·숫자는 상자가 낮다. 절대 어림은 함께 찾은 글자가 없을 때만. |
-| 다시 그리기 상한 | OCR 로 작다고 나오면 1회만 더(그림 호출 +1). 줄일 글자가 없으면 "글자를 더 크게: 직전 약 n pt" 를 프롬프트에 붙인다. 그 뒤에도 작으면 그대로 넣고 기록. |
+| 다시 그리기 상한 | OCR 로 작다고 나오면 1회만 더(그림 호출 +1) — 내용은 두고 "글자를 더 크게: 직전 약 n pt" 만 붙인다. 글자 줄이기는 밑그림 단계(layout)에서만. 그 뒤에도 작으면 그대로 넣고 기록(`text_ok=false`). |
 | OCR 실행 | 운영(맥 미니)은 macOS Vision OCR(격리 자식) — 그림 1장에 2회(밑그림·그림, 각 1~3초). 리눅스·CI·가짜 모드는 OCR 없음 → 밑그림 값(`text_method=baseline`). |
 | 수치 그래프 출처 | 그림 안에서 뺐다 — HWPX 캡션 아래 12pt 출처 줄과 카드 출처 줄이 이미 있다(글자 자리 확보). |
 | 이름 | `display_name`: As-Is/To-Be = "현재·연구 후 비교 그림", 기법 = "분석 기법 그림 – <기법 이름>", 나머지 종류 이름(비교 = "차별성 비교표"). 새 그림 캡션 기본값도 이 이름(저장된 캡션은 그대로). 레인 D 버전 목록은 `Figure.display_name` 속성을 먼저 쓴다. |
