@@ -114,17 +114,44 @@ class MakeFigures:
         sections: Sequence[Section],
         request: ProposalRequest,
         snapshot: RetrievalSnapshot | None,
+        *,
+        all_candidates: bool = False,
     ) -> list[tuple[str, str]]:
+        """기본 그림 (종류, 섹션) — 우선순위 순. all_candidates 면 개수 상한 없이(채우기 후보)."""
         has_facts = bool(snapshot and snapshot.facts)
         has_overlap = bool(snapshot and snapshot.overlap)
         return rules.choose_default(
             sections,
             request,
-            max_default=self.config.max_default,
+            max_default=len(rules.FIGURE_KINDS) if all_candidates else self.config.max_default,
             has_facts=has_facts,
             has_overlap=has_overlap,
             kinds=self.config.kinds,
         )
+
+    async def build_default(
+        self,
+        sections: Sequence[Section],
+        request: ProposalRequest,
+        snapshot: RetrievalSnapshot | None,
+    ) -> tuple[list[FigureBuild], list[dict[str, Any]]]:
+        """기본 그림 max_default 개 — 명세가 걸러진 만큼 우선순위 다음 종류로 한 번 채운다."""
+        candidates = self.plan(sections, request, snapshot, all_candidates=True)
+        want = self.config.max_default
+        first, rest = candidates[:want], candidates[want:]
+        builds, skipped = await self.build_all(first, sections, request, snapshot)
+        deficit = want - len(builds)
+        if deficit > 0 and rest:
+            more, skipped2 = await self.build_all(
+                rest[:deficit],
+                sections,
+                request,
+                snapshot,
+                existing_ids=[b.figure.id for b in builds],
+            )
+            builds = sorted([*builds, *more], key=lambda b: b.figure.id)
+            skipped = [*skipped, *skipped2]
+        return builds, skipped
 
     def pool(
         self,
@@ -210,8 +237,8 @@ class MakeFigures:
         data = parse_object(raw)
         if not data:
             return []
-        try:
-            return rules.missing_texts(parse_spec(kind, data), pool)
+        try:  # 다듬기 전 명세 기준 — 모델에게 무엇이 근거 밖인지 알려 준다
+            return rules.missing_texts(parse_spec(kind, rules.normalize_spec_data(data)), pool)
         except (ValidationError, KeyError, TypeError):
             return []
 
@@ -224,9 +251,10 @@ class MakeFigures:
         if "skip" in data and len(data) == 1:
             return None, "skip"
         try:
-            spec = parse_spec(kind, data)
+            spec = parse_spec(kind, rules.normalize_spec_data(data))
         except (ValidationError, KeyError, TypeError):
             return None, "schema"
+        spec = rules.repair_spec(spec, pool)  # 근거 없는 선택 글자(목표치·설명 줄)는 덜어 낸다
         problems = rules.validate_spec(spec, pool, period_months=period)
         if problems:
             return None, problems[0]
