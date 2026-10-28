@@ -102,6 +102,13 @@ curl -sI https://rra.ai-edu-lab.co.kr | head -3                 # 터널 기동 
 
 전체 스키마: `docs/openapi.json` (`rra api schema`).
 
+## 4.5 재배포 (시범 기간, 2026-10-28)
+
+main 을 운영 API 에 반영하는 명령은 `tools/deploy.sh` 하나다 — main 최신 확인 → web 빌드(바뀐 경우) → 생성 중 run 확인
+(`rra runs active`, `--wait`/`--force`) → `data/deploy/version.json` → `launchctl kickstart -k gui/$(id -u)/com.rra.api` →
+healthz·로그인 화면·외부 주소 확인 → `docs/history/deploys/` 기록. 규칙(자동 재시작 금지, 반영 대기 목록, 보안·접속 오류는 즉시)은
+`docs/pilot-guide.md` §6.3. 화면 하단과 `/healthz` 의 `version` 이 배포된 커밋을 보여 준다.
+
 ## 5. 보존·백업·재색인 (보안 I)
 
 - `rra runs purge` 는 만료 run 을 지운다(주 1회 launchd 로 돌려도 된다 — 아직 plist 없음).

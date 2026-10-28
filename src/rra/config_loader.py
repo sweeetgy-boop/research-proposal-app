@@ -287,6 +287,8 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "availability_file",
         "data/cache/source_availability.json",
     ),
+    # 배포 버전 파일 (tools/deploy.sh 가 쓰고 /healthz·화면 하단이 읽는다)
+    "deploy_version": (lambda s: {}, "", "data/deploy/version.json"),
 }
 DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
 

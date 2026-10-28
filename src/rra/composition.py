@@ -1782,6 +1782,17 @@ def build_api(
         snapshot_status=build_korail_web_source(settings).status,
         notice_snapshot_status=build_rnd_notice_source(settings).status,
         availability_notices=build_source_availability(settings).notices,
+        version=build_version_info(settings),
+    )
+
+
+def build_version_info(settings: Settings | None = None) -> dict[str, Any]:
+    """배포 버전 — data/deploy/version.json(tools/deploy.sh), 없으면 git HEAD + 시작 시각."""
+    from rra.adapters.deploy import read_version
+
+    settings = settings or load_settings()
+    return read_version(
+        data_location(settings, "deploy_version"), repo_root=Path(__file__).parents[2]
     )
 
 

@@ -5,6 +5,8 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Stepper } from "./Stepper";
 import { useLoggedIn, useSessionLabel } from "@/auth/useSession";
 import { logout } from "@/api/endpoints";
+import { useDeployVersion } from "@/api/hooks";
+import { formatDeployedAt } from "@/lib/deployVersion";
 import { cn } from "@/lib/utils";
 
 function stepFromPath(pathname: string): number | null {
@@ -39,6 +41,7 @@ const NAV = [
 
 export function Layout() {
   const loggedIn = useLoggedIn();
+  const version = useDeployVersion().data?.version;
   const sessionLabel = useSessionLabel();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -106,7 +109,12 @@ export function Layout() {
         <Outlet />
       </main>
       <footer className="border-t py-4 text-center text-xs text-muted-foreground">
-        초안·검토 의견·검색 결과는 수집 자료와 모델 출력으로, 제안자가 확인한 뒤에만 사용합니다.
+        <p>초안·검토 의견·검색 결과는 수집 자료와 모델 출력으로, 제안자가 확인한 뒤에만 사용합니다.</p>
+        {version?.short && (
+          <p className="mt-1 font-mono" data-testid="deploy-version" aria-label="배포 버전">
+            버전 {version.short} · 배포 {formatDeployedAt(version.deployed_at)}
+          </p>
+        )}
       </footer>
     </div>
   );

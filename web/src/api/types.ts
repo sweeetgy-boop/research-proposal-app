@@ -35,6 +35,12 @@ export type SessionIn =
   | { kind: "staff"; staff_no: string }
   | { kind: "guest"; id: string; password: string };
 
+/** GET /healthz — 배포된 버전(커밋·시각). 인증 없음, 화면 하단 표시용 */
+export interface HealthOut {
+  status: string;
+  version?: { commit: string; short: string; deployed_at: string; prs?: string[]; source?: string };
+}
+
 export interface SessionInfo {
   kind: SessionKind;
   label: string;

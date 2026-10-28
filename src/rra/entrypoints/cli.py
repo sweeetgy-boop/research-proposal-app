@@ -1474,6 +1474,35 @@ def cmd_generate(args: argparse.Namespace) -> int:
     return _STATUS_EXIT.get(final.status, EXIT_ERROR)
 
 
+def cmd_runs_active(args: argparse.Namespace) -> int:
+    """모든 사용자의 대기·실행 중 run (배포 전 확인, tools/deploy.sh). 출력은 run_id·상태·시각."""
+    from rra.composition import build_run_manager, load_settings
+    from rra.domain.models.run import ACTIVE
+
+    states = build_run_manager(load_settings()).list_all_runs(limit=200)
+    active = [s for s in states if s.status in ACTIVE]
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "count": len(active),
+                    "runs": [
+                        {"run_id": s.run_id, "status": s.status, "created_at": s.created_at}
+                        for s in active
+                    ],
+                },
+                ensure_ascii=False,
+            )
+        )
+    elif active:
+        print(f"대기·실행 중인 생성: {len(active)}건")
+        for s in active:
+            print(f"  {s.run_id}  {s.status}  {s.created_at}")
+    else:
+        print("대기·실행 중인 생성: 0건")
+    return EXIT_OK
+
+
 def cmd_runs_list(args: argparse.Namespace) -> int:
     from rra.composition import LOCAL_USER, build_run_manager, load_settings
 
@@ -2782,6 +2811,9 @@ def build_parser() -> argparse.ArgumentParser:
     rl.add_argument("--limit", type=int, default=20)
     rl.add_argument("--json", action="store_true")
     rl.set_defaults(handler=cmd_runs_list)
+    ra = runs_sub.add_parser("active", help="모든 사용자의 대기·실행 중 run (배포 전 확인)")
+    ra.add_argument("--json", action="store_true")
+    ra.set_defaults(handler=cmd_runs_active)
     rs = runs_sub.add_parser("show", help="초안(문장별 근거 포함)·진행 상태")
     rs.add_argument("run_id")
     rs.add_argument("--json", action="store_true")

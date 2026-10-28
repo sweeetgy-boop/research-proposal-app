@@ -17,8 +17,14 @@ export const keys = {
   renderCheck: (id: string) => ["run", id, "render-check"] as const,
   outline: (id: string) => ["run", id, "outline"] as const,
   sources: ["sources"] as const,
+  health: ["health"] as const,
   search: (q: string) => ["search", q] as const,
 };
+
+/** 배포 버전(화면 하단). 실패해도 화면은 그대로 — 표시만 생략 */
+export function useDeployVersion() {
+  return useQuery({ queryKey: keys.health, queryFn: api.getHealth, staleTime: 5 * 60_000, retry: false });
+}
 
 const ACTIVE = new Set<RunState["status"]>(["queued", "running", "draft_reviewing", "final_reviewing"]);
 export const isActive = (s: RunState["status"] | undefined) => !!s && ACTIVE.has(s);

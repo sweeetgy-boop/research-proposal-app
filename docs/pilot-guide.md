@@ -81,3 +81,34 @@
 ### 6.2 공용 계정
 
 `rra auth guest set --id korail`(비밀번호 두 번, 시범 기간 4자 이상) / 끄기 `rra auth guest disable`.
+
+### 6.3 배포 (시범 기간 규칙, 2026-10-28)
+
+**규칙**
+- PR 을 main 에 합쳐도 운영 API 를 **자동으로 재시작하지 않는다**. 반영할 PR 은 `docs/history/deploys/pending.md` 에 한 줄씩 쌓아 둔다.
+- 운영자가 "배포해" 하면 아래 스크립트로 한 번에 반영한다. 생성 중인 동료가 있으면 끝날 때까지 기다린다(`--wait`).
+- 예외: **보안 수정, 로그인·접속이 막히는 오류 수정**은 합친 즉시 배포하고 운영자에게 알린다.
+- 화면 하단에 `버전 <커밋 7자> · 배포 <월-일 시:분>` 이 보인다(로그인 전에도). 동료가 어떤 버전을 쓰는지 이것으로 확인한다.
+  같은 값은 `curl -s http://127.0.0.1:8000/healthz` 의 `version` 에도 있다.
+
+**절차** (저장소 루트, main)
+```
+git checkout main && git pull
+tools/deploy.sh --dry-run        # 1) main 최신·web 변경·생성 중 run 확인만 (재시작 없음)
+tools/deploy.sh --wait           # 2) 생성이 끝날 때까지 기다렸다가 반영 (최대 30분, --wait-max 초)
+```
+스크립트가 하는 일: main 이 origin/main 과 같은지 → `web/` 이 지난 배포 이후 바뀌었으면 `npm run build` → 대기·실행 중인 생성
+run 확인(`rra runs active`; 있으면 `--wait` 대기, `--force` 는 무시하고 진행 — 그 run 은 interrupted 가 된다) →
+`data/deploy/version.json` 기록 → `launchctl kickstart -k gui/$(id -u)/com.rra.api` → `/healthz` 가 새 커밋을 보고하는지,
+`/login` 이 200 인지, 외부 주소(`https://rra.taile5afcf.ts.net`, `RRA_DEPLOY_EXTERNAL_URL` 로 변경) 확인 →
+`docs/history/deploys/<시각>.md` 기록과 `pending.md` 비움(이 두 파일은 docs PR 로 커밋).
+
+| 옵션 | 뜻 |
+|---|---|
+| `--dry-run` | 확인만. 빌드·재시작·기록 없음 |
+| `--wait [--wait-max 초]` | 생성 run 이 끝날 때까지 20초 간격으로 기다림(기본 최대 1800초) |
+| `--force` | 생성 run 이 있어도 재시작(그 run 은 interrupted) |
+| `--no-build` / `--no-external` | web 빌드 생략 / 외부 주소 확인 생략 |
+
+실패하면 `~/Library/Logs/rra-api.err.log` 와 `launchctl list | grep com.rra.api` 를 본다. 이전 버전으로 되돌리려면
+`git checkout <이전 커밋>` 뒤 `tools/deploy.sh --force` 가 아니라, main 을 되돌리는 PR(revert)을 합친 뒤 같은 절차로 배포한다.

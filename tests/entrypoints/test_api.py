@@ -34,6 +34,7 @@ def build(
     differentiate=None,
     recommend=None,
     recommend_auto=True,
+    version=None,
 ):
     from rra.adapters.security import SessionStore
     from rra.entrypoints.api.app import SessionAuth
@@ -58,6 +59,7 @@ def build(
         session_auth=SessionAuth(TOKEN, sessions),
         static_dir=static_dir,
         sse_poll_sec=0.01,
+        version=version,
     )
     return app, a
 
@@ -76,6 +78,17 @@ AUTH = {"X-RRA-Token": TOKEN}
 
 
 # ── 인증·헤더 ─────────────────────────────────────────────
+async def test_healthz_reports_deploy_version_without_auth():
+    """시범 운영: 화면 하단이 보여 줄 배포 버전(커밋·시각)은 인증 없이, 비밀 없이."""
+    info = {"commit": "d65d75b789a1", "short": "d65d75b", "deployed_at": "2026-10-28T09:34+09:00"}
+    app, _ = build(version=info)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8000"
+    ) as c:
+        body = (await c.get("/healthz")).json()
+    assert body == {"status": "ok", "version": info}
+
+
 async def test_missing_or_wrong_token_is_401_but_healthz_is_open(client):
     assert (await client.get("/healthz")).json() == {"status": "ok"}
     r = await client.post("/v1/precheck", json=SLOTS)

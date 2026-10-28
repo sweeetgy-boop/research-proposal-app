@@ -9,6 +9,7 @@ import type {
   DraftOut,
   EditRequest,
   FinalizeIn,
+  HealthOut,
   NtisOutcomesOut,
   OutlineOut,
   PrecheckOut,
@@ -48,6 +49,7 @@ export async function login(body: SessionIn | string): Promise<SessionOut> {
 }
 
 export const getSession = () => request<SessionInfo>(`${V}/session`);
+export const getHealth = () => request<HealthOut>("/healthz");
 
 export async function logout(): Promise<void> {
   try {
