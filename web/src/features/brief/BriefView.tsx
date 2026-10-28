@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { UntrustedText } from "@/components/UntrustedText";
 import { basisLabel } from "@/lib/sections";
+import { docRef, refSource, refTitle } from "@/lib/docRefs";
 import { cn } from "@/lib/utils";
 
 const SOURCE_LABELS: Record<string, string> = { alio: "알리오", openalex: "OpenAlex", scienceon: "ScienceON", ntis: "NTIS", own: "사내", kipris: "KIPRIS" };
@@ -122,7 +123,14 @@ export function BriefView({ brief, selected, onToggle }: BriefViewProps) {
                 <li key={i} className="rounded-md border border-dashed p-2 text-sm">
                   <Badge variant="warning" className="mb-1">후보</Badge>
                   <UntrustedText as="p" text={g.text} />
-                  <p className="mt-1 font-mono text-xs text-muted-foreground">근거: {g.evidence.join(", ")}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    근거:{" "}
+                    {g.evidence
+                      .map((id) => docRef(id, brief.items.map((it) => ({ id: it.chunk_id, doc_id: it.doc_id, title: it.title, source: it.source }))))
+                      .map((r) => `${refTitle(r)} (${refSource(r)})`)
+                      .filter((x, j, all) => all.indexOf(x) === j)
+                      .join(", ")}
+                  </p>
                 </li>
               ))}
             </ul>

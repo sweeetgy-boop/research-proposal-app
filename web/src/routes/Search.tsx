@@ -9,6 +9,8 @@ import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { EmptyState } from "@/components/EmptyState";
 import { UntrustedText } from "@/components/UntrustedText";
+import { sourceName, sourceOf } from "@/lib/docRefs";
+import { basisLabel } from "@/lib/sections";
 
 export default function Search() {
   const [input, setInput] = React.useState("");
@@ -44,9 +46,9 @@ export default function Search() {
             {res.data.chunks.map((c) => (
               <li key={c.chunk_id} className="rounded-lg border p-3 text-sm">
                 <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="font-mono">{c.doc_id}</span>
-                  <Badge variant="outline">#{c.ordinal}</Badge>
-                  {c.basis && <Badge variant="secondary">{c.basis}</Badge>}
+                  {/* 내부 문서 번호는 보이지 않는다 — 자료원 이름·본문 종류만 */}
+                  <span className="font-medium">{sourceName(sourceOf(c.doc_id))}</span>
+                  {c.basis && <Badge variant="secondary">{basisLabel(c.basis)}</Badge>}
                   {c.similarity !== null && <span className="tabular-nums">유사도 {c.similarity.toFixed(3)}</span>}
                   <Badge variant="warning">비신뢰</Badge>
                 </div>
