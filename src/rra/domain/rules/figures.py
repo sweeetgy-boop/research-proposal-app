@@ -279,6 +279,24 @@ def validate_spec(
     return list(dict.fromkeys(problems))
 
 
+def missing_texts(spec: BaseModel, pool: TextPool, *, limit: int = 5) -> list[str]:
+    """출처(pool)에 없는 글자·수치가 든 명세 글자 — 교정 재요청에 알려 준다(최대 limit 개)."""
+    out: list[str] = []
+    for t in texts_of(spec):
+        if t in FIXED_TEXTS:
+            continue
+        if isinstance(spec, ScheduleSpec) and t.endswith("개월"):
+            continue
+        if isinstance(spec, StatChartSpec) and t == spec.source.caption():
+            continue
+        bad_number = any(not pool.has_number(c) for _, c in numbers(t))
+        if not pool.has_text(t) or (not isinstance(spec, StatChartSpec) and bad_number):
+            out.append(t)
+        if len(out) >= limit:
+            break
+    return out
+
+
 def internal_only_texts(spec: BaseModel, pool: TextPool) -> list[str]:
     """internal 근거에만 있고(공개 본문·입력에는 없는) 글자 — 공용 계정이면 명세에서 뺀다."""
     if not pool.internal_text:

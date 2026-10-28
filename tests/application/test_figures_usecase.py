@@ -206,8 +206,19 @@ async def test_public_account_drops_internal_only_texts():
         **CONCEPT,
         "boxes": [{"label": "현황", "lines": ["비공개 노선 X-9 자료"]}, *CONCEPT["boxes"][1:]],
     }
+    cited = [
+        SECTIONS[0].model_copy(
+            update={"sentences": [Sentence(text="노선 자료를 쓴다.", evidence=["own:9#0"])]}
+        ),
+        *SECTIONS[1:],
+    ]
     uc = make(FakeLLM([json.dumps(spec, ensure_ascii=False)] * 2))
     uc.include_internal = False
-    result = await uc.make_spec("concept", "objective", SECTIONS, REQ, snap)
+    result = await uc.make_spec("concept", "objective", cited, REQ, snap)
     assert result.spec is None and result.reason == "internal_text"
-    assert "비공개 노선" not in uc.llm.calls[0]  # internal 청크는 프롬프트에도 넣지 않는다
+    # 인용하지 않은 청크의 글자는 처음부터 출처가 아니다 (검색 집합 전체를 근거로 치지 않는다)
+    uc2 = make(FakeLLM([json.dumps(spec, ensure_ascii=False)] * 2))
+    result2 = await uc2.make_spec("concept", "objective", SECTIONS, REQ, snap)
+    assert result2.spec is None and result2.reason == "figure_text_not_in_sources"
+    assert "비공개 노선 X-9 자료" in uc2.llm.calls[1]  # 교정 재요청이 없는 글자를 알려 준다
+    assert "X-9" not in uc.llm.calls[0]  # internal 청크는 프롬프트에도 넣지 않는다

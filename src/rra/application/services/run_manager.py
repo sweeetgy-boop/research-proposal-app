@@ -551,7 +551,6 @@ class RunManager:
                         ",".join(f"{f.key}:{f.reason}" for f in failed),
                         invalid,
                     )
-                state.status = "invalid" if invalid else "drafted"
                 if not invalid:  # draft_v1 = 로컬 생성
                     self.store.save_version(
                         user,
@@ -566,8 +565,14 @@ class RunManager:
                         ),
                     )
                     state.draft_version = 1
-                    if self.figures is not None:  # [G] 그림 — v1 에 붙인다 (검토 전)
-                        await self._figures_step(user, run_id, state, ordered, req, snapshot)
+                self._finish(state, current, on_step, dropped=fixed)
+                current = None
+                if not invalid and self.figures is not None:
+                    # [G] 그림 — v1 에 붙인다(검토 전). 그동안 상태는 running 그대로. drafted 로
+                    # 먼저 저장하면 화면이 편집을 열고 편집은 이 실행의 락에 막힌다(10-28 시험)
+                    await self._figures_step(user, run_id, state, ordered, req, snapshot)
+                state.status = "invalid" if invalid else "drafted"
+                if not invalid:
                     wants_review = self.pipeline.draft_review and self.review_auto
                     if wants_review and self.reviewer is None:
                         self._skip_review(user, run_id, state, "no_review_llm")
@@ -578,8 +583,6 @@ class RunManager:
                     auto_review = (
                         wants_review and self.reviewer is not None and not self._budget_exhausted()
                     )
-                self._finish(state, current, on_step, dropped=fixed)
-                current = None
                 return state
         except Exception as exc:  # 어떤 실패든 저장된 step 은 남고, 재개로 이어서 한다
             self._interrupt(state, current, type(exc).__name__)
@@ -2064,7 +2067,12 @@ class RunManager:
         """그 버전에서 제안서에 넣는 그림(included)의 (Figure, 바이트, mime). 파일 없으면 건너뜀."""
         version = self.store.load_version(user, run_id, version_no)
         out: list[tuple[Figure, bytes, str]] = []
-        for fig in version.figures if version else []:
+        order = {s.key: i for i, s in enumerate(version.sections)} if version else {}
+        figures = sorted(
+            version.figures if version else [],
+            key=lambda f: (order.get(f.section, len(order)), f.id),
+        )  # "그림 n" 은 양식에 나오는 섹션 순서대로
+        for fig in figures:
             if not fig.included or not fig.image_sha:
                 continue
             loaded = self.store.load_figure_image(user, run_id, fig.image_sha)
