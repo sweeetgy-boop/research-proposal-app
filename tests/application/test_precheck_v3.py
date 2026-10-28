@@ -343,3 +343,17 @@ async def test_polish_has_no_time_limit():
     slow.gate.set()
     out = await task
     assert out.by == "argon" and not local.calls
+
+
+def test_generic_terms_from_pilot_are_not_core_keywords():
+    """시범 핵심 키워드 칸의 일반어(예측·변화·수요 …)는 겹친 키워드로 세지 않는다
+    (config/overlap.yaml)."""
+    from rra.config_loader import keyword_rule
+    from rra.domain.rules.keywords import core_keyword_overlap, core_terms
+    from rra.settings import Settings
+
+    rule = keyword_rule(Settings(_env_file=None))
+    assert core_terms(["광역철도 수요 예측 모형", "기후 변화 대응"], rule) == ["광역철", "기후"]
+    assert core_terms(["수송수요 예측", "차량기지 화차"], rule) == ["수송수요", "차량기지", "화차"]
+    doc = "연도별 수요 예측 모형의 변화 추정"
+    assert core_keyword_overlap("", ["철도 수요 예측", "궤도 틀림"], doc, rule) == []
