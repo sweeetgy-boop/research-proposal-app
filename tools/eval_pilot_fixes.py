@@ -167,7 +167,8 @@ class Driver:
         alerts = body.get("alerts") or []
         blocking = [a for a in alerts if a.get("blocking")]
         top5 = [i for a in alerts[:5] for i in _alert_ids(a)]
-        live = body.get("live_search") or fast.get("live_search") or {}
+        # 실시간 검색 상태는 표 먼저 응답(stage=rule)에 있다 — 판정 응답의 live_search 는 비어 "off"
+        live = fast.get("live_search") or body.get("live_search") or {}
         live_fail = [
             {"source": s.get("source"), "status": s.get("status")}
             for s in live.get("sources") or []
