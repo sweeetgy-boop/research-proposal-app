@@ -1,7 +1,10 @@
 /** [G] 그림 카드 — 종류·변경 라벨, 기본 섹션, 이미지 주소 보조. 컴포넌트 없음(순수). */
-import type { FigureKind } from "@/api/types";
+import type { FigureKindV2 } from "@/api/types";
 
-export const KIND_LABELS: Record<FigureKind, string> = {
+/** v2: As-Is/To-Be·분석 기법을 앞에 — 기본 그림(자동)은 As-Is/To-Be·수치 그래프·일정표·기법 추천 */
+export const KIND_LABELS: Record<FigureKindV2, string> = {
+  as_is_to_be: "As-Is / To-Be",
+  technique: "분석 기법",
   concept: "연구 개념도",
   process: "추진 체계도",
   schedule: "추진 일정표",
@@ -10,12 +13,14 @@ export const KIND_LABELS: Record<FigureKind, string> = {
   roadmap: "성과지표·활용 로드맵",
 };
 
-export const FIGURE_KINDS = Object.keys(KIND_LABELS) as FigureKind[];
+export const FIGURE_KINDS = Object.keys(KIND_LABELS) as FigureKindV2[];
 
 export const kindLabel = (kind: string): string => (KIND_LABELS as Record<string, string>)[kind] ?? kind;
 
 /** [다른 그림 추가] 의 기본 섹션 */
-export const KIND_SECTION: Record<FigureKind, string> = {
+export const KIND_SECTION: Record<FigureKindV2, string> = {
+  as_is_to_be: "objective",
+  technique: "method",
   concept: "objective",
   process: "method",
   schedule: "method",
@@ -34,6 +39,10 @@ export const CHANGE_LABELS: Record<string, string> = {
   excluded: "뺌",
   confirmed: "확인함",
   baseline: "기본 그림으로",
+  accepted: "추천 넣기 확정",
+  dismissed: "추천 필요 없음",
+  restored: "추천 다시 넣음",
+  swapped: "다른 기법으로 바꿈",
 };
 
 export const changeLabel = (change: string): string => CHANGE_LABELS[change] ?? change;

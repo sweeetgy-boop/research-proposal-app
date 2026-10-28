@@ -651,6 +651,7 @@ def image_prompt(
     label = spec.title if isinstance(spec, TechniqueSpec) else KIND_LABEL.get(kind, "그림")
     ratio = aspect or choose_aspect(spec)
     data_fixed = isinstance(spec, (StatChartSpec, ScheduleSpec))
+    titled = isinstance(spec, (TechniqueSpec, StatChartSpec))  # 제목 글자가 목록에 있는 종류
     lines = [
         f"공공기관 연구과제 제안서에 넣을 전문 인포그래픽({label})을 새로 디자인하라. "
         f"가로세로 비율 {ratio}.",
@@ -658,7 +659,13 @@ def image_prompt(
         "회색 상자 배치를 그대로 베끼지 말고 아래 디자인 규칙으로 완성도 있게 다시 그려라.",
         _layout_hint(spec),
         "[디자인]",
-        "- 제목 계층: 그림 제목(가장 크고 굵게) → 묶음 머리글(색 띠, 중간 굵기) → 항목(본문 글씨).",
+        (
+            "- 제목 계층: 그림 제목(목록 첫 글자, 가장 크고 굵게) → 묶음 머리글(색 띠, 중간 굵기) → "
+            "항목(본문 글씨)."
+            if titled
+            else "- 제목 계층: 묶음 머리글(색 띠, 가장 굵게) → 항목(본문 글씨). 그림 맨 위에 제목 "
+            "글자를 새로 쓰지 않는다(제목은 양식 캡션이 붙인다)."
+        ),
         f"- 색: {_PALETTE_HINT.get(kind, _DEFAULT_PALETTE)}. 가장 중요한 한 곳만 가장 "
         f"진한 색으로 강조.",
         "- 묶음마다 단순한 선 아이콘 하나(톱니바퀴·그래프·방패·시계·돋보기·전구·체크 표시 "
