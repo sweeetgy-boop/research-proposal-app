@@ -579,6 +579,7 @@ def figures_config(settings: Settings) -> dict[str, Any]:
     """config/figures.yaml ([G]) — 켜기·기본 개수·동시 수·크기·비율·팔레트·HWPX 배치·상한·경로."""
     raw = read_config("figures.yaml", settings)
     hwpx = raw.get("hwpx") or {}
+    fit = raw.get("fit") or {}
     kinds = [str(k) for k in (raw.get("kinds") or FIGURE_KINDS_DEFAULT)]
     aspects = {str(k): str(v) for k, v in (raw.get("aspect") or {}).items()}
     template_dir = Path(str(raw.get("template_dir") or "config/templates/figures"))
@@ -610,9 +611,19 @@ def figures_config(settings: Settings) -> dict[str, Any]:
             str(k) for k in (raw.get("auto_kinds") or ("as_is_to_be", "stat_chart", "schedule"))
         ],
         "techniques": str(raw.get("techniques") or "figures/techniques.yaml"),
+        "fit": {
+            "min_text_pt": float(fit.get("min_text_pt", 9.0)),
+            "height_share": float(fit.get("height_share", 1 / 3)),
+            "body_width_mm": float(fit.get("body_width_mm", 153.8)),
+            "page_height_mm": float(fit.get("page_height_mm", 297.0)),
+            "max_shorten": int(fit.get("max_shorten", 2)),
+            "max_image_redraws": int(fit.get("max_image_redraws", 1)),
+            "ocr": bool(fit.get("ocr", True)),
+            "ocr_box_em": float(fit.get("ocr_box_em", 1.2)),
+        },
         "hwpx": {
             "placement": str(hwpx.get("placement", "inline")),
-            "max_width_hwp": int(hwpx.get("max_width_hwp", 42000)),
+            "max_width_hwp": int(hwpx.get("max_width_hwp", 43606)),
             "caption_prefix": str(hwpx.get("caption_prefix", "그림")),
         },
     }

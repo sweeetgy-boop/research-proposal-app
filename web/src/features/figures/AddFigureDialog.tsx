@@ -9,7 +9,8 @@ import { ProblemBanner } from "@/components/ProblemBanner";
 import { SECTION_TITLES } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 import { FIGURE_KINDS, KIND_LABELS, KIND_SECTION } from "./model";
-import { useAddFigureV2, useFiguresV2 } from "./api";
+import { useAddFigureAi, useFiguresV2 } from "./api";
+import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
 import { TechniqueStatus } from "./TechniqueCard";
 
 export interface AddFigureDialogProps {
@@ -24,13 +25,13 @@ const SECTIONS = Object.keys(SECTION_TITLES).filter((k) => k !== "title");
 /** [다른 그림 추가] 버튼 + 대화상자 — 종류(8, 분석 기법은 20개 중 하나)·넣을 섹션을 고르면 새 버전에 그림이
  *  생긴다. 옆에 마지막 분석 기법 추천 결과(빈 결과도 사유)와 [다시 시도]. */
 export function AddFigureDialog({ runId, baseVersion, disabled, onApplied }: AddFigureDialogProps) {
-  const add = useAddFigureV2(runId);
+  const add = useAddFigureAi(runId);
   const list = useFiguresV2(runId);
   const [open, setOpen] = React.useState(false);
   const [kind, setKind] = React.useState<FigureKindV2>("as_is_to_be");
   const [section, setSection] = React.useState<string>(KIND_SECTION.as_is_to_be);
   const [technique, setTechnique] = React.useState<string>("");
-  const busy = add.isPending;
+  const busy = add.pending;
   const catalog = list.data?.technique_catalog ?? [];
 
   const pick = (k: FigureKindV2) => {
@@ -48,14 +49,11 @@ export function AddFigureDialog({ runId, baseVersion, disabled, onApplied }: Add
     add.reset();
   };
   const submit = async () => {
-    try {
-      const out = await add.mutateAsync({ kind, section, base_version: baseVersion, ...(kind === "technique" ? { technique } : {}) });
-      setOpen(false);
-      add.reset();
-      onApplied(out.version);
-    } catch {
-      /* banner */
-    }
+    const out = await add.run({ kind, section, base_version: baseVersion, ...(kind === "technique" ? { technique } : {}) });
+    if (!out) return; // 취소(대화상자 그대로) 또는 오류(banner)
+    setOpen(false);
+    add.reset();
+    onApplied(out.version);
   };
 
   return (
@@ -126,6 +124,8 @@ export function AddFigureDialog({ runId, baseVersion, disabled, onApplied }: Add
               ))}
             </Select>
           </div>
+          <AiWaiting pending={add.pending} elapsed={add.elapsed} onCancel={add.cancel} what="그림 만들기" className="mt-3" />
+          <AiCancelledNote show={add.cancelled} className="mt-3" />
           <ProblemBanner error={add.error} className="mt-3" />
         </Dialog>
       )}

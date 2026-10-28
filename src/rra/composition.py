@@ -1396,7 +1396,8 @@ def build_renderer(settings: Settings | None = None):
 
     settings = settings or load_settings()
     rules = lint_rules(settings)
-    fig = figures_config(settings)["hwpx"]
+    cfg = figures_config(settings)
+    fig = cfg["hwpx"]
     return HwpxRenderer(
         SlotMap.from_config(render_slots(settings)),
         titles=rules.titles,
@@ -1405,7 +1406,23 @@ def build_renderer(settings: Settings | None = None):
         figure_placement=fig["placement"],
         figure_max_width=fig["max_width_hwp"],
         figure_caption_prefix=fig["caption_prefix"],
+        figure_height_share=cfg["fit"]["height_share"],
+        figure_min_text_pt=cfg["fit"]["min_text_pt"],
     )
+
+
+def build_figure_frame(settings: Settings | None = None):
+    """[23] 그림 자리 — 실물 양식(있으면)의 본문 안쪽 폭·쪽 높이, 없으면 figures.yaml fit 기본값."""
+    from rra.adapters.rendering.hwpx_geometry import body_width
+    from rra.domain.rules.figure_fit import BodyFrame
+
+    settings = settings or load_settings()
+    fit = figures_config(settings)["fit"]
+    path = render_template_path(settings)
+    geo = body_width(path.read_bytes()) if path else None
+    if geo:
+        return BodyFrame.from_hwp(geo[0], geo[1], fit["height_share"])
+    return BodyFrame(fit["body_width_mm"], fit["page_height_mm"], fit["height_share"])
 
 
 # ── 유스케이스 ─────────────────────────────────────────────
@@ -1743,10 +1760,12 @@ def build_compose_fallback(settings: Settings | None = None) -> dict[str, Any] |
 def build_figure_renderer(settings: Settings | None = None):
     """[G] 밑그림 렌더러(SVG → PNG, 번들 Pretendard). config/figures.yaml 팔레트·비율·폭."""
     from rra.adapters.figures import SvgFigureRenderer
+    from rra.domain.rules.figure_fit import min_font_units
 
     settings = settings or load_settings()
     cfg = figures_config(settings)
     fonts = sorted(Path(cfg["fonts_dir"]).glob("*.otf"))
+    frame = build_figure_frame(settings)
     return SvgFigureRenderer(
         cfg["palette"],
         cfg["aspects"],
@@ -1754,6 +1773,8 @@ def build_figure_renderer(settings: Settings | None = None):
         font_files=fonts,
         dpi=cfg["dpi"],
         max_bytes=cfg["max_png_bytes"],
+        min_font=min_font_units(cfg["fit"]["min_text_pt"], frame.width_mm),
+        arrangements={t.key: t.arrangement for t in technique_catalog(settings).items},
     )
 
 
@@ -1813,7 +1834,8 @@ def build_figures(
     (stage figures). review 키가 없으면 로컬 → compose.fallback(예전 순서). 그림은 Nano Banana."""
     import json
 
-    from rra.adapters.figures import shrink_image
+    from rra.adapters.figures import fit_aspect, image_size, shrink_image
+    from rra.adapters.figures.png import pad_to_aspect
     from rra.application.usecases.figures import FigureConfig, MakeFigures
 
     settings = settings or load_settings()
@@ -1837,6 +1859,7 @@ def build_figures(
         if path.is_file():
             schemas[kind] = json.loads(path.read_text(encoding="utf-8"))
     rules = lint_rules(settings)
+    catalog = technique_catalog(settings)
     return MakeFigures(
         llm,
         build_prompt_library(settings),
@@ -1855,16 +1878,37 @@ def build_figures(
             auto_aspect=cfg["auto_aspect"],
             max_techniques=cfg["max_techniques"],
             auto_kinds=tuple(cfg["auto_kinds"]),
+            frame=build_figure_frame(settings),
+            min_text_pt=cfg["fit"]["min_text_pt"],
+            max_shorten=cfg["fit"]["max_shorten"],
+            max_image_redraws=cfg["fit"]["max_image_redraws"],
+            ocr_box_em=cfg["fit"]["ocr_box_em"],
+            arrangements={t.key: t.arrangement for t in catalog.items},
         ),
-        catalog=technique_catalog(settings),
+        catalog=catalog,
         include_internal=review_policy(settings)["include_internal"],
         titles=rules.titles,
         shrink=lambda data, mime: shrink_image(data, mime, max_bytes=cfg["max_png_bytes"]),
+        reframe=lambda data, mime, aspect, min_ratio: fit_aspect(
+            data, mime, aspect, max_bytes=cfg["max_png_bytes"], min_ratio=min_ratio
+        ),
+        image_size=image_size,
+        pad_reference=pad_to_aspect,
+        ocr=_figure_ocr(cfg) if images is not None and not settings.fake_llm else None,
         clock=lambda: datetime.now(UTC).isoformat(timespec="seconds"),
         argon=argon,
         argon_model=str(review_cfg["served_model"] or review_cfg["model"]),
         local_model=str(local_cfg["served_model"] or local_cfg["model"]),
     )
+
+
+def _figure_ocr(cfg):
+    """[23] 그림 글자 크기 어림용 OCR — macOS Vision 이 있을 때만 (없으면 밑그림 값)."""
+    if not cfg["fit"]["ocr"]:
+        return None
+    from rra.adapters.vision.ocr_mac import MacVisionOcr, ocr_available
+
+    return MacVisionOcr() if ocr_available() else None
 
 
 def build_run_manager(

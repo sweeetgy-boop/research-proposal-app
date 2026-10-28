@@ -40,6 +40,8 @@ from rra.domain.models.review import sentence_id
 from rra.domain.rules.numbers import numbers
 
 FAMILIES: tuple[str, ...] = ("qualitative", "evaluation", "economic", "procedure")
+# [23] 그림 배치 (figure_fit.ARRANGEMENTS 와 같다)
+ARRANGEMENTS: tuple[str, ...] = ("row", "split", "flow", "grid", "table")
 LEVELS: tuple[str, ...] = ("상", "중", "하")
 PM: tuple[str, ...] = ("+", "0", "−")
 # 비교·평가 표에서 항상 쓸 수 있는 열 이름 (구조 라벨 — 사실이 아니다)
@@ -93,6 +95,20 @@ class Technique:
     free_groups: bool = False
     free_columns: bool = False
     min_groups: int = 0
+    # [23] 그림 배치 — row(한 줄) | split(좌우 두 단) | flow(한 줄 + 화살표) | grid(두 줄) |
+    # table(표)
+    arrange: str = ""
+
+    @property
+    def arrangement(self) -> str:
+        if self.family == "evaluation":
+            return "table"
+        if self.arrange:
+            return self.arrange
+        n = len(self.groups)
+        if self.family == "procedure":
+            return "flow"
+        return "split" if n == 2 else ("grid" if n >= 5 else "row")
 
     @property
     def layout(self) -> str:
@@ -141,6 +157,9 @@ def catalog_from(data: Mapping[str, Any] | None) -> TechniqueCatalog:
             raise ValueError(f"techniques.yaml: key 가 비었거나 중복입니다 ({key!r}).")
         if family not in FAMILIES:
             raise ValueError(f"techniques.yaml: {key} family 를 모릅니다 ({family!r}).")
+        arrange = str(row.get("arrange") or "")
+        if arrange and arrange not in ARRANGEMENTS:
+            raise ValueError(f"techniques.yaml: {key} arrange 를 모릅니다 ({arrange!r}).")
         seen.add(key)
         out.append(
             Technique(
@@ -156,6 +175,7 @@ def catalog_from(data: Mapping[str, Any] | None) -> TechniqueCatalog:
                 free_groups=bool(row.get("free_groups", False)),
                 free_columns=bool(row.get("free_columns", False)),
                 min_groups=int(row.get("min_groups") or 0),
+                arrange=arrange,
             )
         )
     return TechniqueCatalog(tuple(out))

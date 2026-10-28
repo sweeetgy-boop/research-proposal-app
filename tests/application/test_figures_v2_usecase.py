@@ -86,7 +86,7 @@ async def test_recommend_two_techniques_analyses_and_draws_with_badge():
     tech_prompt = argon.prompts_for("[분석 기법: cost_benefit]")[0]
     assert "산출 필요" in tech_prompt and "source" in tech_prompt
     image_prompts = [c["prompt"] for c in uc.images.calls]
-    assert any("SWOT 분석" in p and "2×2 사분면" in p for p in image_prompts)
+    assert any("SWOT 분석" in p and "가로 한 줄에 나란히" in p for p in image_prompts)
 
 
 async def test_slots_limit_picks_and_zero_slots_skip_without_calls():

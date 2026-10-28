@@ -30,6 +30,42 @@ const postBody = (calls: { url: string; init?: RequestInit }[]) => {
 };
 
 describe("FigureCard", () => {
+  it("[23] 가로로 넓은 그림 비율·본문 폭 안내·한국어 이름 (영문 종류명 없음)", () => {
+    mockFetch({});
+    const wide = {
+      ...concept,
+      kind: "as_is_to_be",
+      label: "As-Is / To-Be",
+      display_name: "현재·연구 후 비교 그림",
+      fit: {
+        ratio: "21:9",
+        aspect_css: "21 / 9",
+        width_mm: 153.8,
+        height_mm: 65.9,
+        fits: true,
+        min_text_pt: 9.3,
+        text_ok: true,
+        shortened: 0,
+        note: "본문 폭 153.8mm × 높이 65.9mm · 가장 작은 글자 약 9.3pt",
+      },
+    } as unknown as Figure;
+    mount(wide);
+    expect(screen.getByRole("group", { name: "현재·연구 후 비교 그림" })).toBeInTheDocument();
+    expect(screen.queryByText("As-Is / To-Be")).toBeNull();
+    const img = screen.getByTestId("figure-image");
+    expect(img).toHaveAttribute("data-aspect", "21 / 9");
+    const [w, h] = img.getAttribute("data-aspect")!.split("/").map((x) => Number(x.trim()));
+    expect(w! / h!).toBeGreaterThan(1); // 가로가 세로보다 길다
+    expect(img.className).not.toMatch(/max-h-/); // 높이로 줄이지 않는다
+    expect(screen.getByText(/본문 폭 153.8mm/)).toBeInTheDocument();
+  });
+
+  it("[23] 맞춤 기록이 없는 옛 그림은 16:9 로 보인다", () => {
+    mockFetch({});
+    mount(concept);
+    expect(screen.getByTestId("figure-image")).toHaveAttribute("data-aspect", "16 / 9");
+  });
+
   it("이미지·캡션·배지·안내·버튼을 그린다 (Nano Banana, 확인 전), axe 통과", async () => {
     mockFetch({});
     const { container } = mount(concept);
@@ -60,8 +96,10 @@ describe("FigureCard", () => {
 
   it("오류 배지, disabled 면 모든 버튼 비활성, readOnly 면 [확인함] 만", () => {
     mockFetch({});
-    const { unmount } = mount({ ...concept, error: "budget" }, { disabled: true });
-    expect(screen.getByText(/오류/)).toHaveTextContent("budget");
+    const label = "오늘 그림 호출 한도에 이르러 기본 그림으로 넣었습니다.";
+    const { unmount } = mount({ ...concept, error: "budget", error_label: label } as Figure, { disabled: true });
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.queryByText(/budget/)).toBeNull(); // [23] 오류 코드는 보이지 않는다
     for (const b of screen.getAllByRole("button")) expect(b).toBeDisabled();
     unmount();
     mount(concept, { readOnly: true });

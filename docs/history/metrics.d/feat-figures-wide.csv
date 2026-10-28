@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,TBD,[23] 그림 가로·본문 폭·글자 9pt,2234,,8,,,,,,,,,,,,,,,실물 양식 HWPX 9/9 본문 폭(153.8mm)·높이 상한 안·글자 9pt 이상 8/9(밑그림 9/9)·장당 35~43초·다시 그림 2/9·이미지 32회 (docs/eval-2026-10-28-figures-wide.md)

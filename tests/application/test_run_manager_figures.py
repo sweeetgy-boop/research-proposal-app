@@ -152,6 +152,11 @@ async def test_figures_step_attaches_figures_to_v1_and_manifest(repo):
     m = log.records[-1][1]
     check_manifest(m)
     assert m["figures"][0]["kind"] == "roadmap" and "spec" not in m["figures"][0]
+    # [23] 그림마다 본문 폭 맞춤 기록 (숫자·코드만) — 통합 점검 "그림이 본문 폭에 맞게 들어감 n/n"
+    fit = m["figures"][0]["figure_fit"]
+    assert fit["width_mm"] == 153.8 and fit["ratio"] in ("16:9", "21:9", "4:1")
+    assert set(fit) >= {"width_mm", "height_mm", "ratio", "fits", "min_text_pt"}
+    assert v1.figures[0].fit is not None
     view = await mgr.get_draft(USER, state.run_id)
     assert [f.id for f in view.figures] == [f.id for f in v1.figures]
 
@@ -280,6 +285,7 @@ async def test_add_figure_and_finalize_passes_included_figures_to_renderer(repo)
     m = manifest(result.state, None)
     check_manifest(m)
     assert m["figures"][0]["placement"] == "inline"
+    assert m["figures"][0]["figure_fit"] is not None  # 가짜 렌더러는 그림 단계 기록을 이어받는다
 
 
 async def _ids(mgr, rid, version):
