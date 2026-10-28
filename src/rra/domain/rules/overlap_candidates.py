@@ -12,7 +12,7 @@ report 연구보고서) `doc_types` 로 가른다.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -69,20 +69,38 @@ class OverlapCandidateRule(BaseModel):
         self,
         by_source: Mapping[str, Iterable[tuple[Document, float]]],
         overall: Iterable[tuple[Document, float]],
+        *,
+        group: Callable[[Document], str] | None = None,
     ) -> list[tuple[Document, float]]:
         """자료원별 상위 per_source + 전체 순위 채움, 중복 없이 pool_size 건. 자료원 순서는 project
-        순."""
+        순.
+
+        group(문서 → 묶음 키, ADR 0043)을 주면 건수 대신 서로 다른 묶음(연작) 수를 센다 — 이미
+        들어온 묶음의 다른 판은 상한과 관계없이 구성원으로 붙는다(새 묶음은 상한까지만)."""
         seen: set[str] = set()
+        groups: set[str] = set()
         out: list[tuple[Document, float]] = []
+
+        def size() -> int:
+            return len(groups) if group is not None else len(out)
 
         def take(items: Iterable[tuple[Document, float]], limit: int) -> None:
             n = 0
             for d, s in items:
-                if n >= limit or len(out) >= self.pool_size:
-                    return
                 if d.doc_id in seen or not self.is_project(d):
                     continue
+                key = (group(d) or f"d:{d.doc_id}") if group is not None else ""
+                if group is not None and key in groups:
+                    seen.add(d.doc_id)
+                    out.append((d, s))  # 이미 든 묶음의 구성원 — 상한을 쓰지 않는다
+                    continue
+                if n >= limit or size() >= self.pool_size:
+                    if group is None:
+                        return
+                    continue
                 seen.add(d.doc_id)
+                if group is not None:
+                    groups.add(key)
                 out.append((d, s))
                 n += 1
 

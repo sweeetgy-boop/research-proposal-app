@@ -8,6 +8,7 @@ import type {
   PrecheckAlert,
   PrecheckRequest,
   SimilarChoice,
+  SeriesView,
   SimilarChoiceValue,
 } from "@/api/types";
 import { PLAN_FIELDS } from "@/api/types";
@@ -128,4 +129,12 @@ export function choiceCounts(alerts: PrecheckAlert[], map: ChoiceMap): { similar
 
 export function changedFields(before: Record<PlanField, string>, after: Record<PlanField, string>): PlanField[] {
   return PLAN_FIELDS.map((f) => f.key).filter((k) => (before[k] ?? "") !== (after[k] ?? ""));
+}
+
+// ── 같은 연작 한 줄 (ADR 0043) ─────────────────────────
+/** 연작 행에 보일 자료원 이름 — 판마다 실린 자료원을 모은 것 (중복 없이) */
+export function seriesSources(series: SeriesView): string {
+  const names = new Set<string>();
+  for (const m of series.members) for (const n of m.source_label.split(" · ")) if (n) names.add(n);
+  return [...names].join(" · ");
 }

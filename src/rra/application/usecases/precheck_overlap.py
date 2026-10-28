@@ -43,11 +43,19 @@ from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.overlap import OwnUnit, RerankRule, judge
 from rra.domain.rules.overlap_candidates import OverlapCandidateRule
 from rra.domain.rules.retrieval_scope import overlap_candidates
+from rra.domain.rules.series import (
+    SeriesRule,
+    group_hits,
+    group_key,
+    merge_series,
+    pick_for_rerank,
+)
 from rra.domain.rules.similar_choice import merge_same_titles
 
 logger = logging.getLogger("rra.precheck")
 KeywordSource = Callable[[ProposalRequest], Awaitable[Any]]  # → LiveKeywords (ko·origin)
 MEMO_MAX = 200
+SERIES_FETCH_ROUNDS = 3
 
 
 @dataclass
@@ -80,6 +88,7 @@ class PrecheckOverlap:
         rerank_multiplier: int = 3,  # k×3=30건: MPS 에서 약 1.6s (k×4 는 2.0~2.4s, 2026-10-27)
         candidates: OverlapCandidateRule | None = None,
         rerank: RerankRule | None = None,
+        series: SeriesRule | None = None,  # 같은 연작 한 줄 (ADR 0043) — None 이면 같은 제목만
         same_judge: Any | None = None,  # SameJudge (usecases/judge_sameness)
         keyword_source: KeywordSource | None = None,
         memo_ttl: float = 1800.0,
@@ -89,6 +98,7 @@ class PrecheckOverlap:
         self.reranker, self.rerank_multiplier, self.mix = reranker, rerank_multiplier, mix
         self.candidates = candidates
         self.rerank = rerank
+        self.series = series if series is not None and series.enabled else None
         self.same_judge = same_judge
         self.keyword_source = keyword_source
         self.memo_ttl = memo_ttl
@@ -143,28 +153,35 @@ class PrecheckOverlap:
             if found is not None:
                 core_keywords, keyword_origin = list(found.ko), str(found.origin)
         wide = self.k * self.rerank_multiplier if self.reranker is not None else self.k
-        hits = self._filter(await self._search(query, wide))
-        scores: dict[str, float] | None = None
-        if self.reranker is not None:
-            # 관련 연구 검색은 reranker(스레드) 와 겹쳐 돌린다 — 지연 상한 2초
-            (hits, scores), related = await asyncio.gather(
-                self._rerank(query, hits), self._research(query) if research else _nothing()
+        if self.series is not None:
+            alerts, related, pool = await self._series_alerts(
+                query, wide, core_keywords=core_keywords, research=research
             )
+            rows = merge_series(alerts, pool=pool)[: self.k]
         else:
-            hits = sorted(hits, key=lambda ds: -ds[1])[: self.k]
-            related = await self._research(query) if research else []
-        # judge 는 입력 순서(유사도 순 또는 reranker 순)를 차단 여부 안에서 유지한다
-        alerts = judge(
-            hits,
-            own=self.own,
-            query=query,
-            keywords=self.keywords,
-            scores=scores,
-            rerank=self.rerank if scores is not None else None,
-            core_keywords=core_keywords,
-        )
+            hits = self._filter(await self._search(query, wide))
+            scores: dict[str, float] | None = None
+            if self.reranker is not None:
+                # 관련 연구 검색은 reranker(스레드) 와 겹쳐 돌린다 — 지연 상한 2초
+                (hits, scores), related = await asyncio.gather(
+                    self._rerank(query, hits), self._research(query) if research else _nothing()
+                )
+            else:
+                hits = sorted(hits, key=lambda ds: -ds[1])[: self.k]
+                related = await self._research(query) if research else []
+            # judge 는 입력 순서(유사도 순 또는 reranker 순)를 차단 여부 안에서 유지한다
+            alerts = judge(
+                hits,
+                own=self.own,
+                query=query,
+                keywords=self.keywords,
+                scores=scores,
+                rerank=self.rerank if scores is not None else None,
+                core_keywords=core_keywords,
+            )
+            rows = merge_same_titles(alerts)
         result = PrecheckResult(
-            alerts=merge_same_titles(alerts),
+            alerts=rows,
             related_research=related,
             judgment=JudgmentInfo(status="off"),
             core_keywords=list(core_keywords or []),
@@ -284,33 +301,88 @@ class PrecheckOverlap:
         except Exception:  # 키워드 실패는 판정을 막지 않는다 — 질의 키워드로
             return None
 
-    async def _rerank(self, query: str, hits):
-        """(상위 k, doc_id → 점수 또는 None). 점수를 주는 어댑터면 점수 순, 아니면 순서만."""
+    async def _series_alerts(
+        self, query: str, wide: int, *, core_keywords: list[str] | None, research: bool
+    ):
+        """연작 묶기(ADR 0043) — 후보를 fetch_multiplier 배로 넓게 받아 서로 다른 묶음 wide 개까지
+        풀을 만들고, 묶음마다 e5 상위 rerank_per_series 건만 reranker 에 보낸다(비용은 종전과 같은
+        wide 건). 판정 행 + 관련 연구 + 풀(구성원 붙이기용)."""
+        rule = self.series or SeriesRule()
+        fetch = rule.fetch_multiplier
+        pool: list = []
+        for _ in range(SERIES_FETCH_ROUNDS):  # 묶은 뒤 k 줄이 안 되면 더 넓게 (최대 2번)
+            wider = self._filter(
+                await self._search(query, wide, fetch=fetch, group=lambda d: group_key(d.title))
+            )
+            grew = len(wider) > len(pool)
+            pool = wider
+            groups = group_hits(pool)
+            if len(groups) >= self.k or not grew:
+                break
+            fetch *= 2
+        if len(groups) > wide:  # 묶음 수 상한 (제한 없는 검색 경로)
+            groups = type(groups)(list(groups.items())[:wide])
+            pool = [m for members in groups.values() for m in members]
+        if self.reranker is not None:
+            limit = rule.rerank_max or wide
+            ranked = pick_for_rerank(groups, rule.rerank_per_series, limit)
+            (hits, scores), related = await asyncio.gather(
+                self._rerank(query, ranked, keep=len(ranked)),
+                self._research(query) if research else _nothing(),
+            )
+        else:
+            hits = sorted(
+                pick_for_rerank(groups, rule.rerank_per_series, len(pool)), key=lambda ds: -ds[1]
+            )
+            scores = None
+            related = await self._research(query) if research else []
+        alerts = judge(
+            hits,
+            own=self.own,
+            query=query,
+            keywords=self.keywords,
+            scores=scores,
+            rerank=self.rerank if scores is not None else None,
+            core_keywords=core_keywords,
+        )
+        return alerts, related, pool
+
+    async def _rerank(self, query: str, hits, *, keep: int | None = None):
+        """(상위 keep(기본 k), doc_id → 점수 또는 None). 점수를 주는 어댑터면 점수 순, 아니면
+        순서만."""
+        top = self.k if keep is None else keep
         scorer = getattr(self.reranker, "score_documents", None)
         if scorer is None:
-            return list(await self.reranker.rerank_documents(query, hits, k=self.k)), None
+            return list(await self.reranker.rerank_documents(query, hits, k=top)), None
         if not hits:
             return [], {}
         values = list(await scorer(query, hits))
-        order = sorted(range(len(hits)), key=lambda i: -values[i])[: self.k]
+        order = sorted(range(len(hits)), key=lambda i: -values[i])[:top]
         return [hits[i] for i in order], {hits[i][0].doc_id: float(values[i]) for i in order}
 
-    async def _search(self, query: str, k: int):
+    async def _search(self, query: str, k: int, *, fetch: int = 1, group=None):
+        """판정 후보 풀. fetch>1·group(연작 묶기, ADR 0043)이면 저장소에서 fetch 배로 받아 서로 다른
+        묶음 k 개(자료원별 per_source 묶음)까지 — 같은 묶음의 다른 판은 구성원으로 붙는다."""
         rule = self.candidates
         if rule is None or not rule.restricts:
-            return await self.repo.find_similar(query, k=k)
+            return await self.repo.find_similar(query, k=k * fetch)
         sources = rule.project_sources()
         if rule.per_source <= 0:
-            return await self.repo.find_similar(query, k=k, sources=sources)
+            return await self.repo.find_similar(query, k=k * fetch, sources=sources)
         size = max(k, rule.pool_size)
         # 전체 검색을 먼저(질의 임베딩 한 번), 자료원별 검색은 그 뒤에 — 저장소가 같은 질의 임베딩을
         # 메모하므로 자료원 수만큼 임베딩하지 않는다.
-        overall = await self.repo.find_similar(query, k=size, sources=sources)
+        overall = await self.repo.find_similar(query, k=size * fetch, sources=sources)
         by_source = await asyncio.gather(
-            *(self.repo.find_similar(query, k=rule.per_source, sources=[s]) for s in sources)
+            *(
+                self.repo.find_similar(query, k=rule.per_source * fetch, sources=[s])
+                for s in sources
+            )
         )
         return rule.model_copy(update={"pool_size": size}).pool(
-            dict(zip(sources, by_source, strict=True)), overall
+            dict(zip(sources, by_source, strict=True)),
+            overall,
+            group=group,
         )
 
     def _filter(self, hits):

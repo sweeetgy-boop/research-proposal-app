@@ -5,6 +5,19 @@ import { EmptyState } from "@/components/EmptyState";
 import { ShieldCheck } from "lucide-react";
 import { tierLabel } from "@/lib/tiers";
 import { LiveBadge } from "@/features/live/LiveBadge";
+import type { SeriesView } from "@/api/types";
+import { seriesSources } from "@/features/precheck/model";
+import { SeriesTitle } from "@/features/precheck/SeriesTitle";
+
+/** 같은 연작 묶음 (ADR 0043) — 서버가 판이 둘 이상일 때만 싣는다 */
+function seriesOf(a: OverlapAlert): SeriesView | null {
+  return (a as { series?: SeriesView | null }).series ?? null;
+}
+
+function sourceText(a: OverlapAlert): string {
+  const series = seriesOf(a);
+  return series ? seriesSources(series) : ((a as { source_label?: string }).source_label ?? "");
+}
 
 export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
   if (alerts.length === 0) {
@@ -29,9 +42,13 @@ export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
             <tr key={a.doc_id} className="border-t align-top">
               <td className="px-3 py-2 whitespace-nowrap">{tierLabel(a)}</td>
               <td className="px-3 py-2">
-                <UntrustedText text={a.title} className="font-medium" />
+                {seriesOf(a) ? (
+                  <SeriesTitle series={seriesOf(a)!} id={`run-${a.doc_id.replace(/[^A-Za-z0-9_-]/g, "-")}`} />
+                ) : (
+                  <UntrustedText text={a.title} className="font-medium" />
+                )}
                 {a.live && <LiveBadge className="ml-2 align-middle" />}
-                {(a as { source_label?: string }).source_label ? <p className="text-xs text-muted-foreground">{(a as { source_label?: string }).source_label}</p> : null}
+                {sourceText(a) ? <p className="text-xs text-muted-foreground">{sourceText(a)}</p> : null}
               </td>
               <td className="px-3 py-2">{(a as { relevance_label?: string | null }).relevance_label ?? "—"}</td>
               <td className="px-3 py-2">

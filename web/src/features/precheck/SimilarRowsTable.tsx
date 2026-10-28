@@ -7,7 +7,8 @@ import { UntrustedText } from "@/components/UntrustedText";
 import { LiveBadge } from "@/features/live/LiveBadge";
 import { tierLabel } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
-import { choiceOf, levelOf, type ChoiceMap } from "./model";
+import { choiceOf, levelOf, seriesSources, type ChoiceMap } from "./model";
+import { SeriesTitle } from "./SeriesTitle";
 
 const VERDICT_VARIANT: Record<string, "destructive" | "warning" | "secondary"> = {
   same: "destructive",
@@ -58,12 +59,21 @@ export function SimilarRowsTable({
             const merged = a.merged_ids?.length ?? 0;
             const lv = levelOf(a);
             const struck = lv.level === "blocking" && choice === "unrelated";
-            const meta = [a.source_label, merged > 0 ? `같은 제목 ${merged + 1}건 묶음` : "", a.status_label ?? ""].filter(Boolean);
+            const series = a.series ?? null;
+            const meta = series
+              ? [seriesSources(series), a.status_label ?? ""].filter(Boolean)
+              : [a.source_label, merged > 0 ? `같은 제목 ${merged + 1}건 묶음` : "", a.status_label ?? ""].filter(Boolean);
+            const rowName = series ? series.display : a.title;
             return (
-              <tr key={a.doc_id} className={cn("border-t align-top", choice === "similar" && "bg-primary/5")} data-testid="similar-row">
+              <tr
+                key={a.doc_id}
+                className={cn("border-t align-top", choice === "similar" && "bg-primary/5")}
+                data-testid="similar-row"
+                data-series={series ? "true" : undefined}
+              >
                 <td className="whitespace-nowrap px-3 py-2">{tierLabel(a)}</td>
                 <td className="px-3 py-2">
-                  <UntrustedText text={a.title} className="font-medium" />
+                  {series ? <SeriesTitle series={series} id={a.doc_id.replace(/[^A-Za-z0-9_-]/g, "-")} /> : <UntrustedText text={a.title} className="font-medium" />}
                   {a.live && <LiveBadge className="ml-2 align-middle" />}
                   {meta.length > 0 && <p className="text-xs text-muted-foreground">{meta.join(" · ")}</p>}
                   {a.keywords.length > 0 && (
@@ -93,7 +103,7 @@ export function SimilarRowsTable({
                   {lv.basis === "rule" && <span className="mt-1 block text-xs text-muted-foreground">규칙 기준</span>}
                 </td>
                 <td className="px-3 py-2">
-                  <div role="group" aria-label={`${a.title} 선택`} className="flex flex-wrap gap-1">
+                  <div role="group" aria-label={`${rowName} 선택`} className="flex flex-wrap gap-1">
                     {(
                       [
                         ["similar", "유사함"],

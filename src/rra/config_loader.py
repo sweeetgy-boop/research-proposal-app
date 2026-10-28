@@ -783,6 +783,17 @@ def rerank_rule(settings: Settings):
     return RerankRule.model_validate({k: cfg[k] for k in ("threshold", "near_ratio") if k in cfg})
 
 
+def series_rule(settings: Settings):
+    """② 같은 연작 묶기 (config/overlap.yaml `series`, ADR 0043). 절이 없으면 켜짐·도메인 기본값."""
+    from rra.domain.rules.series import SeriesRule
+
+    cfg = read_config("overlap.yaml", settings).get("series") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError("overlap.yaml series 는 매핑이어야 합니다.")
+    keys = ("enabled", "fetch_multiplier", "rerank_per_series", "rerank_max")
+    return SeriesRule.model_validate({k: cfg[k] for k in keys if k in cfg})
+
+
 def same_judgment_config(settings: Settings) -> dict[str, Any]:
     """AI 같음 판정 (config/overlap.yaml `judgment`, 레인 A). 없으면 켜짐·review→clarify·10건."""
     cfg = read_config("overlap.yaml", settings).get("judgment") or {}
