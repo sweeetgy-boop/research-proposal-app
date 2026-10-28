@@ -10,11 +10,11 @@
 from __future__ import annotations
 
 import asyncio
-import threading
 import time
 from pathlib import Path
 from typing import Any
 
+from rra.adapters._gpu import GPU_LOCK
 from rra.domain.models import Chunk, Document
 from rra.domain.rules.overlap import document_text
 
@@ -42,7 +42,7 @@ class CrossEncoderReranker:
         self.batch_size = batch_size
         self.max_doc_chars = max_doc_chars
         self._model: Any = None
-        self._lock = threading.Lock()
+        self._lock = GPU_LOCK  # 프로세스 공용 GPU 잠금 (adapters/_gpu — 임베딩과 함께 직렬)
         self.calls = 0
         self.seconds = 0.0
         self.max_batch = 0

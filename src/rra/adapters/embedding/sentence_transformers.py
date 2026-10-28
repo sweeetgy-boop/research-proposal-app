@@ -12,8 +12,9 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import sys
-import threading
 from typing import Any
+
+from rra.adapters._gpu import GPU_LOCK
 
 DEFAULT_MODEL = "intfloat/multilingual-e5-base"
 DEFAULT_QUERY_PREFIX = "query: "
@@ -71,11 +72,10 @@ class SentenceTransformerEmbedding:
         self.passage_prefix = passage_prefix
         self.max_chars = max_chars
         self._model: Any = None
-        self._lock = threading.Lock()
-        # 계산도 한 번에 하나 — 동시 생성(runs.max_concurrent)으로 여러 run 의 검색이 to_thread 로
-        # 겹치면 같은 모델을 여러 스레드가 부른다. MPS/Metal 은 이를 보장하지 않는다
-        # (reranker 와 같은 이유)
-        self._encode_lock = threading.Lock()
+        # 적재·계산 모두 프로세스 공용 GPU 잠금(adapters/_gpu) — 임베딩과 reranker 가 다른 스레드
+        # 에서 동시에 Metal 을 쓰면 프로세스가 죽는다(2026-10-28 동시 3건 측정)
+        self._lock = GPU_LOCK
+        self._encode_lock = GPU_LOCK
 
     @property
     def loaded(self) -> bool:
@@ -105,7 +105,7 @@ class SentenceTransformerEmbedding:
     def _encode(self, texts: list[str], prefix: str) -> list[list[float]]:
         if not texts:
             return []
-        model = self.model  # 로드는 _lock, 계산은 _encode_lock (서로 다른 락 — 교착 없음)
+        model = self.model  # 적재·계산 모두 GPU_LOCK(RLock — 같은 스레드 중첩 허용)
         with self._encode_lock:
             vectors = model.encode(
                 prepare(texts, prefix, max_chars=self.max_chars),
