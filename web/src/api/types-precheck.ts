@@ -50,6 +50,39 @@ export interface PrecheckAlert extends OverlapAlert {
   relevance_label?: string | null;
   /** 자료원 이름 (사내 과제 현황·알리오 공시 연구보고서 …) */
   source_label?: string;
+  /** 같은 연작 묶음 (ADR 0043) — 제목이 연도·차수만 다른 과제를 한 줄로. 판이 하나면 null */
+  series?: SeriesView | null;
+}
+
+/** 연작 한 판의 문서 하나 (같은 보고서가 사내 과제·알리오·공사 홈페이지에 함께 있을 때) */
+export interface SeriesMemberRef {
+  doc_id: string;
+  title: string;
+  source: string;
+  source_label: string;
+  url: string | null;
+}
+
+/** 연작의 한 판 — 연도별 목록의 한 줄. doc_id 는 근거 패널용(화면에 보이지 않는다) */
+export interface SeriesMember {
+  title: string;
+  year: number | null;
+  doc_id: string;
+  source: string;
+  /** "사내 과제 · 알리오 공시" — 같은 판이 실린 자료원 */
+  source_label: string;
+  url: string | null;
+  summary: string | null;
+  refs: SeriesMemberRef[];
+}
+
+/** ② 같은 연작 묶음 — display = "광역철도 수송수요 예측(연작 7건)" */
+export interface SeriesView {
+  label: string;
+  count: number;
+  display: string;
+  /** 연도 순 */
+  members: SeriesMember[];
 }
 
 export type JudgmentLevel = "blocking" | "near" | "low";

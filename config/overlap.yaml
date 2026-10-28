@@ -163,6 +163,16 @@ judgment:
   # Argon 한 번에 같음 판정. "같다" 카드는 보이기 전에 그 카드만 한 번 다시 받는다. false 면 종전 자기 중복 검사(e5).
   cards: true
 
+# 같은 연작 한 줄 (2026-10-29 레인 A, ADR 0043, domain/rules/series.py): 제목이 연도·차수만 다른 과제(「2026년도 광역철도
+# 수송수요 예측 연구」·「광역철도 수송수요 예측(2020~2029)」 …)는 ② 표에서 한 줄 "광역철도 수송수요 예측(연작 n건)" — 펼치면 연도별 목록.
+# 후보 검색을 fetch_multiplier 배로 넓게 받아 서로 다른 묶음을 센다(묶은 뒤에도 표가 다른 과제 10줄). reranker 에는 연작마다 e5 상위
+# rerank_per_series 건만, 모두 rerank_max(0 = k×3 = 30)건까지 — reranker 비용은 종전과 같다. false 면 같은 제목만 합친다(종전).
+series:
+  enabled: true
+  fetch_multiplier: 4
+  rerank_per_series: 2
+  rerank_max: 0
+
 # 유사과제 판정·알림 후보 자료원 (2026-10-28, ADR 0028, domain/rules/overlap_candidates.py).
 # ScienceON 2,045건·NTIS 연구보고서 1,084건 적재 뒤 논문(유사도 0.88~0.90)이 상위를 메워 사내 기록이 밀렸다
 # (골든셋 precheck 적중 9/10 → 6/10). 과제형 자료원만 판정·차단·근접 알림에 쓰고, 논문·보고서·특허는

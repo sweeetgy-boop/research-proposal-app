@@ -962,7 +962,7 @@ def differentiation_payload(
         "items": [
             {
                 "doc_id": i.doc_id,
-                "title": clean(i.title),
+                "title": clean(display_title(i.title)),
                 "tier": i.tier,
                 "status": i.status,
                 "overlap_summary": clean(i.overlap_summary),
@@ -1024,13 +1024,15 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
                 "refs": [
                     {
                         "doc_id": ref.doc_id,
-                        "title": clean(ref.title),
+                        "title": clean(display_title(ref.title)),
                         "source_label": SOURCE_LABELS.get(ref.source, "")
                         or source_label_of(ref.doc_id),
                     }
                     for ref in getattr(r, "refs", []) or []
                 ],
-                "overlap_titles": [clean(t) for t in getattr(r, "overlap_titles", []) or []],
+                "overlap_titles": [
+                    clean(display_title(t)) for t in getattr(r, "overlap_titles", []) or []
+                ],
                 "overlap_reason": clean(getattr(r, "overlap_reason", "") or ""),
                 "overlap_by": getattr(r, "overlap_by", None),
                 "overlap_by_label": OVERLAP_BY_LABELS.get(
@@ -1260,7 +1262,7 @@ def comparison_payload(table: Any, *, clean: Callable[[str], str] = _same) -> di
     def col(c):
         return {
             "doc_id": c.doc_id,
-            "title": clean(c.title),
+            "title": clean(display_title(c.title)),
             "tier": c.tier,
             "similarity": c.similarity,
             "blocking": c.blocking,

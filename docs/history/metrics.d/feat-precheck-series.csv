@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-29,TBD,feat precheck series,2316,,8,,,,,,,,,,,,,,,② 같은 연작 한 줄: 08 상위10 서로 다른 과제 7→10·파일 정답 적중 9/10→10/10·거짓 차단 0·표 2.01→2.05s
