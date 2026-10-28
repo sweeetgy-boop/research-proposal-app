@@ -32,11 +32,11 @@ export const runPolicyChoice = (id: string, choice: PolicyChoice, baseVersion?: 
 
 export const getChanges = (id: string) => request<ChangesOut>(`${V}/runs/${enc(id)}/changes`);
 
-export const rewriteSectionV2 = (id: string, key: string) =>
-  request<RewriteOutV2>(`${V}/runs/${enc(id)}/sections/${enc(key)}/rewrite`, { method: "POST" });
+export const rewriteSectionV2 = (id: string, key: string, signal?: AbortSignal) =>
+  request<RewriteOutV2>(`${V}/runs/${enc(id)}/sections/${enc(key)}/rewrite`, { method: "POST", signal });
 
-export const sectionQuestionsV2 = (id: string, key: string, refresh = false) =>
-  request<SectionQuestionsOutV2>(`${V}/runs/${enc(id)}/sections/${enc(key)}/questions${refresh ? "?refresh=true" : ""}`);
+export const sectionQuestionsV2 = (id: string, key: string, refresh = false, signal?: AbortSignal) =>
+  request<SectionQuestionsOutV2>(`${V}/runs/${enc(id)}/sections/${enc(key)}/questions${refresh ? "?refresh=true" : ""}`, { signal });
 
 export const editAiKeys = {
   changes: (id: string) => ["run", id, "changes"] as const,
