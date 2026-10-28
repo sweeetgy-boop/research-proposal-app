@@ -14,16 +14,21 @@
   제안자가 카드에서 확인·수정한다.
 - 외부로 나가는 것은 명세 글자 목록 + 밑그림뿐. 응답 그림은 저장 전에 상한(max_bytes)으로 축소한다.
 - 모든 호출 수는 Figure.calls 에 남긴다(일일 상한은 어댑터 카운터).
+- 로컬 모델 호출(Argon 실패 뒤 대체)만 `local_slot`(RunManager 와 같은 .generate.lock)을 잡는다 —
+  Argon·Nano Banana 는 슬롯 밖이라 동시 run 의 그림 단계가 줄 서지 않는다. 호출자가 이미 슬롯을 잡고
+  있으면(로컬 작성 run 의 그림 단계) `local_held=True` 로 다시 잡지 않는다(flock 은 재진입 불가).
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
 import time
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -34,6 +39,7 @@ from rra.application.ports.figures import (
     ImageBudgetExhausted,
     ImageGeneratorPort,
 )
+from rra.application.ports.generation_slot import GenerationSlot
 from rra.application.ports.llm import LLMPort
 from rra.application.ports.prompt_library import PromptLibraryPort
 from rra.domain.models.draft import Section
@@ -146,6 +152,13 @@ class MakeFigures:
     argon_model: str = "argon"
     local_model: str = "local"
     fallback_model: str = "fallback"
+    local_slot: GenerationSlot | None = None  # 로컬 모델 한 번에 하나 (RunManager.slot 과 같은 락)
+
+    def _gate(self, llm: LLMPort, local_held: bool) -> AbstractAsyncContextManager[None]:
+        """로컬 모델(self.llm) 호출만 슬롯 안에서. 이미 잡고 있으면 그대로."""
+        if llm is self.llm and self.local_slot is not None and not local_held:
+            return self.local_slot.acquire()
+        return contextlib.nullcontext()
 
     def _chain(self) -> list[tuple[str, LLMPort]]:
         chain: list[tuple[str, LLMPort]] = []
@@ -162,6 +175,8 @@ class MakeFigures:
         system: str,
         check: Callable[[str], tuple[Any, str | None]],
         correction: Callable[[str, str | None], str],
+        *,
+        local_held: bool = False,
     ) -> _Attempt:
         """Argon → 로컬(→ 대체) 순서로 묻는다. 모델마다 1회 + 형식·검사 실패면 교정 재요청 1회.
         예외(오류·429·예산)나 끝내 실패면 다음 모델. "skip" 답이면 멈춘다. 예외 메시지는 남기지
@@ -171,15 +186,18 @@ class MakeFigures:
         for i, (label, llm) in enumerate(self._chain()):
             reason: str | None = None
             try:
-                raw = await llm.complete(prompt, system=system, json_mode=True)
-                out.calls += 1
-                value, reason = check(raw)
-                if value is None and reason != "skip":
-                    out.retries += 1
-                    hint = correction(raw, reason)
-                    raw = await llm.complete(f"{prompt}\n\n{hint}", system=system, json_mode=True)
+                async with self._gate(llm, local_held):
+                    raw = await llm.complete(prompt, system=system, json_mode=True)
                     out.calls += 1
                     value, reason = check(raw)
+                    if value is None and reason != "skip":
+                        out.retries += 1
+                        hint = correction(raw, reason)
+                        raw = await llm.complete(
+                            f"{prompt}\n\n{hint}", system=system, json_mode=True
+                        )
+                        out.calls += 1
+                        value, reason = check(raw)
             except Exception as exc:  # 예산·네트워크·429 — 사유 코드만
                 code = type(exc).__name__
                 logger.info("figure.llm_failed model=%s error=%s", label, code)
@@ -221,12 +239,17 @@ class MakeFigures:
         sections: Sequence[Section],
         request: ProposalRequest,
         snapshot: RetrievalSnapshot | None,
+        *,
+        local_held: bool = False,
     ) -> tuple[list[FigureBuild], list[dict[str, Any]]]:
-        """기본 그림 max_default 개 — 명세가 걸러진 만큼 우선순위 다음 종류로 한 번 채운다."""
+        """기본 그림 max_default 개 — 명세가 걸러진 만큼 우선순위 다음 종류로 한 번 채운다.
+        local_held: 호출자가 이미 로컬 슬롯을 잡고 있다(로컬 작성 run)."""
         candidates = self.plan(sections, request, snapshot, all_candidates=True)
         want = self.config.max_default
         first, rest = candidates[:want], candidates[want:]
-        builds, skipped = await self.build_all(first, sections, request, snapshot)
+        builds, skipped = await self.build_all(
+            first, sections, request, snapshot, local_held=local_held
+        )
         deficit = want - len(builds)
         if deficit > 0 and rest:
             more, skipped2 = await self.build_all(
@@ -235,6 +258,7 @@ class MakeFigures:
                 request,
                 snapshot,
                 existing_ids=[b.figure.id for b in builds],
+                local_held=local_held,
             )
             builds = sorted([*builds, *more], key=lambda b: b.figure.id)
             skipped = [*skipped, *skipped2]
@@ -276,6 +300,7 @@ class MakeFigures:
         *,
         pool: rules.TextPool | None = None,
         comparison: Mapping[str, Any] | None = None,
+        local_held: bool = False,
     ) -> SpecResult:
         pool = pool or self.pool(sections, request, snapshot)
         period = research_period_months(request.constraints)
@@ -308,7 +333,9 @@ class MakeFigures:
                 )
             return hint
 
-        got = await self._ask(prompt, self.prompts.figures(), check, correction)
+        got = await self._ask(
+            prompt, self.prompts.figures(), check, correction, local_held=local_held
+        )
         return SpecResult(
             got.value,
             None if got.value is not None else (got.reason or "invalid"),
@@ -625,6 +652,7 @@ class MakeFigures:
         *,
         existing_ids: Sequence[str] = (),
         comparison: Mapping[str, Any] | None = None,
+        local_held: bool = False,
     ) -> tuple[list[FigureBuild], list[dict[str, Any]]]:
         """계획대로 명세·그림을 만든다(동시 concurrency) → (만든 그림, 건너뛴 항목 목록)."""
         pool = self.pool(sections, request, snapshot)
@@ -636,7 +664,14 @@ class MakeFigures:
         async def one(kind: str, section: str) -> None:
             async with sem:
                 spec = await self.make_spec(
-                    kind, section, sections, request, snapshot, pool=pool, comparison=comparison
+                    kind,
+                    section,
+                    sections,
+                    request,
+                    snapshot,
+                    pool=pool,
+                    comparison=comparison,
+                    local_held=local_held,
                 )
                 if spec.spec is None:
                     skipped.append({"kind": kind, "section": section, "reason": spec.reason})

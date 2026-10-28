@@ -1,0 +1,1 @@
+| 2026-10-28 | 그림 명세·말로 고치기의 로컬 대체 호출만 로컬 슬롯(`runs/.generate.lock`, RunManager 와 같은 FlockSlot) 안에서 — `MakeFigures.local_slot`, 로컬 작성 run 의 그림 단계는 `local_held` 로 다시 잡지 않음. Argon·Nano Banana 는 슬롯 밖 | [3](#71) 뒤 Argon 작성 run 3건이 동시에 돌 때 그림 단계는 전역 슬롯 밖 → Argon 실패 시 로컬 7B 대체가 슬롯 없이 겹칠 수 있었다 | #TBD | 가짜 동시 run 3건: 그림 로컬 대체 동시 1(슬롯 없으면 6), Argon·이미지 호출은 겹침 |

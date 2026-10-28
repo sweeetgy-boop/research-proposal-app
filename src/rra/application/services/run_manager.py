@@ -1910,7 +1910,11 @@ class RunManager:
             return
         self._save(state)
         try:
-            builds, skipped = await self.figures.build_default(sections, req, snapshot)
+            # 로컬 작성 run 은 전역 슬롯을 이미 잡고 있다 — 그림의 로컬 대체가 다시 잡지 않게
+            held = not self._generate_for(state).writes_remotely
+            builds, skipped = await self.figures.build_default(
+                sections, req, snapshot, local_held=held
+            )
             for b in builds:
                 self._save_build(user, run_id, b)
             v1 = self.store.load_version(user, run_id, 1)
