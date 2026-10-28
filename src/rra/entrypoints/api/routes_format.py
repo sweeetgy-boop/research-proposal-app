@@ -41,7 +41,7 @@ def register_format_routes(
             owner, rid = await own(request, run_id)
             inputs = await manager.run_inputs(owner, rid)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {"run_id": rid, **inputs}
 
     @app.post(f"{base}/request/preview")
@@ -54,7 +54,7 @@ def register_format_routes(
                 owner, rid, body.request, priority_evidence=body.priority_evidence
             )
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         names = titles()
         return {
             "run_id": rid,
@@ -82,7 +82,7 @@ def register_format_routes(
             )
             state = await manager.status(owner, rid)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except RunBusy as exc:
             raise HTTPException(
                 409, "생성·검토가 진행 중입니다 — 끝난 뒤 다시 시도하십시오."
@@ -108,7 +108,7 @@ def register_format_routes(
             )
             state = await manager.status(owner, rid)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except FeatureDisabled as exc:
             raise HTTPException(503, str(exc)) from exc
         except (VersionConflict, EditRejected) as exc:

@@ -818,7 +818,7 @@ def run_panel(run_id: str) -> None:
     try:
         view = worker.call(assistant.poll(run_id))
     except RunNotFound:
-        st.error("run 을 찾을 수 없습니다.")
+        st.error("제안서를 찾을 수 없습니다.")
         ss["rra_run_id"] = None
         return
     state = view.state

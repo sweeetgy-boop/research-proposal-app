@@ -87,7 +87,7 @@ def register(
                 ),
             )
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {"notice": UNTRUSTED_NOTICE, **policy_cards_payload(result, clean=clean)}
 
     @app.post(f"/{V}/runs/{{run_id}}/policy-cards/polish")
@@ -100,7 +100,7 @@ def register(
                 manager.run_policy_polish(*await own(request, run_id), body.choice, body.text),
             )
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {"notice": UNTRUSTED_NOTICE, **policy_polish_payload(result, clean=clean)}
 
     @app.post(f"/{V}/runs/{{run_id}}/policy-choice")
@@ -116,7 +116,7 @@ def register(
             )
             state = await manager.status(user, rid)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except (EditRejected, VersionConflict) as exc:
             raise HTTPException(409, str(exc)) from exc
         return {
@@ -133,5 +133,5 @@ def register(
         try:
             summary = await manager.changes(user, rid)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         return {"run_id": rid, **change_summary_payload(summary)}

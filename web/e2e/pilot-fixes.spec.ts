@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { fillIdea, login, subnav } from "./helpers";
+import { expectNoRunWord, fillIdea, login, subnav } from "./helpers";
+import { expectNoInternalIds } from "./helpers-text";
+
+/** 시범 의견 2차(2026-10-28 밤): 모든 화면에 내부 번호(own:…·f:method:t1 …)와 "run" 단어가 보이지 않는다 */
+async function clean(page: import("@playwright/test").Page) {
+  await expectNoInternalIds(page);
+  await expectNoRunWord(page);
+}
 
 /** 시범 오류·개선 17건 전체 경로 (통합 담당, 2026-10-28, 가짜 모드):
  *  ② 유사함·관련 없음 선택 → 비교표 → 차별화 과제안 고르기 → 보강 질문(정책 근거 작성안 선택) → 생성 →
@@ -25,17 +32,20 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
   await rows.filter({ hasNot: page.getByText("차단 해제") }).first().getByRole("button", { name: "유사함" }).click();
   await page.getByRole("button", { name: "선택 적용" }).click(); // v3: [선택 적용] 으로 반영 (ADR 0039)
   await expect(page.getByRole("table", { name: /차별성 비교표/ })).toBeVisible();
+  await clean(page);
 
   // 차별화 과제안 고르기
   await page.getByRole("button", { name: "이 안으로 진행" }).first().click();
   await expect(page.getByText(/과제안 1번을 입력에 반영했습니다/).first()).toBeVisible();
   await next.click();
   await expect(page).toHaveURL(/\/new\/brief$/);
+  await clean(page);
   await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
   await expect(page).toHaveURL(/\/new\/clarify$/);
 
   // 보강 질문 — 정책적 중요도 작성안 고르기
   await expect(page.getByText(/질문 \d개/)).toBeVisible();
+  await clean(page);
   const cards = page.getByRole("list", { name: "정책적 중요도 작성안 목록" });
   await expect(cards.getByText("정부 계획", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "이 안으로 — 공사 전략" }).click();
@@ -47,10 +57,12 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
   await expect(page.getByText("인용 자료가 제시한 방향과 본 제안의 해결 목표가 이어짐.").first()).toBeVisible();
   // 머리에 과제 제목, run 번호는 작게
   await expect(page.getByTestId("run-title")).not.toHaveText("제목 미정");
+  await clean(page);
 
   // ④ 직접 수정 — 변경 없이 저장 → 팝업 [취소]
   await subnav(page, "직접 수정").click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/edit$`));
+  await clean(page);
   await page.getByRole("button", { name: "새 버전으로 저장" }).click();
   const none = page.getByRole("dialog", { name: "변경된 내용이 없습니다" });
   await expect(none.getByText("변경된 내용이 없습니다. 최종 검토로 넘어갈까요?")).toBeVisible();
@@ -96,12 +108,14 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
   await steps.getByRole("link", { name: /아이디어 입력/ }).click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/idea$`));
   await expect(page.getByLabel(/현재 상황·문제/)).toHaveValue(/궤도 틀림/);
+  await clean(page);
   await steps.getByRole("link", { name: /최종 검토/ }).click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/final-review$`));
 
   // ⑤ 최종 검토 → 제출 전 점검 (한국어 설명·일괄 승인·제안값 확정)
   await page.getByRole("button", { name: "최종 검토 요청" }).click();
   await expect(page.getByRole("heading", { name: /Argon 최종 검토/ })).toBeVisible({ timeout: 30_000 });
+  await clean(page);
   await subnav(page, "제출 전 점검").click();
   await expect(page.getByRole("heading", { name: "제출 전 점검" })).toBeVisible();
   const bulk = page.getByRole("button", { name: /근거 일괄 승인/ });
@@ -115,16 +129,26 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
     await expect(page.getByText(/로 확정했습니다/).first()).toBeVisible();
     await page.waitForTimeout(300);
   }
+  await clean(page);
   const body = (await page.locator("main").textContent()) ?? "";
   expect(body).not.toMatch(/input_missing|policy_basis_needed|figures_undecided|self_review|no_change|warning|sections_sum/);
 
   // ⑥ 최종 마무리 — 파일 이름 "<과제 제목>_v<번호>.hwpx"
   await steps.getByRole("link", { name: /최종 마무리/ }).click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/finalize$`));
+  await clean(page);
   const downloadP = page.waitForEvent("download");
   await page.getByRole("button", { name: "HWPX 내려받기" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "그대로 진행" }).click({ timeout: 3_000 }).catch(() => undefined);
   const name = (await downloadP).suggestedFilename();
   expect(name).toMatch(/_v\d+\.hwpx$/);
   expect(name).not.toMatch(/^proposal-/);
+
+  // 버전 목록·비교 화면, 내 제안서 목록도
+  await page.goto(`/runs/${id}/versions`);
+  await expect(page.getByRole("heading", { name: /버전/ }).first()).toBeVisible();
+  await clean(page);
+  await page.goto("/runs");
+  await expect(page.getByRole("heading", { name: /내 제안서/ }).first()).toBeVisible();
+  await clean(page);
 });

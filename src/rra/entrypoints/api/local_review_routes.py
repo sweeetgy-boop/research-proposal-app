@@ -53,7 +53,7 @@ def register(
         try:
             view = await manager.local_review(user, rid)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(404, str(exc)) from exc
         return {"run_id": rid, "notice": UNTRUSTED_NOTICE, "local_check": view}
@@ -70,7 +70,7 @@ def register(
             )
             state = await manager.status(user, rid)
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except (EditRejected, VersionConflict) as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"run_id": rid, "status": state.status, **version_payload(version, run_id=rid)}
@@ -84,7 +84,7 @@ def register(
         try:
             view = await manager.dismiss_local_suggestion(user, rid, _sid(suggestion_id))
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"run_id": rid, "notice": UNTRUSTED_NOTICE, "local_check": view}
@@ -101,7 +101,7 @@ def register(
                 request, manager.retry_local_suggestion(user, rid, _sid(suggestion_id))
             )
         except RunNotFound as exc:
-            raise HTTPException(404, "run 을 찾을 수 없습니다.") from exc
+            raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
         except EditRejected as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"run_id": rid, "notice": UNTRUSTED_NOTICE, "local_check": view}
