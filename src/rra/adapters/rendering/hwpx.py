@@ -746,3 +746,15 @@ def verify_hwpx(data: bytes) -> list[str]:
                 f"{name}: well-formed XML 이 아닙니다 ({type(exc).__name__})"
             ) from exc
     return sections
+
+
+def hwpx_ok(data: bytes) -> bool:
+    """측정(`rra eval --finalize`)용 — 바이트가 있고 zip 이 열리며 섹션 XML 이 모두
+    파싱되면 True."""
+    if not data:
+        return False
+    try:
+        verify_hwpx(data)
+    except RenderedXmlInvalid:
+        return False
+    return True

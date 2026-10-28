@@ -1135,6 +1135,7 @@ def eval_markdown(results: list[dict[str, Any]], *, date: str) -> str:
             f"{r.get('review_model') or '-'} |"
         )
     lines.append("")
+    lines.extend(eval_compare_lines(results))
     lines.append("### 합계 (골든셋 전체)")
     lines.append("")
     cols = [
@@ -1207,4 +1208,171 @@ def eval_markdown(results: list[dict[str, Any]], *, date: str) -> str:
                 f"{num(i.get('checklist_coverage'))} | {cands} | {pre} | {i.get('seconds')} |"
             )
     lines.append("")
+    lines.extend(_eval_idea_integrated_lines(results))
     return "\n".join(lines)
+
+
+def _dash(v: Any, fmt: str = "{}") -> str:
+    return "-" if v is None else fmt.format(v)
+
+
+def _ratio(a: Any, b: Any) -> str:
+    """a/b (백분율). 분모가 없거나 0 이면 "-"."""
+    if a is None or not b:
+        return "-"
+    return f"{a / b:.0%} ({a}/{b})"
+
+
+def _mode_text(r: dict[str, Any]) -> str:
+    if r.get("mode") != "concurrent":
+        return "순차" if "mode" in r else "-"
+    t = r.get("totals") or {}
+    return (
+        f"동시 {r.get('concurrent')}건 (묶음 생성 {_dash(t.get('batch_draft_seconds_avg'))}s·"
+        f"전체 {_dash(t.get('batch_seconds_avg'))}s)"
+    )
+
+
+def _gemini_split(r: dict[str, Any]) -> str:
+    """작성·검토·그림 Gemini 호출. 예전 JSON 은 아이디어별 대체 작성(fallback_calls)·검토
+    (gemini_calls)에서 맞추고, 그림은 "-"."""
+    t = r.get("totals") or {}
+    if "gemini_compose" in t:
+        return f"{t['gemini_compose']}·{t['gemini_review']}·{t['gemini_figures']}"
+    ideas = r.get("ideas") or []
+    if not ideas:
+        return "-"
+    compose = sum(int(i.get("fallback_calls") or 0) for i in ideas)
+    review = sum(int(i.get("gemini_calls") or 0) for i in ideas)
+    return f"{compose}·{review}·-"
+
+
+def _sources_text(stats: dict[str, Any] | None) -> str:
+    if not stats:
+        return "-"
+    parts = []
+    for name, s in stats.items():
+        sec = s.get("seconds_avg")
+        rate = s.get("failure_rate")
+        parts.append(f"{name} {_dash(sec, '{:.1f}')}s·실패 {_dash(rate, '{:.0%}')}")
+    return "<br>".join(parts)
+
+
+def eval_compare_lines(results: list[dict[str, Any]]) -> list[str]:
+    """[5] 통합 비교표 — 결과 JSON 마다 한 줄. 예전 JSON(기준선)에 없는 항목은 "-".
+
+    유효율은 valid 가 없으면 ideas − invalid 로, Gemini 작성·검토는 아이디어별 기록으로 맞춘다."""
+    lines = ["### [5] 통합 비교", ""]
+    header = [
+        "구성",
+        "실행",
+        "초안 1건: ② 까지(s)",
+        "생성 완료까지(s)",
+        "전체(s)",
+        "유효율",
+        "빈 초안",
+        "최종 검토 점수",
+        "수치 알림",
+        "근거 불일치(검토/로컬)",
+        "근거 중 실시간",
+        "유사과제 적중",
+        "자료원별 응답·실패율",
+        "그림 성공률",
+        "Gemini 작성·검토·그림",
+        "HWPX",
+    ]
+    lines.append("| " + " | ".join(header) + " |")
+    lines.append("|" + "---|" * len(header))
+    for r in results:
+        t = r.get("totals") or {}
+        n = t.get("ideas")
+        valid = t.get("valid")
+        if valid is None and n is not None and t.get("invalid") is not None:
+            valid = n - t["invalid"]
+        known = t.get("precheck_known")
+        mismatch = (
+            f"{t['review_mismatch']}/{t.get('local_evidence_mismatch', 0)}"
+            if "review_mismatch" in t
+            else "-"
+        )
+        hwpx = f"{t.get('hwpx_ok', 0)}/{t['finalize_tried']}" if t.get("finalize_tried") else "-"
+        cells = [
+            str(r.get("label")),
+            _mode_text(r),
+            _dash(t.get("precheck_seconds_avg")),
+            _dash(t.get("draft_seconds_avg")),
+            _dash(t.get("seconds_avg")),
+            _ratio(valid, n),
+            _dash(t.get("empty_drafts")),
+            _dash(t.get("final_score_avg"), "{:.2f}"),
+            _dash(t.get("number_alerts")),
+            mismatch,
+            _ratio(t.get("live_cited"), t.get("cited_docs")),
+            f"{t.get('precheck_hits', 0)}/{known}" if known else "-",
+            _sources_text(t.get("live_sources")),
+            _ratio(t.get("figures_nano"), t.get("figures_planned")),
+            _gemini_split(r),
+            hwpx,
+        ]
+        lines.append("| " + " | ".join(cells) + " |")
+    lines.append("")
+    crit = [(r["label"], (r.get("totals") or {}).get("final_scores_avg")) for r in results]
+    crit = [(label, c) for label, c in crit if c]
+    if crit:
+        lines.append(
+            "최종 검토 기준별 평균: "
+            + "; ".join(
+                f"{label} " + " ".join(f"{k} {v:.2f}" for k, v in c.items()) for label, c in crit
+            )
+        )
+        lines.append("")
+    return lines
+
+
+def _eval_idea_integrated_lines(results: list[dict[str, Any]]) -> list[str]:
+    """[5] 아이디어별 — 새 항목이 하나라도 있는 결과만."""
+    rows = [r for r in results if any("draft_seconds" in i for i in r.get("ideas") or [])]
+    if not rows:
+        return []
+    lines = ["### 아이디어별 [5] 통합 측정", ""]
+    lines.append(
+        "| 구성 | 아이디어 | 묶음 | 상태(끝) | ②(s) | 생성(s) | 최종 검토(s) | 최종 점수 | "
+        "빈 초안 | 수치 알림 | 근거 불일치(검토/로컬) | local_check(불일치/건너뜀) | "
+        "실시간 인용 | 로컬 작성 | 그림(채택/계획) | HWPX·그림 배치 |"
+    )
+    lines.append("|" + "---|" * 16)
+    for r in rows:
+        for i in r.get("ideas") or []:
+            scores = " ".join(f"{k[:2]}{v}" for k, v in (i.get("final_scores") or {}).items())
+            if not scores and i.get("final_review_status"):
+                scores = str(i["final_review_status"])
+            if i.get("finalized") is None:
+                hwpx = "-"
+            elif i.get("finalized"):
+                hwpx = f"{'✓' if i.get('hwpx_ok') else '✗'} 배치 {i.get('figure_placements') or 0}"
+            else:
+                hwpx = f"✗ {i.get('finalize_error') or ''}".strip()
+            lc = "-"
+            if i.get("local_check_mismatches") is not None:
+                lc = f"{i['local_check_mismatches']}/{i.get('local_check_skipped') or 0}"
+            cells = [
+                str(r.get("label")),
+                str(i.get("name")),
+                _dash(i.get("batch")),
+                f"{i.get('status')}→{i.get('final_status') or '-'}",
+                _dash(i.get("precheck_seconds")),
+                _dash(i.get("draft_seconds")),
+                _dash(i.get("final_review_seconds")),
+                scores or "-",
+                "예" if i.get("empty_draft") else "-",
+                str(i.get("number_alerts", 0)),
+                f"{i.get('review_mismatch', 0)}/{i.get('local_evidence_mismatch', 0)}",
+                lc,
+                f"{i.get('live_cited', 0)}/{i.get('cited_docs', 0)}",
+                ",".join(i.get("local_sections") or []) or "-",
+                f"{i.get('figures_nano', 0)}/{i.get('figures_planned', 0)}",
+                hwpx,
+            ]
+            lines.append("| " + " | ".join(cells) + " |")
+    lines.append("")
+    return lines

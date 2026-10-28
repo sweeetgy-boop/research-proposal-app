@@ -638,11 +638,21 @@ def build_eval(
     repo=None,
     llm=None,
     expected=None,
+    final_review: bool = False,
+    finalize: bool = False,
+    concurrent: int = 1,
+    local_check: bool | None = None,
+    department: str | None = None,
 ):
     """초안 품질 강화 측정 유스케이스(`rra eval`, Q9) — 주어진 pipeline 구성으로 조립한 RunManager·
-    precheck 로 골든셋을 돌린다. run 은 runs_dir 아래에 남는다(운영 runs/ 와 분리)."""
+    precheck 로 골든셋을 돌린다. run 은 runs_dir 아래에 남는다(운영 runs/ 와 분리).
+
+    [5] final_review·finalize: ⑤·⑥ 까지 측정(HWPX 는 adapters/rendering.hwpx_ok 로 검증).
+    concurrent: N건씩 한꺼번에 제출. local_check: None 이면 llm.yaml compose.local_check,
+    아니면 덮어쓴다."""
     from rra.adapters.llm.server_stats import server_rss_mb
-    from rra.application.usecases.evaluate import EvaluateQuality
+    from rra.adapters.rendering.hwpx import hwpx_ok
+    from rra.application.usecases.evaluate import DEFAULT_DEPARTMENT, EvaluateQuality
 
     settings = settings or load_settings()
     if repo is None:
@@ -651,6 +661,10 @@ def build_eval(
         llm = build_llm(settings, stage="compose")
     reranker = build_reranker(settings) if pipeline.reranker else None
     manager = build_run_manager(settings, repo=repo, llm=llm, pipeline=pipeline, runs_dir=runs_dir)
+    if local_check is not None:  # 측정 구성 B(끔)·C(켬) — 설정 파일을 고치지 않고 덮어쓴다
+        for gen in (manager.generate, manager.generate_public):
+            if gen is not None:
+                gen.local_check = local_check
     compose_cfg = llm_config(settings, "compose")
     review_cfg = llm_config(settings, "review")
     return EvaluateQuality(
@@ -667,6 +681,16 @@ def build_eval(
         reranker=reranker,
         keywords=keyword_rule(settings),
         expected=expected,
+        final_review=final_review,
+        finalize=finalize,
+        department=department or DEFAULT_DEPARTMENT,
+        verify_hwpx=hwpx_ok,
+        concurrent=concurrent,
+        config={
+            "max_concurrent": runs_config(settings)["max_concurrent"]
+            if manager.generate.writes_remotely
+            else 1
+        },
     )
 
 

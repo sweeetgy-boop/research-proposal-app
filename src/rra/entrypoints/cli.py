@@ -694,10 +694,23 @@ def cmd_eval(args: argparse.Namespace) -> int:
         runs_dir = Path(args.runs_dir)
     else:
         runs_dir = data_location(settings, "eval") / "runs" / args.label
+    if args.concurrent < 1:
+        _eprint("--concurrent 는 1 이상입니다.")
+        return EXIT_USAGE
+    local_check = None if args.local_check is None else args.local_check == "on"
 
     async def run():
         ev = build_eval(
-            settings, label=args.label, pipeline=pipeline, runs_dir=runs_dir, expected=expected
+            settings,
+            label=args.label,
+            pipeline=pipeline,
+            runs_dir=runs_dir,
+            expected=expected,
+            final_review=args.final_review or args.finalize,
+            finalize=args.finalize,
+            concurrent=args.concurrent,
+            local_check=local_check,
+            department=args.department,
         )
         try:
             return await ev(ideas)
@@ -718,10 +731,25 @@ def cmd_eval(args: argparse.Namespace) -> int:
         f"precheck 적중 {t['precheck_hits']}/{t['precheck_known']}, "
         f"평균 {t['seconds_avg']}s, Gemini {t['gemini_calls']}회, RSS {result.max_rss_mb or '-'}MB"
     )
+    print(
+        f"  [5] ② {t['precheck_seconds_avg']}s · 생성 {t['draft_seconds_avg']}s · "
+        f"유효 {t['valid']}/{t['ideas']} · 빈 초안 {t['empty_drafts']} · "
+        f"최종 점수 {t['final_score_avg']} · 수치 알림 {t['number_alerts']} · "
+        f"근거 불일치 {t['review_mismatch']}+{t['local_evidence_mismatch']} · "
+        f"실시간 인용 {t['live_cited']}/{t['cited_docs']} · "
+        f"Gemini 작성 {t['gemini_compose']}·검토 {t['gemini_review']}·그림 {t['gemini_figures']} · "
+        f"HWPX {t['hwpx_ok']}/{t['finalize_tried']}"
+    )
+    for b in result.batches:
+        print(
+            f"  묶음 {b['batch']} ({len(b['ideas'])}건 동시): 생성 완료까지 {b['draft_seconds']}s, "
+            f"전체 {b['seconds']}s"
+        )
     for i in result.ideas:
         print(
             f"  {i.name}: {i.status} v1 알림 {i.v1_alerts} v2 알림 {i.v2_alerts} "
             f"점수 {i.scores} 반영 {i.applied}+{i.additions_applied} {i.seconds}s run {i.run_id}"
+            + (f" 최종 {i.final_scores}" if i.final_scores else "")
         )
     print(f"저장: {out}")
     return EXIT_OK
@@ -2551,6 +2579,26 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--out", help="JSON(실행) 또는 Markdown(--report) 경로")
     ev.add_argument("--report", nargs="*", help="합칠 결과 JSON 들 → docs/eval-<날짜>.md")
     ev.add_argument("--append", action="store_true", help="--report: 기존 문서 끝에 덧붙인다")
+    ev.add_argument(
+        "--final-review", action="store_true", help="생성 뒤 ⑤ 최종 검토까지 (점수·시간 기록)"
+    )
+    ev.add_argument(
+        "--finalize",
+        action="store_true",
+        help="⑤ 뒤 ⑥ 마무리까지 — 선택형은 제안값, HWPX 검증·그림 배치 수 (--final-review 포함)",
+    )
+    ev.add_argument(
+        "--concurrent",
+        type=int,
+        default=1,
+        help="N건씩 한꺼번에 제출 (기본 1 = 차례로). runs.max_concurrent·max_queued_runs 를 따른다",
+    )
+    ev.add_argument(
+        "--local-check",
+        choices=["on", "off"],
+        help="llm.yaml compose.local_check 덮어쓰기 (기본: 설정값)",
+    )
+    ev.add_argument("--department", help="--finalize 의 제안부서 (기본 철도연구원, 저장 안 함)")
     ev.set_defaults(handler=cmd_eval)
     ri = sub.add_parser("reindex", help="모든 청크를 설정 임베딩 모델로 재색인")
     ri.set_defaults(handler=cmd_reindex)

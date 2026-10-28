@@ -512,3 +512,18 @@ def test_sixty_char_title_renders_inline_without_truncation(slots, strategy):
     d.sections[0] = Section(key="title", sentences=[Sentence(text=long_title)])
     r = HwpxRenderer(slots, strategy=strategy, template_path=TEMPLATE)
     assert long_title in plain_text(r.render(d, confirmation=CONFIRMED))
+
+
+def test_hwpx_ok_is_the_boolean_form_of_verify_for_measurement():
+    """`rra eval --finalize` 의 hwpx_ok — 빈 바이트·zip 아님·섹션 XML 깨짐은 False."""
+    from rra.adapters.rendering.hwpx import hwpx_ok
+
+    assert hwpx_ok(b"") is False and hwpx_ok(b"not a zip") is False
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("Contents/section0.xml", "<sec><p>ok</p></sec>")
+    assert hwpx_ok(buf.getvalue()) is True
+    bad = io.BytesIO()
+    with zipfile.ZipFile(bad, "w") as z:
+        z.writestr("Contents/section0.xml", "<sec><unclosed></sec>")
+    assert hwpx_ok(bad.getvalue()) is False
