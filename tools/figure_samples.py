@@ -242,7 +242,8 @@ TECHNIQUE_SAMPLES: dict[str, dict[str, Any]] = {
 }
 
 
-# [23] 가로 배치 샘플 — 배치별(grid·split·flow)·4:1 일정표·글자 줄이기 전후. 가짜 명세 (실제 과제 아님)
+# [23] 가로 배치 샘플 — 배치별(grid·split·flow)·4:1 일정표·글자 줄이기 전후. 가짜 명세 (실제 과제
+# 아님)
 WIDE_SAMPLES: dict[str, tuple[str, dict[str, Any]]] = {
     "schedule-4to1": (
         "schedule",
@@ -285,7 +286,10 @@ WIDE_SAMPLES: dict[str, tuple[str, dict[str, Any]]] = {
                 {"name": "사회", "items": [{"text": "야간 작업 안전 요구", "rating": "중"}]},
                 {"name": "기술", "items": [{"text": "IMU·가속도 센서 고도화", "rating": "상"}]},
                 {"name": "환경", "items": [{"text": "점검 차량 운행 감소", "rating": "하"}]},
-                {"name": "법·제도", "items": [{"text": "점검 주기 규정 개정 필요", "rating": "중"}]},
+                {
+                    "name": "법·제도",
+                    "items": [{"text": "점검 주기 규정 개정 필요", "rating": "중"}],
+                },
             ],
         },
     ),

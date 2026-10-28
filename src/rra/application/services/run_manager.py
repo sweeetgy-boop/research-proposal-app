@@ -3161,7 +3161,8 @@ def _figure_summary(figures: list[Figure], previous: list[dict[str, Any]]) -> li
             "error": f.error,
             "placement": prev.get(f.id, {}).get("placement"),
             "number": prev.get(f.id, {}).get("number"),
-            # [23] 본문 폭 맞춤 (폭·높이 mm, 비율, 높이 상한 안, 가장 작은 글자 pt) — 마무리 때 HWPX 실측으로 바뀐다
+            # [23] 본문 폭 맞춤 (폭·높이 mm, 비율, 높이 상한 안, 가장 작은 글자 pt) — 마무리 때
+            # HWPX 실측으로 바뀐다
             "figure_fit": _fit_row(getattr(f, "fit", None)),
         }
         out.append(row)

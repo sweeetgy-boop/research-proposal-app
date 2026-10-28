@@ -38,12 +38,12 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from rra.adapters.rendering.hwpx_format import format_hwpx
+from rra.adapters.rendering.hwpx_geometry import body_width
 from rra.application.ports.renderer import RenderRejected
 from rra.domain.models import Confirmation, Draft, ProposerInfo, StrategyCatalog
-from rra.adapters.rendering.hwpx_geometry import body_width
 from rra.domain.models.figure import Figure, FigureFit, FigurePlacement
-from rra.domain.rules import figure_fit as fit_rules
 from rra.domain.models.selection import TASK_TYPES, UTILIZATION
+from rra.domain.rules import figure_fit as fit_rules
 from rra.domain.rules.llm_output import clean_sentence
 
 FORM_TITLE = "연구과제 제안서"
@@ -315,7 +315,8 @@ class HwpxRenderer:
         self.figure_placement = figure_placement
         self.figure_max_width = int(figure_max_width)
         self.figure_caption_prefix = figure_caption_prefix
-        # [23] 그림 폭 = 양식 본문 안쪽 폭(hwpx_geometry, 못 읽으면 figure_max_width), 높이 상한 = 쪽 × share
+        # [23] 그림 폭 = 양식 본문 안쪽 폭(hwpx_geometry, 못 읽으면 figure_max_width), 높이 상한 =
+        # 쪽 × share
         self.figure_height_share = float(figure_height_share)
         self.figure_min_text_pt = float(figure_min_text_pt)
 
@@ -420,9 +421,7 @@ class HwpxRenderer:
 
         from rra.adapters.figures import image_size
 
-        widths = {
-            fig.id: body_width(data, figure_marker(fig.id)) for _n, fig, _png, _m in figures
-        }
+        widths = {fig.id: body_width(data, figure_marker(fig.id)) for _n, fig, _png, _m in figures}
         doc = HwpxDocument.open(data)
         placements: list[FigurePlacement] = []
         appendix: list[tuple[int, Figure, str, int, int]] = []  # (n, fig, item_id, w, h)
@@ -484,7 +483,8 @@ class HwpxRenderer:
     def _fit_size(
         self, fig: Figure, width: int, page_h: int, w_px: int, h_px: int
     ) -> tuple[int, int, FigureFit]:
-        """[23] 그림 폭·높이(HWPUNIT)와 맞춤 기록. 높이가 쪽 × share 를 넘으면(옛 비율 그림) 높이에 맞춰
+        """[23] 그림 폭·높이(HWPUNIT)와 맞춤 기록. 높이가 쪽 × share 를 넘으면(옛 비율 그림) 높이에
+        맞춰
         줄이고 fits=False — 새 그림은 그림 단계가 넓은 비율로 다시 그려 여기서 넘지 않는다."""
         height = max(1, round(width * h_px / max(w_px, 1)))
         cap = int(page_h * self.figure_height_share)

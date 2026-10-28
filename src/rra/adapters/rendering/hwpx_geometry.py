@@ -1,10 +1,12 @@
 """[23] HWPX 쪽·본문 폭 읽기 — 그림 폭 = 본문 안쪽 폭 (2026-10-28 밤, ADR 0041).
 
 이 앱이 만든(또는 실물 양식에서 채운) HWPX 의 section XML 에서 쪽 정의(hp:pagePr 폭·높이, hp:margin
-좌우)를 읽고, 그림이 들어갈 단락의 단락 모양(paraPr 오른쪽·왼쪽 여백)을 뺀다. 그림 표식이 표 칸 안이면
+좌우)를 읽고, 그림이 들어갈 단락의 단락 모양(paraPr 오른쪽·왼쪽 여백)을 뺀다. 그림 표식이 표 칸
+안이면
 칸 폭(hp:cellSz) − 칸 여백(hp:cellMargin) − 단락 여백. 글자는 읽지 않는다(속성 숫자만).
 
-단위: HWPUNIT(1/7200 인치). 실물 양식(별지 제2호서식): 쪽 59528 × 84189, 좌우 여백 7086, 본문 단락(42)
+단위: HWPUNIT(1/7200 인치). 실물 양식(별지 제2호서식): 쪽 59528 × 84189, 좌우 여백 7086, 본문
+단락(42)
 오른쪽 1750 → 43606 = 153.8mm. 그림 단락은 서식 점검(hwpx_format)이 왼쪽 0·들여쓰기 0·가운데 정렬로
 바꾸므로 왼쪽 여백·들여쓰기는 빼지 않는다(오른쪽 여백만 남는다).
 """
@@ -101,7 +103,8 @@ def figure_width(section_xml: str, header_xml: str, index: int) -> int | None:
 
 
 def body_width(data: bytes, marker: str | None = None) -> tuple[int, int] | None:
-    """(그림 폭, 쪽 높이) HWPUNIT. marker 가 있으면 그 표식이 든 단락 기준, 없으면 본문(표 밖) 자리표시자
+    """(그림 폭, 쪽 높이) HWPUNIT. marker 가 있으면 그 표식이 든 단락 기준, 없으면 본문(표 밖)
+    자리표시자
     단락 중 가장 흔한 단락 모양 기준. 읽지 못하면 None."""
     try:
         section, header = _read(data)

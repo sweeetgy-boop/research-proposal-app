@@ -50,7 +50,8 @@ KIND_LABEL: dict[str, str] = {
     "as_is_to_be": "As-Is / To-Be",
     "technique": "분석 기법",
 }
-# [23] 화면·버전 목록에 보이는 한국어 이름 (영문·내부 코드 없음). 분석 기법은 "분석 기법 그림 – <기법 이름>"
+# [23] 화면·버전 목록에 보이는 한국어 이름 (영문·내부 코드 없음). 분석 기법은 "분석 기법 그림 –
+# <기법 이름>"
 DISPLAY_NAME: dict[str, str] = {
     "concept": "연구 개념도",
     "process": "추진 체계도",
@@ -383,7 +384,8 @@ class FigureFit(BaseModel):
     """[23] 그림이 본문 폭에 맞게 들어가는가 — 그림 단계(draw)가 남기고 HWPX 삽입 때 다시 잰다
     (manifest `figure_fit`). 폭은 양식 본문 안쪽 폭, 높이는 비율로. 높이 상한은 쪽 높이의 1/3.
     min_text_pt 는 본문 폭으로 넣었을 때 그림 안 가장 작은 글자 크기(pt) — 밑그림은 SVG 글자 크기로
-    계산(svg), Nano Banana 그림은 OCR 글자 상자 높이로 어림(ocr), OCR 을 못 쓰면 밑그림 값(baseline)."""
+    계산(svg), Nano Banana 그림은 OCR 글자 상자 높이로 어림(ocr), OCR 을 못 쓰면 밑그림
+    값(baseline)."""
 
     width_mm: float = Field(ge=0)
     height_mm: float = Field(ge=0)

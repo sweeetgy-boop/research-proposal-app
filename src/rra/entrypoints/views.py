@@ -153,7 +153,9 @@ FIGURE_ERROR_LABEL = {
     "budget": "오늘 그림 호출 한도에 이르러 기본 그림으로 넣었습니다.",
     "no_image_llm": "그림 AI 를 쓸 수 없어 기본 그림으로 넣었습니다.",
 }
-FIGURE_ERROR_DEFAULT = "그림 AI 호출이 실패해 기본 그림으로 넣었습니다. [다시 만들기]로 다시 시도할 수 있습니다."
+FIGURE_ERROR_DEFAULT = (
+    "그림 AI 호출이 실패해 기본 그림으로 넣었습니다. [다시 만들기]로 다시 시도할 수 있습니다."
+)
 
 
 def figure_error_label(code: str | None) -> str | None:
@@ -208,9 +210,7 @@ def figures_payload(
                 "kind": f.kind,
                 "label": tech["technique_label"] if tech else KIND_LABEL.get(f.kind, f.kind),
                 # [23] 화면·버전 목록 이름 (한국어, 영문·코드 없음) — "분석 기법 그림 – SWOT 분석"
-                "display_name": display_name(
-                    f.kind, tech["technique_label"] if tech else None
-                ),
+                "display_name": display_name(f.kind, tech["technique_label"] if tech else None),
                 "section": f.section,
                 "caption": clean(f.caption),
                 "alt": clean(f.alt),

@@ -50,7 +50,6 @@ from rra.application.usecases.figure_techniques import TechniqueSteps
 from rra.domain.models.draft import Section
 from rra.domain.models.figure import (
     FIGURE_KINDS,
-    FigureFit,
     KIND_LABEL,
     MAX_CHANGE_LINE,
     MAX_CHANGE_LINES,
@@ -59,6 +58,7 @@ from rra.domain.models.figure import (
     EditRequestRecord,
     Figure,
     FigureChange,
+    FigureFit,
     parse_spec,
 )
 from rra.domain.models.request import ProposalRequest
@@ -107,7 +107,8 @@ class FigureConfig:
         return str(self.aspects.get(kind) or "16:9")
 
     def aspect_for(self, spec: BaseModel) -> str:
-        """비율 — 내용 양(auto) 또는 종류별 고정값. [23] 어느 쪽이든 그 종류의 가로 비율로 올린다."""
+        """비율 — 내용 양(auto) 또는 종류별 고정값. [23] 어느 쪽이든 그 종류의 가로 비율로
+        올린다."""
         kind = str(getattr(spec, "kind", ""))
         arrange = self.arrangements.get(str(getattr(spec, "technique", "") or ""))
         if self.auto_aspect or kind not in self.aspects:
@@ -476,9 +477,11 @@ class MakeFigures(TechniqueSteps):
     def layout(
         self, figure: Figure, *, shorten: bool = True
     ) -> tuple[Figure, str, bytes, FigureFit]:
-        """[23] 밑그림 맞추기 — 가로 비율을 고르고, 본문 폭에 넣었을 때 높이가 쪽 1/3 을 넘으면 더 넓은
+        """[23] 밑그림 맞추기 — 가로 비율을 고르고, 본문 폭에 넣었을 때 높이가 쪽 1/3 을 넘으면 더
+        넓은
         비율로, 글자가 min_text_pt 보다 작거나 칸을 넘치면 글자를 줄여(shorten_spec) 다시 그린다.
-        → (명세를 줄였으면 바뀐 그림, 비율, 밑그림 PNG, 맞춤 기록). shorten=False(제안자가 고친 글자)면
+        → (명세를 줄였으면 바뀐 그림, 비율, 밑그림 PNG, 맞춤 기록). shorten=False(제안자가 고친
+        글자)면
         줄이지 않고 기록만 한다."""
         frame = self.config.frame
         spec = figure.spec
@@ -542,7 +545,8 @@ class MakeFigures(TechniqueSteps):
         shorten: bool = True,
     ) -> FigureBuild:
         """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림. style 은 [말로 고치기] 모양 요청.
-        [23] 밑그림은 본문 폭 맞춤(layout), 그림은 흰 여백을 잘라 정확한 비율로(reframe), 글자 크기는
+        [23] 밑그림은 본문 폭 맞춤(layout), 그림은 흰 여백을 잘라 정확한 비율로(reframe), 글자
+        크기는
         OCR 로 어림해 작으면 글자를 한 단계 더 줄여 한 번 더 그린다(max_image_redraws)."""
         t0 = time.monotonic()
         fit: FigureFit | None = None
@@ -572,7 +576,9 @@ class MakeFigures(TechniqueSteps):
                 ocr_pt = await self._ocr_pt(figure, adopted, mime, fit)
                 if fit is not None:
                     fit = self._image_fit(fit, ocr_pt)
-                too_small = ocr_pt is not None and ocr_pt + fit_rules.PT_TOLERANCE < self.config.min_text_pt
+                too_small = (
+                    ocr_pt is not None and ocr_pt + fit_rules.PT_TOLERANCE < self.config.min_text_pt
+                )
                 if not too_small or not shorten or attempt >= self.config.max_image_redraws:
                     break
                 cut = fit_rules.shorten_spec(spec, min(fit_rules.MAX_SHORTEN, attempt + 1))
@@ -610,9 +616,11 @@ class MakeFigures(TechniqueSteps):
     async def _generate(
         self, figure: Figure, baseline_png: bytes, aspect: str, style: str
     ) -> tuple[bytes | None, str, str | None, str | None, int]:
-        """Nano Banana 1회 → (그림, mime, 모델, 오류 코드, 호출 수). 4:1 처럼 API 가 받지 않는 비율은
+        """Nano Banana 1회 → (그림, mime, 모델, 오류 코드, 호출 수). 4:1 처럼 API 가 받지 않는
+        비율은
         밑그림을 21:9 캔버스 가운데에 놓아 보내고, 결과를 reframe 으로 원래 비율에 맞춘다."""
-        assert self.images is not None
+        if self.images is None:
+            return None, "", None, "no_image_llm", 0
         sent = fit_rules.api_aspect(aspect)
         reference = baseline_png
         if sent != aspect and self.pad_reference is not None:
@@ -643,7 +651,8 @@ class MakeFigures(TechniqueSteps):
     async def _ocr_pt(
         self, figure: Figure, data: bytes, mime: str, fit: FigureFit | None
     ) -> float | None:
-        """그림 글자 크기 어림(pt) — OCR 줄 상자 높이 → 본문 폭에 넣은 그림 높이. OCR 이 없거나 실패면
+        """그림 글자 크기 어림(pt) — OCR 줄 상자 높이 → 본문 폭에 넣은 그림 높이. OCR 이 없거나
+        실패면
         None(밑그림 값을 그대로 쓴다)."""
         if self.ocr is None or fit is None:
             return None

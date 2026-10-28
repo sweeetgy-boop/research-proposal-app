@@ -178,14 +178,14 @@ def fit_aspect(
     im = _to_rgb(_open(data))
     box = _content_box(im)
     if box is not None:
-        l, t, r, b = box
+        x0, y0, x1, y1 = box
         margin = int(round(max(im.size) * TRIM_MARGIN))
         im = im.crop(
             (
-                max(0, l - margin),
-                max(0, t - margin),
-                min(im.width, r + margin),
-                min(im.height, b + margin),
+                max(0, x0 - margin),
+                max(0, y0 - margin),
+                min(im.width, x1 + margin),
+                min(im.height, y1 + margin),
             )
         )
     im = _pad(im, _ratio(aspect))

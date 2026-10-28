@@ -95,7 +95,8 @@ class Technique:
     free_groups: bool = False
     free_columns: bool = False
     min_groups: int = 0
-    # [23] 그림 배치 — row(한 줄) | split(좌우 두 단) | flow(한 줄 + 화살표) | grid(두 줄) | table(표)
+    # [23] 그림 배치 — row(한 줄) | split(좌우 두 단) | flow(한 줄 + 화살표) | grid(두 줄) |
+    # table(표)
     arrange: str = ""
 
     @property

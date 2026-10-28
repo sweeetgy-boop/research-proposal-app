@@ -1,7 +1,8 @@
 """그림 밑그림 어댑터 — 명세 → SVG(render) → PNG(png).
 
 `SvgFigureRenderer` 가 application/ports/figures.FigureRendererPort 구현.
-[23] `min_font`(본문 폭에서 9pt 가 되는 글자 하한)·`arrangements`(분석 기법 key → 배치)를 composition 이 준다.
+[23] `min_font`(본문 폭에서 9pt 가 되는 글자 하한)·`arrangements`(분석 기법 key → 배치)를
+composition 이 준다.
 """
 
 from __future__ import annotations

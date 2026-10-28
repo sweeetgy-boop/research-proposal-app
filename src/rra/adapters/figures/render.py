@@ -4,16 +4,21 @@
 글자는 전부 XML escape(명세 글자는 LLM 출력 = 비신뢰). 좌표계는 폭 1600 기준 viewBox 고정,
 width/height 속성은 `width_px`·`aspect` 로 정한다(PNG 픽셀 폭 = width × zoom).
 
-- 글자는 `texts_of(spec)` 의 모든 문자열이 그대로 들어간다(수치 그래프 출처 캡션만 예외 — HWPX 캡션 아래
-  12pt 출처 줄이 맡는다, [23]). 여러 줄로 나뉘는 글자는 `<tspan>` 으로 쪼개고 원문을 `aria-label` 에 함께 둔다.
+- 글자는 `texts_of(spec)` 의 모든 문자열이 그대로 들어간다(수치 그래프 출처 캡션만 예외 — HWPX 캡션
+  아래
+  12pt 출처 줄이 맡는다, [23]). 여러 줄로 나뉘는 글자는 `<tspan>` 으로 쪼개고 원문을 `aria-label`
+  에 함께 둔다.
 - 긴 한글은 `wrap_text` 로 줄바꿈(띄어쓰기 우선, 없으면 글자 수) + 상자를 넘치면 글자 크기 축소.
   폭 추정: CJK 0.95em, 라틴 0.55em.
 - 흑백 인쇄: 계열마다 명도가 다른 채움 + 무늬(점·빗금·격자) 덧씌움 + 선 모양(dasharray).
   제안 과제 열·현재 단계는 `accent`.
-- [23] 가로 배치·글자 하한(2026-10-28 밤, ADR 0041): 그림은 본문 폭(실물 양식 153.8mm)에 꽉 채워 넣으므로
-  viewBox 글자 1단위 ≈ 0.27pt. `min_font`(기본 9pt 에 해당하는 33단위) 밑으로는 줄이지 않고, 그래도 칸에
+- [23] 가로 배치·글자 하한(2026-10-28 밤, ADR 0041): 그림은 본문 폭(실물 양식 153.8mm)에 꽉 채워
+  넣으므로
+  viewBox 글자 1단위 ≈ 0.27pt. `min_font`(기본 9pt 에 해당하는 33단위) 밑으로는 줄이지 않고, 그래도
+  칸에
   안 들어가면 넘침으로 세어 root `data-overflow` 에 적는다 — 유스케이스가 글자를 줄여 다시 그린다.
-  본문 글자 37(≈10pt)·머리글 42~46. 분석 기법 묶음은 `arrange`(row·split·flow·grid·table)로 가로 배치.
+  본문 글자 37(≈10pt)·머리글 42~46. 분석 기법 묶음은 `arrange`(row·split·flow·grid·table)로 가로
+  배치.
 """
 
 from __future__ import annotations
@@ -180,7 +185,8 @@ class _Palette:
 
 
 class _Canvas:
-    """SVG 조각 모음. 모든 글자는 escape 를 거친다. 글자는 min_font 밑으로 줄이지 않고, 그래도 넘치면
+    """SVG 조각 모음. 모든 글자는 escape 를 거친다. 글자는 min_font 밑으로 줄이지 않고, 그래도
+    넘치면
     overflow 를 센다(root data-overflow)."""
 
     def __init__(
@@ -416,7 +422,8 @@ def render_svg(
     arrange: str | None = None,
 ) -> str:
     """종류별 SVG 밑그림. caption 은 그림 안에 그리지 않고 `<title>` 에만 둔다.
-    min_font: 글자 하한(viewBox 단위) — 본문 폭에서 min_text_pt 가 되는 값. arrange: 분석 기법 배치."""
+    min_font: 글자 하한(viewBox 단위) — 본문 폭에서 min_text_pt 가 되는 값. arrange: 분석 기법
+    배치."""
     kind = str(getattr(spec, "kind", ""))
     w, h = figure_size(aspect, width_px)
     title = caption or getattr(spec, "title", None) or KIND_LABEL.get(kind, "그림")

@@ -1,13 +1,18 @@
 """[23] 그림 모양 — 가로 비율·본문 폭 맞춤·글자 크기 규칙 (순수 함수, 2026-10-28 밤, ADR 0041).
 
-- 모든 그림은 가로로 넓게: As-Is/To-Be·분석 기법·개념도·체계도·그래프·비교표는 16:9 또는 21:9, 추진 일정표·
+- 모든 그림은 가로로 넓게: As-Is/To-Be·분석 기법·개념도·체계도·그래프·비교표는 16:9 또는 21:9, 추진
+일정표·
   로드맵처럼 옆으로 긴 내용은 21:9 또는 4:1 (`WIDE_ASPECTS`).
-- HWPX 그림 폭 = 양식 본문 안쪽 폭(쪽 폭 − 좌우 여백 − 단락 오른쪽 여백, 표 칸이면 칸 폭 − 칸 여백), 높이는
+- HWPX 그림 폭 = 양식 본문 안쪽 폭(쪽 폭 − 좌우 여백 − 단락 오른쪽 여백, 표 칸이면 칸 폭 − 칸
+  여백), 높이는
   비율로. 높이 상한은 쪽 높이의 1/3 — 넘으면 더 넓은 비율로 다시 그린다(`wider`).
-- 글자 크기: 본문 폭으로 넣었을 때 그림 안 글자 ≥ `min_text_pt`(9pt). 밑그림은 SVG 글자 크기(viewBox 1600 기준)
-  × 폭 비로 계산(`svg_metrics`·`font_pt`), Nano Banana 그림은 OCR 글자 상자 높이로 어림(`estimate_ocr_pt`).
+- 글자 크기: 본문 폭으로 넣었을 때 그림 안 글자 ≥ `min_text_pt`(9pt). 밑그림은 SVG 글자
+  크기(viewBox 1600 기준)
+  × 폭 비로 계산(`svg_metrics`·`font_pt`), Nano Banana 그림은 OCR 글자 상자 높이로
+  어림(`estimate_ocr_pt`).
   작으면 글자를 줄여(`shorten_spec` — 띄어쓰기 자리에서 자르고 항목 수를 줄인다) 다시 그린다.
-- 4:1 은 Nano Banana imageConfig.aspectRatio 가 받지 않는다 — 생성은 21:9(`api_aspect`)로 하고, 밑그림을 21:9
+- 4:1 은 Nano Banana imageConfig.aspectRatio 가 받지 않는다 — 생성은 21:9(`api_aspect`)로 하고,
+  밑그림을 21:9
   캔버스 가운데 4:1 띠로 넣어 보낸 뒤 결과의 흰 여백을 잘라 4:1 로 맞춘다(어댑터 `fit_aspect`).
 """
 
@@ -39,7 +44,8 @@ HWPUNIT_PER_MM = 7200.0 / MM_PER_INCH  # 1/7200 인치
 MIN_TEXT_PT = 9.0
 PT_TOLERANCE = 0.05  # 반올림 차이 (33.0 단위 = 8.99pt)
 HEIGHT_SHARE = 1.0 / 3.0  # 그림 높이 상한 = 쪽 높이 × 1/3
-# 실물 양식(별지 제2호서식) 본문: A4 210×297mm, 좌우 여백 25mm, 본문 단락 오른쪽 여백 1750 HWPUNIT → 153.8mm
+# 실물 양식(별지 제2호서식) 본문: A4 210×297mm, 좌우 여백 25mm, 본문 단락 오른쪽 여백 1750 HWPUNIT
+# → 153.8mm
 DEFAULT_BODY_WIDTH_MM = 43606 / HWPUNIT_PER_MM
 DEFAULT_PAGE_HEIGHT_MM = 84189 / HWPUNIT_PER_MM
 
@@ -239,8 +245,10 @@ def estimate_ocr_pt(
     *,
     box_em: float,
 ) -> float | None:
-    """Nano Banana 그림의 글자 크기 어림 — OCR 줄 상자 높이(그림 높이 대비 0~1)를 본문 폭으로 넣은 그림 높이
-    (mm)로 바꾸고 box_em(상자 높이 ÷ 글자 크기, 밑그림으로 잰 값)으로 나눈다. 명세 글자와 겹치는 줄만 쓴다
+    """Nano Banana 그림의 글자 크기 어림 — OCR 줄 상자 높이(그림 높이 대비 0~1)를 본문 폭으로 넣은
+    그림 높이
+    (mm)로 바꾸고 box_em(상자 높이 ÷ 글자 크기, 밑그림으로 잰 값)으로 나눈다. 명세 글자와 겹치는
+    줄만 쓴다
     (아이콘·잡음 제외). 겹치는 줄이 없으면 None."""
     wanted = [_norm(t) for t in texts if len(_norm(t)) >= 2]
     pts: list[float] = []
@@ -283,7 +291,8 @@ def make_fit(
 
 # ── 글자 줄이기 ───────────────────────────────────────────
 def clip_words(text: str, limit: int) -> str:
-    """limit 자를 넘으면 띄어쓰기 자리에서만 자른다(글자 중간·숫자 중간은 자르지 않는다 — 앞부분이 원문
+    """limit 자를 넘으면 띄어쓰기 자리에서만 자른다(글자 중간·숫자 중간은 자르지 않는다 — 앞부분이
+    원문
     그대로라 출처 검사를 그대로 통과한다). 자를 자리가 없으면 그대로."""
     value = " ".join(str(text).split())
     if len(value) <= limit:
