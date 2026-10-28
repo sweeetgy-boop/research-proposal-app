@@ -28,6 +28,8 @@ from rra.domain.models.figure import (
     FIGURE_KINDS,
     KIND_LABEL,
     KIND_SECTION,
+    MAX_LABEL,
+    MAX_LINE,
     ComparisonSpec,
     ConceptSpec,
     Figure,
@@ -79,6 +81,7 @@ NUMBER_NOT_IN_SOURCES = "figure_number_not_in_sources"
 FACT_NOT_FOUND = "figure_fact_not_found"
 SCHEDULE_EXCEEDS = "figure_schedule_exceeds_period"
 SOURCE_MISSING = "figure_source_missing"
+BOX_EMPTY = "figure_box_empty"  # 개념도 상자에 근거 있는 줄이 하나도 없다 (다듬은 뒤)
 
 
 def _norm(text: str) -> str:
@@ -94,6 +97,9 @@ class TextPool:
     nums: frozenset[tuple]
     facts: Mapping[str, Sequence[TableFact]] = field(default_factory=dict)
     internal_text: str = ""  # internal 근거에서만 온 본문 (공용 계정 제외용)
+    # 초안 본문·제안자 입력의 수치만 — 계획 그림(개념도·체계도·로드맵 등)의 연도는 여기서만 찾는다.
+    # 근거 자료의 연도(2024년 보고서 등)는 과거 사실이라 계획 연도로 쓰지 않는다 (10-28 배포 시험)
+    plan_nums: frozenset[tuple] = frozenset()
 
     def has_text(self, value: str) -> bool:
         """문장 그대로 있거나, 내용 단어(2자 이상)가 모두 있으면 통과."""
@@ -136,12 +142,17 @@ def text_pool(
                 nums.add(c)
             for _, c in numbers(str(f.value)):
                 nums.add(c)
+    plan_parts = [s.text for s in sections]
+    if request is not None:
+        plan_parts.extend(str(v) for v in request.prompt_view().values() if isinstance(v, str))
+    plan_nums = {c for _, c in numbers("\n".join(plan_parts))}
     return TextPool(
         text=_norm(joined),
         words=frozenset(words),
         nums=frozenset(nums),
         facts=dict(facts or {}),
         internal_text=_norm("\n".join(internal)),
+        plan_nums=frozenset(plan_nums),
     )
 
 
@@ -246,6 +257,8 @@ def validate_spec(
         if not pool.has_text(t):
             problems.append(TEXT_NOT_IN_SOURCES)
             break
+    if isinstance(spec, ConceptSpec) and any(not b.lines for b in spec.boxes):
+        problems.append(BOX_EMPTY)
     if isinstance(spec, StatChartSpec):
         facts = pool.facts.get(spec.source.doc_id) or []
         if not facts:
@@ -271,12 +284,112 @@ def validate_spec(
             if t in FIXED_TEXTS:
                 continue
             for _, canonical in numbers(t):
-                if not pool.has_number(canonical):
+                is_year = canonical[0] == "year"
+                if not pool.has_number(canonical) or (is_year and canonical not in pool.plan_nums):
                     problems.append(NUMBER_NOT_IN_SOURCES)
                     break
             if NUMBER_NOT_IN_SOURCES in problems:
                 break
     return list(dict.fromkeys(problems))
+
+
+# ── 명세 다듬기 (버리기 전에) ─────────────────────────────────
+_LABEL_KEYS = frozenset({"label", "name", "title"})
+_LIST_LIMITS = {
+    "lines": 2,
+    "outputs": 3,
+    "stages": 6,
+    "metrics": 6,
+    "series": 4,
+    "aspects": 5,
+    "projects": 3,
+}
+
+
+def clip_text(text: str, limit: int) -> str:
+    """limit 자를 넘으면 단어 경계(공백·쉼표)에서 자른다 — 앞부분이 원문 그대로라 출처 검사를
+    통과한다."""
+    value = " ".join(str(text).split())
+    if len(value) <= limit:
+        return value
+    cut = value[:limit]
+    for sep in (" ", ",", "·"):
+        i = cut.rfind(sep)
+        if i >= limit // 2:
+            return cut[:i].rstrip(" ,·")
+    return cut
+
+
+def normalize_spec_data(data: Any) -> Any:
+    """모델 응답(JSON) → 스키마 상한 안으로: 상자·단계 이름 40자, 그 밖 60자에서 자르고 목록은
+    상한 개수까지. (7B 가 초안 문장을 통째로 옮겨 60자를 넘기면 형식 오류로 그림 전체가 빠졌다
+    — 2026-10-28 배포 시험)"""
+    if isinstance(data, dict):
+        out: dict[str, Any] = {}
+        for key, value in data.items():
+            if isinstance(value, str):
+                out[key] = clip_text(value, MAX_LABEL if key in _LABEL_KEYS else MAX_LINE)
+            elif isinstance(value, list):
+                items = [normalize_spec_data(v) for v in value]
+                if key in _LIST_LIMITS:
+                    items = items[: _LIST_LIMITS[key]]
+                out[key] = [
+                    clip_text(v, MAX_LINE) if isinstance(v, str) and key == "lines" else v
+                    for v in items
+                ]
+            else:
+                out[key] = normalize_spec_data(value)
+        return out
+    if isinstance(data, list):
+        return [normalize_spec_data(v) for v in data]
+    return data
+
+
+def repair_spec(spec: BaseModel, pool: TextPool) -> BaseModel:
+    """출처에 없는 **선택 글자**만 덜어 낸다 — 버리기 전에 한 번. 필수 글자(상자·단계·지표 이름)는
+    그대로 두므로 그것이 출처에 없으면 validate_spec 이 여전히 거부한다.
+    - roadmap: 근거 없는 목표치 → "목표치 확인 필요", 근거 없는 단계 설명 → 없음
+    - concept: 근거 없는 설명 줄 → 뺌 / process: 근거 없는 산출물 → 뺌
+    - comparison: 근거 없는 칸 → "정보 없음"
+    stat_chart·schedule 은 손대지 않는다(값·기간은 고쳐 쓰지 않는다)."""
+
+    def ok(text: str) -> bool:
+        if not pool.has_text(text):
+            return False
+        for _, c in numbers(text):
+            if not pool.has_number(c) or (c[0] == "year" and c not in pool.plan_nums):
+                return False
+        return True
+
+    if isinstance(spec, RoadmapSpec):
+        metrics = [
+            m.model_copy(update={"target": m.target if ok(m.target) else TARGET_UNKNOWN})
+            for m in spec.metrics
+        ]
+        stages = [
+            s.model_copy(update={"desc": s.desc if s.desc and ok(s.desc) else None})
+            for s in spec.stages
+        ]
+        return spec.model_copy(update={"metrics": metrics, "stages": stages})
+    if isinstance(spec, ConceptSpec):
+        boxes = [b.model_copy(update={"lines": [x for x in b.lines if ok(x)]}) for b in spec.boxes]
+        return spec.model_copy(update={"boxes": boxes})
+    if isinstance(spec, ProcessSpec):
+        stages = [
+            s.model_copy(update={"outputs": [x for x in s.outputs if ok(x)]}) for s in spec.stages
+        ]
+        return spec.model_copy(update={"stages": stages})
+    if isinstance(spec, ComparisonSpec):
+
+        def cells(p):
+            return p.model_copy(
+                update={"cells": {a: (v if ok(v) else NO_INFO) for a, v in p.cells.items()}}
+            )
+
+        return spec.model_copy(
+            update={"projects": [cells(p) for p in spec.projects], "proposal": cells(spec.proposal)}
+        )
+    return spec
 
 
 def missing_texts(spec: BaseModel, pool: TextPool, *, limit: int = 5) -> list[str]:
@@ -289,7 +402,10 @@ def missing_texts(spec: BaseModel, pool: TextPool, *, limit: int = 5) -> list[st
             continue
         if isinstance(spec, StatChartSpec) and t == spec.source.caption():
             continue
-        bad_number = any(not pool.has_number(c) for _, c in numbers(t))
+        bad_number = any(
+            not pool.has_number(c) or (c[0] == "year" and c not in pool.plan_nums)
+            for _, c in numbers(t)
+        )
         if not pool.has_text(t) or (not isinstance(spec, StatChartSpec) and bad_number):
             out.append(t)
         if len(out) >= limit:

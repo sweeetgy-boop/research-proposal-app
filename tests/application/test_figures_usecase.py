@@ -91,7 +91,7 @@ async def test_bad_spec_is_corrected_once_then_fallback_then_dropped():
         "concept", "objective", SECTIONS, REQ, SNAP
     )
     assert result.spec is not None and result.retries == 1 and result.fallback and result.calls == 3
-    assert "[형식 교정" in local.calls[1] and "figure_text_not_in_sources" in local.calls[1]
+    assert "[형식 교정" in local.calls[1] and "인공지능 로봇 도입" in local.calls[1]
     # 대체도 실패하면 명세 없음 — 사유 코드만
     result = await make(FakeLLM(["{}", "{}"]), fallback=FakeLLM(["[]"])).make_spec(
         "concept", "objective", SECTIONS, REQ, SNAP
@@ -219,6 +219,27 @@ async def test_public_account_drops_internal_only_texts():
     # 인용하지 않은 청크의 글자는 처음부터 출처가 아니다 (검색 집합 전체를 근거로 치지 않는다)
     uc2 = make(FakeLLM([json.dumps(spec, ensure_ascii=False)] * 2))
     result2 = await uc2.make_spec("concept", "objective", SECTIONS, REQ, snap)
-    assert result2.spec is None and result2.reason == "figure_text_not_in_sources"
+    assert result2.spec is None and result2.reason == "figure_box_empty"
     assert "비공개 노선 X-9 자료" in uc2.llm.calls[1]  # 교정 재요청이 없는 글자를 알려 준다
     assert "X-9" not in uc.llm.calls[0]  # internal 청크는 프롬프트에도 넣지 않는다
+
+
+async def test_build_default_fills_up_with_next_kind_when_one_is_rejected():
+    roadmap = {
+        "metrics": [{"name": "열화 예측 기술 확보", "target": "목표치 확인 필요"}],
+        "stages": [{"name": "검측 이력 분석"}, {"name": "보수 우선순위 산정"}],
+    }
+    # 계획 concept·process·schedule — schedule 이 두 번 다 형식 오류 → roadmap 으로 채운다
+    llm = FakeLLM(
+        [
+            json.dumps(CONCEPT, ensure_ascii=False),
+            json.dumps(PROCESS, ensure_ascii=False),
+            "{}",
+            "{}",
+            json.dumps(roadmap, ensure_ascii=False),
+        ]
+    )
+    uc = make(llm, FakeImageGenerator())
+    builds, skipped = await uc.build_default(SECTIONS, REQ, SNAP)
+    assert sorted(b.figure.kind for b in builds) == ["concept", "process", "roadmap"]
+    assert skipped == [{"kind": "schedule", "section": "method", "reason": "schema"}]

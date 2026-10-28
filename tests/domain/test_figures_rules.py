@@ -235,3 +235,71 @@ def test_internal_only_texts_detected_for_public_accounts():
     spec = concept(lines=["비공개 노선 X-9 구간 자료"])
     assert rules.internal_only_texts(spec, pool) == ["비공개 노선 X-9 구간 자료"]
     assert rules.internal_only_texts(concept(), pool) == []
+
+
+def test_normalize_clips_long_texts_at_word_boundary_and_list_limits():
+    long = (
+        "경부선 일반철도 구간의 궤도 틀림(고저·방향·수평)은 궤도검측차가 분기별로 측정하고, "
+        "그 사이에는 도보로 확인한다."
+    )
+    data = {"boxes": [{"label": "현황 " * 20, "lines": [long, "a", "b"]}] * 4}
+    out = rules.normalize_spec_data(data)
+    box = out["boxes"][0]
+    assert len(box["label"]) <= 40 and len(box["lines"]) == 2
+    assert len(box["lines"][0]) <= 60 and long.startswith(box["lines"][0])
+    spec = parse_spec("concept", out)  # 형식 오류 없이 명세가 된다
+    assert spec.boxes[0].lines[0] == box["lines"][0]
+
+
+def test_repair_drops_unsupported_optional_texts_but_keeps_required_ones(pool):
+    roadmap = parse_spec(
+        "roadmap",
+        {
+            "metrics": [
+                {"name": "연간 보수", "target": "95% 이상 감지"},  # 근거 없는 목표치
+                {"name": "연간 보수", "target": "1,234건"},  # 근거 있음
+            ],
+            "stages": [
+                {"name": "검측 이력 분석", "desc": "승객 만족도 10% 향상"},
+                {"name": "보수 우선순위 산정", "desc": "검측 이력을 분석해"},
+            ],
+        },
+    )
+    fixed = rules.repair_spec(roadmap, pool)
+    assert [m.target for m in fixed.metrics] == ["목표치 확인 필요", "1,234건"]
+    assert [s.desc for s in fixed.stages] == [None, "검측 이력을 분석해"]
+    assert rules.validate_spec(fixed, pool) == []
+    concept_bad = concept(lines=["인공지능 로봇 도입"])
+    repaired = rules.repair_spec(concept_bad, pool)
+    assert repaired.boxes[0].lines == []
+    assert rules.validate_spec(repaired, pool) == [rules.BOX_EMPTY]  # 줄 없는 상자는 거부
+    required_bad = parse_spec(
+        "process",
+        {
+            "stages": [
+                {"name": "우주 발사"},
+                {"name": "검측 이력 분석"},
+                {"name": "보수 우선순위 산정"},
+            ]
+        },
+    )
+    assert rules.validate_spec(rules.repair_spec(required_bad, pool), pool) == [
+        rules.TEXT_NOT_IN_SOURCES
+    ]
+
+
+def test_plan_figure_years_must_come_from_draft_or_input_not_evidence():
+    pool = rules.text_pool(SECTIONS, REQ, ["2024년 보고서 기준 연간 보수 현황"], {})
+    spec = parse_spec(
+        "roadmap",
+        {
+            "metrics": [{"name": "연간 보수", "target": "목표치 확인 필요"}],
+            "stages": [{"name": "2024년 보고서 기준"}, {"name": "보수 우선순위 산정"}],
+        },
+    )
+    assert rules.validate_spec(spec, pool) == [
+        rules.NUMBER_NOT_IN_SOURCES
+    ]  # 근거의 연도는 계획 연도 아님
+    with_year = REQ.model_copy(update={"constraints": "2024년 착수, 연구기간 24개월"})
+    pool2 = rules.text_pool(SECTIONS, with_year, ["2024년 보고서 기준 연간 보수 현황"], {})
+    assert rules.validate_spec(spec, pool2) == []  # 제안자 입력에 있으면 허용

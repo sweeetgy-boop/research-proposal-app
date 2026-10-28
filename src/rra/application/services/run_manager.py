@@ -1757,8 +1757,7 @@ class RunManager:
             return
         self._save(state)
         try:
-            plan = self.figures.plan(sections, req, snapshot)
-            builds, skipped = await self.figures.build_all(plan, sections, req, snapshot)
+            builds, skipped = await self.figures.build_default(sections, req, snapshot)
             for b in builds:
                 self._save_build(user, run_id, b)
             v1 = self.store.load_version(user, run_id, 1)
