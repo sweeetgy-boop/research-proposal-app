@@ -552,7 +552,7 @@ class MakeFigures(TechniqueSteps):
         """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림. style 은 [말로 고치기] 모양 요청.
         [23] 밑그림은 본문 폭 맞춤(layout), 그림은 흰 여백을 잘라 비율을 맞추고(reframe), 글자
         크기는
-        OCR 로 어림해 작으면 글자를 한 단계 더 줄여 한 번 더 그린다(max_image_redraws)."""
+        OCR 로 어림해 작으면 "글자를 더 크게" 를 붙여 한 번 더 그린다(max_image_redraws)."""
         t0 = time.monotonic()
         fit: FigureFit | None = None
         svg = ""
