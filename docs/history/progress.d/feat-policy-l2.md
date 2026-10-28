@@ -2,4 +2,10 @@
 
 - 21:10 시작. 운영 DB 조사: korail_web policy 702건 중 사전정보공표 연구용역(infoRelNo 55) 272건, 통계자료 게시판 23건이
   policy 로 적재돼 있음.
-- 할 일: 자료 분류 규칙·이주 → 정책 근거 추천 범위 공유 → 인용문 정리 → 문서 표시 공용 도우미(docRefs) → L2 로컬 2차 검토 → 측정.
+- 21:50 완료: 자료 분류 규칙(`domain/rules/doc_category`)·korail_web normalize·`rra db reclassify`. 운영 DB 백업
+  (`data/backups/rra-20261028-214727.sqlite`) 뒤 이주 적용 — 702건 바뀜, 다른 자료원 0건.
+- 22:00 완료: 정책 근거 추천·작성안 같은 규칙(`policy_passage`)·인용 정리·문서 표시 도우미(서버 doc_refs·views_refs, 화면
+  docRefs·DocRef). L2 백엔드(시간 상한 제거·순서·판정 저장·Argon 제안·[반영]/[무시]·제출 전 점검·manifest).
+- 22:10 완료: 화면(문장 옆 "로컬 검토: …"·제안 카드·정책 추천/작성안 대기·취소), vitest·e2e(policy-l2.spec, helpers-text).
+- 22:15 발견: 로컬 검사기가 7B 배열 응답을 전부 버려 판정 0건 → 배열 수용 + 규칙 불일치(수치·이름·핵심어 겹침 0). 다시 확인함.
+- 22:25 레인 D #89 병합(확인 기록 record_mark). 측정(로컬 모델, 동료 run 0건 확인·무거운 작업 잠금) 진행 중.
