@@ -71,6 +71,9 @@ class FakePromptLibrary:
     def figures(self) -> str:
         return "FIGURES: 그림 명세 JSON 하나, 본문·입력·근거에 있는 글자·수치만"
 
+    def figure_edit(self) -> str:
+        return "FIGURE_EDIT: 요청 → {spec, style, summary} JSON 하나, 명세·요청 글자만"
+
 
 class FakeEmbedding:
     dim = 4

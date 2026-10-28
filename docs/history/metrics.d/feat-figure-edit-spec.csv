@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-28,TBD,[2] 그림 말로 고치기 = 명세 변경,1913,,8,,,,,,,,,,,,,,,말로 고치기 6회 한글 글자 변형 합계 1(오전 편집 1회 3·2)·31~41초·Nano Banana 6·Argon 6 (docs/eval-2026-10-28-figure-edit.md)

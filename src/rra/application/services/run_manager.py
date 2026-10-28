@@ -65,7 +65,7 @@ from rra.domain.models import (
     UsabilityConfig,
     UsageRecord,
 )
-from rra.domain.models.figure import Figure, FigurePlacement
+from rra.domain.models.figure import Figure, FigureChange, FigurePlacement
 from rra.domain.models.outline import Outline
 from rra.domain.models.review import (
     EditRequest,
@@ -1860,22 +1860,31 @@ class RunManager:
                 spec = figure_rules.apply_text_edits(fig.spec, dict(texts or {}))
             except ValueError as exc:
                 raise EditRejected(str(exc)) from exc
+            summary = figure_rules.spec_change_summary(fig.spec, spec)
             fig = fig.model_copy(update={"spec": spec, "alt": figure_rules.alt_text(spec)})
             build = await self.figures.draw(fig)
             self._save_build(user, run_id, build)
-            fig = build.figure
+            fig = build.figure.model_copy(
+                update={
+                    "last_change": FigureChange(kind="content", summary=summary, at=self._clock())
+                }
+            )
         elif action == "words":
             if not request_text.strip():
                 raise EditRejected("수정 요청이 비어 있습니다.")
-            current_img = self.store.load_figure_image(user, run_id, fig.image_sha or "")
-            if current_img is None:
-                raise EditRejected("현재 그림 파일이 없습니다.")
+            # 요청 → 명세 변경 → 밑그림 → 새로 그림 (현재 그림은 보내지 않는다, 2026-10-28 [2])
             try:
                 build = await self.figures.edit_by_words(
-                    fig, current_img[0], current_img[1], request_text
+                    fig,
+                    request_text,
+                    sections=current.sections,
+                    request=self.store.load_request(user, run_id),
+                    snapshot=self.store.load_snapshot(user, run_id),
                 )
             except SpecRejected as exc:
-                raise EditRejected(f"그림을 고치지 못했습니다 ({exc}).") from exc
+                raise EditRejected(
+                    f"그림을 고치지 못했습니다 ({exc}). {_edit_reject_hint(str(exc))}".rstrip()
+                ) from exc
             self._save_build(user, run_id, build)
             fig = build.figure
         else:
@@ -2319,6 +2328,29 @@ def manifest(
         "recommendations": dict(state.recommendations) if state.recommendations else None,
         "figures": [dict(x) for x in state.figures],  # [G] 그림 요약 (본문 없음)
     }
+
+
+_EDIT_REJECT_HINTS = {
+    "figure_text_not_in_sources": (
+        "초안·입력·근거나 요청에 없는 글자가 들어갔습니다 — 바꿀 글자를 따옴표로 적어 주십시오."
+    ),
+    "figure_number_not_in_sources": (
+        "근거에 없는 수치가 들어갔습니다 — 수치는 초안·입력에 있는 것만 씁니다."
+    ),
+    "figure_fact_not_found": "수치 그래프 값은 출처 문서의 검증 수치만 씁니다.",
+    "figure_schedule_exceeds_period": "일정이 연구기간을 넘습니다.",
+    "figure_box_empty": "개념도 상자마다 한 줄 이상 남아 있어야 합니다.",
+    "schema": "그림 형식(상자·단계 개수, 글자 길이)에 맞지 않습니다.",
+    "json": "모델 답을 읽지 못했습니다 — 다시 시도해 주십시오.",
+    "no_change": "요청에서 바꿀 점을 찾지 못했습니다 — 무엇을 어떻게 바꿀지 적어 주십시오.",
+    "internal_text": "공용 계정에서는 사내 자료에만 있는 글자를 그림에 넣을 수 없습니다.",
+    "budget": "오늘 그림 호출 상한에 이르렀습니다.",
+}
+
+
+def _edit_reject_hint(code: str) -> str:
+    """[말로 고치기] 거절 사유 코드 → 안내 한 문장 (앱 문구, 원문 없음)."""
+    return _EDIT_REJECT_HINTS.get(code, "")
 
 
 def _figure_summary(figures: list[Figure], previous: list[dict[str, Any]]) -> list[dict[str, Any]]:

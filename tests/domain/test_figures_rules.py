@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from rra.domain.models import ProposalRequest, Section, Sentence, TableFact
 from rra.domain.models.figure import Figure, parse_spec
 from rra.domain.rules import figures as rules
+from rra.domain.rules.numbers import numbers
 
 REQ = ProposalRequest(
     current_state="궤도 틀림이 반복 발생함",
@@ -184,9 +185,53 @@ def test_texts_alt_and_prompt_contain_every_label():
     for t in texts:
         assert f"- {t}" in prompt
     assert "로고" in prompt and "한 글자도 바꾸지" in prompt and "배치: 상자 4개" in prompt
-    assert "개인정보" not in rules.edit_prompt(
-        "상자 색을 더 진하게"
-    ) and "상자 색을 더 진하게" in rules.edit_prompt("상자 색을 더 진하게")
+    assert "모양 요청" not in prompt
+    styled = rules.image_prompt(spec, style="상자 테두리를 굵게")
+    assert "모양 요청(제안자): 상자 테두리를 굵게" in styled
+    assert styled.index("모양 요청") < styled.index("글자 목록:")  # 글자 목록은 늘 함께, 맨 뒤
+    for t in texts:
+        assert f"- {t}" in styled
+
+
+def test_spec_change_summary_lists_replacements_inserts_and_deletes():
+    spec = concept()
+    data = spec.model_dump()
+    data["boxes"][3]["lines"][0] = "이상 구간 조기 발견"
+    changed = parse_spec("concept", data)
+    assert rules.spec_change_summary(spec, changed) == [
+        f"상자 4 줄 1 '{spec.boxes[3].lines[0]}' → '이상 구간 조기 발견'"
+    ]
+    assert rules.spec_change_summary(spec, spec) == []
+    process = parse_spec(
+        "process",
+        {"stages": [{"name": "가 분석"}, {"name": "나 설계"}, {"name": "다 실증"}]},
+    )
+    grown = parse_spec(
+        "process",
+        {
+            "stages": [
+                {"name": "가 분석"},
+                {"name": "나 설계"},
+                {"name": "시작품 제작"},
+                {"name": "다 실증"},
+            ]
+        },
+    )
+    assert rules.spec_change_summary(process, grown) == ["단계 3 추가 '시작품 제작'"]
+    assert rules.spec_change_summary(grown, process) == ["단계 3 삭제 '시작품 제작'"]
+    many = parse_spec("process", {"stages": [{"name": f"단계명 {i}"} for i in range(6)]})
+    lines = rules.spec_change_summary(process, many, limit=3)
+    assert len(lines) == 3 and lines[-1].startswith("외 ")
+
+
+def test_with_texts_accepts_proposer_words_and_numbers():
+    pool = rules.text_pool([], None)
+    assert not pool.has_text("이상 구간 조기 발견")
+    more = rules.with_texts(pool, ["기대효과 첫 줄을 '이상 구간 조기 발견'으로, 2027년"])
+    assert more.has_text("이상 구간 조기 발견")
+    year = [c for _, c in numbers("2027년")][0]
+    assert more.has_number(year) and year in more.plan_nums
+    assert rules.with_texts(pool, []) is pool
 
 
 def test_text_edits_apply_only_allowed_paths_and_revalidate():

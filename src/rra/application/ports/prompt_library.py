@@ -46,6 +46,10 @@ class PromptLibraryPort(Protocol):
         """[G] 그림 명세(JSON) 작성 지시 — 본문·입력·근거에 있는 글자·수치만."""
         ...
 
+    def figure_edit(self) -> str:
+        """[G][2] 말로 고치기 — 요청을 명세 변경 {spec, style, summary} 로 바꾸는 지시."""
+        ...
+
     def brief(self) -> str:
         """U5 선행연구 브리핑 시스템 프롬프트 — 구획별 한 줄 요약·연구 공백 후보, JSON 객체."""
         ...

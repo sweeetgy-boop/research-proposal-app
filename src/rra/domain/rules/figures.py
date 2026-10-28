@@ -10,14 +10,17 @@
 - `texts_of`·`alt_text`·`image_prompt`: 명세의 글자 목록, 대체 텍스트, Nano Banana Pro 프롬프트.
 - `figure_diff`: 두 버전의 그림 목록 차이 (버전 비교 화면).
 - `apply_text_edits`: [글자 고치기] 폼 값(경로 → 글자)을 명세에 반영.
+- `spec_change_summary`: 명세 두 개의 "바뀐 내용" 한 줄씩 (카드 표시, [2] 말로 고치기).
+- `with_texts`: 이미 받아들인 글자(현재 명세·제안자 요청)를 pool 에 더한다 — [말로 고치기] 검사용.
 - `internal_only_texts`: 공용 계정용 — internal 근거에서만 나온 글자 목록(명세를 폐기하거나 뺀다).
 """
 
 from __future__ import annotations
 
+import difflib
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import Any
 
@@ -28,6 +31,8 @@ from rra.domain.models.figure import (
     FIGURE_KINDS,
     KIND_LABEL,
     KIND_SECTION,
+    MAX_CHANGE_LINE,
+    MAX_CHANGE_LINES,
     MAX_LABEL,
     MAX_LINE,
     ComparisonSpec,
@@ -157,6 +162,23 @@ def text_pool(
         facts=dict(facts or {}),
         internal_text=_norm("\n".join(internal)),
         plan_nums=frozenset(plan_nums),
+    )
+
+
+def with_texts(pool: TextPool, texts: Iterable[str]) -> TextPool:
+    """제안자 쪽 글자(현재 명세·[말로 고치기] 요청 원문)를 출처로 더한 pool. [글자 고치기]가 제안자
+    글자를 그대로 받듯, 말로 고친 명세도 제안자가 적은 글자는 통과한다. 수치는 계획 수치로 친다."""
+    extra = "\n".join(t for t in texts if t)
+    if not extra:
+        return pool
+    words = {w.casefold() for w in _WORD.findall(extra)}
+    nums = {c for _, c in numbers(extra)}
+    return replace(
+        pool,
+        text=pool.text + "\n" + _norm(extra),
+        words=pool.words | words,
+        nums=pool.nums | nums,
+        plan_nums=pool.plan_nums | nums,
     )
 
 
@@ -462,9 +484,10 @@ def choose_default(
 
 
 # ── 프롬프트 ─────────────────────────────────────────────
-def image_prompt(spec: BaseModel, *, caption: str = "") -> str:
+def image_prompt(spec: BaseModel, *, caption: str = "", style: str = "") -> str:
     """Nano Banana Pro 프롬프트 — 배치·순서 유지, 글자 목록 그대로, 금지 목록. 명세 글자만
-    보낸다."""
+    보낸다. style 은 [말로 고치기]의 모양 요청(색·굵기·여백) — 밑그림에서 새로 그릴 때 덧붙인다
+    (현재 그림을 다시 그리는 편집 호출은 글자가 변형돼 쓰지 않는다, 2026-10-28 [2])."""
     label = KIND_LABEL.get(getattr(spec, "kind", ""), "그림")
     layout = _layout_hint(spec)
     lines = [
@@ -474,28 +497,18 @@ def image_prompt(spec: BaseModel, *, caption: str = "") -> str:
         "아래 글자 목록의 글자를 한 글자도 바꾸지 말고 그대로 써라. "
         "목록에 없는 글자·숫자·로고·사람 얼굴·실제 기관 상표는 넣지 마라.",
         layout,
+        (
+            f"모양 요청(제안자): {' '.join(style.split())} — 색·선 굵기·여백 같은 모양만 바꾸고, "
+            "글자·배치·순서·화살표 방향은 참고 이미지와 글자 목록 그대로 둔다."
+        )
+        if style.strip()
+        else "",
         "글자 목록:",
         *[f"- {t}" for t in texts_of(spec)],
     ]
     if caption:
         lines.append(f"그림 제목(그림 안에 넣지 않는다): {caption}")
     return "\n".join(x for x in lines if x)
-
-
-def edit_prompt(request: str, texts: Sequence[str] = ()) -> str:
-    """[말로 고치기] — 현재 그림을 입력으로 넣고 제안자 요청만 반영. 명세 글자 목록을 함께 넣어
-    다시 그릴 때 글자가 바뀌지 않게 한다(2026-10-28 실측: 목록 없이 편집하면 "상태→샹태" 변형)."""
-    lines = [
-        "첨부한 그림을 아래 요청대로만 고쳐라. 요청에 없는 부분(배치·글자·색)은 그대로 두고, "
-        "새 글자·숫자·로고·사람 얼굴·실제 기관 상표를 넣지 마라. 흰 배경을 유지하라.",
-        f"요청: {request.strip()}",
-    ]
-    if texts:
-        lines.append(
-            "그림 속 글자는 아래 목록과 한 글자도 다르지 않게 유지하라(맞춤법을 고치지 마라):"
-        )
-        lines.extend(f"- {t}" for t in texts)
-    return "\n".join(lines)
 
 
 def _layout_hint(spec: BaseModel) -> str:
@@ -633,6 +646,50 @@ def editable_texts(spec: BaseModel) -> list[dict[str, str]]:
                     }
                 )
     return rows
+
+
+def _change_rows(spec: BaseModel) -> list[tuple[str, str]]:
+    """바뀐 내용 비교용 (이름, 값) — 고칠 수 있는 글자 + 일정표 기간·수치 그래프 값."""
+    rows = [(r["label"], r["value"]) for r in editable_texts(spec)]
+    if isinstance(spec, ScheduleSpec):
+        rows.extend(
+            (f"단계 {i + 1} 기간", f"{s.start_month}~{s.end_month}개월")
+            for i, s in enumerate(spec.stages)
+        )
+        rows.append(("총 기간", f"{spec.total_months}개월"))
+    elif isinstance(spec, StatChartSpec):
+        rows.extend((f"값 {i + 1}", v) for i, v in enumerate(spec.value_texts))
+    return rows
+
+
+def _clip_line(text: str) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= MAX_CHANGE_LINE else text[: MAX_CHANGE_LINE - 1] + "…"
+
+
+def spec_change_summary(
+    old: BaseModel, new: BaseModel, *, limit: int = MAX_CHANGE_LINES
+) -> list[str]:
+    """명세 두 개의 차이를 한 줄씩 — "단계 3 '…' → '…'", "단계 4 추가 '…'", "산출물 삭제 '…'".
+    순서 비교(SequenceMatcher)라 단계를 끼워 넣어도 뒤 단계가 모두 바뀐 것으로 나오지 않는다."""
+    before, after = _change_rows(old), _change_rows(new)
+    a, b = [v for _, v in before], [v for _, v in after]
+    lines: list[str] = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(a=a, b=b, autojunk=False).get_opcodes():
+        if op == "equal":
+            continue
+        pairs = min(i2 - i1, j2 - j1) if op == "replace" else 0
+        for k in range(pairs):
+            lines.append(f"{after[j1 + k][0]} '{a[i1 + k]}' → '{b[j1 + k]}'")
+        for j in range(j1 + pairs, j2):
+            lines.append(f"{after[j][0]} 추가 '{b[j]}'")
+        for i in range(i1 + pairs, i2):
+            lines.append(f"{before[i][0]} 삭제 '{a[i]}'")
+    if not lines and old.model_dump() != new.model_dump():
+        lines.append("배치·연결 변경")
+    if len(lines) > limit:
+        lines = [*lines[: limit - 1], f"외 {len(lines) - limit + 1}건"]
+    return [_clip_line(x) for x in lines]
 
 
 def apply_text_edits(spec: BaseModel, edits: Mapping[str, str]) -> BaseModel:

@@ -92,11 +92,43 @@ describe("FigureCard", () => {
     expect(postBody(calls)).toMatchObject({ action: "confirm", base_version: draft.version });
   });
 
+  it("바뀐 내용 — last_change.summary 를 목록으로(비신뢰 글자 그대로), 없으면 숨김, axe 통과", async () => {
+    mockFetch({});
+    const { container, unmount } = mount({
+      ...concept,
+      last_change: {
+        kind: "content",
+        summary: ["상자 4 줄 1 '점검 인력 절감' → '이상 구간 조기 발견'", "모양: <b>테두리</b> 굵게"],
+        style: "테두리 굵게",
+        model: "gemini-4-argon",
+        at: "2026-10-28T10:00:00+00:00",
+      },
+    });
+    const box = screen.getByRole("region", { name: "바뀐 내용" });
+    const items = within(box).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual(["상자 4 줄 1 '점검 인력 절감' → '이상 구간 조기 발견'", "모양: <b>테두리</b> 굵게"]);
+    expect(box.querySelector("b")).toBeNull(); // HTML 로 해석하지 않는다
+    await expectNoA11yViolations(container);
+    unmount();
+    mount({ ...concept, last_change: { kind: "style", summary: ["모양: 테두리 굵게"], style: "테두리 굵게", model: null, at: null } });
+    expect(screen.getByRole("region", { name: "바뀐 내용 (모양만)" })).toBeInTheDocument();
+  });
+
+  it("바뀐 내용이 없으면(last_change 없음·null) 구획을 그리지 않는다", () => {
+    mockFetch({});
+    const { unmount } = mount(concept);
+    expect(screen.queryByText(/바뀐 내용/)).toBeNull();
+    unmount();
+    mount({ ...concept, last_change: null });
+    expect(screen.queryByText(/바뀐 내용/)).toBeNull();
+  });
+
   it("[말로 고치기] → action words + request", async () => {
     const { calls } = mockFetch({ [url]: saved });
     const { onApplied } = mount(concept);
     await userEvent.click(screen.getByRole("button", { name: "연구 개념도 말로 고치기" }));
     const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("그림 명세를 고친 뒤 밑그림에서 새로 그리고");
     expect(within(dialog).getByRole("button", { name: "고치기" })).toBeDisabled();
     await userEvent.type(within(dialog).getByLabelText("수정 요청"), "화살표를 굵게");
     await userEvent.click(within(dialog).getByRole("button", { name: "고치기" }));

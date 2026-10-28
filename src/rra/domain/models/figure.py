@@ -49,6 +49,8 @@ MAX_LINE = 60
 MAX_CAPTION = 120
 MAX_EDIT_REQUEST = 500
 MAX_EDIT_HISTORY = 20
+MAX_CHANGE_LINES = 8
+MAX_CHANGE_LINE = 160
 
 Label = Annotated[str, Field(min_length=1, max_length=MAX_LABEL)]
 Line = Annotated[str, Field(min_length=1, max_length=MAX_LINE)]
@@ -208,6 +210,23 @@ class EditRequestRecord(BaseModel):
     ok: bool = True  # 호출 성공 여부
 
 
+ChangeKind = Literal["content", "style"]
+
+
+class FigureChange(BaseModel):
+    """마지막 [말로 고치기]·[글자 고치기] 결과 — 카드 "바뀐 내용" (2026-10-28 [2]).
+    content = 명세(글자·단계·순서)가 바뀌어 밑그림부터 새로 그림,
+    style = 명세 그대로 모양만 다시 그림. style 칸은 그림 프롬프트에 붙인 모양 요청."""
+
+    kind: ChangeKind = "content"
+    summary: list[Annotated[str, Field(max_length=MAX_CHANGE_LINE)]] = Field(
+        default_factory=list, max_length=MAX_CHANGE_LINES
+    )
+    style: str = Field(default="", max_length=MAX_EDIT_REQUEST)
+    model: str | None = None  # 요청 → 명세 변경을 쓴 모델 (argon·local 라벨). 글자 고치기는 None
+    at: str | None = None
+
+
 class Figure(BaseModel):
     id: str  # "f:<section>:<n>"
     kind: FigureKind
@@ -228,6 +247,8 @@ class Figure(BaseModel):
     edit_requests: list[EditRequestRecord] = Field(
         default_factory=list, max_length=MAX_EDIT_HISTORY
     )
+    spec_model: str | None = None  # 명세를 쓴 모델 라벨 (Argon 먼저, 실패면 로컬 — [2])
+    last_change: FigureChange | None = None  # 마지막 명세·모양 변경 요약 (버전이 바뀌어도 이어진다)
     created_at: str | None = None
     updated_at: str | None = None
 
