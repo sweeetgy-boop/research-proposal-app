@@ -380,6 +380,18 @@ async def test_section_questions_argon_then_checklist_fallback():
     assert res.questions == [{"element": "국외 동향", "question": "국외는?"}]
 
 
+async def test_section_questions_never_zero_when_checklist_is_covered():
+    """Argon 이 "빠진 것 없음"(빈 목록)이고 체크리스트 요소도 본문에 다 있으면 — 0개로 끝내지 않고
+    체크리스트 질문을 "더 보강할 점"으로 묻는다 (2026-10-28 측정: 05 과제유형 0개)."""
+    sec = Section(key="tech_importance", sentences=[Sentence(text="국외 동향을 정리함.")])
+    argon = FakeLLM([json.dumps({"questions": []})])
+    uc = SectionQuestions(ArgonFirst(FakeLLM(), argon), FakePromptLibrary(), CHECK)
+    res = await uc("tech_importance", sec, [], REQ)
+    assert res.source == "strengthen" and res.reason is None
+    assert res.questions == [{"element": "국외 동향", "question": "국외는?"}]
+    assert res.dump()["source_label"] == "빠진 요소는 없습니다 — 더 보강할 점을 묻습니다"
+
+
 def test_every_form_section_has_a_checklist():
     from rra.config_loader import lint_rules, section_checklists
     from rra.settings import Settings

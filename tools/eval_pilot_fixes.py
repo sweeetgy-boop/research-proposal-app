@@ -147,6 +147,17 @@ class Driver:
             hit = any(d in top5 for d in expected)
         else:
             hit = None
+        out["blocking_detail"] = [
+            {
+                "doc_id": a.get("doc_id"),
+                "title": a.get("title"),
+                "expected": bool(expected and set(_alert_ids(a)) & set(expected)),
+                "rerank": a.get("rerank_score"),
+                "judgment": a.get("judgment"),
+                "reason": a.get("judgment_reason"),
+            }
+            for a in blocking
+        ]
         rec = body.get("recommendations")
         # 제안자처럼 고른다: 정답 유사과제가 표에 있으면 [유사함], 나머지 차단 행은 [관련 없음]
         choices = []
@@ -211,26 +222,30 @@ class Driver:
         questions: dict[str, Any] = {}
         t = time.perf_counter()
         for key in SECTIONS:
+            t1 = time.perf_counter()
             code, body = await self.j("POST", f"/v1/runs/{rid}/sections/{key}/rewrite")
             b = body if isinstance(body, dict) else {}
             n = b.get("new_count")
             if n is None:
                 n = len(b.get("candidates") or b.get("sentences") or [])
+            writer = b.get("writer") or {}
             rewrite[key] = {
                 "status": code,
                 "new": n,
                 "reason": b.get("reason"),
                 "mode": b.get("mode"),
-                "writer": b.get("writer"),
+                "provider": writer.get("provider") if isinstance(writer, dict) else None,
+                "seconds": round(time.perf_counter() - t1, 1),
             }
+            t2 = time.perf_counter()
             code, body = await self.j("GET", f"/v1/runs/{rid}/sections/{key}/questions")
             b = body if isinstance(body, dict) else {}
-            qs = b.get("questions") or []
             questions[key] = {
                 "status": code,
-                "count": len(qs),
+                "count": len(b.get("questions") or []),
                 "source": b.get("source"),
                 "reason": b.get("reason"),
+                "seconds": round(time.perf_counter() - t2, 1),
             }
         return {
             "rewrite": rewrite,
@@ -246,6 +261,7 @@ class Driver:
         not_similar: bool,
         *,
         full: bool,
+        sweep: bool = True,
     ) -> dict[str, Any]:
         row: dict[str, Any] = {"name": name, "not_similar": not_similar}
         row.update(await self.precheck(req, expected, not_similar))
@@ -288,7 +304,7 @@ class Driver:
         )
         row["sentences"] = sum(len(s.get("sentences") or []) for s in secs)
         row["figures"] = len((draft or {}).get("figures") or []) if code == 200 else None
-        if full and row["status"] in ("drafted", "editing"):
+        if full and sweep and row["status"] in ("drafted", "editing"):
             row.update(await self.sections(rid))
         if full:
             code, _ = await self.j("POST", f"/v1/runs/{rid}/final-review")
@@ -301,6 +317,29 @@ class Driver:
             manifest = _manifest(rid)
             row["hwpx_format"] = manifest.get("hwpx_format")
         return row
+
+
+def colleague_active(own: set[str]) -> int:
+    """동료 run(측정이 만든 것 제외) 중 대기·실행 중인 수 — runs/<사용자>/<run>/state.json."""
+    n = 0
+    for path in (ROOT / "runs").glob("*/*/state.json"):
+        if path.parent.name in own:
+            continue
+        try:
+            status = json.loads(path.read_text(encoding="utf-8")).get("status")
+        except (OSError, ValueError):
+            continue
+        if status in ("queued", "running"):
+            n += 1
+    return n
+
+
+async def wait_quiet(own: set[str], *, limit: float = 5400.0) -> float:
+    """동료 생성이 있으면 끝날 때까지 기다린다(시범 규칙: 동료가 쓰는 동안 mlx 측정 금지)."""
+    t0 = time.perf_counter()
+    while colleague_active(own) and time.perf_counter() - t0 < limit:
+        await asyncio.sleep(30)
+    return round(time.perf_counter() - t0, 1)
 
 
 def _manifest(rid: str) -> dict[str, Any]:
@@ -321,19 +360,38 @@ async def main() -> int:
         "--gen-only", action="store_true", help="② + 생성만 (다시 쓰기·보완 질문·검토·마무리 생략)"
     )
     ap.add_argument("--label", default="pilot_fixes")
+    ap.add_argument(
+        "--sweep", default="", help="12섹션 다시 쓰기·보완 질문을 할 이름 접두어(쉼표). 비면 전부"
+    )
+    ap.add_argument(
+        "--append",
+        action="store_true",
+        help="--out 의 기존 결과에 이어 붙이고 있는 이름은 건너뛴다",
+    )
     args = ap.parse_args()
     only = [s.strip() for s in args.only.split(",")] if args.only else None
     ideas = load_ideas(only)
     d = Driver(args.base, _token())
     rows: list[dict[str, Any]] = []
     out = Path(args.out)
+    if args.append and out.exists():
+        rows = json.loads(out.read_text(encoding="utf-8")).get("rows") or []
+        done = {r["name"] for r in rows}
+        ideas = [i for i in ideas if i[0] not in done]
+    sweep = [x.strip() for x in args.sweep.split(",") if x.strip()]
     out.parent.mkdir(parents=True, exist_ok=True)
     started = time.strftime("%Y-%m-%dT%H:%M:%S")
     try:
+        own: set[str] = set()
         for name, req, expected, ns in ideas:
+            waited = await wait_quiet(own)
             t = time.perf_counter()
-            row = await d.one(name, req, expected, ns, full=not args.gen_only)
+            do_sweep = not sweep or any(name.startswith(x) for x in sweep)
+            row = await d.one(name, req, expected, ns, full=not args.gen_only, sweep=do_sweep)
             row["seconds"] = round(time.perf_counter() - t, 1)
+            row["waited_for_colleagues"] = waited
+            if row.get("run_id"):
+                own.add(row["run_id"])
             rows.append(row)
             print(
                 json.dumps(
