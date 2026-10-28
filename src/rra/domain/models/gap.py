@@ -16,6 +16,35 @@ JudgedBy = Literal["argon", "local", "rule"]
 SimilarChoiceValue = Literal["similar", "unrelated"]
 
 
+class SeriesDoc(BaseModel):
+    """연작 한 판(edition)의 문서 하나 — 같은 보고서가 사내 과제·알리오·공사 홈페이지에 함께
+    있을 때."""
+
+    doc_id: str
+    source: str
+    url: str | None = None
+    visibility: Literal["public", "internal"] = "public"
+
+
+class SeriesEdition(BaseModel):
+    """연작의 한 판 — 제목이 같은 문서 묶음 (연도별 목록의 한 줄). 제목·요약은 비신뢰 텍스트."""
+
+    title: str
+    year: int | None = None
+    docs: list[SeriesDoc] = Field(default_factory=list)  # 대표(점수 높은 것) 먼저
+    summary: str = ""  # 근거 패널 요약 (대표 문서 앞부분)
+
+
+class SeriesInfo(BaseModel):
+    """② 같은 연작(제목이 연도·차수만 다른 과제) 묶음 (2026-10-29 레인 A, ADR 0043).
+    label 은 연도·차수를 뺀 제목("광역철도 수송수요 예측"), count 는 판(제목) 수."""
+
+    key: str
+    label: str
+    count: int
+    members: list[SeriesEdition] = Field(default_factory=list)  # 연도 순
+
+
 class OverlapAlert(BaseModel):
     doc_id: str
     title: str
@@ -43,6 +72,8 @@ class OverlapAlert(BaseModel):
         default_factory=list
     )  # 제목이 같은 다른 문서(NTIS 번호만 다른 중복)
     choice: SimilarChoiceValue | None = None  # 제안자 선택 [유사함]=similar / [관련 없음]=unrelated
+    # 같은 연작 묶음(ADR 0043) — 판이 둘 이상일 때만. 판의 doc_id 는 모두 merged_ids 에도 있다
+    series: SeriesInfo | None = None
 
 
 class RelatedResearch(BaseModel):

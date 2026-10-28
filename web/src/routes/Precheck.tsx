@@ -221,6 +221,9 @@ export default function Precheck() {
 
   const choose = (docId: string, value: SimilarChoiceValue | null) => {
     const next = { ...choices };
+    // 묶음 행(같은 제목·같은 연작, ADR 0043)의 선택은 행 하나 — 구성원 doc_id 로 남은 옛 선택은 지운다
+    const row = pre.alerts.find((a) => a.doc_id === docId);
+    for (const id of row?.merged_ids ?? []) delete next[id];
     if (value) next[docId] = value;
     else delete next[docId];
     updateIdea({

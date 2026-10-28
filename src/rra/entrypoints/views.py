@@ -37,9 +37,11 @@ from rra.domain.rules.problem_labels import (
 )
 from rra.domain.rules.recommendation import discard_label
 from rra.domain.rules.same_judgment import VERDICT_LABELS
+from rra.domain.rules.series import display_title
 from rra.domain.rules.writer import local_check_view, local_sections, writers_view
 from rra.entrypoints.views_editai import rewrite_reason_label
 from rra.entrypoints.views_refs import citation_ref, no_ids, refs_for, titles_from
+from rra.entrypoints.views_series import series_payload
 
 
 def _same(text: str) -> str:
@@ -803,7 +805,7 @@ def alerts_payload(
         "alerts": [
             {
                 "doc_id": a.doc_id,
-                "title": clean(a.title),
+                "title": clean(display_title(a.title)),  # 공시용 요약문 머리 뗌 (ADR 0043)
                 "tier": a.tier,
                 "similarity": round(a.similarity, 4),
                 "blocking": a.blocking,
@@ -835,6 +837,8 @@ def alerts_payload(
                 # 화면은 유사도·내부 번호를 보이지 않는다
                 **level_view(a),
                 "source_label": source_label_of(a.doc_id),
+                # 같은 연작 묶음 (ADR 0043) — "광역철도 수송수요 예측(연작 7건)" + 연도별 목록
+                "series": series_payload(getattr(a, "series", None), clean=clean),
             }
             for a in alerts
         ],
@@ -958,7 +962,7 @@ def differentiation_payload(
         "items": [
             {
                 "doc_id": i.doc_id,
-                "title": clean(i.title),
+                "title": clean(display_title(i.title)),
                 "tier": i.tier,
                 "status": i.status,
                 "overlap_summary": clean(i.overlap_summary),
@@ -1020,13 +1024,15 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
                 "refs": [
                     {
                         "doc_id": ref.doc_id,
-                        "title": clean(ref.title),
+                        "title": clean(display_title(ref.title)),
                         "source_label": SOURCE_LABELS.get(ref.source, "")
                         or source_label_of(ref.doc_id),
                     }
                     for ref in getattr(r, "refs", []) or []
                 ],
-                "overlap_titles": [clean(t) for t in getattr(r, "overlap_titles", []) or []],
+                "overlap_titles": [
+                    clean(display_title(t)) for t in getattr(r, "overlap_titles", []) or []
+                ],
                 "overlap_reason": clean(getattr(r, "overlap_reason", "") or ""),
                 "overlap_by": getattr(r, "overlap_by", None),
                 "overlap_by_label": OVERLAP_BY_LABELS.get(
@@ -1256,7 +1262,7 @@ def comparison_payload(table: Any, *, clean: Callable[[str], str] = _same) -> di
     def col(c):
         return {
             "doc_id": c.doc_id,
-            "title": clean(c.title),
+            "title": clean(display_title(c.title)),
             "tier": c.tier,
             "similarity": c.similarity,
             "blocking": c.blocking,
