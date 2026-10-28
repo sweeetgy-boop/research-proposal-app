@@ -26,6 +26,8 @@ def test_overlap_candidates_drops_policy_and_news_only():
         "audit",
         "statistics",
         "rnd_notice",
+        "admin_notice",  # 행정 공시·사업 현황도 과제가 아니다 (ADR 0046)
+        "status_report",
     }
 
 

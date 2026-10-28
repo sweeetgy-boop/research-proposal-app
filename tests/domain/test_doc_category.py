@@ -1,4 +1,6 @@
-"""자료 분류 (ADR 0040) — 사전정보공표 연구용역·행정 공시·사업 현황은 정책 근거가 아니다."""
+"""자료 분류 (ADR 0040·0046) — 사전정보공표 연구용역·행정 공시·사업 현황은 정책 근거가 아니다.
+
+ADR 0046: 행정 공시 → doc_type admin_notice, 사업 현황 → status_report, 통계 → statistics."""
 
 import pytest
 
@@ -42,9 +44,14 @@ def _raw(title, *, rel, cat, menu="preinfo", kind="attachment"):
         ("전차선 급전장애(아크) 감지 기술 개선", 55, "IRTYP2", ("procurement", "research_service")),
         ("2026년 부서별 주요계획", 39, "IRTYP2", ("policy", "policy")),
         ("(홈페이지)전략목표및과제종합", 53, "IRTYP2", ("policy", "policy")),
-        ("26년 2분기 신규채용자 친인척 재직관련 현황", 60, "IRTYP4", ("policy", "admin_record")),
-        ("2025년 소송 주요 판례", 56, "IRTYP3", ("policy", "admin_record")),
-        ("동해산타열차 소개", 137, "IRTYP6", ("policy", "status")),
+        (
+            "26년 2분기 신규채용자 친인척 재직관련 현황",
+            60,
+            "IRTYP4",
+            ("admin_notice", "admin_record"),
+        ),
+        ("2025년 소송 주요 판례", 56, "IRTYP3", ("admin_notice", "admin_record")),
+        ("동해산타열차 소개", 137, "IRTYP6", ("status_report", "status")),
         ("2026년 전사 산업안전보건관리 계획", 232, "IRTYP6", ("policy", "policy")),
     ],
 )
@@ -59,18 +66,12 @@ def test_other_menus_and_statistics_board():
         "statistics",
         "statistics",
     )
-    assert (
-        classify_korail(doc_type="policy", title="선로시설 현황", raw={"menu": "biz_maint_track"})[
-            1
-        ]
-        == "status"
-    )
-    assert (
-        classify_korail(
-            doc_type="policy", title="계약업무처리 세부기준", raw={"menu": "contract_rules"}
-        )[1]
-        == "admin_record"
-    )
+    assert classify_korail(
+        doc_type="policy", title="선로시설 현황", raw={"menu": "biz_maint_track"}
+    ) == ("status_report", "status")
+    assert classify_korail(
+        doc_type="policy", title="계약업무처리 세부기준", raw={"menu": "contract_rules"}
+    ) == ("admin_notice", "admin_record")
     study = classify_korail(
         doc_type="policy",
         title="(요약본) 구.원주역 유휴부지 활용방안 검토 자문용역",
@@ -144,3 +145,101 @@ async def test_reclassify_counts_and_writes_only_with_apply():
     assert repo.docs["korail_web:g"].raw[CLASS_KEY] == "policy"
     again = await use(dry_run=True)
     assert again.changed == 0  # 두 번 돌려도 같다
+
+
+@pytest.mark.parametrize(
+    ("doc_type", "title", "raw", "want"),
+    [
+        # 행정 공시 — 감사·법무·행정(사전정보공표 IRTYP1·3·4)·규정 메뉴·규정 제목의 신사업자료
+        (
+            "policy",
+            "법인카드 사용 내역",
+            {"menu": "preinfo", "native_id": "preinfo:60:1"},
+            "admin_notice",
+        ),
+        ("policy", "인사 규정", {"menu": "human_docs"}, "admin_notice"),
+        ("policy", "상생협력 안내", {"menu": "winwin_guide"}, "admin_notice"),
+        ("policy", "신사업 추진 세칙", {"menu": "biz_newbiz"}, "admin_notice"),
+        # 사업 현황·소개 — IRTYP6·현황 메뉴·브로슈어
+        ("policy", "선로 현황", {"menu": "biz_maint_track"}, "status_report"),
+        ("policy", "회사 소개 책자", {"menu": "brochure"}, "status_report"),
+        ("policy", "역사", {"menu": "history"}, "status_report"),
+        # 통계 — 통계자료 게시판·이미 statistics 인 행
+        ("policy", "광역 수송 통계", {"menu": "biz_stat_docs"}, "statistics"),
+        ("statistics", "수송 통계", {"menu": "biz_stat_docs"}, "statistics"),
+        # 정책·연구용역은 그대로
+        ("policy", "중장기 경영목표", {"menu": "mgmt_goal"}, "policy"),
+        (
+            "policy",
+            "수송수요 예측",
+            {"menu": "preinfo", "native_id": "preinfo:55:1"},
+            "procurement",
+        ),
+    ],
+)
+def test_each_category_gets_its_doc_type(doc_type, title, raw, want):
+    got, category = classify_korail(doc_type=doc_type, title=title, raw=raw)
+    assert got == want
+    doc = Document(
+        doc_id="korail_web:t", source="korail_web", doc_type=got, title=title, raw=dict(raw)
+    )
+    assert is_policy_basis(doc) is (want == "policy")
+    # 이미 바뀐 행을 다시 판정해도 같다(멱등)
+    assert classify_korail(doc_type=got, title=title, raw=raw) == (got, category)
+
+
+def test_new_doc_types_keep_their_category_without_stored_class():
+    for doc_type, category in (("admin_notice", "admin_record"), ("status_report", "status")):
+        doc = Document(doc_id="korail_web:z", source="korail_web", doc_type=doc_type, title="t")
+        assert category_of(doc) == category and not is_policy_basis(doc)
+        assert classify_korail(doc_type=doc_type, title="t", raw={}) == (doc_type, category)
+
+
+async def test_reclassify_moves_admin_and_status_rows_out_of_policy_once():
+    """ADR 0040 때 policy + doc_class 로 적재된 행 → admin_notice·status_report. 두 번째는 0건."""
+    admin = Document(
+        doc_id="korail_web:a",
+        source="korail_web",
+        doc_type="policy",
+        title="2025년 소송 주요 판례",
+        raw={"menu": "preinfo", "native_id": "preinfo:56:1", CLASS_KEY: "admin_record"},
+    )
+    status = Document(
+        doc_id="korail_web:s",
+        source="korail_web",
+        doc_type="policy",
+        title="선로 현황",
+        raw={"menu": "biz_maint_track", CLASS_KEY: "status"},
+    )
+    stat = Document(
+        doc_id="korail_web:t",
+        source="korail_web",
+        doc_type="statistics",
+        title="통계",
+        raw={"menu": "biz_stat_docs", CLASS_KEY: "statistics"},
+    )
+    goal = Document(
+        doc_id="korail_web:g",
+        source="korail_web",
+        doc_type="policy",
+        title="중장기 경영목표",
+        raw={"menu": "mgmt_goal", CLASS_KEY: "policy"},
+    )
+    repo = InMemoryRepository()
+    repo.seed([admin, status, stat, goal], [])
+    use = ReclassifyDocuments(repo, sources=("korail_web",))
+    dry = await use(dry_run=True)
+    rep = dry.sources[0]
+    assert rep.changed == 2 and dry.written == 0
+    assert rep.transitions == {"policy→admin_notice": 1, "policy→status_report": 1}
+    assert rep.as_dict()["transitions"] == {"policy→admin_notice": 1, "policy→status_report": 1}
+    assert repo.docs["korail_web:a"].doc_type == "policy"  # 점검만
+    done = await use(dry_run=False)
+    assert done.written == 2
+    assert repo.docs["korail_web:a"].doc_type == "admin_notice"
+    assert repo.docs["korail_web:s"].doc_type == "status_report"
+    assert repo.docs["korail_web:t"].doc_type == "statistics"
+    assert repo.docs["korail_web:g"].doc_type == "policy"
+    assert repo.docs["korail_web:a"].raw[CLASS_KEY] == "admin_record"
+    again = await use(dry_run=True)
+    assert again.changed == 0 and not again.sources[0].transitions  # 멱등

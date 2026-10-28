@@ -226,8 +226,8 @@ def _clean_name(name: str) -> str:
 def normalize_korail_item(raw: Mapping[str, Any]) -> Document:
     """순수 함수. 본문은 strip_pii 를 거친다. doc_type 은 메뉴 설정값을 자료 분류 규칙
     (domain/rules/doc_category, ADR 0040)으로 바로잡는다 — 사전정보공표 연구용역은 procurement +
-    raw.doc_class research_service, 행정 공시·사업 현황은 policy + raw.doc_class 로 정책 근거에서
-    빠진다."""
+    raw.doc_class research_service, 행정 공시·사업 현황은 admin_notice·status_report
+    + raw.doc_class 로 정책 근거·경영전략 정합성 근거에서 빠진다(ADR 0046)."""
     doc_type = str(raw.get("doc_type") or "policy")
     if doc_type not in DOC_TYPES:
         raise ValueError(f"korail_web doc_type 은 {sorted(DOC_TYPES)}: {doc_type!r}")

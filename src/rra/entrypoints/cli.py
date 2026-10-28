@@ -800,6 +800,8 @@ def cmd_db_reclassify(args: argparse.Namespace) -> int:
         if s["changed"]:
             print(f"    전: {s['before']}")
             print(f"    후: {s['after']}")
+        if s.get("transitions"):
+            print(f"    자료 종류 변경: {s['transitions']}")
     return EXIT_OK
 
 
@@ -2691,7 +2693,8 @@ def build_parser() -> argparse.ArgumentParser:
     bk.add_argument("--keep", type=int, default=7, help="같은 폴더에 남길 사본 수 (기본 7)")
     bk.set_defaults(handler=cmd_db_backup)
     rc = db_sub.add_parser(
-        "reclassify", help="자료 분류 이주 — 사전정보공표 연구용역·행정 공시 바로잡기 (ADR 0040)"
+        "reclassify",
+        help="자료 분류 이주 — 사전정보공표 연구용역·행정 공시·사업 현황 바로잡기 (ADR 0040·0046)",
     )
     rc.add_argument("--apply", action="store_true", help="실제로 쓴다 (기본: 집계만)")
     rc.add_argument("--json", action="store_true", help="집계를 JSON 으로")

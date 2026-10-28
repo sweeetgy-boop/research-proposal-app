@@ -735,6 +735,11 @@ Argon 점수(필요성·차별성·실현가능성·기대효과)는 이전 run 
   모자라면 후보 순위에서 보탠다(`top_up_scholarly`). 기술적 중요도·연구방법은 2.
 - `overlap_exclude`: 유사과제 판정(precheck·generate retrieve)에서 뺄 doc_type — 정책·보도·통계·감사·공고는 과제가 아니다.
   발주 용역(procurement)은 판정에 들어간다("용역" 구분, [P2]).
+- 근거 범위(2026-10-29, ADR 0046): 공사 홈페이지 행정 공시 `admin_notice`·사업 현황 `status_report`·통계 `statistics` 는 정책
+  자료가 아니다(`domain/rules/doc_category`, `rra db reclassify`). `only_in`(doc_type → 쓸 수 있는 섹션)으로 필요성·현황 섹션
+  (2-가-(2) 기술적 중요도·2-나 연구목적, 통계는 3-가 경영혁신도)에서만 근거가 되고 0건 되돌리기에서도 다른 섹션에 들어가지 않는다.
+  `strict` 섹션(2-가-(3) 경영전략 정합성)은 되돌리기 없이 `policy` 만 — 유사과제 보탬 청크(#overlap)도 허용 doc_type 일 때만.
+  정책 근거 추천·작성안은 `is_policy_basis`(doc_type policy·rnd_notice·audit + 분류 policy·audit·notice)로 같은 범위.
 - 스냅샷 `RetrievalSnapshot.doc_types`(doc_id → doc_type)는 retrieve 때 저장소에서 채운다(규칙이 있을 때만).
 - 회귀 테스트: `tests/domain/test_retrieval_mix.py`, `tests/application/test_quality_usecases.py`(섹션별 검색 뒤 논문 최소 2·허용 밖
   제외·precheck 제외), `tests/test_config_loader.py`. 새 자료원을 적재할 때마다 골든셋 01 로 섹션별 근거 구성을 확인해 기록한다.
