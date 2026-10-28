@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  rra 맥 항상 켜짐 — caffeinate 상시 실행 (시범 운영, 2026-10-28 [1]).
+  -d 화면 잠자기 방지 · -i 유휴 잠자기 방지 · -m 디스크 잠자기 방지 · -s 전원 연결 시 시스템 잠자기 방지 · -u 사용자 활동으로 표시.
+  설치: cp deploy/launchd/com.rra.awake.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.awake.plist
+  확인: launchctl list | grep com.rra.awake ; pmset -g assertions | grep caffeinate
+  끄기: launchctl unload -w ~/Library/LaunchAgents/com.rra.awake.plist   (deploy/README.md §2)
+  덮개를 닫으면(외부 모니터 없이) macOS 가 caffeinate 와 관계없이 잠들 수 있다 — 덮개는 열어 둔다.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rra.awake</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/caffeinate</string>
+    <string>-dimsu</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/chan/Library/Logs/rra-awake.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chan/Library/Logs/rra-awake.err.log</string>
+</dict>
+</plist>

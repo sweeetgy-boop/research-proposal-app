@@ -4,7 +4,7 @@
 # public_origin: 브라우저가 보는 공개 출처 (스킴 https 필수, 경로 없음). 비어 있으면 로컬 전용(127.0.0.1) 과 같다.
 #   값이 있으면 (1) 이 호스트로 들어온 로그인의 세션 쿠키에 Secure 를 붙이고 (2) 쿠키 인증의 상태 변경 요청·로그인의
 #   Origin 검사에서 이 출처를 허용한다. 127.0.0.1 직접 접속은 영향 없음(같은 출처 규칙).
-public_origin: https://rra.ai-edu-lab.co.kr
+public_origin: https://rra.taile5afcf.ts.net   # 시범: Tailscale Funnel 주소 (2026-10-28, ai-edu-lab 터널은 DNS 이전 전까지 미사용)
 #
 # trust_cf_connecting_ip: true 면 요청 peer 가 127.0.0.1(같은 호스트의 cloudflared)일 때만 CF-Connecting-IP 헤더를
 #   접속자 IP 로 믿는다(거부 로그·레이트리밋 키). X-Forwarded-* 는 어떤 값이어도 믿지 않는다. 터널 없이 돌릴 때는 false.
