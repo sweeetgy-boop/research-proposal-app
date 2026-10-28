@@ -40,7 +40,7 @@ const swot: FigureV2 = {
     model: "gemini-4-argon",
   },
 };
-const url = `/v1/runs/${id}/figures/${swot.id}`;
+const url = `/v1/runs/${id}/figures/${encodeURIComponent(swot.id)}`;
 const saved = { run_id: id, status: "editing", ...version1, version: 3 };
 const listOut: FiguresOutV2 = {
   run_id: id,

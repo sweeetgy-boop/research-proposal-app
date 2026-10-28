@@ -291,7 +291,7 @@ def test_infographic_prompt_for_new_kinds_keeps_exact_texts_and_colours():
         assert f"- {t}" in prompt
     assert "회색·주황" in prompt and "파랑·초록" in prompt and "가운데 큰 화살표" in prompt
     assert "새로 디자인" in prompt and "가로세로 비율 16:9" in prompt and "흑백 인쇄" in prompt
-    # 제목 글자가 목록에 없는 종류는 그림 위에 제목을 지어 쓰지 않게 한다 (실측: "…인포그래픽" 제목이 생김)
+    # 제목 글자가 목록에 없는 종류는 그림 위에 제목을 지어 쓰지 않는다 (실측: "…인포그래픽" 제목)
     assert "제목 글자를 새로 쓰지 않는다" in prompt
     swot, _ = analyse("swot", SWOT)
     p2 = rules.image_prompt(swot)
