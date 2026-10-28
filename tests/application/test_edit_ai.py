@@ -398,6 +398,12 @@ def _figure(fid: str, **kw) -> Figure:
     return Figure(id=fid, kind="process", section="method", spec=spec, **kw)
 
 
+def _rec(status: str):
+    from rra.domain.models.figure import FigureRecommendation
+
+    return FigureRecommendation(technique="fishbone", status=status)
+
+
 def test_change_count_covers_every_type():
     s = lambda t: Sentence(text=t)  # noqa: E731
     base = DraftVersion(
@@ -408,7 +414,13 @@ def test_change_count_covers_every_type():
             Section(key="method", sentences=[s("가 문장임."), s("나 문장임."), s("다 문장임.")]),
             Section(key="task_type", sentences=[s("유형임.")], choices=["basic"]),
         ],
-        figures=[_figure("f:1"), _figure("f:2"), _figure("f:3", included=False), _figure("f:4")],
+        figures=[
+            _figure("f:1"),
+            _figure("f:2"),
+            _figure("f:3", included=False),
+            _figure("f:4"),
+            _figure("f:6", recommendation=_rec("pending")),
+        ],
     )
     current = DraftVersion(
         version=5,
@@ -432,6 +444,7 @@ def test_change_count_covers_every_type():
             _figure("f:3"),
             _figure("f:4", caption="새 캡션"),
             _figure("f:5"),
+            _figure("f:6", recommendation=_rec("accepted")),  # [11] 추천 그림 넣기 확정
         ],
         evidence_decisions=[
             EvidenceDecision(sentence_id="s:method:0", evidence_id="a#0", action="approve"),
@@ -449,7 +462,7 @@ def test_change_count_covers_every_type():
     assert c["sentence_edit"] == 2 and c["sentence_add"] == 1 and c["sentence_delete"] == 0
     assert c["choice_value"] == 1
     assert (c["figure_confirm"], c["figure_remove"], c["figure_include"]) == (1, 1, 1)
-    assert (c["figure_change"], c["figure_add"]) == (1, 1)
+    assert (c["figure_change"], c["figure_add"], c["figure_decision"]) == (1, 1, 1)
     assert (c["evidence_approve"], c["evidence_replace"], c["evidence_exclude"]) == (1, 1, 1)
     assert (c["choice_confirm"], c["policy_choice"], c["memo"]) == (1, 1, 1)
     assert summary.total == sum(c.values()) and summary.dump()["items"][0]["label"] == "문장 수정"

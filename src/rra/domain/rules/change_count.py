@@ -27,7 +27,8 @@ CHANGE_LABELS: dict[str, str] = {
     "figure_change": "그림 변경",
     "figure_confirm": "그림 확인",
     "figure_remove": "그림 빼기",
-    "figure_include": "그림 다시 넣기·추천 채택",
+    "figure_include": "그림 다시 넣기",
+    "figure_decision": "추천 그림 결정",
     "evidence_approve": "근거 승인",
     "evidence_replace": "근거 교체",
     "evidence_exclude": "근거 제외",
@@ -83,6 +84,7 @@ def _figure_counts(old: DraftVersion, new: DraftVersion) -> dict[str, int]:
             "figure_confirm",
             "figure_remove",
             "figure_include",
+            "figure_decision",
         )
     }
     before = {f.id: f for f in old.figures}
@@ -91,6 +93,11 @@ def _figure_counts(old: DraftVersion, new: DraftVersion) -> dict[str, int]:
         prev = before.get(fid)
         if prev is None:
             out["figure_add"] += 1
+            continue
+        a, b = prev.recommendation, f.recommendation
+        if a is not None and b is not None and (a.status, a.technique) != (b.status, b.technique):
+            # [11] 추천 그림 넣기 확정·필요 없음·다시 넣기·기법 바꾸기 — 하나의 "결정" 으로 센다
+            out["figure_decision"] += 1
             continue
         if prev.included and not f.included:
             out["figure_remove"] += 1
