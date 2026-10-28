@@ -59,6 +59,7 @@ from rra.domain.models.figure import (
     Figure,
     FigureChange,
     FigureFit,
+    display_name,
     parse_spec,
 )
 from rra.domain.models.request import ProposalRequest
@@ -930,8 +931,9 @@ def _sections_for(kind: str, section: str) -> set[str]:
 
 
 def _caption(spec: BaseModel, kind: str) -> str:
+    """캡션 기본값 — 명세 제목, 없으면 한국어 이름([23] "현재·연구 후 비교 그림", 영문 없음)."""
     title = getattr(spec, "title", None)
-    return str(title) if title else KIND_LABEL.get(kind, kind)
+    return str(title) if title else display_name(kind)
 
 
 def _sha(data: bytes) -> str:

@@ -75,10 +75,10 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
 
   // 그림 추천 — 넣기 확정·필요 없음
   await expect(page.getByText("분석 기법 추천: 추천함")).toBeVisible();
-  await page.getByRole("button", { name: "SWOT 분석 넣기 확정" }).click();
+  await page.getByRole("button", { name: "분석 기법 그림 – SWOT 분석 넣기 확정" }).click();
   await expect(page.getByText(/으로 저장했습니다/).first()).toBeVisible();
-  await page.getByRole("button", { name: "비용-편익 분석 필요 없음" }).click();
-  await expect(page.getByRole("group", { name: "비용-편익 분석" })).toHaveCount(0);
+  await page.getByRole("button", { name: "분석 기법 그림 – 비용-편익 분석 필요 없음" }).click();
+  await expect(page.getByRole("group", { name: "분석 기법 그림 – 비용-편익 분석" })).toHaveCount(0);
   await expect(page.getByText(/변경 [1-9]\d*건/)).toBeVisible();
 
   // 변경이 있으면 저장 뒤 "최종 검토로 넘어갈까요?" → [확인]

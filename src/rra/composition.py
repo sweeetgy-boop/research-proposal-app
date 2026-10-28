@@ -1895,7 +1895,7 @@ def build_figures(
             data, mime, aspect, max_bytes=cfg["max_png_bytes"]
         ),
         pad_reference=pad_to_aspect,
-        ocr=_figure_ocr(cfg) if images is not None else None,
+        ocr=_figure_ocr(cfg) if images is not None and not settings.fake_llm else None,
         clock=lambda: datetime.now(UTC).isoformat(timespec="seconds"),
         argon=argon,
         argon_model=str(review_cfg["served_model"] or review_cfg["model"]),

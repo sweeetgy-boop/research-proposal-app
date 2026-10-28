@@ -50,7 +50,8 @@ function useInvalidatingAi<A, R>(id: string, fn: (args: A, signal: AbortSignal) 
   const wrapped = React.useCallback(
     async (args: A, signal: AbortSignal) => {
       const out = await fn(args, signal);
-      await qc.invalidateQueries({ queryKey: keys.run(id) });
+      // 기다리지 않는다 — 다시 불러오는 동안 카드가 다시 그려져도(언마운트) 결과는 그대로 돌려준다
+      void qc.invalidateQueries({ queryKey: keys.run(id) });
       return out;
     },
     [fn, id, qc],
