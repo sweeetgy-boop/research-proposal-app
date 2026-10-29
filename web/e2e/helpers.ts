@@ -5,30 +5,42 @@ export const TOKEN = process.env.RRA_E2E_TOKEN ?? "e2e-token-1234";
 export const STAFF_NO = "E2E-0001";
 export const GUEST = { id: "e2e", password: "e2e-password-1" };
 
+/** 로그인 창 — 로그인 페이지는 따로 없다. 로그인 전 보호 화면(/new)을 열면 그 자리에 창이 뜨고,
+ *  로그인하면 같은 주소(① 입력)로 이어진다. */
+export async function openLoginDialog(page: Page, path = "/new") {
+  await page.goto(path);
+  const dialog = page.getByRole("dialog", { name: "로그인" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+async function submitAndExpectNew(page: Page, dialog: ReturnType<Page["getByRole"]>) {
+  await dialog.getByRole("button", { name: "로그인", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/new$/);
+}
+
 /** 관리자 토큰 로그인 — "관리자" 링크 아래 토큰 칸 */
 export async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByRole("button", { name: "관리자" }).click();
-  await page.getByLabel("관리자 접속 토큰").fill(TOKEN);
-  await page.getByRole("button", { name: "로그인" }).click();
-  await expect(page).toHaveURL(/\/new$/);
+  const dialog = await openLoginDialog(page);
+  await dialog.getByRole("button", { name: "관리자" }).click();
+  await dialog.getByLabel("관리자 접속 토큰").fill(TOKEN);
+  await submitAndExpectNew(page, dialog);
 }
 
 export async function loginStaff(page: Page, staffNo = STAFF_NO) {
-  await page.goto("/login");
-  await page.getByRole("tab", { name: "철도연구원 직원(사번)" }).click();
-  await page.getByLabel("사번", { exact: true }).fill(staffNo);
-  await page.getByRole("button", { name: "로그인" }).click();
-  await expect(page).toHaveURL(/\/new$/);
+  const dialog = await openLoginDialog(page);
+  await dialog.getByRole("tab", { name: "철도연구원 직원(사번)" }).click();
+  await dialog.getByLabel("사번", { exact: true }).fill(staffNo);
+  await submitAndExpectNew(page, dialog);
 }
 
 export async function loginGuest(page: Page, id = GUEST.id, password = GUEST.password) {
-  await page.goto("/login");
-  await page.getByRole("tab", { name: "그 외 사용자(아이디·비밀번호)" }).click();
-  await page.getByLabel("아이디", { exact: true }).fill(id);
-  await page.getByLabel("비밀번호", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "로그인" }).click();
-  await expect(page).toHaveURL(/\/new$/);
+  const dialog = await openLoginDialog(page);
+  await dialog.getByRole("tab", { name: "그 외 사용자(아이디·비밀번호)" }).click();
+  await dialog.getByLabel("아이디", { exact: true }).fill(id);
+  await dialog.getByLabel("비밀번호", { exact: true }).fill(password);
+  await submitAndExpectNew(page, dialog);
 }
 
 /** ① 입력 방식을 상세(4칸)로 — 기본은 간편 입력 */

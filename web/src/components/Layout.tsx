@@ -1,10 +1,11 @@
 import { Database, FilePlus2, ListOrdered, LogOut, Search, UserRound } from "lucide-react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { Stepper } from "./Stepper";
 import { useLoggedIn, useSessionLabel } from "@/auth/useSession";
-import { logout } from "@/api/endpoints";
+import { LoginDialogProvider } from "@/features/auth/LoginDialog";
+import { useLoginDialog } from "@/features/auth/loginContext";
 import { useDeployVersion } from "@/api/hooks";
 import { formatDeployedAt } from "@/lib/deployVersion";
 import { cn } from "@/lib/utils";
@@ -31,17 +32,23 @@ const NAV = [
 ];
 
 export function Layout() {
+  return (
+    <LoginDialogProvider>
+      <Frame />
+    </LoginDialogProvider>
+  );
+}
+
+function Frame() {
   const loggedIn = useLoggedIn();
   const version = useDeployVersion().data?.version;
   const sessionLabel = useSessionLabel();
   const { pathname } = useLocation();
-  const navigate = useNavigate();
+  const dialog = useLoginDialog();
   const step = stepFromPath(pathname);
 
-  const onLogout = async () => {
-    await logout();
-    navigate("/login", { replace: true });
-  };
+  // 로그아웃 → 같은 홈의 로그인 전 상태
+  const onLogout = () => void dialog?.logoutTo("/");
 
   return (
     <div className="flex min-h-dvh flex-col pb-[var(--stepnav-h)]">
@@ -50,8 +57,8 @@ export function Layout() {
       </a>
       <header className="border-b bg-card">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          <NavLink to="/new" className="text-base font-bold tracking-tight sm:text-lg">
-            연구과제 제안서 작성 보조
+          <NavLink to="/" className="text-base font-bold tracking-tight sm:text-lg">
+            Research Studio
           </NavLink>
           <nav aria-label="주 메뉴" className="relative order-3 -mx-1 flex w-full min-w-0 gap-1 overflow-x-auto sm:order-2 sm:ml-auto sm:w-auto">
             {loggedIn &&
