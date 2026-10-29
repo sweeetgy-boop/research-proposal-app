@@ -1,5 +1,7 @@
 # [G] 그림 v2 측정 (2026-10-28 오후, 레인 C, ADR 0033)
 
+> 보관(2026-10-29): 그림 v2 측정. 이후 가로·본문 폭(`eval-2026-10-28-figures-wide.md`)·칸 글자 완결 구절(`eval-2026-10-29-figure-phrases.md`)로 바뀜.
+
 mlx 미사용·실제 생성 없음(시범 운영 중). 예산 카운터는 레인 전용(`data/cache/figure_budget_laneC.json`·`llm_budget_laneC.json`).
 명세는 `tools/figure_samples.py` 의 가짜 명세(실제 과제 아님). 밑그림은 resvg 300dpi, 그림은 `gemini-3-pro-image` 2K 1회, 동시 3.
 

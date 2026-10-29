@@ -1,5 +1,7 @@
 # ADR 0007 — 로컬 작성 + Gemini Argon 검토 2중화 (2026-10-26)
 
+> 상태(2026-10-29 문서 최신화): 이전 방식. 2026-10-28 ADR 0032 가 대체 — Argon 먼저 작성, 1차 검토 끔(self_review). 외부 전송 범위 규칙(공용 계정 internal 제외, manifest 기록)은 그대로 유효.
+
 **배경** 로컬 7B 만으로는 근거 불일치·논리·서식 문제를 스스로 잡지 못한다. 외부 모델에 사내 자료를 그대로 보낼 수는 없다.
 **선택지** (a) 외부 모델로 작성, (b) 로컬 작성만, (c) 로컬 작성 + 외부 검토(수정안·점수), 전송 범위 제한.
 **결정** (c). 단계별 provider(`llm.yaml stages`: compose=mlx, review·differentiate=gemini), `include_internal` 규칙과 manifest 에 외부 전송 doc_id·문장 수 기록, 키가 없으면 검토 건너뜀(review_skipped).

@@ -60,7 +60,7 @@
   질의 키워드 ≥ 1(영어 청크는 키워드 조건 없음). `Chunk.similarity` 는 저장소가 검색 결과에만 채운다. 통과 청크 0 이면
   근거 필수 섹션은 빈칸 + `no_relevant_evidence` 경고. 임계치는 `tests/fixtures/relevance_golden.json` 측정값으로 고정.
   e5 유사도만으로는 무관한 한국어 문서도 own 0.80 을 넘는다. 임계치는 표본이 쌓인 뒤 조정. reranker 는 후속.
-- 7B(Qwen2.5-7B-Instruct-4bit) 전환 반영 — 본문 속 자료 태그 조각 제거(`llm_output.strip_doc_fragments`),
+- 7B(Qwen2.5-7B-Instruct-4bit) 전환 반영(이전 방식의 주 작성 모델 — 2026-10-28 부터 Argon 먼저, ADR 0032) — 본문 속 자료 태그 조각 제거(`llm_output.strip_doc_fragments`),
   지어낸 수치 lint 경고(`numbers.py`, `rules.yaml number_checked`), grounding 관형형 예외. 실응답 fixture tests/fixtures/llm.
 - Streamlit 화면 (`entrypoints/ui/`, `rra ui`, 127.0.0.1:8501, RRA_API_TOKEN 게이트) — 기획서 Ⅱ 흐름.
   Agent = 규칙 기반 오케스트레이터: 판단 `domain/rules/agent_policy.py`(기획서 Tool 호출 조건 표), 실행
@@ -169,8 +169,9 @@
   외부 주소 확인·`docs/history/deploys/<시각>.md`). 보안 수정·로그인/접속 차단 오류 수정은 즉시 배포하고 알린다. 배포 버전은
   `GET /healthz version`(`adapters/deploy/version.py`)·웹 하단. 절차 `docs/pilot-guide.md` §6.3.
 - 시범 운영(2026-10-28, 3명, [D]): launchd com.rra.{mlx,api,backup,ingest} 등록(`deploy/README.md` §2), `max_queued_runs` 6(사용자별),
-  동료 안내 `docs/pilot-guide.md`, 준비 상태·사람 할 일은 `docs/final-check-2026-10-27.md` 맨 위. 외부 주소는 DNS 가 Gabia 라 터널 미기동
-  (Tailscale 대체 가능). 실측: 한 건 227초(생성 155 + 최종 검토 15), precheck 38~56초(자동 추천 Gemini 포함), 7B JSON 실패 4/10.
+  동료 안내 `docs/pilot-guide.md`, 준비 상태·사람 할 일은 `docs/final-check-2026-10-27.md` 맨 위. 외부 주소는 DNS 가 Gabia 라 Cloudflare 터널
+  미기동 → 2026-10-28 부터 **Tailscale Funnel** `https://rra.taile5afcf.ts.net`(ADR 0047, `config/api.yaml public_origin`). 당시 실측(로컬 7B 작성 시절):
+  한 건 227초(생성 155 + 최종 검토 15), precheck 38~56초, 7B JSON 실패 4/10 — 최신 수치는 `docs/final-report-materials.md` ⑧.
 - 2026-10-28 새벽 수정: **빈 초안 금지**(ADR 0027, #55·#57) — 일부 섹션 실패는 `failed_sections`(웹 "이 섹션 다시 생성"), 빈 목록은 실패로 보고
   교정 재요청, 섹션 [자료] 상한(청크 500자·10청크), 로컬 2회 실패 섹션만 Gemini 대체 작성(`llm.yaml compose.fallback: gemini`, manifest
   `fallback_sections`, 웹 "대체 작성" 배지). **유사과제 판정**(ADR 0028, #56) — 후보는 `config/overlap.yaml candidates` 의 과제형 자료원만
@@ -198,9 +199,15 @@
   (v1 즉시 drafted) + 그림 백그라운드(`application/services/figure_job.py`, run 의 `figures_job.json`·`.figures.lock`, 그리는 동안 ⑤⑥ 409
   "그림 준비 중", `rra runs active` 가 그리는 run 도 셈, `draft_visible_seconds`·`figures_done_seconds`, ADR 0045). 공사 홈페이지 행정 공시 →
   `admin_notice`·사업 현황 → `status_report`, `retrieval_mix` `only_in`·`strict`(2-가-(3) 은 정책만, ADR 0046) — 옛 코드는 새 doc_type 을 못 읽으므로
-  운영 DB 이주(`rra db reclassify --apply`)는 새 코드 배포 뒤.
+  운영 DB 이주(`rra db reclassify --apply`)는 새 코드 배포 뒤 — 2026-10-29 09:3x 배포(546f244) 뒤 적용 완료(340행, 배포 전 백업).
+- **Research Studio 화면 [UI]**(2026-10-29, #101·#102·#104~#108, 배포 c277253 10:48): 디자인 토큰 `web/src/index.css` 한 곳·`components/ui/{eyebrow,status-chip,progress-bar}`(ADR 0051),
+  화면 안 로그인(로그인 페이지 없음, 보호 화면은 주소 그대로 `LoginDialogProvider`·`useRequireLogin`)·왼쪽 사이드바·위쪽 막대(`components/frame/`, ADR 0048),
+  연구 작업실 홈 `/`(로그인 전 API 0건, 6단계 진행률 `features/home/runView.ts`)·작성 가이드 `/guide`(`features/guide/content.tsx` = pilot-guide §2~§5.5, 함께 고친다, ADR 0049),
+  ⌘K 통합 검색 `features/globalsearch/`·`GET /v1/search/docs`(문서 단위, 공용 계정 internal 제외, ADR 0050). 저장 안내 "제안서는 연구원 서버에 저장됩니다.".
+- **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.
+  이제 쓰지 않는 방식(로컬 7B 주 작성·③ 1차 검토·Cloudflare 계획·화면 "run" 표기)은 지우지 않고 "이전 방식"으로 표시한다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
-  MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
+  MCP streamable-http 는 미구현, 외부 공개는 Tailscale Funnel 로 운영 중(ADR 0047, Cloudflare 는 이전 계획), reranker·골든셋 피드백 루프는 이슈(P7).
 
 ## MCP
 - `.mcp.json`(프로젝트 루트, stdio, `.venv/bin/python -m rra.entrypoints.mcp.server`). 등록·보안은 docs/mcp.md.

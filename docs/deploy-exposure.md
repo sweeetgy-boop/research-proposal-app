@@ -1,5 +1,10 @@
 # 외부 공개 방식 비교 — Tailscale vs Cloudflare Tunnel (2026-10-26 비교, 2026-10-27 시범 결정 §5)
 
+> **현재 운영(2026-10-29 문서 최신화)**: 2026-10-28 시범부터 실제 공개는 **Tailscale Funnel** `https://rra.taile5afcf.ts.net` → 127.0.0.1:8000
+> + 앱 로그인(직원 사번·공용 계정·관리 토큰)이다(ADR 0047). 동료는 브라우저만 쓰고 Tailscale 앱 설치·초대는 필요 없다. 아래 §1~§5 의
+> Cloudflare Tunnel + Access(ADR 0024, `rra.ai-edu-lab.co.kr`)는 DNS(Gabia) 때문에 띄우지 못한 **이전 계획**이고, "`tailscale funnel` 은
+> 쓰지 않는다"는 문장들도 2026-10-27 당시 계획이다. 장애 대처·확인 방법은 `docs/pilot-guide.md` §1·§1.5.
+
 앱은 127.0.0.1 에만 바인딩한다(보안 G·H). 동료 PC 에서 쓰려면 HTTPS 를 종단하고 접근을 제어하는 역프록시가 앞에
 서야 한다. 둘 다 포트를 열지 않고(아웃바운드만), 앱의 자체 토큰(`RRA_API_TOKEN`)은 그대로 요구한다(이중 인증).
 구현은 없다 — 아래는 결정에 필요한 비교와 설정 목록이다.
@@ -31,7 +36,7 @@ tailscale serve status                                      # https://<mac-mini>
 # 동료: Tailscale 설치 → 같은 테일넷 초대 → 브라우저에서 위 주소 + X-RRA-Token (프론트엔드가 세션 쿠키로 처리)
 # ACL(관리 콘솔): 동료 그룹 → Mac mini:443 만 허용. Streamlit(8501)은 공개하지 않는다.
 ```
-`RRA_API_HOST` 는 127.0.0.1 그대로. `tailscale funnel` (인터넷 공개)은 쓰지 않는다.
+`RRA_API_HOST` 는 127.0.0.1 그대로. `tailscale funnel` (인터넷 공개)은 쓰지 않는다. *(2026-10-26 계획 — 실제 시범은 Funnel 을 쓴다, ADR 0047)*
 
 ### Cloudflare Tunnel
 ```bash
@@ -122,6 +127,6 @@ tailscale serve status                                    # 3) 주소 확인. �
 ```
 동료: Tailscale 설치 → 초대 수락(관리 콘솔 Users → Invite) → 브라우저에서 위 `*.ts.net` 주소 → 앱 로그인(토큰). 관리 콘솔 Access controls
 → ACL: 동료 그룹은 이 맥의 443 만(`"dst": ["<이 맥>:443"]`), 8000·8080·8501 은 열지 않는다. `tailscale funnel`(인터넷 공개)은 쓰지
-않는다. 앱 쪽: `config/api.yaml public_origin` 을 `https://<이 맥 이름>.<테일넷>.ts.net` 으로 바꾸면 쿠키 Secure·Origin 허용이 그대로
+않는다 *(2026-10-27 계획 — 실제 시범은 Funnel, ADR 0047)*. 앱 쪽: `config/api.yaml public_origin` 을 `https://<이 맥 이름>.<테일넷>.ts.net` 으로 바꾸면 쿠키 Secure·Origin 허용이 그대로
 적용된다(`trust_cf_connecting_ip` 는 false 유지 — Tailscale 은 CF 헤더를 붙이지 않는다). 명령의 정확한 형태는 설치한 버전의
 `tailscale serve --help` 로 한 번 더 확인한다.

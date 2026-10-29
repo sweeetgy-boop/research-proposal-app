@@ -1,5 +1,7 @@
 # [G] 제안서 그림 측정 (2026-10-28)
 
+> 보관(2026-10-29): 그림 첫 판(개념도·체계도 등 6종 기본) 측정. 이후 기본 As-Is/To-Be + 분석 기법(ADR 0033)·가로(0041)·완결 구절(0044)로 바뀜.
+
 ## 1. Nano Banana Pro 실호출 (낮, mlx 미사용 — 2026-10-28 10:2x~10:4x, 개발기)
 
 샘플 명세 6종(`tools/figure_samples.py SAMPLE_SPECS`, 가짜 입력) → 밑그림(resvg, 300dpi) → `gemini-3-pro-image` generateContent(참고 이미지 = 밑그림, 2K,
