@@ -1,8 +1,8 @@
 # 문서 목록과 분류 (2026-10-29, docs/final-docs)
 
-저장소의 md 파일 248개(이 파일 포함). 분류: **최신**(지금 사실과 맞음 — 날짜 붙은 기록은 그 시점 기록으로 정확),
+저장소의 md 파일 249개(이 파일 포함). 분류: **최신**(지금 사실과 맞음 — 날짜 붙은 기록은 그 시점 기록으로 정확),
 **고침**(이번에 고침), **낡음(보관)**(이전 방식·지난 계획 — 지우지 않고 머리에 "보관" 표시, 지금 사실은 표시한 파일에서 본다).
-집계: 고침 25 · 낡음(보관) 12 · 최신 211.
+집계: 고침 23 · 낡음(보관) 12 · 최신 214.
 UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 와 화면 문구 반영은 UI 배포 뒤 이 목록에 더한다.
 
 ## 문서 사이에 서로 달랐던 사실과 맞춘 값
@@ -160,11 +160,11 @@ UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 
 | `docs/history/deploys/2026-10-28-1540.md` | 최신(기록) |  |
 | `docs/history/deploys/2026-10-28-2014.md` | 최신(기록) |  |
 | `docs/history/deploys/2026-10-29-0207.md` | 최신(기록) |  |
-| `docs/history/deploys/2026-10-29-0930.md` | 고침(새 파일) | 배포 기록(배포 스크립트·통합 담당이 쓴 것을 커밋) |
+| `docs/history/deploys/2026-10-29-0930.md` | 최신(기록) | 09:30 배포 기록·DB 재분류·배포 뒤 확인(#100) |
 | `docs/history/deploys/README.md` | 최신(기록) |  |
-| `docs/history/deploys/pending.md` | 고침 | 09:30 배포로 비움(배포 스크립트 결과를 커밋) |
+| `docs/history/deploys/pending.md` | 최신(기록) | 09:30 배포로 비워짐(#100) |
 
-## 조각 파일 (status.d·progress.d·timeline.d) (108)
+## 조각 파일 (status.d·progress.d·timeline.d) (109)
 
 | 파일 | 분류 | 메모 |
 |---|---|---|
@@ -269,6 +269,7 @@ UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 
 | `docs/status.d/feat-source-ip.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
 | `docs/status.d/feat-table-facts-terms.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
 | `docs/status.d/feat-tunnel.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
+| `docs/status.d/feat-ui-studio-tokens.md` | 최신(UI 조각 — UI 배포 뒤 모음 대기) |  |
 | `docs/status.d/feat-usability.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
 | `docs/status.d/feat-versions-nav.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
 | `docs/status.d/feat-web-argon-live.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
