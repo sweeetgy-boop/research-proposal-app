@@ -30,7 +30,7 @@
 | 경로 표시 좁은 화면 | 마지막 칸만 | 390px 에서 가로 넘침 없이 |
 | "WORKSPACE" 라벨 | `aria-hidden` | 장식용 영어 라벨 — 화면 읽기에서는 "주 메뉴" 이름으로 충분 |
 
-## ADR 초안 (레인 5 가 번호 매겨 등록)
+## ADR 초안 (레인 5 가 0048 이상 번호로 등록)
 **제목**: 화면 안 로그인과 왼쪽 사이드바 화면 틀 (Research Studio)
 - **맥락**: 시범 의견 — 로그인 페이지가 따로 있어 처음 화면이 빈 로그인 카드였고, 위쪽 메뉴는 6단계 흐름·제안서 목록과 함께 보기 어려웠다. 동료 UI 캡처("Research Studio")의 틀을 따르기로 함.
 - **결정**: 로그인 페이지를 없애고, 보호 화면은 주소를 유지한 채 그 자리에 로그인 창(LoginDialogProvider 하나)을 띄운다. 로그인 뒤 같은 화면이 그려진다. 홈은 로그인 밖. 화면 틀은 왼쪽 사이드바(연구 작업실·새 제안서·내 제안서·작성 가이드, 아래 자료 현황·사용자 칸·테마) + 위쪽 막대(경로 표시·통합 검색·작성 가이드), 1024px 미만은 접는 메뉴(native dialog).
@@ -46,4 +46,4 @@
 - 레인 2 Home 이 들어오면 `App.tsx` 의 `<Route index element={<TempHome />} />` 를 Home 으로 바꾸고 TempHome 삭제. `/guide` 라우트(레인 2) 추가 확인.
 - 레인 3 GlobalSearch 가 들어오면 `components/frame/TopBar.tsx` 의 `{search ?? <SearchSlot />}` 자리(Layout 에서 `search={<GlobalSearch />}`)로 바꾸고 SearchSlot 삭제.
 - 레인 2 홈이 들어온 뒤 `e2e/frame.spec.ts` 첫 테스트에 "로그인 카드 → 연구 한눈에 보기" 확인 추가(지금은 사이드바 사용자 칸·건수로 확인).
-- 레인 4 토큰이 들어오면 사이드바 선택 색(`bg-primary/10 text-primary`)·라벨(`Eyebrow`)을 토큰으로.
+- (반영됨) 레인 4 토큰: 사이드바 선택 색은 `bg-primary-soft`·`text-primary-soft-foreground`, 라벨은 `Eyebrow`.

@@ -6,6 +6,7 @@ import { keys } from "@/api/hooks";
 import { useLoggedIn, useSessionLabel } from "@/auth/useSession";
 import { useLoginDialog } from "@/features/auth/loginContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "./crumbs";
 
@@ -35,7 +36,7 @@ function useRunCount(enabled: boolean): number | null {
 function itemClass(active: boolean) {
   return cn(
     "flex min-h-10 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors",
-    active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+    active ? "bg-primary-soft text-primary-soft-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
   );
 }
 
@@ -62,9 +63,7 @@ export function Sidebar({ onNavigate, navLabel = "주 메뉴" }: { onNavigate?: 
       </NavLink>
 
       <nav aria-label={navLabel} className="min-h-0 flex-1 overflow-y-auto px-2">
-        <p aria-hidden="true" className="px-3 pb-2 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Workspace
-        </p>
+        <Eyebrow className="px-3 pb-2 pt-3">Workspace</Eyebrow>
         <ul className="space-y-1">
           {SIDEBAR_NAV.map(({ to, label: text, icon: Icon, match, count: withCount }) => {
             const active = match(pathname);
@@ -111,7 +110,7 @@ export function Sidebar({ onNavigate, navLabel = "주 메뉴" }: { onNavigate?: 
         role="group"
         aria-label={loggedIn ? `로그인 종류: ${label ?? "로그인됨"}` : "로그인 전"}
       >
-        <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+        <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-primary-soft-foreground">
           <UserRound className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
