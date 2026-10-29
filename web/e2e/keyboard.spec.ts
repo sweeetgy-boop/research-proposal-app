@@ -2,7 +2,19 @@ import { expect, test } from "@playwright/test";
 import { TOKEN, login, subnav } from "./helpers";
 
 test("키보드만으로 로그인 → 입력 → 유사과제 확인 → 다음", async ({ page }) => {
-  await page.goto("/login");
+  // 로그인 전 ① 입력 주소 → 그 자리에 로그인 창(포커스는 창 안 사번 칸)
+  await page.goto("/new");
+  const dialog = page.getByRole("dialog", { name: "로그인" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("사번", { exact: true })).toBeFocused();
+  await dialog.getByRole("button", { name: "관리자" }).focus();
+  await page.keyboard.press("Enter");
+  await dialog.getByLabel("관리자 접속 토큰").focus();
+  await page.keyboard.type(TOKEN);
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/new$/);
+
   // 건너뛰기 링크: 포커스되면 화면에 보이고, Enter 로 본문(main)에 포커스가 간다
   const skip = page.getByRole("link", { name: "본문으로 건너뛰기" });
   await skip.focus();
@@ -11,12 +23,6 @@ test("키보드만으로 로그인 → 입력 → 유사과제 확인 → 다음
   expect(box && box.y >= 0).toBe(true);
   await page.keyboard.press("Enter");
   expect(await page.evaluate(() => document.activeElement?.id)).toBe("main");
-  await page.getByRole("button", { name: "관리자" }).focus();
-  await page.keyboard.press("Enter");
-  await page.getByLabel("관리자 접속 토큰").focus();
-  await page.keyboard.type(TOKEN);
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/new$/);
 
   // 입력 방식 라디오: 화살표로 상세 입력(4칸) 선택
   await page.getByRole("radio", { name: "간편 입력" }).focus();
