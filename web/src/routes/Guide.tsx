@@ -3,12 +3,12 @@ import { Link } from "react-router";
 import { FilePlus2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { GUIDE_SECTIONS } from "@/features/guide/content";
-import { Eyebrow } from "@/features/home/parts";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 export default function Guide() {
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-indigo-100 bg-indigo-50 px-6 py-7 dark:border-indigo-900/60 dark:bg-indigo-950/40">
+      <header className="rounded-xl bg-primary-soft px-6 py-7">
         <Eyebrow>Guide</Eyebrow>
         <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">작성 가이드</h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
@@ -41,7 +41,7 @@ export default function Guide() {
           {GUIDE_SECTIONS.map((s) => {
             const List = s.ordered ? "ol" : "ul";
             return (
-              <section key={s.id} id={s.id} aria-labelledby={`${s.id}-title`} className="scroll-mt-4 rounded-2xl border bg-card p-5 sm:p-6">
+              <section key={s.id} id={s.id} aria-labelledby={`${s.id}-title`} className="scroll-mt-4 rounded-xl border bg-card shadow-card p-5 sm:p-6">
                 <Eyebrow>{s.eyebrow}</Eyebrow>
                 <h2 id={`${s.id}-title`} className="mt-1 text-xl font-bold">
                   {s.title}
@@ -53,7 +53,7 @@ export default function Guide() {
                       <li key={i} className="flex gap-3">
                         <span
                           aria-hidden="true"
-                          className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-indigo-50 px-1.5 text-sm font-semibold tabular-nums text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-200"
+                          className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-primary-soft px-1.5 text-sm font-semibold tabular-nums text-primary-soft-foreground"
                         >
                           {String(i + 1).padStart(2, "0")}
                         </span>

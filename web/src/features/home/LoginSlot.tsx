@@ -3,11 +3,11 @@
 import { Link } from "react-router";
 import { LogIn } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { Eyebrow } from "./parts";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 export function LoginSlot() {
   return (
-    <section aria-labelledby="login-slot-title" className="rounded-2xl border bg-card p-5" data-testid="home-login">
+    <section aria-labelledby="login-slot-title" className="rounded-xl border bg-card shadow-card p-5" data-testid="home-login">
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="login-slot-title" className="text-base font-bold">
           로그인

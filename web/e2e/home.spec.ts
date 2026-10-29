@@ -38,11 +38,15 @@ test("로그인 전 홈은 개인 데이터 없이, 로그인 뒤 건수·표가
   await expectNoRunWord(page);
   await expectNoInternalIds(page);
 
-  // 탭 — 완료(마무리)는 아직 없다, 작성 중은 전부
+  // 탭 — 같은 가짜 서버를 다른 시험도 쓰므로 건수는 탭 이름에서 읽는다
+  const count = async (re: RegExp) => Number(((await page.getByRole("tab", { name: re }).innerText()).match(/(\d+)/) ?? ["", "0"])[1]);
   await page.getByRole("tab", { name: /^완료/ }).click();
-  await expect(page.getByText("조건에 맞는 제안서가 없습니다.")).toBeVisible();
+  const done = await count(/^완료/);
+  if (done === 0) await expect(page.getByText("조건에 맞는 제안서가 없습니다.")).toBeVisible();
+  else await expect(rows(page).filter({ hasNotText: "마무리 완료" })).toHaveCount(0);
   await page.getByRole("tab", { name: /^완료/ }).press("ArrowLeft");
   await expect(page.getByRole("tab", { name: /^작성 중/ })).toHaveAttribute("aria-selected", "true");
+  await expect(rows(page).filter({ hasText: "마무리 완료" })).toHaveCount(0);
   await page.getByRole("tab", { name: /^전체/ }).click();
 
   // 제목 검색·정렬

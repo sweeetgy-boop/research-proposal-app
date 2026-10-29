@@ -2,7 +2,7 @@
 import { Link } from "react-router";
 import { ArrowRight, CircleCheck, Clock3, FileText, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Eyebrow } from "./parts";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import type { RunCounts } from "./runView";
 
 const ROWS: { key: keyof RunCounts; title: string; hint: string; icon: LucideIcon; tile: string }[] = [
@@ -11,27 +11,27 @@ const ROWS: { key: keyof RunCounts; title: string; hint: string; icon: LucideIco
     title: "전체 제안서",
     hint: "이 계정으로 만든 제안서",
     icon: FileText,
-    tile: "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-200",
+    tile: "bg-primary-soft text-primary-soft-foreground",
   },
   {
     key: "writing",
     title: "작성 중",
     hint: "최종 마무리 전",
     icon: Clock3,
-    tile: "bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-200",
+    tile: "bg-apricot text-apricot-foreground",
   },
   {
     key: "done",
     title: "마무리 완료",
     hint: "양식 파일을 받을 수 있음",
     icon: CircleCheck,
-    tile: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200",
+    tile: "bg-mint text-mint-foreground",
   },
 ];
 
 export function OverviewCard({ counts, loading }: { counts: RunCounts | null; loading?: boolean }) {
   return (
-    <section aria-labelledby="overview-title" className="rounded-2xl border bg-card p-5" aria-busy={loading || undefined}>
+    <section aria-labelledby="overview-title" className="rounded-xl border bg-card shadow-card p-5" aria-busy={loading || undefined}>
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="overview-title" className="text-base font-bold">
           연구 한눈에 보기
@@ -63,9 +63,9 @@ export function TipCard() {
   return (
     <section
       aria-labelledby="tip-title"
-      className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/30"
+      className="rounded-xl bg-mint p-5"
     >
-      <Eyebrow className="text-emerald-800 dark:text-emerald-300">Writing tip</Eyebrow>
+      <Eyebrow className="text-mint-foreground">Writing tip</Eyebrow>
       <h2 id="tip-title" className="mt-2 text-base font-bold leading-snug">
         <span className="block">현재 상황과 한계를</span>
         <span className="block">구체적으로 적어 보세요.</span>
@@ -75,7 +75,7 @@ export function TipCard() {
       </p>
       <Link
         to="/guide"
-        className="mt-3 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-emerald-800 underline-offset-4 hover:underline dark:text-emerald-300"
+        className="mt-3 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-link-green underline-offset-4 hover:underline"
       >
         작성 가이드에서 사용 순서 보기
         <ArrowRight className="size-4" aria-hidden="true" />

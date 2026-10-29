@@ -10,7 +10,8 @@ import { Select } from "@/components/ui/select";
 import { TabPanel, Tabs } from "@/components/ui/tabs";
 import { isGenerated } from "@/lib/runSteps";
 import { cn, formatDate } from "@/lib/utils";
-import { ProgressBar, StatusChip } from "./parts";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { StatusChip } from "@/components/ui/status-chip";
 import {
   chipLabel,
   chipStatus,
@@ -27,9 +28,9 @@ import {
 } from "./runView";
 
 const TILES = [
-  "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-200",
-  "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200",
-  "bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-200",
+  "bg-primary-soft text-primary-soft-foreground",
+  "bg-mint text-mint-foreground",
+  "bg-apricot text-apricot-foreground",
 ];
 
 export interface RunTableProps {
@@ -58,20 +59,20 @@ export function RunTable({ runs, title, headingLevel = "h2", limit, showAllLink,
   const Heading = headingLevel;
   const baseId = React.useId().replace(/:/g, "");
   const tabs = [
-    { id: `${baseId}-all`, key: "all" as const, label: `전체 ${counts.all}` },
-    { id: `${baseId}-writing`, key: "writing" as const, label: `작성 중 ${counts.writing}` },
-    { id: `${baseId}-done`, key: "done" as const, label: `완료 ${counts.done}` },
+    { id: `${baseId}-all`, key: "all" as const, label: "전체", count: counts.all },
+    { id: `${baseId}-writing`, key: "writing" as const, label: "작성 중", count: counts.writing },
+    { id: `${baseId}-done`, key: "done" as const, label: "완료", count: counts.done },
   ];
   const activeId = tabs.find((t) => t.key === tab)!.id;
 
   return (
-    <section aria-labelledby={`${baseId}-title`} className="rounded-2xl border bg-card">
+    <section aria-labelledby={`${baseId}-title`} className="rounded-xl border bg-card shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
         <div className="flex items-center gap-2">
           <Heading id={`${baseId}-title`} className={cn("font-bold tracking-tight", headingLevel === "h1" ? "text-2xl" : "text-lg")}>
             {title}
           </Heading>
-          <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-200">
+          <span className="rounded-md bg-primary-soft px-2 py-0.5 text-xs font-semibold tabular-nums text-primary-soft-foreground">
             <span className="sr-only">전체 </span>
             {counts.all}
             <span className="sr-only">건</span>
@@ -90,7 +91,7 @@ export function RunTable({ runs, title, headingLevel = "h2", limit, showAllLink,
       <div className="px-5">
         <Tabs
           label={`${title} 거르기`}
-          items={tabs.map(({ id, label }) => ({ id, label }))}
+          items={tabs.map(({ id, label, count }) => ({ id, label, count }))}
           value={activeId}
           onChange={(id) => setTab(tabs.find((t) => t.id === id)!.key)}
           className="mt-3"
@@ -183,11 +184,8 @@ function RunRow({ run, tile, showRunId }: { run: RunState; tile: string; showRun
         <StatusChip status={chipStatus(run)}>{chipLabel(run) ?? undefined}</StatusChip>
       </div>
       <div className="col-start-1 row-start-3 pl-13 md:col-start-auto md:row-start-auto md:pl-0">
-        <span className="block text-xs tabular-nums text-muted-foreground" title={progressText(run)}>
-          {pct}%<span className="sr-only"> · {progressText(run)}</span>
-        </span>
-        <div className="mt-1 max-w-40">
-          <ProgressBar value={pct} label={`「${title}」 진행률`} />
+        <div className="max-w-40" title={progressText(run)}>
+          <ProgressBar value={pct} label={`「${title}」 진행률 — ${progressText(run)}`} />
         </div>
       </div>
       <div className="col-start-2 row-span-3 row-start-1 self-start md:col-start-auto md:row-span-1 md:row-start-auto md:self-center">

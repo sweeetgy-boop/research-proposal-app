@@ -20,10 +20,10 @@ export function StartGuide() {
       </div>
       <ol className="mt-3 grid gap-3 md:grid-cols-3">
         {STEPS.map((s) => (
-          <li key={s.n} className="flex items-start gap-3 rounded-2xl border bg-card p-4">
+          <li key={s.n} className="flex items-start gap-3 rounded-xl border bg-card shadow-card p-4">
             <span
               aria-hidden="true"
-              className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-indigo-50 px-1.5 text-sm font-semibold tabular-nums text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-200"
+              className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-primary-soft px-1.5 text-sm font-semibold tabular-nums text-primary-soft-foreground"
             >
               {s.n}
             </span>

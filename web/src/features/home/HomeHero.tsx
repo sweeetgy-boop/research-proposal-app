@@ -4,14 +4,14 @@ import { Link } from "react-router";
 import { ArrowRight, FilePlus2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Eyebrow } from "./parts";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 export function HomeHero({ continueTo, continueTitle }: { continueTo: string | null; continueTitle?: string }) {
   const resume = continueTo !== null;
   return (
     <section
       aria-labelledby="home-hero-title"
-      className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50 px-6 py-8 sm:px-8 sm:py-10 dark:border-indigo-900/60 dark:bg-indigo-950/40"
+      className="relative overflow-hidden rounded-xl bg-primary-soft px-6 py-8 sm:px-8 sm:py-10"
     >
       <div className="relative z-10 max-w-xl">
         <Eyebrow>Idea to proposal</Eyebrow>
@@ -51,24 +51,24 @@ function HeroIllustration() {
       viewBox="0 0 260 200"
       className="pointer-events-none absolute -right-6 top-1/2 hidden h-56 w-72 -translate-y-1/2 md:block lg:right-6"
     >
-      <ellipse cx="130" cy="104" rx="104" ry="74" transform="rotate(-18 130 104)" className="fill-none stroke-indigo-300 dark:stroke-indigo-700" strokeWidth="1.2" />
-      <ellipse cx="130" cy="104" rx="78" ry="56" transform="rotate(24 130 104)" className="fill-none stroke-indigo-200 dark:stroke-indigo-800" strokeWidth="1" />
-      <circle cx="34" cy="120" r="3" className="fill-indigo-300 dark:fill-indigo-600" />
-      <path d="M214 34 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" className="fill-indigo-300 dark:fill-indigo-600" />
+      <ellipse cx="130" cy="104" rx="104" ry="74" transform="rotate(-18 130 104)" className="fill-none stroke-primary/40" strokeWidth="1.2" />
+      <ellipse cx="130" cy="104" rx="78" ry="56" transform="rotate(24 130 104)" className="fill-none stroke-primary/25" strokeWidth="1" />
+      <circle cx="34" cy="120" r="3" className="fill-primary/40" />
+      <path d="M214 34 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" className="fill-primary/40" />
       <g transform="rotate(12 130 100)">
-        <rect x="88" y="30" width="96" height="128" rx="10" className="fill-white stroke-indigo-100 dark:fill-slate-900 dark:stroke-indigo-900" strokeWidth="1.5" />
-        <rect x="102" y="48" width="56" height="5" rx="2.5" className="fill-indigo-200 dark:fill-indigo-800" />
+        <rect x="88" y="30" width="96" height="128" rx="10" className="fill-card stroke-border" strokeWidth="1.5" />
+        <rect x="102" y="48" width="56" height="5" rx="2.5" className="fill-primary/25" />
         <rect x="102" y="62" width="68" height="6" rx="3" className="fill-primary" />
-        <rect x="102" y="76" width="62" height="4" rx="2" className="fill-indigo-100 dark:fill-indigo-900" />
-        <rect x="102" y="86" width="66" height="4" rx="2" className="fill-indigo-100 dark:fill-indigo-900" />
-        <rect x="102" y="96" width="48" height="4" rx="2" className="fill-indigo-100 dark:fill-indigo-900" />
-        <rect x="104" y="128" width="10" height="16" rx="2" className="fill-indigo-300 dark:fill-indigo-600" />
-        <rect x="120" y="120" width="10" height="24" rx="2" className="fill-indigo-400 dark:fill-indigo-500" />
-        <rect x="136" y="124" width="10" height="20" rx="2" className="fill-indigo-300 dark:fill-indigo-600" />
+        <rect x="102" y="76" width="62" height="4" rx="2" className="fill-primary-soft" />
+        <rect x="102" y="86" width="66" height="4" rx="2" className="fill-primary-soft" />
+        <rect x="102" y="96" width="48" height="4" rx="2" className="fill-primary-soft" />
+        <rect x="104" y="128" width="10" height="16" rx="2" className="fill-primary/40" />
+        <rect x="120" y="120" width="10" height="24" rx="2" className="fill-primary/70" />
+        <rect x="136" y="124" width="10" height="20" rx="2" className="fill-primary/40" />
         <rect x="152" y="112" width="10" height="32" rx="2" className="fill-primary" />
       </g>
-      <circle cx="196" cy="138" r="15" className="fill-emerald-100 dark:fill-emerald-900" />
-      <path d="M189 138 l5 5 9 -10" className="fill-none stroke-emerald-600 dark:stroke-emerald-300" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="196" cy="138" r="15" className="fill-mint" />
+      <path d="M189 138 l5 5 9 -10" className="fill-none stroke-mint-foreground" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
