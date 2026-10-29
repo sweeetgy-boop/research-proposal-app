@@ -33,7 +33,7 @@ test("로그인 전 홈은 개인 데이터 없이, 로그인 뒤 건수·표가
   const total = Number((await all.innerText()).match(/(\d+)\s*편/)![1]);
   expect(total).toBeGreaterThanOrEqual(2);
   await expect(rows(page).first()).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("제안서는 연구원 서버에 저장됩니다.")).toBeVisible();
+  await expect(page.getByText("제안서는 연구원 서버에 저장됩니다.", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /이어서 작성하기/ })).toBeVisible();
   await expectNoRunWord(page);
   await expectNoInternalIds(page);
