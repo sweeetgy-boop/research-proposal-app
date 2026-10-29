@@ -43,6 +43,7 @@ export default function Progress() {
         </h2>
         <div
           role="progressbar"
+          aria-label="초안 생성 진행률"
           aria-valuemin={0}
           aria-valuemax={total}
           aria-valuenow={done}
