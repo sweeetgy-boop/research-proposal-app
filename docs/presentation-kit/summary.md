@@ -20,7 +20,7 @@ SQLite(FTS5 + 벡터, RRF)에 적재하고 ① 아이디어 입력 → ② 유�
 **이전 방식과 달라진 점.** 10-28 오후까지는 로컬 Qwen 7B 가 쓰고 Argon 이 1차 검토로 보완했다(JSON 실패 4/10, 한 건 155초) → Argon 먼저.
 외부 공개는 Cloudflare 계획 → Tailscale Funnel.
 
-**남은 과제.** NTIS 서버 IP·고정 IP, Mac mini 이전, 3차 골든셋 전체 측정, 한/글 화면 확인, 전략체계 확정, 공고문·키 투입,
+**남은 과제.** NTIS 서버 IP·고정 IP, Mac mini 이전, 한/글 화면 확인, 전략체계 확정, 공고문·키 투입,
 골든셋 피드백 루프(#10)·임계치 재조정(#12). 화면은 Research Studio(사이드바·화면 안 로그인·연구 작업실 홈·⌘K 통합 검색, 2026-10-29 10:48 배포). 자세한 것은 `limitations.md`, 보고서 재료는 `docs/final-report-materials.md`.
 
 <details><summary>이전 요약 (2026-10-27)</summary>
