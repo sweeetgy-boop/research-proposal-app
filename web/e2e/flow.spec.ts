@@ -62,7 +62,7 @@ test.describe("전체 흐름 ①→⑥", () => {
 
     // 다시 열기
     await page.getByRole("button", { name: /다시 열기/ }).click();
-    await expect(page.getByText("수정 중").first()).toBeVisible();
+    await expect(page.getByRole("main").getByText("수정 중").first()).toBeVisible(); // 위쪽 통합 검색 팝업(닫힘)에도 같은 글자가 있다
   });
 
   test("추천 0건 경로: '원래 아이디어로 진행' 으로 보강 질문 화면까지", async ({ page }) => {

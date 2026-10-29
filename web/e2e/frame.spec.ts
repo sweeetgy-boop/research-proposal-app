@@ -54,7 +54,7 @@ test.describe("화면 틀 (레인 1)", () => {
     await expect(page).toHaveURL(/\/$/);
 
     // 통합 검색 자리 — 로그인 전이면 창
-    await page.getByRole("button", { name: /제안서·자료 검색/ }).click();
+    await page.getByRole("combobox", { name: "제안서·자료 통합 검색" }).click();
     dialog = page.getByRole("dialog", { name: "로그인" });
     await expect(dialog).toBeVisible();
     await page.keyboard.press("Escape");

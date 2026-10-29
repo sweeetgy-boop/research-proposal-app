@@ -52,7 +52,7 @@ function Frame() {
       </aside>
       <MobileMenu open={menuOpen} onClose={closeMenu} />
       <div className="flex min-h-dvh flex-col pb-[var(--stepnav-h)] lg:pl-52">
-        <TopBar onOpenMenu={() => setMenuOpen(true)} menuOpen={menuOpen} search={<GlobalSearch />} />
+        <TopBar onOpenMenu={() => setMenuOpen(true)} menuOpen={menuOpen} search={<GlobalSearch className="min-w-0 flex-1 sm:flex-none" />} />
         {loggedIn && step !== null && !runInPath(pathname) && (
           <div className="mx-auto w-full max-w-6xl px-4 pt-4">
             <Stepper current={step} />

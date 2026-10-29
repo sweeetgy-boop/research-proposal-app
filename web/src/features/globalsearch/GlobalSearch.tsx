@@ -129,6 +129,13 @@ export function GlobalSearch({ className }: { className?: string }) {
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!loggedIn) {
+      if (e.key !== "Tab" && e.key !== "Escape" && e.key !== "Shift" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        openLogin();
+      }
+      return;
+    }
     if (e.key === "Escape") {
       if (open) {
         e.preventDefault();
@@ -211,9 +218,13 @@ export function GlobalSearch({ className }: { className?: string }) {
             setText(e.target.value);
             if (loggedIn) setOpen(true);
           }}
+          // 로그인 전에는 포커스가 아니라 누르기·글자 입력에서 로그인 창 — 창을 Esc 로 닫으면 포커스가 이 칸으로
+          // 돌아오므로 포커스로 열면 창이 다시 열려 닫히지 않는다(통합 e2e)
           onFocus={() => {
+            if (loggedIn) setOpen(true);
+          }}
+          onClick={() => {
             if (!loggedIn) openLogin();
-            else setOpen(true);
           }}
           onKeyDown={onKeyDown}
           className="h-10 w-full rounded-lg border border-input bg-muted/40 pl-9 pr-16 text-sm text-foreground placeholder:text-muted-foreground focus-visible:bg-background focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-search-cancel-button]:hidden"

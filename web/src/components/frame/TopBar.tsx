@@ -100,7 +100,8 @@ export function TopBar({
           <Menu className="size-5" aria-hidden="true" />
         </button>
         <Breadcrumb />
-        <div className="flex shrink-0 items-center gap-1">
+        {/* 좁은 화면(360px)에서도 가로로 넘치지 않게 — 검색칸이 남은 폭만 쓴다 */}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:flex-none">
           {search ?? <SearchSlot />}
           <Link
             to="/guide"
