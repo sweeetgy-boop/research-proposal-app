@@ -51,8 +51,10 @@ MANIFEST_KEYS = frozenset(
         "gemini_calls",  # 초안 한 건의 Gemini 호출 수 (작성·검토·그림·합계)
         "live_search",  # [4] 실시간 검색: 상태·자료원별 상태/건수/초·키워드 개수 (키워드·본문 없음)
         "hwpx_format",  # 항목 12 HWPX 서식 점검: 고친 단락 수·남은 불일치·단계별 단락 수 (건수만)
+        "timing",  # ADR 0045: 초안 글 보임·그림 끝 (초)·그림 작업 상태 (숫자·코드만)
     }
 )
+TIMING_KEYS = frozenset({"draft_visible_seconds", "figures_done_seconds", "figures_status"})
 HWPX_FORMAT_KEYS = frozenset(
     {
         "mode",
@@ -255,6 +257,9 @@ def check_manifest(manifest: Mapping[str, Any]) -> None:
         extra = set(version) - VERSION_KEYS
         if extra:
             raise ValueError(f"manifest versions 에 허용되지 않은 키: {sorted(extra)}")
+    extra = set(manifest.get("timing") or {}) - TIMING_KEYS
+    if extra:
+        raise ValueError(f"manifest timing 에 허용되지 않은 키: {sorted(extra)}")
     extra = set(manifest.get("usage") or {}) - USAGE_KEYS
     if extra:
         raise ValueError(f"manifest usage 에 허용되지 않은 키: {sorted(extra)}")

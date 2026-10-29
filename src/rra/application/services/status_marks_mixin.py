@@ -34,6 +34,11 @@ class StatusMarksMixin:
         found = self.store.load_version(user, run_id, n) if n >= 1 else None  # type: ignore[attr-defined]
         if found is None:
             return None
+        # 그리는 중인 그림(ADR 0045, services/figure_job.py)을 먼저 합친다
+        # — 표시는 그 그림에도 붙는다
+        merge = getattr(self, "_merge_job_figures", None)
+        if merge is not None:
+            found = merge(user, run_id, found)
         return status_marks.apply_marks(found, self.store.load_marks(user, run_id, n))  # type: ignore[attr-defined]
 
     def _technique_labels(self) -> dict[str, str]:

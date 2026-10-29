@@ -43,6 +43,7 @@ from rra.application.ports import (
 from rra.application.ports.auth import BudgetExhausted, DailyBudgetPort
 from rra.application.ports.renderer import RenderRejected
 from rra.application.services.edit_ai import EditAIMixin
+from rra.application.services.figure_job import FigureJobMixin, figure_key
 from rra.application.services.local_review import LocalReviewMixin
 from rra.application.services.status_marks_mixin import StatusMarksMixin
 from rra.application.usecases.figures import FigureBuild, MakeFigures, SpecRejected
@@ -89,7 +90,6 @@ from rra.domain.models.review import (
 from rra.domain.models.run import (
     ACTIVE,
     DRAFT_REVIEW,
-    FIGURES,
     FINALIZE,
     FINISHED,
     OUTLINE,
@@ -100,6 +100,7 @@ from rra.domain.models.run import (
     section_step,
 )
 from rra.domain.rules import draft_failures, review_flow
+from rra.domain.rules import figure_job as figure_job_rules
 from rra.domain.rules import figures as figure_rules
 from rra.domain.rules.auth_policy import daily_limit_reached
 from rra.domain.rules.evidence import (
@@ -339,7 +340,7 @@ def _cleaned(section: Section) -> Section:
     )
 
 
-class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
+class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin, FigureJobMixin):
     def __init__(
         self,
         generate: GenerateProposal,
@@ -486,6 +487,11 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         """같은 프로세스에서 시작한 run(생성·자동 검토)이 끝날 때까지 기다린다 (CLI 용)."""
         if self.runner.is_running(run_id):
             await self.runner.wait(run_id)
+        fig = figure_key(
+            run_id
+        )  # 그림 백그라운드 작업(ADR 0045) — 끝나면 1차 검토가 이어질 수 있다
+        if self.runner.is_running(fig):
+            await self.runner.wait(fig)
         key = self._review_tasks.get(run_id)
         if key and self.runner.is_running(key):
             await self.runner.wait(key)
@@ -508,6 +514,7 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         state = self.store.load_state(user, run_id)
         current: StepRecord | None = None
         auto_review = False
+        figure_claim: RunClaim | None = None
         gen = self._generate_for(state)
         try:
             # 로컬 작성: run 전체가 전역 슬롯 1칸 안에서. Argon 작성(ADR 0032): run 은
@@ -615,12 +622,6 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
                     state.draft_version = 1
                 self._finish(state, current, on_step, dropped=fixed)
                 current = None
-                if not invalid and self.figures is not None:
-                    # [G] 그림 — v1 에 붙인다(검토 전). 그동안 상태는 running 그대로. drafted 로
-                    # 먼저 저장하면 화면이 편집을 열고 편집은 이 실행의 락에 막힌다(10-28 시험)
-                    # 그림 명세는 Argon 먼저(#70) — 이미지 생성까지 전역 슬롯을 잡으면 동시 run 이
-                    # 그림 단계에서 줄을 선다. 명세의 로컬 대체는 그림 유스케이스 몫(레인 A)
-                    await self._figures_step(user, run_id, state, ordered, req, snapshot)
                 state.status = "invalid" if invalid else "drafted"
                 if not invalid:
                     wants_review = self.pipeline.draft_review and self.review_auto
@@ -638,6 +639,21 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
                     auto_review = (
                         wants_review and self.reviewer is not None and not self._budget_exhausted()
                     )
+                    # [G] 그림은 백그라운드(ADR 0045) — 초안 글을 먼저 보인다(drafted).
+                    # 그림 작업 락·자리 목록을 run 락을 놓기 전에 만들어 공백이 없게 하고,
+                    # 실행은 락을 놓은 뒤에.
+                    # 1차 검토(켜져 있을 때)는 예전처럼 바로 시작한다 — 그림을 기다리면
+                    # 제안자가 v1 을 고치는 사이 검토가 v2 를 만들어 저장이 어긋난다.
+                    # 검토는 그때까지 도착한 그림만 본다
+                    figure_claim = self._prepare_figure_job(
+                        user, run_id, state, ordered, req, snapshot
+                    )
+                    state.draft_visible_seconds = figure_job_rules.seconds_between(
+                        state.created_at, self._clock()
+                    )
+                    if figure_claim is None:  # 그림 없음 — 초안 글이 보일 때 끝
+                        state.figures_done_seconds = state.draft_visible_seconds
+                    self._touch_usage(user, run_id, state)
                 return state
         except Exception as exc:  # 어떤 실패든 저장된 step 은 남고, 재개로 이어서 한다
             self._interrupt(state, current, type(exc).__name__)
@@ -650,6 +666,12 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
             state.updated_at = self._clock()
             self._save(state)
             claim.release()
+            if figure_claim is not None:  # 그림 작업은 run 락 없이 (편집이 열린다)
+                if state.status == "drafted":
+                    self._start_figure_job(user, run_id, figure_claim)
+                else:  # 그 사이 실패 — 작업을 끝내 "그리는 중" 이 남지 않게
+                    self._end_job(user, run_id, "Interrupted")
+                    figure_claim.release()
             if auto_review:  # v1 뒤 Argon 1차 검토 자동 시작 (③ 의 일부). 락을 놓은 뒤에
                 try:
                     await self.review(user, run_id)
@@ -975,7 +997,7 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
                 state.updated_at = self._clock()
                 self.store.save_state(state)
                 self._record(state)
-        return state
+        return self._overlay_figure_job(state)  # 그림 작업 상태·자리·시간 (ADR 0045)
 
     async def load_request(self, user: str, run_id: str) -> ProposalRequest:
         """저장된 제안 입력 — 예전 양식 run 의 입력으로 새 run 을 만들 때 쓴다.
@@ -1058,6 +1080,8 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
             raise InvalidTransition(
                 "검토 LLM 이 없습니다 (review_skipped) — 바로 마무리할 수 있습니다."
             )
+        if self._figures_busy(user, run_id):  # 검토는 그림까지 본다 (ADR 0045)
+            raise InvalidTransition(figure_job_rules.PENDING_FINISH_HINT)
         if self._budget_exhausted():
             review_flow.transition(state.status, "start_final_review")  # 상태 검사만
             state.review_skipped = True  # 검토 없이 마무리할 수 있게
@@ -2033,62 +2057,6 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         return sum(1 for c in latest.comments if c.kind == "figure" and c.status == "open")
 
     # ── [G] 그림 ─────────────────────────────────────────
-    async def _figures_step(
-        self,
-        user: str,
-        run_id: str,
-        state: RunState,
-        sections: list[Section],
-        req: ProposalRequest,
-        snapshot: RetrievalSnapshot | None,
-    ) -> None:
-        """v1 저장 직후 — 명세·밑그림·Nano Banana → 그림 파일(해시) 저장, v1.figures 갱신.
-        실패해도 run 은 계속된다(step error 기록)."""
-        if self.figures is None:
-            return
-        try:
-            step = self._begin(state, FIGURES)
-        except KeyError:
-            return
-        self._save(state)
-        try:
-            # 로컬 작성 run 은 전역 슬롯을 이미 잡고 있다 — 그림의 로컬 대체가 다시 잡지 않게
-            held = not self._generate_for(state).writes_remotely
-            # v2: 기본 그림(As-Is/To-Be + 수치 그래프·일정표)과 기법 추천(0~2)을 함께 — 최대 4장
-            slots = figure_rules.technique_slots(len(self.figures.plan(sections, req, snapshot)))
-            (builds, skipped), (tech_builds, outcome) = await asyncio.gather(
-                self.figures.build_default(sections, req, snapshot, local_held=held),
-                self._recommend_safely(
-                    sections, req, snapshot, slots=slots, scope=state.scope, local_held=held
-                ),
-            )
-            state.figure_techniques = outcome.model_dump()
-            builds = [*builds, *tech_builds]
-            for b in builds:
-                self._save_build(user, run_id, b)
-            v1 = self.store.load_version(user, run_id, 1)
-            if v1 is not None:
-                v1 = v1.model_copy(update={"figures": [b.figure for b in builds]})
-                self.store.save_version(user, run_id, v1)
-                state.figures = _figure_summary(v1.figures, [])
-            for item in skipped:
-                logger.info(
-                    "figure.skipped run=%s kind=%s reason=%s", run_id, item["kind"], item["reason"]
-                )
-            self._finish(
-                state,
-                step,
-                None,
-                sentences=len(builds),
-                dropped=len(skipped),
-                fallback=",".join(sorted({b.figure.renderer for b in builds})) or None,
-            )
-        except Exception as exc:  # 그림 실패는 초안을 막지 않는다
-            step.status = "error"
-            step.error = type(exc).__name__
-            step.finished_at = self._clock()
-            logger.warning("figure.step_failed run=%s error=%s", run_id, type(exc).__name__)
-
     async def _recommend_safely(
         self,
         sections: list[Section],
@@ -2137,6 +2105,8 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         새 그림이 있으면 새 버전, 없으면 결과(해당 없음·호출 실패·규칙에 걸러짐)만 남긴다."""
         if self.figures is None:
             raise FeatureDisabled("그림 기능이 꺼져 있습니다 (figures.yaml enabled).")
+        if self._figures_busy(user, run_id):
+            raise EditRejected(figure_job_rules.PENDING_ADD_HINT)
         state, current, nxt = await self._figure_edit_base(user, run_id, base_version)
         alive = [
             f
@@ -2201,6 +2171,8 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         technique(기법 key)로 분석해 그린다(추천 배지 없음 — 제안자가 고른 그림)."""
         if self.figures is None:
             raise FeatureDisabled("그림 기능이 꺼져 있습니다 (figures.yaml enabled).")
+        if self._figures_busy(user, run_id):  # 그리는 그림과 id 가 겹치지 않게 (ADR 0045)
+            raise EditRejected(figure_job_rules.PENDING_ADD_HINT)
         state, current, nxt = await self._figure_edit_base(user, run_id, base_version)
         req = self.store.load_request(user, run_id)
         snapshot = self.store.load_snapshot(user, run_id)
@@ -2261,6 +2233,10 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         state, current, nxt = await self._figure_edit_base(user, run_id, base_version)
         by_id = {f.id: f for f in current.figures}
         fig = by_id.get(figure_id)
+        if fig is None and figure_job_rules.is_pending_slot(
+            self._figure_job(user, run_id), figure_id
+        ):
+            raise EditRejected(figure_job_rules.PENDING_FIGURE_HINT)
         if fig is None:
             raise EditRejected("그림이 없습니다.")
         note = f"그림 {action}"
@@ -2428,6 +2404,10 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
         record = self.store.load_usage(user, run_id) or UsageRecord(run_id=run_id)
         record = refresh_usage(record, state, counts=counts, now=self._clock())
         update: dict[str, Any] = {"gemini_calls": self._gemini_calls(user, run_id, state)}
+        if state.draft_visible_seconds is not None:  # ADR 0045 — 초안 글 보임·그림 끝 (초)
+            update["draft_visible_seconds"] = state.draft_visible_seconds
+        if state.figures_done_seconds is not None:
+            update["figures_done_seconds"] = state.figures_done_seconds
         if checklist_coverage is not None:
             update["checklist_coverage"] = float(checklist_coverage)
         if rewrites_add:
@@ -2516,6 +2496,8 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin):
             raise FinalizeRejected(
                 "저장하지 않은 임시 편집이 있습니다 — 먼저 저장하거나 버리십시오."
             )
+        if self._figures_busy(user, run_id):  # 그림이 빠진 HWPX 를 내지 않는다 (ADR 0045)
+            raise FinalizeRejected(figure_job_rules.PENDING_FINISH_HINT)
         view = await self.get_draft(user, run_id)
         sections = view.sections
         picked = view.version
@@ -3122,6 +3104,12 @@ def manifest(
         "figures": [dict(x) for x in state.figures],  # [G] 그림 요약 (본문 없음)
         "live_search": live_search_manifest(state),
         "hwpx_format": dict(state.hwpx_format) if state.hwpx_format else None,  # 건수만
+        # ADR 0045 — 제출 → 초안 글 보임, 제출 → 그림 모두 끝남 (초), 그림 작업 상태
+        "timing": {
+            "draft_visible_seconds": state.draft_visible_seconds,
+            "figures_done_seconds": state.figures_done_seconds,
+            "figures_status": state.figures_status,
+        },
     }
 
 

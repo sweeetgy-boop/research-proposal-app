@@ -612,6 +612,27 @@ class InMemoryRunStore:
     def is_alive(self, user, run_id):
         return (user, run_id) in self.claimed
 
+    def save_figure_job(self, user, run_id, job):
+        self._key(user, run_id)
+        self.figure_jobs = getattr(self, "figure_jobs", {})
+        self.figure_jobs[(user, run_id)] = job.model_copy(deep=True)
+
+    def load_figure_job(self, user, run_id):
+        job = getattr(self, "figure_jobs", {}).get((user, run_id))
+        return job.model_copy(deep=True) if job is not None else None
+
+    def claim_figures(self, user, run_id):
+        from rra.application.ports import RunBusy
+
+        key = (*self._key(user, run_id), "figures")
+        if key in self.claimed:
+            raise RunBusy(run_id)
+        self.claimed.add(key)
+        return _FakeClaim(self, key)
+
+    def figures_alive(self, user, run_id):
+        return (user, run_id, "figures") in self.claimed
+
     def list_users(self):
         return sorted({u for (u, _) in self.states})
 

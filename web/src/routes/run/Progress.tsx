@@ -10,6 +10,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { stepLabel, statusLabel } from "@/lib/sections";
 import { cn } from "@/lib/utils";
+import { SectionsSoFar } from "@/features/progress/SectionsSoFar";
+import { figuresDrawing } from "@/features/figures/figureJob";
 
 export default function Progress() {
   const { run, refetch } = useRunContext();
@@ -30,6 +32,8 @@ export default function Progress() {
   }, [run.status, run.run_id, navigate]);
 
   const generating = run.status === "queued" || run.status === "running";
+  // ADR 0045 — 초안 글이 보인 뒤에도 그림 단계는 백그라운드로 돈다
+  const drawing = figuresDrawing(run);
 
   return (
     <div className="space-y-6">
@@ -49,7 +53,7 @@ export default function Progress() {
         </div>
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {generating
-            ? `${done}/${total} 단계 완료 — 로컬 모델이 섹션을 쓰는 중입니다.`
+            ? `${done}/${total} 단계 완료 — ${run.writer === "gemini" ? "Argon 이" : "로컬 모델이"} 섹션을 쓰는 중입니다. 다 쓴 섹션은 아래에 먼저 보입니다.`
             : run.status === "draft_reviewing"
               ? "Argon 1차 검토 중 — 통과한 수정안만 v2 에 자동 반영됩니다."
               : run.status === "final_reviewing"
@@ -90,6 +94,8 @@ export default function Progress() {
         </Alert>
       )}
 
+      <SectionsSoFar runId={run.run_id} generating={generating} />
+
       <section aria-labelledby="steps-h">
         <h3 id="steps-h" className="mb-2 text-base font-semibold">
           단계 {run.steps.length}개
@@ -104,17 +110,20 @@ export default function Progress() {
                   <X className="size-4 text-destructive" />
                 ) : s.status === "skipped" ? (
                   <SkipForward className="size-4 text-muted-foreground" />
-                ) : generating && run.steps.findIndex((x) => x.status === "pending") === run.steps.indexOf(s) ? (
+                ) : (generating && run.steps.findIndex((x) => x.status === "pending") === run.steps.indexOf(s)) || (drawing && s.name === "figures") ? (
                   <Loader2 className="size-4 animate-spin text-primary" />
                 ) : (
                   <CircleDashed className="size-4 text-muted-foreground" />
                 )}
               </span>
-              <span className={cn("flex-1", s.status === "pending" && "text-muted-foreground")}>{stepLabel(s.name)}</span>
+              <span className={cn("flex-1", s.status === "pending" && "text-muted-foreground")}>
+                {stepLabel(s.name)}
+                {drawing && s.name === "figures" && " — 그림 준비 중 (초안 글은 먼저 볼 수 있습니다)"}
+              </span>
               <span className="sr-only">
                 {s.status === "done" ? "완료" : s.status === "error" ? "오류" : s.status === "skipped" ? "건너뜀" : "대기"}
               </span>
-              {s.error && <span className="text-xs text-destructive">{s.error}</span>}
+              {s.error && <span className="text-xs text-destructive">{s.name === "figures" ? "일부 그림을 그리지 못했습니다 — 초안의 그림 카드에서 다시 그릴 수 있습니다" : s.error}</span>}
             </li>
           ))}
         </ol>

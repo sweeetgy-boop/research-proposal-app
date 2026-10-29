@@ -72,6 +72,7 @@ from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.cancellable import CANCELLED_STATUS, ClientCancelled, cancel_on_disconnect
 from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
 from rra.entrypoints.api.local_review_routes import register as register_local_review_routes
+from rra.entrypoints.api.progress_routes import register as register_progress_routes
 from rra.entrypoints.api.routes_format import register_format_routes
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
@@ -1610,6 +1611,9 @@ def create_app(
         app, api_version=API_VERSION, manager=manager, svc=_svc, own=_own, clean=_clean
     )
     register_local_review_routes(app, api_version=API_VERSION, manager=manager, own=_own)
+    register_progress_routes(  # ADR 0045 작성 중 섹션 먼저 보기
+        app, api_version=API_VERSION, manager=manager, own=_own, clean=_clean
+    )
 
     # ── U7 제출 전 점검 · U8 측정·만족도 ───────────────────
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/submit-check")

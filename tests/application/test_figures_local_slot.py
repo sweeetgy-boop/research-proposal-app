@@ -211,7 +211,9 @@ async def test_local_writer_run_does_not_reacquire_the_slot_for_figures():
     st = await mgr.submit(USER, REQ)
     final = await asyncio.wait_for(mgr.wait(USER, st.run_id), timeout=5)
     assert final.status == "drafted" and len(fig_local.calls) == 1  # v2 기본 As-Is/To-Be 1
-    assert slot.entered == 1  # run 전체가 한 번만 잡았다
+    # ADR 0045 — 그림은 생성이 슬롯을 놓은 뒤 백그라운드로 그린다. 명세의 로컬 대체는 그때 슬롯을
+    # 다시 잡는다(겹치지 않게 차례로 — 교착 없음)
+    assert slot.entered == 2 and slot.max_active == 1
 
 
 async def test_words_edit_local_fallback_takes_the_slot_but_argon_does_not():

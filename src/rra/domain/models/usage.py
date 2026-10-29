@@ -54,3 +54,6 @@ class UsageRecord(BaseModel):
     updated_at: str | None = None
     # [3] ADR 0032 — 초안 한 건의 Gemini 호출 수 {compose, review, figures, total}
     gemini_calls: dict[str, int] = Field(default_factory=dict)
+    # ADR 0045 — 제출 → 초안 글 보임(drafted), 제출 → 그림 모두 끝남 (초)
+    draft_visible_seconds: float | None = None
+    figures_done_seconds: float | None = None

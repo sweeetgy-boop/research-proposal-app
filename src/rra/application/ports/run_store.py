@@ -6,6 +6,7 @@ from rra.domain.models import (
     Confirmation,
     Draft,
     DraftVersion,
+    FigureJob,
     ProposalRequest,
     RetrievalSnapshot,
     ReviewRound,
@@ -127,6 +128,20 @@ class RunStorePort(Protocol):
 
     def load_figure_image(self, user: str, run_id: str, sha: str) -> tuple[bytes, str] | None:
         """(바이트, mime) 또는 None."""
+        ...
+
+    # 그림 백그라운드 작업(ADR 0045) — figures_job.json 과 작업 락(.figures.lock)
+    def save_figure_job(self, user: str, run_id: str, job: FigureJob) -> None: ...
+
+    def load_figure_job(self, user: str, run_id: str) -> FigureJob | None: ...
+
+    def claim_figures(self, user: str, run_id: str) -> RunClaim:
+        """그림 작업 락 — run 락과 따로(편집은 run 락이 필요 없다). 이미 잡혀 있으면 RunBusy.
+        잡은 프로세스가 죽으면 풀린다 (재시작 뒤 '그리는 중' 이 남지 않게)."""
+        ...
+
+    def figures_alive(self, user: str, run_id: str) -> bool:
+        """누군가 그림 작업 락을 잡고 있으면 True."""
         ...
 
     def save_review(self, user: str, run_id: str, review: ReviewRound) -> None: ...

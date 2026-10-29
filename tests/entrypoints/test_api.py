@@ -579,6 +579,16 @@ async def test_fake_mode_runs_the_whole_flow_deterministically_without_db_or_mod
             headers=AUTH,
         )
         assert r.status_code == 200 and r.json()["version"] == 3
+        # ADR 0045 — 그림은 초안 뒤 백그라운드. 그리는 동안 최종 검토는 409(그림 준비 중)
+        for _ in range(500):
+            body = (await c.get(f"/v1/runs/{run_id}", headers=AUTH)).json()
+            if body["figures_status"] not in ("pending", "drawing"):
+                break
+            r = await c.post(f"/v1/runs/{run_id}/final-review", headers=AUTH)
+            assert r.status_code == 409 and "그림 준비 중" in r.text
+            await asyncio.sleep(0.01)
+        assert body["figures_status"] == "done"
+        assert (await c.get(f"/v1/runs/{run_id}/draft", headers=AUTH)).json()["version"] == 3
         r = await c.post(f"/v1/runs/{run_id}/final-review", headers=AUTH)
         assert r.status_code == 202 and r.json()["status"] == "final_reviewing"
         for _ in range(200):

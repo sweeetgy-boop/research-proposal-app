@@ -4,6 +4,7 @@ from .comparison import ComparisonColumn, ComparisonTable
 from .document import Chunk, DocType, Document, SourceType, TextBasis
 from .draft import Draft, Section, Sentence, SentenceOrigin
 from .figure import FIGURE_KINDS, KIND_LABEL, Figure, FigureKind, FigurePlacement, FigureSpec
+from .figure_job import FigureJob, FigureSlot
 from .gap import (
     MAX_DIRECTIONS,
     MAX_ITEM_CHARS,
@@ -113,6 +114,8 @@ __all__ = [
     "FigureMark",
     "StatusMark",
     "VersionMarks",
+    "FigureJob",
+    "FigureSlot",
     "EvidenceDecision",
     "EvidenceCounts",
     "Satisfaction",
