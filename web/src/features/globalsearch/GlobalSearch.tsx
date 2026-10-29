@@ -10,6 +10,7 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, FileText, Library, Search as SearchIcon } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
+import { useRequireLogin } from "@/features/auth/useRequireLogin";
 import * as api from "@/api/endpoints";
 import { isApiError } from "@/api/client";
 import type { RunState } from "@/api/types";
@@ -50,20 +51,18 @@ function errorReason(e: unknown): string {
 }
 
 /** 로그인 전 — 로그인 화면으로 보내고 지금 주소를 기억한다 (레인 1 의 화면 안 로그인 창이 들어오면 그것으로 바꾼다). */
-function useOpenLogin() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  return React.useCallback(() => {
-    if (location.pathname === "/login") return;
-    navigate("/login", { state: { from: location.pathname + location.search } });
-  }, [navigate, location.pathname, location.search]);
+/** 로그인 전 — 그 자리에 로그인 창(레인 1 useRequireLogin), 로그인하면 검색칸으로 돌아온다. */
+function useOpenLogin(focus: () => void) {
+  const requireLogin = useRequireLogin();
+  return React.useCallback(() => requireLogin(focus), [requireLogin, focus]);
 }
 
 export function GlobalSearch({ className }: { className?: string }) {
   const loggedIn = useLoggedIn();
-  const openLogin = useOpenLogin();
   const navigate = useNavigate();
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const focusInput = React.useCallback(() => inputRef.current?.focus(), []);
+  const openLogin = useOpenLogin(focusInput);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const [text, setText] = React.useState("");
   const [open, setOpen] = React.useState(false);

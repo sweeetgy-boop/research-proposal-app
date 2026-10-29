@@ -3,7 +3,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { expectNoRunWord, fillIdea, login, subnav } from "./helpers";
+import { expectNoRunWord, fillIdea, login, subnav, mainNav } from "./helpers";
 
 const SHOTS = process.env.VERSIONS_NAV_SCREENS ?? ""; // 캡처 폴더 (비면 찍지 않는다)
 
@@ -129,7 +129,7 @@ test("초안 보기 → [수정 없이 최종 검토로] → 아래 막대로 �
   expect(saveBox.y + saveBox.height).toBeLessThanOrEqual(barBox.y + 1);
 
   // 목록 화면도 "run" 없이
-  await page.getByRole("link", { name: "내 제안서" }).click();
+  await mainNav(page).getByRole("link", { name: /내 제안서/ }).click();
   await expect(page.getByRole("heading", { name: "내 제안서" })).toBeVisible();
   await expectNoRunWord(page);
 });

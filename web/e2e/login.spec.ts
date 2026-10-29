@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { GUEST, STAFF_NO, createRun, loginGuest, loginStaff, openLoginDialog } from "./helpers";
+import { GUEST, STAFF_NO, createRun, loginGuest, loginStaff, openLoginDialog, mainNav } from "./helpers";
 
 const FAILED = "사번 또는 아이디·비밀번호를 확인하세요";
 
@@ -34,13 +34,13 @@ test.describe("로그인 (레인 A)", () => {
     await loginGuest(page);
     await expect(page.getByLabel("로그인 종류: 공용 계정")).toBeVisible();
     const id = await createRun(page);
-    await page.getByRole("link", { name: "내 제안서" }).click();
+    await mainNav(page).getByRole("link", { name: /내 제안서/ }).click();
     await expect(page.getByText(id)).toBeVisible();
     await page.getByRole("button", { name: "로그아웃" }).click();
 
     // 다른 직원으로 들어오면 공용 계정의 run 은 보이지 않고 직접 열어도 404
     await loginStaff(page, "E2E-0002");
-    await page.getByRole("link", { name: "내 제안서" }).click();
+    await mainNav(page).getByRole("link", { name: /내 제안서/ }).click();
     await expect(page.getByText(id)).toHaveCount(0);
     await page.goto(`/runs/${id}`);
     await expect(page.getByText(/제안서를 찾을 수 없습니다|없음/).first()).toBeVisible();

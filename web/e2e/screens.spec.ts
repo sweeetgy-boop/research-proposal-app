@@ -2,7 +2,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { fillIdea, login, subnav } from "./helpers";
+import { fillIdea, login, subnav, mainNav, openSourceSearch } from "./helpers";
 
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 test.skip(!OUT, "RRA_SCREENS_DIR 가 없으면 건너뜀");
@@ -55,15 +55,15 @@ test("모든 화면 캡처", async ({ page }) => {
   await subnav(page, "최종 마무리").click();
   await expect(page.getByRole("radio", { name: "응용연구" })).toBeChecked();
   await shot(page, 10, "finalize");
-  await page.getByRole("link", { name: "내 제안서" }).click();
+  await mainNav(page).getByRole("link", { name: /내 제안서/ }).click();
   await expect(page.getByRole("table")).toBeVisible();
   await shot(page, 11, "runs");
-  await page.getByRole("link", { name: "자료 검색" }).click();
+  await openSourceSearch(page);
   await page.getByLabel("검색어").fill("궤도");
-  await page.getByRole("button", { name: "검색" }).click();
+  await page.getByRole("button", { name: "검색", exact: true }).click();
   await expect(page.getByText("비신뢰").first()).toBeVisible();
   await shot(page, 12, "search");
-  await page.getByRole("link", { name: "자료원 상태" }).click();
+  await page.getByRole("link", { name: "자료 현황" }).click();
   await expect(page.getByText("알리오 공시 연구보고서")).toBeVisible();
   await shot(page, 13, "sources");
   // 다크 테마 + 폰 너비
