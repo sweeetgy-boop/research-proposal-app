@@ -28,10 +28,10 @@ export function Stepper({
           const state = current === null ? "idle" : s.n < current ? "done" : s.n === current ? "current" : "todo";
           const target = targets?.find((t) => t.n === s.n);
           const pill = cn(
-            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 sm:px-3 sm:py-1",
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium transition-colors sm:px-3 sm:py-1",
             state === "current" && "border-primary bg-primary text-primary-foreground font-semibold",
-            state === "done" && "border-success text-success",
-            (state === "todo" || state === "idle") && "border-border text-muted-foreground",
+            state === "done" && "border-transparent bg-mint text-mint-foreground",
+            (state === "todo" || state === "idle") && "border-border bg-card text-muted-foreground",
           );
           const body = (
             <>
@@ -48,7 +48,7 @@ export function Stepper({
               <Link
                 to={target.to ? `${base}/${target.to}` : base}
                 aria-current={state === "current" ? "step" : undefined}
-                className={cn(pill, "hover:underline focus-visible:outline-2 focus-visible:outline-ring", state !== "current" && "hover:border-primary hover:text-foreground")}
+                className={cn(pill, "hover:underline focus-visible:outline-2 focus-visible:outline-ring", state !== "current" && "hover:border-primary/50 hover:bg-primary-soft hover:text-primary-soft-foreground")}
               >
                 {body}
               </Link>
@@ -69,7 +69,7 @@ export function Stepper({
                 <span
                   id={reasonId}
                   role="tooltip"
-                  className="pointer-events-none absolute left-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded border bg-card px-2 py-0.5 text-xs text-card-foreground shadow group-hover:block group-focus-within:block"
+                  className="pointer-events-none absolute left-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded-md border bg-card px-2 py-0.5 text-xs text-card-foreground shadow-pop group-hover:block group-focus-within:block"
                 >
                   {target.reason}
                 </span>

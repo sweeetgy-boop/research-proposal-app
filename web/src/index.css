@@ -274,11 +274,14 @@
       opacity: 0.55;
     }
   }
+  /* 글자는 본문색 — 둘레 글자가 보조색이어도 색 칠한 바탕 위에서 4.5:1 을 넘게 */
   .diff-ins {
+    color: var(--color-foreground);
     background: color-mix(in oklab, var(--color-success) 22%, transparent);
     text-decoration: none;
   }
   .diff-del {
+    color: var(--color-foreground);
     background: color-mix(in oklab, var(--color-destructive) 22%, transparent);
     text-decoration: line-through;
   }

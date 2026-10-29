@@ -5,7 +5,7 @@ import { expectNoA11yViolations, mockFetch, problem, renderWithProviders } from 
 import { clearSession, getCsrf } from "@/auth/session";
 import { resetIdea, updateIdea } from "@/features/idea/store";
 import { emptyRequest } from "@/lib/validation";
-import Login from "./Login";
+import { LoginCard } from "@/features/auth/LoginCard";
 import Precheck from "./Precheck";
 import Runs from "./Runs";
 import RunLayout from "./run/RunLayout";
@@ -42,7 +42,7 @@ describe("로그인", () => {
 
   it("직원 탭: 사번만 보내고 CSRF·종류만 보관, 틀리면 통일된 문구 (axe 0)", async () => {
     const { calls } = sessionMock();
-    const { container } = renderWithProviders(<Login />, { route: "/login" });
+    const { container } = renderWithProviders(<LoginCard />, { route: "/" });
     await expectNoA11yViolations(container);
     expect(screen.getByRole("tab", { name: "철도연구원 직원(사번)" })).toHaveAttribute("aria-selected", "true");
     await userEvent.type(screen.getByLabelText("사번"), "K-9999");
@@ -60,7 +60,7 @@ describe("로그인", () => {
 
   it("그 외 사용자 탭: 아이디·비밀번호, 관리자 링크 아래 토큰 (axe 0)", async () => {
     sessionMock();
-    const { container } = renderWithProviders(<Login />, { route: "/login" });
+    const { container } = renderWithProviders(<LoginCard />, { route: "/" });
     await userEvent.click(screen.getByRole("tab", { name: "그 외 사용자(아이디·비밀번호)" }));
     await expectNoA11yViolations(container);
     await userEvent.type(screen.getByLabelText("아이디"), "team");
@@ -191,7 +191,7 @@ describe("run 화면", () => {
     const link = await screen.findByRole("link", { name: /검측 이력 기반 궤도 틀림/ });
     expect(link).toHaveClass("line-clamp-2");
     expect(link).toHaveAttribute("title", runsFx.runs[0]!.title);
-    expect(screen.getByRole("columnheader", { name: "만든 때" })).toBeInTheDocument();
+    expect(screen.getAllByText(/만든 때 /).length).toBeGreaterThan(0); // 내 제안서 줄 정보 (UI Research Studio)
     expect(screen.getByText(id)).toBeInTheDocument();
     expect(screen.getAllByText("제목 미정").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "본문으로 건너뛰기" })).toBeInTheDocument();

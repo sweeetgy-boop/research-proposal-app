@@ -1,14 +1,15 @@
-import { Database, FilePlus2, ListOrdered, LogOut, Search, UserRound } from "lucide-react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "./ThemeToggle";
+import * as React from "react";
+import { Outlet, useLocation } from "react-router";
 import { Stepper } from "./Stepper";
-import { useLoggedIn, useSessionLabel } from "@/auth/useSession";
-import { logout } from "@/api/endpoints";
+import { Sidebar } from "./frame/Sidebar";
+import { TopBar } from "./frame/TopBar";
+import { MobileMenu } from "./frame/MobileMenu";
+import { useLoggedIn } from "@/auth/useSession";
+import { LoginDialogProvider } from "@/features/auth/LoginDialog";
 import { useDeployVersion } from "@/api/hooks";
 import { formatDeployedAt } from "@/lib/deployVersion";
-import { cn } from "@/lib/utils";
 import { runStepFromSub } from "@/lib/runSteps";
+import { GlobalSearch } from "@/features/globalsearch/GlobalSearch";
 
 /** 경로 → 흐름 단계. run 안(/runs/:id/…)은 RunLayout 이 run 상태를 알고 단계 링크를 그리므로
  *  머리의 단계 표시는 /new… 에서만 쓴다 (runInPath). */
@@ -23,90 +24,52 @@ function stepFromPath(pathname: string): number | null {
 
 const runInPath = (pathname: string) => /^\/runs\/[^/]+/.test(pathname);
 
-const NAV = [
-  { to: "/new", label: "새 제안서", icon: FilePlus2 },
-  { to: "/runs", label: "내 제안서", icon: ListOrdered },
-  { to: "/search", label: "자료 검색", icon: Search },
-  { to: "/sources", label: "자료원 상태", icon: Database },
-];
-
 export function Layout() {
+  return (
+    <LoginDialogProvider>
+      <Frame />
+    </LoginDialogProvider>
+  );
+}
+
+/** 화면 틀 — 왼쪽 사이드바(넓은 화면 고정, 좁은 화면은 접는 메뉴) + 위쪽 막대(경로·통합 검색) + 본문.
+ *  아래 이동 막대(StepNavBar)는 사이드바 오른쪽에 붙고 높이(--stepnav-h)만큼 본문을 띄운다. */
+function Frame() {
   const loggedIn = useLoggedIn();
   const version = useDeployVersion().data?.version;
-  const sessionLabel = useSessionLabel();
   const { pathname } = useLocation();
-  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const closeMenu = React.useCallback(() => setMenuOpen(false), []);
   const step = stepFromPath(pathname);
 
-  const onLogout = async () => {
-    await logout();
-    navigate("/login", { replace: true });
-  };
-
   return (
-    <div className="flex min-h-dvh flex-col pb-[var(--stepnav-h)]">
+    <div className="min-h-dvh bg-background">
       <a href="#main" className="skip-link">
         본문으로 건너뛰기
       </a>
-      <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          <NavLink to="/new" className="text-base font-bold tracking-tight sm:text-lg">
-            연구과제 제안서 작성 보조
-          </NavLink>
-          <nav aria-label="주 메뉴" className="relative order-3 -mx-1 flex w-full min-w-0 gap-1 overflow-x-auto sm:order-2 sm:ml-auto sm:w-auto">
-            {loggedIn &&
-              NAV.map(({ to, label, icon: Icon }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={({ isActive }) =>
-                    cn(
-                      "inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-sm font-medium",
-                      isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                    )
-                  }
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                  {label}
-                </NavLink>
-              ))}
-          </nav>
-          <div className="order-2 ml-auto flex items-center gap-1 sm:order-3 sm:ml-0">
-            <ThemeToggle />
-            {loggedIn && sessionLabel && (
-              <span
-                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground"
-                aria-label={`로그인 종류: ${sessionLabel}`}
-              >
-                <UserRound className="size-3.5" aria-hidden="true" />
-                {sessionLabel}
-              </span>
-            )}
-            {loggedIn && (
-              <Button variant="ghost" size="sm" onClick={onLogout} aria-label="로그아웃">
-                <LogOut aria-hidden="true" />
-                <span className="hidden sm:inline">로그아웃</span>
-              </Button>
-            )}
-          </div>
-        </div>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-52 border-r bg-card lg:block" aria-label="사이드바">
+        <Sidebar />
+      </aside>
+      <MobileMenu open={menuOpen} onClose={closeMenu} />
+      <div className="flex min-h-dvh flex-col pb-[var(--stepnav-h)] lg:pl-52">
+        <TopBar onOpenMenu={() => setMenuOpen(true)} menuOpen={menuOpen} search={<GlobalSearch className="min-w-0 flex-1 sm:flex-none" />} />
         {loggedIn && step !== null && !runInPath(pathname) && (
-          <div className="mx-auto max-w-6xl px-4 pb-3">
+          <div className="mx-auto w-full max-w-6xl px-4 pt-4">
             <Stepper current={step} />
           </div>
         )}
-      </header>
-      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-        <Outlet />
-      </main>
-      <footer className="border-t py-4 text-center text-xs text-muted-foreground">
-        <p>초안·검토 의견·검색 결과는 수집 자료와 모델 출력으로, 제안자가 확인한 뒤에만 사용합니다.</p>
-        {version?.short && (
-          <p className="mt-1 font-mono" data-testid="deploy-version" aria-label="배포 버전">
-            버전 {version.short} · 배포 {formatDeployedAt(version.deployed_at)}
-          </p>
-        )}
-      </footer>
+        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+          <Outlet />
+        </main>
+        <footer className="border-t py-4 text-center text-xs text-muted-foreground">
+          <p>초안·검토 의견·검색 결과는 수집 자료와 모델 출력으로, 제안자가 확인한 뒤에만 사용합니다.</p>
+          {version?.short && (
+            <p className="mt-1 font-mono" data-testid="deploy-version" aria-label="배포 버전">
+              버전 {version.short} · 배포 {formatDeployedAt(version.deployed_at)}
+            </p>
+          )}
+        </footer>
+      </div>
     </div>
   );
 }

@@ -21,8 +21,8 @@ export function YearBars({ years }: { years: Record<string, number> }) {
       {entries.map(([y, n]) => (
         <li key={y} className="grid grid-cols-[3.5rem_1fr_2.5rem] items-center gap-2 text-sm">
           <span className="tabular-nums">{y}</span>
-          <div className="h-3 rounded bg-muted" aria-hidden="true">
-            <div className="h-3 rounded bg-primary" style={{ width: `${Math.round((n / max) * 100)}%` }} />
+          <div className="h-2.5 rounded-full bg-primary-soft" aria-hidden="true">
+            <div className="h-2.5 rounded-full bg-primary" style={{ width: `${Math.round((n / max) * 100)}%` }} />
           </div>
           <span className="tabular-nums text-muted-foreground">{n}건</span>
         </li>
@@ -65,7 +65,7 @@ export function BriefView({ brief, selected, onToggle }: BriefViewProps) {
             {brief.items.map((it) => {
               const on = picked.has(it.chunk_id);
               return (
-                <li key={it.chunk_id} className={cn("rounded-md border p-3", on && "border-primary")}>
+                <li key={it.chunk_id} className={cn("rounded-md border bg-card p-3", on && "border-primary")}>
                   <Label className="flex cursor-pointer items-start gap-2 font-normal">
                     <Checkbox checked={on} onChange={(e) => onToggle(it.chunk_id, e.target.checked)} className="mt-0.5" />
                     <span className="min-w-0 flex-1">
@@ -89,11 +89,11 @@ export function BriefView({ brief, selected, onToggle }: BriefViewProps) {
       </section>
 
       <aside className="min-w-0 space-y-6">
-        <section aria-labelledby="years-h" className="rounded-lg border p-3">
+        <section aria-labelledby="years-h" className="rounded-lg border bg-card p-3">
           <h2 id="years-h" className="mb-2 text-base font-semibold">연도별 건수</h2>
           {Object.keys(brief.years).length === 0 ? <p className="text-sm text-muted-foreground">없음</p> : <YearBars years={brief.years} />}
         </section>
-        <section aria-labelledby="kw-h" className="rounded-lg border p-3">
+        <section aria-labelledby="kw-h" className="rounded-lg border bg-card p-3">
           <h2 id="kw-h" className="mb-2 text-base font-semibold">주제어</h2>
           {brief.keywords.length === 0 ? (
             <p className="text-sm text-muted-foreground">없음</p>
@@ -109,7 +109,7 @@ export function BriefView({ brief, selected, onToggle }: BriefViewProps) {
             </ul>
           )}
         </section>
-        <section aria-labelledby="gaps-h" className="rounded-lg border p-3">
+        <section aria-labelledby="gaps-h" className="rounded-lg border bg-card p-3">
           <h2 id="gaps-h" className="mb-1 flex items-center gap-2 text-base font-semibold">
             <Lightbulb className="size-4" aria-hidden="true" />
             연구 공백 후보 {brief.gaps.length}건

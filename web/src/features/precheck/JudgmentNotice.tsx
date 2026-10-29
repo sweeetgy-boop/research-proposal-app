@@ -40,7 +40,7 @@ export function JudgmentNotice({
   return (
     <div
       role="status"
-      className={`flex flex-wrap items-start justify-between gap-2 rounded-md border p-3 text-sm ${failed ? "border-warning/60" : ""}`}
+      className={`flex flex-wrap items-start justify-between gap-2 rounded-md border bg-card p-3 text-sm ${failed ? "border-warning/60" : ""}`}
       data-testid="judgment-notice"
     >
       <div className="flex items-start gap-2">

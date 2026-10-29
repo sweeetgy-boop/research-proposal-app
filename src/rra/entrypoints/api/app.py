@@ -94,6 +94,7 @@ from rra.entrypoints.api.schemas import (
     StructureMergeIn,
     WorkingIn,
 )
+from rra.entrypoints.api.search_routes import register as register_search_routes
 from rra.entrypoints.views import (
     alerts_payload,
     brief_payload,
@@ -423,6 +424,12 @@ def create_app(
         if not hasattr(manager, "run_title"):
             return None
         return _clean(manager.run_title(state)) or None
+
+    def _task_type(state: Any) -> str | None:
+        """목록·홈 표의 과제유형 이름 (앱 목록 값이라 비신뢰 아님). 없으면 None."""
+        if not hasattr(manager, "run_task_type"):
+            return None
+        return manager.run_task_type(state) or None
 
     # ── 로그인 주체·소유자 (레인 A) ───────────────────────
     def _who(request: Request) -> Principal:
@@ -1129,7 +1136,9 @@ def create_app(
             states = manager.list_runs(_owner_key(request), limit)
         return {
             "runs": [
-                run_state_payload(s, legacy=manager.is_legacy(s), title=_title(s))
+                run_state_payload(
+                    s, legacy=manager.is_legacy(s), title=_title(s), task_type=_task_type(s)
+                )
                 for s in reversed(states)
             ]
         }
@@ -1140,7 +1149,9 @@ def create_app(
             state = await manager.status(*await _own(request, run_id))
         except RunNotFound as exc:
             raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
-        return run_state_payload(state, legacy=manager.is_legacy(state), title=_title(state))
+        return run_state_payload(
+            state, legacy=manager.is_legacy(state), title=_title(state), task_type=_task_type(state)
+        )
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/events")
     async def events_route(request: Request, run_id: str) -> StreamingResponse:
@@ -1613,6 +1624,14 @@ def create_app(
     register_local_review_routes(app, api_version=API_VERSION, manager=manager, own=_own)
     register_progress_routes(  # ADR 0045 작성 중 섹션 먼저 보기
         app, api_version=API_VERSION, manager=manager, own=_own, clean=_clean
+    )
+    register_search_routes(  # [UI] 통합 검색 "자료" 묶음·자료 검색 화면 (공용 계정은 internal 제외)
+        app,
+        api_version=API_VERSION,
+        repo_for=lambda request: _svc(request, "repo"),
+        clean=_clean,
+        known_sources=ALL_SOURCES,
+        query_max_chars=query_max_chars,
     )
 
     # ── U7 제출 전 점검 · U8 측정·만족도 ───────────────────

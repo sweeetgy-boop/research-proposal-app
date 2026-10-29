@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createRun, detailMode, fillIdea, login, subnav } from "./helpers";
+import { createRun, detailMode, fillIdea, login, subnav, mainNav, openSourceSearch } from "./helpers";
 
 test.describe("전체 흐름 ①→⑥", () => {
   test("아이디어 → 유사과제(추천 0건) → 보강 질문(Argon) → 생성 → 초안 → 수정 → 버전 비교 → 최종 검토 → HWPX 내려받기 → 다시 열기", async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe("전체 흐름 ①→⑥", () => {
 
     // 다시 열기
     await page.getByRole("button", { name: /다시 열기/ }).click();
-    await expect(page.getByText("수정 중").first()).toBeVisible();
+    await expect(page.getByRole("main").getByText("수정 중").first()).toBeVisible(); // 위쪽 통합 검색 팝업(닫힘)에도 같은 글자가 있다
   });
 
   test("추천 0건 경로: '원래 아이디어로 진행' 으로 보강 질문 화면까지", async ({ page }) => {
@@ -89,13 +89,13 @@ test.describe("전체 흐름 ①→⑥", () => {
 
   test("run 목록·자료 검색·자료원 상태", async ({ page }) => {
     await login(page);
-    await page.getByRole("link", { name: "내 제안서" }).click();
-    await expect(page.getByRole("table").or(page.getByText("아직 만든 제안서가 없습니다"))).toBeVisible();
-    await page.getByRole("link", { name: "자료 검색" }).click();
+    await mainNav(page).getByRole("link", { name: /내 제안서/ }).click();
+    await expect(page.getByTestId("run-rows").or(page.getByText("아직 만든 제안서가 없습니다"))).toBeVisible();
+    await openSourceSearch(page);
     await page.getByLabel("검색어").fill("궤도");
-    await page.getByRole("button", { name: "검색" }).click();
+    await page.getByRole("button", { name: "검색", exact: true }).click();
     await expect(page.getByText("비신뢰").first()).toBeVisible();
-    await page.getByRole("link", { name: "자료원 상태" }).click();
+    await page.getByRole("link", { name: "자료 현황" }).click();
     await expect(page.getByText("알리오 공시 연구보고서")).toBeVisible();
   });
 

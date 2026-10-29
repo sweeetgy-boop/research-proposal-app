@@ -316,7 +316,7 @@ export default function Draft() {
       </div>
 
       <aside className="min-w-0 space-y-6">
-        <section aria-labelledby="problems-h" className="rounded-lg border p-3">
+        <section aria-labelledby="problems-h" className="rounded-lg border bg-card p-3">
           <h2 id="problems-h" className="mb-2 flex items-center gap-2 text-base font-semibold">
             <AlertTriangle className="size-4" aria-hidden="true" />
             알림 {d.problems.length}건
@@ -351,7 +351,7 @@ export default function Draft() {
           {sectionProblems.length === 0 && d.problems.length > 0 && <p className="sr-only">문장 단위 알림은 본문 옆 배지로도 표시됩니다.</p>}
         </section>
 
-        <section aria-labelledby="cite-h" className="rounded-lg border p-3">
+        <section aria-labelledby="cite-h" className="rounded-lg border bg-card p-3">
           <h2 id="cite-h" className="mb-2 flex items-center gap-2 text-base font-semibold">
             <BookOpen className="size-4" aria-hidden="true" />
             인용 문서 {d.citations.length}건
@@ -369,7 +369,7 @@ export default function Draft() {
           )}
         </section>
 
-        <div className="rounded-lg border p-3">
+        <div className="rounded-lg border bg-card p-3">
           {review.isPending ? (
             <SkeletonBlock lines={4} />
           ) : review.data ? (
@@ -384,7 +384,7 @@ export default function Draft() {
           )}
         </div>
 
-        <details className="rounded-lg border p-3">
+        <details className="rounded-lg border bg-card p-3">
           <summary className="cursor-pointer text-base font-semibold">설계도 (섹션 구상)</summary>
           <div className="mt-2 text-sm">
             {outline.isPending ? (

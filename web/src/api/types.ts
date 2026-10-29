@@ -142,6 +142,8 @@ export interface RunState {
   run_id: string;
   /** 항목 2 — 연구과제명(현재 버전 1-가, 없으면 가제). 모델 출력이라 텍스트로만 그린다 */
   title?: string | null;
+  /** 과제유형 이름(기초연구·응용연구·개발연구) — 확정값, 없으면 초안 제안값. 없으면 null (UI Research Studio) */
+  task_type?: string | null;
   status: RunStatus;
   progress: [number, number];
   template: string;

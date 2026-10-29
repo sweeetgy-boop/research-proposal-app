@@ -133,7 +133,7 @@ export default function SubmitCheck() {
       </div>
 
       <aside className="min-w-0 space-y-6">
-        <section aria-labelledby="usage-h" className="rounded-lg border p-3">
+        <section aria-labelledby="usage-h" className="rounded-lg border bg-card p-3">
           <h2 id="usage-h" className="mb-2 flex items-center gap-2 text-base font-semibold">
             <Gauge className="size-4" aria-hidden="true" />
             사용 기록
@@ -177,7 +177,7 @@ export default function SubmitCheck() {
           )}
         </section>
 
-        <section aria-labelledby="fb-h" className="rounded-lg border p-3">
+        <section aria-labelledby="fb-h" className="rounded-lg border bg-card p-3">
           <h2 id="fb-h" className="mb-2 flex items-center gap-2 text-base font-semibold">
             <Star className="size-4" aria-hidden="true" />
             만족도

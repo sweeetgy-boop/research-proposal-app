@@ -113,7 +113,7 @@ export function NtisInsights({ data, loading, unavailable }: NtisInsightsProps) 
         </div>
       ) : null}
       {data.ntis_recommended.length > 0 ? (
-        <div className="space-y-2 rounded-lg border p-4" data-testid="ntis-recommended">
+        <div className="space-y-2 rounded-lg border bg-card p-4" data-testid="ntis-recommended">
           <h3 className="text-sm font-semibold">NTIS 추천</h3>
           <p className="text-xs text-muted-foreground">외부 링크 · 미검증 — 제목·순위는 NTIS 응답을 그대로 보인 것이며 내용은 확인하지 않았습니다.</p>
           <ol className="space-y-1 text-sm">

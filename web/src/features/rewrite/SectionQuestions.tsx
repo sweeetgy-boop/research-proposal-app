@@ -122,7 +122,7 @@ export function SectionQuestions({
           </div>
           <ProblemBanner error={save.error} />
           {data.reason_label && (
-            <div className="flex flex-wrap items-center gap-2 rounded border border-warning/60 p-2 text-sm" role="status">
+            <div className="flex flex-wrap items-center gap-2 rounded border border-warning/30 bg-apricot p-2 text-sm" role="status">
               <span>모델이 답하지 못해 {data.source === "checklist" || data.source === "strengthen" ? "체크리스트로 물었습니다" : "질문이 없습니다"} — 사유: {data.reason_label}</span>
               <Button size="sm" variant="outline" onClick={() => setRefresh((n) => n + 1)} disabled={q.isFetching}>
                 다시 시도
