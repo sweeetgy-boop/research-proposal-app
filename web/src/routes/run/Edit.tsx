@@ -12,6 +12,8 @@ import { SectionRewrite } from "@/features/rewrite/SectionRewrite";
 import { SectionQuestions } from "@/features/rewrite/SectionQuestions";
 import { FigureList } from "@/features/figures/FigureList";
 import { AddFigureDialog } from "@/features/figures/AddFigureDialog";
+import { FigureJobBanner } from "@/features/figures/FigureJobBanner";
+import { figuresDrawing, slotsFor } from "@/features/figures/figureJob";
 import { countChanges, emptyEditState, fromWorking, isDirty, toEditRequest, toWorking, usableRevisions, type EditState } from "@/features/draft/editModel";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -150,8 +152,9 @@ export default function Edit() {
           <h2 className="text-lg font-semibold">④ 직접 수정 — v{current} 기준</h2>
           <p className="text-sm text-muted-foreground">문장마다 원문 유지·수정안 사용·직접 수정·삭제·뒤에 추가를 고르고 저장하면 새 버전이 됩니다. AI 다시 쓰기·보완 질문은 누를 때만 Argon 을 부릅니다(실패하면 로컬 모델).</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <AddFigureDialog runId={id} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} />
+            <AddFigureDialog runId={id} baseVersion={current ?? 0} disabled={figuresDisabled || figuresDrawing(run)} onApplied={onFigureApplied} />
             {editable && dirty && <span className="text-xs text-muted-foreground">그림은 편집을 저장한 뒤 바꿀 수 있습니다.</span>}
+            {figuresDrawing(run) && <span className="text-xs text-muted-foreground">그림을 다 그린 뒤 그림을 추가할 수 있습니다.</span>}
           </div>
         </div>
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status" aria-live="polite">
@@ -205,6 +208,8 @@ export default function Edit() {
       )}
 
       <ProblemBanner error={save.error && !(isApiError(save.error) && save.error.status === 409) ? save.error : null} />
+
+      <FigureJobBanner run={run} ready={figures.length} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} />
 
       <DraftEditor
         sections={sections}
@@ -260,7 +265,7 @@ export default function Edit() {
         )}
         sectionExtra={(sec) =>
           sec.key !== "title" ? (
-            <FigureList runId={id} figures={figures} section={sec.key} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} />
+            <FigureList runId={id} figures={figures} section={sec.key} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} slots={slotsFor(run, sec.key)} />
           ) : null
         }
       />

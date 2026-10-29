@@ -1,0 +1,2 @@
+date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,domain_lines,application_lines,adapters_lines,entrypoints_lines,src_files,own_docs,alio_docs,openalex_docs,generation_sec,json_success_rate,argon_need,argon_diff,argon_feas,argon_effect,note
+2026-10-29,TBD,초안 글 먼저·그림 백그라운드 (ADR 0045),2287,,8,,,,,,,,,117,,,,,,초안 글 보임 단건 206·117초(그림까지 335·198) / 동시 3건 추정 158~196초(그림까지 283~342) — 지난 그림 포함 233~316초; vitest 157·e2e 28

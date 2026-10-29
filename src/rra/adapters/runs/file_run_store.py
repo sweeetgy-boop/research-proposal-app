@@ -13,6 +13,8 @@
                         reviews/review_rN.json  검토 차수 결과 (의견·수정안·전송 범위)
                         manifest.json        해시·id 만 (FileRunLog)
                         .lock                run 락 (살아있는 실행 표시)
+                        figures_job.json     그림 백그라운드 작업 (자리·도착한 그림, ADR 0045)
+                        .figures.lock        그림 작업 락 (그리는 중 표시, run 락과 따로)
 
 user·run_id·section key 는 정규식으로 검증한 뒤에만 경로에 쓴다. 디렉터리 700, 파일 600.
 개인정보(제안자 성명·연락처)는 저장하지 않는다 — ProposalRequest 에 그런 필드가 없다.
@@ -34,6 +36,7 @@ from rra.domain.models import (
     Confirmation,
     Draft,
     DraftVersion,
+    FigureJob,
     ProposalRequest,
     RetrievalSnapshot,
     ReviewRound,
@@ -345,6 +348,23 @@ class FileRunStore:
 
     def is_alive(self, user: str, run_id: str) -> bool:
         return is_locked(self._run_dir(user, run_id) / ".lock")
+
+    # ── 그림 백그라운드 작업 (ADR 0045) ─────────────────────
+    def save_figure_job(self, user: str, run_id: str, job: FigureJob) -> None:
+        write_json(self._run_dir(user, run_id) / "figures_job.json", job.model_dump(mode="json"))
+
+    def load_figure_job(self, user: str, run_id: str) -> FigureJob | None:
+        path = self._run_dir(user, run_id) / "figures_job.json"
+        return FigureJob.model_validate(read_json(path)) if path.is_file() else None
+
+    def claim_figures(self, user: str, run_id: str) -> FileLockClaim:
+        fd = try_lock(self._run_dir(user, run_id) / ".figures.lock")
+        if fd is None:
+            raise RunBusy("다른 실행이 이 run 의 그림을 그리고 있습니다.")
+        return FileLockClaim(fd)
+
+    def figures_alive(self, user: str, run_id: str) -> bool:
+        return is_locked(self._run_dir(user, run_id) / ".figures.lock")
 
 
 def _review_file(round_no: int) -> str:

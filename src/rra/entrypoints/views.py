@@ -1355,6 +1355,29 @@ def run_state_payload(
         "local_sections": local_sections_payload(state),
         # [4] 실시간 자료 검색 요약 (없으면 null — 꺼짐·예전 run)
         "live_search": getattr(state, "live_search", None),
+        # ADR 0045 — 그림 백그라운드 작업: 상태(pending|drawing|done|failed, 없으면 null)·카드 자리
+        # (그리는 중·실패, 본문 없음)·제출 → 초안 글 보임·제출 → 그림 끝 (초)
+        **figure_job_payload(state),
+    }
+
+
+def figure_job_payload(state: Any) -> dict[str, Any]:
+    """RunState → 그림 작업 필드 (레인 C, ADR 0045). 자리 이름·사유는 앱 문구(한국어)."""
+    return {
+        "figures_status": getattr(state, "figures_status", None),
+        "figure_slots": [
+            {
+                "slot_id": s.get("slot_id"),
+                "kind": s.get("kind"),
+                "section": s.get("section"),
+                "display_name": s.get("display_name"),
+                "status": s.get("status"),
+                "reason_label": s.get("reason_label"),
+            }
+            for s in getattr(state, "figure_slots", None) or []
+        ],
+        "draft_visible_seconds": getattr(state, "draft_visible_seconds", None),
+        "figures_done_seconds": getattr(state, "figures_done_seconds", None),
     }
 
 

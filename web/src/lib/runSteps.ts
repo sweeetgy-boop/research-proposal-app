@@ -28,10 +28,18 @@ export const isGenerated = (run: Pick<RunState, "status">): boolean => !NOT_GENE
 export const isEditable = (run: Pick<RunState, "status">): boolean => EDITABLE.has(run.status);
 
 /** ⑥ 최종 마무리를 할 수 있는가 — 최종 검토 완료(또는 마무리됨), 검토 모델이 없어 건너뛴 초안 */
+/** 그림 백그라운드 작업 중 (features/figures/figureJob.ts figuresDrawing 과 같은 규칙) */
+export function drawingFigures(run: RunState): boolean {
+  const st = (run as { figures_status?: string | null }).figures_status;
+  return st === "pending" || st === "drawing";
+}
+
 export function canFinalize(run: RunState): { ok: boolean; reason: string | null } {
   const f = run.flow;
   if (run.legacy) return { ok: false, reason: "예전 방식으로 만든 제안서는 마무리할 수 없습니다." };
   if (f.has_working) return { ok: false, reason: "저장하지 않은 임시 편집이 있습니다. 직접 수정에서 저장하거나 버리십시오." };
+  // ADR 0045 — 그림을 백그라운드로 그리는 동안은 기다린다 (그림이 빠진 양식을 내지 않는다)
+  if (drawingFigures(run)) return { ok: false, reason: "그림 준비 중 — 끝나면 진행할 수 있습니다." };
   if (run.status === "final_reviewed" || run.status === "finalized") return { ok: true, reason: null };
   if ((run.status === "drafted" || run.status === "editing") && (f.draft_review_skipped === "no_review_llm" || f.final_reviews > 0))
     return { ok: true, reason: null };
