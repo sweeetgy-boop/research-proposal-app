@@ -1,9 +1,9 @@
 # 문서 목록과 분류 (2026-10-29, docs/final-docs)
 
-저장소의 md 파일 249개(이 파일 포함). 분류: **최신**(지금 사실과 맞음 — 날짜 붙은 기록은 그 시점 기록으로 정확),
+저장소의 md 파일 257개(이 파일 포함). 분류: **최신**(지금 사실과 맞음 — 날짜 붙은 기록은 그 시점 기록으로 정확),
 **고침**(이번에 고침), **낡음(보관)**(이전 방식·지난 계획 — 지우지 않고 머리에 "보관" 표시, 지금 사실은 표시한 파일에서 본다).
-집계: 고침 23 · 낡음(보관) 12 · 최신 214.
-UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 와 화면 문구 반영은 UI 배포 뒤 이 목록에 더한다.
+집계: 고침 28 · 낡음(보관) 12 · 최신 217.
+UI 레인(Research Studio, 배포됨 c277253 2026-10-29 10:48) 조각 `docs/status.d/feat-ui-studio-{frame,home,search,tokens}.md` 은 pilot-guide·web/README·status·timeline·metrics·보고서 재료·ADR 0048~0051 에 모았다(레인 4 의 ①~⑥ 안쪽 화면은 tokens 조각에 함께 있다).
 
 ## 문서 사이에 서로 달랐던 사실과 맞춘 값
 
@@ -17,18 +17,20 @@ UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 
 | 유사과제 적중 | timeline "9/10 → 6/10", status "5/10 → 9/10" | 둘 다 맞음 — 9/10(10-27) → 적재 뒤 6/10(`rra eval`)·같은 코퍼스 5/10 → 수정 9/10(`eval-2026-10-28-precheck.md`). 보고서 재료 ⑧ 에 순서대로 적음 |
 | 테스트 수 | summary 1,495(10-27)·history README 1,178(10-26) | pytest 2,406 · vitest 159 · e2e 29(+3 skip) (#99, 2026-10-29) |
 | 자료 건수 | summary·limitations·history README: own 1,119 / alio 120 / openalex 2,482 / scienceon 2,045 | 운영 DB 2026-10-29 09:37 집계 16,100건(보고서 재료 ⑤) |
-| ADR 목록 | decisions/README 가 0028 까지 | 0029~0047 추가 |
+| ADR 목록 | decisions/README 가 0028 까지 | 0029~0051 추가(0047 Funnel 사후 기록, 0048~0051 UI 레인 초안) |
+| 테스트 수(UI 뒤) | #99 2,406·vitest 159·e2e 29 | pytest 2,418 · vitest 201 · e2e 40(+3 skip) (#108) |
+| 로그인 화면 | pilot-guide·web/README: `/login` 페이지·"오른쪽 위 로그아웃" | 로그인 페이지 없음(홈 카드·화면 안 창), 로그아웃은 사이드바 사용자 칸(ADR 0048) |
 
 ## 저장소 루트·배포 (6)
 
 | 파일 | 분류 | 메모 |
 |---|---|---|
 | `.github/pull_request_template.md` | 최신 | PR 양식 — 그대로 |
-| `CLAUDE.md` | 고침 | Funnel(ADR 0047)·운영 DB 재분류 완료·7B 이전 방식 표시·문서 최신화 줄 |
+| `CLAUDE.md` | 고침 | Funnel(ADR 0047)·운영 DB 재분류 완료·7B 이전 방식 표시·Research Studio·문서 최신화 줄 |
 | `CONTRIBUTING.md` | 최신 | 규칙(브랜치·조각 파일·데이터 위치) 현재와 같음 |
 | `README.md` | 고침 | 현재 상태 2026-10-29·작성 방식(Argon 먼저)·문서 안내 갱신, 2026-10-26 상태는 접어 둠 |
 | `deploy/README.md` | 고침 | 외부 공개 = Tailscale Funnel, Cloudflare 터널은 이전 계획 표시, mlx 역할 |
-| `web/README.md` | 고침 | 웹 구조 — Research Studio 반영은 UI 배포 뒤(진행 중), "1차 검토" 는 이전 방식으로 표시 |
+| `web/README.md` | 고침 | Research Studio 화면 틀·파일 위치 단락, "1차 검토" 이전 방식 표시, Lighthouse /login 메모 |
 
 ## docs 본문 (16)
 
@@ -47,8 +49,8 @@ UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 
 | `docs/mcp.md` | 최신 | MCP 도구·보안 — 그대로 |
 | `docs/overnight-2026-10-27.md` | 낡음(보관) · 표시 추가 |  |
 | `docs/overnight-2026-10-28.md` | 최신(측정·판단 기록) | 작업 일지(10-28, 레인 표) — 기록 |
-| `docs/pilot-guide.md` | 고침 | Cloudflare 주소 이전 계획·화면 전환 진행 중·NTIS 10-29·배포 뒤 시간·L2 설정 행 |
-| `docs/status.md` | 고침 | §0 지금 상태 요약 추가, 공개 방식·NTIS·웹 행, 3차 통합·배포·문서 최신화 행, 없는 측정 파일 참조 정정 |
+| `docs/pilot-guide.md` | 고침 | Cloudflare 주소 이전 계획·§1 화면 안 로그인·§2 화면 구성(Research Studio)·NTIS 10-29·배포 뒤 시간·L2 설정 행 |
+| `docs/status.md` | 고침 | §0 지금 상태 요약(운영 c277253·화면 Research Studio), 공개 방식·NTIS·웹 행, 3차 통합·UI·문서 최신화 행, 없는 측정 파일 참조 정정 |
 | `docs/vision-manifest.md` | 최신 | 판독 입력 형식 |
 
 ## docs 측정 기록(eval) (18)
@@ -92,9 +94,9 @@ UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 
 | `docs/history/README.md` | 고침 | 최신 요약 위치·deploys 행 |
 | `docs/history/lessons.md` | 최신 |  |
 | `docs/history/metrics.md` | 고침 | 요약표 10-27~10-29 행·읽는 법 |
-| `docs/history/timeline.md` | 고침 | 제목 기간·10-29 두 행(#99·배포, 문서 최신화) |
+| `docs/history/timeline.md` | 고침 | 제목 기간·10-29 세 행(#99·배포, Research Studio, 문서 최신화) |
 
-## docs/history/decisions (ADR) (48)
+## docs/history/decisions (ADR) (52)
 
 | 파일 | 분류 | 메모 |
 |---|---|---|
@@ -145,9 +147,13 @@ UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 
 | `docs/history/decisions/0045-draft-first-figures-background.md` | 최신(ADR 기록) |  |
 | `docs/history/decisions/0046-evidence-scope-admin-status.md` | 최신(ADR 기록) |  |
 | `docs/history/decisions/0047-exposure-tailscale-funnel.md` | 고침(새 파일) | 새 ADR — Tailscale Funnel 사후 기록 |
-| `docs/history/decisions/README.md` | 고침 | ADR 0029~0047 목록, 이전 방식 표시 |
+| `docs/history/decisions/0048-in-screen-login-sidebar-frame.md` | 고침(새 파일) | 새 ADR — UI 레인 1 초안 |
+| `docs/history/decisions/0049-research-home-progress.md` | 고침(새 파일) | 새 ADR — UI 레인 2 초안 |
+| `docs/history/decisions/0050-global-search-doc-api.md` | 고침(새 파일) | 새 ADR — UI 레인 3 초안 |
+| `docs/history/decisions/0051-design-tokens.md` | 고침(새 파일) | 새 ADR — UI 레인 4 초안 |
+| `docs/history/decisions/README.md` | 고침 | ADR 0029~0051 목록, 이전 방식 표시 |
 
-## docs/history/deploys (12)
+## docs/history/deploys (13)
 
 | 파일 | 분류 | 메모 |
 |---|---|---|
@@ -161,10 +167,11 @@ UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 
 | `docs/history/deploys/2026-10-28-2014.md` | 최신(기록) |  |
 | `docs/history/deploys/2026-10-29-0207.md` | 최신(기록) |  |
 | `docs/history/deploys/2026-10-29-0930.md` | 최신(기록) | 09:30 배포 기록·DB 재분류·배포 뒤 확인(#100) |
+| `docs/history/deploys/2026-10-29-1048.md` | 고침(새 파일) | 10:48 Research Studio 배포 기록 + 배포 뒤 확인(통합 담당 10:5x)·#108 수정 2건 |
 | `docs/history/deploys/README.md` | 최신(기록) |  |
 | `docs/history/deploys/pending.md` | 최신(기록) | 09:30 배포로 비워짐(#100) |
 
-## 조각 파일 (status.d·progress.d·timeline.d) (109)
+## 조각 파일 (status.d·progress.d·timeline.d) (112)
 
 | 파일 | 분류 | 메모 |
 |---|---|---|
@@ -269,7 +276,10 @@ UI 레인(Research Studio)이 남길 조각 `docs/status.d/feat-ui-studio-*.md` 
 | `docs/status.d/feat-source-ip.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
 | `docs/status.d/feat-table-facts-terms.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
 | `docs/status.d/feat-tunnel.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
-| `docs/status.d/feat-ui-studio-tokens.md` | 최신(UI 조각 — UI 배포 뒤 모음 대기) |  |
+| `docs/status.d/feat-ui-studio-frame.md` | 최신(UI 조각 — status·timeline·ADR 0048~0051 에 모음 완료) |  |
+| `docs/status.d/feat-ui-studio-home.md` | 최신(UI 조각 — status·timeline·ADR 0048~0051 에 모음 완료) |  |
+| `docs/status.d/feat-ui-studio-search.md` | 최신(UI 조각 — status·timeline·ADR 0048~0051 에 모음 완료) |  |
+| `docs/status.d/feat-ui-studio-tokens.md` | 최신(UI 조각 — status·timeline·ADR 0048~0051 에 모음 완료) |  |
 | `docs/status.d/feat-usability.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
 | `docs/status.d/feat-versions-nav.md` | 최신(조각 — status·timeline 에 모음 완료) |  |
 | `docs/status.d/feat-web-argon-live.md` | 최신(조각 — status·timeline 에 모음 완료) |  |

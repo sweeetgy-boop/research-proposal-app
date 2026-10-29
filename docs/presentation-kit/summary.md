@@ -14,14 +14,14 @@ SQLite(FTS5 + 벡터, RRF)에 적재하고 ① 아이디어 입력 → ② 유�
   그림 본문 폭·글자 9pt 37/37.
 - 시간: ② 표 약 2초, 초안 글 보임 75초·그림까지 187초(배포 확인 1건) — 그림 포함 생성 중앙 217초에서 초안 글 먼저로 바꿈.
 - Argon 295회 응답 중앙 9.1초·p90 27.2초, 실패 0. 로컬 2차 검토 지지 187·부분 19·불일치 5.
-- 검증: pytest 2,406 · vitest 159 · e2e 29(+3 skip), import 계약 8(2026-10-29 #99).
+- 검증: pytest 2,418 · vitest 201 · e2e 40(+3 skip), import 계약 8(2026-10-29 #108).
 - 시범: 2026-10-28~ 동료 3명, 의견 1~25번 + 3차 4건 반영, 배포 10회.
 
 **이전 방식과 달라진 점.** 10-28 오후까지는 로컬 Qwen 7B 가 쓰고 Argon 이 1차 검토로 보완했다(JSON 실패 4/10, 한 건 155초) → Argon 먼저.
 외부 공개는 Cloudflare 계획 → Tailscale Funnel.
 
 **남은 과제.** NTIS 서버 IP·고정 IP, Mac mini 이전, 3차 골든셋 전체 측정, 한/글 화면 확인, 전략체계 확정, 공고문·키 투입,
-골든셋 피드백 루프(#10)·임계치 재조정(#12), Research Studio 화면(진행 중). 자세한 것은 `limitations.md`, 보고서 재료는 `docs/final-report-materials.md`.
+골든셋 피드백 루프(#10)·임계치 재조정(#12). 화면은 Research Studio(사이드바·화면 안 로그인·연구 작업실 홈·⌘K 통합 검색, 2026-10-29 10:48 배포). 자세한 것은 `limitations.md`, 보고서 재료는 `docs/final-report-materials.md`.
 
 <details><summary>이전 요약 (2026-10-27)</summary>
 

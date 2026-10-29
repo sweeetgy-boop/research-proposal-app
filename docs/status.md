@@ -10,14 +10,14 @@
 
 | 항목 | 값 | 근거 |
 |---|---|---|
-| 운영 버전 | 546f244(2026-10-29 09:30, #95~#99), 이전 6008a43(10-29 02:07)·d9b2869(10-28 20:14) | `docs/history/deploys/` |
+| 운영 버전 | c277253(2026-10-29 10:48, Research Studio #101·#102·#104~#108), 이전 546f244(10-29 09:30, #95~#99)·6008a43(10-29 02:07)·d9b2869(10-28 20:14) | `docs/history/deploys/` |
 | 시범 | 2026-10-28~ 동료 3명, 외부 주소 Tailscale Funnel `https://rra.taile5afcf.ts.net`(ADR 0047), 로그인 사번·공용 계정·관리 토큰 | `docs/pilot-guide.md` |
 | 작성 흐름 | ③ Argon 섹션 작성(4 동시) → 규칙 검사 → L2 로컬 2차 검토(불일치만 Argon 제안) → ④ 직접 수정 → ⑤ Argon 최종 검토 1회. 로컬 대체는 Argon **오류 응답**일 때만(ADR 0032·0038·0040). ③ 1차 검토는 끔 | `config/llm.yaml` |
 | 그림 | Nano Banana Pro, 기본 As-Is/To-Be + 분석 기법 추천 0~2, 가로·본문 폭 153.8mm·9pt 이상, 완결 구절, 초안 글 먼저·그림 백그라운드(ADR 0041·0044·0045) | `config/figures.yaml` |
-| 검사 | pytest 2,406 · vitest 159 · e2e 29(+3 skip) · import 계약 8 (#99) | PR #99 |
+| 검사 | pytest 2,418 · vitest 201 · e2e 40(+3 skip) · import 계약 8 (#108) | PR #108 |
 | 자료(운영 DB, 09:37) | 16,100건·청크 35,580 — korail_web 5,098 · openalex 3,397 · ntis 3,316 · scienceon 2,906 · own 1,119 · alio 120 · rnd_notice 91 · bai 21 · datago 16 · mofe 10 · molit 6 (실시간 검색 저장분 openalex 859·scienceon 777 포함) | `docs/final-report-materials.md` ⑤ |
 | 최근 전체 측정 | 2026-10-29 01:55 `docs/eval-2026-10-28-pilot2.md`: 적중 9/10 + 2/2, 거짓 차단 0, 정책 빈칸 0(9/9), HWPX 10/10, 그림 37/37, 생성 중앙 217초. 3차 전체 측정은 소유자 지시로 중단(오늘 밤) | `docs/final-check-2026-10-29.md` |
-| 화면 | Research Studio 화면 전환 — 진행 중(2026-10-29 UI 레인 1~4) | — |
+| 화면 | Research Studio — 배포됨 (c277253, 2026-10-29 10:48): 왼쪽 사이드바·위쪽 경로 표시, 화면 안 로그인(주소 유지), 연구 작업실 홈(한눈에 보기·최근 제안서·진행률), ⌘K 통합 검색(`/v1/search/docs`), 작성 가이드, 자료 현황, 디자인 토큰(axe 0) | ADR 0048~0051, `docs/history/deploys/2026-10-29-1048.md` |
 | 이전 방식(표시만, 지우지 않음) | 로컬 7B 주 작성(~10-28 오후), ③ Argon 1차 검토(v1→v2), Cloudflare Tunnel 공개 계획, 화면 "run" 표기, Streamlit 주 화면 | ADR 0007·0024·0032·0042 |
 
 아래 §1~§5 는 2026-10-26 작성 당시 기준이고(현재와 다른 곳은 괄호로 표시), §6 이 이후 작업 결과다.
@@ -98,7 +98,7 @@
 | `config/templates/korail_strategy.yaml` 전략체계 목록(확정본) | 비어 있음 — 확정 전까지 앱은 초안을 쓰고 "전략체계 초안(확인 전)" 라벨 표시 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
 | 시범 계정 등록(`rra auth`) | 일괄: `rra auth staff import --file <xlsx|csv> [--pad N] [--replace] [--dry-run]`(사번 열만, 출력은 개수만, 2026-10-28 A2) / 한 명씩 `rra auth staff add`·`rra auth guest set --id korail`(비밀번호 2회)·`rra auth status`. `data/auth/secret` 은 백업에 포함(잃으면 run 소유권 단절). 절차 `docs/pilot-guide.md` §6 |
-| 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30), 2026-10-29 Research Studio 화면 전환 진행 중. 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
+| 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30), 2026-10-29 Research Studio 화면 배포됨 (c277253, 2026-10-29 10:48). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
 | `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
 | 운영 공개 방식 | **해결(2026-10-28)**: Tailscale Funnel `https://rra.taile5afcf.ts.net` + 앱 로그인(ADR 0047). Cloudflare Tunnel + Access(ADR 0024)는 DNS(Gabia) 때문에 이전 계획으로 남김. Funnel 켜고 끄기·재등록은 사람 작업(`docs/pilot-guide.md` §1.5) |
 
@@ -236,6 +236,7 @@ main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기�
 | 2026-10-29 — 초안 글 먼저·그림 백그라운드 (3차 3, #97) | v1 즉시 drafted, 그림 백그라운드 작업·"그림 준비 중" 카드·⑤⑥ 대기, 진행 화면 섹션 먼저, `rra runs active` 그림 포함, 시간 두 가지 (ADR 0045) | 레인 측정 `docs/eval-2026-10-29-draft-first.md`(통합 측정 `eval-2026-10-29-pilot3.md` 는 측정 중단으로 아직 없음) |
 | 2026-10-29 — 그림 칸 글자 완결 구절 (3차 2, #98) | 칸별 글자 수 상한 + 완결 구절 규칙(`figure_phrases`), 끊긴 구절 거절 → 교정 → 온전한 낱말 묶음, 9pt 미달은 Argon 이 상한 −25% 로 다시 써서 1회 다시 그림(`max_image_redraws` 1), 자르는 코드 삭제 (ADR 0044) | 레인 실측 13/13 9pt 이상·미완 구절 0 |
 | 2026-10-29 — 3차 통합·배포 (#99, 09:30) | 08 정답에 수송수요 예측 연작 추가(8 → 175), 측정 도구 실시간 상태·초안/그림 시간 분리, openapi 70 경로. 09:30 `tools/deploy.sh` → 546f244, 배포 뒤 운영 DB 재분류 340행(policy→admin_notice 270·status_report 70, 공사 홈페이지 정책 392 → 52, 배포 전 백업). 배포 확인: 초안 글 보임 75초·그림까지 187초·② 표 16.0초(첫 요청)·외부 3곳 200. 전체 골든셋 측정은 소유자 지시로 중단(밤에) | `docs/history/deploys/2026-10-29-0930.md`, `docs/final-check-2026-10-29.md` |
+| 2026-10-29 — Research Studio 화면 [UI] (#101·#102·#104~#108, 10:48 배포 c277253) | 디자인 토큰·공용 조각(#101), 화면 안 로그인(#102), 연구 작업실 홈·작성 가이드·내 제안서(#104), ⌘K 통합 검색·`GET /v1/search/docs`·자료 검색 거르기·자료 현황(#105), 사이드바·위쪽 막대·접는 메뉴(#106), ①~⑥ 안쪽 화면 스타일·axe 0(#107), 통합·결함 2건 수정(#108). 배포 확인: 탭 제목·로그인 전 홈·카드 로그인·통합 검색·390px, 초안 글 92초·그림 202초 | ADR 0048~0051, `docs/status.d/feat-ui-studio-*.md`, `docs/history/deploys/2026-10-29-1048.md` |
 | 2026-10-29 — 문서 최신화 [D] (docs/final-docs) | md 전체 목록·분류, 이전 방식 표시(로컬 7B 주 작성·1차 검토·Cloudflare·run 표기), ADR 0047(Tailscale Funnel 사후 기록)·ADR 목록 0029~0047, 최종보고서 재료 모음 | `docs/final-docs-inventory.md`, `docs/final-report-materials.md` |
 
 보류·미착수: g2b 실호출(키)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).

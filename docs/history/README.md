@@ -10,7 +10,7 @@
 | `diagrams/` | 구조도 Mermaid 원본(`.mmd`)과 SVG |
 | `decisions/` | 결정 기록(ADR) |
 | `lessons.md` | 겪은 문제와 해결 |
-| `screens/` | 화면 캡처(날짜 붙임). Streamlit(웹 이전 기준)과 웹 전후 비교, 2026-10-29 Research Studio 전후(진행 중) |
+| `screens/` | 화면 캡처(날짜 붙임). Streamlit(웹 이전 기준)과 웹 전후 비교, 2026-10-29 Research Studio 전후(`2026-10-29-ui-studio-*`) |
 | `deploys/` | 시범 배포 기록(`tools/deploy.sh`)과 반영 대기 목록 `pending.md` |
 | `demo/` | e2e 녹화(웹 단계에서 추가) |
 

@@ -66,13 +66,13 @@ A.X 4.0 Light 는 JSON 형식 성공률 기준(95%)에 못 미쳐 **Qwen2.5-7B-I
 ## 현재 상태 (2026-10-29)
 
 - **시범 운영 중**(2026-10-28~, 동료 3명): 운영 맥 launchd(mlx·api·backup·ingest·awake), 외부 주소는 Tailscale Funnel
-  `https://rra.taile5afcf.ts.net`(ADR 0047), 로그인은 직원 사번·공용 계정·관리 토큰(ADR 0026). 배포 버전 546f244(2026-10-29 09:30,
+  `https://rra.taile5afcf.ts.net`(ADR 0047), 로그인은 직원 사번·공용 계정·관리 토큰(ADR 0026). 배포 버전 c277253(2026-10-29 10:48, 그 전 546f244 09:30,
   `docs/history/deploys/`). 합쳐도 자동 재시작하지 않고 `tools/deploy.sh` 로 배포한다(`docs/pilot-guide.md` §6.3).
 - 흐름 ①~⑥: 아이디어 입력 → ② 유사과제 확인(표 먼저 → Argon 같음 판정 → [유사함]/[관련 없음], 같은 연작 한 줄, 실시간 검색
   ScienceON·NTIS·OpenAlex) → ③ 초안 생성(Argon 작성 → 규칙 검사 → L2 로컬 2차 검토, 그림은 백그라운드 Nano Banana Pro) →
   ④ 직접 수정 → ⑤ Argon 최종 검토 1회 → ⑥ HWPX. 자세한 것은 `docs/final-report-materials.md`.
-- 검사: pytest 2,406 · vitest 159 · e2e 29(+3 skip), import 계약 8(2026-10-29 #99 기준).
-- 화면: Research Studio 화면 전환 — 진행 중(2026-10-29 UI 레인).
+- 검사: pytest 2,418 · vitest 201 · e2e 40(+3 skip), import 계약 8(2026-10-29 #108 기준).
+- 화면: Research Studio — 배포됨 (c277253, 2026-10-29 10:48). 왼쪽 사이드바·화면 안 로그인·연구 작업실 홈·⌘K 통합 검색·작성 가이드(ADR 0048~0051).
 - 대기(사람 입력): NTIS 서버 IP 반영 확인(실시간 검색 NTIS "IP 차단"), 고정 IP, `korail_strategy.yaml` 전략체계 확정,
   연구과제 공고문, g2b 키, Mac mini 이전. 목록은 `docs/status.md` §3.2.
 

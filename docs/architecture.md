@@ -9,7 +9,7 @@
 > - ③ 작성: **Argon 먼저 작성 → 규칙 검사 → L2 로컬 2차 검토**(ADR 0032·0040). 로컬 Qwen 7B 는 Argon 오류 응답 때 대체만(ADR 0038). ③ Argon 1차 검토(v1→v2)는 끔.
 > - 외부 공개: **Tailscale Funnel** `https://rra.taile5afcf.ts.net` + 앱 로그인(ADR 0047). Cloudflare Tunnel/Access 는 이전 계획(ADR 0024).
 > - 인증: 단일 토큰 → 직원 사번·공용 계정·관리 토큰(ADR 0026). 생성 동시성 1 → Argon 작성은 동시 3(로컬 단계만 전역 슬롯).
-> - 주 화면: Streamlit(§4.2) → 웹 SPA `web/`(ADR 0015), 2026-10-29 Research Studio 화면 전환 진행 중.
+> - 주 화면: Streamlit(§4.2) → 웹 SPA `web/`(ADR 0015), 2026-10-29 Research Studio 화면 배포됨 (c277253, 2026-10-29 10:48)(ADR 0048~0051).
 
 ## 개선사항 반영 현황 (10항목)
 

@@ -5,7 +5,17 @@ Vite + React 19 + TypeScript(strict) SPA. 백엔드(FastAPI, `rra api`)가 `web/
 ① 아이디어 입력(간편 입력 → 네 칸 미리보기·보완 질문 / 상세 입력 4칸, 정책 근거 추천) → ② 유사과제 확인(차별화 제안·과제 추천·차별성
 비교표) → 선행연구 브리핑(우선 근거 선택) → ③ 보강 질문 → 초안 생성(SSE 진행) → 초안 보기(v1·근거 패널·로컬 2차 검토 — v1/v2·1차 검토는 이전 방식) →
 ④ 직접 수정(DraftEditor + 섹션 AI 다시 쓰기·보완 질문) → 버전·비교·복원 → ⑤ 최종 검토 → 제출 전 점검(사용 기록·만족도) →
-⑥ 최종 마무리(선택형 확정·제안자 정보·HWPX 내려받기·다시 열기). 그 밖에 run 목록·자료 검색·자료원 상태.
+⑥ 최종 마무리(선택형 확정·제안자 정보·HWPX 내려받기·다시 열기). 그 밖에 내 제안서 목록·자료 검색·자료 현황.
+
+**Research Studio 화면 틀**(배포됨 (c277253, 2026-10-29 10:48), ADR 0048~0051):
+- 틀: 왼쪽 사이드바 `components/frame/Sidebar.tsx`(메뉴·저장 안내·사용자 칸·테마), 위쪽 막대 `frame/TopBar.tsx`(경로 표시 `frame/crumbs.ts`·통합 검색),
+  1024px 미만 접는 메뉴 `frame/MobileMenu.tsx`(native `<dialog>`). 앱 이름은 탭 제목·사이드바·경로 첫 칸 "Research Studio".
+- 로그인: 로그인 페이지 없음 — `features/auth/LoginCard`·`LoginDialog`(`LoginDialogProvider` 하나)·`useRequireLogin()`, 보호 화면은 주소 그대로 그 자리에 창.
+- 홈 `/`: `routes/Home.tsx` + `features/home/**`(히어로·연구 한눈에 보기·작성 팁·최근 제안서 표·시작 안내, 진행률·칩 `runView.ts`), 로그인 전 API 0건.
+- 작성 가이드 `/guide`: `routes/Guide.tsx` + `features/guide/content.tsx`(`docs/pilot-guide.md` §2~§5.5 와 함께 고친다).
+- 통합 검색: `features/globalsearch/GlobalSearch.tsx`(⌘K/Ctrl+K, combobox·두 묶음), 자료는 `GET /v1/search/docs`, 자료 검색 `routes/Search.tsx`(주소가 상태).
+- 디자인 토큰: `src/index.css` 한 곳(색·모서리·여백·다크), 공용 조각 `components/ui/{eyebrow,status-chip,progress-bar}.tsx`. 새 화면은 토큰만 쓴다.
+  명암비 표는 `docs/status.d/feat-ui-studio-tokens.md`. 시험: vitest 201 · e2e 40(+3 skip)(#108).
 
 ## 준비·실행
 
@@ -76,7 +86,7 @@ public/       theme-init.js(첫 그리기 전 테마, 인라인 금지라 외부
 
 | 항목 | 목표 | 측정 |
 |---|---|---|
-| Lighthouse(desktop, `/login`, 2회, `vite preview`) | 성능·접근성·모범 사례 ≥ 95 | **100 / 100 / 100**, CLS 0, LCP 0.7 s, TBT 0 ms |
+| Lighthouse(desktop, `/login`, 2회, `vite preview`) | 성능·접근성·모범 사례 ≥ 95 | **100 / 100 / 100**, CLS 0, LCP 0.7 s, TBT 0 ms (10-27. 10-29 부터 `/login` 은 홈 + 로그인 창 — Research Studio 뒤 100·100·100·CLS 0.001 은 `docs/status.d/feat-ui-studio-tokens.md`) |
 | Lighthouse(가짜 백엔드 `rra api` 가 서빙, `/login`) | 참고 | 98 / 100 / 100 (LCP 0.97 s — 백엔드가 gzip 을 주지 않아 `uses-text-compression`) |
 | Lighthouse(로그인 뒤 화면) | 가능하면 | **측정 못 함** — 인증 게이트가 sessionStorage 의 CSRF 로 판단해 `lhci --settings.extraHeaders` 로 세션 쿠키만 주면 `/login` 으로 돌아간다. Playwright 기반 측정(playwright-lighthouse)은 외부 패키지라 넣지 않았다 |
 | axe-core(WCAG 2.x A/AA + best-practice, jsdom) | 위반 0 | **0** — 기존 7 + 새 화면 8(간편 입력·정책 근거 추천·비교표·브리핑·근거 패널·다시 쓰기·보완 질문·제출 전 점검) |

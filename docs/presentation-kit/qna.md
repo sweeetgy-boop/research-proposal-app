@@ -20,7 +20,7 @@
 
 **Q. 왜 Streamlit 이 아니라 웹 SPA 인가?**
 문장 단위 편집·diff·팝업·접근성(WCAG 2.2 AA, Lighthouse 95)은 SPA 가 맞다(ADR 0008). Streamlit 은 시연·내부용으로 남긴다.
-2026-10-29 화면 이름 "Research Studio" 로 전환 진행 중.
+2026-10-29 화면 이름 "Research Studio" — 배포됨 (c277253, 2026-10-29 10:48)(ADR 0048~0051).
 
 **Q. 운영은?**
 운영 맥 + launchd(mlx·api·백업·야간 적재·잠들지 않기), 외부는 Tailscale Funnel + 앱 로그인(ADR 0047), 배포는 `tools/deploy.sh`(합쳐도 자동

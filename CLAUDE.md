@@ -200,6 +200,10 @@
   "그림 준비 중", `rra runs active` 가 그리는 run 도 셈, `draft_visible_seconds`·`figures_done_seconds`, ADR 0045). 공사 홈페이지 행정 공시 →
   `admin_notice`·사업 현황 → `status_report`, `retrieval_mix` `only_in`·`strict`(2-가-(3) 은 정책만, ADR 0046) — 옛 코드는 새 doc_type 을 못 읽으므로
   운영 DB 이주(`rra db reclassify --apply`)는 새 코드 배포 뒤 — 2026-10-29 09:3x 배포(546f244) 뒤 적용 완료(340행, 배포 전 백업).
+- **Research Studio 화면 [UI]**(2026-10-29, #101·#102·#104~#108, 배포 c277253 10:48): 디자인 토큰 `web/src/index.css` 한 곳·`components/ui/{eyebrow,status-chip,progress-bar}`(ADR 0051),
+  화면 안 로그인(로그인 페이지 없음, 보호 화면은 주소 그대로 `LoginDialogProvider`·`useRequireLogin`)·왼쪽 사이드바·위쪽 막대(`components/frame/`, ADR 0048),
+  연구 작업실 홈 `/`(로그인 전 API 0건, 6단계 진행률 `features/home/runView.ts`)·작성 가이드 `/guide`(`features/guide/content.tsx` = pilot-guide §2~§5.5, 함께 고친다, ADR 0049),
+  ⌘K 통합 검색 `features/globalsearch/`·`GET /v1/search/docs`(문서 단위, 공용 계정 internal 제외, ADR 0050). 저장 안내 "제안서는 연구원 서버에 저장됩니다.".
 - **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.
   이제 쓰지 않는 방식(로컬 7B 주 작성·③ 1차 검토·Cloudflare 계획·화면 "run" 표기)은 지우지 않고 "이전 방식"으로 표시한다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
