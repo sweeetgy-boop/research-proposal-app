@@ -16,6 +16,7 @@ import unicodedata
 from collections.abc import Iterable
 from typing import Any
 
+from rra.domain.models.selection import TASK_TYPES
 from rra.domain.rules.llm_output import clean_sentence
 
 MAX_TITLE_CHARS = 60
@@ -42,6 +43,23 @@ def draft_title(sections: Iterable[Any], request: Any | None = None) -> str:
             return joined
     hint = getattr(request, "title_hint", "") if request is not None else ""
     return clean_sentence(hint or "").strip()
+
+
+def draft_task_type(sections: Iterable[Any], confirmed: Iterable[str] | None = None) -> str:
+    """목록·홈 표의 과제유형 이름 (기초연구·응용연구·개발연구). 제안자가 확정한 값이 먼저, 없으면
+    초안 1-다 섹션이 제안한 선택지. 허용 목록(TASK_TYPES) 밖 값·없음은 빈 문자열."""
+    for cid in confirmed or []:
+        if cid in TASK_TYPES:
+            return TASK_TYPES[cid]
+    for sec in sections or []:
+        key = sec.get("key") if isinstance(sec, dict) else getattr(sec, "key", None)
+        if key != "task_type":
+            continue
+        choices = sec.get("choices") if isinstance(sec, dict) else getattr(sec, "choices", [])
+        for cid in choices or []:
+            if cid in TASK_TYPES:
+                return TASK_TYPES[cid]
+    return ""
 
 
 def safe_title(title: str, *, limit: int = MAX_TITLE_CHARS) -> str:

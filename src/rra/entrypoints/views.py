@@ -1333,13 +1333,19 @@ def brief_payload(brief: Any, *, clean: Callable[[str], str] = _same) -> dict[st
 
 
 def run_state_payload(
-    state: Any, *, legacy: bool = False, title: str | None = None
+    state: Any,
+    *,
+    legacy: bool = False,
+    title: str | None = None,
+    task_type: str | None = None,
 ) -> dict[str, Any]:
-    """RunState → 상태 조회 응답 (초안 본문 없음). title: 연구과제명(항목 2, 비신뢰 문장)."""
+    """RunState → 상태 조회 응답 (초안 본문 없음). title: 연구과제명(항목 2, 비신뢰 문장).
+    task_type: 과제유형 이름(기초연구·응용연구·개발연구, 앱 목록 값) — 목록·홈 표용, 없으면 null."""
     done, total = state.progress
     return {
         "run_id": state.run_id,
         "title": title,
+        "task_type": task_type,
         "status": state.status,
         "progress": [done, total],
         "template": state.template,

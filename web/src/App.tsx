@@ -6,6 +6,8 @@ import { SkeletonBlock } from "@/components/ui/skeleton";
 
 // 경로별 코드 분할 — 첫 화면(로그인·입력)만 먼저 받는다.
 const Login = lazy(() => import("@/routes/Login"));
+const Home = lazy(() => import("@/routes/Home"));
+const Guide = lazy(() => import("@/routes/Guide"));
 const Idea = lazy(() => import("@/routes/Idea"));
 const Precheck = lazy(() => import("@/routes/Precheck"));
 const Clarify = lazy(() => import("@/routes/Clarify"));
@@ -38,8 +40,9 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/login" element={<Login />} />
+          <Route index element={<Home />} />
+          <Route path="/guide" element={<Guide />} />
           <Route element={<RequireAuth />}>
-            <Route index element={<Navigate to="/new" replace />} />
             <Route path="/new" element={<Idea />} />
             <Route path="/new/precheck" element={<Precheck />} />
             <Route path="/new/brief" element={<Brief />} />
@@ -59,7 +62,7 @@ export default function App() {
             <Route path="/search" element={<Search />} />
             <Route path="/sources" element={<Sources />} />
           </Route>
-          <Route path="*" element={<Navigate to="/new" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </Suspense>
