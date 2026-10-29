@@ -83,7 +83,7 @@ export function LocalSuggestionCard({
 
   const status = suggestion.status;
   return (
-    <div className="mt-1 space-y-1.5 rounded-md border border-warning/50 bg-warning/5 p-2 text-sm" data-testid="local-suggestion" aria-label="로컬 검토 제안">
+    <div className="mt-1 space-y-1.5 rounded-md border border-warning/30 bg-apricot p-2 text-sm" data-testid="local-suggestion" aria-label="로컬 검토 제안">
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge variant="outline">Argon 제안</Badge>
         {suggestion.action_label && <span className="font-medium">{suggestion.action_label}</span>}

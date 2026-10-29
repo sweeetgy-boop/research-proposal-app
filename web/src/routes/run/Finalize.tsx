@@ -151,7 +151,7 @@ export default function Finalize() {
           </Alert>
         )}
 
-        <fieldset className="space-y-4 rounded-lg border p-4" disabled={!gate.ok}>
+        <fieldset className="space-y-4 rounded-lg border bg-card p-4" disabled={!gate.ok}>
           <legend className="px-1 font-semibold">선택형 확정 (체크 칸)</legend>
           {draft.isPending && <SkeletonBlock lines={4} />}
           {choiceSections.map((s) => {
@@ -197,7 +197,7 @@ export default function Finalize() {
           })}
         </fieldset>
 
-        <fieldset className="space-y-4 rounded-lg border p-4" disabled={!gate.ok}>
+        <fieldset className="space-y-4 rounded-lg border bg-card p-4" disabled={!gate.ok}>
           <legend className="px-1 font-semibold">제안자 정보 (저장하지 않음)</legend>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
@@ -278,7 +278,7 @@ export default function Finalize() {
       )}
 
       <aside className="min-w-0">
-        <section aria-labelledby="rc-h" className="rounded-lg border p-3">
+        <section aria-labelledby="rc-h" className="rounded-lg border bg-card p-3">
           <h2 id="rc-h" className="mb-2 text-base font-semibold">렌더 전 점검</h2>
           {check.isPending ? (
             <SkeletonBlock lines={3} />

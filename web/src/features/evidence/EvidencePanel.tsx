@@ -70,7 +70,7 @@ function EvidenceCard({
   const groupId = `ev-${item.evidence_id}`;
   const others = citations.filter((c) => c.id !== item.evidence_id);
   return (
-    <li className="space-y-2 rounded-md border p-3 text-sm">
+    <li className="space-y-2 rounded-md border bg-card p-3 text-sm">
       <div className="flex flex-wrap items-center gap-1">
         <UntrustedText text={refTitle({ title: item.title })} className="font-medium" />
         {item.url && item.basis !== "image_vision" && (

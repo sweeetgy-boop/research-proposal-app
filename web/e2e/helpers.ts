@@ -43,6 +43,20 @@ export async function loginGuest(page: Page, id = GUEST.id, password = GUEST.pas
   await submitAndExpectNew(page, dialog);
 }
 
+/** 왼쪽 사이드바 주 메뉴 (좁은 화면에서는 접는 메뉴를 먼저 연다) */
+export function mainNav(page: Page) {
+  return page.getByRole("navigation", { name: "주 메뉴", exact: true });
+}
+
+/** 자료 검색 화면 열기 — 사이드바 항목은 없고 위쪽 통합 검색에서 연다 (통합 검색이 바뀌면 여기 한 곳만 고친다) */
+/** 자료 검색 화면 — 위쪽 통합 검색에 적고 [자료 전체 결과 보기] (사이드바에는 자료 검색 메뉴가 없다) */
+export async function openSourceSearch(page: Page, q = "궤도") {
+  const box = page.getByRole("combobox", { name: "제안서·자료 통합 검색" });
+  await box.fill(q);
+  await page.getByRole("listbox", { name: "통합 검색 결과" }).getByRole("option", { name: "자료 전체 결과 보기" }).click();
+  await expect(page).toHaveURL(/\/search\?/);
+}
+
 /** ① 입력 방식을 상세(4칸)로 — 기본은 간편 입력 */
 export async function detailMode(page: Page) {
   const radio = page.getByRole("radio", { name: "상세 입력(4칸)" });

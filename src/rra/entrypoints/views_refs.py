@@ -12,6 +12,7 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from rra.domain.rules.doc_refs import doc_ref, replace_internal_ids
+from rra.domain.rules.doc_search import excerpt
 
 
 def _same(text: str) -> str:
@@ -67,4 +68,34 @@ def refs_for(ids: Iterable[str], citations: Iterable[Any]) -> list[dict[str, Any
             out.append({"id": i, **citation_ref(c)})
         else:
             out.append({"id": i, **doc_ref(i.split("#", 1)[0], None)})
+    return out
+
+
+def doc_hits_payload(
+    hits: Iterable[Any], *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """문서 단위 검색 결과(SearchDocuments) → 화면 표시 정보 — 제목·자료원 이름·연도·
+    요약(발췌)·원문 링크(공개 문서만). 전부 비신뢰. 요약은 맞은 청크, 없으면 초록·본문 앞부분
+    (2026-10-29 레인 3)."""
+    out = []
+    for h in hits:
+        d = h.doc
+        text = h.chunk.text if h.chunk is not None else (d.abstract or d.body or "")
+        ref = doc_ref(
+            d.doc_id,
+            no_ids(clean(d.title)) if d.title else None,
+            source=d.source,
+            url=d.url,
+            visibility=d.visibility,
+        )
+        out.append(
+            {
+                **ref,
+                "year": d.pub_date.year if d.pub_date else None,
+                "summary": no_ids(excerpt(clean(text))) or None,
+                "basis": (h.chunk.basis if h.chunk is not None else None) or d.text_basis,
+                "live": bool(d.raw.get("live")),
+                "trust": "untrusted",
+            }
+        )
     return out

@@ -40,6 +40,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { useToast } from "@/components/ui/toast";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 const currentPre = () => getIdea().precheck as unknown as PrecheckFlowOut | null;
 const setPre = (next: PrecheckFlowOut, patch: Parameters<typeof updateIdea>[0] = {}) =>
@@ -280,6 +281,7 @@ export default function Precheck() {
   return (
     <div className="space-y-8">
       <div>
+        <Eyebrow className="mb-1">Step 02 · Similar projects</Eyebrow>
         <h1 className="text-2xl font-bold tracking-tight">② 유사과제 확인</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           관련도와 아이디어 핵심 키워드로 찾은 기존 과제(사내 기록·알리오·NTIS 과제·발주 용역)입니다. 표를 먼저 보이고 AI 판정이 오면 행마다 채웁니다. 행마다

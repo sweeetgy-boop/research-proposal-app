@@ -76,7 +76,7 @@ export default function RunPrecheck() {
       </section>
 
       {draft && (
-        <fieldset disabled={!!blocked} className="min-w-0 space-y-4 rounded-lg border p-4">
+        <fieldset disabled={!!blocked} className="min-w-0 space-y-4 rounded-lg border bg-card p-4">
           <legend className="px-1 font-semibold">바꿀 수 있는 입력</legend>
           <DifferentiationPanel
             diff={diff}

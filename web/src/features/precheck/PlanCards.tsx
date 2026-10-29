@@ -89,7 +89,7 @@ export function PlanCards({
   const cards = rec?.recommendations ?? [];
   const excluded = rec?.discarded ?? [];
   const staleNote = stale ? (
-    <p role="status" className="rounded-md border border-warning/60 p-2 text-sm">
+    <p role="status" className="rounded-md border border-warning/30 bg-apricot p-2 text-sm">
       유사함으로 고른 과제가 바뀌었습니다. [과제안 다시 만들기] 로 고른 과제와 겹치지 않는 안을 다시 받으십시오.
     </p>
   ) : null;
@@ -202,7 +202,7 @@ function PlanCard({ card: c, chosen, onPick }: { card: PlanRecommendation; chose
           <p className="mt-2 text-xs text-muted-foreground">기존 과제와 겹쳐 겹치는 부분을 피해 한 번 다시 만든 안입니다.</p>
         )}
         {warn && (
-          <div role="status" className="mt-2 rounded-md border border-warning/60 p-2 text-sm" data-testid="overlap-warning">
+          <div role="status" className="mt-2 rounded-md border border-warning/30 bg-apricot p-2 text-sm" data-testid="overlap-warning">
             {overlapTitles.length > 0 ? (
               <>
                 <p>
@@ -249,7 +249,7 @@ function Field({ label, text }: { label: string; text: string }) {
 function ExcludedList({ items }: { items: { title?: string; reason_label?: string; reason?: string }[] }) {
   if (items.length === 0) return null;
   return (
-    <details className="rounded-md border p-3 text-sm">
+    <details className="rounded-md border bg-card p-3 text-sm">
       <summary className="cursor-pointer">검증에서 제외된 안 {items.length}건 — 이유 보기</summary>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
         {items.map((d, i) => (

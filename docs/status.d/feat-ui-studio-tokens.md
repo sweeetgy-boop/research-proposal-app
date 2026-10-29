@@ -11,6 +11,21 @@
 - **공용 부품 겉모습**: 버튼(굵게, 주 색 hover 진하게, outline 은 흰 카드+옅은 테두리, secondary 는 연보라), 카드(16px·그림자 거의 없음),
   배지(채운 남보라 → 옅은 색조 칩, 모서리 6px), 알림(색조 바탕), 입력·선택·여러 줄 입력(흰 바탕·3:1 테두리·포커스 남보라),
   팝업(16px·부드러운 그림자·바탕 남회색 반투명), 토스트, 체크박스, 밑줄형 탭(선택 탭 남보라 글자+밑줄).
+- **①~⑥ 안쪽 화면**(두 번째 PR, 브랜치 feat/ui-studio-inner — 스타일만, 배치·기능·문구·test id 그대로):
+  - 단계 표시(Stepper): 지난 단계 민트 칩 · 지금 단계 남보라 채움 · 남은 단계 흰 칩, hover 연보라. 못 여는 단계 안내 말풍선은 둥근 팝업.
+  - 아래 이동 막대(StepNavBar): 흰 카드 바탕 반투명. 제안서 화면 메뉴: 밑줄형(선택 남보라 굵게).
+  - 회색 바탕 위 테두리 상자(섹션·카드·표 상자·목록 칸 47곳) → 흰 카드 바탕(`bg-card`), 경고 상자 → 살구 색조, 오류 상자 → 옅은 빨강 색조,
+    표 머리글 작은 회색 글자(`text-xs`, muted 바탕), ③ 진행 막대·브리핑 연도 막대 → 연보라 바탕 + 남보라 둥근 막대.
+  - 영어 작은 대문자 라벨(장식): ① `Step 01 · Idea`, ② `Step 02 · Similar projects`, 브리핑 `Step 02 · Literature`, 보강 질문 `Step 03 · Questions`,
+    제안서 안쪽 머리 `Proposal`. 한국어 제목은 그대로.
+  - 실제 화면 명암 점검(axe-core 를 화면에 넣어 color-contrast 포함 WCAG 2.1 AA, 밝은·어두운 테마, ①·②·브리핑·보강 질문·초안·진행·직접 수정·
+    버전·최종 검토·제출 전 점검·마무리 11 화면): main 은 밝은 4종·어두운 1종 위반 → 이 브랜치 0. 고친 것 — 근거 칩의 자료원 글자
+    (`DocRef`, 11.2px·opacity 80% 3.7:1 → 12px 보조색 5.6:1), ③ 진행 막대 이름 없음(`aria-label="초안 생성 진행률"`), 버전 비교
+    추가·삭제 표시 글자(4.1~4.3:1 → 본문색). 점검 스크립트는 임시(커밋 안 함, `bypassCSP` 로 axe 주입).
+  - Lighthouse(`npm run lighthouse`, 기준 0.95·CLS 0.05): main 성능 100 · 접근성 100 · 권장 100 · CLS 0.001 → 이 브랜치 같음(100·100·100·0.001).
+- 캡처: `docs/history/screens/2026-10-29-ui-studio-step{1-idea,2-precheck,3-draft,4-edit,5-final-review,6-finalize}-{before,after}.png`,
+  다크 `2026-10-29-ui-studio-step3-draft-dark-after.png`. before 는 origin/main(546f244) 빌드, 1280 폭 전체 페이지.
+  기존 `e2e/screens.spec.ts` 는 main 에서도 360 폭 가로 넘침 검사에서 실패한다(틀 교체 레인 1 범위) — 그래서 다크 before 는 없음.
 
 ## 명암비(WCAG AA, 글자 4.5:1 · 입력 테두리 3:1)
 | 짝 | 밝은 모드 | 다크 모드 |
@@ -56,5 +71,5 @@
   일부 회색은 캡처보다 진하다.
 
 ## 기록 한 줄
-- timeline: `2026-10-29 | [UI] 레인 4 | Research Studio 디자인 토큰·공용 조각(Eyebrow·StatusChip·ProgressBar)·공용 부품 겉모습 | PR #?`
-- metrics.csv: `2026-10-29,<commit>,ui-studio-tokens,,,,,,,,,,,,,,,,,,"디자인 토큰·공용 조각, 웹 vitest 163"`
+- timeline: `2026-10-29 | [UI] 레인 4 | Research Studio 디자인 토큰·공용 조각(Eyebrow·StatusChip·ProgressBar)·공용 부품·①~⑥ 안쪽 화면 겉모습 | PR #101 · #?`
+- metrics.csv: `2026-10-29,<commit>,ui-studio-tokens,,,,,,,,,,,,,,,,,,"디자인 토큰·공용 조각·①~⑥ 안쪽 화면 스타일, 웹 vitest 163"`

@@ -18,6 +18,7 @@ import { ProblemBanner } from "@/components/ProblemBanner";
 import { StepNavBar } from "@/components/StepNavBar";
 import { supplementFromAnswers } from "@/lib/validation";
 import type { ClarifyOutV2, RunIn, RunInEditAI } from "@/api/types";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 const SOURCE_LABEL: Record<ClarifyOutV2["source"], string> = {
   argon: "Argon 이 물음",
@@ -90,6 +91,7 @@ export default function Clarify() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
+        <Eyebrow className="mb-1">Step 03 · Questions</Eyebrow>
         <h1 className="text-2xl font-bold tracking-tight">③ 보강 질문</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           초안을 쓰기 전에 모자란 정보를 묻습니다(Argon 먼저, 실패하면 로컬 모델). 답은 입력의 "보충 정보"에 "질문: 답" 줄로 들어갑니다. 건너뛸 수 있습니다.

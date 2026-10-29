@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { RunStepBar } from "@/features/stepnav/RunStepBar";
 import { figureJobSignature } from "@/features/figures/figureJob";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 export interface RunContext {
   run: RunState;
@@ -131,6 +132,7 @@ export default function RunLayout() {
   return (
     <div className="space-y-5">
       <header className="space-y-2">
+        <Eyebrow className="mb-1">Proposal</Eyebrow>
         <h1 className="text-xl font-bold leading-snug tracking-tight sm:text-2xl">
           {/* 두 줄까지 보이고 넘치면 말줄임 — 마우스(title)·키보드 초점(펼침)으로 전체 */}
           <span
@@ -178,8 +180,10 @@ export default function RunLayout() {
                     end={s.end}
                     className={({ isActive: on }) =>
                       cn(
-                        "-mb-px inline-flex min-h-10 items-center border-b-2 px-3 text-sm font-medium",
-                        on ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+                        "-mb-px inline-flex min-h-10 items-center border-b-2 px-3 text-sm font-semibold transition-colors",
+                        on
+                          ? "border-primary text-primary-soft-foreground"
+                          : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
                       )
                     }
                   >

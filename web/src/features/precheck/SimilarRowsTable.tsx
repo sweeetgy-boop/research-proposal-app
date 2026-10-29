@@ -43,7 +43,7 @@ export function SimilarRowsTable({
     <div className="relative overflow-x-auto rounded-lg border">
       <table className="w-full min-w-[52rem] text-sm">
         <caption className="sr-only">유사과제 목록 — 행마다 유사함·관련 없음 선택</caption>
-        <thead className="bg-muted/60 text-left text-muted-foreground">
+        <thead className="bg-muted text-left text-xs text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2 font-medium">구분</th>
             <th scope="col" className="min-w-[14rem] px-3 py-2 font-medium">과제·문서</th>

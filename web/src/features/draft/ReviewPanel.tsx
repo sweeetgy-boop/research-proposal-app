@@ -46,7 +46,7 @@ export function ReviewPanel({ review, title, citations = [] }: { review: ReviewO
         호출 {review.transfer.calls}회. 의견과 수정안은 모델 출력(비신뢰)입니다.
       </p>
 
-      <div className="rounded-lg border p-3">
+      <div className="rounded-lg border bg-card p-3">
         <h3 className="mb-2 text-sm font-semibold">심사 기준 점수</h3>
         <ScoreTable scores={review.scores} delta={review.kind === "final" ? review.score_delta : undefined} caption={`${title} 점수`} />
       </div>
@@ -60,7 +60,7 @@ export function ReviewPanel({ review, title, citations = [] }: { review: ReviewO
             {review.comments.map((c) => {
               const st = STATUS[c.status] ?? STATUS.open!;
               return (
-                <li key={c.id} className="rounded-md border p-3 text-sm">
+                <li key={c.id} className="rounded-md border bg-card p-3 text-sm">
                   <div className="mb-1 flex flex-wrap items-center gap-1.5">
                     <Badge variant="outline">{sectionTitle(c.section)}{c.sentence !== null ? ` 문장 ${c.sentence + 1}` : " (섹션)"}</Badge>
                     <Badge variant="secondary">{c.issue_type}</Badge>

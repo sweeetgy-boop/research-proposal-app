@@ -60,7 +60,7 @@ export function LiveSearchPanel({ live }: { live: LiveSearch }) {
         <div className="relative overflow-x-auto rounded-lg border">
           <table className="w-full min-w-[28rem] text-sm">
             <caption className="px-3 py-2 text-left text-sm font-semibold">자료원별 상태</caption>
-            <thead className="bg-muted/60 text-left text-muted-foreground">
+            <thead className="bg-muted text-left text-xs text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2 font-medium">자료원</th>
                 <th scope="col" className="px-3 py-2 font-medium">결과 수</th>
@@ -87,7 +87,7 @@ export function LiveSearchPanel({ live }: { live: LiveSearch }) {
       {notices.length > 0 && (
         <ul className="space-y-1 text-sm" aria-label="자료원 안내">
           {notices.map((s) => (
-            <li key={s.source} className="rounded-md border border-warning/50 bg-warning/5 px-3 py-2">
+            <li key={s.source} className="rounded-md border border-warning/30 bg-apricot px-3 py-2">
               <span className="font-medium">{liveSourceLabel(s.source)}: </span>
               <UntrustedText text={s.notice} />
             </li>
@@ -96,7 +96,7 @@ export function LiveSearchPanel({ live }: { live: LiveSearch }) {
       )}
 
       {(ko.length > 0 || en.length > 0) && (
-        <details className="rounded-lg border px-3 py-2 text-sm">
+        <details className="rounded-lg border bg-card px-3 py-2 text-sm">
           <summary className="cursor-pointer font-medium">검색어</summary>
           <dl className="mt-2 space-y-1">
             <KeywordRow label="국문" words={ko} />

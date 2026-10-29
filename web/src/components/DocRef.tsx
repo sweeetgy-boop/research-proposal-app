@@ -59,7 +59,7 @@ export function DocRef({
         type="button"
         onClick={() => (onOpen ? onOpen() : setOpen(true))}
         className={cn(
-          "inline-flex max-w-full items-center gap-1 rounded border bg-muted/50 px-1.5 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
+          "inline-flex max-w-full items-center gap-1 rounded-md border bg-muted px-1.5 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
           !compact && "text-sm",
           className,
         )}
@@ -67,7 +67,7 @@ export function DocRef({
       >
         <FileText className="size-3 shrink-0" aria-hidden="true" />
         <span className="min-w-0 truncate whitespace-pre-wrap">{title}</span>
-        <span className="shrink-0 text-[0.7rem] opacity-80">· {source}</span>
+        <span className="shrink-0 text-xs">· {source}</span>
         {docRef.live && <LiveBadge className="ml-0.5" />}
       </button>
       {!onOpen && open && <DocRefPanel docRef={docRef} open={open} onClose={() => setOpen(false)} />}

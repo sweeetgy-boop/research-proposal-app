@@ -163,7 +163,7 @@ export function PolicyCards({ load, polish, value, onChoose, busy }: PolicyCards
       )}
 
       {editing !== null && (
-        <div className="space-y-2 rounded-lg border p-3">
+        <div className="space-y-2 rounded-lg border bg-card p-3">
           <Label htmlFor="policy-edit">{value && value.mode !== "none" ? "고른 안 고치기 (줄마다 한 문장)" : "정책적 중요도 직접 작성 (줄마다 한 문장)"}</Label>
           <Textarea id="policy-edit" rows={4} maxLength={2000} value={editing} onChange={(e) => setEditing(e.target.value)} />
           {polishNote && (
@@ -223,7 +223,7 @@ export function PolicyCards({ load, polish, value, onChoose, busy }: PolicyCards
             {cards.map((c) => {
               const chosen = value?.card_ids?.includes(c.id) ?? false;
               return (
-                <li key={c.id} className={cn("flex flex-col gap-2 rounded-lg border p-3", chosen && "border-primary")}>
+                <li key={c.id} className={cn("flex flex-col gap-2 rounded-lg border bg-card p-3", chosen && "border-primary")}>
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="secondary">{c.direction_label}</Badge>
                     <Label className="flex items-center gap-1 text-xs">

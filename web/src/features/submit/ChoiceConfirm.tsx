@@ -40,7 +40,7 @@ function ChoiceRow({ row, runId, onDone }: { row: CheckChoiceRow; runId: string;
   }
   const confirmed = row.confirmed.length > 0;
   return (
-    <li className="space-y-2 rounded-md border p-2 text-sm">
+    <li className="space-y-2 rounded-md border bg-card p-2 text-sm">
       <p className="break-words">
         <span className="font-medium">{row.title}</span>{" "}
         {confirmed ? (
