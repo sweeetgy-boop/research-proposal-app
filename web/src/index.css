@@ -1,4 +1,7 @@
-/* 디자인 토큰 + Tailwind v4. 글꼴은 Pretendard Variable 동적 서브셋(자체 호스팅, 외부 요청 없음). */
+/* 디자인 토큰 + Tailwind v4. 글꼴은 Pretendard Variable 동적 서브셋(자체 호스팅, 외부 요청 없음).
+ * Research Studio 겉모습(2026-10-29): 옅은 회색 바탕 · 흰 카드 · 옅은 테두리 · 남보라 주 색 · 연보라/살구/민트 색조.
+ * 값은 전부 여기 한 곳. 글자/바탕 짝의 명암비(WCAG AA)는 docs/status.d/feat-ui-studio-tokens.md 표에 적었다.
+ * 기존 변수 이름(--primary, --muted-foreground …)은 그대로 두고 새 변수(--primary-soft, --apricot, --mint …)를 더했다. */
 @import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 @import "tailwindcss";
 
@@ -6,92 +9,136 @@
 
 :root {
   color-scheme: light;
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 40%;
+  /* 바탕·글자 */
+  --background: 240 33% 98%; /* #F7F7FB */
+  --foreground: 226 22% 15%; /* #1F2330 */
+  --muted: 240 27% 96%; /* #F1F1F7 */
+  --muted-foreground: 226 10% 40%; /* #5B6070 — 캡처의 #6B7280 보다 진하게(AA) */
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --border: 214 32% 88%;
-  --input: 214 32% 82%;
-  --primary: 221 83% 45%;
+  --card-foreground: 226 22% 15%;
+  --border: 240 23% 94%; /* #ECECF3 — 장식 테두리 */
+  --input: 230 13% 58%; /* 입력 칸 테두리 — 흰 바탕 3:1 (WCAG 1.4.11) */
+  /* 주 색(남보라) */
+  --primary: 243 75% 59%; /* #4F46E5 */
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 94%;
-  --secondary-foreground: 222 47% 11%;
-  --accent: 210 40% 92%;
-  --accent-foreground: 222 47% 11%;
-  --destructive: 0 72% 42%;
+  --primary-hover: 245 58% 51%; /* #4338CA */
+  --secondary: 240 27% 96%;
+  --secondary-foreground: 226 22% 15%;
+  --accent: 248 71% 96%; /* 연보라 — 메뉴 선택·hover */
+  --accent-foreground: 243 57% 50%;
+  /* 색조(타일·칩·안내 카드) */
+  --primary-soft: 248 71% 96%; /* #EFEDFC */
+  --primary-soft-foreground: 243 57% 50%; /* #3F37C9 */
+  --apricot: 29 85% 95%; /* #FDF1E6 */
+  --apricot-foreground: 25 79% 34%; /* #9A4A12 */
+  --mint: 142 31% 95%; /* #EEF6F1 */
+  --mint-foreground: 151 57% 27%; /* #1D6B45 */
+  --link-green: 150 62% 30%; /* #1D7A4C */
+  --destructive-soft: 4 81% 96%; /* #FDEDEC */
+  --destructive-soft-foreground: 4 76% 40%; /* #B42318 */
+  /* 상태 */
+  --destructive: 3 74% 44%;
   --destructive-foreground: 0 0% 100%;
-  --success: 152 60% 30%;
-  --warning: 32 90% 36%;
-  --info: 221 83% 45%;
-  --ring: 221 83% 45%;
-  --radius: 0.5rem;
+  --success: 153 67% 28%;
+  --warning: 29 94% 32%;
+  --info: 243 75% 59%;
+  --ring: 243 75% 59%;
+  /* 모양 */
+  --radius: 0.625rem; /* md 10px · sm 6px · lg 14px · xl 16px */
+  --elev-card: 0 1px 2px 0 rgb(31 35 48 / 0.04);
+  --elev-pop: 0 12px 32px -8px rgb(31 35 48 / 0.18), 0 2px 6px rgb(31 35 48 / 0.06);
+  --backdrop: 226 22% 15% / 0.45;
   /* 단계 화면 아래 이동 막대 높이 (StepNavBar 가 실제 높이로 바꾼다, 없으면 0) */
   --stepnav-h: 0px;
   /* origin 배지 */
-  --origin-local: 215 16% 40%;
-  --origin-argon: 262 60% 42%;
-  --origin-added: 152 60% 30%;
-  --origin-edit: 32 90% 36%;
+  --origin-local: 226 10% 40%;
+  --origin-argon: 260 55% 52%;
+  --origin-added: 153 67% 28%;
+  --origin-edit: 29 94% 32%;
 }
 
-/* 저장값 없음 + OS 다크 */
+/* 저장값 없음 + OS 다크 (아래 [data-theme="dark"] 와 같은 값) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --background: 222 40% 8%;
-    --foreground: 210 40% 96%;
-    --muted: 217 33% 15%;
-    --muted-foreground: 215 20% 72%;
-    --card: 222 40% 11%;
-    --card-foreground: 210 40% 96%;
-    --border: 217 33% 22%;
-    --input: 217 33% 30%;
-    --primary: 217 91% 66%;
-    --primary-foreground: 222 47% 8%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 96%;
-    --accent: 217 33% 20%;
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 80% 70%;
-    --destructive-foreground: 222 47% 8%;
-    --success: 152 55% 60%;
-    --warning: 38 92% 62%;
-    --info: 217 91% 66%;
-    --ring: 217 91% 66%;
-    --origin-local: 215 20% 72%;
-    --origin-argon: 262 80% 78%;
-    --origin-added: 152 55% 60%;
-    --origin-edit: 38 92% 62%;
+    --background: 227 23% 8%;
+    --foreground: 233 26% 93%;
+    --muted: 226 22% 15%;
+    --muted-foreground: 227 15% 70%;
+    --card: 226 22% 12%;
+    --card-foreground: 233 26% 93%;
+    --border: 226 17% 20%;
+    --input: 227 11% 49%;
+    --primary: 243 100% 80%;
+    --primary-foreground: 227 23% 8%;
+    --primary-hover: 243 100% 84%;
+    --secondary: 226 22% 15%;
+    --secondary-foreground: 233 26% 93%;
+    --accent: 244 37% 21%;
+    --accent-foreground: 243 100% 88%;
+    --primary-soft: 244 37% 21%;
+    --primary-soft-foreground: 243 100% 88%;
+    --apricot: 26 32% 14%;
+    --apricot-foreground: 28 83% 72%;
+    --mint: 152 31% 12%;
+    --mint-foreground: 148 49% 66%;
+    --link-green: 148 52% 63%;
+    --destructive-soft: 356 38% 16%;
+    --destructive-soft-foreground: 5 100% 84%;
+    --destructive: 5 100% 75%;
+    --destructive-foreground: 227 23% 8%;
+    --success: 148 52% 63%;
+    --warning: 36 89% 64%;
+    --info: 243 100% 80%;
+    --ring: 243 100% 80%;
+    --elev-card: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --elev-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.3);
+    --backdrop: 227 23% 4% / 0.65;
+    --origin-local: 227 15% 70%;
+    --origin-argon: 261 100% 82%;
+    --origin-added: 148 52% 63%;
+    --origin-edit: 36 89% 64%;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: 222 40% 8%;
-  --foreground: 210 40% 96%;
-  --muted: 217 33% 15%;
-  --muted-foreground: 215 20% 72%;
-  --card: 222 40% 11%;
-  --card-foreground: 210 40% 96%;
-  --border: 217 33% 22%;
-  --input: 217 33% 30%;
-  --primary: 217 91% 66%;
-  --primary-foreground: 222 47% 8%;
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 96%;
-  --accent: 217 33% 20%;
-  --accent-foreground: 210 40% 96%;
-  --destructive: 0 80% 70%;
-  --destructive-foreground: 222 47% 8%;
-  --success: 152 55% 60%;
-  --warning: 38 92% 62%;
-  --info: 217 91% 66%;
-  --ring: 217 91% 66%;
-  --origin-local: 215 20% 72%;
-  --origin-argon: 262 80% 78%;
-  --origin-added: 152 55% 60%;
-  --origin-edit: 38 92% 62%;
+  --background: 227 23% 8%;
+  --foreground: 233 26% 93%;
+  --muted: 226 22% 15%;
+  --muted-foreground: 227 15% 70%;
+  --card: 226 22% 12%;
+  --card-foreground: 233 26% 93%;
+  --border: 226 17% 20%;
+  --input: 227 11% 49%;
+  --primary: 243 100% 80%;
+  --primary-foreground: 227 23% 8%;
+  --primary-hover: 243 100% 84%;
+  --secondary: 226 22% 15%;
+  --secondary-foreground: 233 26% 93%;
+  --accent: 244 37% 21%;
+  --accent-foreground: 243 100% 88%;
+  --primary-soft: 244 37% 21%;
+  --primary-soft-foreground: 243 100% 88%;
+  --apricot: 26 32% 14%;
+  --apricot-foreground: 28 83% 72%;
+  --mint: 152 31% 12%;
+  --mint-foreground: 148 49% 66%;
+  --link-green: 148 52% 63%;
+  --destructive-soft: 356 38% 16%;
+  --destructive-soft-foreground: 5 100% 84%;
+  --destructive: 5 100% 75%;
+  --destructive-foreground: 227 23% 8%;
+  --success: 148 52% 63%;
+  --warning: 36 89% 64%;
+  --info: 243 100% 80%;
+  --ring: 243 100% 80%;
+  --elev-card: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --elev-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.3);
+  --backdrop: 227 23% 4% / 0.65;
+  --origin-local: 227 15% 70%;
+  --origin-argon: 261 100% 82%;
+  --origin-added: 148 52% 63%;
+  --origin-edit: 36 89% 64%;
 }
 
 @theme inline {
@@ -106,10 +153,20 @@
   --color-input: hsl(var(--input));
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-hover: hsl(var(--primary-hover));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-primary-soft: hsl(var(--primary-soft));
+  --color-primary-soft-foreground: hsl(var(--primary-soft-foreground));
+  --color-apricot: hsl(var(--apricot));
+  --color-apricot-foreground: hsl(var(--apricot-foreground));
+  --color-mint: hsl(var(--mint));
+  --color-mint-foreground: hsl(var(--mint-foreground));
+  --color-link-green: hsl(var(--link-green));
+  --color-destructive-soft: hsl(var(--destructive-soft));
+  --color-destructive-soft-foreground: hsl(var(--destructive-soft-foreground));
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-success: hsl(var(--success));
@@ -120,9 +177,26 @@
   --color-origin-argon: hsl(var(--origin-argon));
   --color-origin-added: hsl(var(--origin-added));
   --color-origin-edit: hsl(var(--origin-edit));
-  --radius-sm: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 6px);
+  --shadow-card: var(--elev-card);
+  --shadow-pop: var(--elev-pop);
+  /* 여백 단위 — p-card(카드 안쪽), gap-section(카드 사이), p-page(본문 가장자리) */
+  --spacing-card: 1.25rem;
+  --spacing-section: 1.5rem;
+  --spacing-page: 2rem;
+}
+
+/* 영어 작은 대문자 라벨(WORKSPACE, OVERVIEW …) — 장식. 제목·내용은 한국어. 12px·굵게·남보라(명암 5.9:1). */
+@utility eyebrow {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-primary-soft-foreground);
 }
 
 @layer base {
@@ -150,7 +224,7 @@
     border-radius: 2px;
   }
   dialog::backdrop {
-    background: rgb(0 0 0 / 0.5);
+    background: hsl(var(--backdrop));
   }
   @media (prefers-reduced-motion: reduce) {
     *,
