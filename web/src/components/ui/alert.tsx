@@ -2,14 +2,14 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const alertVariants = cva("relative w-full rounded-lg border p-4 text-sm [&>svg]:size-5 [&>svg]:shrink-0 flex gap-3", {
+const alertVariants = cva("relative w-full rounded-lg border p-4 leading-relaxed text-sm [&>svg]:size-5 [&>svg]:shrink-0 flex gap-3", {
   variants: {
     variant: {
       default: "bg-card text-card-foreground",
-      destructive: "border-destructive/60 text-foreground [&>svg]:text-destructive",
-      warning: "border-warning/60 text-foreground [&>svg]:text-warning",
-      success: "border-success/60 text-foreground [&>svg]:text-success",
-      info: "border-info/60 text-foreground [&>svg]:text-info",
+      destructive: "border-destructive/40 bg-destructive-soft text-foreground [&>svg]:text-destructive-soft-foreground",
+      warning: "border-warning/30 bg-apricot text-foreground [&>svg]:text-apricot-foreground",
+      success: "border-success/30 bg-mint text-foreground [&>svg]:text-mint-foreground",
+      info: "border-primary/25 bg-primary-soft text-foreground [&>svg]:text-primary-soft-foreground",
     },
   },
   defaultVariants: { variant: "default" },
