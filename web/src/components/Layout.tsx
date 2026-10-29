@@ -10,6 +10,7 @@ import { useDeployVersion } from "@/api/hooks";
 import { formatDeployedAt } from "@/lib/deployVersion";
 import { cn } from "@/lib/utils";
 import { runStepFromSub } from "@/lib/runSteps";
+import { GlobalSearch } from "@/features/globalsearch/GlobalSearch";
 
 /** 경로 → 흐름 단계. run 안(/runs/:id/…)은 RunLayout 이 run 상태를 알고 단계 링크를 그리므로
  *  머리의 단계 표시는 /new… 에서만 쓴다 (runInPath). */
@@ -78,6 +79,7 @@ function Frame() {
                 </NavLink>
               ))}
           </nav>
+          <GlobalSearch className="order-4 sm:order-3 sm:w-64" />{/* [UI] 레인 3 임시 자리 — 레인 1 의 위쪽 막대로 옮긴다 */}
           <div className="order-2 ml-auto flex items-center gap-1 sm:order-3 sm:ml-0">
             <ThemeToggle />
             {loggedIn && sessionLabel && (
