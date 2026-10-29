@@ -3,7 +3,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { fillIdea, login } from "./helpers";
+import { fillIdea, login, goPrecheck } from "./helpers";
 
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 
@@ -15,7 +15,7 @@ test("논문은 유사과제 판정이 아니라 '관련 연구' 참고 목록�
   });
   await login(page);
   await fillIdea(page);
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await expect(page).toHaveURL(/\/new\/precheck$/);
 
   // 판정 표에는 과제형 자료원만 — 논문은 없다

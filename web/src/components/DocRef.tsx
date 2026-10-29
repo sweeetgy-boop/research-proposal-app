@@ -36,7 +36,7 @@ export function DocRefPanel({ docRef, open, onClose }: { docRef: DocRefData; ope
   );
 }
 
-/** 문서 하나 — "제목 · 자료원 이름". 내부 번호는 보이지 않는다. 누르면 근거 패널(onOpen 이 있으면 그것). */
+/** 문서 하나 — "제목 · 자료원 이름"(접근 이름도 보이는 글자 그대로 + "근거 보기", WCAG 2.5.3). 내부 번호는 보이지 않는다. 누르면 근거 패널(onOpen 이 있으면 그것). */
 export function DocRef({
   docRef,
   onOpen,
@@ -63,7 +63,7 @@ export function DocRef({
           !compact && "text-sm",
           className,
         )}
-        aria-label={`${title} (${source}) 근거 보기`}
+        aria-label={`${title} · ${source} 근거 보기`}
       >
         <FileText className="size-3 shrink-0" aria-hidden="true" />
         <span className="min-w-0 truncate whitespace-pre-wrap">{title}</span>

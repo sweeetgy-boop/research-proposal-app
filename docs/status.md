@@ -14,10 +14,11 @@
 | 시범 | 2026-10-28~ 동료 3명, 외부 주소 Tailscale Funnel `https://rra.taile5afcf.ts.net`(ADR 0047), 로그인 사번·공용 계정·관리 토큰 | `docs/pilot-guide.md` |
 | 작성 흐름 | ③ Argon 섹션 작성(4 동시) → 규칙 검사 → L2 로컬 2차 검토(불일치만 Argon 제안) → ④ 직접 수정 → ⑤ Argon 최종 검토 1회. 로컬 대체는 Argon **오류 응답**일 때만(ADR 0032·0038·0040). ③ 1차 검토는 끔 | `config/llm.yaml` |
 | 그림 | Nano Banana Pro, 기본 As-Is/To-Be + 분석 기법 추천 0~2, 가로·본문 폭 153.8mm·9pt 이상, 완결 구절, 초안 글 먼저·그림 백그라운드(ADR 0041·0044·0045) | `config/figures.yaml` |
-| 검사 | pytest 2,418 · vitest 201 · e2e 40(+3 skip) · import 계약 8 (#108) | PR #108 |
+| 검사 | pytest 2,419 · vitest 214 · e2e 43(+3 skip) · import 계약 8 (#110) | PR #110 |
 | 자료(운영 DB, 09:37) | 16,100건·청크 35,580 — korail_web 5,098 · openalex 3,397 · ntis 3,316 · scienceon 2,906 · own 1,119 · alio 120 · rnd_notice 91 · bai 21 · datago 16 · mofe 10 · molit 6 (실시간 검색 저장분 openalex 859·scienceon 777 포함) | `docs/final-report-materials.md` ⑤ |
 | 최근 전체 측정 | 2026-10-29 01:55 `docs/eval-2026-10-28-pilot2.md`: 적중 9/10 + 2/2, 거짓 차단 0, 정책 빈칸 0(9/9), HWPX 10/10, 그림 37/37, 생성 중앙 217초. 3차 전체 측정은 소유자 지시로 중단 → 하지 않기로 결정(10-29) | `docs/final-check-2026-10-29.md` |
 | 화면 | Research Studio — 배포됨 (c277253, 2026-10-29 10:48): 왼쪽 사이드바·위쪽 경로 표시, 화면 안 로그인(주소 유지), 연구 작업실 홈(한눈에 보기·최근 제안서·진행률), ⌘K 통합 검색(`/v1/search/docs`), 작성 가이드, 자료 현황, 디자인 토큰(axe 0) | ADR 0048~0051, `docs/history/deploys/2026-10-29-1048.md` |
+| 정책 근거 | ① 네 칸이 채워지면 정책 근거 추천 팝업(1순위 미리 체크, [적용] 해야 들어감·[나중에 넣기]), ③ 작성안 펼침·④ [정책 근거 넣기·바꾸기]·⑥ 바로가기로 다시 넣기 (#110) | ADR 0052 |
 | 이전 방식(표시만, 지우지 않음) | 로컬 7B 주 작성(~10-28 오후), ③ Argon 1차 검토(v1→v2), Cloudflare Tunnel 공개 계획, 화면 "run" 표기, Streamlit 주 화면 | ADR 0007·0024·0032·0042 |
 
 아래 §1~§5 는 2026-10-26 작성 당시 기준이고(현재와 다른 곳은 괄호로 표시), §6 이 이후 작업 결과다.

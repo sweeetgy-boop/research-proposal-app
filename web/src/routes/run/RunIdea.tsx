@@ -1,9 +1,12 @@
 import * as React from "react";
-import { Info } from "lucide-react";
+import { BookMarked, Info } from "lucide-react";
 import { useRunContext } from "./useRunContext";
 import { useRunInputs } from "@/api/hooks-format";
 import type { ProposalRequest } from "@/api/types";
 import { IdeaForm } from "@/features/idea/IdeaForm";
+import { PolicyPickDialog } from "@/features/idea/PolicyPickDialog";
+import { mergePolicyBasis } from "@/api/policySuggestions";
+import { Button } from "@/components/ui/button";
 import { ChangeDialog } from "@/features/regenerate/ChangeDialog";
 import { useRunChangeSave } from "@/features/regenerate/useRunChangeSave";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,6 +23,7 @@ export default function RunIdea() {
   const [value, setValue] = React.useState<ProposalRequest | null>(null);
   const change = useRunChangeSave(id, run.draft_version || null);
   const blocked = changeBlockedReason(run);
+  const [policyOpen, setPolicyOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (inputs.data && value === null) setValue(inputs.data.request);
@@ -52,8 +56,29 @@ export default function RunIdea() {
             onSubmit={(req) => void change.save(req, null)}
             busy={change.previewing}
             submitLabel={change.previewing ? "바뀐 내용 확인 중…" : "입력 저장"}
+            policyTools={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setPolicyOpen(true)}>
+                  <BookMarked aria-hidden="true" />
+                  정책 근거 추천 열기
+                </Button>
+                <span className="text-xs text-muted-foreground">바꾼 뒤 [입력 저장] → "관련 섹션만 다시 쓰기" 면 2-가-(1)·2-가-(3) 이 새로 쓰입니다.</span>
+              </div>
+            }
           />
         </fieldset>
+      )}
+      {value && (
+        <PolicyPickDialog
+          open={policyOpen}
+          request={value}
+          onApply={(adds) => {
+            setValue((v) => (v ? { ...v, policy_basis: mergePolicyBasis(v.policy_basis ?? "", adds) } : v));
+            setPolicyOpen(false);
+          }}
+          onLater={() => setPolicyOpen(false)}
+          onClose={() => setPolicyOpen(false)}
+        />
       )}
       <ChangeDialog
         {...change.dialog}

@@ -191,9 +191,9 @@ export interface paths {
         put?: never;
         /**
          * Policy Suggestions Route
-         * @description ① 입력 → 정책(policy) 문서 문구 3~5개.
-         *
-         *     제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음).
+         * @description ① 입력 → 정책(policy) 문서 문구 3~5개, 관련도 순(rank). exclude_doc_ids 는 팝업
+         *     [다시 받기] 때 이미 본 문서. 제안자가 [적용] 한 것만 policy_basis 에 넣는다 (자동 삽입 없음,
+         *     ADR 0052).
          */
         post: operations["policy_suggestions_route_v1_ideas_policy_suggestions_post"];
         delete?: never;
@@ -1976,6 +1976,101 @@ export interface components {
             url?: string | null;
         };
         /**
+         * PolicySuggestionsIn
+         * @description POST /v1/ideas/policy-suggestions — 입력 + 팝업 [다시 받기] 때 이미 본 문서 id.
+         */
+        PolicySuggestionsIn: {
+            /**
+             * Current State
+             * @description 현재 상황·문제
+             */
+            current_state: string;
+            /**
+             * Root Cause
+             * @description 발생 원인
+             */
+            root_cause: string;
+            /**
+             * Limitation
+             * @description 현행 대응의 한계
+             */
+            limitation: string;
+            /**
+             * Goal
+             * @description 해결 목표
+             */
+            goal: string;
+            /**
+             * Constraints
+             * @description 예산·기간·현장 제약
+             * @default
+             */
+            constraints?: string;
+            /**
+             * Title Hint
+             * @description 가제 (있으면 과제명을 이것으로 다듬는다)
+             * @default
+             */
+            title_hint?: string;
+            /**
+             * Policy Basis
+             * @description 정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지
+             * @default
+             */
+            policy_basis?: string;
+            /**
+             * Beneficiaries
+             * @description 활용 주체 부서 (차량처·시설처 등)
+             * @default
+             */
+            beneficiaries?: string;
+            /**
+             * Remarks
+             * @description 특이사항에 덧붙일 내용
+             * @default
+             */
+            remarks?: string;
+            /**
+             * Differentiation
+             * @description 제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)
+             * @default
+             */
+            differentiation?: string;
+            /**
+             * Supplement
+             * @description 보충 정보 (보강 질문의 답)
+             * @default
+             */
+            supplement?: string;
+            /**
+             * Method
+             * @description 연구방법 (② 차별화 과제안에서 정한 것)
+             * @default
+             */
+            method?: string;
+            /**
+             * Scope
+             * @description 적용범위 — 대상 노선·시설·차량 (② 과제안)
+             * @default
+             */
+            scope?: string;
+            /**
+             * Similar Choices
+             * @description ② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)
+             */
+            similar_choices?: components["schemas"]["SimilarChoice"][];
+            /**
+             * Department
+             * @description 제안부서 (양식 칸에만 쓴다)
+             * @default
+             */
+            department?: string;
+            budget?: components["schemas"]["Budget"] | null;
+            policy_choice?: components["schemas"]["PolicyChoice"] | null;
+            /** Exclude Doc Ids */
+            exclude_doc_ids?: string[];
+        };
+        /**
          * PolishIn
          * @description POST /v1/precheck/plan/polish — 과제안 한 칸 [AI로 다듬기] (레인 A). 그 칸만 보낸다.
          */
@@ -2745,7 +2840,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProposalRequest"];
+                "application/json": components["schemas"]["PolicySuggestionsIn"];
             };
         };
         responses: {

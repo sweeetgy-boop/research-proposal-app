@@ -3,7 +3,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { login, subnav } from "./helpers";
+import { login, subnav, goPrecheck, policyPopup } from "./helpers";
 
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 async function shot(page: Page, n: number, name: string) {
@@ -17,9 +17,8 @@ test.describe("U9 사용성 흐름", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
 
-    // ① 간편 입력 (기본 모드). 정책 근거 추천은 필수 4칸이 비어 있으면 버튼이 잠긴다
+    // ① 간편 입력 (기본 모드)
     await expect(page.getByRole("radio", { name: "간편 입력" })).toBeChecked();
-    await expect(page.getByRole("button", { name: "추천 받기" })).toBeDisabled();
     await page.getByLabel(/아이디어를 한두 문장으로/).fill("궤도 틀림이 반복 발생함. 검측 이력 기반으로 보수 우선순위를 정하고 싶음.");
     await page.getByLabel("가제 (선택)").fill("궤도 보수 우선순위");
     await page.getByRole("button", { name: "네 칸으로 나누기" }).click();
@@ -32,15 +31,16 @@ test.describe("U9 사용성 흐름", () => {
     await page.getByRole("button", { name: "답 반영" }).click();
     await expect(page.getByText("모두 채워짐")).toBeVisible();
     await page.getByRole("button", { name: /상세 입력에 채우기/ }).click();
+    // 네 칸이 채워지면 정책 근거 추천 팝업이 저절로 열린다(ADR 0052) — 이 흐름은 [나중에 넣기] 로 ③ 작성안 경로를 본다
+    const popup = policyPopup(page);
+    await expect(popup.getByRole("list", { name: "정책 근거 추천 목록" })).toBeVisible();
+    await popup.getByRole("button", { name: "나중에 넣기" }).click();
+    await expect(popup).toBeHidden();
     await expect(page.getByRole("radio", { name: "상세 입력(4칸)" })).toBeChecked();
     await expect(page.getByLabel(/발생 원인/)).toHaveValue("다짐 효과가 오래 가지 않음");
     await expect(page.getByLabel(/가제/)).toHaveValue("궤도 보수 우선순위");
-    // 정책 근거 추천 — 엔드포인트가 없으면 접힌 안내. 가짜 저장소에 정책 문서 3건(레인 B) → 문구가 나온다
-    await page.getByRole("button", { name: "추천 받기" }).click();
-    await expect(
-      page.getByText(/정책 근거 추천은 정책 자료 적재 뒤 열립니다|추천할 문구가 없습니다|정책 자료에서 찾은 문구입니다/),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "유사과제 확인" }).click();
+    await expect(page.getByTestId("policy-later-note")).toBeVisible();
+    await goPrecheck(page);
 
     // ② 유사과제·비교표
     await expect(page).toHaveURL(/\/new\/precheck$/);
@@ -115,7 +115,7 @@ test.describe("U9 사용성 흐름", () => {
     await expect(page.getByText("최종 마무리(HWPX 내려받기) 뒤에 기록할 수 있습니다.")).toBeVisible();
     await shot(page, 6, "submit-check");
     // 항목 → 초안 보기 앵커로 이동
-    await page.getByRole("button", { name: /미해결 알림: 확인 필요/ }).click();
+    await page.getByRole("button", { name: /^미해결 알림\s*확인 필요/ }).click();
     await expect(page).toHaveURL(new RegExp(`/runs/${id}/draft#sec-`));
     await page.goBack();
 

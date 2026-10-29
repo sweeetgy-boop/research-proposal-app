@@ -24,8 +24,9 @@ class _Suggest:
     def __init__(self):
         self.calls = []
 
-    async def __call__(self, req):
+    async def __call__(self, req, *, exclude_docs=()):
         self.calls.append(req)
+        self.excluded = list(exclude_docs)
         return [SUGGESTION]
 
 
@@ -53,6 +54,15 @@ async def test_rest_policy_suggestions(monkeypatch):
             "“데이터기반 유지보수 첨단화” (중장기 경영목표, 2026, 표 전략과제"
         )
         assert suggest.calls[0].goal == SLOTS["goal"]
+        assert row["rank"] == 1 and suggest.excluded == []
+        # 팝업 [다시 받기] — 이미 본 문서는 유스케이스에 넘겨 뺀다
+        r = await c.post(
+            "/v1/ideas/policy-suggestions",
+            json={**SLOTS, "exclude_doc_ids": ["korail_web:p1"]},
+            headers=AUTH,
+        )
+        assert r.status_code == 200 and suggest.excluded == ["korail_web:p1"]
+        assert not hasattr(suggest.calls[-1], "exclude_doc_ids")
         r = await c.post("/v1/ideas/policy-suggestions", json={"goal": "x"}, headers=AUTH)
         assert r.status_code == 422
 

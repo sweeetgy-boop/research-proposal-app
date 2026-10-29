@@ -72,11 +72,24 @@ export async function fillIdea(page: Page, suffix = "") {
   await page.getByLabel(/해결 목표/).fill("검측 이력 기반 보수 우선순위 산정");
 }
 
+/** ① 정책 근거 추천 팝업 (ADR 0052) */
+export function policyPopup(page: Page) {
+  return page.getByRole("dialog", { name: "정책 근거 추천" });
+}
+
+/** ① [다음: 유사과제 확인] — 정책 근거가 비어 있으면 먼저 뜨는 정책 근거 추천 팝업은 [나중에 넣기] 로 넘긴다 */
+export async function goPrecheck(page: Page, button = page.getByRole("button", { name: "유사과제 확인" })) {
+  await button.click();
+  const popup = policyPopup(page);
+  await expect(popup.or(page.getByRole("heading", { name: /유사과제 확인/ }).first())).toBeVisible();
+  if (await popup.isVisible()) await popup.getByRole("button", { name: "나중에 넣기" }).click();
+  await expect(page).toHaveURL(/\/new\/precheck$/);
+}
+
 /** ①→②→③ 을 지나 run 이 drafted 가 될 때까지. run id 를 돌려준다. */
 export async function createRun(page: Page): Promise<string> {
   await fillIdea(page);
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
-  await expect(page).toHaveURL(/\/new\/precheck$/);
+  await goPrecheck(page);
   await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();
   await expect(page).toHaveURL(/\/new\/brief$/);
   await page.getByRole("button", { name: /다음: 보강 질문/ }).click();

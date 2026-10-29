@@ -94,6 +94,7 @@ from rra.entrypoints.api.schemas import (
     StructureMergeIn,
     WorkingIn,
 )
+from rra.entrypoints.api.schemas_editai import PolicySuggestionsIn
 from rra.entrypoints.api.search_routes import register as register_search_routes
 from rra.entrypoints.views import (
     alerts_payload,
@@ -816,14 +817,18 @@ def create_app(
         return {"notice": UNTRUSTED_NOTICE, **ntis_insights_payload(insights, clean=_clean)}
 
     @app.post(f"/{API_VERSION}/ideas/policy-suggestions")
-    async def policy_suggestions_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
-        """① 입력 → 정책(policy) 문서 문구 3~5개.
-
-        제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음)."""
+    async def policy_suggestions_route(
+        request: Request, body: PolicySuggestionsIn
+    ) -> dict[str, Any]:
+        """① 입력 → 정책(policy) 문서 문구 3~5개, 관련도 순(rank). exclude_doc_ids 는 팝업
+        [다시 받기] 때 이미 본 문서. 제안자가 [적용] 한 것만 policy_basis 에 넣는다 (자동 삽입 없음,
+        ADR 0052)."""
         svc = _svc(request, "policy_suggest")
         if svc is None:
             raise HTTPException(503, "정책 근거 추천이 꺼져 있습니다.")
-        suggestions = await cancel_on_disconnect(request, svc(req))
+        suggestions = await cancel_on_disconnect(
+            request, svc(body.request(), exclude_docs=body.exclude_doc_ids)
+        )
         return {
             "notice": UNTRUSTED_NOTICE,
             "suggestions": policy_suggestions_payload(suggestions, clean=_clean),

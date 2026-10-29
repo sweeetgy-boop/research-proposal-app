@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { createRun, fillIdea, login, subnav } from "./helpers";
+import { createRun, fillIdea, login, policyPopup, subnav } from "./helpers";
 import { expectNoInternalIds } from "./helpers-text";
 
 /** RRA_SCREENS_DIR 가 있으면 화면을 캡처한다 (docs/history/screens/2026-10-28-feat-policy-l2-NN-*.png) */
@@ -17,11 +17,11 @@ async function shot(page: Page, n: number, name: string) {
 test("정책 근거 추천에 연구용역(사내 발주) 문서가 나오지 않고, 번호 없이 제목·자료원 이름", async ({ page }) => {
   await login(page);
   await fillIdea(page, " (정책 추천)");
-  const box = page.getByRole("region", { name: "정책 근거 추천" });
-  await box.getByRole("button", { name: "추천 받기" }).click();
-  const list = page.getByRole("list", { name: "정책 근거 추천 목록" });
+  // 정책 근거 칸 아래 [정책 근거 추천 열기] → 팝업 (ADR 0052)
+  await page.getByRole("button", { name: "정책 근거 추천 열기" }).click();
+  const list = policyPopup(page).getByRole("list", { name: "정책 근거 추천 목록" });
   await expect(list).toBeVisible();
-  await expect(list.getByRole("button", { name: /철도 안전 강화 계획 \(가짜\) \(국토교통부\) 근거 보기/ })).toBeVisible();
+  await expect(list.getByRole("button", { name: /철도 안전 강화 계획 \(가짜\) · 국토교통부 근거 보기/ })).toBeVisible();
   await expect(list.getByText(/가짜 연구용역/)).toHaveCount(0);
   await expect(list.getByRole("link", { name: /원문/ }).first()).toBeVisible();
   await expect(list).not.toContainText("https://");

@@ -27,6 +27,8 @@ export interface PolicyCardsProps {
   onChoose: (choice: PolicyChoice) => void | Promise<void>;
   /** 고르는 중 저장 등 — 버튼을 막는다 */
   busy?: boolean;
+  /** [직접 작성] 단추 — ④ 대화상자는 위에 따로 "직접 입력" 칸이 있어 숨긴다 */
+  manual?: boolean;
 }
 
 function SourceLine({ s }: { s: PolicyCard["sources"][number] }) {
@@ -52,7 +54,7 @@ function SourceLine({ s }: { s: PolicyCard["sources"][number] }) {
 
 /** 정책적 중요도 작성안 — 정책 근거가 없을 때 수집 정책 자료에서 찾은 구간으로 쓴 안(방향별, 근거 겹침 없음).
  *  [이 안으로] · 두 안 합치기 · 고른 뒤 직접 수정 + [AI로 다듬기] · [직접 작성] · [정책 근거 없음으로 진행] · [다른 안 보기]. */
-export function PolicyCards({ load, polish, value, onChoose, busy }: PolicyCardsProps) {
+export function PolicyCards({ load, polish, value, onChoose, busy, manual = true }: PolicyCardsProps) {
   const [seen, setSeen] = React.useState<string[]>([]);
   const [merge, setMerge] = React.useState<string[]>([]);
   const [editing, setEditing] = React.useState<string | null>(null);
@@ -123,9 +125,11 @@ export function PolicyCards({ load, polish, value, onChoose, busy }: PolicyCards
             <RefreshCw aria-hidden="true" />
             다른 안 보기
           </Button>
-          <Button size="sm" variant="outline" onClick={() => { setPolishNote(null); setEditing(""); }} disabled={busy}>
-            직접 작성
-          </Button>
+          {manual && (
+            <Button size="sm" variant="outline" onClick={() => { setPolishNote(null); setEditing(""); }} disabled={busy}>
+              직접 작성
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => onChoose(NONE_CHOICE)} disabled={busy}>
             정책 근거 없음으로 진행
           </Button>

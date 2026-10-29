@@ -347,13 +347,13 @@
     "/v1/ideas/policy-suggestions": {
       "post": {
         "summary": "Policy Suggestions Route",
-        "description": "① 입력 → 정책(policy) 문서 문구 3~5개.\n\n제안자가 고른 것만 policy_basis 에 넣는다 (자동 삽입 없음).",
+        "description": "① 입력 → 정책(policy) 문서 문구 3~5개, 관련도 순(rank). exclude_doc_ids 는 팝업\n[다시 받기] 때 이미 본 문서. 제안자가 [적용] 한 것만 policy_basis 에 넣는다 (자동 삽입 없음,\nADR 0052).",
         "operationId": "policy_suggestions_route_v1_ideas_policy_suggestions_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProposalRequest"
+                "$ref": "#/components/schemas/PolicySuggestionsIn"
               }
             }
           },
@@ -4890,6 +4890,136 @@
         ],
         "title": "PolicySource",
         "description": "작성안이 인용한 원문 구간 하나 — 문서명·연도·쪽·원문 인용·링크. quote 는 문서 그대로."
+      },
+      "PolicySuggestionsIn": {
+        "properties": {
+          "current_state": {
+            "type": "string",
+            "title": "Current State",
+            "description": "현재 상황·문제"
+          },
+          "root_cause": {
+            "type": "string",
+            "title": "Root Cause",
+            "description": "발생 원인"
+          },
+          "limitation": {
+            "type": "string",
+            "title": "Limitation",
+            "description": "현행 대응의 한계"
+          },
+          "goal": {
+            "type": "string",
+            "title": "Goal",
+            "description": "해결 목표"
+          },
+          "constraints": {
+            "type": "string",
+            "title": "Constraints",
+            "description": "예산·기간·현장 제약",
+            "default": ""
+          },
+          "title_hint": {
+            "type": "string",
+            "title": "Title Hint",
+            "description": "가제 (있으면 과제명을 이것으로 다듬는다)",
+            "default": ""
+          },
+          "policy_basis": {
+            "type": "string",
+            "title": "Policy Basis",
+            "description": "정책적 중요도의 유일한 근거 — 제안자가 아는 정책·계획명과 요지",
+            "default": ""
+          },
+          "beneficiaries": {
+            "type": "string",
+            "title": "Beneficiaries",
+            "description": "활용 주체 부서 (차량처·시설처 등)",
+            "default": ""
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks",
+            "description": "특이사항에 덧붙일 내용",
+            "default": ""
+          },
+          "differentiation": {
+            "type": "string",
+            "title": "Differentiation",
+            "description": "제안자가 정한 차별화 방향 (기능 2 제안에서 고르거나 직접 적은 것)",
+            "default": ""
+          },
+          "supplement": {
+            "type": "string",
+            "title": "Supplement",
+            "description": "보충 정보 (보강 질문의 답)",
+            "default": ""
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "description": "연구방법 (② 차별화 과제안에서 정한 것)",
+            "default": ""
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "description": "적용범위 — 대상 노선·시설·차량 (② 과제안)",
+            "default": ""
+          },
+          "similar_choices": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarChoice"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Similar Choices",
+            "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
+          },
+          "department": {
+            "type": "string",
+            "title": "Department",
+            "description": "제안부서 (양식 칸에만 쓴다)",
+            "default": ""
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Budget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exclude_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Exclude Doc Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_state",
+          "root_cause",
+          "limitation",
+          "goal"
+        ],
+        "title": "PolicySuggestionsIn",
+        "description": "POST /v1/ideas/policy-suggestions — 입력 + 팝업 [다시 받기] 때 이미 본 문서 id."
       },
       "PolishIn": {
         "properties": {

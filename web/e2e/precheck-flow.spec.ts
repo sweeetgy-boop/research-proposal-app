@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { fillIdea, login } from "./helpers";
+import { fillIdea, login, goPrecheck } from "./helpers";
 
 // ② 유사과제 흐름 (레인 A, 가짜 모드): AI 같음 판정 차단 → [관련 없음]·[유사함] → 비교표 → 과제안 고르기·직접 고치기 → 다음
 test("② 유사함·관련 없음 선택 → 비교표 → 과제안 고르기·수정 → 다음", async ({ page }) => {
   await login(page);
   await fillIdea(page, " (중복)"); // 가짜 Argon 이 첫 후보를 '같다' 로 판정 → 차단
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await expect(page).toHaveURL(/\/new\/precheck$/);
 
   const next = page.getByRole("button", { name: /다음: 선행연구 브리핑/ });

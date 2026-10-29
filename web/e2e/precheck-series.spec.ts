@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { detailMode, expectNoRunWord, login } from "./helpers";
+import { detailMode, expectNoRunWord, login, goPrecheck } from "./helpers";
 import { expectNoInternalIds } from "./helpers-text";
 
 // ② 같은 연작 한 줄 (레인 A, ADR 0043, 가짜 모드): 제목이 연도만 다른 사내 과제 3판이 "○○(연작 3건)" 한 줄 →
@@ -11,7 +11,7 @@ test("② 같은 연작 한 줄 — 펼치기·근거 패널·묶음 선택, 내
   await page.getByLabel(/발생 원인/).fill("연도별 수송수요예측 모형이 신설역 효과를 반영하지 못함");
   await page.getByLabel(/현행 대응의 한계/).fill("광역철도 월별 변동을 다루지 않음");
   await page.getByLabel(/해결 목표/).fill("광역철도 수송수요예측 모형 개선");
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await expect(page).toHaveURL(/\/new\/precheck$/);
 
   const table = page.getByRole("table", { name: /유사과제 목록/ });

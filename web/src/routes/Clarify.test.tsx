@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expectNoA11yViolations, mockFetch, renderWithProviders } from "@/test/utils";
 import { resetIdea, updateIdea } from "@/features/idea/store";
@@ -30,10 +30,10 @@ const CARDS: PolicyCardsOut = {
   transfer: {},
 };
 
-function setup() {
+function setup(policy_basis = "") {
   resetIdea();
   setPolicyChoice(null);
-  updateIdea({ precheck: { ...(precheckFx as PrecheckOut), blocking: false }, request: { ...emptyRequest(), current_state: "a", root_cause: "b", limitation: "c", goal: "d" } });
+  updateIdea({ precheck: { ...(precheckFx as PrecheckOut), blocking: false }, request: { ...emptyRequest(), current_state: "a", root_cause: "b", limitation: "c", goal: "d", policy_basis } });
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -55,9 +55,26 @@ describe("③ 보강 질문", () => {
     const { calls } = mockFetch({ "/v1/precheck/clarify": { ...base, status: "failed", reason: "error", reason_label: "호출 실패", source: "none" } });
     renderWithProviders(<Clarify />);
     expect(await screen.findByText("보강 질문 없음 — 질문 생성 실패")).toBeInTheDocument();
-    expect(screen.getByText("사유: 호출 실패")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    const alert = screen.getByText("사유: 호출 실패").closest<HTMLElement>('[role="status"]')!;
+    await userEvent.click(within(alert).getByRole("button", { name: "다시 시도" }));
     await waitFor(() => expect(calls.filter((c) => c.url === "/v1/precheck/clarify").length).toBe(2));
+  });
+
+  it("정책 근거가 비어 있으면 질문이 없어도 작성안을 처음부터 펼친다 (ADR 0052)", async () => {
+    setup();
+    const { calls } = mockFetch({ "/v1/precheck/clarify": { ...base, status: "enough" }, "/v1/ideas/policy-cards": CARDS });
+    renderWithProviders(<Clarify />);
+    expect(await screen.findByRole("heading", { name: "정책적 중요도 작성안" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "정책적 중요도 작성안 보기" })).toBeNull();
+    await waitFor(() => expect(calls.some((c) => c.url === "/v1/ideas/policy-cards")).toBe(true));
+  });
+
+  it("정책 근거가 있으면 작성안은 접힌 채 [작성안 보기] 만", async () => {
+    setup("국토부 철도안전 종합계획");
+    mockFetch({ "/v1/precheck/clarify": { ...base, status: "enough" } });
+    renderWithProviders(<Clarify />);
+    expect(await screen.findByRole("button", { name: "정책적 중요도 작성안 보기" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "정책적 중요도 작성안" })).toBeNull();
   });
 
   it("정책 근거 질문 → 작성안 고르기 → 생성 요청에 policy_choice·보충 정보, axe 0", async () => {

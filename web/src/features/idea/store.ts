@@ -32,6 +32,8 @@ export interface IdeaState {
   planSource: "original" | "card" | "edited";
   /** ② [선택 적용] 한 선택 — 비교표·활용 제안·과제안 근거는 이 선택으로 만든다 (레인 A, ADR 0039) */
   appliedChoices: Record<string, SimilarChoiceValue> | null;
+  /** ① 정책 근거 추천 팝업에서 [나중에 넣기] — [다음] 때 다시 묻지 않는다 (ADR 0052) */
+  policyDeferred: boolean;
 }
 
 const KEY = "rra-idea";
@@ -57,6 +59,7 @@ function initial(): IdeaState {
     originalPlan: null,
     planSource: "original",
     appliedChoices: null,
+    policyDeferred: false,
   };
 }
 

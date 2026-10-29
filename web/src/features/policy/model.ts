@@ -63,3 +63,13 @@ export function seenDocs(cards: PolicyCard[], prev: string[] = []): string[] {
   for (const c of cards) for (const s of c.sources) if (!out.includes(s.doc_id)) out.push(s.doc_id);
   return out;
 }
+
+/** ④ 대화상자 "직접 입력" — 고른 안 뒤에 줄마다 한 문장으로 덧붙인다(같은 문장은 한 번, 근거 없음).
+ *  "정책 근거 없음" 은 그대로 둔다. 직접 입력만 있으면 editedChoice(null, text) 로 직접 작성. */
+export function withManual(choice: PolicyChoice, text: string): PolicyChoice {
+  const extra = splitLines(text);
+  if (!extra.length || choice.mode === "none") return choice;
+  const sentences = [...choice.sentences];
+  for (const t of extra) if (!sentences.some((x) => squash(x.text) === squash(t))) sentences.push({ text: t, evidence: [] });
+  return { ...choice, mode: choice.mode === "manual" ? "manual" : "edited", sentences: sentences.slice(0, MAX_CHOICE_SENTENCES) };
+}

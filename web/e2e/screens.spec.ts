@@ -2,7 +2,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { fillIdea, login, subnav, mainNav, openSourceSearch } from "./helpers";
+import { fillIdea, login, subnav, mainNav, openSourceSearch, goPrecheck } from "./helpers";
 
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 test.skip(!OUT, "RRA_SCREENS_DIR 가 없으면 건너뜀");
@@ -21,7 +21,7 @@ test("모든 화면 캡처", async ({ page }) => {
   await login(page);
   await fillIdea(page);
   await shot(page, 2, "idea");
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await expect(page).toHaveURL(/precheck/);
   await shot(page, 3, "precheck");
   await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();

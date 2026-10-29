@@ -44,6 +44,11 @@ test("키보드만으로 로그인 → 입력 → 유사과제 확인 → 다음
     await page.keyboard.press("Tab");
   }
   await page.keyboard.press("Enter");
+  // 정책 근거가 비어 있으면 정책 근거 추천 팝업이 먼저 — 키보드로 [나중에 넣기] (ADR 0052)
+  const popup = page.getByRole("dialog", { name: "정책 근거 추천" });
+  await expect(popup).toBeVisible();
+  await popup.getByRole("button", { name: "나중에 넣기" }).focus();
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/precheck/);
 
   // 포커스 링이 보이는지: 포커스된 요소의 outline 이 none 이 아니어야 한다

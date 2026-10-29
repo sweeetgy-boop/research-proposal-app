@@ -61,8 +61,9 @@ export function SubmitCheckList({
         return (
           <li key={it.key}>
             {path ? (
-              <button type="button" onClick={() => onGo(path)} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring")} aria-label={`${it.label}: ${it.ok ? "통과" : "확인 필요"} — 이동`}>
+              <button type="button" onClick={() => onGo(path)} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring")}>
                 {body}
+                <span className="sr-only"> — 이동</span>
               </button>
             ) : (
               <div className="flex items-start gap-3 p-3">{body}</div>

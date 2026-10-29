@@ -54,7 +54,9 @@ export default function Clarify() {
   const data = q.data;
   const questions = (data?.questions ?? []).filter((x) => x.topic !== "policy");
   const policyQuestion = (data?.questions ?? []).find((x) => x.topic === "policy");
-  const policyOpen = !!policyQuestion || showPolicy || !!policyChoice;
+  // 정책 근거가 비어 있으면 작성안을 처음부터 펼친다 — 2-가-(1) 을 다시 넣는 길 (ADR 0052)
+  const policyEmpty = !idea.request.policy_basis?.trim();
+  const policyOpen = !!policyQuestion || showPolicy || !!policyChoice || policyEmpty;
 
   const start = useMutation({
     mutationFn: async (withAnswers: boolean) => {

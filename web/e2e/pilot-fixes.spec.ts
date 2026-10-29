@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectNoRunWord, fillIdea, login, subnav } from "./helpers";
+import { expectNoRunWord, fillIdea, login, subnav, goPrecheck } from "./helpers";
 import { expectNoInternalIds } from "./helpers-text";
 
 /** 시범 의견 2차(2026-10-28 밤): 모든 화면에 내부 번호(own:…·f:method:t1 …)와 "run" 단어가 보이지 않는다 */
@@ -21,7 +21,7 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
 
   // ② 유사과제 — 차단 행 [관련 없음] → 해제, 다른 행 [유사함] → 비교표
   await fillIdea(page, " (중복)");
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await expect(page).toHaveURL(/\/new\/precheck$/);
   const next = page.getByRole("button", { name: /다음: 선행연구 브리핑/ });
   await expect(next).toBeDisabled();
@@ -118,7 +118,7 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
   await clean(page);
   await subnav(page, "제출 전 점검").click();
   await expect(page.getByRole("heading", { name: "제출 전 점검" })).toBeVisible();
-  const bulk = page.getByRole("button", { name: /근거 일괄 승인/ });
+  const bulk = page.getByRole("button", { name: /^근거 일괄 승인/ });
   if (await bulk.isEnabled()) {
     await bulk.click();
     await expect(page.getByText(/근거 \d+건을 승인했습니다/).first()).toBeVisible();

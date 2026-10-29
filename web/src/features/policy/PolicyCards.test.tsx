@@ -47,7 +47,7 @@ describe("PolicyCards", () => {
     expect(screen.getByText("정부 계획")).toBeInTheDocument();
     expect(screen.getByText("“노후 궤도 보수를 강화함.”")).toBeInTheDocument();
     expect(screen.getAllByText("(2025년 · 3쪽)")).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: /\(국토교통부\) 근거 보기/ }).length).toBeGreaterThan(0); // 제목·자료원 이름 (ADR 0040)
+    expect(screen.getAllByRole("button", { name: /· 국토교통부 근거 보기/ }).length).toBeGreaterThan(0); // 제목·자료원 이름 (ADR 0040)
     expect(screen.getAllByRole("link", { name: /원문 보기/ })[0]).toHaveAttribute("href", "https://example.go.kr/molit:a");
     await expectNoA11yViolations(container);
     await userEvent.click(screen.getByRole("button", { name: "이 안으로 — 정부 계획" }));

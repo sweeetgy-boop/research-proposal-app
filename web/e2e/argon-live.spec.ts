@@ -4,7 +4,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { createRun, fillIdea, login, subnav } from "./helpers";
+import { createRun, fillIdea, login, subnav, goPrecheck } from "./helpers";
 
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 
@@ -85,7 +85,7 @@ test("② 실시간 검색 배지·자료원별 상태 → 초안 로컬 작성 
   await injectLiveFields(page);
   await login(page);
   await fillIdea(page, " (실시간)");
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await expect(page).toHaveURL(/\/new\/precheck$/);
 
   // 유사과제 표: 첫 행만 실시간 검색

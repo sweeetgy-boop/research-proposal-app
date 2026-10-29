@@ -3,7 +3,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { expectNoRunWord, fillIdea, login, subnav, mainNav } from "./helpers";
+import { expectNoRunWord, fillIdea, login, subnav, mainNav, goPrecheck } from "./helpers";
 
 const SHOTS = process.env.VERSIONS_NAV_SCREENS ?? ""; // 캡처 폴더 (비면 찍지 않는다)
 
@@ -22,8 +22,7 @@ async function createRunViaBar(page: Page): Promise<string> {
   await expect(bar(page)).toBeVisible();
   await expectNoRunWord(page);
   await fillIdea(page);
-  await bar(page).getByRole("button", { name: "다음: 유사과제 확인" }).click();
-  await expect(page).toHaveURL(/\/new\/precheck$/);
+  await goPrecheck(page, bar(page).getByRole("button", { name: "다음: 유사과제 확인" }));
   await expect(bar(page).getByRole("button", { name: "다음: 선행연구 브리핑" })).toBeVisible();
   await expectNoRunWord(page);
   await shot(page, "precheck-bar");

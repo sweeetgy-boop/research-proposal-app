@@ -43,7 +43,7 @@ test("단계 표시 이동 → 입력 변경 다시 쓰기 → 제출 전 점검
   await steps(page).getByRole("link", { name: /아이디어 입력/ }).click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/idea$`));
   await expect(page.getByLabel(/현재 상황·문제/)).toHaveValue(/궤도 틀림/);
-  await page.getByText("선택 입력 (가제·정책 근거·제약·부서·예산)").click();
+  await page.getByText("선택 입력 (가제·제약·부서·예산)").click();
   await page.getByLabel(/예산·기간·현장 제약/).fill("연구기간 1년, 예산 1억 원 이내");
   await page.getByRole("button", { name: "입력 저장" }).click();
   const dialog = page.getByRole("dialog", { name: "바뀐 입력을 초안에 반영할까요?" });
@@ -64,7 +64,7 @@ test("단계 표시 이동 → 입력 변경 다시 쓰기 → 제출 전 점검
   await subnav(page, "제출 전 점검").click();
   await expect(page.getByRole("heading", { name: "제출 전 점검" })).toBeVisible();
   await expect(page.getByText("근거 확인", { exact: true })).toBeVisible();
-  const bulk = page.getByRole("button", { name: /근거 일괄 승인/ });
+  const bulk = page.getByRole("button", { name: /^근거 일괄 승인/ });
   if (await bulk.isEnabled()) {
     await bulk.click();
     await expect(page.getByText(/근거 \d+건을 승인했습니다/).first()).toBeVisible();
