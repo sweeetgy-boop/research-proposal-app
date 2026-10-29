@@ -293,7 +293,7 @@ def test_internal_only_texts_detected_for_public_accounts():
     assert rules.internal_only_texts(concept(), pool) == []
 
 
-def test_normalize_clips_long_texts_at_word_boundary_and_list_limits():
+def test_normalize_keeps_texts_whole_and_applies_list_limits():
     long = (
         "경부선 일반철도 구간의 궤도 틀림(고저·방향·수평)은 궤도검측차가 분기별로 측정하고, "
         "그 사이에는 도보로 확인한다."
@@ -301,10 +301,11 @@ def test_normalize_clips_long_texts_at_word_boundary_and_list_limits():
     data = {"boxes": [{"label": "현황 " * 20, "lines": [long, "a", "b"]}] * 4}
     out = rules.normalize_spec_data(data)
     box = out["boxes"][0]
-    assert len(box["label"]) <= 40 and len(box["lines"]) == 2
-    assert len(box["lines"][0]) <= 60 and long.startswith(box["lines"][0])
-    spec = parse_spec("concept", out)  # 형식 오류 없이 명세가 된다
-    assert spec.boxes[0].lines[0] == box["lines"][0]
+    # 2026-10-29(ADR 0044): 글자는 자르지 않는다 — 띄어쓰기만 한 칸으로, 목록은 상한 개수까지
+    assert box["label"] == " ".join(("현황 " * 20).split()) and len(box["lines"]) == 2
+    assert box["lines"][0] == long
+    with pytest.raises(ValidationError):  # 넘는 글자는 형식 오류 → 교정 재요청
+        parse_spec("concept", out)
 
 
 def test_repair_drops_unsupported_optional_texts_but_keeps_required_ones(pool):

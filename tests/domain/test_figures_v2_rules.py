@@ -13,6 +13,7 @@ from rra.domain.models.figure import (
     TechniqueSpec,
     parse_spec,
 )
+from rra.domain.rules import figure_phrases as phrases
 from rra.domain.rules import figures as rules
 from rra.domain.rules import techniques as tr
 from tests.figure_v2_helpers import (
@@ -241,16 +242,20 @@ def test_as_is_to_be_spec_texts_counts_tags_and_box_length():
         parse_spec("as_is_to_be", {**AS_IS, "as_is": AS_IS["as_is"][:2]})
     with pytest.raises(ValidationError):
         parse_spec("as_is_to_be", {**AS_IS, "to_be": AS_IS["to_be"] * 2})
-    # 칸 글자는 30자(1~2줄)로 줄인다 — 앞부분 원문이라 출처 검사 통과
+    # 칸 글자는 자르지 않는다(2026-10-29, ADR 0044) — 상한을 넘으면 칸 글자 규칙이 거절하고
+    # (교정 재요청), 정리(normalize)는 글자를 그대로 둔다
     long_text = "검측 이력을 분석해 구간별 진행 속도를 추정함 그리고 보수 우선순위를 산정함"
     longer = {**AS_IS, "to_be": [{"tag": "해결 방안", "text": long_text}, *AS_IS["to_be"][1:]]}
-    clipped = parse_spec("as_is_to_be", rules.normalize_spec_data(longer))
-    assert len(clipped.to_be[0].text) <= MAX_BOX and long_text.startswith(clipped.to_be[0].text)
+    kept = rules.normalize_spec_data(longer)
+    assert kept["to_be"][0]["text"] == long_text
+    bad = phrases.problems("as_is_to_be", kept, pool)
+    assert [(b.slot.path, b.code) for b in bad] == [("to_be.0.text", phrases.PHRASE_TOO_LONG)]
+    assert len(long_text) > MAX_BOX
     with pytest.raises(ValidationError):
-        parse_spec("as_is_to_be", longer)  # 줄이지 않으면 형식 오류
+        parse_spec("as_is_to_be", longer)  # 스키마 상한도 그대로
 
 
-def test_concept_lines_are_clipped_to_box_length_on_new_specs():
+def test_concept_lines_are_not_clipped_but_flagged_on_new_specs():
     data = {
         "boxes": [
             {
@@ -264,8 +269,11 @@ def test_concept_lines_are_clipped_to_box_length_on_new_specs():
             {"label": "기대효과", "lines": ["절감"]},
         ]
     }
-    spec = parse_spec("concept", rules.normalize_spec_data(data))
-    assert len(spec.boxes[0].lines[0]) <= MAX_BOX
+    kept = rules.normalize_spec_data(data)
+    line = data["boxes"][0]["lines"][0]
+    assert kept["boxes"][0]["lines"][0] == line  # 자르지 않는다
+    codes = {b.code for b in phrases.problems("concept", kept)}
+    assert codes == {phrases.PHRASE_TOO_LONG}
 
 
 # ── 비율·프롬프트 ───────────────────────────────────────────
@@ -292,7 +300,8 @@ def test_infographic_prompt_for_new_kinds_keeps_exact_texts_and_colours():
     for t in rules.texts_of(as_is):
         assert f"- {t}" in prompt
     assert "회색·주황" in prompt and "파랑·초록" in prompt and "가운데 큰 화살표" in prompt
-    assert "새로 디자인" in prompt and "가로세로 비율 16:9" in prompt and "흑백 인쇄" in prompt
+    # 칸 글자가 상한(20자) 안이고 쪽마다 3칸이면 낮고 넓게 21:9 (choose_aspect)
+    assert "새로 디자인" in prompt and "가로세로 비율 21:9" in prompt and "흑백 인쇄" in prompt
     # 제목 글자가 목록에 없는 종류는 그림 위에 제목을 지어 쓰지 않는다 (실측: "…인포그래픽" 제목)
     assert "제목 글자를 새로 쓰지 않는다" in prompt
     swot, _ = analyse("swot", SWOT)
