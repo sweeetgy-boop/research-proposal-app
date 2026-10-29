@@ -204,7 +204,7 @@
   화면 안 로그인(로그인 페이지 없음, 보호 화면은 주소 그대로 `LoginDialogProvider`·`useRequireLogin`)·왼쪽 사이드바·위쪽 막대(`components/frame/`, ADR 0048),
   연구 작업실 홈 `/`(로그인 전 API 0건, 6단계 진행률 `features/home/runView.ts`)·작성 가이드 `/guide`(`features/guide/content.tsx` = pilot-guide §2~§5.5, 함께 고친다, ADR 0049),
   ⌘K 통합 검색 `features/globalsearch/`·`GET /v1/search/docs`(문서 단위, 공용 계정 internal 제외, ADR 0050). 저장 안내 "제안서는 연구원 서버에 저장됩니다.".
-- **정책 근거 팝업**(2026-10-29, #110, ADR 0052): ① 네 칸이 상세 입력에 채워지면(또는 정책 근거가 빈 채 [다음]) `features/idea/PolicyPickDialog`
+- **정책 근거 팝업**(2026-10-29, #110, ADR 0052, 배포 36e0709 16:06): ① 네 칸이 상세 입력에 채워지면(또는 정책 근거가 빈 채 [다음]) `features/idea/PolicyPickDialog`
   — 열리면 바로 추천, `rank` 1 미리 체크("기본 추천", 자동 저장 아님), 추가 체크·직접 입력 → [적용] 때만 `mergePolicyBasis`(같은 문장 한 번), [다시 받기]
   `exclude_doc_ids`, [나중에 넣기] `IdeaState.policyDeferred`. 정책 근거 칸은 접지 않는다(`IdeaForm policyTools`). 다시 넣는 길: ③ 빈 정책 근거면 작성안 펼침,
   ④ 2-가-(1) [정책 근거 넣기·바꾸기] 늘 보임·빈칸 안내 줄·`RunPolicyDialog` 직접 입력(`withManual`)·`/edit?policy=1`, ③ 초안 보기·⑥ "정책 근거" 항목 바로가기.

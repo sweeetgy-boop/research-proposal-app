@@ -66,13 +66,15 @@ A.X 4.0 Light 는 JSON 형식 성공률 기준(95%)에 못 미쳐 **Qwen2.5-7B-I
 ## 현재 상태 (2026-10-29)
 
 - **시범 운영 중**(2026-10-28~, 동료 3명): 운영 맥 launchd(mlx·api·backup·ingest·awake), 외부 주소는 Tailscale Funnel
-  `https://rra.taile5afcf.ts.net`(ADR 0047), 로그인은 직원 사번·공용 계정·관리 토큰(ADR 0026). 배포 버전 c277253(2026-10-29 10:48, 그 전 546f244 09:30,
+  `https://rra.taile5afcf.ts.net`(ADR 0047), 로그인은 직원 사번·공용 계정·관리 토큰(ADR 0026). 배포 버전 36e0709(2026-10-29 16:06, ① 정책 근거 팝업 #110 — 그 전 c277253 10:48 Research Studio·546f244 09:30,
   `docs/history/deploys/`). 합쳐도 자동 재시작하지 않고 `tools/deploy.sh` 로 배포한다(`docs/pilot-guide.md` §6.3).
-- 흐름 ①~⑥: 아이디어 입력 → ② 유사과제 확인(표 먼저 → Argon 같음 판정 → [유사함]/[관련 없음], 같은 연작 한 줄, 실시간 검색
+- 흐름 ①~⑥: 아이디어 입력(간편 입력 → 네 칸 → 정책 근거 추천 팝업: 1순위 미리 체크, [적용] 해야 들어감, ADR 0052) → ② 유사과제 확인(표 먼저 → Argon 같음 판정 → [유사함]/[관련 없음], 같은 연작 한 줄, 실시간 검색
   ScienceON·NTIS·OpenAlex) → ③ 초안 생성(Argon 작성 → 규칙 검사 → L2 로컬 2차 검토, 그림은 백그라운드 Nano Banana Pro) →
-  ④ 직접 수정 → ⑤ Argon 최종 검토 1회 → ⑥ HWPX. 자세한 것은 `docs/final-report-materials.md`.
-- 검사: pytest 2,418 · vitest 201 · e2e 40(+3 skip), import 계약 8(2026-10-29 #108 기준).
+  ④ 직접 수정(빈 2-가-(1) 은 [정책 근거 넣기·바꾸기]) → ⑤ Argon 최종 검토 1회 → ⑥ HWPX. 자세한 것은 `docs/final-report-materials.md`.
+- 검사: pytest 2,419 · vitest 214 · e2e 43(+3 skip), import 계약 8(2026-10-29 #110 기준). REST 71 경로(`docs/openapi.json`), ADR 0001~0052.
 - 화면: Research Studio — 배포됨 (c277253, 2026-10-29 10:48). 왼쪽 사이드바·화면 안 로그인·연구 작업실 홈·⌘K 통합 검색·작성 가이드(ADR 0048~0051).
+  ① 정책 근거 추천 팝업과 ③④⑥ 다시 넣는 길은 16:06 배포(36e0709, ADR 0052).
+- 측정: 3차(초안 글 먼저) 골든셋 전체 측정은 하지 않기로 했다(10-29 소유자 결정). 시간 값은 건별 확인값뿐(`docs/final-check-2026-10-29.md`).
 - 대기(사람 입력): NTIS 서버 IP 반영 확인(실시간 검색 NTIS "IP 차단"), 고정 IP, `korail_strategy.yaml` 전략체계 확정,
   연구과제 공고문, g2b 키, Mac mini 이전. 목록은 `docs/status.md` §3.2.
 

@@ -10,8 +10,8 @@
 | `diagrams/` | 구조도 Mermaid 원본(`.mmd`)과 SVG |
 | `decisions/` | 결정 기록(ADR) |
 | `lessons.md` | 겪은 문제와 해결 |
-| `screens/` | 화면 캡처(날짜 붙임). Streamlit(웹 이전 기준)과 웹 전후 비교, 2026-10-29 Research Studio 전후(`2026-10-29-ui-studio-*`) |
-| `deploys/` | 시범 배포 기록(`tools/deploy.sh`)과 반영 대기 목록 `pending.md` |
+| `screens/` | 화면 캡처(날짜 붙임). Streamlit(웹 이전 기준)과 웹 전후 비교, 2026-10-29 Research Studio 전후(`2026-10-29-ui-studio-*`), 정책 근거 팝업·다시 넣기(`2026-10-29-feat-policy-popup-*`) |
+| `deploys/` | 시범 배포 기록(`tools/deploy.sh`, 10-28~29 12회, 마지막 2026-10-29 16:06 36e0709)과 반영 대기 목록 `pending.md` |
 | `demo/` | e2e 녹화(웹 단계에서 추가) |
 
 유지 규칙(CONTRIBUTING·PR 템플릿): 모든 PR 은 합치기 전에 `timeline.md` 에 항목 하나(날짜·무엇·왜·PR 번호·핵심 수치),
@@ -19,7 +19,7 @@
 
 ## 발표용 한 장 요약
 
-> 2026-10-29: 최신 요약은 `docs/presentation-kit/summary.md`, 보고서 재료는 `docs/final-report-materials.md`. 아래는 2026-10-26 기준 요약(이전 방식: 로컬 7B 작성 + Argon 1차 검토)이다.
+> 2026-10-29(16:10 갱신): 최신 요약은 `docs/presentation-kit/summary.md`, 보고서 재료는 `docs/final-report-materials.md`, 문서 목록·분류는 `docs/final-docs-inventory.md`. 아래는 2026-10-26 기준 요약(이전 방식: 로컬 7B 작성 + Argon 1차 검토)이다.
 
 **문제.** 철도연구원의 연구과제 제안서(별지 제2호서식)는 유사·중복 과제 확인, 근거 수집, 12개 섹션 작성, 양식 채우기를 제안자가
 손으로 한다. 과거 과제 1,119건·공시 요약 120건·논문을 매번 다시 찾기 어렵고, 중복 과제는 심사에서 걸린다.

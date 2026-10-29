@@ -96,7 +96,8 @@ tail -n 50 ~/Library/Logs/rra-{mlx,api,backup,ingest,tunnel}.err.log
 
 ## 4. REST API 요약 (`rra api`)
 
-인증: 모든 `/v1/*` 에 `X-RRA-Token: <토큰>` 또는 `Authorization: Bearer <토큰>`(401), 세션 쿠키 + CSRF 는 프론트엔드용.
+인증: 모든 `/v1/*` 에 `X-RRA-Token: <토큰>` 또는 `Authorization: Bearer <토큰>`(401, 관리 토큰), 세션 쿠키 + CSRF 는 프론트엔드용
+(`POST /v1/session {kind: token|staff|guest}`, 2026-10-28~ 직원 사번·공용 계정, ADR 0026).
 본문 상한 `security.yaml input_limits.api_max_body_bytes`(기본 64KB, 초과 413). 오류는 problem+json.
 응답 헤더: `Content-Security-Policy: default-src 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
 `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`. CORS 없음.
@@ -110,6 +111,19 @@ tail -n 50 ~/Library/Logs/rra-{mlx,api,backup,ingest,tunnel}.err.log
 | `GET …/draft`, `GET …/versions`, `POST …/revert`, `POST …/edits`, `POST …/confirm` | 초안·버전·편집·확정 |
 | `POST/GET …/review` | Argon 검토 (점수·의견·전송 범위) |
 | `GET …/render-check`, `POST …/finalize`, `POST …/reopen` | 렌더 전 점검 · 최종 마무리(HWPX) · 다시 열기 |
+| *(아래는 2026-10-27~29 추가 — 2026-10-29 16:06 기준 전체 71 경로)* | |
+| `GET/POST/DELETE /v1/session` | 로그인(직원 사번·공용 계정·관리 토큰)·상태·로그아웃 |
+| `POST /v1/ideas/structure`·`/structure/merge` | ① 간편 입력 → 네 칸·보완 질문 답 합치기 |
+| `POST /v1/ideas/policy-suggestions` | ① 정책 근거 추천 — 응답 `rank`(1 = 팝업 미리 체크), 요청 `exclude_doc_ids`(다시 받기), LLM 없음, 자동 삽입 없음(ADR 0052) |
+| `POST /v1/ideas/policy-cards`(`/polish`), `POST …/runs/{id}/policy-cards`(`/polish`), `POST …/runs/{id}/policy-choice` | ③ 정책적 중요도 작성안·다듬기, ④ 고른 안·직접 입력 → 새 버전 |
+| `POST /v1/precheck?stage=rule` → `/precheck/judgment`·`/choices`·`/recommendations`(`/more`·`/{id}/apply`)·`/comparison`·`/brief`·`/clarify`·`/ntis-outcomes`·`/plan/polish` | ② 표 먼저 → AI 판정·선택·과제안·비교표·브리핑·보강 질문(ADR 0039) |
+| `GET /v1/search/docs` | 위쪽 통합 검색·자료 검색(문서 단위, 공용 계정 internal 제외, ADR 0050) |
+| `GET …/sections-progress`, `GET/POST …/figures`(`/techniques`·`/{fid}`·`/{fid}/image`) | 섹션 진행, 그림(백그라운드 작업·확인·말로 고치기, ADR 0029·0045) |
+| `POST …/sections/{key}/rewrite`(`/apply`), `GET/POST …/sections/{key}/questions`·`answers`, `GET …/changes` | ④ AI 다시 쓰기·보완 질문·변경 n건(ADR 0037) |
+| `GET …/local-review`, `POST …/local-review/{sid}/apply`·`dismiss`·`retry` | L2 로컬 2차 검토 제안 [반영]/[무시](ADR 0040) |
+| `POST/GET …/final-review`(`/cancel`), `GET …/submit-check`, `POST …/evidence-decisions`(`/bulk-approve`), `GET …/sentences/{sid}/evidence` | ⑤ 최종 검토·⑥ 제출 전 점검·근거 판단 |
+| `GET …/request`, `POST …/request/preview`, `POST …/regenerate` | 입력 변경 → 관련 섹션만·전체 다시 쓰기(ADR 0035) |
+| `GET …/usage`, `POST …/feedback` | 사용 기록·만족도(개인정보 없음) |
 
 전체 스키마: `docs/openapi.json` (`rra api schema`).
 

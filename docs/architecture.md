@@ -10,6 +10,8 @@
 > - 외부 공개: **Tailscale Funnel** `https://rra.taile5afcf.ts.net` + 앱 로그인(ADR 0047). Cloudflare Tunnel/Access 는 이전 계획(ADR 0024).
 > - 인증: 단일 토큰 → 직원 사번·공용 계정·관리 토큰(ADR 0026). 생성 동시성 1 → Argon 작성은 동시 3(로컬 단계만 전역 슬롯).
 > - 주 화면: Streamlit(§4.2) → 웹 SPA `web/`(ADR 0015), 2026-10-29 Research Studio 화면 배포됨 (c277253, 2026-10-29 10:48)(ADR 0048~0051).
+> - ① 정책 근거: [추천 받기] 버튼(ADR 0040) → 네 칸이 채워지면 저절로 열리는 팝업(1순위 미리 체크, [적용] 해야 칸에 들어감)과 ③④⑥ 다시 넣는 길(ADR 0052, 배포 36e0709 2026-10-29 16:06).
+> - 지금 운영 버전은 `GET /healthz` version·웹 하단, 기록은 `docs/history/deploys/`.
 
 ## 개선사항 반영 현황 (10항목)
 
@@ -1330,6 +1332,9 @@ class RunManager:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-29 오후 | ① 정책 근거 추천 팝업·③④⑥ 다시 넣는 길(ADR 0052, #110): 추천 응답 `rank`·요청 `exclude_doc_ids`(`PolicySuggestionsIn`), 화면 `PolicyPickDialog`·`RunPolicyDialog` 직접 입력. 배포 36e0709(16:06) |
+| 2026-10-29 오전 | 시범 의견 3차(연작 한 줄 ADR 0043, 그림 완결 구절 0044, 초안 글 먼저·그림 백그라운드 `figure_job` 0045, 근거 범위 `admin_notice`·`status_report` 0046), Research Studio 화면(0048~0051), 문서 최신화(§4.25). 배포 546f244(09:30)·c277253(10:48) |
+| 2026-10-28 | 시범 운영 시작(Tailscale Funnel 0047), 빈 초안 금지 0027, 유사과제 후보 과제형만 0028, 그림 0029·0030·0033·0041, 실시간 검색 0031, Argon 먼저 0032, HWPX 서식 0034, 입력 변경 다시 쓰기 0035, ② 판정·선택 0036·0039, 편집 AI 0037, 응답 대기·취소 0038, 정책 재분류·L2 0040, 상태 표시 0042 — 요약은 §4.25 |
 | 2026-10-27 (D2) | 데이터 위치 고정: `Settings.data_dir`(`RRA_DATA_DIR`), `config_loader.resolve_data_dir`(원 저장소 = `git rev-parse --git-common-dir` 의 부모, 없으면 cwd)/`data_path`/`data_location`(`_DATA_LOCATIONS` 표), composition 이 DB·스냅샷·캐시·inbox·eval·bench·backups 경로를 전부 데이터 폴더 절대 경로로 조립, 어댑터의 cwd 기준 `data/` 기본값 제거, worktree 보호·정적 테스트 `tests/test_data_dir.py`, CONTRIBUTING "데이터 위치" |
 | 2026-10-27 (E) | 전체 흐름 ③~⑥(§4.6 재작성, ADR 0011): review_flow 재정의(drafted·draft_reviewing·final_reviewing·final_reviewed), `PipelineConfig`·`config/pipeline.yaml`, 1차 검토 자동 반영 v2(origin argon·annotations), `domain/rules/versions`(문장·섹션 편집·diff), 임시 저장(draft_working.json)·VersionConflict, 최종 검토(kind final·score_delta·stale), finalize(version·stale 경고), REST/CLI/MCP/Streamlit 진입점, manifest versions |
 | 2026-10-27 (R) | 차별화 과제 추천(§4.14, ADR 0012): `usecases/recommend_projects`, `domain/rules/recommendation`, `prompts/recommend.md`, `llm.yaml stages.recommend`·`recommend.auto`, `RunStorePort.save_recommendations`(recommendations.json), manifest `recommendations`, agent_policy `rra_recommend`, CLI `rra recommend`, REST `/v1/precheck/recommendations(/{id}/apply)`·`RunIn.recommendation_id`, MCP `rra_recommend`, Streamlit 추천 카드; `docs/history/`(연표·수치·ADR·구조도·그래프·캡처, #20) |
@@ -1406,6 +1411,8 @@ DocumentTables=DB 본문) → `usecases/extract_facts.ExtractTableFacts` → `Ta
 (`usecases/policy_cards` + `domain/rules/policy_cards`: 방향별 최대 4안, 한 문서는 한 안에만, 인용 구간 안에서만·정책명·수치
 검사)을 보인다. 고른 안은 `ProposalRequest.policy_choice` → 생성 때 원문 재대조(`verify_sources`) → `snapshot.policy_ids` →
 2-가-(1) 그대로(근거 금지 섹션의 유일한 예외). "정책 근거 없음" 은 `policy_basis_needed` 알림·제출 전 점검 `policy_basis`.
+2026-10-29(ADR 0052): 정책 근거가 비면 ③ 작성안을 처음부터 펼친다. ④ 2-가-(1) 머리 [정책 근거 넣기·바꾸기](늘 보임)의 `RunPolicyDialog` 는
+작성안 + 직접 입력(`withManual`, 줄마다 한 문장 → mode manual/edited)으로 `POST /v1/runs/{id}/policy-choice` 를 부른다.
 ④ AI 다시 쓰기(`rewrite_llm`, 사유·새로 쓰기), 보완 질문(`usecases/section_questions`, 모든 섹션 체크리스트), 변경 세기
 (`domain/rules/change_count`, `GET /v1/runs/{id}/changes`). RunManager 쪽은 `application/services/edit_ai.EditAIMixin`.
 
@@ -1419,9 +1426,10 @@ DocumentTables=DB 본문) → `usecases/extract_facts.ExtractTableFacts` → `Ta
 | 로컬 대체 조건 | Argon 이 오류로 답할 때만(호출 실패·교정 뒤 형식 오류). 규칙에 걸러진 답은 로컬에 다시 묻지 않음. AI 응답은 시간 제한 없음 + [취소](통신 10분 무응답만 오류) | 0038 |
 | ② 판정 | 표 먼저(reranker ≥ 0.5 + 핵심 키워드 ≥ 1, 과제형 자료원만, 같은 연작 한 줄) → 상위 10 Argon 같음 판정 → 제안자 [유사함]/[관련 없음]·[선택 적용] | 0028·0036·0039·0043 |
 | 실시간 검색 | ② 때 ScienceON·NTIS·OpenAlex 동시(자료원 10초·전체 15초), public·`raw.live` 로 저장, 24시간 캐시, NTIS IP 거부는 건너뜀 | 0031 |
-| 정책 근거 | 작성안 4개(정책 문서 인용 구간 안, 원문 재대조), 연구용역(사내 발주)·행정 공시·사업 현황·통계는 정책 분류 밖, 2-가-(3) 은 정책만 | 0037·0040·0046 |
+| 정책 근거 | ① 네 칸이 채워지면(또는 빈 채 [다음]) 추천 팝업 — `POST /v1/ideas/policy-suggestions` 응답 `rank`(1 = 미리 체크 "기본 추천", 자동 저장 아님)·요청 `exclude_doc_ids`([다시 받기]), [적용] 때만 `policy_basis` 에 덧붙임(같은 문장 한 번), [나중에 넣기] → ③ 작성안 펼침·④ [정책 근거 넣기·바꾸기](`?policy=1`)·⑥ "정책 근거" 항목 바로가기. 작성안 4개(정책 문서 인용 구간 안, 원문 재대조), 연구용역(사내 발주)·행정 공시·사업 현황·통계는 정책 분류 밖, 2-가-(3) 은 정책만 | 0037·0040·0046·0052 |
 | 그림 | 명세 → 밑그림 → Nano Banana Pro, 기본 As-Is/To-Be + 분석 기법 0~2, 가로·본문 폭 153.8mm·9pt, 완결 구절·1회 다시 그림, 초안 글 먼저·그림 백그라운드(`figure_job`) | 0029·0030·0033·0041·0044·0045 |
 | 편집·버전 | 상태 표시는 버전 없음(`marks_vN.json`), 입력 변경 다시 쓰기, 아래 이동 막대, 화면에 "run"·내부 번호 없음 | 0035·0042·0040 |
 | HWPX | 단계별 서식 점검·고침(`hwpx_format`), 그림 본문 폭 | 0034·0041 |
 | 로그인·공개 | 직원 사번(HMAC)·공용 계정(scrypt)·관리 토큰, 공용 계정 internal 제외, Tailscale Funnel | 0026·0047 |
-| 배포 | 합쳐도 자동 재시작 없음, `tools/deploy.sh`, 보안·접속 오류는 즉시 | `docs/pilot-guide.md` §6.3 |
+| 화면 | Research Studio — 디자인 토큰 한 곳, 화면 안 로그인(주소 유지), 왼쪽 사이드바·위쪽 경로, 연구 작업실 홈, ⌘K 통합 검색(`GET /v1/search/docs`), 작성 가이드(`features/guide/content.tsx` = pilot-guide §2~§5.5), 접근 이름은 보이는 글자를 담는다(WCAG 2.5.3) | 0048~0051·0052 |
+| 배포 | 합쳐도 자동 재시작 없음, `tools/deploy.sh`, 보안·접속 오류는 즉시. 배포 기록의 "반영 PR" 은 병합 커밋 제목에서만 모으므로 squash 로 합친 PR 은 손으로 보탠다 | `docs/pilot-guide.md` §6.3 |
