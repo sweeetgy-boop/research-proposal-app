@@ -1,8 +1,8 @@
 import { LocalSuggestionCard, LocalVerdictBadge } from "@/features/draft/LocalReview";
 import * as React from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { CloudOff, CloudUpload, MessageCircleQuestion, Save, Wand2 } from "lucide-react";
+import { CloudOff, CloudUpload, Landmark, MessageCircleQuestion, Save, Wand2 } from "lucide-react";
 import { useRunContext } from "./useRunContext";
 import { keys, useDraft, useDraftReview, useFinalReview, useSaveVersion, useVersion, useWorking } from "@/api/hooks";
 import { deleteWorking, putWorking } from "@/api/endpoints";
@@ -56,6 +56,15 @@ export default function Edit() {
   const [saveAsk, setSaveAsk] = React.useState<{ kind: "none" | "saved" | "already"; version: number | null } | null>(null);
   const editable = EDITABLE.has(run.status) && !run.legacy;
   const changes = useChanges(id, editable);
+  // ⑥ 제출 전 점검 [정책 근거 넣기] → ?policy=1 로 들어오면 대화상자를 바로 연다 (ADR 0052)
+  const [params, setParams] = useSearchParams();
+  React.useEffect(() => {
+    if (params.get("policy") !== "1") return;
+    setPolicyOpen(true);
+    const next = new URLSearchParams(params);
+    next.delete("policy");
+    setParams(next, { replace: true });
+  }, [params, setParams]);
 
   const revisions = React.useMemo(
     () => usableRevisions([...(finalReview.data?.comments ?? []), ...(draftReview.data?.comments ?? [])]),
@@ -63,6 +72,20 @@ export default function Edit() {
   );
   const sections = version.data?.sections ?? [];
   const dirty = isDirty(state);
+  const policyBlocked = !editable
+    ? run.legacy
+      ? "예전 방식으로 만든 제안서는 조회만 됩니다"
+      : "검토 중이거나 마무리된 제안서라 지금은 넣을 수 없습니다 — 마무리된 제안서는 ⑥ 최종 마무리에서 다시 연 뒤 넣으십시오"
+    : dirty
+      ? "저장하지 않은 편집이 있어 고를 수 없습니다 — 먼저 [새 버전으로 저장] 하십시오"
+      : undefined;
+  /** 2-가-(1) 머리의 [정책 근거 넣기·바꾸기] — 편집할 수 없을 때도 보인다(누르면 이유). 비어 있으면 주 색 */
+  const policyButton = (sec: { sentences: unknown[] }) => (
+    <Button type="button" variant={sec.sentences.length ? "outline" : "default"} size="sm" onClick={() => setPolicyOpen(true)}>
+      <Landmark aria-hidden="true" />
+      정책 근거 넣기·바꾸기
+    </Button>
+  );
   const figures = draft.data?.figures ?? [];
   // 그림 동작은 새 버전을 만든다 — 저장하지 않은 편집이 있으면 기준 버전이 어긋나므로 막는다
   const figuresDisabled = !editable || dirty;
@@ -221,11 +244,7 @@ export default function Edit() {
         sectionTools={(sec) =>
           editable && sec.key !== "title" ? (
             <span className="flex flex-wrap gap-1">
-              {sec.key === "policy_importance" && (
-                <Button type="button" variant={sec.sentences.length ? "outline" : "default"} size="sm" onClick={() => setPolicyOpen(true)}>
-                  정책 근거 고르기
-                </Button>
-              )}
+              {sec.key === "policy_importance" && policyButton(sec)}
               <Button
                 type="button"
                 variant="outline"
@@ -241,6 +260,8 @@ export default function Edit() {
                 보완 질문
               </Button>
             </span>
+          ) : sec.key === "policy_importance" ? (
+            policyButton(sec)
           ) : null
         }
         sentenceBadges={(s) => <LocalVerdictBadge verdict={draft.data?.local_check?.verdicts?.[s.sentence_id]} />}
@@ -265,7 +286,17 @@ export default function Edit() {
         )}
         sectionExtra={(sec) =>
           sec.key !== "title" ? (
-            <FigureList runId={id} figures={figures} section={sec.key} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} slots={slotsFor(run, sec.key)} />
+            <>
+              {sec.key === "policy_importance" && sec.sentences.length === 0 && (
+                <p className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-primary/50 bg-primary-soft p-3 text-sm" data-testid="policy-empty">
+                  <span>정책 근거가 없습니다 — 이대로면 2-가-(1) 이 빈칸으로 남습니다.</span>
+                  <Button type="button" size="sm" onClick={() => setPolicyOpen(true)}>
+                    정책 근거 넣기
+                  </Button>
+                </p>
+              )}
+              <FigureList runId={id} figures={figures} section={sec.key} baseVersion={current ?? 0} disabled={figuresDisabled} onApplied={onFigureApplied} slots={slotsFor(run, sec.key)} />
+            </>
           ) : null
         }
       />
@@ -302,7 +333,8 @@ export default function Edit() {
         runId={id}
         open={policyOpen}
         baseVersion={current ?? 0}
-        disabled={dirty}
+        disabled={policyBlocked !== undefined}
+        disabledReason={policyBlocked}
         onClose={() => setPolicyOpen(false)}
         onApplied={(v) => {
           setPolicyOpen(false);

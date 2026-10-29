@@ -99,11 +99,20 @@ function SectionHeader({
           )}
         </div>
       ) : (
-        section.sentences.length === 0 && (
+        section.sentences.length === 0 &&
+        (section.key === "policy_importance" ? (
+          // 빈 2-가-(1) — 어디서 채우는지 바로 보이게 ④ 대화상자로 (ADR 0052)
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-sm" data-testid="policy-empty-draft">
+            <span className="text-muted-foreground">정책 근거가 없어 빈칸으로 두었습니다.</span>
+            <Link to="../edit?policy=1" relative="path" className={buttonVariants({ size: "sm" })}>
+              정책 근거 넣기 (④ 직접 수정)
+            </Link>
+          </p>
+        ) : (
           <p className="mt-1 text-sm text-muted-foreground">
             {CHOICE_SECTIONS.has(section.key) ? "(본문 없이 체크 칸으로만 들어갑니다)" : "문장이 없습니다 — 근거·입력이 부족해 빈칸으로 둡니다. 직접 수정에서 채울 수 있습니다."}
           </p>
-        )
+        ))
       )}
     </div>
   );

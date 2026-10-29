@@ -1,13 +1,17 @@
+import * as React from "react";
 import { useNavigate } from "react-router";
+import { BookMarked } from "lucide-react";
 import { IdeaForm } from "@/features/idea/IdeaForm";
 import { QuickInput } from "@/features/idea/QuickInput";
-import { PolicySuggestions } from "@/features/idea/PolicySuggestions";
-import { resetIdea, updateIdea, updateRequest, useIdea } from "@/features/idea/store";
+import { POLICY_LATER_NOTE, PolicyPickDialog } from "@/features/idea/PolicyPickDialog";
+import { getIdea, resetIdea, updateIdea, updateRequest, useIdea } from "@/features/idea/store";
+import { mergePolicyBasis } from "@/api/policySuggestions";
 import { useMutation } from "@tanstack/react-query";
 import { precheckFast } from "@/api/endpoints-precheck";
 import type { PrecheckOut } from "@/api/types";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/toast";
 import type { ProposalRequest } from "@/api/types";
 import { cn } from "@/lib/utils";
@@ -26,8 +30,11 @@ export default function Idea() {
   const precheck = useMutation({ mutationFn: (req: ProposalRequest) => precheckFast(req) as unknown as Promise<PrecheckOut> });
   const { toast } = useToast();
   const mode = idea.inputMode;
+  // 정책 근거 추천 팝업 (ADR 0052) — 네 칸이 채워질 때 자동, [다음] 때 칸이 비었으면 먼저, 칸 아래 버튼으로 언제든
+  const [policyOpen, setPolicyOpen] = React.useState(false);
+  const [gated, setGated] = React.useState<ProposalRequest | null>(null);
 
-  const onSubmit = async (req: ProposalRequest) => {
+  const runPrecheck = async (req: ProposalRequest) => {
     try {
       const budget = req.budget && (req.budget.account || req.budget.amount_thousand_krw !== null) ? req.budget : null;
       const clean = { ...req, budget };
@@ -50,12 +57,57 @@ export default function Idea() {
     }
   };
 
-  const appendPolicy = (text: string) => {
-    const cur = idea.request.policy_basis ?? "";
-    updateRequest({ policy_basis: cur ? `${cur}\n${text}` : text });
-    if (mode === "quick") updateIdea({ inputMode: "detail" });
-    toast("정책 근거 칸에 덧붙였습니다. 상세 입력에서 확인하십시오.", "success");
+  const onSubmit = (req: ProposalRequest) => {
+    if (!req.policy_basis?.trim() && !idea.policyDeferred) {
+      setGated(req);
+      setPolicyOpen(true);
+      return;
+    }
+    void runPrecheck(req);
   };
+
+  /** [적용] — 고른 추천·직접 입력을 칸 뒤에 덧붙인다(같은 문장은 한 번). [다음] 에서 열었으면 이어서 ② 로 */
+  const applyPolicy = (additions: string[]) => {
+    const merged = mergePolicyBasis(getIdea().request.policy_basis ?? "", additions);
+    updateRequest({ policy_basis: merged });
+    updateIdea({ policyDeferred: false });
+    setPolicyOpen(false);
+    toast("정책 근거 칸에 넣었습니다.", "success");
+    if (gated) {
+      setGated(null);
+      void runPrecheck({ ...gated, policy_basis: merged });
+    }
+  };
+  const deferPolicy = () => {
+    updateIdea({ policyDeferred: true });
+    setPolicyOpen(false);
+    if (gated) {
+      setGated(null);
+      toast(POLICY_LATER_NOTE, "info");
+      void runPrecheck(gated);
+    }
+  };
+  const closePolicy = () => {
+    setPolicyOpen(false);
+    setGated(null);
+  };
+  const policyEmpty = !idea.request.policy_basis?.trim();
+  const policyTools = (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant={policyEmpty ? "default" : "outline"} size="sm" onClick={() => setPolicyOpen(true)}>
+          <BookMarked aria-hidden="true" />
+          정책 근거 추천 열기
+        </Button>
+        <span className="text-xs text-muted-foreground">정책 자료에서 관련 문구를 골라 넣습니다 — [적용] 을 눌러야 칸에 들어갑니다.</span>
+      </div>
+      {policyEmpty && idea.policyDeferred && (
+        <Alert variant="warning" data-testid="policy-later-note">
+          <AlertDescription>{POLICY_LATER_NOTE}</AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -100,14 +152,15 @@ export default function Idea() {
           onFilled={(fields, title) => {
             updateIdea({ request: { ...idea.request, ...fields, title_hint: title || idea.request.title_hint }, inputMode: "detail" });
             toast("네 칸을 상세 입력에 채웠습니다. 확인·수정한 뒤 유사과제 확인으로 가십시오.", "success");
+            setPolicyOpen(true);
           }}
           onUnavailable={() => updateIdea({ inputMode: "detail" })}
         />
       ) : (
-        <IdeaForm value={idea.request} onChange={updateRequest} onSubmit={onSubmit} busy={precheck.isPending} hideSubmit />
+        <IdeaForm value={idea.request} onChange={updateRequest} onSubmit={onSubmit} busy={precheck.isPending} hideSubmit policyTools={policyTools} />
       )}
 
-      <PolicySuggestions request={idea.request} onPick={appendPolicy} />
+      <PolicyPickDialog open={policyOpen} request={idea.request} gate={gated !== null} onApply={applyPolicy} onLater={deferPolicy} onClose={closePolicy} />
       <StepNavBar
         next={
           mode === "quick"

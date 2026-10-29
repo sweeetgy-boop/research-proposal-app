@@ -77,6 +77,13 @@ async def test_suggests_only_policy_documents_from_korail_web():
     assert call[1]["k"] == 30
 
 
+async def test_exclude_docs_skips_already_seen_documents():
+    """팝업 [다시 받기] — 이미 본 문서는 다시 내지 않는다."""
+    repo = InMemoryRepository()
+    repo.seed([POLICY, NEWS, PAPER], CHUNKS)
+    assert await PolicySuggest(repo)(REQ, exclude_docs=["korail_web:p1"]) == []
+
+
 async def test_empty_when_nothing_ingested():
     assert await PolicySuggest(InMemoryRepository())(REQ) == []
 

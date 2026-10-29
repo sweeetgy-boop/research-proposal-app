@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createRun, detailMode, fillIdea, login, subnav, mainNav, openSourceSearch } from "./helpers";
+import { createRun, detailMode, fillIdea, login, subnav, mainNav, openSourceSearch, goPrecheck } from "./helpers";
 
 test.describe("전체 흐름 ①→⑥", () => {
   test("아이디어 → 유사과제(추천 0건) → 보강 질문(Argon) → 생성 → 초안 → 수정 → 버전 비교 → 최종 검토 → HWPX 내려받기 → 다시 열기", async ({ page }) => {
@@ -68,7 +68,7 @@ test.describe("전체 흐름 ①→⑥", () => {
   test("추천 0건 경로: '원래 아이디어로 진행' 으로 보강 질문 화면까지", async ({ page }) => {
     await login(page);
     await fillIdea(page, " (추천 없음)");
-    await page.getByRole("button", { name: "유사과제 확인" }).click();
+    await goPrecheck(page);
     await expect(page.getByText("추천 0건")).toBeVisible();
     await page.getByRole("button", { name: "원래 아이디어로 진행" }).click();
     await expect(page).toHaveURL(/\/new\/brief$/);
@@ -80,7 +80,7 @@ test.describe("전체 흐름 ①→⑥", () => {
   test("보강 질문이 있으면 [건너뛰고 생성]·[답하고 생성 시작]", async ({ page }) => {
     await login(page);
     await fillIdea(page);
-    await page.getByRole("button", { name: "유사과제 확인" }).click();
+    await goPrecheck(page);
     await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();
     await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
     await expect(page.getByRole("button", { name: "건너뛰고 생성" })).toBeVisible();
@@ -105,7 +105,7 @@ test.describe("전체 흐름 ①→⑥", () => {
     page.on("pageerror", (e) => errors.push(e.message));
     await login(page);
     await fillIdea(page);
-    await page.getByRole("button", { name: "유사과제 확인" }).click();
+    await goPrecheck(page);
     await expect(page).toHaveURL(/precheck/);
     expect(errors).toEqual([]);
   });

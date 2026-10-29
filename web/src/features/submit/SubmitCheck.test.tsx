@@ -32,7 +32,7 @@ describe("제출 전 점검", () => {
     expect(screen.getByText("입력이 비어 작성하지 않은 섹션")).toBeInTheDocument();
     expect(screen.getAllByText("주의")).toHaveLength(2);
     expect(document.body.textContent).not.toMatch(/input_missing|catalog_empty|warning/);
-    await userEvent.click(screen.getByRole("button", { name: /미해결 알림: 확인 필요/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^미해결 알림\s*확인 필요/ }));
     expect(onGo).toHaveBeenCalledWith(`/runs/${id}/draft#sec-policy_importance`);
     await userEvent.click(screen.getByRole("button", { name: /남은 검토 메모/ }));
     expect(onGo).toHaveBeenCalledWith(`/runs/${id}/draft?evidence=s%3Amethod%3A0`);

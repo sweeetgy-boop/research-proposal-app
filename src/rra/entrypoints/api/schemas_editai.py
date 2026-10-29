@@ -18,6 +18,15 @@ class PolicyCardsIn(ProposalRequest):
         return ProposalRequest(**self.model_dump(exclude=_EXTRA))
 
 
+class PolicySuggestionsIn(ProposalRequest):
+    """POST /v1/ideas/policy-suggestions — 입력 + 팝업 [다시 받기] 때 이미 본 문서 id."""
+
+    exclude_doc_ids: list[str] = Field(default_factory=list, max_length=40)
+
+    def request(self) -> ProposalRequest:
+        return ProposalRequest(**self.model_dump(exclude=_EXTRA))
+
+
 class PolicyPolishIn(ProposalRequest):
     """POST /v1/ideas/policy-cards/polish — 입력 + 고른 안 + 제안자가 고친 글."""
 

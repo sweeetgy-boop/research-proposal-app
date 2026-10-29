@@ -90,7 +90,7 @@ describe("② 같은 연작 한 줄", () => {
       expect.stringContaining("2024"),
       expect.stringContaining("2025"),
     ]);
-    expect(within(list).getByRole("button", { name: /2024년도 광역철도 수송수요 예측 연구 \(사내 과제 · 공사 홈페이지\) 근거 보기/ })).toBeInTheDocument();
+    expect(within(list).getByRole("button", { name: /2024년도 광역철도 수송수요 예측 연구 · 사내 과제 · 공사 홈페이지 근거 보기/ })).toBeInTheDocument();
     expect(container.textContent).not.toMatch(INTERNAL_ID);
     await expectNoA11yViolations(container);
 

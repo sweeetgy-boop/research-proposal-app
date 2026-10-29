@@ -72,6 +72,14 @@ export default function SubmitCheck() {
         </div>
       );
     }
+    if (it.key === "policy_basis" && !it.ok) {
+      // 빈 2-가-(1) — ④ 직접 수정의 정책 근거 대화상자로 바로 (ADR 0052)
+      return (
+        <Button type="button" size="sm" className="mt-2" onClick={() => navigate(`/runs/${id}/edit?policy=1`)}>
+          정책 근거 넣기
+        </Button>
+      );
+    }
     if (it.key === "choices_confirmed" && Array.isArray(it.choices)) {
       return <ChoiceConfirm rows={it.choices as CheckChoiceRow[]} runId={id} onDone={() => void check.refetch()} />;
     }

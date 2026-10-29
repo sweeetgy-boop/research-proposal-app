@@ -3,7 +3,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { fillIdea, login } from "./helpers";
+import { fillIdea, login, goPrecheck } from "./helpers";
 
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 
@@ -15,7 +15,7 @@ test("유사과제 확인에 국가R&D 과제 라벨·주요 성과(참고용)·
   });
   await login(page);
   await fillIdea(page);
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await expect(page).toHaveURL(/\/new\/precheck$/);
 
   // 알림 표의 티어 라벨

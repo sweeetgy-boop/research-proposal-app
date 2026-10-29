@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { fillIdea, login } from "./helpers";
+import { fillIdea, login, goPrecheck } from "./helpers";
 
 // ② v3 (레인 A, ADR 0039, 가짜 모드): 표 먼저 → AI 판정 → [유사함] → [선택 적용] → 비교표 갱신 → [차별화 과제안 더 만들기]
 const INTERNAL = /\b(own|alio|ntis|scienceon|openalex|korail_web|g2b):[\w-]+/;
@@ -7,7 +7,7 @@ const INTERNAL = /\b(own|alio|ntis|scienceon|openalex|korail_web|g2b):[\w-]+/;
 test("② 표 먼저·선택 적용·과제안 더 만들기 — 내부 번호 없음", async ({ page }) => {
   await login(page);
   await fillIdea(page);
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await expect(page).toHaveURL(/\/new\/precheck$/);
 
   const table = page.getByRole("table", { name: /유사과제 목록/ });

@@ -12,6 +12,7 @@ ADR 0040): 국토부 계획·공사 경영목표·전략·감사 지적·정부 
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 
 from rra.application.ports import DocumentRepository
@@ -37,7 +38,11 @@ class PolicySuggest:
         self.search_multiplier = search_multiplier
         self.keywords = keywords or KeywordRule()
 
-    async def __call__(self, req: ProposalRequest) -> list[PolicySuggestion]:
+    async def __call__(
+        self, req: ProposalRequest, *, exclude_docs: Sequence[str] = ()
+    ) -> list[PolicySuggestion]:
+        """exclude_docs: 팝업 [다시 받기] 때 이미 본 문서 — 그 문서는 다시 내지 않는다."""
+        skip = set(exclude_docs)
         query = " ".join(p for p in (req.search_text(), req.policy_basis) if p)
         chunks = await self.repo.hybrid_search(
             [query], k=self.k * self.search_multiplier, sources=POLICY_SOURCES
@@ -45,6 +50,8 @@ class PolicySuggest:
         docs: dict[str, Document | None] = {}
         found: list[PolicySuggestion] = []
         for chunk in chunks:
+            if chunk.doc_id in skip:
+                continue
             if chunk.doc_id not in docs:
                 docs[chunk.doc_id] = await self.repo.get_document(chunk.doc_id)
             doc = docs[chunk.doc_id]

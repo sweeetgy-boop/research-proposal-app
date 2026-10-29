@@ -63,6 +63,7 @@ export function IdeaForm({
   busy,
   submitLabel = "유사과제 확인",
   hideSubmit = false,
+  policyTools,
 }: {
   value: ProposalRequest;
   onChange: (patch: Partial<ProposalRequest>) => void;
@@ -71,6 +72,8 @@ export function IdeaForm({
   submitLabel?: string;
   /** 아래 이동 막대가 [다음: 유사과제 확인] 으로 이 폼을 제출할 때 (id="idea-form") — 폼 안 단추는 숨긴다 */
   hideSubmit?: boolean;
+  /** 정책 근거 칸 아래 — [정책 근거 추천 열기]·안내 (ADR 0052) */
+  policyTools?: React.ReactNode;
 }) {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [touched, setTouched] = React.useState(false);
@@ -110,11 +113,16 @@ export function IdeaForm({
         <Field name="goal" value={value.goal} onChange={set("goal")} error={live.goal} required max={SLOT_MAX} hint="연구로 무엇을 이루려는가" />
       </fieldset>
 
-      <details className="rounded-lg border bg-card p-4" open={!!(value.title_hint || value.policy_basis || value.differentiation)}>
-        <summary className="cursor-pointer font-semibold">선택 입력 (가제·정책 근거·제약·부서·예산)</summary>
+      {/* 정책 근거는 접지 않는다 — 비면 2-가-(1) 이 빈칸으로 생성되므로 늘 보이게 (ADR 0052) */}
+      <div className="space-y-2 rounded-lg border bg-card p-4" data-testid="policy-basis-box">
+        <Field name="policy_basis" value={value.policy_basis ?? ""} onChange={set("policy_basis")} error={live.policy_basis} max={SLOT_MAX} hint="2-가-(1) 정책적 중요도의 유일한 근거 — 아는 정책·계획명과 요지. 비면 그 칸은 빈칸으로 생성될 수 있습니다" />
+        {policyTools}
+      </div>
+
+      <details className="rounded-lg border bg-card p-4" open={!!(value.title_hint || value.differentiation)}>
+        <summary className="cursor-pointer font-semibold">선택 입력 (가제·제약·부서·예산)</summary>
         <div className="mt-4 space-y-4">
           <Field name="title_hint" value={value.title_hint ?? ""} onChange={set("title_hint")} error={live.title_hint} max={SHORT_MAX} short hint="있으면 과제명을 이것으로 다듬습니다" />
-          <Field name="policy_basis" value={value.policy_basis ?? ""} onChange={set("policy_basis")} error={live.policy_basis} max={SLOT_MAX} hint="정책적 중요도의 유일한 근거 — 아는 정책·계획명과 요지. 비면 그 칸은 빈칸" />
           <Field name="constraints" value={value.constraints ?? ""} onChange={set("constraints")} error={live.constraints} max={SLOT_MAX} rows={2} />
           <Field name="beneficiaries" value={value.beneficiaries ?? ""} onChange={set("beneficiaries")} error={live.beneficiaries} max={SLOT_MAX} rows={2} hint="차량처·시설처 등" />
           <Field name="remarks" value={value.remarks ?? ""} onChange={set("remarks")} error={live.remarks} max={SLOT_MAX} rows={2} />

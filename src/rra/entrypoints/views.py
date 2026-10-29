@@ -746,13 +746,14 @@ def render_check_lines(payload: dict[str, Any]) -> list[str]:
 def policy_suggestions_payload(
     suggestions: list[Any], *, clean: Callable[[str], str] = _same
 ) -> list[dict[str, Any]]:
-    """정책 근거 추천 — 제안자가 고를 목록.
+    """정책 근거 추천 — 제안자가 고를 목록 (관련도 순, rank 1 = 화면의 "기본 추천").
 
-    policy_basis_text 는 고른 뒤 칸에 넣을 문자열(자동 삽입 없음)."""
+    policy_basis_text 는 고른 뒤 칸에 넣을 문자열(자동 삽입 없음 — [적용] 을 눌러야 들어간다)."""
     from rra.domain.rules.policy_phrases import policy_basis_text
 
     return [
         {
+            "rank": i,
             "doc_id": s.doc_id,
             "title": clean(s.title),
             # ADR 0040 — 화면은 doc_id 대신 제목·자료원 이름. 인용 아래 "원문" 링크는 url
@@ -767,7 +768,7 @@ def policy_suggestions_payload(
             "similarity": s.similarity,
             "policy_basis_text": clean(policy_basis_text(s)),
         }
-        for s in suggestions
+        for i, s in enumerate(suggestions, start=1)
     ]
 
 

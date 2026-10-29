@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { fillIdea, login, subnav } from "./helpers";
+import { fillIdea, login, subnav, goPrecheck } from "./helpers";
 
 /** RRA_SCREENS_DIR 가 있으면 화면을 캡처한다 (docs/history/screens/2026-10-28-edit-ai-NN-*.png) */
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
@@ -16,7 +16,7 @@ async function shot(page: Page, n: number, name: string) {
 test("보강 질문 정책 작성안 → 생성 → AI 다시 쓰기·보완 질문 → 변경 없이 저장 팝업", async ({ page }) => {
   await login(page);
   await fillIdea(page, " (정책 작성안)");
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await page.getByRole("button", { name: /다음: 선행연구 브리핑|원래 아이디어로 진행/ }).first().click();
   if (page.url().endsWith("/new/precheck")) await page.getByRole("button", { name: /다음: 선행연구 브리핑/ }).click();
   await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
@@ -80,7 +80,7 @@ test("보강 질문 정책 작성안 → 생성 → AI 다시 쓰기·보완 질
 test("변경이 없으면 '변경된 내용이 없습니다' — [취소] 는 그대로", async ({ page }) => {
   await login(page);
   await fillIdea(page, " (변경 없음)");
-  await page.getByRole("button", { name: "유사과제 확인" }).click();
+  await goPrecheck(page);
   await page.getByRole("button", { name: /다음: 선행연구 브리핑|원래 아이디어로 진행/ }).first().click();
   await page.getByRole("button", { name: /다음: 보강 질문/ }).click();
   await page.getByRole("button", { name: "건너뛰고 생성" }).click();
@@ -92,9 +92,9 @@ test("변경이 없으면 '변경된 내용이 없습니다' — [취소] 는 �
   await expect(ask.getByText("변경된 내용이 없습니다. 최종 검토로 넘어갈까요?")).toBeVisible();
   await ask.getByRole("button", { name: "취소" }).click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/edit$`));
-  // 2-가-(1) 이 비었으면 [정책 근거 고르기] — 같은 작성안에서 골라 새 버전
-  await page.getByRole("button", { name: "정책 근거 고르기" }).click();
-  const pd = page.getByRole("dialog", { name: /정책 근거 고르기/ });
+  // 2-가-(1) 이 비었으면 [정책 근거 넣기·바꾸기] — 같은 작성안에서 골라 새 버전 (ADR 0052)
+  await page.getByRole("button", { name: "정책 근거 넣기·바꾸기" }).click();
+  const pd = page.getByRole("dialog", { name: /정책 근거 넣기·바꾸기/ });
   await pd.getByRole("button", { name: "이 안으로 — 정부 계획" }).click();
   await expect(page.getByText(/정책 근거를 v\d+ 으로 반영했습니다/).first()).toBeVisible();
   await expect(page.getByText(/변경 [1-9]\d*건/)).toBeVisible();
