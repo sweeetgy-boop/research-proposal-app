@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
@@ -21,7 +22,6 @@ import { hasInternalId, refTitle } from "@/lib/docRefs";
 import { basisLabel } from "@/lib/sections";
 
 const LIMIT = 20;
-const THIS_YEAR = new Date().getFullYear();
 
 const toYear = (v: string | null): number | null => {
   const n = Number(v);
@@ -66,7 +66,7 @@ export default function Search() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Library</p>
+        <Eyebrow>Library</Eyebrow>
         <h1 className="text-2xl font-bold tracking-tight">자료 검색</h1>
         <p className="text-sm text-muted-foreground">
           사내 과제·공시 요약·논문·특허·공고를 키워드와 의미로 함께 찾습니다. 결과는 수집 자료(비신뢰 텍스트)이므로 원문에서 확인한 뒤 씁니다.
@@ -74,7 +74,7 @@ export default function Search() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside aria-label="검색 조건" className="space-y-4 rounded-xl border bg-card p-4 lg:self-start">
+        <aside aria-label="검색 조건" className="space-y-4 rounded-xl border bg-card p-4 shadow-card lg:self-start">
           <form
             role="search"
             className="space-y-2"
@@ -91,56 +91,60 @@ export default function Search() {
             </Button>
           </form>
 
-          <fieldset className="space-y-2 border-t pt-4">
-            <legend className="text-sm font-semibold">자료원</legend>
-            {src.isPending && <SkeletonBlock lines={3} />}
-            {src.error && <p className="text-sm text-destructive">자료원 목록을 불러오지 못했습니다.</p>}
-            {options.length === 0 && src.data && <p className="text-sm text-muted-foreground">적재된 자료원이 없습니다.</p>}
-            <ul className="space-y-1.5">
-              {options.map((s) => (
-                <li key={s.source}>
-                  <label className="flex min-h-8 cursor-pointer items-center gap-2 text-sm">
-                    <Checkbox checked={sources.includes(s.source)} onChange={(e) => toggleSource(s.source, e.target.checked)} />
-                    <span className="min-w-0 flex-1">{s.label}</span>
-                    <span className="tabular-nums text-xs text-muted-foreground">{s.count.toLocaleString("ko-KR")}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </fieldset>
+          <div className="border-t pt-4">
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-sm font-semibold">자료원</legend>
+              {src.isPending && <SkeletonBlock lines={3} />}
+              {src.error && <p className="text-sm text-destructive">자료원 목록을 불러오지 못했습니다.</p>}
+              {options.length === 0 && src.data && <p className="text-sm text-muted-foreground">적재된 자료원이 없습니다.</p>}
+              <ul className="space-y-1.5">
+                {options.map((s) => (
+                  <li key={s.source}>
+                    <label className="flex min-h-8 cursor-pointer items-center gap-2 text-sm">
+                      <Checkbox checked={sources.includes(s.source)} onChange={(e) => toggleSource(s.source, e.target.checked)} />
+                      <span className="min-w-0 flex-1">{s.label}</span>
+                      <span className="tabular-nums text-xs text-muted-foreground">{s.count.toLocaleString("ko-KR")}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
+          </div>
 
-          <fieldset className="space-y-2 border-t pt-4">
-            <legend className="text-sm font-semibold">발행 연도</legend>
-            <form
-              className="space-y-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                update({ year_from: toYear(from) ? from : null, year_to: toYear(to) ? to : null });
-              }}
-            >
-              <div className="flex items-end gap-2">
-                <div className="min-w-0 flex-1 space-y-1">
-                  <Label htmlFor="year-from" className="text-xs">
-                    시작
-                  </Label>
-                  <Input id="year-from" inputMode="numeric" pattern="[0-9]{4}" placeholder="2015" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <div className="border-t pt-4">
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-sm font-semibold">발행 연도</legend>
+              <form
+                className="space-y-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  update({ year_from: toYear(from) ? from : null, year_to: toYear(to) ? to : null });
+                }}
+              >
+                <div className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Label htmlFor="year-from" className="text-xs">
+                      시작
+                    </Label>
+                    <Input id="year-from" inputMode="numeric" pattern="[0-9]{4}" value={from} onChange={(e) => setFrom(e.target.value)} />
+                  </div>
+                  <span aria-hidden="true" className="pb-2 text-muted-foreground">
+                    ~
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Label htmlFor="year-to" className="text-xs">
+                      끝
+                    </Label>
+                    <Input id="year-to" inputMode="numeric" pattern="[0-9]{4}" value={to} onChange={(e) => setTo(e.target.value)} />
+                  </div>
                 </div>
-                <span aria-hidden="true" className="pb-2 text-muted-foreground">
-                  ~
-                </span>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <Label htmlFor="year-to" className="text-xs">
-                    끝
-                  </Label>
-                  <Input id="year-to" inputMode="numeric" pattern="[0-9]{4}" placeholder={String(THIS_YEAR)} value={to} onChange={(e) => setTo(e.target.value)} />
-                </div>
-              </div>
-              <Button type="submit" variant="outline" size="sm" className="w-full">
-                연도 적용
-              </Button>
-            </form>
-            <p className="text-xs text-muted-foreground">연도를 정하면 발행 연도를 모르는 자료는 빠집니다.</p>
-          </fieldset>
+                <Button type="submit" variant="outline" size="sm" className="w-full">
+                  연도 적용
+                </Button>
+              </form>
+              <p className="text-xs text-muted-foreground">연도를 정하면 발행 연도를 모르는 자료는 빠집니다.</p>
+            </fieldset>
+          </div>
 
           {filtered && (
             <Button
@@ -158,12 +162,12 @@ export default function Search() {
           )}
         </aside>
 
-        <section aria-labelledby="search-results-title" className="min-w-0 rounded-xl border bg-card">
+        <section aria-labelledby="search-results-title" className="min-w-0 rounded-xl border bg-card shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
             <h2 id="search-results-title" className="text-base font-semibold">
               검색 결과
               {res.data && (
-                <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-primary tabular-nums">{res.data.docs.length}</span>
+                <span className="ml-2 rounded-full bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary-soft-foreground tabular-nums">{res.data.docs.length}</span>
               )}
             </h2>
             {q && !byId && <p className="text-sm text-muted-foreground">「{q}」</p>}
@@ -199,7 +203,7 @@ export default function Search() {
                     {d.summary && <UntrustedText as="p" text={d.summary} className="mt-1 line-clamp-3 text-sm text-muted-foreground" />}
                     {d.url && (
                       <a href={d.url} target="_blank" rel="noreferrer noopener" className="mt-1 inline-flex items-center gap-1 text-sm text-primary underline-offset-2 hover:underline">
-                        원문 <ExternalLink className="size-3" aria-hidden="true" />
+                        원문 보기 <ExternalLink className="size-3" aria-hidden="true" />
                         <span className="sr-only">(새 창)</span>
                       </a>
                     )}

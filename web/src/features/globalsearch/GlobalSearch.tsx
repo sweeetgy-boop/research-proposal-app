@@ -185,7 +185,7 @@ export function GlobalSearch({ className }: { className?: string }) {
   const optionClass = (i: number) =>
     cn(
       "flex w-full cursor-pointer items-start gap-3 rounded-lg px-3 py-2 text-left text-sm",
-      i === active ? "bg-accent text-accent-foreground" : "hover:bg-muted",
+      i === active ? "bg-primary-soft text-primary-soft-foreground" : "hover:bg-muted",
     );
 
   return (
@@ -231,8 +231,8 @@ export function GlobalSearch({ className }: { className?: string }) {
       </p>
       <div
         className={cn(
-          "z-50 mt-2 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-lg",
-          "max-sm:fixed max-sm:inset-x-2 max-sm:top-16 sm:absolute sm:right-0 sm:w-[min(92vw,34rem)]",
+          "z-50 mt-2 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-pop",
+          "absolute inset-x-0 sm:left-auto sm:right-0 sm:w-[min(92vw,34rem)]",
           !open && "hidden",
         )}
       >
@@ -261,7 +261,7 @@ export function GlobalSearch({ className }: { className?: string }) {
                   onPointerMove={() => setActive(i)}
                   onClick={() => activate(items[i]!)}
                 >
-                  <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-accent text-primary">
+                  <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-primary-soft text-primary-soft-foreground">
                     <FileText className="size-4" aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -298,7 +298,7 @@ export function GlobalSearch({ className }: { className?: string }) {
                       onPointerMove={() => setActive(i)}
                       onClick={() => activate(items[i]!)}
                     >
-                      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
+                      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-mint text-mint-foreground">
                         <Library className="size-4" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">

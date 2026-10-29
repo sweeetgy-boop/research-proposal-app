@@ -6,10 +6,11 @@ import { useSources } from "@/api/hooks";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { Badge } from "@/components/ui/badge";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 function Stat({ icon: Icon, label, value, tone }: { icon: typeof Database; label: string; value: string; tone: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
+    <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-card">
       <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${tone}`}>
         <Icon className="size-5" aria-hidden="true" />
       </span>
@@ -30,7 +31,7 @@ export default function Sources() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Sources</p>
+        <Eyebrow>Sources</Eyebrow>
         <h1 className="text-2xl font-bold tracking-tight">자료 현황</h1>
         <p className="text-sm text-muted-foreground">
           자료원별 적재 건수와 마지막 적재일입니다. 야간 배치(02:30)가 갱신합니다. 자료는{" "}
@@ -41,9 +42,9 @@ export default function Sources() {
         </p>
       </header>
       {blocked.length > 0 && (
-        <div role="alert" className="rounded-xl border border-warning/50 bg-warning/10 p-4 text-sm">
+        <div role="alert" className="rounded-xl bg-apricot p-4 text-sm text-apricot-foreground">
           <p className="flex items-center gap-1.5 font-semibold">
-            <ShieldAlert className="size-4 text-warning" aria-hidden="true" />
+            <ShieldAlert className="size-4" aria-hidden="true" />
             호출이 거부된 자료원이 있습니다
           </p>
           <ul className="mt-1 list-disc pl-6">
@@ -60,11 +61,11 @@ export default function Sources() {
       {q.data && (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <Stat icon={Library} label="전체 자료" value={`${total.toLocaleString("ko-KR")}건`} tone="bg-accent text-primary" />
-            <Stat icon={Database} label="자료가 있는 자료원" value={`${loaded} / ${rows.length}`} tone="bg-success/15 text-success" />
-            <Stat icon={ShieldAlert} label="호출이 거부된 자료원" value={`${blocked.length}곳`} tone="bg-warning/15 text-warning" />
+            <Stat icon={Library} label="전체 자료" value={`${total.toLocaleString("ko-KR")}건`} tone="bg-primary-soft text-primary-soft-foreground" />
+            <Stat icon={Database} label="자료가 있는 자료원" value={`${loaded} / ${rows.length}`} tone="bg-mint text-mint-foreground" />
+            <Stat icon={ShieldAlert} label="호출이 거부된 자료원" value={`${blocked.length}곳`} tone="bg-apricot text-apricot-foreground" />
           </div>
-          <div className="relative overflow-x-auto rounded-xl border bg-card">
+          <div className="relative overflow-x-auto rounded-xl border bg-card shadow-card">
             <table className="w-full min-w-[28rem] text-sm">
               <caption className="sr-only">자료원별 적재 현황</caption>
               <thead className="border-b text-left text-xs text-muted-foreground">

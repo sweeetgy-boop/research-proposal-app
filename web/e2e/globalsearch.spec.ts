@@ -67,7 +67,7 @@ test("자료 결과 → 근거 패널(요약·원문), [자료 전체 결과 보
   await page.getByRole("button", { name: "연도 적용" }).click();
   await expect(page).toHaveURL(/year_from=2025&year_to=2025/);
   await expect(results.getByRole("listitem").first()).toBeVisible();
-  for (const text of await results.getByRole("listitem").allInnerTexts()) expect(text).toContain("2025년");
+  await expect(results.getByRole("listitem").filter({ hasNotText: "2025년" })).toHaveCount(0);
 
   // 자료원 거르기
   await page.getByRole("button", { name: "조건 지우기" }).click();
@@ -76,7 +76,7 @@ test("자료 결과 → 근거 패널(요약·원문), [자료 전체 결과 보
   await expect(openalex).toBeChecked();
   await expect(page).toHaveURL(/sources=openalex/);
   await expect(results.getByRole("listitem").first()).toBeVisible();
-  for (const text of await results.getByRole("listitem").allInnerTexts()) expect(text).toContain("OpenAlex");
+  await expect(results.getByRole("listitem").filter({ hasNotText: "OpenAlex" })).toHaveCount(0);
 });
 
 test("공용 계정은 통합 검색에서 사내 전용 자료가 보이지 않는다", async ({ page }) => {
