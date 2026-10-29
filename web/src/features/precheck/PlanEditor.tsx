@@ -48,7 +48,7 @@ export function PlanEditor({
   const changed = changedFields(original, fields);
   const empty = !fields.goal.trim();
   return (
-    <section className="space-y-3 rounded-lg border p-4" aria-labelledby="plan-editor-title">
+    <section className="space-y-3 rounded-lg border bg-card p-4" aria-labelledby="plan-editor-title">
       <h3 id="plan-editor-title" className="text-base font-semibold">
         과제안 직접 작성·수정
       </h3>

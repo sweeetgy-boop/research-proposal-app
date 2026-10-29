@@ -23,7 +23,7 @@ export function SectionsSoFar({ runId, generating }: { runId: string; generating
       {done.length === 0 && !q.error && <p className="text-sm text-muted-foreground">아직 다 쓴 섹션이 없습니다.</p>}
       <ol className="space-y-3">
         {done.map((s) => (
-          <li key={s.key} className="rounded-lg border p-3" data-testid="section-so-far">
+          <li key={s.key} className="rounded-lg border bg-card p-3" data-testid="section-so-far">
             <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
               {sectionTitle(s.key)}
               <Badge variant="success">작성됨</Badge>

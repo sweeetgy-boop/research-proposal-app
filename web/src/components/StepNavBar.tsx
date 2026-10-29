@@ -120,7 +120,7 @@ export function StepNavBar({
       role="navigation"
       aria-label="단계 이동"
       data-testid="stepnav"
-      className="fixed inset-x-0 bottom-0 z-30 border-t lg:left-52 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      className="fixed inset-x-0 bottom-0 z-30 border-t lg:left-52 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85"
     >
       <div className="mx-auto grid max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-4 py-2">
         {side(prev, false)}
