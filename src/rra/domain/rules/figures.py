@@ -36,11 +36,8 @@ from rra.domain.models.figure import (
     AS_IS_TAGS,
     FIGURE_KINDS,
     KIND_LABEL,
-    MAX_BOX,
     MAX_CHANGE_LINE,
     MAX_CHANGE_LINES,
-    MAX_LABEL,
-    MAX_LINE,
     NEED_CALC,
     PRELIM_NOTE,
     SHORT_TAGS,
@@ -128,6 +125,15 @@ def _norm(text: str) -> str:
     return _SPACES.sub("", (text or "")).casefold()
 
 
+# 명사형 끝 → 근거에서 줄기 뒤에 오는 동사 꼴 (has_text)
+_NOMINAL_ENDINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("함", ("하", "한", "해", "했", "할")),
+    ("됨", ("되", "된", "돼", "됐", "될")),
+    ("임", ("이", "인", "였")),
+    ("음", ("는", "은", "아", "어", "았", "었", "고", "다", "을")),
+)
+
+
 @dataclass(frozen=True)
 class TextPool:
     """명세 검사용 — 합친 본문(공백 제거)·단어 집합·수치 집합·문서별 facts."""
@@ -142,14 +148,27 @@ class TextPool:
     plan_nums: frozenset[tuple] = frozenset()
 
     def has_text(self, value: str) -> bool:
-        """문장 그대로 있거나, 내용 단어(2자 이상)가 모두 있으면 통과."""
+        """문장 그대로 있거나, 내용 단어(2자 이상)가 모두 있으면 통과. 근거 동사의 명사형
+        ('못함' ← '못하…', '남음' ← '남아…', '확보됨' ← '확보되…')은 그 동사가 있으면 출처로 본다
+        (2026-10-29 ADR 0044 — 칸 글자를 명사형으로 끝내게 하면서). 새 낱말은 여전히 안 된다."""
         v = _norm(value)
         if not v or value in FIXED_TEXTS:
             return True
         if v in self.text:
             return True
         words = [w.casefold() for w in _WORD.findall(value) if len(w) >= 2]
-        return bool(words) and all(w in self.words or w in self.text for w in words)
+        return bool(words) and all(
+            w in self.words or w in self.text or self._nominal_of_source(w) for w in words
+        )
+
+    def _nominal_of_source(self, word: str) -> bool:
+        """명사형 낱말(…함·…됨·…음·…임)의 줄기가 근거에 동사 꼴로 있는가."""
+        for end, follows in _NOMINAL_ENDINGS:
+            if word.endswith(end) and len(word) > len(end):
+                stem = word[: -len(end)]
+                if any(stem + f in self.text for f in follows):
+                    return True
+        return False
 
     def has_number(self, canonical: tuple) -> bool:
         return canonical in self.nums
@@ -393,10 +412,7 @@ def validate_spec(
 
 
 # ── 명세 다듬기 (버리기 전에) ─────────────────────────────────
-_LABEL_KEYS = frozenset({"label", "name", "title", "tag"})
-# v2 [4] 상자 글자 — 1~2줄(MAX_BOX). 새 명세만 줄인다(저장된 명세는 그대로 읽힌다)
-_BOX_KEYS = frozenset({"text", "solution", "target", "desc"})
-_BOX_LISTS = frozenset({"lines", "outputs"})
+# 목록 상한 개수 — 넘는 항목은 뒤에서 덜어 낸다(글자는 자르지 않는다)
 _LIST_LIMITS = {
     "lines": 2,
     "outputs": 3,
@@ -410,45 +426,28 @@ _LIST_LIMITS = {
 }
 
 
-def clip_text(text: str, limit: int) -> str:
-    """limit 자를 넘으면 단어 경계(공백·쉼표)에서 자른다 — 앞부분이 원문 그대로라 출처 검사를
-    통과한다."""
-    value = " ".join(str(text).split())
-    if len(value) <= limit:
-        return value
-    cut = value[:limit]
-    for sep in (" ", ",", "·"):
-        i = cut.rfind(sep)
-        if i >= limit // 2:
-            return cut[:i].rstrip(" ,·")
-    return cut
-
-
 def normalize_spec_data(data: Any) -> Any:
-    """모델 응답(JSON) → 스키마 상한 안으로: 상자·단계 이름 40자, 그 밖 60자에서 자르고 목록은
-    상한 개수까지. (7B 가 초안 문장을 통째로 옮겨 60자를 넘기면 형식 오류로 그림 전체가 빠졌다
-    — 2026-10-28 배포 시험)"""
+    """모델 응답(JSON) → 띄어쓰기를 한 칸으로, 목록은 상한 개수까지. **글자는 자르지 않는다**
+    (2026-10-29 소유자 지시, ADR 0044) — 칸 글자 수 상한을 넘거나 끊긴 구절은 `figure_phrases` 가
+    찾아
+    교정 재요청하고, 그래도 남으면 온전한 낱말 묶음으로 바꾼다(`figure_phrases.salvage`)."""
     if isinstance(data, dict):
         out: dict[str, Any] = {}
         for key, value in data.items():
             if isinstance(value, str):
-                limit = (
-                    MAX_LABEL if key in _LABEL_KEYS else MAX_BOX if key in _BOX_KEYS else MAX_LINE
-                )
-                out[key] = clip_text(value, limit)
+                out[key] = " ".join(value.split())
             elif isinstance(value, list):
                 items = [normalize_spec_data(v) for v in value]
                 if key in _LIST_LIMITS:
                     items = items[: _LIST_LIMITS[key]]
-                out[key] = [
-                    clip_text(v, MAX_BOX) if isinstance(v, str) and key in _BOX_LISTS else v
-                    for v in items
-                ]
+                out[key] = items
             else:
                 out[key] = normalize_spec_data(value)
         return out
     if isinstance(data, list):
         return [normalize_spec_data(v) for v in data]
+    if isinstance(data, str):
+        return " ".join(data.split())
     return data
 
 

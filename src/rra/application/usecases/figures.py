@@ -17,6 +17,12 @@
 - 로컬 모델 호출(Argon 실패 뒤 대체)만 `local_slot`(RunManager 와 같은 .generate.lock)을 잡는다 —
   Argon·Nano Banana 는 슬롯 밖이라 동시 run 의 그림 단계가 줄 서지 않는다. 호출자가 이미 슬롯을 잡고
   있으면(로컬 작성 run 의 그림 단계) `local_held=True` 로 다시 잡지 않는다(flock 은 재진입 불가).
+- 칸 글자(2026-10-29, ADR 0044): 명세를 받을 때 칸마다 글자 수 상한을 주고 뜻이 완결된 짧은
+  구절로 쓰게 한다(`figure_phrases`). 넘거나 끊긴 구절은 교정 재요청 1회, 그래도 남으면 그 칸 안의
+  온전한 낱말 묶음으로 바꾼다(`salvage`). 글자는 어디에서도 잘라 줄이지 않는다 — 그림 글자가 9pt
+  밑이면
+  Argon 이 상한을 25% 줄여 칸 글자를 다시 쓰고(`rewrite_texts`, 같은 완결·출처 검사) 밑그림부터 다시
+  그린다(`max_image_redraws` 1회).
 - v2(2026-10-28, ADR 0033): 기본 그림은 As-Is/To-Be(+ 검증 수치 그래프·일정표), 분석
   기법 추천 0~2 는 `TechniqueSteps`(figure_techniques.py) — 합쳐 최대 4장. 비율은 내용
   양으로(`rules.choose_aspect`), 밑그림과 그림 생성이 같은 비율을 쓴다.
@@ -65,6 +71,7 @@ from rra.domain.models.figure import (
 from rra.domain.models.request import ProposalRequest
 from rra.domain.models.run import RetrievalSnapshot
 from rra.domain.rules import figure_fit as fit_rules
+from rra.domain.rules import figure_phrases as phrases
 from rra.domain.rules import figures as rules
 from rra.domain.rules.llm_output import parse_object
 from rra.domain.rules.privacy import strip_personal
@@ -75,6 +82,7 @@ logger = logging.getLogger("rra.figures")
 
 SPEC_HEAD = "[그림 명세: {kind}]"
 EDIT_HEAD = "[그림 수정: {kind}]"
+REWRITE_HEAD = "[그림 글자 다시 쓰기: {kind}]"
 MAX_SECTION_CHARS = 2500
 MAX_CHUNK_CHARS = 400
 MAX_CHUNKS = 8
@@ -97,8 +105,9 @@ class FigureConfig:
     # [23] 본문 폭 맞춤 — 그림 폭 = 양식 본문 안쪽 폭, 높이 상한 = 쪽 높이 1/3, 글자 ≥ min_text_pt
     frame: fit_rules.BodyFrame = field(default_factory=fit_rules.BodyFrame)
     min_text_pt: float = fit_rules.MIN_TEXT_PT
-    max_shorten: int = fit_rules.MAX_SHORTEN  # 글자 줄이기 단계 상한 (밑그림 다시 그리기)
-    max_image_redraws: int = 2  # OCR 로 잰 그림 글자가 작을 때 Nano Banana 다시 부르기 상한
+    # OCR 로 잰 그림 글자가 작을 때 칸 글자를 다시 써서 Nano Banana 다시 부르기 상한
+    # (2026-10-29 2 → 1, ADR 0044)
+    max_image_redraws: int = 1
     ocr_box_em: float = (
         1.2  # OCR 줄 상자 높이 ÷ 글자 크기 (밑그림으로 잰 값, docs/eval-…-figures-wide)
     )
@@ -217,10 +226,12 @@ class MakeFigures(TechniqueSteps):
         correction: Callable[[str, str | None], str],
         *,
         local_held: bool = False,
+        final_check: Callable[[str], tuple[Any, str | None]] | None = None,
     ) -> _Attempt:
         """Argon → 로컬(→ 대체) 순서로 묻는다. 모델마다 1회 + 형식·검사 실패면 교정 재요청 1회.
         예외(오류·429·예산)나 끝내 실패면 다음 모델. "skip" 답이면 멈춘다. 예외 메시지는 남기지
-        않는다(제안 내용이 섞일 수 있다)."""
+        않는다(제안 내용이 섞일 수 있다). final_check: 교정 재요청 답의 검사(규칙 대체 — 칸 글자를
+        온전한 낱말 묶음으로 바꾸기 — 를 함께 한다). 없으면 check."""
         out = _Attempt()
         answered: str | None = None  # 먼저 답한 모델의 거절 사유 (Argon 의 사유가 더 쓸모 있다)
         for i, (label, llm) in enumerate(self._chain()):
@@ -237,7 +248,7 @@ class MakeFigures(TechniqueSteps):
                             f"{prompt}\n\n{hint}", system=system, json_mode=True
                         )
                         out.calls += 1
-                        value, reason = check(raw)
+                        value, reason = (final_check or check)(raw)
             except Exception as exc:  # 예산·네트워크·429 — 사유 코드만
                 code = type(exc).__name__
                 logger.info("figure.llm_failed model=%s error=%s", label, code)
@@ -351,21 +362,27 @@ class MakeFigures(TechniqueSteps):
             return SpecResult(None, "no_facts")
         prompt = self._prompt(kind, section, sections, request, snapshot, comparison, period)
 
-        def check(raw: str) -> tuple[BaseModel | None, str | None]:
-            spec, reason = self._parse_and_check(kind, raw, pool, period)
-            if (
-                spec is not None
-                and not self.include_internal
-                and rules.internal_only_texts(spec, pool)
-            ):
-                return None, "internal_text"
-            return spec, reason
+        def checker(final: bool) -> Callable[[str], tuple[BaseModel | None, str | None]]:
+            def check(raw: str) -> tuple[BaseModel | None, str | None]:
+                spec, reason = self._parse_and_check(kind, raw, pool, period, final=final)
+                if (
+                    spec is not None
+                    and not self.include_internal
+                    and rules.internal_only_texts(spec, pool)
+                ):
+                    return None, "internal_text"
+                return spec, reason
+
+            return check
 
         def correction(raw: str, reason: str | None) -> str:
             hint = (
                 f"[형식 교정 — 직전 응답은 형식 오류였음: {reason}] "
                 "스키마의 키만 써서 JSON 객체 하나로."
             )
+            bad = phrases.problems(kind, rules.normalize_spec_data(parse_object(raw) or {}), pool)
+            if bad:
+                hint += " " + phrases.correction_hint(bad)
             missing = self._missing(kind, raw, pool)
             if missing:
                 hint += (
@@ -375,7 +392,12 @@ class MakeFigures(TechniqueSteps):
             return hint
 
         got = await self._ask(
-            prompt, self.prompts.figures(), check, correction, local_held=local_held
+            prompt,
+            self.prompts.figures(),
+            checker(False),
+            correction,
+            local_held=local_held,
+            final_check=checker(True),
         )
         return SpecResult(
             got.value,
@@ -397,21 +419,51 @@ class MakeFigures(TechniqueSteps):
             return []
 
     def _parse_and_check(
-        self, kind: str, raw: str, pool: rules.TextPool, period: int | None
+        self,
+        kind: str,
+        raw: str,
+        pool: rules.TextPool,
+        period: int | None,
+        *,
+        final: bool = False,
     ) -> tuple[BaseModel | None, str | None]:
+        """모델 답 → 검사를 통과한 명세. 칸 글자가 상한을 넘거나 끊긴 구절이면 거절(교정 재요청),
+        final(교정 재요청 답)이면 그 칸을 온전한 낱말 묶음으로 바꿔
+        본다(`figure_phrases.salvage`)."""
         data = parse_object(raw)
         if data is None:
             return None, "json"
         if "skip" in data and len(data) == 1:
             return None, "skip"
+        data = rules.normalize_spec_data(data)
+        bad = phrases.problems(kind, data, pool)
+        if bad:
+            fixed = phrases.salvage(kind, data, pool) if final else None
+            if fixed is None:
+                return None, bad[0].code
+            data = fixed
         try:
-            spec = parse_spec(kind, rules.normalize_spec_data(data))
+            spec = parse_spec(kind, data)
         except (ValidationError, KeyError, TypeError):
             return None, "schema"
         spec = rules.repair_spec(spec, pool)  # 근거 없는 선택 글자(목표치·설명 줄)는 덜어 낸다
         problems = rules.validate_spec(spec, pool, period_months=period)
+        if problems and final and problems[0] == rules.TEXT_NOT_IN_SOURCES:
+            # 교정 뒤에도 출처 밖 낱말이 든 칸 — 그 칸 글자 안의 출처에 있는 온전한 낱말 묶음으로
+            # (없으면 빼도 되는 칸은 빼고, 아니면 받지 않는다)
+            missing = rules.missing_texts(spec, pool, limit=50)
+            fixed = phrases.salvage(kind, data, pool, also=missing) if missing else None
+            if fixed is not None:
+                try:
+                    spec = rules.repair_spec(parse_spec(kind, fixed), pool)
+                except (ValidationError, KeyError, TypeError):
+                    return None, "schema"
+                problems = rules.validate_spec(spec, pool, period_months=period)
         if problems:
             return None, problems[0]
+        bad = phrases.problems(kind, spec.model_dump(), pool)
+        if bad:
+            return None, bad[0].code
         return spec, None
 
     def _prompt(
@@ -476,26 +528,24 @@ class MakeFigures(TechniqueSteps):
             parts.append("[비교표(U4)]\n" + json.dumps(comparison, ensure_ascii=False)[:4000])
         if period is not None:
             parts.append(f"[연구기간] {period}개월")
+        limits = phrases.limits_prompt(kind)
+        if limits:
+            parts.append(limits)
         return "\n\n".join(parts)
 
     # ── 그림 ─────────────────────────────────────────────
-    def layout(
-        self, figure: Figure, *, shorten: bool = True
-    ) -> tuple[Figure, str, bytes, FigureFit, str]:
+    def layout(self, figure: Figure) -> tuple[Figure, str, bytes, FigureFit, str]:
         """[23] 밑그림 맞추기 — 가로 비율을 고르고, 본문 폭에 넣었을 때 높이가 쪽 1/3 을 넘으면 더
-        넓은
-        비율로, 글자가 min_text_pt 보다 작거나 칸을 넘치면 글자를 줄여(shorten_spec) 다시 그린다.
-        → (명세를 줄였으면 바뀐 그림, 비율, 밑그림 PNG, 맞춤 기록). shorten=False(제안자가 고친
-        글자)면
-        줄이지 않고 기록만 한다."""
+        넓은 비율로, 글자가 min_text_pt 보다 작거나 칸을 넘치면 같은 종류의 덜 넓은 비율로 한 번
+        다시 그린다. 글자는 자르지 않는다(2026-10-29, ADR 0044) — 그래도 작으면 맞춤 기록에
+        text_ok=False 를 남기고, draw 가 칸 글자를 다시 쓴다(`rewrite_texts`).
+        → (그림, 비율, 밑그림 PNG, 맞춤 기록, SVG)."""
         frame = self.config.frame
         spec = figure.spec
         aspect, widened = fit_rules.fit_aspect_for_frame(
             figure.kind, self.config.aspect_for(spec), frame
         )
         redraws = 1 if widened else 0
-        shortened = 0
-        level = 0
         tried_taller = False
         while True:
             svg = self.renderer.svg(spec, caption=figure.caption, aspect=aspect)
@@ -510,20 +560,12 @@ class MakeFigures(TechniqueSteps):
             )
             if not small:
                 break
-            # 글자를 줄이기 전에 같은 종류의 덜 넓은 가로 비율(높이 상한 안)을 한 번 — 글자를 지킨다
+            # 같은 종류의 덜 넓은 가로 비율(높이 상한 안)을 한 번 — 글자를 지킨다
             taller = fit_rules.narrower(figure.kind, aspect)
             if not tried_taller and not widened and taller and fit_rules.fits(frame, taller):
                 tried_taller, aspect, redraws = True, taller, redraws + 1
                 continue
-            if not shorten or level >= self.config.max_shorten:
-                break
-            level += 1
-            cut = fit_rules.shorten_spec(spec, level)
-            if cut is None:
-                continue
-            spec, n = cut
-            shortened += n
-            redraws += 1
+            break
         png = self.renderer.png(svg)
         fit = fit_rules.make_fit(
             frame,
@@ -532,13 +574,11 @@ class MakeFigures(TechniqueSteps):
             min_text_pt=self.config.min_text_pt,
             method="svg",
             redraws=redraws,
-            shortened=shortened,
+            shortened=0,
             widened=widened,
         )
         if metrics.overflow:
             fit = fit.model_copy(update={"text_ok": False})
-        if spec is not figure.spec:
-            figure = figure.model_copy(update={"spec": spec, "alt": rules.alt_text(spec)})
         return figure, aspect, png, fit, svg
 
     async def draw(
@@ -548,16 +588,28 @@ class MakeFigures(TechniqueSteps):
         baseline_png: bytes | None = None,
         style: str = "",
         shorten: bool = True,
+        pool: rules.TextPool | None = None,
+        protect: Sequence[str] = (),
+        local_held: bool = False,
     ) -> FigureBuild:
         """밑그림 → Nano Banana Pro 1회 → 채택. 실패면 밑그림. style 은 [말로 고치기] 모양 요청.
         [23] 밑그림은 본문 폭 맞춤(layout), 그림은 흰 여백을 잘라 비율을 맞추고(reframe), 글자
-        크기는
-        OCR 로 어림해 작으면 "글자를 더 크게" 를 붙여 한 번 더 그린다(max_image_redraws)."""
+        크기는 OCR 로 어림한다. 2026-10-29(ADR 0044): 글자가 9pt 보다 작으면(밑그림이든 그림이든)
+        칸 글자를 잘라 줄이지 않고 Argon 이 더 짧은 완결 구절로 다시 쓴 뒤(`rewrite_texts`, Argon →
+        오류면 로컬) 밑그림부터 다시 그린다 — 그림 다시 그리기는 max_image_redraws(1)회까지.
+        shorten=False(제안자가 고친 글자)면 다시 쓰지 않고 기록만 한다. pool: 다시 쓴 글자 출처
+        검사(없으면 현재 그림 글자만), protect: 다시 쓰지 않는 글자(제안자 요청에 적힌 글자)."""
         t0 = time.monotonic()
         fit: FigureFit | None = None
         svg = ""
         if baseline_png is None:
-            figure, aspect, baseline_png, fit, svg = self.layout(figure, shorten=shorten)
+            figure, aspect, baseline_png, fit, svg = self.layout(figure)
+            if shorten and not fit.text_ok:
+                again = await self._rewrite_and_layout(
+                    figure, fit, pool=pool, protect=protect, local_held=local_held
+                )
+                if again is not None:
+                    figure, aspect, baseline_png, fit, svg = again
         else:
             aspect = self.config.aspect_for(figure.spec)
         spec = figure.spec
@@ -571,7 +623,6 @@ class MakeFigures(TechniqueSteps):
         )
         if self.images is not None:
             attempt = 0
-            level = 0  # 그림 글자 때문에 줄인 단계 (shorten_spec)
             bigger = ""
             while True:
                 got = await self._generate(
@@ -597,25 +648,18 @@ class MakeFigures(TechniqueSteps):
                     break
                 attempt += 1
                 # 그림 글자가 작다 — Nano Banana 는 긴 칸 글자를 칸에 맞추려고 작게 그린다
-                # (2026-10-29 측정: SWOT 긴 항목 5.6~7.1pt). 소유자 지시대로 글자 수를 줄여
-                # (띄어쓰기 자리에서 22 → 16자, As-Is/To-Be 는 이름표도 두 글자로) 밑그림부터
-                # 다시 그리고 "글자를 더 크게" 를 붙인다. 줄일 것이 없으면 "글자를 더 크게" 만.
-                cut = None if fit is None else self._shorter(figure.spec, level)
-                if cut is not None and fit is not None:
-                    new_spec, cut_n, level = cut
-                    prev = fit
-                    alt = rules.alt_text(new_spec)
-                    figure = figure.model_copy(update={"spec": new_spec, "alt": alt})
-                    figure, aspect, baseline_png, fit, svg = self.layout(figure, shorten=shorten)
-                    fit = fit.model_copy(
-                        update={
-                            "redraws": prev.redraws + fit.redraws + 1,
-                            "shortened": prev.shortened + fit.shortened + cut_n,
-                        }
+                # (2026-10-29 측정: SWOT 긴 항목 5.6~7.1pt). 소유자 지시: 잘라 줄이지 않고 칸 글자를
+                # 상한 −25% 안의 완결 구절로 다시 쓴다(As-Is/To-Be 이름표는 두 글자로). 밑그림부터
+                # 다시 그리고 "글자를 더 크게" 를 붙인다. 다시 쓰지 못하면 "글자를 더 크게" 만.
+                if fit is not None:
+                    again = await self._rewrite_and_layout(
+                        figure, fit, pool=pool, protect=protect, local_held=local_held
                     )
-                    spec = figure.spec
-                elif fit is not None:
-                    fit = fit.model_copy(update={"redraws": fit.redraws + 1})
+                    if again is not None:
+                        figure, aspect, baseline_png, fit, svg = again
+                        spec = figure.spec
+                    else:
+                        fit = fit.model_copy(update={"redraws": fit.redraws + 1})
                 bigger = fit_rules.BIGGER_TEXT.format(pt=ocr_pt)
         else:
             error = "no_image_llm"
@@ -635,22 +679,195 @@ class MakeFigures(TechniqueSteps):
         )
         return FigureBuild(updated, baseline_png, adopted, mime, round(time.monotonic() - t0, 1))
 
-    @staticmethod
-    def _shorter(spec: Any, level: int) -> tuple[Any, int, int] | None:
-        """그림 글자가 작을 때 다음으로 줄인 명세 → (명세, 줄인 칸 수, 쓴 단계). 실제로 바뀌는
-        단계까지 올리고, As-Is/To-Be 이름표도 두 글자로. 더 줄일 것이 없으면 None."""
+    async def _rewrite_and_layout(
+        self,
+        figure: Figure,
+        fit: FigureFit,
+        *,
+        pool: rules.TextPool | None,
+        protect: Sequence[str],
+        local_held: bool,
+    ) -> tuple[Figure, str, bytes, FigureFit, str] | None:
+        """칸 글자 다시 쓰기(+ As-Is/To-Be 이름표 두 글자) → 밑그림 다시 맞추기. 바꾼 것이 없으면
+        None. 맞춤 기록은 이어서 센다(redraws +1, shortened += 다시 쓴 칸 수)."""
+        new_spec: BaseModel | None = None
         n = 0
-        out = spec
-        used = level
-        for lv in range(level + 1, fit_rules.MAX_SHORTEN + 1):
-            cut = fit_rules.shorten_spec(spec, lv)
-            if cut is not None:
-                out, n, used = cut[0], cut[1], lv
-                break
-        tags = fit_rules.shorten_tags(out)
+        got = await self.rewrite_texts(figure, pool=pool, protect=protect, local_held=local_held)
+        if got is not None:
+            new_spec, n = got
+        tags = fit_rules.shorten_tags(new_spec or figure.spec)
         if tags is not None:
-            out, n = tags[0], n + tags[1]
-        return (out, n, used) if n else None
+            new_spec, n = tags[0], n + tags[1]
+        if new_spec is None:
+            return None
+        figure = figure.model_copy(update={"spec": new_spec, "alt": rules.alt_text(new_spec)})
+        figure, aspect, png, new_fit, svg = self.layout(figure)
+        new_fit = new_fit.model_copy(
+            update={
+                "redraws": fit.redraws + new_fit.redraws + 1,
+                "shortened": fit.shortened + new_fit.shortened + n,
+            }
+        )
+        return figure, aspect, png, new_fit, svg
+
+    async def rewrite_texts(
+        self,
+        figure: Figure,
+        *,
+        pool: rules.TextPool | None = None,
+        factor: float = phrases.TIGHTEN,
+        protect: Sequence[str] = (),
+        local_held: bool = False,
+    ) -> tuple[BaseModel, int] | None:
+        """그림 글자가 작을 때 — 칸 글자를 상한 × factor(0.75) 안의 뜻이 완결된 짧은 구절로 다시
+        쓴다
+        (Argon → 오류면 로컬, 교정 재요청 1회). 자르지 않는다. 다시 쓴 글자도 생성과 같은 검사
+        (완결 규칙·출처 `validate_spec`)를 거친다 — 출처는 pool(초안·입력·근거) + 현재 그림 글자.
+        교정 뒤에도 남은 칸은 그 칸의 온전한 낱말 묶음, 그것도 없으면 원래 글자 그대로 둔다.
+        → (새 명세, 바뀐 칸 수). 다시 쓸 칸이 없거나 바뀐 것이 없으면 None."""
+        kind = figure.kind
+        spec = figure.spec
+        data = spec.model_dump()
+        keep = {" ".join(x.split()) for x in protect if x}
+        targets = [
+            sl
+            for sl in phrases.slots(kind, data)
+            if not any(sl.text == k or sl.text in k for k in keep)
+        ]
+        if not targets:
+            return None
+        tight = phrases.limits_for(kind, factor)
+        if all(len(sl.text) <= tight[sl.field] for sl in targets):
+            return None  # 이미 줄인 상한 안 — 다시 써도 글자가 커지지 않는다(호출하지 않는다)
+        base = pool if pool is not None else rules.text_pool([], None)
+        pool_ = rules.with_texts(base, rules.texts_of(spec))
+        period = getattr(spec, "total_months", None)
+        rows = [
+            {
+                "path": sl.path,
+                "칸": phrases.FIELD_LABELS.get(sl.field, sl.field),
+                "현재 글자": sl.text,
+                "상한": tight[sl.field],
+            }
+            for sl in targets
+        ]
+        allowed = {sl.path: sl for sl in targets}
+
+        def fallback(path: str) -> str:
+            """다시 쓰지 못한 칸 — 원래 글자 안의 상한 안 온전한 낱말 묶음, 없으면 원래 글자."""
+            orig = allowed[path].text
+            return phrases.complete_window(orig, tight[allowed[path].field], pool_) or orig
+
+        prompt = "\n\n".join(
+            [
+                REWRITE_HEAD.format(kind=kind),
+                f"[종류] {KIND_LABEL.get(kind, kind)}",
+                "[이유] 이 그림을 제안서 본문 폭(약 15cm)에 넣으면 글자가 9pt 보다 작다. 칸 글자를 "
+                "더 짧게 다시 써서 같은 칸에 더 큰 글자가 들어가게 한다.",
+                phrases.RULES_PROMPT.replace("칸마다 아래 글자 수", "칸마다 [상한] 글자 수"),
+                "[다시 쓰는 규칙] 칸의 뜻은 그대로 둔다. 낱말은 [현재 글자]에 있는 말만 쓴다"
+                "(조사·꾸밈말은 빼도 된다). 수치·기관·사업 이름은 바꾸지 않는다. 칸을 더하거나 "
+                "빼지 않는다.",
+                "[다시 쓸 칸]\n" + json.dumps(rows, ensure_ascii=False),
+                '[답 형식] {"texts": [{"path": "<다시 쓸 칸의 path>", "value": "<다시 쓴 글자>"}]}'
+                " — 모든 칸을 [상한] 안으로.",
+            ]
+        )
+
+        def apply(raw: str, final: bool) -> tuple[tuple[BaseModel, int] | None, str | None]:
+            ans = parse_object(raw)
+            if ans is None:
+                return None, "json"
+            items = ans.get("texts")
+            if not isinstance(items, list):
+                return None, "schema"
+            new = json.loads(json.dumps(data, ensure_ascii=False))
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                path, value = it.get("path"), it.get("value")
+                if path in allowed and isinstance(value, str) and value.strip():
+                    _set_path(new, str(path).split("."), " ".join(value.split()))
+            bad = [
+                b
+                for b in phrases.problems(kind, new, pool_, factor=factor, exempt=keep)
+                if b.slot.path in allowed
+            ]
+            if bad and not final:
+                return None, bad[0].code
+            for b in bad:  # 교정 뒤에도 남은 칸 — 온전한 낱말 묶음, 없으면 원래 글자
+                _set_path(new, b.slot.path.split("."), fallback(b.slot.path))
+            try:
+                new_spec = parse_spec(kind, new)
+            except (ValidationError, KeyError, TypeError):
+                return None, "schema"
+            problems = rules.validate_spec(new_spec, pool_, period_months=period)
+            if problems and final:
+                # 출처 밖 글자·수치를 쓴 칸만 되돌린다(원래 글자의 온전한 낱말 묶음 또는 원래 글자)
+                missing = set(rules.missing_texts(new_spec, pool_, limit=len(targets) + 5))
+                for sl in targets:
+                    if _get_path(new, sl.path.split(".")) in missing:
+                        _set_path(new, sl.path.split("."), fallback(sl.path))
+                try:
+                    new_spec = parse_spec(kind, new)
+                except (ValidationError, KeyError, TypeError):
+                    return None, "schema"
+                problems = rules.validate_spec(new_spec, pool_, period_months=period)
+            if problems:
+                return None, problems[0]
+            changed = sum(
+                1
+                for sl in targets
+                if _get_path(new_spec.model_dump(), sl.path.split(".")) != sl.text
+            )
+            if not changed:
+                return None, "no_change"
+            return (new_spec, changed), None
+
+        def correction(raw: str, reason: str | None) -> str:
+            hint = (
+                f"[형식 교정 — 직전 응답은 받아들일 수 없었음: {reason}] "
+                '"texts" 키만 쓴 JSON 객체 하나로. path 는 [다시 쓸 칸]의 값 그대로.'
+            )
+            ans = parse_object(raw) or {}
+            new = json.loads(json.dumps(data, ensure_ascii=False))
+            for it in ans.get("texts") or []:
+                if isinstance(it, dict) and it.get("path") in allowed:
+                    value = it.get("value")
+                    if isinstance(value, str) and value.strip():
+                        _set_path(new, str(it["path"]).split("."), " ".join(value.split()))
+            bad = phrases.problems(kind, new, pool_, factor=factor, exempt=keep)
+            if bad:
+                hint += " " + phrases.correction_hint(bad)
+            try:
+                missing = rules.missing_texts(parse_spec(kind, new), pool_)
+            except (ValidationError, KeyError, TypeError):
+                missing = []
+            if missing:
+                hint += " 다음 글자는 [현재 글자]에 없는 말이라 쓸 수 없다: " + json.dumps(
+                    missing, ensure_ascii=False
+                )
+            return hint
+
+        got = await self._ask(
+            prompt,
+            self.prompts.figures(),
+            lambda raw: apply(raw, False),
+            correction,
+            local_held=local_held,
+            final_check=lambda raw: apply(raw, True),
+        )
+        if got.value is None:
+            logger.info("figure.rewrite_failed id=%s reason=%s", figure.id, got.reason)
+            return None
+        logger.info(
+            "figure.rewritten id=%s slots=%s model=%s calls=%s",
+            figure.id,
+            got.value[1],
+            got.model,
+            got.calls,
+        )
+        return got.value
 
     async def _generate(
         self, figure: Figure, baseline_png: bytes, aspect: str, style: str
@@ -795,7 +1012,9 @@ class MakeFigures(TechniqueSteps):
             update["caption"] = _caption(change.spec, figure.kind)
         if figure.kind == "stat_chart":
             update["source_caption"] = change.spec.source.caption()  # type: ignore[attr-defined]
-        build = await self.draw(figure.model_copy(update=update), style=change.style)
+        build = await self.draw(
+            figure.model_copy(update=update), style=change.style, pool=pool, protect=(cleaned,)
+        )
         if not content and build.figure.renderer != "nano_banana":
             # 모양만 바꾸는 요청인데 그리지 못했다 — 기본 그림으로 바꾸지 않고 거절
             raise SpecRejected(build.figure.error or "image")
@@ -821,8 +1040,11 @@ class MakeFigures(TechniqueSteps):
         self, figure: Figure, request_text: str, *, pool: rules.TextPool, period: int | None
     ) -> SpecChange:
         """요청 → {"spec", "style", "summary"} (Argon → 로컬). 새 명세는 생성과 똑같이
-        normalize_spec_data → repair_spec → validate_spec. 통과 못 하면 SpecRejected(사유)."""
+        normalize_spec_data → 칸 글자 완결·상한(figure_phrases) → repair_spec → validate_spec.
+        제안자 요청에 적힌 글자와 이미 받아들인(현재 명세) 글자는 칸 글자 규칙에서 뺀다.
+        통과 못 하면 SpecRejected(사유)."""
         kind = figure.kind
+        exempt = (request_text, *rules.texts_of(figure.spec))
         current = figure.spec.model_dump()
         current.pop("kind", None)
         rows = [
@@ -838,13 +1060,15 @@ class MakeFigures(TechniqueSteps):
                 "[현재 글자 목록]\n" + json.dumps(rows, ensure_ascii=False),
                 "[제안자 요청] 아래 구획은 제안자가 적은 그림 수정 요청이다.\n"
                 f"<request>{request_text}</request>",
+                phrases.limits_prompt(kind)
+                + " 제안자가 요청에 적은 글자는 그대로 쓴다(상한을 넘어도 고치지 않는다).",
                 '[답 형식] {"spec": <새 명세 전체>, '
                 '"style": "<모양만 바꾸는 요청 또는 빈 문자열>", '
                 '"summary": ["바뀐 내용 한 줄", ...]}',
             ]
         )
 
-        def check(raw: str) -> tuple[SpecChange | None, str | None]:
+        def check(raw: str, final: bool = False) -> tuple[SpecChange | None, str | None]:
             data = parse_object(raw)
             if data is None:
                 return None, "json"
@@ -861,8 +1085,15 @@ class MakeFigures(TechniqueSteps):
             else:
                 if not isinstance(spec_data, dict):
                     return None, "schema"
+                spec_data = rules.normalize_spec_data(spec_data)
+                bad = phrases.problems(kind, spec_data, pool, exempt=exempt)
+                if bad:
+                    fixed = phrases.salvage(kind, spec_data, pool, exempt=exempt) if final else None
+                    if fixed is None:
+                        return None, bad[0].code
+                    spec_data = fixed
                 try:
-                    parsed = parse_spec(kind, rules.normalize_spec_data(spec_data))
+                    parsed = parse_spec(kind, spec_data)
                 except (ValidationError, KeyError, TypeError):
                     return None, "schema"
                 if parsed.model_dump() == figure.spec.model_dump():
@@ -889,6 +1120,11 @@ class MakeFigures(TechniqueSteps):
             data = parse_object(raw) or {}
             spec_data = data.get("spec")
             if isinstance(spec_data, dict):
+                bad = phrases.problems(
+                    kind, rules.normalize_spec_data(spec_data), pool, exempt=exempt
+                )
+                if bad:
+                    hint += " " + phrases.correction_hint(bad)
                 missing = self._missing(kind, json.dumps(spec_data, ensure_ascii=False), pool)
                 if missing:
                     hint += " 다음 글자는 초안·입력·근거·요청에 없으니 쓰지 않는다: " + json.dumps(
@@ -896,14 +1132,20 @@ class MakeFigures(TechniqueSteps):
                     )
             return hint
 
-        got = await self._ask(prompt, self.prompts.figure_edit(), check, correction)
+        got = await self._ask(
+            prompt,
+            self.prompts.figure_edit(),
+            check,
+            correction,
+            final_check=lambda raw: check(raw, True),
+        )
         if got.value is None:
             raise SpecRejected(got.reason or "invalid")
         return replace(got.value, model=got.model)
 
     def baseline(self, figure: Figure) -> FigureBuild:
         """[기본 그림으로] — 밑그림을 다시 그려 채택 (호출 없음). 본문 폭 맞춤(layout)을 함께."""
-        figure, _aspect, png, fit, _svg = self.layout(figure)
+        figure, _aspect, png, fit, _svg = self.layout(figure)  # 글자는 그대로 (호출 없음)
         updated = figure.model_copy(
             update={
                 "renderer": "baseline",
@@ -965,7 +1207,7 @@ class MakeFigures(TechniqueSteps):
                     calls=0,
                     created_at=self.clock() if self.clock else None,
                 )
-                build = await self.draw(figure)
+                build = await self.draw(figure, pool=pool, local_held=local_held)
                 build.figure = build.figure.model_copy(
                     update={
                         "calls": build.figure.calls
@@ -1023,3 +1265,23 @@ def _caption(spec: BaseModel, kind: str) -> str:
 
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:32]
+
+
+def _get_path(node: Any, parts: list[str]) -> Any:
+    for p in parts:
+        node = node[int(p)] if isinstance(node, list) else node[p]
+    return node
+
+
+def _set_path(node: Any, parts: list[str], value: str) -> None:
+    """model_dump 경로에 글자를 넣는다 — 없는 경로는 무시한다."""
+    try:
+        parent = _get_path(node, parts[:-1])
+        key: Any = int(parts[-1]) if isinstance(parent, list) else parts[-1]
+        if isinstance(parent, list) and not 0 <= key < len(parent):
+            return
+        if isinstance(parent, dict) and key not in parent:
+            return
+        parent[key] = value
+    except (KeyError, IndexError, ValueError, TypeError):
+        return

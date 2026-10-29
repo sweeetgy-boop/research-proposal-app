@@ -71,11 +71,11 @@ AS_IS = {
     "as_is": [
         {"tag": "현황", "text": "궤도 틀림이 반복 발생함"},
         {"tag": "원인", "text": "다짐 효과가 오래 가지 않음"},
-        {"tag": "한계", "text": "주기적 보수로는 진행 속도를 반영하지 못함"},
+        {"tag": "한계", "text": "진행 속도를 반영하지 못함"},
     ],
     "to_be": [
         {"tag": "목표", "text": "검측 이력 기반 보수 우선순위 산정"},
-        {"tag": "해결 방안", "text": "검측 이력을 분석해 구간별 진행 속도를 추정함"},
+        {"tag": "해결 방안", "text": "검측 이력 분석"},
         {"tag": "기대효과", "text": "유지보수 비용을 절감함"},
     ],
     "solution": "구간별 진행 속도 추정",
@@ -102,7 +102,7 @@ SWOT = {
             "name": "기회",
             "items": [
                 {
-                    "text": "선행연구는 틀림 진행 속도를 다루지 않음",
+                    "text": "틀림 진행 속도 다루지 않음",
                     "rating": "상",
                     "source": "s:tech_importance:0",
                 }
@@ -146,6 +146,28 @@ COST_BENEFIT = {
 }
 TECH_ANSWERS = {"swot": SWOT, "pugh": PUGH, "cost_benefit": COST_BENEFIT}
 _SPEC_HEAD = re.compile(r"^\[그림 명세: ([a-z_]+)\]")
+_REWRITE_HEAD = re.compile(r"^\[그림 글자 다시 쓰기: ([a-z_]+)\]")
+_ROWS = re.compile(r"\[다시 쓸 칸\]\n(\[.*?\])\n", re.S)
+
+
+def rewrite_rows(prompt: str) -> list[dict[str, Any]]:
+    """[그림 글자 다시 쓰기] 프롬프트의 [다시 쓸 칸] 표 (path·칸·현재 글자·상한)."""
+    m = _ROWS.search(prompt + "\n")
+    return json.loads(m.group(1)) if m else []
+
+
+def shorter_phrases(prompt: str) -> dict[str, Any]:
+    """가짜 Argon 의 다시 쓰기 — 칸마다 현재 글자에서 상한 안의 뒤쪽 온전한 낱말 묶음(끝 낱말의
+    조사는 던다). 실제 모델처럼 '뜻이 완결된 짧은 구절' 을 돌려준다."""
+    from rra.domain.rules.figure_phrases import complete_window
+
+    out = []
+    for r in rewrite_rows(prompt):
+        text, limit = r["현재 글자"], int(r["상한"])
+        out.append({"path": r["path"], "value": complete_window(text, limit) or text})
+    return {"texts": out}
+
+
 _TECH_HEAD = re.compile(r"^\[분석 기법: ([a-z_]+)\]")
 
 
@@ -157,7 +179,8 @@ class RoutingLLM:
     """프롬프트 첫 줄로 답을 고른다 — 동시 실행에서도 순서에 기대지 않는다.
 
     picks: [분석 기법 추천] 답(dict 또는 예외), techniques: key → 답(dict·문자열),
-    specs: kind → 그림 명세. fail=True 면 모든 호출이 ConnectionError (Argon 장애 자리)."""
+    specs: kind → 그림 명세, rewrites: kind → [그림 글자 다시 쓰기] 답(없으면 shorter_phrases).
+    fail=True 면 모든 호출이 ConnectionError (Argon 장애 자리)."""
 
     model_name = "fake/routing"
 
@@ -167,11 +190,13 @@ class RoutingLLM:
         picks: Any = None,
         techniques: dict[str, Any] | None = None,
         specs: dict[str, Any] | None = None,
+        rewrites: dict[str, Any] | None = None,
         fail: bool = False,
     ):
         self.picks = picks if picks is not None else {"picks": [], "none_reason": "맞는 기법 없음"}
         self.techniques = dict(TECH_ANSWERS if techniques is None else techniques)
         self.specs = dict({"as_is_to_be": AS_IS} if specs is None else specs)
+        self.rewrites = dict(rewrites or {})
         self.fail = fail
         self.calls: list[str] = []
 
@@ -188,6 +213,10 @@ class RoutingLLM:
         m = _SPEC_HEAD.match(prompt)
         if m:
             ans = self.specs.get(m.group(1), "{}")
+            return ans if isinstance(ans, str) else js(ans)
+        m = _REWRITE_HEAD.match(prompt)
+        if m:
+            ans = self.rewrites.get(m.group(1)) or shorter_phrases(prompt)
             return ans if isinstance(ans, str) else js(ans)
         return "[]"
 

@@ -38,6 +38,7 @@ from rra.domain.models.figure import (
 from rra.domain.models.request import ProposalRequest
 from rra.domain.models.review import sentence_id
 from rra.domain.models.run import RetrievalSnapshot
+from rra.domain.rules import figure_phrases as phrases
 from rra.domain.rules import figures as rules
 from rra.domain.rules import techniques as tech_rules
 from rra.domain.rules.llm_output import parse_object
@@ -56,7 +57,7 @@ MAX_SECTION_SENTENCES = 12
 _FAMILY_RULES = {
     "qualitative": (
         "정성 분석: groups 의 name 은 [묶음] 이름 그대로. 항목(text)은 본문·근거·입력에 "
-        "있는 구절을 짧게(30자 안), "
+        "있는 말로 [칸 글자 수 상한] 안의 완결된 짧은 구절, "
         '항목마다 rating 은 강도 "상"·"중"·"하" 중 하나. amount 는 쓰지 않는다.'
     ),
     "evaluation": (
@@ -259,12 +260,19 @@ class TechniqueSteps:
                 if tech.free_columns
                 else list(tech.columns),
                 "rows": [
-                    {"name": "<기준>", "cells": ["<척도 기호>", "…"], "source": "<문장·근거 id>"}
+                    {
+                        "name": "<기준 — 상한 안의 완결된 짧은 구절>",
+                        "cells": ["<척도 기호>", "…"],
+                        "source": "<문장·근거 id>",
+                    }
                 ],
             }
         else:
             names = list(tech.groups) or ["<대안·시나리오 이름>", "…"]
-            item: dict[str, Any] = {"text": "<항목>", "source": "<문장·근거·입력 id>"}
+            item: dict[str, Any] = {
+                "text": "<항목 — 상한 안의 완결된 짧은 구절>",
+                "source": "<문장·근거·입력 id>",
+            }
             if tech.family == "qualitative":
                 item["rating"] = "상|중|하"
             if tech.family == "economic":
@@ -289,28 +297,39 @@ class TechniqueSteps:
                 "[분석 규칙] " + _FAMILY_RULES.get(tech.family, ""),
                 "[공통 규칙] 모든 항목의 source 는 그 항목이 나온 문장 "
                 "id(s:…)·근거 id·입력 id(input:…) 중 "
-                "하나. 항목 글자는 30자 안의 짧은 구절로, 그 출처에 있는 말로만 "
-                "쓴다. 의미 있는 분석이 "
+                "하나. 항목 글자는 [칸 글자 수 상한] 안의 뜻이 완결된 짧은 구절로, 그 출처에 있는 "
+                "말로만 쓴다. 의미 있는 분석이 "
                 '나오지 않으면 {"skip": "<사유 한 줄>"}.',
+                phrases.limits_prompt("technique"),
                 *parts,
                 "[답 형식 — 이 키만]\n" + json.dumps(shape, ensure_ascii=False),
             ]
         )
 
-        def check(raw: str) -> tuple[TechniqueSpec | None, str | None]:
+        def check(raw: str, final: bool = False) -> tuple[TechniqueSpec | None, str | None]:
             data = parse_object(raw)
             if data is None:
                 return None, "json"
             if "skip" in data and len(data) == 1:
                 return None, "skip"
+            norm = tech_rules.normalize_technique_data(data, tech)
+            # 칸 글자 — 상한 안의 완결 구절 (자르지 않는다, ADR 0044). 교정 뒤에도 남으면 규칙 대체
+            bad = phrases.problems("technique", norm, pool)
+            if bad:
+                fixed = phrases.salvage("technique", norm, pool) if final else None
+                if fixed is None:
+                    return None, bad[0].code
+                norm = fixed
             try:
-                spec = TechniqueSpec.model_validate(tech_rules.normalize_technique_data(data, tech))
+                spec = TechniqueSpec.model_validate(norm)
             except (ValidationError, TypeError, ValueError):
                 return None, "schema"
             spec = tech_rules.repair_technique(spec, tech, pool, sources)
             problems = tech_rules.validate_technique(spec, tech, sources)
             if not problems:
                 problems = rules.validate_spec(spec, pool)
+            if not problems:
+                problems = [b.code for b in phrases.problems("technique", spec.model_dump(), pool)]
             if problems:
                 return None, problems[0]
             if not inc and rules.internal_only_texts(spec, pool):
@@ -318,13 +337,21 @@ class TechniqueSteps:
             return spec, None
 
         def correction(raw: str, reason: str | None) -> str:
-            return (
+            hint = (
                 f"[형식 교정 — 직전 응답은 받아들일 수 없었음: {reason}] [답 "
                 f"형식]의 키만 쓴 JSON 객체 "
                 "하나로. 묶음 이름·척도 기호는 주어진 값 그대로, 항목마다 "
                 "source(문장·근거·입력 id), "
                 "항목 글자는 출처에 있는 말로만."
             )
+            data = parse_object(raw)
+            if data:
+                bad = phrases.problems(
+                    "technique", tech_rules.normalize_technique_data(data, tech), pool
+                )
+                if bad:
+                    hint += " " + phrases.correction_hint(bad)
+            return hint
 
         got = await self._ask(
             prompt,
@@ -332,6 +359,7 @@ class TechniqueSteps:
             check,
             correction,
             local_held=local_held,
+            final_check=lambda raw: check(raw, True),
         )
         return got.value, (None if got.value is not None else got.reason or "invalid"), got.model
 
@@ -399,6 +427,10 @@ class TechniqueSteps:
         builds: list[FigureBuild] = []
         dropped: list[str] = list(picks.dropped)
         reasons: list[str] = []
+        # 그림 글자를 다시 쓸 때(9pt 미달) 출처 검사 — 분석과 같은 글자 범위
+        _, _, draw_pool = self._tech_context(
+            sections, request, snapshot, self._tech_include(include_internal)
+        )
 
         async def one(pick: tech_rules.Pick) -> None:
             spec, reason, spec_model = await self.analyze_technique(
@@ -427,7 +459,7 @@ class TechniqueSteps:
                     technique=pick.technique, reason=pick.reason, model=model, at=now
                 ),
             )
-            builds.append(await self.draw(figure))
+            builds.append(await self.draw(figure, pool=draw_pool, local_held=local_held))
 
         await asyncio.gather(*(one(p) for p in picks.picks))
         builds.sort(key=lambda b: b.figure.id)
@@ -475,4 +507,7 @@ class TechniqueSteps:
         figure = self._technique_figure(
             fid, sec, spec, model=spec_model, recommendation=recommendation
         )
-        return await self.draw(figure), None
+        _, _, draw_pool = self._tech_context(
+            sections, request, snapshot, self._tech_include(include_internal)
+        )
+        return await self.draw(figure, pool=draw_pool), None

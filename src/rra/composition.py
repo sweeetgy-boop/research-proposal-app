@@ -1903,7 +1903,6 @@ def build_figures(
             auto_kinds=tuple(cfg["auto_kinds"]),
             frame=build_figure_frame(settings),
             min_text_pt=cfg["fit"]["min_text_pt"],
-            max_shorten=cfg["fit"]["max_shorten"],
             max_image_redraws=cfg["fit"]["max_image_redraws"],
             ocr_box_em=cfg["fit"]["ocr_box_em"],
             arrangements={t.key: t.arrangement for t in catalog.items},
