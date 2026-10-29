@@ -332,7 +332,7 @@ export function GlobalSearch({ className }: { className?: string }) {
               );
             })()}
         </div>
-        <p className="border-t bg-muted/40 px-4 py-2 text-xs text-muted-foreground">↑↓ 이동 · Enter 열기 · Esc 닫기 · 자료는 수집 자료(비신뢰)입니다</p>
+        <p className="border-t bg-muted/40 px-4 py-2 text-xs text-muted-foreground">↑↓ 이동 · Enter 열기 · Esc 닫기 · 자료 제목·요약은 수집 자료입니다</p>
       </div>
       {panelDoc && (
         <DocRefPanel
