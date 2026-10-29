@@ -28,8 +28,8 @@
 | 11 | 보안 | A~J 규칙(비신뢰 텍스트·샌드박스·허용 도메인·SecretStr·바인딩·XML escape·127.0.0.1·동시성 1·로그 허용목록) | architecture §7 |
 | 12 | 검증 | 테스트 수·계약·CI·골든셋·Lighthouse/axe(웹) | `metrics.csv`, `charts/` |
 | 13 | 시연 | 웹 화면 ①~⑥ (녹화 `history/demo/`) | `demo-script.md` |
-| 14 | 한계와 다음 단계 | NTIS IP·운영 장비·3차 측정·한/글 확인·전략체계·공고문·골든셋 피드백 루프 | `limitations.md` |
-| (추가) | 시범 운영과 의견 반영 | 10-28~29 동료 3명, 의견 1~25 + 3차, 전후 수치 | `docs/final-report-materials.md` ⑧·⑨ |
+| 14 | 한계와 다음 단계 | NTIS IP·운영 장비·3차 측정(하지 않기로 함)·한/글 확인·전략체계·공고문·골든셋 피드백 루프·정책 근거 팝업 효과 | `limitations.md` |
+| (추가) | 시범 운영과 의견 반영 | 10-28~29 동료 3명, 의견 1~25 + 3차 + 4차(정책 근거 빈칸 → 팝업, ADR 0052), 전후 수치 | `docs/final-report-materials.md` ⑧·⑨, `history/screens/2026-10-29-feat-policy-popup-*.png` |
 | 15 | 요약 | 한 장 요약 다시 | `summary.md` |
 
 ## 수치 갱신 규칙

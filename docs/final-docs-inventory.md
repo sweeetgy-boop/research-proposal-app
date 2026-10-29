@@ -1,11 +1,65 @@
-# 문서 목록과 분류 (2026-10-29, docs/final-docs)
+# 문서 목록과 분류 (2026-10-29, docs/final-docs → 오후 2차 docs/final-docs-2)
 
 저장소의 md 파일 257개(이 파일 포함). 분류: **최신**(지금 사실과 맞음 — 날짜 붙은 기록은 그 시점 기록으로 정확),
 **고침**(이번에 고침), **낡음(보관)**(이전 방식·지난 계획 — 지우지 않고 머리에 "보관" 표시, 지금 사실은 표시한 파일에서 본다).
-집계: 고침 28 · 낡음(보관) 12 · 최신 217.
+집계(1차, 오전): 고침 28 · 낡음(보관) 12 · 최신 217. 오후 2차는 아래 §0.
 UI 레인(Research Studio, 배포됨 c277253 2026-10-29 10:48) 조각 `docs/status.d/feat-ui-studio-{frame,home,search,tokens}.md` 은 pilot-guide·web/README·status·timeline·metrics·보고서 재료·ADR 0048~0051 에 모았다(레인 4 의 ①~⑥ 안쪽 화면은 tokens 조각에 함께 있다).
 
-## 문서 사이에 서로 달랐던 사실과 맞춘 값
+## 0. 2차 최신화 (2026-10-29 오후, docs/final-docs-2)
+
+1차(오전, #103) 뒤 바뀐 사실: 3차 골든셋 전체 측정 안 함(#109), ① 정책 근거 추천 팝업·③④⑥ 다시 넣는 길(#110, ADR 0052),
+16:06 배포 36e0709 + 기록 고침(#111). md 는 259개(1차 257 + ADR 0052 + 배포 기록 16:06). 방법: 모든 md 에서 낡은 표현(운영 버전 c277253,
+시험 수 2,418·vitest 201·e2e 40, [추천 받기]·[정책 근거 고르기], "선택 입력 (가제·정책 근거…", 골든셋 "밤 예정", ADR 0051 까지, 경로 70)을 찾아
+**살아 있는 문서는 지금 사실로 고치고**, 날짜 붙은 기록(연표 조각·배포 기록·측정 보고서·레인 조각·ADR 본문)은 그대로 두고 바뀐 곳에만
+"이후 변경"/"상태" 한 줄을 달았다. 프롬프트 md 25개(`src/rra/adapters/llm/prompts/`)는 모델 동작을 바꾸는 코드라 손대지 않았다.
+집계(2차): 고침 23(+ 화면 글 `web/src/features/guide/content.tsx`) · 나머지 236 은 1차 분류 그대로(새 파일 2개는 최신).
+
+| 사실 | 달랐던 곳 | 맞춘 값(근거) |
+|---|---|---|
+| 운영 버전 | README·status·pilot-guide·architecture·보고서 재료·발표 자료·web/README: c277253(10:48) | 36e0709(2026-10-29 16:06, #110) — 화면 Research Studio 는 c277253 부터(`docs/history/deploys/2026-10-29-1606.md`) |
+| 시험 수 | README·summary·web/README·보고서 재료 ⑧: pytest 2,418 · vitest 201 · e2e 40 | pytest 2,419 · vitest 214 · e2e 43(+3 skip) · 계약 8(#110) |
+| ① 정책 근거 | demo-script·web/README·architecture·ADR 0040: [추천 받기]·[정책 근거에 추가], "버튼을 눌렀을 때만" | 네 칸이 채워지면 팝업 자동, 1순위 미리 체크·[적용] 해야 들어감·[나중에 넣기](ADR 0052) — 옛 설명은 "이전 방식" 표시 |
+| ④ 정책 근거 단추 | ADR 0037·e2e 설명: [정책 근거 고르기] | [정책 근거 넣기·바꾸기](늘 보임·빈칸 안내 줄·직접 입력) |
+| 3차 골든셋 | 보고서 재료 ⑩ "밤 예정", ⑧ "재측정은 대기" | 하지 않기로 함(10-29 소유자, #109) |
+| 배포 횟수 | 보고서 재료 ⑨ 11회, summary 10회 | 12회(10-28 8회 + 10-29 02:07·09:30·10:48·16:06) |
+| 작성 가이드 소요 시간 | 화면 글 "생성 약 3~4분(이 중 그림 약 2분)" | 초안 글 약 1분 30초 먼저, 그림까지 약 3분(배포 확인 각 1건) — pilot-guide §3 와 같게 |
+| 배포 기록 반영 PR | 16:06 기록 "#103" 만 | #110(기능)·#103·#109(문서). 원인: 도구가 병합 커밋에서만 번호를 모음(squash 는 빠짐) — deploys/README·lessons·status |
+| REST 요약 | deploy/README §4: 10-26 무렵 경로만 | 주요 경로 묶음 + "전체 71 경로" (`docs/openapi.json`) |
+| 판단 기록 10-29 | B 병합 #98·09:30·10:48 배포 행 없음 | 행 보탬, 오후 4차 의견·16:06 배포·문서 2차 행 추가(정확한 시각을 모르는 행은 "오후") |
+
+| 파일 | 2차 분류 | 바꾼 것 |
+|---|---|---|
+| `README.md` | 고침 | 현재 상태: 운영 36e0709, 흐름에 ① 팝업·④ 단추, 시험 수·REST 71·ADR 0052, 측정 결정 |
+| `CLAUDE.md` | 고침 | 정책 근거 팝업 줄에 배포 버전 |
+| `deploy/README.md` | 고침 | 인증(세션 종류), REST 요약에 10-27~29 경로 묶음 |
+| `web/README.md` | 고침 | 정책 근거 팝업·다시 넣는 길 단락(파일·함수), 파일 지도(PolicyPickDialog·features/policy), 시험 수, U9 메모 이전 방식 표시 |
+| `docs/architecture.md` | 고침 | 머리 메모(정책 근거·운영 버전 확인법), §4.24 ADR 0052, §4.25 정책 근거·화면·배포 행, §10 10-28·10-29 오전·오후 행 |
+| `docs/status.md` | 고침 | §0 16:10 기준·운영 버전·정책 근거 행, §3.2 팝업 의견·배포 기록 병합 방식, §6 #109·#110·문서 2차 행 |
+| `docs/pilot-guide.md` | 고침 | §1 16:06 배포 안내, §3 지금 소요 시간·10:48 배포 확인값·인용 잘림 안내(§2 는 #110 에서 고침) |
+| `docs/final-report-materials.md` | 고침 | 머리·① 운영 버전, ② 10-29 오후 3행, ③ 데이터 흐름 ① 정책 근거, ④ ①·③·④·⑥·공통 행, ⑥ 정책적 중요도, ⑧ 생성 시간·정책 빈칸(시범 6/7)·시험 수·접근성, ⑨ 배포 12회·4차, ⑩ 골든셋·화면·인용 품질·팝업 효과·배포 기록, ⑪ 의견 받기, ⑫ 팝업 캡처 |
+| `docs/final-check-2026-10-29.md` | 고침 | 머리 메모, #98·09:30·10:48 행, 오후 4차·16:06 배포·문서 2차 행 |
+| `docs/final-docs-inventory.md` | 고침 | 이 §0, 새 파일 2행, 개수 |
+| `docs/presentation-kit/README.md` | 고침 | 슬라이드 14·시범 장 |
+| `docs/presentation-kit/demo-script.md` | 고침 | 머리 메모, ① 정책 근거 행(새 판·이전 판), ④ 다시 넣기 행 |
+| `docs/presentation-kit/limitations.md` | 고침 | 화면 행, 정책 근거·배포 기록 행 |
+| `docs/presentation-kit/qna.md` | 고침 | "정책적 중요도가 빈칸으로 나오지 않나?" 문답 |
+| `docs/presentation-kit/summary.md` | 고침 | 해결 흐름 ①, 검증·시범·측정 줄, 남은 과제 |
+| `docs/history/README.md` | 고침 | 갱신 시각·목록 위치, screens·deploys 행 |
+| `docs/history/timeline.md` | 고침 | 16:06 배포·#111·문서 2차 행(#110 행은 #110 에서) |
+| `docs/history/metrics.md` | 고침 | 10-29 #110 행 |
+| `docs/history/lessons.md` | 고침 | ④ 단추 못 찾음·실제 브라우저 axe·배포 기록 반영 PR 세 행 |
+| `docs/history/deploys/README.md` | 고침 | 반영 PR 알려진 문제, 배포 12회 목록 |
+| `docs/history/decisions/0017-…`·`0037-…`·`0040-…` | 고침(상태 한 줄) | ADR 0052 로 바뀐 부분 표시(본문은 그대로) |
+| `docs/status.d/feat-policy-l2.md` | 고침(이후 변경 한 줄) | [추천 받기] → 팝업 |
+| `docs/history/decisions/0052-policy-popup-preselect.md` | 최신(새 파일, #110) | ADR |
+| `docs/history/deploys/2026-10-29-1606.md` | 최신(새 파일, #111) | 16:06 배포 기록 + 배포 뒤 확인 |
+
+손대지 않은 것과 이유: 연표 조각(`timeline.d/`)·지표 조각(`metrics.d/`)·진행 조각(`progress.d/`)·레인 조각(`status.d/` 나머지)·측정 보고서(`docs/eval-*`)·
+작업 일지(`overnight-*`)·지난 판단 기록(`final-check-2026-10-2{7,8}`)·지난 배포 기록은 그 시점 기록이라 1차 분류(최신=기록으로 정확, 또는 보관) 그대로다.
+`tests/fixtures/*/README.md`·`docs/mcp.md`·`docs/external-apis.md`·`docs/korail-web-crawl.md`·`docs/vision-manifest.md`·`CONTRIBUTING.md`·PR 양식은 오후 변경과
+관계없어 그대로다(CONTRIBUTING 의 "squash 금지" 와 실제 병합 방식이 다른 점은 `docs/status.md` §3.2 에 적고 규칙은 바꾸지 않았다).
+
+## 문서 사이에 서로 달랐던 사실과 맞춘 값 (1차)
 
 | 사실 | 달랐던 곳 | 맞춘 값(근거) |
 |---|---|---|
@@ -96,7 +150,7 @@ UI 레인(Research Studio, 배포됨 c277253 2026-10-29 10:48) 조각 `docs/stat
 | `docs/history/metrics.md` | 고침 | 요약표 10-27~10-29 행·읽는 법 |
 | `docs/history/timeline.md` | 고침 | 제목 기간·10-29 세 행(#99·배포, Research Studio, 문서 최신화) |
 
-## docs/history/decisions (ADR) (52)
+## docs/history/decisions (ADR) (53)
 
 | 파일 | 분류 | 메모 |
 |---|---|---|
@@ -151,9 +205,10 @@ UI 레인(Research Studio, 배포됨 c277253 2026-10-29 10:48) 조각 `docs/stat
 | `docs/history/decisions/0049-research-home-progress.md` | 고침(새 파일) | 새 ADR — UI 레인 2 초안 |
 | `docs/history/decisions/0050-global-search-doc-api.md` | 고침(새 파일) | 새 ADR — UI 레인 3 초안 |
 | `docs/history/decisions/0051-design-tokens.md` | 고침(새 파일) | 새 ADR — UI 레인 4 초안 |
-| `docs/history/decisions/README.md` | 고침 | ADR 0029~0051 목록, 이전 방식 표시 |
+| `docs/history/decisions/0052-policy-popup-preselect.md` | 최신(새 파일, 2차) | ① 정책 근거 팝업·다시 넣는 길(#110) |
+| `docs/history/decisions/README.md` | 고침 | ADR 0029~0051 목록, 이전 방식 표시 · 2차: 0052 행(#110) |
 
-## docs/history/deploys (13)
+## docs/history/deploys (14)
 
 | 파일 | 분류 | 메모 |
 |---|---|---|
@@ -168,8 +223,9 @@ UI 레인(Research Studio, 배포됨 c277253 2026-10-29 10:48) 조각 `docs/stat
 | `docs/history/deploys/2026-10-29-0207.md` | 최신(기록) |  |
 | `docs/history/deploys/2026-10-29-0930.md` | 최신(기록) | 09:30 배포 기록·DB 재분류·배포 뒤 확인(#100) |
 | `docs/history/deploys/2026-10-29-1048.md` | 고침(새 파일) | 10:48 Research Studio 배포 기록 + 배포 뒤 확인(통합 담당 10:5x)·#108 수정 2건 |
-| `docs/history/deploys/README.md` | 최신(기록) |  |
-| `docs/history/deploys/pending.md` | 최신(기록) | 09:30 배포로 비워짐(#100) |
+| `docs/history/deploys/2026-10-29-1606.md` | 최신(새 파일, 2차) | 16:06 정책 근거 팝업 배포 기록 + 배포 뒤 확인, 반영 PR 손으로 고침(#111) |
+| `docs/history/deploys/README.md` | 고침(2차) | 반영 PR 알려진 문제·배포 목록 |
+| `docs/history/deploys/pending.md` | 고침(2차) | 16:06 배포로 비워진 뒤 #112(작성 가이드 화면 글) 한 줄 |
 
 ## 조각 파일 (status.d·progress.d·timeline.d) (112)
 

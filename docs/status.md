@@ -6,11 +6,11 @@
 
 규모(main e10466e, 2026-10-26 PR #1~#9·#15~#18 병합 뒤): 커밋 105, `src/rra` 파일 146, 테스트 76파일(`pytest -q` 1,178 통과·12 skip — skip 은 실응답 fixture·실물 양식), import-linter 계약 8 kept, ruff 통과. CI(`.github/workflows/ci.yml`): backend 통과, web 은 `web/` 이 없어 skip.
 
-## 0. 지금 상태 요약 (2026-10-29 09:40 기준)
+## 0. 지금 상태 요약 (2026-10-29 16:10 기준)
 
 | 항목 | 값 | 근거 |
 |---|---|---|
-| 운영 버전 | c277253(2026-10-29 10:48, Research Studio #101·#102·#104~#108), 이전 546f244(10-29 09:30, #95~#99)·6008a43(10-29 02:07)·d9b2869(10-28 20:14) | `docs/history/deploys/` |
+| 운영 버전 | 36e0709(2026-10-29 16:06, ① 정책 근거 팝업 #110), 이전 c277253(10-29 10:48, Research Studio #101·#102·#104~#108)·546f244(10-29 09:30, #95~#99)·6008a43(10-29 02:07)·d9b2869(10-28 20:14) | `docs/history/deploys/` |
 | 시범 | 2026-10-28~ 동료 3명, 외부 주소 Tailscale Funnel `https://rra.taile5afcf.ts.net`(ADR 0047), 로그인 사번·공용 계정·관리 토큰 | `docs/pilot-guide.md` |
 | 작성 흐름 | ③ Argon 섹션 작성(4 동시) → 규칙 검사 → L2 로컬 2차 검토(불일치만 Argon 제안) → ④ 직접 수정 → ⑤ Argon 최종 검토 1회. 로컬 대체는 Argon **오류 응답**일 때만(ADR 0032·0038·0040). ③ 1차 검토는 끔 | `config/llm.yaml` |
 | 그림 | Nano Banana Pro, 기본 As-Is/To-Be + 분석 기법 추천 0~2, 가로·본문 폭 153.8mm·9pt 이상, 완결 구절, 초안 글 먼저·그림 백그라운드(ADR 0041·0044·0045) | `config/figures.yaml` |
@@ -99,8 +99,10 @@
 | `config/templates/korail_strategy.yaml` 전략체계 목록(확정본) | 비어 있음 — 확정 전까지 앱은 초안을 쓰고 "전략체계 초안(확인 전)" 라벨 표시 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
 | 시범 계정 등록(`rra auth`) | 일괄: `rra auth staff import --file <xlsx|csv> [--pad N] [--replace] [--dry-run]`(사번 열만, 출력은 개수만, 2026-10-28 A2) / 한 명씩 `rra auth staff add`·`rra auth guest set --id korail`(비밀번호 2회)·`rra auth status`. `data/auth/secret` 은 백업에 포함(잃으면 run 소유권 단절). 절차 `docs/pilot-guide.md` §6 |
-| 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30), 2026-10-29 Research Studio 화면 배포됨 (c277253, 2026-10-29 10:48). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
+| 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30), 2026-10-29 Research Studio 화면 배포됨 (c277253, 2026-10-29 10:48), ① 정책 근거 팝업 배포(36e0709, 16:06). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
 | `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
+| 정책 근거 팝업 의견 | 16:06 배포. 동료가 ① 팝업([적용]/[나중에 넣기])·④ [정책 근거 넣기·바꾸기] 를 찾는지 의견 받기. 운영 1순위 인용문 하나가 PDF 추출에서 문장 중간이 잘린 모양("…하자보수73)하였으나 …") — 인용 문장 고르기(`policy_passage`) 품질은 후속 |
+| 배포 기록 "반영 PR" | `tools/deploy.sh` 는 병합 커밋(`git log --merges`) 제목에서만 PR 번호를 모은다. squash 로 합친 PR(#109·#110 등)은 빠져 16:06 기록은 손으로 고쳤다. CONTRIBUTING 은 "squash 금지, merge commit" 이지만 최근 PR 은 squash 로 합쳐 왔다 — 병합 방식 또는 도구 중 하나를 맞출 것 |
 | 운영 공개 방식 | **해결(2026-10-28)**: Tailscale Funnel `https://rra.taile5afcf.ts.net` + 앱 로그인(ADR 0047). Cloudflare Tunnel + Access(ADR 0024)는 DNS(Gabia) 때문에 이전 계획으로 남김. Funnel 켜고 끄기·재등록은 사람 작업(`docs/pilot-guide.md` §1.5) |
 
 ### 3.3 나중 (P7, 이슈만)
@@ -239,5 +241,8 @@ main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기�
 | 2026-10-29 — 3차 통합·배포 (#99, 09:30) | 08 정답에 수송수요 예측 연작 추가(8 → 175), 측정 도구 실시간 상태·초안/그림 시간 분리, openapi 70 경로. 09:30 `tools/deploy.sh` → 546f244, 배포 뒤 운영 DB 재분류 340행(policy→admin_notice 270·status_report 70, 공사 홈페이지 정책 392 → 52, 배포 전 백업). 배포 확인: 초안 글 보임 75초·그림까지 187초·② 표 16.0초(첫 요청)·외부 3곳 200. 전체 골든셋 측정은 소유자 지시로 중단(밤에) | `docs/history/deploys/2026-10-29-0930.md`, `docs/final-check-2026-10-29.md` |
 | 2026-10-29 — Research Studio 화면 [UI] (#101·#102·#104~#108, 10:48 배포 c277253) | 디자인 토큰·공용 조각(#101), 화면 안 로그인(#102), 연구 작업실 홈·작성 가이드·내 제안서(#104), ⌘K 통합 검색·`GET /v1/search/docs`·자료 검색 거르기·자료 현황(#105), 사이드바·위쪽 막대·접는 메뉴(#106), ①~⑥ 안쪽 화면 스타일·axe 0(#107), 통합·결함 2건 수정(#108). 배포 확인: 탭 제목·로그인 전 홈·카드 로그인·통합 검색·390px, 초안 글 92초·그림 202초 | ADR 0048~0051, `docs/status.d/feat-ui-studio-*.md`, `docs/history/deploys/2026-10-29-1048.md` |
 | 2026-10-29 — 문서 최신화 [D] (docs/final-docs) | md 전체 목록·분류, 이전 방식 표시(로컬 7B 주 작성·1차 검토·Cloudflare·run 표기), ADR 0047(Tailscale Funnel 사후 기록)·ADR 목록 0029~0047, 최종보고서 재료 모음 | `docs/final-docs-inventory.md`, `docs/final-report-materials.md` |
+| 2026-10-29 — 3차 골든셋 전체 측정 안 함 (#109) | 소유자 결정 — 3차 수치는 레인 측정·스모크 1건·배포 확인 2건으로만 쓴다(초안 글 보임 중앙 120초 이하는 전체 측정으로 확인하지 않음) | `docs/final-check-2026-10-29.md` |
+| 2026-10-29 오후 — ① 정책 근거 팝업·다시 넣는 길 (#110, 16:06 배포 36e0709) | 네 칸이 채워지면(또는 빈 채 [다음]) 팝업 자동, 1순위 미리 체크("기본 추천", 자동 저장 아님)·추가 체크·직접 입력·[다시 받기](이미 본 문서 제외)·[적용]/[나중에 넣기], 정책 근거 칸 접지 않음. ③ 작성안 펼침, ④ [정책 근거 넣기·바꾸기] 늘 보임·빈칸 안내 줄·직접 입력·`?policy=1`, ③ 초안 보기·⑥ "정책 근거" 항목 바로가기. 서버는 `rank`·`exclude_doc_ids` 만. ④ 단추를 못 찾은 원인: 초안 보기에 길 없음·빈 섹션 본문 안내 없음·이름 "고르기"·편집 불가 때 숨김(시범 11건 중 정책 근거 없이 만든 7건의 6건이 빈칸) | ADR 0052, `docs/history/deploys/2026-10-29-1606.md` |
+| 2026-10-29 오후 — 문서 2차 최신화 (docs/final-docs-2) | 운영 버전·시험 수·정책 근거 흐름·측정 결정을 살아 있는 문서 전부에 반영, 기록 문서는 "이후 변경" 표시만 | `docs/final-docs-inventory.md` §0 |
 
 보류·미착수: g2b 실호출(키)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).
