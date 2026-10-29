@@ -3,11 +3,11 @@ import { Navigate, Route, Routes } from "react-router";
 import { Layout } from "@/components/Layout";
 import { RequireAuth } from "@/auth/RequireAuth";
 import { SkeletonBlock } from "@/components/ui/skeleton";
-import { useLoggedIn } from "@/auth/useSession";
-import { LoginCard } from "@/features/auth/LoginCard";
 
 // 경로별 코드 분할 — 첫 화면(로그인·입력)만 먼저 받는다.
 const Login = lazy(() => import("@/routes/Login"));
+const Home = lazy(() => import("@/routes/Home"));
+const Guide = lazy(() => import("@/routes/Guide"));
 const Idea = lazy(() => import("@/routes/Idea"));
 const Precheck = lazy(() => import("@/routes/Precheck"));
 const Clarify = lazy(() => import("@/routes/Clarify"));
@@ -34,25 +34,14 @@ function Fallback() {
   );
 }
 
-/** 임시 홈 — 연구 작업실 홈(레인 2)이 들어오기 전까지. 로그인 전에는 로그인 카드, 로그인 뒤에는 ① 입력. */
-function TempHome() {
-  const loggedIn = useLoggedIn();
-  if (loggedIn) return <Navigate to="/new" replace />;
-  return (
-    <div className="mx-auto max-w-md space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">Research Studio</h1>
-      <LoginCard />
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <Suspense fallback={<Fallback />}>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/login" element={<Login />} />
-          <Route index element={<TempHome />} />
+          <Route index element={<Home />} />
+          <Route path="/guide" element={<Guide />} />
           <Route element={<RequireAuth />}>
             <Route path="/new" element={<Idea />} />
             <Route path="/new/precheck" element={<Precheck />} />
@@ -73,7 +62,7 @@ export default function App() {
             <Route path="/search" element={<Search />} />
             <Route path="/sources" element={<Sources />} />
           </Route>
-          <Route path="*" element={<Navigate to="/new" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </Suspense>

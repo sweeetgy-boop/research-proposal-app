@@ -424,6 +424,12 @@ def create_app(
             return None
         return _clean(manager.run_title(state)) or None
 
+    def _task_type(state: Any) -> str | None:
+        """목록·홈 표의 과제유형 이름 (앱 목록 값이라 비신뢰 아님). 없으면 None."""
+        if not hasattr(manager, "run_task_type"):
+            return None
+        return manager.run_task_type(state) or None
+
     # ── 로그인 주체·소유자 (레인 A) ───────────────────────
     def _who(request: Request) -> Principal:
         found = getattr(request.state, "rra_principal", None)
@@ -1129,7 +1135,9 @@ def create_app(
             states = manager.list_runs(_owner_key(request), limit)
         return {
             "runs": [
-                run_state_payload(s, legacy=manager.is_legacy(s), title=_title(s))
+                run_state_payload(
+                    s, legacy=manager.is_legacy(s), title=_title(s), task_type=_task_type(s)
+                )
                 for s in reversed(states)
             ]
         }
@@ -1140,7 +1148,9 @@ def create_app(
             state = await manager.status(*await _own(request, run_id))
         except RunNotFound as exc:
             raise HTTPException(404, "제안서를 찾을 수 없습니다.") from exc
-        return run_state_payload(state, legacy=manager.is_legacy(state), title=_title(state))
+        return run_state_payload(
+            state, legacy=manager.is_legacy(state), title=_title(state), task_type=_task_type(state)
+        )
 
     @app.get(f"/{API_VERSION}/runs/{{run_id}}/events")
     async def events_route(request: Request, run_id: str) -> StreamingResponse:

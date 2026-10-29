@@ -130,7 +130,7 @@ from rra.domain.rules.request_change import (
 )
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.rewrite import REWRITE_NOTE, pick, side_by_side
-from rra.domain.rules.run_title import draft_title
+from rra.domain.rules.run_title import draft_task_type, draft_title
 from rra.domain.rules.status_marks import carry_figure_marks, is_evidence_mark, is_figure_mark
 from rra.domain.rules.usage import refresh as refresh_usage
 from rra.domain.rules.usage import step_durations as usage_step_durations
@@ -2588,6 +2588,26 @@ class RunManager(EditAIMixin, StatusMarksMixin, LocalReviewMixin, FigureJobMixin
         except Exception:  # noqa: BLE001 — 제목 표시는 run 조회를 막지 않는다
             return ""
         return draft_title(sections, request)
+
+    def run_task_type(self, state: RunState) -> str:
+        """run 목록·홈 표의 과제유형 이름 — 확정값, 없으면 현재 버전 1-다 제안값.
+        읽기 실패·없음은 ""."""
+        try:
+            confirmation = self.store.load_confirmation(state.user, state.run_id)
+            version = (
+                self.store.load_version(state.user, state.run_id, state.draft_version)
+                if state.draft_version >= 1
+                else None
+            )
+            sections = (
+                list(version.sections)
+                if version is not None
+                else list(self.store.load_sections(state.user, state.run_id).values())
+            )
+        except Exception:  # noqa: BLE001 — 표시용 보조 정보는 run 조회를 막지 않는다
+            return ""
+        confirmed = (confirmation.choices.get("task_type") if confirmation else None) or []
+        return draft_task_type(sections, confirmed)
 
     def _figure_files(
         self, user: str, run_id: str, version_no: int
