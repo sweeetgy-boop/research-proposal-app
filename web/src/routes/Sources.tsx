@@ -1,19 +1,53 @@
+/** 자료 현황 — 자료원별 적재 건수·마지막 적재일·호출 거부 안내 (2026-10-29 [UI] 레인 3 새 모양, 같은 데이터).
+ *  자료원 키(영어 코드)는 보이지 않는다 — 한국어 이름만. */
+import { Database, ShieldAlert, Library } from "lucide-react";
+import { Link } from "react-router";
 import { useSources } from "@/api/hooks";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { Badge } from "@/components/ui/badge";
 
+function Stat({ icon: Icon, label, value, tone }: { icon: typeof Database; label: string; value: string; tone: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
+      <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${tone}`}>
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-2xl font-bold tabular-nums leading-tight">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Sources() {
   const q = useSources();
+  const rows = q.data?.sources ?? [];
+  const total = rows.reduce((n, s) => n + s.count, 0);
+  const loaded = rows.filter((s) => s.count > 0).length;
+  const blocked = rows.filter((s) => s.notice);
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">자료원 상태</h1>
-      <p className="text-sm text-muted-foreground">자료원별 적재 건수와 마지막 적재일. 야간 배치(02:30)가 갱신합니다.</p>
-      {q.data && q.data.sources.some((s) => s.notice) && (
-        <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
-          <p className="font-medium">호출이 거부된 자료원이 있습니다</p>
-          <ul className="mt-1 list-disc pl-5">
-            {q.data.sources.filter((s) => s.notice).map((s) => (
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Sources</p>
+        <h1 className="text-2xl font-bold tracking-tight">자료 현황</h1>
+        <p className="text-sm text-muted-foreground">
+          자료원별 적재 건수와 마지막 적재일입니다. 야간 배치(02:30)가 갱신합니다. 자료는{" "}
+          <Link to="/search" className="text-primary underline-offset-2 hover:underline">
+            자료 검색
+          </Link>
+          이나 위쪽 통합 검색에서 찾습니다.
+        </p>
+      </header>
+      {blocked.length > 0 && (
+        <div role="alert" className="rounded-xl border border-warning/50 bg-warning/10 p-4 text-sm">
+          <p className="flex items-center gap-1.5 font-semibold">
+            <ShieldAlert className="size-4 text-warning" aria-hidden="true" />
+            호출이 거부된 자료원이 있습니다
+          </p>
+          <ul className="mt-1 list-disc pl-6">
+            {blocked.map((s) => (
               <li key={s.source}>
                 {s.label}: {s.notice}
               </li>
@@ -24,34 +58,47 @@ export default function Sources() {
       {q.isPending && <SkeletonBlock lines={7} />}
       <ProblemBanner error={q.error} onRetry={() => q.refetch()} />
       {q.data && (
-        <div className="relative overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[28rem] text-sm">
-            <caption className="sr-only">자료원별 적재 현황</caption>
-            <thead className="bg-muted/60 text-left text-muted-foreground">
-              <tr>
-                <th scope="col" className="px-3 py-2 font-medium">자료원</th>
-                <th scope="col" className="px-3 py-2 font-medium">건수</th>
-                <th scope="col" className="px-3 py-2 font-medium">마지막 적재</th>
-              </tr>
-            </thead>
-            <tbody>
-              {q.data.sources.map((s) => (
-                <tr key={s.source} className="border-t">
-                  <td className="px-3 py-2">
-                    {s.label} <span className="font-mono text-xs text-muted-foreground">{s.source}</span>
-                    {s.notice && (
-                      <div className="mt-1">
-                        <Badge variant="destructive">호출 거부</Badge> <span className="text-xs">{s.notice}</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">{s.count.toLocaleString("ko-KR")}</td>
-                  <td className="px-3 py-2">{s.last_ingested ?? <Badge variant="outline">없음</Badge>}</td>
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Stat icon={Library} label="전체 자료" value={`${total.toLocaleString("ko-KR")}건`} tone="bg-accent text-primary" />
+            <Stat icon={Database} label="자료가 있는 자료원" value={`${loaded} / ${rows.length}`} tone="bg-success/15 text-success" />
+            <Stat icon={ShieldAlert} label="호출이 거부된 자료원" value={`${blocked.length}곳`} tone="bg-warning/15 text-warning" />
+          </div>
+          <div className="relative overflow-x-auto rounded-xl border bg-card">
+            <table className="w-full min-w-[28rem] text-sm">
+              <caption className="sr-only">자료원별 적재 현황</caption>
+              <thead className="border-b text-left text-xs text-muted-foreground">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    자료원
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">
+                    건수
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    마지막 적재
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y">
+                {rows.map((s) => (
+                  <tr key={s.source}>
+                    <td className="px-4 py-3">
+                      <span className="font-medium">{s.label}</span>
+                      {s.notice && (
+                        <div className="mt-1">
+                          <Badge variant="destructive">호출 거부</Badge> <span className="text-xs">{s.notice}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">{s.count.toLocaleString("ko-KR")}</td>
+                    <td className="px-4 py-3">{s.last_ingested ?? <Badge variant="outline">없음</Badge>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
