@@ -2995,6 +2995,47 @@
         }
       }
     },
+    "/v1/runs/{run_id}/sections-progress": {
+      "get": {
+        "summary": "Sections Progress Route",
+        "operationId": "sections_progress_route_v1_runs__run_id__sections_progress_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Sections Progress Route V1 Runs  Run Id  Sections Progress Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/runs/{run_id}/submit-check": {
       "get": {
         "summary": "Submit Check Route",

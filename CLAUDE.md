@@ -192,6 +192,13 @@
   153.8mm·높이 쪽 1/3·글자 9pt(`domain/rules/figure_fit.py`, manifest `figure_fit`, ADR 0041). 상태 표시는 버전 없음(`versions/marks_vN.json`,
   `RunManager.record_mark`), 아래 이동 막대(`StepNavBar`, `--stepnav-h`), 화면에 "run" 단어 금지(e2e `expectNoRunWord`, ADR 0042).
   Argon 호출 응답 시간은 예산 카운터 옆 `*.latency.jsonl`(본문 없음). 설정 사본(RRA_CONFIG_DIR)도 번들 글꼴을 찾는다(`_figure_asset_dir`).
+- **시범 의견 3차**(2026-10-29, #95~#98): ② 같은 연작(제목이 연도·차수만 다른 과제) 한 줄 "○○(연작 n건)" + 연도별 목록(`domain/rules/series.py`,
+  묶은 뒤 상위 10·나머지 판은 `merged_ids`, `overlap.yaml series`, ADR 0043). 그림 칸 글자는 자르지 않는다 — 칸별 상한 + 완결 구절
+  (`domain/rules/figure_phrases.py`), 9pt 미달은 Argon 이 상한 −25% 로 다시 써서 1회 다시 그림(`max_image_redraws` 1, ADR 0044). 초안 글 먼저
+  (v1 즉시 drafted) + 그림 백그라운드(`application/services/figure_job.py`, run 의 `figures_job.json`·`.figures.lock`, 그리는 동안 ⑤⑥ 409
+  "그림 준비 중", `rra runs active` 가 그리는 run 도 셈, `draft_visible_seconds`·`figures_done_seconds`, ADR 0045). 공사 홈페이지 행정 공시 →
+  `admin_notice`·사업 현황 → `status_report`, `retrieval_mix` `only_in`·`strict`(2-가-(3) 은 정책만, ADR 0046) — 옛 코드는 새 doc_type 을 못 읽으므로
+  운영 DB 이주(`rra db reclassify --apply`)는 새 코드 배포 뒤.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
   MCP streamable-http·Tailscale/Cloudflare 공개는 비교 문서만(P6), reranker·골든셋 피드백 루프는 이슈(P7).
 
