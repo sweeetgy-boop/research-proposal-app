@@ -1,4 +1,4 @@
-# [UI] 레인 1 — feat/ui-studio-login(#102) · feat/ui-studio-frame (2026-10-29) 전달 사항
+# [UI] 레인 1 — feat/ui-studio-login(#102) · feat/ui-studio-frame(#106) (2026-10-29) 전달 사항
 
 ## 바뀐 것 (화면·메뉴·문구)
 - **로그인 페이지 없앰 → 화면 안 로그인** (#102): `features/auth/LoginCard`(홈 오른쪽 열용)·`LoginDialog`/`LoginDialogProvider`(앱 전체 창 하나)·
@@ -37,7 +37,7 @@
 - **결과**: 로그인 전에도 앱 틀과 홈이 보이고, 개인 데이터·API 호출은 로그인 뒤에만. 세션 쿠키·CSRF·잠금 규칙 불변. e2e 로그인 도우미는 `/new` 를 열어 창에서 로그인. 옛 /login 북마크는 홈 + 창으로. 새 메뉴 항목은 `components/frame/Sidebar.tsx`, 경로 이름은 `frame/crumbs.ts` 한 곳.
 
 ## timeline 한 줄
-`| 2026-10-29 | [UI] 레인 1 화면 틀·화면 안 로그인 | #102, #(frame) | 로그인 페이지 → 창, 위쪽 메뉴 → 사이드바·경로 표시·접는 메뉴, 앱 이름 Research Studio |`
+`| 2026-10-29 | [UI] 레인 1 화면 틀·화면 안 로그인 | #102, #106 | 로그인 페이지 → 창, 위쪽 메뉴 → 사이드바·경로 표시·접는 메뉴, 앱 이름 Research Studio |`
 
 ## metrics 한 줄 (metrics.csv 머리글 순서)
 `2026-10-29,<merge commit>,ui-studio-frame,,,,,,,,,,,,,,,,,,"web vitest 34→36 files; e2e +5 (frame.spec)"`
