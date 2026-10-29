@@ -44,7 +44,7 @@ export function CharDiff({ before, after }: { before: string; after: string }) {
 
 function FiguresChanged({ items }: { items: NonNullable<DiffOut["figures_changed"]> }) {
   return (
-    <section aria-labelledby="diff-figures" className="rounded-lg border p-3">
+    <section aria-labelledby="diff-figures" className="rounded-lg border bg-card p-3">
       <h3 id="diff-figures" className="mb-2 text-base font-semibold">
         그림 변경 <span className="text-xs font-normal text-muted-foreground">{items.length}건</span>
       </h3>
@@ -88,7 +88,7 @@ export function DiffView({ diff }: { diff: DiffOut }) {
       </p>
       {figures.length > 0 && <FiguresChanged items={figures} />}
       {diff.sections.map((s) => (
-        <section key={s.section} aria-labelledby={`diff-${s.section}`} className="rounded-lg border p-3">
+        <section key={s.section} aria-labelledby={`diff-${s.section}`} className="rounded-lg border bg-card p-3">
           <h3 id={`diff-${s.section}`} className="mb-2 flex flex-wrap items-center gap-2 text-base font-semibold">
             {sectionTitle(s.section)}
             <span className="text-xs font-normal text-muted-foreground">

@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import type { ProposalRequest } from "@/api/types";
 import { cn } from "@/lib/utils";
 import { StepNavBar } from "@/components/StepNavBar";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 const MODES = [
   { id: "quick", label: "간편 입력" },
@@ -60,6 +61,7 @@ export default function Idea() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
+          <Eyebrow className="mb-1">Step 01 · Idea</Eyebrow>
           <h1 className="text-2xl font-bold tracking-tight">① 아이디어 입력</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "quick" ? "한두 문장만 적으면 네 칸으로 나누어 드립니다. 입력은 유사과제 확인과 초안 생성에만 쓰입니다." : "현재 상황·원인·한계·목표 네 가지는 필수입니다. 입력은 유사과제 확인과 초안 생성에만 쓰입니다."}

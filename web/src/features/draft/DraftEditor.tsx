@@ -135,7 +135,7 @@ function SentenceEditor({
               {revisions.map((c) => {
                 const chosen = (st.commentId ?? revisions[0]?.id) === c.id;
                 return (
-                  <label key={c.id} className={cn("flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm", chosen && "border-primary")}>
+                  <label key={c.id} className={cn("flex cursor-pointer items-start gap-2 rounded-md border bg-card p-2 text-sm", chosen && "border-primary")}>
                     <input type="radio" name={`rev-${sid}`} checked={chosen} onChange={() => onSentence({ commentId: c.id })} className="mt-1" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs text-muted-foreground">

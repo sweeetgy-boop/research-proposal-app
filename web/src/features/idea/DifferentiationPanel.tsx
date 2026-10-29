@@ -58,7 +58,7 @@ export function DifferentiationPanel({
                   <p><span className="font-medium">이어받을 것: </span><UntrustedText text={it.build_on} /></p>
                   <ul className="space-y-1">
                     {it.differentiation.map((d, i) => (
-                      <li key={i} className="flex items-start justify-between gap-2 rounded-md border p-2">
+                      <li key={i} className="flex items-start justify-between gap-2 rounded-md border bg-card p-2">
                         <UntrustedText text={d} />
                         <Button size="sm" variant={picked === d ? "default" : "outline"} onClick={() => onPick(d)} aria-pressed={picked === d}>
                           {picked === d ? "선택됨" : "이 방향 선택"}

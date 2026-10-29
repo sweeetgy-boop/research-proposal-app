@@ -27,7 +27,7 @@ export function AlertsTable({ alerts }: { alerts: OverlapAlert[] }) {
     <div className="relative overflow-x-auto rounded-lg border">
       <table className="w-full min-w-[40rem] text-sm">
         <caption className="sr-only">유사과제 목록</caption>
-        <thead className="bg-muted/60 text-left text-muted-foreground">
+        <thead className="bg-muted text-left text-xs text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2 font-medium">구분</th>
             <th scope="col" className="px-3 py-2 font-medium">과제·문서</th>

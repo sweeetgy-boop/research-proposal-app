@@ -96,7 +96,7 @@ export function IdeaForm({
     <form id="idea-form" onSubmit={submit} noValidate className="space-y-6">
       <div ref={summaryRef} tabIndex={-1} className="min-h-6" aria-live="assertive">
         {summary && touched && (
-          <p role="alert" className="rounded-md border border-destructive/60 p-3 text-sm text-destructive">
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive-soft p-3 text-sm text-destructive-soft-foreground">
             {summary}
           </p>
         )}
@@ -110,7 +110,7 @@ export function IdeaForm({
         <Field name="goal" value={value.goal} onChange={set("goal")} error={live.goal} required max={SLOT_MAX} hint="연구로 무엇을 이루려는가" />
       </fieldset>
 
-      <details className="rounded-lg border p-4" open={!!(value.title_hint || value.policy_basis || value.differentiation)}>
+      <details className="rounded-lg border bg-card p-4" open={!!(value.title_hint || value.policy_basis || value.differentiation)}>
         <summary className="cursor-pointer font-semibold">선택 입력 (가제·정책 근거·제약·부서·예산)</summary>
         <div className="mt-4 space-y-4">
           <Field name="title_hint" value={value.title_hint ?? ""} onChange={set("title_hint")} error={live.title_hint} max={SHORT_MAX} short hint="있으면 과제명을 이것으로 다듬습니다" />

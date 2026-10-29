@@ -47,9 +47,9 @@ export default function Progress() {
           aria-valuemax={total}
           aria-valuenow={done}
           aria-valuetext={`${total} 단계 중 ${done} 완료`}
-          className="h-3 w-full overflow-hidden rounded-full bg-muted"
+          className="h-2.5 w-full overflow-hidden rounded-full bg-primary-soft"
         >
-          <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${pct}%` }} />
         </div>
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {generating

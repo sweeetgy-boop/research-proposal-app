@@ -130,7 +130,7 @@ export default function FinalReview() {
       ) : review.error ? (
         <ProblemBanner error={review.error} onRetry={() => review.refetch()} />
       ) : review.data ? (
-        <div className="rounded-lg border p-3">
+        <div className="rounded-lg border bg-card p-3">
           <ReviewPanel review={review.data} title={`Argon 최종 검토 ${review.data.final_round ?? ""}차 (v${review.data.draft_version})`} />
           <div className="mt-4 flex flex-wrap gap-2">
             <Link to={`/runs/${id}/edit`} className={buttonVariants({ variant: "outline" })}>의견 반영하러 가기</Link>

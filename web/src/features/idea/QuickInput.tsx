@@ -65,7 +65,7 @@ export function QuickInput({ text, title, onTextChange, onTitleChange, onFilled,
 
   return (
     <div className="space-y-6">
-      <form onSubmit={submit} noValidate className="space-y-4 rounded-lg border p-4">
+      <form onSubmit={submit} noValidate className="space-y-4 rounded-lg border bg-card p-4">
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between gap-2">
             <Label htmlFor="quick-text">
@@ -107,7 +107,7 @@ export function QuickInput({ text, title, onTextChange, onTitleChange, onFilled,
       <ProblemBanner error={merge.error} />
 
       {result && (
-        <section ref={previewRef} tabIndex={-1} aria-labelledby="quick-preview-h" className="space-y-4 rounded-lg border p-4">
+        <section ref={previewRef} tabIndex={-1} aria-labelledby="quick-preview-h" className="space-y-4 rounded-lg border bg-card p-4">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id="quick-preview-h" className="text-lg font-semibold">네 칸 미리보기</h2>
             {result.complete ? <Badge variant="success">모두 채워짐</Badge> : <Badge variant="warning">빈 칸 {result.questions.length}개</Badge>}
@@ -120,7 +120,7 @@ export function QuickInput({ text, title, onTextChange, onTitleChange, onFilled,
           )}
           <dl className="grid gap-3 sm:grid-cols-2">
             {FIELDS.map((k) => (
-              <div key={k} className="rounded-md border p-3">
+              <div key={k} className="rounded-md border bg-card p-3">
                 <dt className="text-xs font-medium text-muted-foreground">{result.labels[k] ?? k}</dt>
                 <dd className="mt-1 text-sm">{result.fields[k] ? <UntrustedText text={result.fields[k]} /> : <span className="text-muted-foreground">(비어 있음 — 질문으로 채웁니다)</span>}</dd>
               </div>

@@ -25,7 +25,7 @@ export function RelatedResearchList({ items }: { items: RelatedResearch[] }) {
         </p>
       </div>
       {items.length === 0 ? (
-        <p className="rounded-lg border px-3 py-4 text-sm text-muted-foreground">관련 연구가 없습니다.</p>
+        <p className="rounded-lg border bg-card px-3 py-4 text-sm text-muted-foreground">관련 연구가 없습니다.</p>
       ) : (
         <ul className="divide-y rounded-lg border">
           {items.map((r) => (

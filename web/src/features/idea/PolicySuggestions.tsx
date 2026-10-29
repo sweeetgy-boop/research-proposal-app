@@ -29,7 +29,7 @@ export function PolicySuggestions({ request, onPick }: { request: ProposalReques
   }
   const run = () => void call.run(request);
   return (
-    <section aria-labelledby="policy-h" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="policy-h" className="space-y-3 rounded-lg border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="policy-h" className="flex items-center gap-2 text-base font-semibold">
           <BookMarked className="size-4" aria-hidden="true" />
@@ -62,7 +62,7 @@ export function PolicySuggestions({ request, onPick }: { request: ProposalReques
       ) : data?.state === "ok" ? (
         <ul className="space-y-2" aria-label="정책 근거 추천 목록">
           {data.items.map((s, i) => (
-            <li key={i} className="flex flex-wrap items-start justify-between gap-2 rounded-md border p-3 text-sm">
+            <li key={i} className="flex flex-wrap items-start justify-between gap-2 rounded-md border bg-card p-3 text-sm">
               <div className="min-w-0 flex-1 space-y-1">
                 <blockquote className="border-l-2 pl-2">
                   <UntrustedText as="p" text={`“${s.quote}”`} />

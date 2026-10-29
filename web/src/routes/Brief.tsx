@@ -14,6 +14,7 @@ import { SKIP_LABELS } from "@/lib/sections";
 import { StepNavBar } from "@/components/StepNavBar";
 import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
 import { useElapsed } from "@/lib/useAiCall";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 /** ②와 ③ 사이 — 선행연구 브리핑. 건너뜀·503·오류여도 다음으로 갈 수 있다. */
 export default function Brief() {
@@ -50,6 +51,7 @@ export default function Brief() {
   return (
     <div className="space-y-6">
       <div>
+        <Eyebrow className="mb-1">Step 02 · Literature</Eyebrow>
         <h1 className="text-2xl font-bold tracking-tight">선행연구 브리핑</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           검색된 논문·보고서 상위 10건을 한 줄씩 요약하고 연도별 건수·주제어·연구 공백 후보를 보여 줍니다. 요약은 모델 출력이며, 후보는 확정이 아닙니다.
