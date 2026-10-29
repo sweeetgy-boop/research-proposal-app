@@ -1,5 +1,7 @@
 # precheck 적중 재측정 — 유사과제 판정 후보를 과제형 자료원으로 제한 (2026-10-28, 레인 F2, ADR 0028)
 
+> 보관(2026-10-29): 유사과제 판정 후보 제한 [F2] 측정. 판정 규칙은 이후 reranker + 핵심 키워드 + Argon 같음 판정(ADR 0036)·표 먼저(0039)·연작(0043)으로 바뀜. 최근은 `docs/eval-2026-10-29-precheck-series.md`.
+
 ## 1. 배경과 측정 방법
 - 어제 저녁 ScienceON 2,045건·NTIS 연구보고서 1,084건·NTIS 과제 2,000건 적재 뒤 골든셋 precheck 적중 9/10 → 6/10(`docs/eval-2026-10-27.md` §8.1).
 - 측정 방법은 어제 10:40 의 `data/eval/precheck_hits_k4.json` 과 같다: 골든셋 10건(`tests/golden/*.yaml`)의 입력으로 `build_precheck` 유스케이스를

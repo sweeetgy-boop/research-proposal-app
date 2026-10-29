@@ -1,10 +1,26 @@
-# 개발 현황 (2026-10-26)
+# 개발 현황 (2026-10-26 작성 · 2026-10-29 최신화)
 
 기획서(`AI_Agent_프로젝트_기획서_연구과제제안서작성지원_20251015_rev_2.hwpx`, 최종 수정 2026-10-15) 기준으로
 개발된 것과 남은 것을 적는다. 항목마다 근거(파일·테스트·커밋)를 붙인다. 설계는 `architecture.md`,
 단계 계획은 맨 아래 "진행 계획" 표. 각 단계가 끝날 때 이 문서의 해당 행을 갱신한다.
 
 규모(main e10466e, 2026-10-26 PR #1~#9·#15~#18 병합 뒤): 커밋 105, `src/rra` 파일 146, 테스트 76파일(`pytest -q` 1,178 통과·12 skip — skip 은 실응답 fixture·실물 양식), import-linter 계약 8 kept, ruff 통과. CI(`.github/workflows/ci.yml`): backend 통과, web 은 `web/` 이 없어 skip.
+
+## 0. 지금 상태 요약 (2026-10-29 09:40 기준)
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 운영 버전 | 546f244(2026-10-29 09:30, #95~#99), 이전 6008a43(10-29 02:07)·d9b2869(10-28 20:14) | `docs/history/deploys/` |
+| 시범 | 2026-10-28~ 동료 3명, 외부 주소 Tailscale Funnel `https://rra.taile5afcf.ts.net`(ADR 0047), 로그인 사번·공용 계정·관리 토큰 | `docs/pilot-guide.md` |
+| 작성 흐름 | ③ Argon 섹션 작성(4 동시) → 규칙 검사 → L2 로컬 2차 검토(불일치만 Argon 제안) → ④ 직접 수정 → ⑤ Argon 최종 검토 1회. 로컬 대체는 Argon **오류 응답**일 때만(ADR 0032·0038·0040). ③ 1차 검토는 끔 | `config/llm.yaml` |
+| 그림 | Nano Banana Pro, 기본 As-Is/To-Be + 분석 기법 추천 0~2, 가로·본문 폭 153.8mm·9pt 이상, 완결 구절, 초안 글 먼저·그림 백그라운드(ADR 0041·0044·0045) | `config/figures.yaml` |
+| 검사 | pytest 2,406 · vitest 159 · e2e 29(+3 skip) · import 계약 8 (#99) | PR #99 |
+| 자료(운영 DB, 09:37) | 16,100건·청크 35,580 — korail_web 5,098 · openalex 3,397 · ntis 3,316 · scienceon 2,906 · own 1,119 · alio 120 · rnd_notice 91 · bai 21 · datago 16 · mofe 10 · molit 6 (실시간 검색 저장분 openalex 859·scienceon 777 포함) | `docs/final-report-materials.md` ⑤ |
+| 최근 전체 측정 | 2026-10-29 01:55 `docs/eval-2026-10-28-pilot2.md`: 적중 9/10 + 2/2, 거짓 차단 0, 정책 빈칸 0(9/9), HWPX 10/10, 그림 37/37, 생성 중앙 217초. 3차 전체 측정은 소유자 지시로 중단(오늘 밤) | `docs/final-check-2026-10-29.md` |
+| 화면 | Research Studio 화면 전환 — 진행 중(2026-10-29 UI 레인 1~4) | — |
+| 이전 방식(표시만, 지우지 않음) | 로컬 7B 주 작성(~10-28 오후), ③ Argon 1차 검토(v1→v2), Cloudflare Tunnel 공개 계획, 화면 "run" 표기, Streamlit 주 화면 | ADR 0007·0024·0032·0042 |
+
+아래 §1~§5 는 2026-10-26 작성 당시 기준이고(현재와 다른 곳은 괄호로 표시), §6 이 이후 작업 결과다.
 
 ## 1. 기획서 기준표
 
@@ -18,7 +34,7 @@
 | 4 | 제안서 초안 생성 (12섹션, 문장마다 근거 id, 검색 밖 id 폐기) | 필수 | 완료 | `usecases/generate_proposal.py`, `domain/rules/grounding.py`·`llm_output.py`·`numbers.py`; `tests/application/test_generate_proposal.py`, `tests/domain/test_grounding.py`·`test_llm_output.py`; ac55782, ba3e600, df70852. 검색 관련도 하한은 이슈 #2 → P1 |
 | 5 | 선택형 항목 제안·확정 (과제유형·활용계획·경영전략) | 필수 | 완료 (전략체계 목록은 빈 파일) | `domain/models/draft.py` choices, `rra runs confirm`, UI 확정 폼; `tests/entrypoints/test_cli.py`·`ui/test_app.py`; ac55782. `config/templates/korail_strategy.yaml` 이 비어 있어 2-가-(3) 은 빈칸 + 경고 |
 | 6 | 생성 이력·재개 (실행별 저장, 섹션 단위 재개, 성명·연락처 미저장) | 필수 | 완료 | `application/services/run_manager.py`, `adapters/runs/`, `adapters/logging/file_run_log.py`(허용목록); `tests/application/test_run_manager.py`, `tests/adapters/test_file_run_store.py`; 90f46bc, 3dcb081 |
-| 7 | Streamlit 화면 (토큰 → 입력 → 유사과제 표 → 진행 → 초안·알림 → 확정 → HWPX, 사이드바 Agent 기록·자료 질의) | 선택 | 완료 | `entrypoints/ui/`, `domain/rules/agent_policy.py`, `application/services/assistant.py`; `tests/entrypoints/ui/test_app.py`·`test_server.py`·`test_worker.py`, `tests/domain/test_agent_policy.py`; 9170790, 71d860c |
+| 7 | Streamlit 화면 (토큰 → 입력 → 유사과제 표 → 진행 → 초안·알림 → 확정 → HWPX, 사이드바 Agent 기록·자료 질의) — 2026-10-27 부터 주 화면은 웹 SPA(`web/`, ADR 0015), Streamlit 은 시연·내부용 | 선택 | 완료 | `entrypoints/ui/`, `domain/rules/agent_policy.py`, `application/services/assistant.py`; `tests/entrypoints/ui/test_app.py`·`test_server.py`·`test_worker.py`, `tests/domain/test_agent_policy.py`; 9170790, 71d860c |
 
 ### 1.2 Ⅰ 프로젝트 범위 12개
 
@@ -71,7 +87,7 @@
 | 항목 | 상태 |
 |---|---|
 | ScienceON 키 | 2026-10-27 15:48 사람이 .env 를 맞바꿔 실호출 auth ok(ARTI 1,858·REPORT 370·PATENT 911). Mac mini 의 .env 도 같은 값인지 확인 |
-| NTIS | **해결(19:01)** — 등록 IP 반영으로 4개 서비스 실호출 ok, 파서 확정(#50). 남은 일: 운영 전 공인 IP 고정(IP 가 바뀌면 활용신청 서버 IP·`sources.yaml registered_ips` 갱신), 나머지 11개 질의 총건수·골든셋 임계치(0.80) 확인 | 적재 뒤 `rra precheck` 로 national_rnd 알림 확인 |
+| NTIS | **해결(10-27 19:01)** — 등록 IP 반영으로 4개 서비스 실호출 ok, 파서 확정(#50), 적재 3,316건. **다시 막힘(10-28~29)**: 회선 IP 가 바뀌어 실시간 검색 NTIS 는 "IP 차단"(10-29 09:4x 배포 확인 `partial`) → 활용신청 등록 IP 반영 확인·고정 IP 필요. 남은 일: 운영 전 공인 IP 고정(IP 가 바뀌면 활용신청 서버 IP·`sources.yaml registered_ips` 갱신), 나머지 11개 질의 총건수·골든셋 임계치(0.80) 확인 | 적재 뒤 `rra precheck` 로 national_rnd 알림 확인 |
 | KIPRIS API 키 → 실응답 녹화 → FIELDS·record_tag 확정 | 대기. 특허는 ScienceON PATENT 가 기본(ADR 0016)이라 선택 |
 | `RRA_DATA_GO_KR_KEY` (나라장터 입찰공고정보서비스, 공공데이터포털 자동승인) | 대기 — 반영 뒤 `rra sources check --source g2b` → 녹화 → `rra ingest --source g2b` (`docs/status.d/feat-policy-sources.md`) |
 | `.env RRA_DATA_DIR` | `RRA_DATA_DIR=/Users/chan/projects/research-proposal-app/data` 명시 권장(Mac mini 는 그 경로). 기본값도 원 저장소 data/ 를 찾는다(#42) |
@@ -82,9 +98,9 @@
 | `config/templates/korail_strategy.yaml` 전략체계 목록(확정본) | 비어 있음 — 확정 전까지 앱은 초안을 쓰고 "전략체계 초안(확인 전)" 라벨 표시 |
 | 연구과제 공고문 (`data/inbox/notice/`) | 파일 대기 ([11]) |
 | 시범 계정 등록(`rra auth`) | 일괄: `rra auth staff import --file <xlsx|csv> [--pad N] [--replace] [--dry-run]`(사번 열만, 출력은 개수만, 2026-10-28 A2) / 한 명씩 `rra auth staff add`·`rra auth guest set --id korail`(비밀번호 2회)·`rra auth status`. `data/auth/secret` 은 백업에 포함(잃으면 run 소유권 단절). 절차 `docs/pilot-guide.md` §6 |
-| 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30). 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
+| 웹 프론트엔드 `web/` | 2026-10-27 구현 완료(#23·#30), 2026-10-29 Research Studio 화면 전환 진행 중. 동료 GitHub 아이디를 CODEOWNERS `web/` 에 추가할 것. 로그인 뒤 화면 Lighthouse 는 세션 게이트 때문에 미측정 |
 | `.env RRA_OPENALEX_MAILTO` (OpenAlex polite pool 이메일) | 값 대기 — 없어도 적재는 되지만 공용 풀(느림) |
-| 운영 공개 방식 | 시범 결정: Cloudflare Tunnel + Access + 앱 로그인(ADR 0024, #45). 막힌 점: ai-edu-lab.co.kr DNS 가 Gabia → 존 이전 또는 Tailscale 대체(`docs/deploy-exposure.md` §5). 터널·Access 는 사람 작업 |
+| 운영 공개 방식 | **해결(2026-10-28)**: Tailscale Funnel `https://rra.taile5afcf.ts.net` + 앱 로그인(ADR 0047). Cloudflare Tunnel + Access(ADR 0024)는 DNS(Gabia) 때문에 이전 계획으로 남김. Funnel 켜고 끄기·재등록은 사람 작업(`docs/pilot-guide.md` §1.5) |
 
 ### 3.3 나중 (P7, 이슈만)
 
@@ -217,7 +233,9 @@ main 보호 규칙 켜기(위 설정), 공개 방식 결정(#14), `web/` 생기�
 | 2026-10-28 밤 — 버전·이동·표기 (21·22·25, #89) | 상태 표시(그림 확인·추천 그림 결정·근거 승인/제외·선택형 확정·로컬 검토 [무시])는 버전 없음(`versions/marks_vN.json`), 변경 n건/확인 n건, 예전 상태 버전 "확인 기록" 접기, 실제 바뀐 섹션만·그림 이름·v1 실제 작성자 배지, 모든 단계 아래 이동 막대(이전·다음·남은 일, `--stepnav-h`)·[수정 없이 최종 검토로]·최종 검토 [취소], 화면 "run" → 제안서·작성 번호·내 제안서 (ADR 0042) | `docs/status.d/feat-versions-nav.md` |
 | 2026-10-29 — 근거 범위 (3차 4, #95) | 공사 홈페이지 행정 공시 → `admin_notice`·사업 현황 → `status_report`(통계 `statistics`), `retrieval_mix` `only_in`(세 종류는 2-가-(2)·2-나, 통계는 3-가도)·`strict`(2-가-(3) 은 정책만, 되돌리기·보탬 청크 없음), 운영 DB 340행 이주는 배포 뒤 (ADR 0046) | DB 사본 측정 2-가-(3) 정책 밖 근거 5청크 → 0 |
 | 2026-10-29 — ② 같은 연작 한 줄 (3차 1, #96) | 제목이 연도·차수만 다른 과제를 "○○ 수송수요 예측(연작 n건)" 한 줄 + [펼치기] 연도별 목록, 묶은 뒤 상위 10, 대표 = reranker 최고 판·나머지 `merged_ids`, 요약문 머리 정리, `overlap.yaml series` (ADR 0043) | 08 상위 10 서로 다른 과제 7 → 10 |
-| 2026-10-29 — 초안 글 먼저·그림 백그라운드 (3차 3, #97) | v1 즉시 drafted, 그림 백그라운드 작업·"그림 준비 중" 카드·⑤⑥ 대기, 진행 화면 섹션 먼저, `rra runs active` 그림 포함, 시간 두 가지 (ADR 0045) | 측정 docs/eval-2026-10-29-pilot3.md |
+| 2026-10-29 — 초안 글 먼저·그림 백그라운드 (3차 3, #97) | v1 즉시 drafted, 그림 백그라운드 작업·"그림 준비 중" 카드·⑤⑥ 대기, 진행 화면 섹션 먼저, `rra runs active` 그림 포함, 시간 두 가지 (ADR 0045) | 레인 측정 `docs/eval-2026-10-29-draft-first.md`(통합 측정 `eval-2026-10-29-pilot3.md` 는 측정 중단으로 아직 없음) |
 | 2026-10-29 — 그림 칸 글자 완결 구절 (3차 2, #98) | 칸별 글자 수 상한 + 완결 구절 규칙(`figure_phrases`), 끊긴 구절 거절 → 교정 → 온전한 낱말 묶음, 9pt 미달은 Argon 이 상한 −25% 로 다시 써서 1회 다시 그림(`max_image_redraws` 1), 자르는 코드 삭제 (ADR 0044) | 레인 실측 13/13 9pt 이상·미완 구절 0 |
+| 2026-10-29 — 3차 통합·배포 (#99, 09:30) | 08 정답에 수송수요 예측 연작 추가(8 → 175), 측정 도구 실시간 상태·초안/그림 시간 분리, openapi 70 경로. 09:30 `tools/deploy.sh` → 546f244, 배포 뒤 운영 DB 재분류 340행(policy→admin_notice 270·status_report 70, 공사 홈페이지 정책 392 → 52, 배포 전 백업). 배포 확인: 초안 글 보임 75초·그림까지 187초·② 표 16.0초(첫 요청)·외부 3곳 200. 전체 골든셋 측정은 소유자 지시로 중단(밤에) | `docs/history/deploys/2026-10-29-0930.md`, `docs/final-check-2026-10-29.md` |
+| 2026-10-29 — 문서 최신화 [D] (docs/final-docs) | md 전체 목록·분류, 이전 방식 표시(로컬 7B 주 작성·1차 검토·Cloudflare·run 표기), ADR 0047(Tailscale Funnel 사후 기록)·ADR 목록 0029~0047, 최종보고서 재료 모음 | `docs/final-docs-inventory.md`, `docs/final-report-materials.md` |
 
 보류·미착수: g2b 실호출(키)·NTIS 공고(robots)·국정감사 지적(국회)·pdf 표 격자 복원·#13 공고 요건 대조 본체, 로그인 뒤 Lighthouse, Streamlit 의 새 패널·MCP 도구(facts·notices).

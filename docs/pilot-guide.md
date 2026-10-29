@@ -11,7 +11,8 @@
 
 - 사번·비밀번호를 5회 연속 틀리면 그 계정이 10분 잠깁니다. 메시지는 한 가지("사번 또는 아이디·비밀번호를 확인하세요")만 나옵니다.
 - 세션은 12시간입니다. 오른쪽 위 로그아웃으로 끝낼 수 있습니다.
-- 회사 도메인 주소(`rra.ai-edu-lab.co.kr`, Cloudflare 이메일 코드)는 DNS 이전 뒤에 엽니다. 그때까지는 위 ts.net 주소만 씁니다.
+- 회사 도메인 주소(`rra.ai-edu-lab.co.kr`, Cloudflare 이메일 코드)는 이전 계획입니다(DNS 이전 전에는 열지 않음, ADR 0024 → 0047). 위 ts.net 주소만 씁니다.
+- 화면 모양: **Research Studio 화면 전환 — 진행 중**(2026-10-29). 메뉴 위치·색이 바뀌어도 ①~⑥ 단계와 기능은 같습니다.
 
 ## 1.5 접속이 안 될 때 (2026-10-28)
 
@@ -95,11 +96,13 @@ grep "api.access\|api.login.fail\|api.auth.reject" ~/Library/Logs/rra-api.err.lo
 - 한 건 소요(2026-10-29 새벽 실측, 골든셋 10건): 유사과제 표 **약 2초**(첫 요청은 10초 남짓) → AI 같음 판정 약 10초(8~37초)
   → 첫 과제안 카드 약 55초(48~116초) → 생성 중앙 **217초**(140~310초, 이 중 그림 약 2분 — 그림 글자가 작으면 다시 그림) → 최종 검토·다운로드.
   ② 부터 HWPX 까지 한 건 약 5분. 생성 결과 10건 모두 유효, 빈 초안 0, HWPX 서식 점검 10/10, 그림 37장 모두 본문 폭·글자 9pt 이상.
+  **2026-10-29 09:30 배포(초안 글 먼저) 뒤**: 초안 글이 보이기까지 75초(그때 그림은 그리는 중), 그림까지 187초(골든셋 06 1건, `docs/history/deploys/2026-10-29-0930.md`).
+  같은 방식의 골든셋 전체 측정은 동료 사용이 없는 밤에 할 예정입니다(측정 전 스모크 1건: 초안 90초·그림까지 184초).
 - AI 다시 쓰기·보완 질문은 한 번에 보통 5~20초입니다. Argon 응답이 늦으면 몇 분 걸릴 때가 있습니다(기다리기 싫으면 창을 닫고 [다시 시도]).
 - 일일 생성 상한: 직원 1인 20건, 공용 계정 10건. Argon(Gemini) 일일 상한은 전체 600회(초안 1건 약 15회)이고, 넘으면 섹션을 로컬 모델이 대신 씁니다
   ("로컬 작성" 배지, 조금 느림). 그림은 하루 150장까지이고 넘으면 기본 그림이 들어갑니다.
 - 공용 계정(아이디·비밀번호)은 사내 비공개 자료(internal)를 검색·근거·추천에서 뺍니다. 직원 로그인은 전부 봅니다.
-- NTIS(국가R&D) 자료는 서버 IP 등록 문제로 빠질 수 있습니다(2026-10-28 현재 실시간 검색에서 NTIS 는 "IP 차단"). 빠지면 유사과제 화면 자료원별 상태에 안내가 뜹니다.
+- NTIS(국가R&D) 자료는 서버 IP 등록 문제로 빠질 수 있습니다(2026-10-29 09:4x 배포 뒤 확인에서도 실시간 검색 NTIS 는 "IP 차단", 실시간 검색 상태 `partial`). 미리 적재된 NTIS 3,316건은 그대로 쓰입니다. 빠지면 유사과제 화면 자료원별 상태에 안내가 뜹니다.
 - 실시간 검색으로 찾은 논문·보고서·과제는 공개 자료로 저장되어 다음 사람의 검색에도 쓰입니다(개인 이름은 빼고 저장).
 - 서버는 사무실 맥(MacBook/Mac mini) 한 대입니다. 꺼지거나 절전이면 접속이 안 됩니다.
 - 생성 결과는 초안입니다. 수치·정책명은 근거를 꼭 확인하세요(미확인 수치는 알림으로 표시됩니다).
@@ -115,7 +118,7 @@ grep "api.access\|api.login.fail\|api.auth.reject" ~/Library/Logs/rra-api.err.lo
 
 ## 5. 서버 쪽 로그 위치 (운영자만)
 
-- 앱: `~/Library/Logs/rra-api.log`, `rra-api.err.log` / 로컬 LLM: `rra-mlx*.log` / 터널: `rra-tunnel*.log`
+- 앱: `~/Library/Logs/rra-api.log`, `rra-api.err.log` / 로컬 LLM: `rra-mlx*.log` / (터널 `rra-tunnel*.log` 는 Cloudflare 이전 계획용 — 지금은 없음)
 - run 기록: `data/runs/<run_id>/`(manifest·versions·reviews), 거부 로그는 `rra.api.auth`(IP·해시만), 4xx·5xx 접근 로그는
   `rra.api.access`(상태·경로·IP만), 로그인 실패는 `api.login.fail kind=… ip=…`(사번·아이디 값 없음) — 모두 `rra-api.err.log`
 - 상태 확인: `launchctl list | grep com.rra`, `curl http://127.0.0.1:8000/healthz`, `rra sources status`
@@ -224,7 +227,7 @@ curl -s http://127.0.0.1:8000/healthz                      # {"status":"ok", ...
 | 하고 싶은 것 | 파일·값 |
 |---|---|
 | 로컬 모델이 먼저 쓰기(예전 방식) | `config/llm.yaml` `compose.writer: local` (1차 검토도 쓰려면 `review.first_pass: on`) |
-| 로컬 근거 대조 켜기 | `config/llm.yaml` `compose.local_check: on`(섹션당 20초 상한, 불일치는 알림) |
+| 로컬 2차 검토(L2) 끄기 | `config/llm.yaml` `compose.local_check: off`(2026-10-28 밤부터 기본 on, 시간 상한 없음, ADR 0040 — 예전 "섹션당 20초 상한"은 이전 방식) |
 | 동시 생성 수 | `config/runs.yaml` `max_concurrent`(기본 3. Argon 작성일 때만 적용) |
 | 실시간 검색 끄기 / 자료원별 끄기 | `config/live_search.yaml` `enabled: false` / `sources.<이름>.enabled: false` |
 | Argon 일일 상한 | `config/llm.yaml` `budget.gemini_daily_calls`(600), 오늘 쓴 수 `data/cache/llm_budget.json` |

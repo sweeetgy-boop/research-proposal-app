@@ -1,5 +1,7 @@
 # 내일 아침 시범 준비 (2026-10-28, 3명)
 
+> 보관(2026-10-29): 시범 준비 당시(10-27) 점검표. 외부 주소(Cloudflare → Tailscale Funnel, ADR 0047)·사번 등록·NTIS 적재 등 여기 적힌 사람 할 일 다수는 이후 해결됐다. 지금 상태는 `docs/status.md` §0.
+
 ## 접속 주소와 경로
 
 - 외부 주소 `https://rra.ai-edu-lab.co.kr` 은 **아직 열리지 않음** — ai-edu-lab.co.kr 의 DNS 가 Gabia(Cloudflare 아님)이고 이 맥에 cloudflared·인증서가 없어 터널을 만들지 않았다(ADR 0024, `docs/deploy-exposure.md` §5). 앱 쪽 준비(public_origin·Secure 쿠키·Origin 검사·client_ip·tunnel plist)는 끝났다(#45).

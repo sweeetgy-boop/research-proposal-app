@@ -1,5 +1,7 @@
 # ADR 0024 — 외부 공개 시범: Cloudflare Tunnel + Cloudflare Access, 앱 로그인 이중 인증 (2026-10-27, 레인 W)
 
+> 상태(2026-10-29 문서 최신화): 이전 계획. DNS(Gabia) 때문에 터널을 띄우지 못했고, 2026-10-28 부터 실제 공개는 Tailscale Funnel(ADR 0047).
+
 ## 배경
 앱(`rra api`)·mlx 는 127.0.0.1 에만 바인딩한다(보안 G·H). 동료가 브라우저로 쓰려면 HTTPS 종단·접근 제어를 하는 역프록시가 앞에 서야
 한다. 2026-10-26 비교(`docs/deploy-exposure.md` §1)는 Tailscale 을 권장했으나, 시범 대상 동료 PC 에 소프트웨어 설치·테일넷 초대를

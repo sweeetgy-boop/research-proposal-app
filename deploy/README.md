@@ -1,13 +1,14 @@
 # 배포 (M6 Mac mini 32GB) — launchd 4종(+터널 1) + 127.0.0.1 바인딩 + 역프록시
 
 처음 설치하는 사람 기준의 순서다. 모든 서비스는 사용자 launchd 에이전트(`~/Library/LaunchAgents`)로 돌고,
-비밀은 `.env`(권한 600)에만 둔다. 외부 공개는 시범으로 Cloudflare Tunnel + Access(`docs/deploy-exposure.md` §5) — 터널은 사람이 켠다.
+비밀은 `.env`(권한 600)에만 둔다. 외부 공개는 2026-10-28 시범부터 **Tailscale Funnel** `https://rra.taile5afcf.ts.net`(ADR 0047, 켜고 끄기는
+사람 작업, `docs/pilot-guide.md` §1.5). Cloudflare Tunnel + Access(§6, ADR 0024)는 DNS 때문에 띄우지 못한 이전 계획이다.
 
 ## 0. 전제 (보안 G·H)
 
 - `rra api` 와 `mlx_lm.server` 는 **127.0.0.1 에만 바인딩**한다. 포트를 외부에 직접 열지 않는다.
-- 외부(동료 PC)에서 쓰려면 HTTPS 를 종단하는 역프록시(Tailscale serve 또는 Cloudflare Tunnel) 뒤에서만.
-  앱은 그 뒤에서도 자체 토큰(`RRA_API_TOKEN`)을 그대로 요구한다(이중 인증).
+- 외부(동료 PC)에서 쓰려면 HTTPS 를 종단하는 역프록시 뒤에서만 — 지금은 Tailscale Funnel(이전 계획: Cloudflare Tunnel).
+  앱은 그 뒤에서도 자체 로그인(직원 사번·공용 계정·관리 토큰 `RRA_API_TOKEN`, ADR 0026)을 그대로 요구한다.
 - plist 에는 토큰·키를 적지 않는다. `WorkingDirectory` 의 `.env` 를 settings 가 읽는다.
 - 파일 업로드 엔드포인트는 없다. 알리오·사내 자료는 로컬 폴더(`data/inbox/…`)로만.
 
@@ -48,11 +49,11 @@ plist 의 경로는 `/Users/chan/projects/research-proposal-app` 로 채워져 �
 
 | 파일 | 역할 | 일정 | 바인딩 |
 |---|---|---|---|
-| `com.rra.mlx.plist` | 로컬 작성 LLM (`mlx_lm.server`, Qwen2.5-7B-Instruct-4bit) | 상시 (KeepAlive) | 127.0.0.1:8080 |
+| `com.rra.mlx.plist` | 로컬 LLM (`mlx_lm.server`, Qwen2.5-7B-Instruct-4bit) — 2026-10-28 부터 주 작성은 Argon, 로컬은 오류 섹션 대체·L2 로컬 2차 검토 | 상시 (KeepAlive) | 127.0.0.1:8080 |
 | `com.rra.api.plist` | REST API (`rra api`) | 상시 (KeepAlive) | 127.0.0.1:8000 |
 | `com.rra.backup.plist` | DB 사본 (`rra db backup --keep 7`, VACUUM INTO, 600) | 매일 03:30 | — |
 | `com.rra.ingest.plist` | 야간 적재 (`rra ingest --skip-unavailable`: OpenAlex·inbox·키 있는 자료원) | 매일 02:30 | — |
-| `com.rra.tunnel.plist` | Cloudflare Tunnel (`cloudflared tunnel --config ~/.cloudflared/config.yml run rra`) — rra.ai-edu-lab.co.kr → 127.0.0.1:8000 | 상시 (KeepAlive), **Access 확인 뒤에만** | 아웃바운드만 (포트 열지 않음) |
+| `com.rra.tunnel.plist` | *(이전 계획, 등록 안 함)* Cloudflare Tunnel (`cloudflared tunnel --config ~/.cloudflared/config.yml run rra`) — rra.ai-edu-lab.co.kr → 127.0.0.1:8000 | 상시 (KeepAlive), **Access 확인 뒤에만** | 아웃바운드만 (포트 열지 않음) |
 
 ```bash
 cp deploy/launchd/com.rra.{mlx,api,backup,ingest}.plist ~/Library/LaunchAgents/
@@ -89,7 +90,8 @@ curl -s -H "X-RRA-Token: $RRA_API_TOKEN" -H 'content-type: application/json' \
 .venv/bin/rra db backup --out data/backups --keep 7          # 사본 1회 수동 실행 → data/backups 에 7벌까지
 .venv/bin/rra runs purge --dry-run                            # 만료 run (security.yaml retention_days, 180일)
 tail -n 50 ~/Library/Logs/rra-{mlx,api,backup,ingest,tunnel}.err.log
-curl -sI https://rra.ai-edu-lab.co.kr | head -3                 # 터널 기동 뒤: 302 → cloudflareaccess.com 이어야 한다 (200 이면 즉시 내린다)
+/Applications/Tailscale.app/Contents/MacOS/Tailscale funnel status   # 443 에 "(Funnel on)" — 공개 경로 확인은 이 맥 밖에서(pilot-guide §1.5)
+# (이전 계획) curl -sI https://rra.ai-edu-lab.co.kr | head -3   # Cloudflare 터널 기동 뒤: 302 → cloudflareaccess.com
 ```
 
 ## 4. REST API 요약 (`rra api`)
@@ -125,7 +127,13 @@ healthz·로그인 화면·외부 주소 확인 → `docs/history/deploys/` 기�
   (`tests/deploy/test_launchd_plists.py` 가 plist 의 `--keep 7` 과 회전을 함께 검사한다).
 - 임베딩 모델을 바꾸면 기동 때 `db.embedding_model_mismatch` 경고 → `rra reindex`.
 
-## 6. 외부 공개 (시범: Cloudflare Tunnel + Access, 2026-10-27)
+## 6. 외부 공개
+
+**현재(2026-10-28~)**: Tailscale Funnel `https://rra.taile5afcf.ts.net` → 127.0.0.1:8000 → 앱 로그인. `config/api.yaml public_origin` 이 이 주소,
+Funnel 뒤 접속자 IP 는 127.0.0.1 peer 일 때만 `X-Forwarded-For` 맨 오른쪽(`trust_forwarded_from_loopback`, #79). `com.rra.awake`(caffeinate)로
+맥이 잠들지 않게 한다. 확인·장애 대처는 `docs/pilot-guide.md` §1.5, 결정은 ADR 0047.
+
+**이전 계획 (Cloudflare Tunnel + Access, 2026-10-27 — 띄우지 않음)**
 
 - 공개 주소 `https://rra.ai-edu-lab.co.kr` → Cloudflare Access(이메일 일회용 코드) → 터널 → 127.0.0.1:8000 → 앱 로그인(토큰). 이중 인증.
 - 앱 설정은 `config/api.yaml`(`public_origin`, `trust_cf_connecting_ip`) — 비밀 아님. `.env` 는 그대로.

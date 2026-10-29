@@ -4,6 +4,13 @@
 
 ---
 
+> **현재 상태 메모 (2026-10-29 문서 최신화)** — 이 문서는 설계 당시 기록을 남겨 두므로 일부 절이 지금 운영과 다르다. 다른 곳은 그 절에
+> "이전 방식" 으로 표시했고, 2026-10-28~29 변경은 §4.25 에 모았다.
+> - ③ 작성: **Argon 먼저 작성 → 규칙 검사 → L2 로컬 2차 검토**(ADR 0032·0040). 로컬 Qwen 7B 는 Argon 오류 응답 때 대체만(ADR 0038). ③ Argon 1차 검토(v1→v2)는 끔.
+> - 외부 공개: **Tailscale Funnel** `https://rra.taile5afcf.ts.net` + 앱 로그인(ADR 0047). Cloudflare Tunnel/Access 는 이전 계획(ADR 0024).
+> - 인증: 단일 토큰 → 직원 사번·공용 계정·관리 토큰(ADR 0026). 생성 동시성 1 → Argon 작성은 동시 3(로컬 단계만 전역 슬롯).
+> - 주 화면: Streamlit(§4.2) → 웹 SPA `web/`(ADR 0015), 2026-10-29 Research Studio 화면 전환 진행 중.
+
 ## 개선사항 반영 현황 (10항목)
 
 | # | 개선 요구 | 반영 위치 | 상태 |
@@ -86,7 +93,7 @@ overlap 판정(특히 철도연구원 자체 과제 = own 티어)에는 이 요�
 | 모델 | 14B급 4bit 1개 상주 (`mlx_lm.server --model <repo 또는 로컬 경로>`, 요청은 `model: default_model`) | 32GB 기준: 14B 4bit 가중치(약 8~9GB) + 임베딩 모델 + OS·앱을 빼고도 KV 캐시·긴 프롬프트(섹션당 약 2만 자)에 여유가 크다. 더 큰 모델은 GPU 메모리 상한(`sysctl-iogpu.sh`)과 KV 캐시를 실측한 뒤 판단. mlx_lm.server 에는 별칭(`--served-model-name`)이 없고, `default_model` 이 아닌 이름을 보내면 그 모델을 새로 로드하려 한다 |
 | 임베딩 | sentence-transformers (MPS), `EmbeddingPort` 별도 | mlx-lm은 텍스트 생성 전용 |
 | DB | SQLite (FTS5 + sqlite-vec) 기본, Supabase/Postgres는 2차 어댑터 | 데이터 로컬 유지, 무료 한도 회피 |
-| 배포 | launchd 상시 구동 + Tailscale(소수) / Cloudflare Tunnel(시연) | 무료, 포트 개방 없음 |
+| 배포 | launchd 상시 구동 + Tailscale(소수) / Cloudflare Tunnel(시연) — *현재: Tailscale Funnel(ADR 0047)* | 무료, 포트 개방 없음 |
 | 비용 | 0원 (전기요금 제외) | 모든 소스 API·런타임·모델 무료 |
 
 ---
@@ -433,6 +440,9 @@ UI 는 받기 버튼 위, REST `GET /v1/runs/{id}/render-check`. 알림이 있�
 
 ### 4.6 전체 흐름 ③~⑥ — 2중 작성·직접 수정·최종 검토·버전 관리 (2026-10-27, ADR 0011)
 
+> 이전 방식 표시(2026-10-29): 아래 ③ 의 "로컬 모델(Qwen) 작성 → v1 → Argon 1차 검토 → v2" 는 2026-10-28 오후까지의 흐름이다. 지금은
+> `llm.yaml compose.writer: gemini`·`review.first_pass: off` 로 Argon 이 쓰고(v1), 규칙 검사·L2 로컬 2차 검토가 뒤따른다(§4.25). 상태 흐름·④~⑥ 은 그대로.
+
 **흐름**(모든 진입점·문서·화면이 따른다): ① 아이디어 입력 → ② 유사과제 확인·과제 추천(§4.14) → **③ 초안 생성** =
 (입력 보강 질문, 선택) → 섹션 설계도 → 섹션별 맞춤 검색 → 로컬 모델(Qwen) 작성 → 규칙 검사·자동 정리 → **v1** → Argon 1차 검토
 → 검증을 통과한 수정안·추가 문장만 자동 반영 → **v2("Argon 보완")** → **④ 직접 수정·보완**(저장·임시 저장·복원·비교, 외부 LLM
@@ -624,7 +634,7 @@ precheck 결과에 차단 또는 기준 근접(유사도 ≥ 티어 임계치 ×
   실패해도 `IngestSources` 가 소스별로 격리해 나머지를 계속한다. 백업보다 먼저 돌아 그날 사본에 들어간다.
 - `tests/deploy/test_launchd_plists.py`: plist 4종 파싱·라벨·127.0.0.1 바인딩·비밀 없음·일정·`--keep 7` 과 실제 회전(7벌).
 - `deploy/README.md`: Mac mini 처음 설치 순서(uv·mlx-lm·모델 내려받기·.env 600·launchctl load 4종·점검 명령·REST 요약).
-- 외부 공개는 결정 전 — `docs/deploy-exposure.md` 에 Tailscale serve / Cloudflare Tunnel 비교(접근 범위·제어·데이터 경계·
+- 외부 공개는 결정 전(2026-10-26 당시 — 지금은 Tailscale Funnel, ADR 0047) — `docs/deploy-exposure.md` 에 Tailscale serve / Cloudflare Tunnel 비교(접근 범위·제어·데이터 경계·
   비용)와 필요한 설정만. 권장은 소수 동료 시범 운영이면 Tailscale(사내 자료가 제3자 엣지를 거치지 않음). 구현 없음.
 
 ### 4.13 OpenAlex 철도 코퍼스 (2026-10-26)
@@ -995,7 +1005,7 @@ fragment 를 자동 재실행하지 않으므로 `Worker.wait(run_id)` 뒤 `at.r
 **이유**: 제안서는 한 번에 안 끝남. 부서장 검토 → 수정 → 재검토를 최소 두세 번 돎. 어느 문장이 왜 바뀌었는지 추적이 안 되면 "지난번 게 나았다"에 대응 못 함. Draft가 구조화돼 있어 diff가 문장 단위로 가능.
 
 ### 10. 무료 상시 배포 (launchd + mlx-lm + Tailscale)
-**무엇**: 맥미니에서 `mlx_lm.server`·FastAPI·야간 배치를 launchd로 상시 구동. LLM은 `127.0.0.1`에만 바인딩, FastAPI만 Tailscale(소수) 또는 Cloudflare Tunnel(시연) 뒤로 노출. `deploy/` 디렉토리에 plist와 절차 문서.
+**무엇**: 맥미니에서 `mlx_lm.server`·FastAPI·야간 배치를 launchd로 상시 구동. LLM은 `127.0.0.1`에만 바인딩, FastAPI만 Tailscale(소수) 또는 Cloudflare Tunnel(시연) 뒤로 노출 *(현재: Tailscale Funnel, ADR 0047)*. `deploy/` 디렉토리에 plist와 절차 문서.
 **이유**: 14B 모델을 무료 클라우드에 올릴 방법이 없으므로 맥미니가 서버가 되는 구조는 고정. 포트 개방 없이 HTTPS 접근이 가능하고 비용이 0. 사내 Windows PC로 옮길 때는 `composition.py`의 `deploy_mode`만 바꾸면 되므로 코드 변경 없음. 단, 동료 시연 시 제안 데이터가 개인 서버에 저장되는 점은 명시하고 정식 사용은 회사 자산 PC 전제로 제안.
 
 ---
@@ -1103,8 +1113,8 @@ fragment 를 자동 재실행하지 않으므로 `Worker.wait(run_id)` 뒤 `at.r
 
 #### G. 웹 UI — `entrypoints/api/`, `adapters/security/middleware.py` (Step 10 구현)
 - `127.0.0.1:8000` 바인딩. TLS는 Tailscale/Cloudflare가 종단.
-- 터널 뒤라도 **자체 인증 필수**: 초기엔 단일 관리 토큰(헤더), 다중 사용자 시 Cloudflare Access JWT 검증.
-- 요청 본문 크기·필드 길이 상한(5슬롯 각 2,000자), 동시 생성 요청 1개(세마포어) → 32GB 메모리 보호 (상주 모델 1개의 KV 캐시를 여러 생성이 나눠 쓰지 않게).
+- 터널 뒤라도 **자체 인증 필수**: 초기엔 단일 관리 토큰(헤더), 다중 사용자 시 Cloudflare Access JWT 검증. *(현재: 앱 로그인 — 직원 사번·공용 계정·관리 토큰, ADR 0026. Access 는 쓰지 않음)*
+- 요청 본문 크기·필드 길이 상한(5슬롯 각 2,000자), 동시 생성 요청 1개(세마포어 — 현재: Argon 작성 run 은 동시 3, 로컬 모델 단계만 전역 슬롯, ADR 0032) → 32GB 메모리 보호 (상주 모델 1개의 KV 캐시를 여러 생성이 나눠 쓰지 않게).
 - 보안 헤더(CSP, X-Frame-Options, Referrer-Policy), CORS 비활성(동일 출처만).
 - 파일 업로드 엔드포인트 없음. filedrop은 로컬 폴더로만.
 - 사용자별 run 격리: `runs/<user_id>/<run_id>/`, 타 사용자 run 조회 불가.
@@ -1398,3 +1408,20 @@ DocumentTables=DB 본문) → `usecases/extract_facts.ExtractTableFacts` → `Ta
 2-가-(1) 그대로(근거 금지 섹션의 유일한 예외). "정책 근거 없음" 은 `policy_basis_needed` 알림·제출 전 점검 `policy_basis`.
 ④ AI 다시 쓰기(`rewrite_llm`, 사유·새로 쓰기), 보완 질문(`usecases/section_questions`, 모든 섹션 체크리스트), 변경 세기
 (`domain/rules/change_count`, `GET /v1/runs/{id}/changes`). RunManager 쪽은 `application/services/edit_ai.EditAIMixin`.
+
+### 4.25 2026-10-28~29 변경 요약 — 시범 운영 중 바뀐 흐름 (2026-10-29 문서 최신화)
+
+자세한 설계는 각 ADR 에 있다. 이 절은 위 절들과 지금 운영을 잇는 목차다.
+
+| 영역 | 지금 | ADR |
+|---|---|---|
+| ③ 작성 | Argon 섹션 작성(4 동시) → 실패 섹션만 로컬(사유 error·rate_limit·budget·invalid) → 규칙 검사 → L2 로컬 2차 검토(지지·부분·불일치, 불일치만 Argon 제안 [반영]/[무시]) | 0032·0040 |
+| 로컬 대체 조건 | Argon 이 오류로 답할 때만(호출 실패·교정 뒤 형식 오류). 규칙에 걸러진 답은 로컬에 다시 묻지 않음. AI 응답은 시간 제한 없음 + [취소](통신 10분 무응답만 오류) | 0038 |
+| ② 판정 | 표 먼저(reranker ≥ 0.5 + 핵심 키워드 ≥ 1, 과제형 자료원만, 같은 연작 한 줄) → 상위 10 Argon 같음 판정 → 제안자 [유사함]/[관련 없음]·[선택 적용] | 0028·0036·0039·0043 |
+| 실시간 검색 | ② 때 ScienceON·NTIS·OpenAlex 동시(자료원 10초·전체 15초), public·`raw.live` 로 저장, 24시간 캐시, NTIS IP 거부는 건너뜀 | 0031 |
+| 정책 근거 | 작성안 4개(정책 문서 인용 구간 안, 원문 재대조), 연구용역(사내 발주)·행정 공시·사업 현황·통계는 정책 분류 밖, 2-가-(3) 은 정책만 | 0037·0040·0046 |
+| 그림 | 명세 → 밑그림 → Nano Banana Pro, 기본 As-Is/To-Be + 분석 기법 0~2, 가로·본문 폭 153.8mm·9pt, 완결 구절·1회 다시 그림, 초안 글 먼저·그림 백그라운드(`figure_job`) | 0029·0030·0033·0041·0044·0045 |
+| 편집·버전 | 상태 표시는 버전 없음(`marks_vN.json`), 입력 변경 다시 쓰기, 아래 이동 막대, 화면에 "run"·내부 번호 없음 | 0035·0042·0040 |
+| HWPX | 단계별 서식 점검·고침(`hwpx_format`), 그림 본문 폭 | 0034·0041 |
+| 로그인·공개 | 직원 사번(HMAC)·공용 계정(scrypt)·관리 토큰, 공용 계정 internal 제외, Tailscale Funnel | 0026·0047 |
+| 배포 | 합쳐도 자동 재시작 없음, `tools/deploy.sh`, 보안·접속 오류는 즉시 | `docs/pilot-guide.md` §6.3 |
