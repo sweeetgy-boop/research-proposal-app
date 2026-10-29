@@ -35,7 +35,7 @@ export function Dialog({ open, onClose, title, description, children, footer, cl
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
       className={cn(
-        "m-auto w-[min(92vw,36rem)] rounded-lg border bg-card p-0 text-card-foreground shadow-xl open:flex open:flex-col",
+        "m-auto w-[min(92vw,36rem)] rounded-xl border bg-card p-0 text-card-foreground shadow-pop open:flex open:flex-col",
         className,
       )}
       onCancel={(e) => {
@@ -50,7 +50,7 @@ export function Dialog({ open, onClose, title, description, children, footer, cl
     >
       <div className="flex items-start justify-between gap-4 border-b p-4 sm:p-5">
         <div>
-          <h2 id={titleId} className="text-lg font-semibold leading-tight">
+          <h2 id={titleId} className="text-lg font-bold leading-tight">
             {title}
           </h2>
           {description && (

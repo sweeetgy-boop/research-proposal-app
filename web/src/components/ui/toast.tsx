@@ -43,9 +43,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={t.id}
             role={t.kind === "error" ? "alert" : undefined}
             className={cn(
-              "pointer-events-auto flex w-full max-w-sm items-start gap-2 rounded-md border bg-card p-3 text-sm text-card-foreground shadow-lg",
-              t.kind === "error" && "border-destructive/60",
-              t.kind === "success" && "border-success/60",
+              "pointer-events-auto flex w-full max-w-sm items-start gap-2 rounded-lg border bg-card p-3 text-sm text-card-foreground shadow-pop",
+              t.kind === "error" && "border-destructive/40 bg-destructive-soft",
+              t.kind === "success" && "border-success/30 bg-mint",
             )}
           >
             {t.kind === "error" ? (
@@ -58,7 +58,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <span className="flex-1">{t.message}</span>
             <button
               type="button"
-              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+              className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="알림 닫기"
               onClick={() => dismiss(t.id)}
             >
