@@ -18,6 +18,11 @@ test.describe("화면 틀 (레인 1)", () => {
     await main.getByLabel("사번", { exact: true }).fill(STAFF_NO);
     await main.getByRole("button", { name: "로그인", exact: true }).click();
     await expect(page.getByRole("group", { name: "로그인 종류: 직원" })).toBeVisible();
+    // 화면 이동 없이 같은 자리 — 로그인 카드가 "연구 한눈에 보기"로 바뀌고 최근 제안서 표가 채워진다(레인 2 홈)
+    await expect(page).toHaveURL(/\/$/);
+    await expect(main.getByTestId("home-login")).toHaveCount(0);
+    await expect(main.getByText("연구 한눈에 보기")).toBeVisible();
+    await expect(main.getByTestId("overview-all")).toContainText(/\d+\s*편/);
     await expect(sidebar(page).getByRole("link", { name: /내 제안서/ }).getByLabel(/^\d+건$/)).toBeVisible();
     await expect(page.locator("body")).not.toContainText(STAFF_NO); // 사번 표시 금지
     // 로그아웃 → 같은 홈의 로그인 전 상태

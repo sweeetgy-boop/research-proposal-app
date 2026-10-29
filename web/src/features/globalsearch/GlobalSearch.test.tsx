@@ -167,11 +167,12 @@ describe("통합 검색", () => {
 });
 
 describe("통합 검색 — 로그인 전", () => {
-  it("포커스·단축키는 로그인으로 보내고 API 를 부르지 않는다", async () => {
+  it("포커스·단축키는 로그인 창으로 보내고 API 를 부르지 않는다", async () => {
     const { calls } = mockFetch({});
     renderSearch("/new");
     fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
-    expect(screen.getByTestId("where")).toHaveTextContent("/login");
+    // 창 제공자(LoginDialogProvider)가 없는 단위 시험에서는 useRequireLogin 이 홈으로 보내며 창을 연다
+    expect(screen.getByTestId("where")).toHaveTextContent(/^\/$/);
     expect(calls).toHaveLength(0);
   });
 });

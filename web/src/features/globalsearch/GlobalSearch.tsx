@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, FileText, Library, Search as SearchIcon } from "lucide-react";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useRequireLogin } from "@/features/auth/useRequireLogin";
 import * as api from "@/api/endpoints";
 import { isApiError } from "@/api/client";
@@ -234,6 +234,7 @@ export function GlobalSearch({ className }: { className?: string }) {
           "absolute inset-x-0 sm:left-auto sm:right-0 sm:w-[min(92vw,34rem)]",
           !open && "hidden",
         )}
+        hidden={!open}
       >
         <div id={listboxId} role="listbox" aria-label="통합 검색 결과" className="max-h-[min(70vh,32rem)] overflow-y-auto p-2">
           <div role="group" aria-labelledby={`${ids}-g-p`} className="pb-1">
