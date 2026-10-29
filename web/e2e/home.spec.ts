@@ -65,7 +65,7 @@ test("로그인 전 홈은 개인 데이터 없이, 로그인 뒤 건수·표가
 
   // 전체 보기 → 내 제안서 (같은 줄 모양 + 작성 번호)
   await page.goto("/");
-  await page.getByRole("link", { name: /전체 보기/ }).click();
+  await page.getByRole("link", { name: "전체 보기", exact: true }).click();
   await expect(page).toHaveURL(/\/runs$/);
   await expect(page.getByRole("heading", { level: 1, name: "내 제안서" })).toBeVisible();
   await expect(rows(page).first()).toBeVisible();

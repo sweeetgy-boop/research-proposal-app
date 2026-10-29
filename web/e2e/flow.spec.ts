@@ -90,7 +90,7 @@ test.describe("전체 흐름 ①→⑥", () => {
   test("run 목록·자료 검색·자료원 상태", async ({ page }) => {
     await login(page);
     await page.getByRole("link", { name: "내 제안서" }).click();
-    await expect(page.getByRole("table").or(page.getByText("아직 만든 제안서가 없습니다"))).toBeVisible();
+    await expect(page.getByTestId("run-rows").or(page.getByText("아직 만든 제안서가 없습니다"))).toBeVisible(); // 내 제안서 = 줄 목록 (UI Research Studio)
     await page.getByRole("link", { name: "자료 검색" }).click();
     await page.getByLabel("검색어").fill("궤도");
     await page.getByRole("button", { name: "검색" }).click();
