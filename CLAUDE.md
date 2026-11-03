@@ -208,6 +208,9 @@
   — 열리면 바로 추천, `rank` 1 미리 체크("기본 추천", 자동 저장 아님), 추가 체크·직접 입력 → [적용] 때만 `mergePolicyBasis`(같은 문장 한 번), [다시 받기]
   `exclude_doc_ids`, [나중에 넣기] `IdeaState.policyDeferred`. 정책 근거 칸은 접지 않는다(`IdeaForm policyTools`). 다시 넣는 길: ③ 빈 정책 근거면 작성안 펼침,
   ④ 2-가-(1) [정책 근거 넣기·바꾸기] 늘 보임·빈칸 안내 줄·`RunPolicyDialog` 직접 입력(`withManual`)·`/edit?policy=1`, ③ 초안 보기·⑥ "정책 근거" 항목 바로가기.
+- **참고 논문**(2026-11-03, ADR 0053, 계약 `docs/contracts/reference-papers.md`): ② 관련 연구 [차별화에 참고](최대 5) → `ProposalRequest.reference_ids`(FORM_ONLY,
+  판정·차단 미사용) → `usecases/references.load_references`(repo.get_document, 권한 밖·없는 id 는 뺌) → 과제안·활용 제안 `[참고 논문]` 구획(`domain/rules/reference_papers`),
+  비교표 `kind=reference`('선행연구'). `recommend.md` "겹치는 과제 없음"은 빈 배열 사유 아님('새 영역' 1~3건), 유사함 0 + 0건이면 1회 다시(`retry_used`), 0건 + 참고 없음 `hint: reference`.
 - **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.
   이제 쓰지 않는 방식(로컬 7B 주 작성·③ 1차 검토·Cloudflare 계획·화면 "run" 표기)은 지우지 않고 "이전 방식"으로 표시한다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
