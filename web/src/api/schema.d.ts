@@ -1796,6 +1796,11 @@ export interface components {
              */
             similar_choices?: components["schemas"]["SimilarChoice"][];
             /**
+             * Reference Ids
+             * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
+             */
+            reference_ids?: string[];
+            /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
              * @default
@@ -1923,6 +1928,11 @@ export interface components {
              * @description ② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)
              */
             similar_choices?: components["schemas"]["SimilarChoice"][];
+            /**
+             * Reference Ids
+             * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
+             */
+            reference_ids?: string[];
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
@@ -2060,6 +2070,11 @@ export interface components {
              */
             similar_choices?: components["schemas"]["SimilarChoice"][];
             /**
+             * Reference Ids
+             * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
+             */
+            reference_ids?: string[];
+            /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
              * @default
@@ -2174,6 +2189,11 @@ export interface components {
              * @description ② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)
              */
             similar_choices?: components["schemas"]["SimilarChoice"][];
+            /**
+             * Reference Ids
+             * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
+             */
+            reference_ids?: string[];
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
@@ -2338,6 +2358,11 @@ export interface components {
              * @description ② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)
              */
             similar_choices?: components["schemas"]["SimilarChoice"][];
+            /**
+             * Reference Ids
+             * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
+             */
+            reference_ids?: string[];
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)

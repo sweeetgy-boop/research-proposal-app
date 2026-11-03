@@ -6,6 +6,11 @@
   없으면 기존 과제 행 없이 "유사한 과제를 고르면 비교표가 만들어집니다".
 - 기존 과제 칸은 CellExtractor(Argon → 로컬 → 규칙)가 원문에서 뽑은 1~2문장. 없으면 규칙 추출.
 - 초안이 있으면(draft: 초안 섹션 목록) 제안 행을 초안으로 채운다.
+
+2026-11-03 참고 논문(ADR 0053): req.reference_ids(② 관련 연구에서 고른 doc_id)를 저장소에서 읽어
+유사과제 열 뒤에 kind="reference" 열로 붙인다(요청 순서). 칸은 유사과제와 같은 방식(AI 추출 →
+규칙 추출 → 제목 기준). [유사함] 0건이어도 참고 논문이 있으면 안내 문구(empty_reason)는 없다. 없는
+id·볼 수 없는 문서(공용 계정의 internal)는 조용히 뺀다.
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from rra.application.ports import DocumentRepository
+from rra.application.usecases.references import load_references
 from rra.domain.models import Document, OverlapAlert, ProposalRequest
 from rra.domain.models.comparison import ComparisonTable
 from rra.domain.rules.comparison import (
@@ -61,10 +67,14 @@ class CompareProjects:
             docs[alert.doc_id] = await self.repo.get_document(alert.doc_id)
             if len(docs) >= MAX_PROJECTS:
                 break
+        refs, _ = await load_references(self.repo, req.reference_ids, exclude=list(docs))
+        if refs:
+            empty_reason = None
         extracted: dict[str, dict[str, str]] = {}
         by: str | None = None
         if self.extractor is not None and getattr(self.extractor, "enabled", True):
-            extracted, by = await self.extractor([d for d in docs.values() if d is not None])
+            targets = [d for d in docs.values() if d is not None] + refs
+            extracted, by = await self.extractor(targets)
         table = comparison_table(
             req,
             alerts,
@@ -73,6 +83,7 @@ class CompareProjects:
             extracted=extracted,
             draft=draft_cells(draft) if draft is not None else None,
             empty_reason=empty_reason,
+            references=refs,
         )
         if extracted:
             table = table.model_copy(update={"extraction": "ai", "extraction_by": by})

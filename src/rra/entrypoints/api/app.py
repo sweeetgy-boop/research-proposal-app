@@ -59,7 +59,7 @@ from rra.domain.rules import auth_policy
 from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
 from rra.domain.rules.precheck_levels import default_choices
 from rra.domain.rules.precheck_view import GATE_BLOCKING, PENDING_JUDGMENT, RELEASED_NOTE
-from rra.domain.rules.recommendation import apply_recommendation
+from rra.domain.rules.recommendation import apply_recommendation, recommendation_hint
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.run_title import ascii_filename, hwpx_filename
 from rra.domain.rules.similar_choice import (
@@ -742,8 +742,8 @@ def create_app(
             out["recommendations"] = rec_out
         try:
             # 활용·차별화 제안은 [유사함] 으로 고른 과제가 있을 때만 (시범: 무관한 차단 과제로
-            # 엉뚱한 제안)
-            if differentiate is not None and out["similar_count"]:
+            # 엉뚱한 제안). 고른 참고 논문이 있으면 [유사함] 0건이어도 (ADR 0053)
+            if differentiate is not None and (out["similar_count"] or req.reference_ids):
                 proposal = await _svc(request, "differentiate")(
                     req, list(result.alerts), similar_only=True
                 )
@@ -927,11 +927,17 @@ def create_app(
         except BudgetExhausted as exc:
             raise HTTPException(409, "오늘 외부 AI 호출 한도에 이르렀습니다.") from exc
         added = [r.model_copy(update={"added": True}) for r in more.recommendations[:room]]
+        cards = [*shown, *added]
         merged = before.model_copy(
             update={
-                "recommendations": [*shown, *added],
+                "recommendations": cards,
                 "discarded": [*before.discarded, *more.discarded],
                 "calls": before.calls + more.calls,
+                # 참고 논문·안내는 지금 입력 기준 (ADR 0053)
+                "reference_doc_ids": list(
+                    dict.fromkeys([*before.reference_doc_ids, *more.reference_doc_ids])
+                ),
+                "hint": recommendation_hint(len(cards), req.reference_ids),
             }
         )
         recommendation_sessions.replace(body.rec_id, req, merged)

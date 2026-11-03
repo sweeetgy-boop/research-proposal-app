@@ -5,12 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { UntrustedText } from "@/components/UntrustedText";
+import { comparisonKindLabel } from "@/lib/labels";
 import { tierLabel } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 
 const EMPTY_CELLS = new Set(["정보 없음", "정보 없음(제목 기준)", "—"]);
 
-/** 차별성 비교표 — [유사함] 으로 고른 과제만. 넓은 화면은 표(칸 최소 폭, 가로 스크롤), 좁은 화면은 과제별 카드. */
+/** 차별성 비교표 — [유사함] 으로 고른 과제 + ② 관련 연구에서 [차별화에 참고] 로 고른 자료(구분 '선행연구', ADR 0053).
+ *  넓은 화면은 표(칸 최소 폭, 가로 스크롤), 좁은 화면은 과제별 카드. */
 export function ComparisonView({
   data,
   loading,
@@ -56,11 +58,22 @@ export function ComparisonView({
     );
   }
   const rows = [data.proposal, ...data.projects];
+  const refCount = data.projects.filter((p) => p.kind === "reference").length;
+  const simCount = data.projects.length - refCount;
+  // 선행연구 열이 섞였을 때만 열마다 구분을 보인다 (유사과제만이면 예전 모양 그대로)
+  const kindBadge = (kind: string | undefined) =>
+    refCount > 0 ? (
+      <Badge variant={kind === "reference" ? "success" : "outline"} className="mb-1" data-testid="comparison-kind">
+        {comparisonKindLabel(kind)}
+      </Badge>
+    ) : null;
   return (
     <section className="space-y-2">
       {header}
       <p className="text-sm text-muted-foreground">
-        [유사함] 으로 고른 과제 {data.projects.length}건과 제안 과제를 나란히 둡니다.{" "}
+        {refCount > 0
+          ? `[유사함] 으로 고른 과제 ${simCount}건, 참고로 고른 선행연구 ${refCount}건과 제안 과제를 나란히 둡니다.`
+          : `[유사함] 으로 고른 과제 ${data.projects.length}건과 제안 과제를 나란히 둡니다.`}{" "}
         {data.proposal_source === "draft" ? "제안 과제 칸은 초안에서 왔습니다. " : "제안 과제 칸은 입력·고른 과제안에서 왔습니다. "}
         {data.extraction_label} 양식에는 들어가지 않습니다.
       </p>
@@ -82,7 +95,7 @@ export function ComparisonView({
             {rows.map((r, i) => (
               <tr key={r.doc_id ?? "proposal"} className={cn("border-t align-top", i === 0 && "bg-primary/5")}>
                 <th scope="row" className="p-2 font-medium break-keep">
-                  {i === 0 && <Badge className="mb-1">제안 과제</Badge>}
+                  {i === 0 ? <Badge className="mb-1">제안 과제</Badge> : kindBadge(r.kind)}
                   <UntrustedText as="div" text={r.title} />
                   {i > 0 && r.tier && (
                     <span className="mt-1 block text-xs font-normal text-muted-foreground">{tierLabel({ tier: r.tier })}</span>
@@ -108,7 +121,7 @@ export function ComparisonView({
             <Card className={i === 0 ? "border-primary" : undefined}>
               <CardHeader>
                 <CardTitle className="text-base">
-                  {i === 0 && <Badge className="mr-2">제안 과제</Badge>}
+                  {i === 0 ? <Badge className="mr-2">제안 과제</Badge> : refCount > 0 ? <span className="mr-2">{kindBadge(r.kind)}</span> : null}
                   <UntrustedText text={r.title} />
                 </CardTitle>
               </CardHeader>

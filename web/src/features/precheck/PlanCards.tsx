@@ -36,6 +36,9 @@ export function PlanCards({
   onKeepOriginal,
   onWrite,
   onRegenerate,
+  refsStale = false,
+  referenceCount = 0,
+  onFindReferences,
 }: {
   rec: PlanRecommendations | null | undefined;
   waiting: CardsWaiting;
@@ -46,6 +49,12 @@ export function PlanCards({
   onKeepOriginal: () => void;
   onWrite: () => void;
   onRegenerate: () => void;
+  /** 과제안을 만든 뒤 참고 논문 선택이 바뀌었다 (ADR 0053) */
+  refsStale?: boolean;
+  /** 지금 ② 관련 연구에서 [차별화에 참고] 로 고른 수 — [과제안 다시 만들기] 가 이 목록으로 다시 받는다 */
+  referenceCount?: number;
+  /** 0건 안내의 [관련 연구로 이동] — 관련 연구 목록으로 스크롤·포커스 */
+  onFindReferences?: () => void;
 }) {
   const loading = waiting.pending;
   const header = (
@@ -54,7 +63,7 @@ export function PlanCards({
         <Lightbulb className="size-5" aria-hidden="true" />
         차별화 과제안 고르기
       </h2>
-      <Button variant={stale ? "default" : "outline"} size="sm" onClick={onRegenerate} disabled={loading}>
+      <Button variant={stale || refsStale ? "default" : "outline"} size="sm" onClick={onRegenerate} disabled={loading}>
         <RefreshCw className={loading ? "animate-spin" : ""} aria-hidden="true" />
         {loading ? "만드는 중…" : rec ? "과제안 다시 만들기" : "과제안 만들기"}
       </Button>
@@ -88,9 +97,16 @@ export function PlanCards({
   }
   const cards = rec?.recommendations ?? [];
   const excluded = rec?.discarded ?? [];
-  const staleNote = stale ? (
-    <p role="status" className="rounded-md border border-warning/30 bg-apricot p-2 text-sm">
-      유사함으로 고른 과제가 바뀌었습니다. [과제안 다시 만들기] 로 고른 과제와 겹치지 않는 안을 다시 받으십시오.
+  const staleNote =
+    stale || refsStale ? (
+      <div role="status" className="space-y-1 rounded-md border border-warning/30 bg-apricot p-2 text-sm">
+        {stale && <p>유사함으로 고른 과제가 바뀌었습니다. [과제안 다시 만들기] 로 고른 과제와 겹치지 않는 안을 다시 받으십시오.</p>}
+        {refsStale && <p>참고 논문 선택이 바뀌었습니다. [과제안 다시 만들기] 로 고른 논문을 근거로 한 안을 다시 받으십시오.</p>}
+      </div>
+    ) : null;
+  const retryNote = rec?.retry_used ? (
+    <p className="text-xs text-muted-foreground" data-testid="plan-retry-note">
+      겹치는 기존 과제가 없어 '새 영역' 기준으로 한 번 더 받았습니다.
     </p>
   ) : null;
   if (cards.length === 0) {
@@ -106,13 +122,38 @@ export function PlanCards({
           title={rec ? "추천 0건" : "과제안 없음"}
           description={reason}
           action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button onClick={onKeepOriginal} variant="secondary">
-                원래 아이디어로 진행
-              </Button>
-              <Button variant="outline" onClick={onWrite}>
-                직접 작성
-              </Button>
+            <div className="space-y-3" data-testid="plan-empty-actions">
+              {rec?.hint === "reference" && (
+                <div className="space-y-1 text-sm" data-testid="plan-reference-hint">
+                  <p>관련 연구에서 참고 논문을 골라 [과제안 다시 만들기] 를 누르십시오. 고른 논문을 근거로 과제안을 다시 만듭니다.</p>
+                  <p className="text-muted-foreground">
+                    {referenceCount > 0 ? `지금 고른 참고 논문 ${referenceCount}건` : "아직 고른 참고 논문이 없습니다."}
+                    {onFindReferences && (
+                      <>
+                        {" "}
+                        <Button variant="link" size="sm" className="h-auto px-0" onClick={onFindReferences}>
+                          관련 연구로 이동
+                        </Button>
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-wrap justify-center gap-2">
+                {rec?.hint === "reference" && (
+                  <Button onClick={onRegenerate} disabled={loading || referenceCount === 0}>
+                    <RefreshCw aria-hidden="true" />
+                    과제안 다시 만들기
+                  </Button>
+                )}
+                <Button onClick={onKeepOriginal} variant="secondary">
+                  원래 아이디어로 진행
+                </Button>
+                <Button variant="outline" onClick={onWrite}>
+                  직접 작성
+                </Button>
+              </div>
+              {retryNote}
             </div>
           }
         />
@@ -131,6 +172,7 @@ export function PlanCards({
         {rec?.overlap_regenerated ? ` 기존 과제와 겹친 ${rec.overlap_regenerated}건은 겹치는 부분을 피해 다시 만들었습니다.` : ""} 고른 안은 ③ 초안의
         입력과 비교표의 제안 과제 칸이 됩니다.
       </p>
+      {retryNote}
       <ul className="grid gap-3 md:grid-cols-2">
         {cards.map((c) => (
           <li key={c.index} id={`rec-${c.index}`}>

@@ -100,6 +100,16 @@ export function reasonLabel(reason: string | null | undefined): string {
   return REASON_LABELS[reason] ?? "기타 사유";
 }
 
+/** 비교표 열 종류 → 구분 칸 이름 (ADR 0053). 응답에 kind 가 없으면(옛 서버) 유사과제다. */
+export const COMPARISON_KIND_LABELS: Record<string, string> = {
+  similar: "유사과제",
+  reference: "선행연구",
+};
+
+export function comparisonKindLabel(kind: string | null | undefined): string {
+  return COMPARISON_KIND_LABELS[kind ?? "similar"] ?? "유사과제";
+}
+
 /** provider 이름 → 화면 이름 */
 export function providerLabel(provider: string | null | undefined): string {
   if (provider === "gemini") return "Argon";

@@ -17,9 +17,12 @@ export function SummaryBar({
   morePending,
   moreElapsed,
   onCancelMore,
+  references = 0,
 }: {
   similar: number;
   unrelated: number;
+  /** ② 관련 연구에서 [차별화에 참고] 로 고른 수 (ADR 0053) — 0 이면 보이지 않는다 */
+  references?: number;
   /** 지금 선택이 마지막 [선택 적용] 과 다르다 */
   stale: boolean;
   /** 한 번이라도 적용했다 (적용됨 문구) */
@@ -41,6 +44,12 @@ export function SummaryBar({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <p className="text-sm font-medium" aria-live="polite">
           유사함 <span className="tabular-nums">{similar}</span>건 · 관련 없음 <span className="tabular-nums">{unrelated}</span>건
+          {references > 0 ? (
+            <>
+              {" "}
+              · 참고 논문 <span className="tabular-nums">{references}</span>건
+            </>
+          ) : null}
         </p>
         <span aria-hidden="true" className="text-muted-foreground">
           →

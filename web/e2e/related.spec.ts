@@ -25,7 +25,8 @@ test("논문은 유사과제 판정이 아니라 '관련 연구' 참고 목록�
 
   // 관련 연구 목록: 배지 "참고", 출처·연도·유사도, 원문 링크(새 창 + noopener)
   const section = page.getByRole("region", { name: /관련 연구 1건/ });
-  await expect(section.getByText("궤도 틀림 진행 속도 추정 논문 (가짜)")).toBeVisible();
+  // 제목은 행 본문 + [차별화에 참고] 체크의 화면 읽기 이름(sr-only)에 두 번 있다 (ADR 0053) — 보이는 것은 첫째
+  await expect(section.getByText("궤도 틀림 진행 속도 추정 논문 (가짜)").first()).toBeVisible();
   await expect(section.getByText("참고", { exact: true })).toBeVisible();
   await expect(section.getByText("ScienceON 국내 논문·보고서 · 논문 · 2024", { exact: true })).toBeVisible(); // 유사도·내부 번호 없음 (ADR 0039)
   await expect(section.getByText("차단", { exact: true })).toHaveCount(0);

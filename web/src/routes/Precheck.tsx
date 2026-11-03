@@ -7,6 +7,7 @@ import { comparisonFlow, differentiateFlow, judgePrecheck, recommendFlow, recomm
 import type { PlanField, PlanRecommendation, PrecheckFlowOut, PrecheckOut, PrecheckRequest, SimilarChoiceValue } from "@/api/types";
 import { getIdea, updateIdea, useIdea } from "@/features/idea/store";
 import { RelatedResearchList } from "@/features/idea/RelatedResearchList";
+import { focusRelatedResearch } from "@/features/idea/relatedResearchFocus";
 import { DifferentiationPanel } from "@/features/idea/DifferentiationPanel";
 import { NtisInsights } from "@/features/idea/NtisInsights";
 import { LiveSearchPanel } from "@/features/live/LiveSearchPanel";
@@ -28,7 +29,9 @@ import {
   effectiveBlocking,
   fullSignature,
   planFields,
+  referenceSignature,
   released as isReleased,
+  toggleReference,
   withDefaults,
   type ChoiceMap,
 } from "@/features/precheck/model";
@@ -57,17 +60,25 @@ export default function Precheck() {
   const pre = idea.precheck as PrecheckFlowOut | null;
   const choices = idea.similarChoices;
   const applied: ChoiceMap = idea.appliedChoices ?? {};
+  // ② 관련 연구에서 [차별화에 참고] 로 고른 자료 (ADR 0053) — 판정·차단에는 쓰지 않는다
+  const refs = idea.referenceIds;
+  const appliedRefs = React.useMemo(() => idea.appliedReferenceIds ?? [], [idea.appliedReferenceIds]);
   const [editing, setEditing] = React.useState(false);
   const [defaultsAdded, setDefaultsAdded] = React.useState(0);
 
-  // 서버로 보내는 입력 = 입력 + 가제(간편 입력 가제가 있으면) + 행별 선택
+  // 서버로 보내는 입력 = 입력 + 가제(간편 입력 가제가 있으면) + 행별 선택 + 참고 논문
   const base = React.useMemo(
     () => ({ ...idea.request, title_hint: idea.request.title_hint || idea.quickTitle || "" }),
     [idea.request, idea.quickTitle],
   );
-  const req: PrecheckRequest = React.useMemo(() => ({ ...base, similar_choices: choiceList(choices) }), [base, choices]);
-  // [선택 적용] 한 선택 — 비교표·활용 제안·과제안은 이 입력으로
-  const appliedReq: PrecheckRequest = React.useMemo(() => ({ ...base, similar_choices: choiceList(applied) }), [base, applied]);
+  const req: PrecheckRequest = React.useMemo(() => ({ ...base, similar_choices: choiceList(choices), reference_ids: refs }), [base, choices, refs]);
+  // [선택 적용] 한 선택 — 비교표·활용 제안은 이 입력으로
+  const appliedReq: PrecheckRequest = React.useMemo(
+    () => ({ ...base, similar_choices: choiceList(applied), reference_ids: appliedRefs }),
+    [base, applied, appliedRefs],
+  );
+  // 과제안(다시 만들기·더 만들기) = 적용한 [유사함] 선택 + 지금 고른 참고 논문 — "참고 논문을 골라 [과제안 다시 만들기]" (ADR 0053)
+  const planReq: PrecheckRequest = React.useMemo(() => ({ ...appliedReq, reference_ids: refs }), [appliedReq, refs]);
   const original = idea.originalPlan ?? planFields(idea.request);
 
   React.useEffect(() => {
@@ -75,11 +86,12 @@ export default function Precheck() {
       updateIdea({
         originalPlan: planFields(idea.request),
         planSig: choicesSignature(choices),
+        planRefSig: referenceSignature(refs),
         similarChoices: choices,
         request: { ...idea.request, idea_versions: addVersion(undefined, "original", planFields(idea.request)) },
       });
     }
-  }, [pre, idea.originalPlan, idea.request, choices]);
+  }, [pre, idea.originalPlan, idea.request, choices, refs]);
 
   // ── AI 같음 판정 (표 먼저 뒤) ──
   const judge = useAiCall((args: { r: PrecheckRequest; retry: boolean }, signal: AbortSignal) => judgePrecheck(args.r, args.retry, signal));
@@ -116,6 +128,7 @@ export default function Precheck() {
       recommendationId: out.recommendations?.id ?? null,
       recommendationIndex: null,
       planSig: choicesSignature(used),
+      planRefSig: referenceSignature(r.reference_ids),
     });
   };
   const more = useAiCall((args: { r: PrecheckRequest; id: string }, signal: AbortSignal) => recommendMore(args.r, args.id, signal));
@@ -123,7 +136,7 @@ export default function Precheck() {
     const id = pre?.recommendations?.id;
     if (!id) return;
     const before = pre?.recommendations?.recommendations.length ?? 0;
-    const out = await more.run({ r: appliedReq, id });
+    const out = await more.run({ r: planReq, id });
     const cur = currentPre();
     if (!out?.recommendations || !cur) return;
     setPre({ ...cur, recommendations: out.recommendations });
@@ -142,7 +155,7 @@ export default function Precheck() {
     if (!pre || started.current) return;
     started.current = true;
     if (pre.judgment?.status === "pending") void runJudge(false);
-    if (!pre.recommendations) void runCards({ ...appliedReq }, applied);
+    if (!pre.recommendations) void runCards({ ...planReq }, applied);
   }, [pre]);
 
   // ── 차별성 비교표 — [선택 적용] 한 [유사함] 행만 ──
@@ -217,8 +230,10 @@ export default function Precheck() {
   const gateOk = !blocking || idea.acknowledged;
   const counts = choiceCounts(pre.alerts, choices);
   const appliedCounts = choiceCounts(pre.alerts, applied);
-  const choicesStale = fullSignature(choices) !== fullSignature(applied);
+  // '선택이 바뀌었습니다' — [유사함]/[관련 없음] 이나 참고 논문이 마지막 [선택 적용] 과 다르면
+  const choicesStale = fullSignature(choices) !== fullSignature(applied) || referenceSignature(refs) !== referenceSignature(appliedRefs);
   const planStale = idea.planSig !== null && idea.planSig !== choicesSignature(applied) && !cards.pending;
+  const planRefsStale = idea.planSig !== null && (idea.planRefSig ?? "") !== referenceSignature(refs) && !cards.pending;
 
   const choose = (docId: string, value: SimilarChoiceValue | null) => {
     const next = { ...choices };
@@ -233,19 +248,26 @@ export default function Precheck() {
     });
   };
 
-  // [선택 적용] — 비교표·활용 제안·과제안 근거를 지금 선택으로 다시 만든다
+  const toggleRef = (docId: string, on: boolean) => {
+    updateIdea({ referenceIds: toggleReference(getIdea().referenceIds, docId, on), similarChoices: getIdea().similarChoices });
+  };
+
+  // [선택 적용] — 비교표·활용 제안·과제안 근거를 지금 선택(+ 참고 논문)으로 다시 만든다
   const applyChoices = () => {
     const now = { ...choices };
-    const r: PrecheckRequest = { ...base, similar_choices: choiceList(now) };
-    updateIdea({ appliedChoices: now, similarChoices: now, differentiationTransfer: null });
+    const nowRefs = [...refs];
+    const r: PrecheckRequest = { ...base, similar_choices: choiceList(now), reference_ids: nowRefs };
+    updateIdea({ appliedChoices: now, appliedReferenceIds: nowRefs, similarChoices: now, differentiationTransfer: null });
     const sim = choiceCounts(pre.alerts, now).similar;
-    if (sim > 0) void runDifferentiate(r);
+    // 유사함 0건이어도 참고 논문이 있으면 활용 제안을 받는다 (ADR 0053)
+    if (sim > 0 || nowRefs.length > 0) void runDifferentiate(r);
     else {
       diff.cancel();
       const cur = currentPre();
       if (cur) setPre({ ...cur, differentiation: undefined });
     }
-    if (choicesSignature(now) !== idea.planSig || !pre.recommendations) void runCards(r, now);
+    const plansChanged = choicesSignature(now) !== idea.planSig || referenceSignature(nowRefs) !== (idea.planRefSig ?? "");
+    if (plansChanged || !pre.recommendations) void runCards(r, now);
     toast("선택을 적용했습니다 — 비교표를 다시 만듭니다.", "success");
   };
 
@@ -331,7 +353,7 @@ export default function Precheck() {
         <SimilarRowsTable alerts={pre.alerts} choices={choices} onChoose={choose} judging={judge.pending} />
       </section>
 
-      {pre.related_research ? <RelatedResearchList items={pre.related_research} /> : null}
+      {pre.related_research ? <RelatedResearchList items={pre.related_research} selected={refs} onToggle={toggleRef} /> : null}
       {pre.live_search ? <LiveSearchPanel live={pre.live_search} /> : null}
       {hasNtis ? <NtisInsights data={ntis.data} loading={ntis.isPending} unavailable={!!ntis.error} /> : null}
 
@@ -350,6 +372,7 @@ export default function Precheck() {
           onRequest={() => void runDifferentiate(appliedReq)}
           picked={idea.request.differentiation ?? ""}
           similarCount={appliedCounts.similar}
+          referenceCount={appliedRefs.length}
           onPick={(text) => {
             updateIdea({ request: { ...idea.request, differentiation: text }, similarChoices: choices });
             toast("차별화 방향을 입력에 반영했습니다.", "success");
@@ -363,10 +386,13 @@ export default function Precheck() {
         waiting={{ pending: cards.pending, elapsed: cards.elapsed, cancelled: cards.cancelled, onCancel: cards.cancel }}
         chosenIndex={idea.recommendationIndex}
         stale={planStale}
+        refsStale={planRefsStale}
+        referenceCount={refs.length}
+        onFindReferences={pre.related_research?.length ? focusRelatedResearch : undefined}
         onPick={(card) => pickM.mutate(card)}
         onKeepOriginal={keepOriginal}
         onWrite={() => setEditing(true)}
-        onRegenerate={() => void runCards(appliedReq, applied)}
+        onRegenerate={() => void runCards(planReq, applied)}
       />
       {editing && (
         <PlanEditor request={req} initial={planFields(idea.request)} original={original} onConfirm={confirmEdit} onCancel={() => setEditing(false)} />
@@ -376,6 +402,7 @@ export default function Precheck() {
         similar={counts.similar}
         unrelated={counts.unrelated}
         stale={choicesStale}
+        references={refs.length}
         applied={idea.appliedChoices !== null}
         applying={false}
         onApply={applyChoices}

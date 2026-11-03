@@ -72,6 +72,7 @@ export default function Clarify() {
         acknowledged: idea.acknowledged, // 차단 경보 확인 — 서버도 같은 게이트(409)를 둔다
         priority_evidence: idea.priorityEvidence.length ? idea.priorityEvidence : null,
         policy_choice: policyChoice,
+        reference_ids: idea.referenceIds, // ② 관련 연구에서 고른 참고 논문 (ADR 0053)
       };
       return submitRun.mutateAsync(body as RunIn);
     },

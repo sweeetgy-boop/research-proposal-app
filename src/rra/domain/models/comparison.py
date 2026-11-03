@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 ASPECTS: tuple[tuple[str, str], ...] = (
@@ -26,6 +28,9 @@ class ComparisonColumn(BaseModel):
     blocking: bool = False
     basis: str | None = None
     title_only: bool = False  # 요약·초록이 없어 제목만으로 채움
+    # ADR 0053: similar = [유사함] 유사과제,
+    # reference = ② 관련 연구에서 고른 참고 논문(구분 '선행연구')
+    kind: Literal["similar", "reference"] = "similar"
     cells: dict[str, str] = Field(default_factory=dict)  # aspect → 글 (MAX_CELL_CHARS)
 
 
