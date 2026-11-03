@@ -994,6 +994,10 @@ def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same)
         "overlap_regenerated": int(getattr(result, "overlap_regenerated", 0) or 0),
         "overlap_found": int(getattr(result, "overlap_found", 0) or 0),
         "similar_doc_ids": list(getattr(result, "similar_doc_ids", []) or []),
+        # ADR 0053 — '새 영역' 다시 받기·추천 0건 안내·입력으로 쓴 참고 논문
+        "retry_used": bool(getattr(result, "retry_used", False)),
+        "hint": getattr(result, "hint", None),
+        "reference_doc_ids": list(getattr(result, "reference_doc_ids", []) or []),
         "no_recommendation_reason": (
             clean(result.no_recommendation_reason) if result.no_recommendation_reason else None
         ),
@@ -1269,6 +1273,8 @@ def comparison_payload(table: Any, *, clean: Callable[[str], str] = _same) -> di
             "blocking": c.blocking,
             "basis": c.basis,
             "title_only": c.title_only,
+            # similar = [유사함] 유사과제, reference = 참고 논문(구분 '선행연구', ADR 0053)
+            "kind": getattr(c, "kind", "similar"),
             "cells": {k: clean(v) for k, v in c.cells.items()},
         }
 

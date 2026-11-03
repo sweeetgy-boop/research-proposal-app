@@ -5,6 +5,9 @@
 - comparison_table: 넘겨받은 유사과제(② 에서 [유사함] 으로 고른 행 — 호출자가 거른다) 상위 5건 ×
   항목. 문서에 요약·초록이 없으면 "정보 없음(제목 기준)". 제안 쪽은 제안자 입력(가제·연구목표·
   연구방법·적용범위·차별화 방향)에서, 초안이 있으면 초안 섹션에서 온다 (2026-10-28 레인 A).
+- 참고 논문(ADR 0053): ② 관련 연구에서 고른 문서는 유사과제 열 뒤에 `kind="reference"`(구분
+  '선행연구') 열로, reference_ids 순서대로 붙는다. 차단 없음, similarity 는 점수가 없으면 None.
+  [유사함] 0건이어도 참고 논문 열이 있으면 empty_reason 은 None.
 - 기존 과제 칸은 Argon 이 원문에서 뽑은 1~2문장(cell_from_llm 검증 통과분)을 우선 쓰고, 없으면 규칙
   추출 — 기호·잘린 문장 없이 온전한 문장만(clean_cell). 적용범위가 원문에 없으면 "정보 없음".
 """
@@ -28,6 +31,7 @@ from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.keywords import tokens
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.numbers import unsupported_numbers
+from rra.domain.rules.overlap import tier_of
 from rra.domain.rules.trust import escape_untrusted
 from rra.domain.rules.versions import split_sentences
 
@@ -172,13 +176,11 @@ def cell_from_llm(value: Any, source: str) -> str | None:
     return text
 
 
-def project_column(
-    alert: OverlapAlert, doc: Document | None, extracted: Mapping[str, str] | None = None
-) -> ComparisonColumn:
+def _cells(
+    doc: Document | None, extracted: Mapping[str, str] | None
+) -> tuple[dict[str, str], bool]:
+    """기존 과제·참고 논문 칸 — AI 추출 우선, 없으면 규칙 추출, 본문이 없으면 제목 기준."""
     body = source_text(doc)
-    basis = alert.basis
-    if doc is not None:
-        basis = basis or doc.text_basis
     title_only = not body.strip()
     if title_only:
         cells = {k: NO_INFO_TITLE_ONLY for k in CELL_KEYS}
@@ -188,6 +190,36 @@ def project_column(
             if key in CELL_KEYS:
                 cells[key] = value or NO_INFO
     cells["differentiation"] = "—"  # 제안 쪽에서 적는다
+    return cells, title_only
+
+
+def reference_column(
+    doc: Document,
+    extracted: Mapping[str, str] | None = None,
+    similarity: float | None = None,
+) -> ComparisonColumn:
+    """참고 논문 열 (kind=reference, 차단 없음)."""
+    cells, title_only = _cells(doc, extracted)
+    return ComparisonColumn(
+        doc_id=doc.doc_id,
+        title=doc.title,
+        tier=tier_of(doc),
+        similarity=round(similarity, 4) if similarity is not None else None,
+        blocking=False,
+        basis=doc.text_basis,
+        title_only=title_only,
+        kind="reference",
+        cells=cells,
+    )
+
+
+def project_column(
+    alert: OverlapAlert, doc: Document | None, extracted: Mapping[str, str] | None = None
+) -> ComparisonColumn:
+    basis = alert.basis
+    if doc is not None:
+        basis = basis or doc.text_basis
+    cells, title_only = _cells(doc, extracted)
     return ComparisonColumn(
         doc_id=alert.doc_id,
         title=alert.title,
@@ -247,6 +279,7 @@ def comparison_table(
     extracted: Mapping[str, Mapping[str, str]] | None = None,
     draft: Mapping[str, str] | None = None,
     empty_reason: str | None = None,
+    references: Iterable[Document] = (),
 ) -> ComparisonTable:
     ranked = sorted(alerts, key=lambda a: (-a.similarity, a.doc_id))
     seen: set[str] = set()
@@ -260,6 +293,11 @@ def comparison_table(
         )
         if len(projects) >= MAX_PROJECTS:
             break
+    for doc in references:  # 참고 논문 — 유사과제 열 뒤, 요청 순서 (ADR 0053)
+        if doc.doc_id in seen:
+            continue
+        seen.add(doc.doc_id)
+        projects.append(reference_column(doc, (extracted or {}).get(doc.doc_id)))
     return ComparisonTable(
         proposal=proposal_column(req, differentiation, draft),
         projects=projects,

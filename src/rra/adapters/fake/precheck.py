@@ -5,6 +5,9 @@
 same(차단) —
   e2e 의 차단 → [관련 없음] → 차단 해제 경로.
 - 과제안: 아이디어에 "(추천 없음)" 이 있으면 0건 + 사유 (e2e "추천 0건" 경로), 아니면 2건.
+  '새 영역' 다시 받기([새 영역] 지시, ADR 0053)에도 "(추천 없음)" 이면 다시 0건 — [유사함] 0건이면
+  retry_used·hint "reference" 경로. 단 [참고 논문] 구획(`<doc … kind="reference">`)이 있으면
+  "(추천 없음)" 이어도 그 참고 논문을 비교 대상으로 쓴 2건 (참고 논문으로 0건을 벗어나는 경로).
 - 과제안 더 만들기(ADR 0039): "[이미 보인 과제안]" 이 있으면 보인 가제와 다른 안 2건(후보 묶음에서).
 - 카드 겹침 확인: 아이디어에 "(과제안 겹침)" 이 있으면 첫 카드 요약에 "(겹침 표본)" 을 넣고,
   겹침 확인은 그 카드를 "같다" 로 본다. 다시 받기("[겹침을 피해 다시 쓸 안]")는 표본 표시 없는 안
@@ -43,6 +46,7 @@ _MORE_POOL = [
 ]
 DIFFERENTIATE_MARK = "items 배열에 과제별"
 _DOC = re.compile(r'<doc id="([^"<>]+)"[^>]*>\n(.*?)\n</doc>', re.S)
+_REFERENCE = re.compile(r'<doc id="([^"<>]+)" kind="reference"')
 _INPUT = re.compile(r"<input>\n(.*?)\n</input>", re.S)
 _SENT = re.compile(r"(?<=[.。!?])\s+")
 
@@ -167,6 +171,12 @@ def recommend_answer(prompt: str) -> str:
             "evidence": ref,
         }
         return json.dumps({"recommendations": [card]}, ensure_ascii=False)
+    references = [m.group(1) for m in _REFERENCE.finditer(prompt)]
+    if "(추천 없음)" in prompt and references:  # 참고 논문을 고르면 0건을 벗어난다 (ADR 0053)
+        return json.dumps(
+            {"recommendations": _cards(references[:1], prompt), "no_recommendation_reason": None},
+            ensure_ascii=False,
+        )
     if "(추천 없음)" in prompt:
         return json.dumps(
             {
@@ -176,8 +186,15 @@ def recommend_answer(prompt: str) -> str:
             ensure_ascii=False,
         )
     ids = [m.group(1) for m in _DOC.finditer(prompt)]
-    ref = ids[:1]
-    cards = [
+    return json.dumps(
+        {"recommendations": _cards(ids[:1], prompt), "no_recommendation_reason": None},
+        ensure_ascii=False,
+    )
+
+
+def _cards(ref: list[str], prompt: str) -> list[dict[str, object]]:
+    """기본 과제안 2건 — 입력 낱말로만 (검증 통과). ref 는 비교·근거 doc_id."""
+    return [
         {
             "title": "운행 차량 검측 이력 기반 궤도 틀림 진행 속도 추정",
             "summary": "검측 이력으로 구간별 궤도 틀림 진행 속도를 추정함"
@@ -206,9 +223,6 @@ def recommend_answer(prompt: str) -> str:
             "evidence": ref,
         },
     ]
-    return json.dumps(
-        {"recommendations": cards, "no_recommendation_reason": None}, ensure_ascii=False
-    )
 
 
 def differentiate_answer(prompt: str) -> str:
