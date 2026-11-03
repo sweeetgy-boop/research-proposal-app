@@ -4539,6 +4539,15 @@
             "title": "Similar Choices",
             "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
           },
+          "reference_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Reference Ids",
+            "description": "② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)"
+          },
           "department": {
             "type": "string",
             "title": "Department",
@@ -4740,6 +4749,15 @@
             "maxItems": 30,
             "title": "Similar Choices",
             "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
+          },
+          "reference_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Reference Ids",
+            "description": "② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)"
           },
           "department": {
             "type": "string",
@@ -4976,6 +4994,15 @@
             "title": "Similar Choices",
             "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
           },
+          "reference_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Reference Ids",
+            "description": "② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)"
+          },
           "department": {
             "type": "string",
             "title": "Department",
@@ -5137,6 +5164,15 @@
             "maxItems": 30,
             "title": "Similar Choices",
             "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
+          },
+          "reference_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Reference Ids",
+            "description": "② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)"
           },
           "department": {
             "type": "string",
@@ -5434,6 +5470,15 @@
             "maxItems": 30,
             "title": "Similar Choices",
             "description": "② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)"
+          },
+          "reference_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Reference Ids",
+            "description": "② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)"
           },
           "department": {
             "type": "string",

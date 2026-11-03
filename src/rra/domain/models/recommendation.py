@@ -7,6 +7,8 @@ runs/<user>/<run_id>/recommendations.json 에 남는다.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 MAX_RECOMMENDATIONS = 5  # 한 번에 받는 과제안 상한
@@ -85,6 +87,11 @@ class RecommendationResult(BaseModel):
     overlap_checked: bool = False  # 카드 겹침 재판정을 했다 (ADR 0039)
     overlap_regenerated: int = 0  # 겹쳐서 다시 받은 카드 수
     overlap_found: int = 0  # 처음 확인에서 "같다" 로 겹친 카드 수 (측정용)
+    # ADR 0053 — 유사함 0건 + 추천 0건이면 '새 영역' 지시로 1회 다시 받았다
+    retry_used: bool = False
+    # 추천 0건일 때 화면 안내: "reference" = ② 관련 연구에서 참고 논문을 고르면 다시 만들 수 있음
+    hint: Literal["reference"] | None = None
+    reference_doc_ids: list[str] = Field(default_factory=list)  # 입력으로 쓴 참고 논문 doc_id
 
     def transfer(self) -> dict[str, object]:
         """manifest 에 남기는 전송 기록 (본문 없음)."""

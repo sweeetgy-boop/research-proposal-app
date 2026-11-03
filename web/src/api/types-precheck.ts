@@ -137,6 +137,12 @@ export interface PlanRecommendations extends Omit<Recommendations, "recommendati
   /** POST /v1/precheck/recommendations/more — 이번에 보탠 수와 0건이면 사유 */
   added?: number;
   added_reason?: string | null;
+  /** ADR 0053 — 유사함 0건 + 추천 0건이라 '새 영역' 지시로 1회 다시 받았다 */
+  retry_used?: boolean;
+  /** 추천 0건 안내: "reference" = ② 관련 연구에서 참고 논문을 골라 [과제안 다시 만들기] */
+  hint?: "reference" | null;
+  /** 입력으로 쓴 참고 논문 doc_id (② 관련 연구에서 고른 것) */
+  reference_doc_ids?: string[];
 }
 
 export interface PlanDifferentiation extends Differentiation {

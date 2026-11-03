@@ -50,8 +50,13 @@ def validation_message(
 
 # LLM 에 보내지 않는 입력 — 양식 칸에 그대로 옮기는 값과 ② 유사과제 선택 기록. policy_choice 는
 # 앱이 2-가-(1) 에 그대로 옮기는 제안자 확정값이라 프롬프트에는 policy_basis(요지)로만 들어간다.
-FORM_ONLY_FIELDS = frozenset({"budget", "department", "similar_choices", "policy_choice"})
+# reference_ids(② 관련 연구에서 고른 참고 논문, ADR 0053)는 판정·차단에 쓰지 않고
+# 차별화·과제안 구획으로만 간다.
+FORM_ONLY_FIELDS = frozenset(
+    {"budget", "department", "similar_choices", "policy_choice", "reference_ids"}
+)
 MAX_SIMILAR_CHOICES = 30
+MAX_REFERENCE_IDS = 5
 DOC_ID_MAX = 200
 
 
@@ -118,6 +123,14 @@ class ProposalRequest(BaseModel):
         max_length=MAX_SIMILAR_CHOICES,
         description="② 유사과제 행별 선택 [유사함]/[관련 없음] (doc_id·선택만)",
     )
+    # ADR 0053 — ② 관련 연구(논문·보고서·특허)에서 [차별화에 참고] 로 고른 doc_id.
+    # 유사과제 판정·차단에는 쓰지 않는다(ADR 0028 유지). 비교표 '선행연구' 행·활용 제안·
+    # 과제안 [참고 논문] 구획에만 들어간다.
+    reference_ids: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_REFERENCE_IDS,
+        description="② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)",
+    )
     department: str = Field(default="", description="제안부서 (양식 칸에만 쓴다)")
     budget: Budget | None = None
     # 보강 질문 단계에서 제안자가 고른 정책적 중요도 작성안(또는 "정책 근거 없음") — 2026-10-28
@@ -172,6 +185,21 @@ class ProposalRequest(BaseModel):
         for c in v:
             last[c.doc_id] = c
         return list(last.values())
+
+    @field_validator("reference_ids")
+    @classmethod
+    def _clean_references(cls, v: list[str]) -> list[str]:
+        """공백 제거·빈 값 제외·중복 제거(처음 순서). doc_id 길이는 DOC_ID_MAX 까지."""
+        out: list[str] = []
+        for raw in v:
+            doc_id = raw.strip()
+            if not doc_id:
+                continue
+            if len(doc_id) > DOC_ID_MAX:
+                raise ValueError(f"doc_id 길이 {len(doc_id)} > {DOC_ID_MAX}")
+            if doc_id not in out:
+                out.append(doc_id)
+        return out
 
     def choice_map(self) -> dict[str, str]:
         """doc_id → similar | unrelated."""

@@ -734,6 +734,8 @@ export interface ComparisonColumn {
   blocking: boolean;
   basis: string | null;
   title_only: boolean;
+  /** ADR 0053: similar = [유사함] 유사과제, reference = ② 관련 연구에서 고른 참고 논문 (구분 '선행연구'). 옛 서버는 없음 → similar */
+  kind?: "similar" | "reference";
   cells: Record<ComparisonAspect | string, string>;
 }
 
