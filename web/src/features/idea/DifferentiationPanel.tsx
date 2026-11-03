@@ -15,9 +15,12 @@ export function DifferentiationPanel({
   onPick,
   picked,
   similarCount,
+  referenceCount = 0,
 }: {
   /** [유사함] 으로 고른 과제 수 (레인 A) — 없으면 활용 제안 대신 안내 */
   similarCount?: number;
+  /** [선택 적용] 한 참고 논문 수 (ADR 0053) — 유사함 0건이어도 참고 논문이 있으면 활용 제안을 받는다 */
+  referenceCount?: number;
   diff: (Differentiation & { skipped_label?: string | null }) | null | undefined;
   loading: boolean;
   onRequest: () => void;
@@ -31,7 +34,7 @@ export function DifferentiationPanel({
           <GitBranch className="size-5" aria-hidden="true" />
           유사과제 활용·차별화 제안
         </h2>
-        <Button variant="outline" size="sm" onClick={onRequest} disabled={loading || similarCount === 0}>
+        <Button variant="outline" size="sm" onClick={onRequest} disabled={loading || (similarCount === 0 && referenceCount === 0)}>
           {loading ? "받는 중…" : diff ? "다시 받기" : "차별화 제안 받기"}
         </Button>
       </div>
@@ -74,9 +77,11 @@ export function DifferentiationPanel({
       )}
       {!loading && !diff && (
         <p className="text-sm text-muted-foreground">
-          {similarCount === 0
+          {similarCount === 0 && referenceCount === 0
             ? "유사함으로 고른 과제가 없어 활용 제안은 건너뜁니다. 아래 차별화 과제안이 아이디어와 관련 연구로 방향을 제안합니다."
-            : "[유사함] 으로 고른 과제만으로 활용·차별화 방향을 받습니다."}
+            : referenceCount > 0
+              ? "[유사함] 으로 고른 과제와 참고로 고른 선행연구로 활용·차별화 방향을 받습니다."
+              : "[유사함] 으로 고른 과제만으로 활용·차별화 방향을 받습니다."}
         </p>
       )}
     </section>
