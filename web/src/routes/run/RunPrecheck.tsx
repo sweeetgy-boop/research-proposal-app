@@ -72,7 +72,7 @@ export default function RunPrecheck() {
         {pre.isPending && saved && <SkeletonBlock lines={4} />}
         <ProblemBanner error={pre.error} onRetry={() => pre.refetch()} />
         {pre.data && <AlertsTable alerts={pre.data.alerts} />}
-        {pre.data?.related_research && pre.data.related_research.length > 0 && <RelatedResearchList items={pre.data.related_research} />}
+        {pre.data?.related_research && pre.data.related_research.length > 0 && <RelatedResearchList items={pre.data.related_research} selected={saved?.reference_ids ?? []} />}
       </section>
 
       {draft && (

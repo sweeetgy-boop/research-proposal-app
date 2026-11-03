@@ -34,6 +34,12 @@ export interface IdeaState {
   appliedChoices: Record<string, SimilarChoiceValue> | null;
   /** ① 정책 근거 추천 팝업에서 [나중에 넣기] — [다음] 때 다시 묻지 않는다 (ADR 0052) */
   policyDeferred: boolean;
+  /** ② 관련 연구에서 [차별화에 참고] 로 고른 doc_id (최대 5, 고른 순서). request.reference_ids 로 서버에 간다 — 판정·차단에는 쓰지 않는다 (ADR 0053) */
+  referenceIds: string[];
+  /** [선택 적용] 한 참고 논문 — 비교표·활용 제안은 이 목록으로 만든다 */
+  appliedReferenceIds: string[] | null;
+  /** 과제안(추천)을 만든 시점의 참고 논문 서명 — 바뀌면 [과제안 다시 만들기] 를 권한다 */
+  planRefSig: string | null;
 }
 
 const KEY = "rra-idea";
@@ -60,6 +66,9 @@ function initial(): IdeaState {
     planSource: "original",
     appliedChoices: null,
     policyDeferred: false,
+    referenceIds: [],
+    appliedReferenceIds: null,
+    planRefSig: null,
   };
 }
 
@@ -93,7 +102,18 @@ export function updateIdea(patch: Partial<IdeaState>): void {
   // 새 유사과제 확인 결과가 오면(① 에서 다시 확인) 이전 아이디어의 선택·과제안 상태를 비운다
   const fresh = patch.precheck !== undefined && patch.precheck !== state.precheck && !("similarChoices" in patch);
   state = fresh
-    ? { ...state, similarChoices: {}, planSig: null, originalPlan: null, planSource: "original", appliedChoices: null, ...patch }
+    ? {
+        ...state,
+        similarChoices: {},
+        planSig: null,
+        originalPlan: null,
+        planSource: "original",
+        appliedChoices: null,
+        referenceIds: [],
+        appliedReferenceIds: null,
+        planRefSig: null,
+        ...patch,
+      }
     : { ...state, ...patch };
   persist();
 }

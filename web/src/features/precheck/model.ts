@@ -138,3 +138,20 @@ export function seriesSources(series: SeriesView): string {
   for (const m of series.members) for (const n of m.source_label.split(" · ")) if (n) names.add(n);
   return [...names].join(" · ");
 }
+
+// ── 참고 논문 (ADR 0053) ─────────────────────────
+/** ② 관련 연구에서 [차별화에 참고] 로 고를 수 있는 최대 건수 — 서버도 5 를 넘으면 422 */
+export const MAX_REFERENCES = 5;
+export const REFERENCE_LIMIT_NOTE = "참고 논문은 5건까지 고를 수 있습니다. 다른 자료를 고르려면 하나를 해제하십시오.";
+
+/** 참고 논문 선택 서명 — 순서와 상관없이 같은 묶음이면 같다 ('선택이 바뀌었습니다'·과제안 다시 만들기 권유용) */
+export function referenceSignature(ids: readonly string[] | null | undefined): string {
+  return [...new Set(ids ?? [])].sort().join("|");
+}
+
+/** 체크/해제 — 고른 순서를 지키고(비교표 열 순서), 다섯 건이 차 있으면 더 넣지 않는다 */
+export function toggleReference(ids: readonly string[], docId: string, on: boolean): string[] {
+  if (!on) return ids.filter((x) => x !== docId);
+  if (ids.includes(docId) || ids.length >= MAX_REFERENCES) return [...ids];
+  return [...ids, docId];
+}
