@@ -1,8 +1,8 @@
 """차별화 과제 추천의 순수 규칙 — LLM 출력 검증·중복 제거·상한·입력 반영 (ADR 0012).
 
 검증(validate_recommendation): compared_with·evidence 는 precheck 알림 + 이번 검색 근거
-(하한 통과 청크)의 doc_id 안에서만 — 검색으로 찾은 논문·보고서도 "비교한 기존 과제" 가
-될 수 있다. 본문(가제·요약·차별점·이유·이어받을
+(하한 통과 청크) + 제안자가 고른 참고 논문(reference, ADR 0053)의 doc_id 안에서만 — 검색으로 찾은
+논문·보고서도 "비교한 기존 과제" 가 될 수 있다. 본문(가제·요약·차별점·이유·이어받을
 점·위험)은 제안 입력·유사과제 문서·근거 구간에 있는 수치(numbers)와 고유명(grounding)만 쓰고
 한자·가나가 없어야 한다. 하나라도 어긋나면 그 추천은 폐기 사유와 함께 버린다 (보안 A: LLM 출력은
 비신뢰 → 구획 태그 무력화·길이 상한).
@@ -102,6 +102,7 @@ def validate_recommendation(
     alert_doc_ids: Iterable[str],
     evidence_doc_ids: Iterable[str],
     allowed_texts: Iterable[str],
+    reference_doc_ids: Iterable[str] = (),
 ) -> tuple[ProjectRecommendation | None, str | None]:
     """LLM 추천 하나 → (검증된 추천, None) 또는 (None, 폐기 사유).
 
@@ -115,8 +116,9 @@ def validate_recommendation(
         return None, DISCARD_EMPTY
     alert_ids = list(alert_doc_ids)
     evidence_ids = list(evidence_doc_ids)
-    known = [*alert_ids, *evidence_ids]
-    allowed = [*allowed_texts, *alert_ids, *evidence_ids]  # id 표기(own:1·W1)는 수치가 아니다
+    reference_ids = list(reference_doc_ids)  # [참고 논문] 구획에 넣은 것만 (ADR 0053)
+    known = [*alert_ids, *evidence_ids, *reference_ids]
+    allowed = [*allowed_texts, *known]  # id 표기(own:1·W1)는 수치가 아니다
     for text in (title, summary, differentiation):
         bad = _bad(text, allowed)
         if bad:
@@ -156,6 +158,25 @@ def overlaps_similar(
         if mine and other and len(mine & other) / len(other) >= ratio:
             return True
     return False
+
+
+# ADR 0053 — [유사함] 0건인데 첫 응답(검증 뒤)이 0건이면 이 지시를 붙여 한 번만 다시 받는다
+NEW_AREA_HINT = (
+    "[새 영역] 이 아이디어와 겹치는 것으로 고른 기존 과제가 없다. 겹치는 과제가 없다는 것은 빈 "
+    "배열의 사유가 아니다 — 이 아이디어를 '새 영역'으로 보고 제안자 아이디어의 목적 안에서 "
+    "과제안 1~3건을 낸다. [제안 입력]·[근거]·[참고 논문] 에 있는 내용만 쓰고 수치·정책명·기관명·"
+    "문서 id 를 지어내지 않는다. 근거가 전혀 없거나 모든 방향이 목적 밖일 때만 빈 배열과 "
+    "사유를 낸다."
+)
+HINT_REFERENCE = "reference"
+
+
+def recommendation_hint(count: int, reference_ids: Iterable[str]) -> str | None:
+    """화면 안내 (ADR 0053) — 추천 0건이고 참고 논문을 고르지 않았으면 "reference"
+    (② 관련 연구에서 참고 논문을 골라 다시 만들 수 있음). 그 밖에는 None."""
+    if count == 0 and not list(reference_ids):
+        return HINT_REFERENCE
+    return None
 
 
 def regeneration_hint(discarded: Iterable[Mapping[str, str]]) -> str:
