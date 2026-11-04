@@ -3,9 +3,14 @@
 import type { ComparisonOut, Differentiation, OverlapAlert, PrecheckOut, ProposalRequest, Recommendation, Recommendations } from "./types";
 
 export type SimilarChoiceValue = "similar" | "unrelated";
+/** 선택의 출처 (ADR 0056) — user: 제안자가 직접 바꾼 값(AI 기본 선택과 다른 값, 또는 기본 선택이 없는 행에서 고른 값),
+ *  ai_prefill: 화면이 미리 고른 AI 기본 선택이 그대로 남은 값. 선택 기록에만 쓰이고 판정·차단·건수에는 쓰이지 않는다. */
+export type ChoiceSource = "user" | "ai_prefill";
 export interface SimilarChoice {
   doc_id: string;
   choice: SimilarChoiceValue;
+  /** 요청에서 빠지면 서버는 user 로 본다. 서버의 default_choices 에는 없다 */
+  source?: ChoiceSource;
 }
 
 /** 과제안 다섯 칸 — ProposalRequest 필드 이름 */

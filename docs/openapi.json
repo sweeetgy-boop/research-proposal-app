@@ -5858,6 +5858,16 @@
               "unrelated"
             ],
             "title": "Choice"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "user",
+              "ai_prefill"
+            ],
+            "title": "Source",
+            "description": "선택의 출처 — user: 제안자가 직접 바꾼 값(AI 기본 선택과 다른 값을 눌렀거나, 기본 선택이 없는 행에서 골랐다), ai_prefill: AI 판정의 기본 선택이 그대로 남은 값(지웠다가 기본 선택으로 돌아간 행 포함). 보내지 않으면 user — 옛 웹 캐시·CLI·MCP 가 넘긴 선택은 명시적 선택이다. 선택 기록에만 남고 판정·차단·건수에는 쓰지 않는다 (ADR 0056)",
+            "default": "user"
           }
         },
         "type": "object",

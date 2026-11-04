@@ -11,7 +11,10 @@
   (effective_blocking)는 제안자 선택만 본다.
 - rows_for_writing: ③ 5. 특이사항 판정표 — [관련 없음] 행은 빼고, [유사함] 행은 "중복 검토 대상"
   (blocking) 으로 쓴다. 선택이 없으면 종전과 같다.
-- choice_records: 임계치 조정용 선택 기록(JSONL 한 줄씩) — doc_id·선택·점수·시각·아이디어 해시만.
+- choice_records: 임계치 조정용 선택 기록(JSONL 한 줄씩) — doc_id·선택·출처·점수·시각·아이디어
+  해시만. 출처(source, ADR 0056)는 user(제안자가 직접 바꾼 값)·ai_prefill(화면이 미리 고른 AI
+  기본 선택이 그대로 남은 값). 출처는 기록용 메타데이터 — 위 규칙(차단·유효 선택·건수)은 출처를
+  보지 않는다.
 """
 
 from __future__ import annotations
@@ -28,6 +31,9 @@ IDEA_HASH_CHARS = 16
 SIMILAR = "similar"
 UNRELATED = "unrelated"
 _DEFAULT_BY_VERDICT: dict[str, str] = {"same": SIMILAR, "partial": SIMILAR, "different": UNRELATED}
+# 선택 출처 (ADR 0056) — 보내지 않은 선택은 USER (domain/models/request.SimilarChoice.source 기본값)
+SOURCE_USER = "user"
+SOURCE_AI_PREFILL = "ai_prefill"
 
 
 def title_key(title: str) -> str:
@@ -68,12 +74,18 @@ def _ids(alert: OverlapAlert) -> list[str]:
     return [alert.doc_id, *alert.merged_ids]
 
 
-def choice_for(alert: OverlapAlert, choices: Mapping[str, str]) -> str | None:
-    """행의 선택 — 대표 doc_id 또는 합쳐진 doc_id 중 하나에 대한 선택."""
+def _chosen_id(alert: OverlapAlert, choices: Mapping[str, str]) -> str | None:
+    """선택이 걸린 doc_id — 대표 doc_id 먼저, 다음 합쳐진 doc_id."""
     for i in _ids(alert):
         if i in choices:
-            return choices[i]
+            return i
     return None
+
+
+def choice_for(alert: OverlapAlert, choices: Mapping[str, str]) -> str | None:
+    """행의 선택 — 대표 doc_id 또는 합쳐진 doc_id 중 하나에 대한 선택."""
+    i = _chosen_id(alert, choices)
+    return choices[i] if i is not None else None
 
 
 def default_choice(alert: OverlapAlert) -> str | None:
@@ -156,15 +168,19 @@ def choice_records(
     idea: str,
     at: str,
     released: bool = False,
+    sources: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """선택한 행마다 한 줄 — 임계치 조정용. 개인정보·본문 없음(doc_id·점수·판정·해시·시각).
-    제안자가 보낸 선택만 남긴다 — AI 기본 선택(effective_choice)은 선택 기록이 아니다 (ADR 0054)."""
+    제안자가 보낸 선택만 남긴다 — 서버의 AI 기본 선택(effective_choice)은 선택 기록이 아니다
+    (ADR 0054). 줄마다 source — 그 선택의 출처(sources: doc_id → user | ai_prefill, 선택이 걸린
+    doc_id 기준). sources 에 없으면 user (ADR 0056)."""
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for a in alerts:
-        c = choice_for(a, choices)
-        if c is None or a.doc_id in seen:
+        chosen = _chosen_id(a, choices)
+        if chosen is None or a.doc_id in seen:
             continue
+        c = choices[chosen]
         seen.add(a.doc_id)
         out.append(
             {
@@ -173,6 +189,7 @@ def choice_records(
                 "doc_id": a.doc_id,
                 "merged_ids": list(a.merged_ids),
                 "choice": c,
+                "source": (sources or {}).get(chosen, SOURCE_USER),
                 "tier": a.tier,
                 "similarity": round(a.similarity, 4),
                 "rerank_score": a.rerank_score,

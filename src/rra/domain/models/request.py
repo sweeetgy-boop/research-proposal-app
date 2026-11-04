@@ -69,6 +69,17 @@ class SimilarChoice(BaseModel):
 
     doc_id: str = Field(min_length=1, max_length=DOC_ID_MAX)
     choice: Literal["similar", "unrelated"]
+    # ADR 0056 — 선택 기록(similar_choices.jsonl)의 출처. 판정·차단·건수에는 쓰지 않는다.
+    source: Literal["user", "ai_prefill"] = Field(
+        default="user",
+        description=(
+            "선택의 출처 — user: 제안자가 직접 바꾼 값(AI 기본 선택과 다른 값을 눌렀거나, "
+            "기본 선택이 없는 행에서 골랐다), ai_prefill: AI 판정의 기본 선택이 그대로 남은 값"
+            "(지웠다가 기본 선택으로 돌아간 행 포함). 보내지 않으면 user — 옛 웹 캐시·CLI·MCP 가 "
+            "넘긴 선택은 명시적 선택이다. 선택 기록에만 남고 판정·차단·건수에는 쓰지 않는다 "
+            "(ADR 0056)"
+        ),
+    )
 
     @field_validator("doc_id")
     @classmethod
@@ -204,6 +215,10 @@ class ProposalRequest(BaseModel):
     def choice_map(self) -> dict[str, str]:
         """doc_id → similar | unrelated."""
         return {c.doc_id: c.choice for c in self.similar_choices}
+
+    def choice_sources(self) -> dict[str, str]:
+        """doc_id → user | ai_prefill — 선택 기록에만 쓴다 (ADR 0056)."""
+        return {c.doc_id: c.source for c in self.similar_choices}
 
     def search_text(self) -> str:
         parts = [self.title_hint, self.current_state, self.root_cause, self.limitation, self.goal]

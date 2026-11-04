@@ -25,8 +25,24 @@ test("② 표 먼저·선택 적용·과제안 더 만들기 — 내부 번호 �
   await expect(rows.first().getByRole("button", { name: "유사함" })).toHaveAttribute("aria-pressed", "true");
   await expect(bar.getByText(/유사함 1건/)).toBeVisible();
   await expect(bar.getByText(/선택이 바뀌었습니다/)).toBeVisible();
+  // 둘째 행('다르다' → [관련 없음] 미리 고름)을 [유사함] 으로 바꾼다 — 그 행만 출처 user, 나머지는 ai_prefill (ADR 0056)
+  await expect(rows.nth(1).getByRole("button", { name: "관련 없음" })).toHaveAttribute("aria-pressed", "true");
+  await rows.nth(1).getByRole("button", { name: "유사함" }).click();
+  await expect(bar.getByText(/유사함 2건/)).toBeVisible();
+  type Sent = { similar_choices?: { doc_id: string; choice: string; source?: string }[] };
+  const comparisonReq = page.waitForRequest((r) => {
+    if (r.method() !== "POST" || !r.url().includes("/v1/precheck/comparison")) return false;
+    return ((r.postDataJSON() as Sent).similar_choices ?? []).length > 0;
+  });
   await bar.getByRole("button", { name: "선택 적용" }).click();
   await expect(bar.getByText("선택 적용됨 · 비교표 갱신")).toBeVisible();
+  const sent = ((await comparisonReq).postDataJSON() as Sent).similar_choices ?? [];
+  expect(sent.length).toBe(await rows.count());
+  expect(sent.every((c) => c.source === "user" || c.source === "ai_prefill")).toBe(true);
+  const changed = sent.filter((c) => c.source === "user");
+  expect(changed).toHaveLength(1);
+  expect(changed[0]!.choice).toBe("similar");
+  expect(sent.filter((c) => c.source === "ai_prefill" && c.choice === "similar")).toHaveLength(1);
   const compare = page.getByRole("table", { name: /차별성 비교표/ });
   await expect(compare).toBeVisible();
 

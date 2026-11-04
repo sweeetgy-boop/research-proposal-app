@@ -19,6 +19,7 @@ ALLOWED_KEYS = frozenset(
         "doc_id",
         "merged_ids",
         "choice",
+        "source",  # ADR 0056 — user | ai_prefill. 이 키가 없는 옛 줄은 2026-11-04 이전(출처 모름)
         "tier",
         "similarity",
         "rerank_score",
