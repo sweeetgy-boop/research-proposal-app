@@ -79,13 +79,25 @@ async def test_precheck_flow_choices_comparison_cards_polish_and_run(parts):
         assert first["judgment_reason"] and first["judged_by"] == "argon"
         assert all(not a["blocking"] for a in pre["alerts"][1:])
         assert pre["blocking"] and pre["gate_reason"].startswith("차단 경보를 확인해 주세요")
-        assert "differentiation" not in pre  # [유사함] 을 고르기 전에는 활용 제안 없음
+        # ADR 0054: 고르지 않은 '같다' 행은 기본 선택이 [유사함] — 그 행으로 활용 제안이 붙는다
+        assert pre["similar_count"] == 1
+        assert {"doc_id": first["doc_id"], "choice": "similar"} in pre["default_choices"]
+        assert [i["doc_id"] for i in pre["differentiation"]["items"]] == [first["doc_id"]]
         cards = pre["recommendations"]["recommendations"]
         assert len(cards) == 2 and cards[0]["method"] and cards[0]["goal"]
         assert pre["core_keywords"]  # 핵심 키워드 (가짜 키워드 LLM)
 
-        # 비교표 — 고른 행이 없으면 기존 과제 행 없음 + 안내
-        cmp0 = (await c.post("/v1/precheck/comparison", json=IDEA, headers=AUTH)).json()
+        # 비교표 — 선택이 없으면 AI 기본 선택([유사함] = '같다' 행) 그대로 (ADR 0054)
+        cmp_default = (await c.post("/v1/precheck/comparison", json=IDEA, headers=AUTH)).json()
+        assert [p["doc_id"] for p in cmp_default["comparison"]["projects"]] == [first["doc_id"]]
+        # 모든 행을 [관련 없음] 으로 고르면 기존 과제 행 없음 + 안내
+        none = {
+            **IDEA,
+            "similar_choices": [
+                {"doc_id": a["doc_id"], "choice": "unrelated"} for a in pre["alerts"]
+            ],
+        }
+        cmp0 = (await c.post("/v1/precheck/comparison", json=none, headers=AUTH)).json()
         assert cmp0["comparison"]["projects"] == []
         assert cmp0["comparison"]["empty_reason"] == "유사한 과제를 고르면 비교표가 만들어집니다"
         assert cmp0["comparison"]["proposal"]["title"] == "궤도 보수 우선순위 산정"
@@ -110,7 +122,7 @@ async def test_precheck_flow_choices_comparison_cards_polish_and_run(parts):
         )
         assert table["projects"][0]["cells"]["scope"] == "정보 없음"
 
-        diff0 = (await c.post("/v1/precheck/differentiate", json=IDEA, headers=AUTH)).json()
+        diff0 = (await c.post("/v1/precheck/differentiate", json=none, headers=AUTH)).json()
         assert diff0["differentiation"]["skipped_reason"] == "no_similar_selected"
         assert diff0["differentiation"]["skipped_label"].startswith("유사함으로 고른 과제가 없어")
         diff1 = (await c.post("/v1/precheck/differentiate", json=chosen, headers=AUTH)).json()

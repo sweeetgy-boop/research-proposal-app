@@ -129,7 +129,7 @@ def test_all_blocking_rows_unrelated_releases_the_block_and_records():
     assert released and not any(a.blocking for a in shown)
     assert not similar_choice.effective_blocking(alerts, choices)
     assert similar_choice.effective_blocking(alerts, {"own:2": "similar"})
-    assert [a.doc_id for a in similar_choice.similar_alerts(alerts, choices)] == ["own:2"]
+    assert [a.doc_id for a in similar_choice.effective_similar(alerts, choices)] == ["own:2"]
     recs = similar_choice.choice_records(
         alerts, choices, idea=similar_choice.idea_hash("궤도"), at="t", released=released
     )

@@ -4,7 +4,11 @@
   나머지 doc_id 는 merged_ids 에. 차단은 어느 하나라도 차단이면 차단.
 - apply_choices: 제안자 선택([유사함]/[관련 없음])을 행에 붙인다. [관련 없음] 행은 차단에서 빠진다.
   차단 행을 모두 [관련 없음] 으로 고르면 차단이 풀린다(released).
-- similar_alerts: [유사함] 으로 고른 행만 — 비교표·활용 제안·차별화 과제안·본문 차별성 문장의 입력.
+- effective_choice / effective_similar (ADR 0054): 행의 유효 선택 = 제안자 선택, 없으면 AI
+  판정의 기본 선택(같다·일부 겹침 → [유사함], 다르다 → [관련 없음]). 규칙 판정·AI 실패·판정 전
+  행은 기본 선택이 없다(유사함 아님). [유사함] 건수·'새 영역' 다시 받기·과제안 근거·비교표·활용
+  제안은 모두 이 규칙을 application/usecases/similar_rows 로 거쳐 쓴다. 차단 게이트
+  (effective_blocking)는 제안자 선택만 본다.
 - rows_for_writing: ③ 5. 특이사항 판정표 — [관련 없음] 행은 빼고, [유사함] 행은 "중복 검토 대상"
   (blocking) 으로 쓴다. 선택이 없으면 종전과 같다.
 - choice_records: 임계치 조정용 선택 기록(JSONL 한 줄씩) — doc_id·선택·점수·시각·아이디어 해시만.
@@ -23,6 +27,7 @@ _TITLE_NOISE = re.compile(r"[^0-9a-z가-힣]+")
 IDEA_HASH_CHARS = 16
 SIMILAR = "similar"
 UNRELATED = "unrelated"
+_DEFAULT_BY_VERDICT: dict[str, str] = {"same": SIMILAR, "partial": SIMILAR, "different": UNRELATED}
 
 
 def title_key(title: str) -> str:
@@ -71,6 +76,27 @@ def choice_for(alert: OverlapAlert, choices: Mapping[str, str]) -> str | None:
     return None
 
 
+def default_choice(alert: OverlapAlert) -> str | None:
+    """AI 판정의 기본 선택 (ADR 0054) — 같다·일부 겹침 → similar, 다르다 → unrelated.
+    AI 판정이 없으면(규칙 판정·AI 실패·판정 전) None."""
+    if getattr(alert, "judged_by", None) == "rule":
+        return None
+    return _DEFAULT_BY_VERDICT.get(getattr(alert, "judgment", None) or "")
+
+
+def effective_choice(alert: OverlapAlert, choices: Mapping[str, str]) -> str | None:
+    """행의 유효 선택 — 제안자 선택이 이기고, 없으면 AI 판정의 기본 선택 (ADR 0054)."""
+    chosen = choice_for(alert, choices)
+    return chosen if chosen is not None else default_choice(alert)
+
+
+def effective_similar(
+    alerts: Sequence[OverlapAlert], choices: Mapping[str, str]
+) -> list[OverlapAlert]:
+    """유효 선택이 [유사함] 인 행 (순서 유지) — 비교표·활용 제안·과제안·건수의 입력."""
+    return [a for a in alerts if effective_choice(a, choices) == SIMILAR]
+
+
 def apply_choices(
     alerts: Sequence[OverlapAlert], choices: Mapping[str, str]
 ) -> tuple[list[OverlapAlert], bool]:
@@ -92,13 +118,6 @@ def apply_choices(
 def effective_blocking(alerts: Sequence[OverlapAlert], choices: Mapping[str, str]) -> bool:
     """선택을 반영한 차단 여부 — 차단 행 중 [관련 없음] 이 아닌 것이 있으면 True."""
     return any(a.blocking and choice_for(a, choices) != UNRELATED for a in alerts)
-
-
-def similar_alerts(
-    alerts: Sequence[OverlapAlert], choices: Mapping[str, str]
-) -> list[OverlapAlert]:
-    """[유사함] 으로 고른 행만 (순서 유지)."""
-    return [a for a in alerts if choice_for(a, choices) == SIMILAR]
 
 
 def rows_for_writing(
@@ -138,7 +157,8 @@ def choice_records(
     at: str,
     released: bool = False,
 ) -> list[dict[str, Any]]:
-    """선택한 행마다 한 줄 — 임계치 조정용. 개인정보·본문 없음(doc_id·점수·판정·해시·시각)."""
+    """선택한 행마다 한 줄 — 임계치 조정용. 개인정보·본문 없음(doc_id·점수·판정·해시·시각).
+    제안자가 보낸 선택만 남긴다 — AI 기본 선택(effective_choice)은 선택 기록이 아니다 (ADR 0054)."""
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for a in alerts:

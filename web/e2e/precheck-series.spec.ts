@@ -37,9 +37,12 @@ test("② 같은 연작 한 줄 — 펼치기·근거 패널·묶음 선택, 내
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 
-  // 행 [유사함] 은 묶음 하나 — 선택 요약 막대 "유사함 1건"
-  await row.getByRole("button", { name: "유사함" }).click();
+  // 행 [유사함] 은 묶음 하나 — AI 판정 뒤 다른 과제(일부 겹침)는 [유사함] 이 미리 골라져 있으므로(ADR 0054)
+  // 연작 행을 고르면 선택 요약 막대 "유사함 2건"(연작 3판이어도 1건으로 센다)
+  await expect(page.getByText(/'같다'·'일부 겹침' 으로 본 1건은 \[유사함\]/)).toBeVisible();
   await expect(page.getByTestId("precheck-summary-bar").getByText(/유사함 1건/)).toBeVisible();
+  await row.getByRole("button", { name: "유사함" }).click();
+  await expect(page.getByTestId("precheck-summary-bar").getByText(/유사함 2건/)).toBeVisible();
   await expect(row.getByRole("button", { name: "유사함" })).toHaveAttribute("aria-pressed", "true");
   await expect(row.getByRole("button", { name: "관련 없음" })).toHaveAttribute("aria-pressed", "false");
 

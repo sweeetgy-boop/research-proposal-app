@@ -26,6 +26,7 @@ import {
   choiceCounts,
   choiceList,
   choicesSignature,
+  defaultChoiceOf,
   effectiveBlocking,
   fullSignature,
   planFields,
@@ -49,8 +50,8 @@ const currentPre = () => getIdea().precheck as unknown as PrecheckFlowOut | null
 const setPre = (next: PrecheckFlowOut, patch: Parameters<typeof updateIdea>[0] = {}) =>
   updateIdea({ precheck: next as unknown as PrecheckOut, similarChoices: getIdea().similarChoices, ...patch });
 
-/** ② 유사과제 확인 (v3, ADR 0039) — 표 먼저(규칙 판정) → AI 판정이 오면 행마다 채움 + "다르다" 행만 [관련 없음] 미리
- *  고름 → 과제안은 표가 보이자마자 뒤에서 만든다(서버는 AI 판정을 기다려 근거로 씀). 선택은 [선택 적용] 을 눌러야
+/** ② 유사과제 확인 (v3, ADR 0039) — 표 먼저(규칙 판정) → AI 판정이 오면 행마다 채움 + 기본 선택을 미리 고름(ADR 0054:
+ *  같다·일부 겹침 → [유사함], 다르다 → [관련 없음]) → 과제안은 표가 보이자마자 뒤에서 만든다(서버는 AI 판정을 기다려 근거로 씀). 선택은 [선택 적용] 을 눌러야
  *  비교표·활용 제안·과제안 근거에 반영된다. AI 호출은 모두 시간 제한 없이 "경과 n초 [취소]". */
 export default function Precheck() {
   const idea = useIdea();
@@ -64,7 +65,7 @@ export default function Precheck() {
   const refs = idea.referenceIds;
   const appliedRefs = React.useMemo(() => idea.appliedReferenceIds ?? [], [idea.appliedReferenceIds]);
   const [editing, setEditing] = React.useState(false);
-  const [defaultsAdded, setDefaultsAdded] = React.useState(0);
+  const [defaultsAdded, setDefaultsAdded] = React.useState({ similar: 0, unrelated: 0 });
 
   // 서버로 보내는 입력 = 입력 + 가제(간편 입력 가제가 있으면) + 행별 선택 + 참고 논문
   const base = React.useMemo(
@@ -102,8 +103,8 @@ export default function Precheck() {
     // 판정 응답에는 실시간 검색 표시가 없다 — 표 먼저 응답의 live 를 이어받는다
     const live = new Set(cur.alerts.filter((a) => a.live).map((a) => a.doc_id));
     const alerts = out.alerts.map((a) => (live.has(a.doc_id) ? { ...a, live: true } : a));
-    const { map, added } = withDefaults(getIdea().similarChoices, out.default_choices, alerts);
-    setDefaultsAdded(added);
+    const { map, addedSimilar, addedUnrelated } = withDefaults(getIdea().similarChoices, out.default_choices, alerts);
+    setDefaultsAdded({ similar: addedSimilar, unrelated: addedUnrelated });
     setPre(
       {
         ...cur,
@@ -229,7 +230,8 @@ export default function Precheck() {
   const released = isReleased(pre.alerts, choices);
   const gateOk = !blocking || idea.acknowledged;
   const counts = choiceCounts(pre.alerts, choices);
-  const appliedCounts = choiceCounts(pre.alerts, applied);
+  // [선택 적용] 전에는 서버가 선택 없는 행에 AI 기본 선택을 쓴다 (ADR 0054) — 활용 제안 버튼도 같은 건수로
+  const appliedCounts = choiceCounts(pre.alerts, idea.appliedChoices ?? withDefaults({}, pre.default_choices, pre.alerts).map);
   // '선택이 바뀌었습니다' — [유사함]/[관련 없음] 이나 참고 논문이 마지막 [선택 적용] 과 다르면
   const choicesStale = fullSignature(choices) !== fullSignature(applied) || referenceSignature(refs) !== referenceSignature(appliedRefs);
   const planStale = idea.planSig !== null && idea.planSig !== choicesSignature(applied) && !cards.pending;
@@ -240,7 +242,9 @@ export default function Precheck() {
     // 묶음 행(같은 제목·같은 연작, ADR 0043)의 선택은 행 하나 — 구성원 doc_id 로 남은 옛 선택은 지운다
     const row = pre.alerts.find((a) => a.doc_id === docId);
     for (const id of row?.merged_ids ?? []) delete next[id];
-    if (value) next[docId] = value;
+    // 선택을 지우면 AI 기본 선택으로 돌아간다 — 서버도 선택 없는 행은 기본 선택으로 센다 (ADR 0054)
+    const fallback = value ?? (row ? defaultChoiceOf(row, pre.default_choices) : undefined);
+    if (fallback) next[docId] = fallback;
     else delete next[docId];
     updateIdea({
       similarChoices: next,
@@ -306,8 +310,9 @@ export default function Precheck() {
         <Eyebrow className="mb-1">Step 02 · Similar projects</Eyebrow>
         <h1 className="text-2xl font-bold tracking-tight">② 유사과제 확인</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          관련도와 아이디어 핵심 키워드로 찾은 기존 과제(사내 기록·알리오·NTIS 과제·발주 용역)입니다. 표를 먼저 보이고 AI 판정이 오면 행마다 채웁니다. 행마다
-          [유사함]·[관련 없음] 을 고른 뒤 [선택 적용] 을 누르면 비교표·활용 제안·차별화 과제안에 [유사함] 과제만 쓰입니다. 제목은 수집 자료의 텍스트입니다.
+          관련도와 아이디어 핵심 키워드로 찾은 기존 과제(사내 기록·알리오·NTIS 과제·발주 용역)입니다. 표를 먼저 보이고 AI 판정이 오면 행마다 채웁니다. AI 가
+          '같다'·'일부 겹침' 으로 본 행은 [유사함], '다르다' 로 본 행은 [관련 없음] 으로 미리 고릅니다. 행마다 [유사함]·[관련 없음] 을 확인·변경한 뒤
+          [선택 적용] 을 누르면 비교표·활용 제안·차별화 과제안에 [유사함] 과제만 쓰입니다. 제목은 수집 자료의 텍스트입니다.
         </p>
       </div>
 

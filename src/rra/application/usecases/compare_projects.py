@@ -1,9 +1,9 @@
 """U4 차별성 비교표 유스케이스 — 유사과제 상위 5건의 문서를 읽어 표를 만든다.
 
 2026-10-28 레인 A:
-- similar_only=True(REST ②) 면 제안자가 [유사함] 으로 고른 행(req.similar_choices)만 넣는다. 고른
-행이
-  없으면 기존 과제 행 없이 "유사한 과제를 고르면 비교표가 만들어집니다".
+- similar_only=True(REST ②) 면 [유사함] 행만 넣는다 — 제안자 선택, 없으면 AI 기본 선택(같다·일부
+  겹침, ADR 0054 `usecases/similar_rows`). 없으면 기존 과제 행 없이 "유사한 과제를 고르면 비교표가
+  만들어집니다".
 - 기존 과제 칸은 CellExtractor(Argon → 로컬 → 규칙)가 원문에서 뽑은 1~2문장. 없으면 규칙 추출.
 - 초안이 있으면(draft: 초안 섹션 목록) 제안 행을 초안으로 채운다.
 
@@ -21,6 +21,7 @@ from typing import Any
 
 from rra.application.ports import DocumentRepository
 from rra.application.usecases.references import load_references
+from rra.application.usecases.similar_rows import similar_rows
 from rra.domain.models import Document, OverlapAlert, ProposalRequest
 from rra.domain.models.comparison import ComparisonTable
 from rra.domain.rules.comparison import (
@@ -30,7 +31,7 @@ from rra.domain.rules.comparison import (
     draft_cells,
 )
 from rra.domain.rules.overlap import tier_of
-from rra.domain.rules.similar_choice import merge_same_titles, similar_alerts
+from rra.domain.rules.similar_choice import merge_same_titles
 
 Precheck = Callable[[ProposalRequest], Awaitable[list[OverlapAlert]]]
 
@@ -55,7 +56,7 @@ class CompareProjects:
             alerts = await self.precheck(req)
         empty_reason = None
         if similar_only:
-            alerts = similar_alerts(merge_same_titles(alerts), req.choice_map())
+            alerts = similar_rows(merge_same_titles(alerts), req.choice_map())
             alerts = await self._add_missing(req, alerts)
             if not alerts:
                 empty_reason = EMPTY_NO_SIMILAR
