@@ -34,6 +34,21 @@ def test_dedupe_sequence_apply_apply_generate_apply():
     assert written == [apply_a, gen_a, apply_a, apply_b, apply_a]
 
 
+def test_dedupe_compares_only_with_previous_line_a_b_a_writes_three():
+    """'연달아' = 그 세션이 바로 앞에 기록한 선택과 같을 때만 (소유자 확인 2026-11-04).
+    A→B→A 처럼 바뀌었다 돌아오면 세 번 모두 남는다. 같은 선택이 바로 이어질 때만 건너뛴다."""
+    d = ChoiceDedupe()
+    key = sc.session_key("staff:abc", "h" * 16)
+    a = sc.choice_signature(_recs({"a": "similar", "b": "unrelated"}, event="apply"))
+    b = sc.choice_signature(_recs({"a": "unrelated", "b": "unrelated"}, event="apply"))
+    written = []
+    for sig in (a, b, a, a):
+        if not d.is_repeat(key, sig):
+            d.remember(key, sig)
+            written.append(sig)
+    assert written == [a, b, a]
+
+
 def test_dedupe_is_per_session_and_bounded():
     d = ChoiceDedupe(max_sessions=2)
     sig = sc.choice_signature(_recs({"a": "similar"}, event="apply"))
