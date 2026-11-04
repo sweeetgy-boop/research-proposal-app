@@ -299,15 +299,7 @@ class OpenAICompatLLM:
 
     def _note_failure(self, exc: LLMError) -> None:
         """실패 1건 = 경고 1줄. 열거값(종류·HTTP 상태·Google status/reason)만 — 키·URL·본문 없음."""
-        logger.warning(
-            "llm.failed provider=%s stage=%s kind=%s http=%s status=%s reason=%s",
-            self.provider,
-            self.stage or "-",
-            exc.code,
-            exc.http_status if exc.http_status is not None else "-",
-            exc.api_status or "-",
-            exc.api_reason or "-",
-        )
+        logger.warning(_payload.FAILURE_LOG, *_payload.failure_args(self.provider, self.stage, exc))
         self._note_status(llm_status.status_for_code(exc.code))
 
     async def _request_with_retry(self, payload: dict[str, Any]) -> Any:

@@ -380,3 +380,91 @@ async def test_without_key_runs_on_local_model_and_marks_fallback():
     uc, _, _ = make([reply([rec("과제")])], fallback=True)
     out = await uc(REQ, ALERTS)
     assert out.fallback_local is True and out.provider == "mlx" and len(out.recommendations) == 1
+
+
+# ── Argon 실패 기록 (ADR 0055 덧붙임) ─────────────────────────
+FAKE_KEY = "test-not-a-real-gemini-key-0000"
+ERROR_BODY = "API key not valid. 제안 내용: 경부선 궤도 틀림"
+
+
+class KeyInvalidLLM:
+    """어댑터의 키 무효 예외 흉내 — 메시지에 키·본문을 일부러 넣는다(로그에 나오면 안 됨)."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def complete(self, prompt, *, system=None, max_tokens=None, json_mode=False):
+        from rra.adapters.llm.errors import LLMAuthError
+
+        self.calls += 1
+        raise LLMAuthError(f"{ERROR_BODY} key={FAKE_KEY}", http_status=400)
+
+
+def _lines(caplog, head: str) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.getMessage().startswith(head)]
+
+
+async def test_argon_failure_logs_one_use_case_line_and_summary_without_body_or_key(caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="rra.recommend")
+    uc, _, _ = make([])
+    uc.llm = KeyInvalidLLM()
+    uc.local = FakeLLM(
+        [reply([rec("로컬이 쓴 과제 하나"), rec("로컬 두 번째", summary="다른 구간")])]
+    )
+    out = await uc(REQ, ALERTS)
+    assert out.fallback_local is True and len(out.recommendations) == 2
+    assert _lines(caplog, "recommend.argon_failed") == [
+        "recommend.argon_failed kind=auth fallback=local"
+    ]
+    done = _lines(caplog, "recommend.done")
+    assert done == [
+        "recommend.done provider=gemini fallback_local=true calls=1 kept=2 discarded=0 "
+        "skipped_reason=- retry_used=false"
+    ]
+    assert next(r for r in caplog.records if r.getMessage() == done[0]).levelno == logging.WARNING
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert FAKE_KEY not in text and "API key not valid" not in text and "경부선" not in text
+    assert not _lines(caplog, "llm.failed")  # 어댑터 줄은 어댑터만 남긴다 — 여기서 다시 쓰지 않는다
+
+
+async def test_argon_failure_without_local_logs_fallback_none_and_class_name(caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="rra.recommend")
+    uc, llm, _ = make([])
+    llm.fail_at = {0}  # TimeoutError — code 가 없는 예외는 클래스 이름
+    out = await uc(REQ, ALERTS)
+    assert out.recommendations == [] and out.skipped_reason == SKIP_PARSE_FAILED
+    assert _lines(caplog, "recommend.argon_failed") == [
+        "recommend.argon_failed kind=TimeoutError fallback=none"
+    ]
+    assert _lines(caplog, "recommend.done") == [
+        "recommend.done provider=gemini fallback_local=false calls=1 kept=0 discarded=0 "
+        "skipped_reason=parse_failed retry_used=false"
+    ]
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "127.0.0.1" not in text and "제안 내용" not in text
+
+
+async def test_unparseable_argon_reply_logs_invalid_and_success_logs_only_the_info_summary(caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="rra.recommend")
+    uc, _, _ = make(["not json"])
+    uc.local = FakeLLM([reply([rec("로컬이 쓴 과제 하나")])])
+    await uc(REQ, ALERTS)
+    assert _lines(caplog, "recommend.argon_failed") == [
+        "recommend.argon_failed kind=invalid fallback=local"
+    ]
+    caplog.clear()
+    uc, _, _ = make([reply([rec("운행 차량 가속도 기반 진행 속도 추정")])])
+    await uc(REQ, ALERTS)
+    assert not _lines(caplog, "recommend.argon_failed")
+    (record,) = [r for r in caplog.records if r.getMessage().startswith("recommend.done")]
+    assert record.levelno == logging.INFO
+    assert record.getMessage() == (
+        "recommend.done provider=gemini fallback_local=false calls=1 kept=1 discarded=0 "
+        "skipped_reason=- retry_used=false"
+    )

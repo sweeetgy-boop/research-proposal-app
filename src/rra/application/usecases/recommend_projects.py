@@ -33,6 +33,14 @@ precheck·검색 안의 doc_id 만, 지어낸 수치·정책명·한자 → 폐�
 `RecommendationResult.transfer()`).
 모델: llm.yaml stages.recommend (기본 Gemini). 키가 없으면 조립이 로컬(compose) 모델로 바꾸고
 fallback_local=True.
+
+실패 기록(ADR 0055 덧붙임, 2026-11-04): Argon 이 실패(예외·해석 실패)해 로컬로 넘어가거나 끝나면
+경고 한 줄 `recommend.argon_failed kind=<어댑터 code 또는 예외 클래스·invalid> fallback=local|none`,
+로컬도 실패하면 `recommend.local_failed kind=…`. 추천이 끝날 때마다 요약 한 줄 `recommend.done
+provider= fallback_local= calls= kept= discarded= skipped_reason= retry_used=`(로컬 대체·실패면
+WARNING, 아니면 INFO). 열거값·건수만 — 프롬프트·응답 본문·예외 메시지·키는 싣지 않는다(보안 D).
+어댑터의 `llm.failed` 줄·연결 상태 기록(cache/llm_status.json)은 recommend 단계 LLM
+(openai_compat)이 이미 하므로 여기서 다시 하지 않는다.
 """
 
 from __future__ import annotations
@@ -40,6 +48,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -74,6 +83,8 @@ from rra.domain.rules.recommendation import (
 )
 from rra.domain.rules.reference_papers import reference_section, reference_text
 from rra.domain.rules.trust import escape_untrusted
+
+logger = logging.getLogger("rra.recommend")
 
 SKIP_NO_INPUT = "no_alerts_or_evidence"
 SKIP_NO_DOCUMENTS = "no_documents"
@@ -349,14 +360,21 @@ class RecommendProjects:
         """Argon 먼저(호출 수 셈), 실패(예외·해석 실패)면 로컬 — (JSON, 로컬을 썼나, 외부 호출
         수)."""
         calls = 0
+        kind = "invalid"  # 예외 없이 해석만 실패
         try:
             calls += 1
             raw = await self.llm.complete(prompt, system=self.prompts.recommend(), json_mode=True)
             data = parse_object(raw)
         except BudgetExhausted:
             raise
-        except Exception:  # Argon 실패 → 로컬
-            data = None
+        except Exception as exc:  # Argon 실패 → 로컬 (사유 열거값만 — 메시지에 본문이 섞일 수 있다)
+            data, kind = None, _failure_kind(exc)
+        if data is None:
+            fallback = "local" if self.local is not None else "none"
+            if self.fallback_local:  # 키가 없어 처음부터 로컬 모델 — Argon 실패가 아니다
+                logger.warning("recommend.local_failed kind=%s", kind)
+            else:
+                logger.warning("recommend.argon_failed kind=%s fallback=%s", kind, fallback)
         if data is not None or self.local is None:
             return data, False, calls
         gate = (
@@ -367,9 +385,13 @@ class RecommendProjects:
                 raw = await self.local.complete(
                     prompt, system=self.prompts.recommend(), json_mode=True
                 )
-        except Exception:
+        except Exception as exc:
+            logger.warning("recommend.local_failed kind=%s", _failure_kind(exc))
             return None, True, calls
-        return parse_object(raw), True, calls
+        data = parse_object(raw)
+        if data is None:
+            logger.warning("recommend.local_failed kind=invalid")
+        return data, True, calls
 
     def _screen(
         self,
@@ -508,10 +530,42 @@ class RecommendProjects:
 
 
 def _finish(req: ProposalRequest, result: RecommendationResult) -> RecommendationResult:
-    """화면 안내(hint)를 채운다 — 0건이고 참고 논문을 고르지 않았으면 "reference" (ADR 0053)."""
+    """화면 안내(hint)를 채운다 — 0건이고 참고 논문을 고르지 않았으면 "reference" (ADR 0053).
+    끝날 때마다 요약 한 줄(열거값·건수만, ADR 0055 덧붙임). 로컬 대체·호출 실패로 끝났으면 WARNING
+    (운영 로그는 rra.api 밖은 WARNING 부터 남는다), 아니면 INFO."""
+    degraded = result.fallback_local or result.skipped_reason in (
+        SKIP_LLM_FAILED,
+        SKIP_PARSE_FAILED,
+    )
+    logger.log(
+        logging.WARNING if degraded else logging.INFO,
+        "recommend.done provider=%s fallback_local=%s calls=%d kept=%d discarded=%d "
+        "skipped_reason=%s retry_used=%s",
+        _enum(result.provider),
+        str(result.fallback_local).lower(),
+        result.calls,
+        len(result.recommendations),
+        len(result.discarded),
+        _enum(result.skipped_reason),
+        str(result.retry_used).lower(),
+    )
     return result.model_copy(
         update={"hint": recommendation_hint(len(result.recommendations), req.reference_ids)}
     )
+
+
+def _failure_kind(exc: BaseException) -> str:
+    """실패 종류 — 어댑터 예외의 code(auth·quota·rate_limit·timeout…), 없으면 예외 클래스 이름.
+    메시지는 쓰지 않는다(본문·키가 섞일 수 있다)."""
+    code = getattr(exc, "code", None)
+    return _enum(code) if isinstance(code, str) and code else type(exc).__name__
+
+
+def _enum(value: str | None) -> str:
+    """로그 칸 — 짧은 영문 식별자만, 그 밖은 '-'."""
+    if not value or len(value) > 64 or not value.replace("_", "").isalnum() or not value.isascii():
+        return "-"
+    return value
 
 
 def _visibility(chunk: Any) -> str:

@@ -1877,6 +1877,8 @@ def build_image_generator(settings: Settings | None = None):
         ),
         budget=budget,
         cache_dir=cfg["cache_dir"],
+        # Argon 연결 상태(ADR 0055 덧붙임) — 그림은 gemini_image, 키 무효만 gemini 에도
+        status=build_llm_status(settings),
     )
 
 

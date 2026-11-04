@@ -51,6 +51,29 @@ FAILURE_LABELS: dict[str, str] = {
 }
 
 
+# 그림 생성(Nano Banana, adapters/llm/image_gen) 상태 — 텍스트와 같은 키, 다른 대체
+# (ADR 0055 덧붙임). 그림 결과는 늘 IMAGE_PROVIDER 로 따로 적는다(/healthz 에 내지 않는다).
+# 텍스트 상태(TEXT_PROVIDER)에는 키 무효만 올리고, 그림 성공은 텍스트 상태가 key_invalid 일 때만
+# ok 로 되돌린다. 그림의 할당량·응답 없음은 텍스트 상태를 바꾸지 않는다 — 그림 대체는 기본
+# 그림이지 로컬 모델이 아니다(띠 문구 "로컬 모델로 대체 중" 과 맞지 않는다).
+TEXT_PROVIDER = "gemini"
+IMAGE_PROVIDER = "gemini_image"
+
+
+def text_status_from_image(image_status: str | None, current_text: str | None) -> str | None:
+    """그림 호출 결과 → 텍스트(gemini) 상태에 적을 값. 바꾸지 않으면 None (순수 함수).
+
+    - key_invalid → key_invalid (같은 키 — 띠가 떠야 한다)
+    - ok → 지금 텍스트 상태가 key_invalid 일 때만 ok (같은 키가 다시 된다)
+    - quota·unavailable·None → None
+    """
+    if image_status == KEY_INVALID:
+        return KEY_INVALID
+    if image_status == OK and current_text == KEY_INVALID:
+        return OK
+    return None
+
+
 def status_for_code(code: str | None) -> str | None:
     """실패 종류 → 상태. 상태를 바꾸지 않을 실패면 None."""
     if not code:

@@ -52,3 +52,44 @@
 - `docs/openapi.json`: 응답 모델은 그대로(`dict`)이고, `/healthz` 설명 문구만 바뀐다. 통합 때 `rra api schema` 로 다시 만든다.
 - 남은 일: 그림 생성(`adapters/llm/image_gen.py`, Nano Banana)은 자체 요청 경로라 이번 분류·상태 기록 밖이다. 키 무효면 같은 키라 텍스트 호출 쪽 상태가
   먼저 알린다. `recommend_projects._ask` 의 무로그 삼킴은 그 파일 작업이 끝난 뒤 따로 고친다.
+
+## 덧붙임 — 그림 생성·추천 단계도 같은 분류·기록 (2026-11-04, fix/argon-errors-all)
+
+### 맥락
+- 위 "남은 일" 두 가지: 그림 생성(`adapters/llm/image_gen.py`, Nano Banana Pro `gemini-3-pro-image`)은 자체 요청 경로라 400 키 무효가
+  `LLMError("이미지 생성 실패 (400).")` 로 묻혔고 상태도 적지 않았다. `usecases/recommend_projects._ask` 는 Argon 예외를 로그 없이 삼켰다.
+- 사용자 결정: 그림의 키 무효는 같은 키이므로 띠를 띄운다. 그림만의 할당량·응답 없음은 띠를 바꾸지 않는다 — 그림 대체는 기본 그림이지
+  로컬 모델이 아니라서 "로컬 모델로 대체 중" 문구와 맞지 않는다.
+
+### 결정
+- **그림 분류**(`image_gen._post_with_retry`): 텍스트와 같은 `_payload.error_codes`·`is_key_invalid`·`is_quota_exhausted` 를 쓴다.
+  400 `API_KEY_INVALID`·401·403 → `LLMAuthError`(재시도 없음), 429 할당량 → `LLMQuotaExceeded`, 그 밖 429 → `LLMRateLimited`, 타임아웃 →
+  `LLMTimeout`, 연결 실패 `code=connection`, 5xx `code=server`, 그 밖 4xx `code=http`, 200 인데 JSON 아님·상한 초과 → `LLMResponseInvalid`.
+  보내기 전 거절(형식·크기·프롬프트 상한)은 `code=not_sent`. 재시도 횟수·백오프·`limiter.note_429`·일일 상한(`figures.daily_image_cap`)·
+  캐시·기본 그림 대체는 그대로다. 예외 메시지에 본문·키는 여전히 없다.
+- **경고 한 줄**: 텍스트와 같은 모양 `llm.failed provider=gemini stage=figure_image kind=… http=… status=… reason=…`
+  (형식 문자열 `_payload.FAILURE_LOG`·`failure_args` 를 둘이 함께 쓴다). 요청 1건(재시도 포함)당 1줄, 보내지 않은 호출은 줄이 없다.
+- **상태 규칙**(`domain/rules/llm_status.text_status_from_image`, 조립이 텍스트와 같은 `FileLLMStatus` 를 넘긴다):
+  | 그림 결과 | `gemini_image` | `gemini`(띠·`/healthz`) |
+  |---|---|---|
+  | key_invalid(400 키 무효·401·403) | key_invalid | key_invalid |
+  | ok | ok | 지금 key_invalid 일 때만 ok, 그 밖은 그대로 |
+  | quota(429 두 종류) | quota | 그대로 |
+  | unavailable(타임아웃·연결·5xx·그 밖 4xx) | unavailable | 그대로 |
+  | 응답 형식 오류·보내지 않음 | 그대로 | 그대로 |
+  `gemini_image` 는 상태 파일에만 있고 `/healthz`(`public_view` 는 `gemini` 만 읽는다)·띠에는 나오지 않는다.
+- **응답 시간 기록**: 그림 경로는 `*.latency.jsonl` 을 쓰지 않는다(일일 상한 카운터만). 그래서 `error_code` 를 더할 곳이 없다 — 바꾸지 않았다.
+- **추천 단계**(`recommend_projects._ask`): Argon 이 예외·해석 실패로 끝나면 `recommend.argon_failed kind=<어댑터 code | 예외 클래스 |
+  invalid> fallback=local|none`(WARNING) 한 줄, 로컬도 실패하면 `recommend.local_failed kind=…`. 키가 없어 처음부터 로컬이면
+  argon_failed 대신 local_failed 다. 추천이 끝날 때마다(건너뜀 포함) `recommend.done provider= fallback_local= calls= kept= discarded=
+  skipped_reason= retry_used=` 한 줄 — 로컬 대체·호출/해석 실패로 끝났으면 WARNING, 아니면 INFO(운영 로그는 `rra.api` 밖은 WARNING 부터
+  남는다). 열거값·건수만, 예외 메시지(본문·URL 이 섞일 수 있다)·키는 싣지 않는다. 카드 겹침 다시 받기(`_check_cards.again`)도 같은
+  `_ask` 를 지나므로 같은 줄이 남는다.
+- **상태 기록은 어댑터에서 한 번**: 추천 단계 LLM 은 `build_llm(stage="recommend")` = `OpenAICompatLLM`(+ `BudgetedLLM`)이라
+  `llm.failed` 줄·`llm_status.json`·`error_code` 를 이미 남긴다(조립 시험으로 확인). 유스케이스는 `llm.failed` 를 다시 쓰지 않는다.
+- **같은 무로그 삼킴**: `usecases/differentiate._ask` 도 같은 모양이라 `differentiate.argon_failed|local_failed kind= fallback=` 를 더했다.
+  `card_overlap.failed`·`argon_first.failed` 줄에는 `kind=`(어댑터 code)만 더했다.
+
+### 결과
+- 그림 키 무효가 와도 띠가 뜬다(텍스트 호출이 없을 때도). 그림 할당량 소진은 띠를 바꾸지 않고 `gemini_image` 에만 남는다.
+- 추천이 로컬로 대체되면 운영 로그에 이유 한 줄과 요약 한 줄이 남는다.
