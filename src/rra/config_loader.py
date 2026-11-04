@@ -864,6 +864,21 @@ def overlap_candidates(settings: Settings):
     )
 
 
+def research_relevance(settings: Settings):
+    """config/overlap.yaml `candidates.research.relevance` → ResearchRelevanceRule (비교표 참고 논문
+    열의 검색 관련도 경계). 없으면 도메인 기본값(2026-11-04 측정)."""
+    from rra.domain.rules.research_relevance import ResearchRelevanceRule
+
+    cfg = read_config("overlap.yaml", settings).get("candidates") or {}
+    research = cfg.get("research") if isinstance(cfg, dict) else None
+    values = research.get("relevance") if isinstance(research, dict) else None
+    if values is None:
+        return ResearchRelevanceRule()
+    if not isinstance(values, dict):
+        raise ValueError("overlap.yaml candidates.research.relevance 는 매핑이어야 합니다.")
+    return ResearchRelevanceRule.model_validate(values)
+
+
 def _retrieval_mix_raw(settings: Settings) -> dict[str, Any] | None:
     if not (Path(settings.config_dir) / "retrieval_mix.yaml").is_file():
         return None

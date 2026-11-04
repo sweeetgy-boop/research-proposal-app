@@ -110,6 +110,19 @@ export function comparisonKindLabel(kind: string | null | undefined): string {
   return COMPARISON_KIND_LABELS[kind ?? "similar"] ?? "유사과제";
 }
 
+/** 참고 논문 열의 검색 관련도 (서버 relevance) → 화면 말. 점수 숫자는 보이지 않는다 (ADR 0039) */
+export const REFERENCE_RELEVANCE_LABELS: Record<string, string> = {
+  high: "높음",
+  mid: "중간",
+  low: "낮음",
+};
+
+/** "검색 관련도 높음" — 관련도가 없거나 모르는 값이면 null (표시 없음) */
+export function referenceRelevanceLabel(relevance: string | null | undefined): string | null {
+  const word = relevance ? REFERENCE_RELEVANCE_LABELS[relevance] : undefined;
+  return word ? `검색 관련도 ${word}` : null;
+}
+
 /** Argon(Gemini) 연결 상태 알림 띠 (ADR 0055) — /healthz `llm.gemini` 열거값 → 화면 문구.
  *  ok·unknown(기록 없음)·모르는 값이면 띠를 내지 않는다. 사유 줄은 관리자에게만. 코드는 화면에 내지 않는다. */
 export const ARGON_DOWN_TITLE = "AI(Argon) 연결 오류 — 로컬 모델로 대체 중";

@@ -11,12 +11,18 @@
 유사과제 열 뒤에 kind="reference" 열로 붙인다(요청 순서). 칸은 유사과제와 같은 방식(AI 추출 →
 규칙 추출 → 제목 기준). [유사함] 0건이어도 참고 논문이 있으면 안내 문구(empty_reason)는 없다. 없는
 id·볼 수 없는 문서(공용 계정의 internal)는 조용히 뺀다.
+
+2026-11-04 검색 관련도: 참고 논문 열의 similarity·relevance(높음·중간·낮음)는 제안자가 ② 관련
+연구에서 본 검색 점수다. 같은 입력의 precheck 메모(`precheck.memo(req).related_research`)를 먼저
+쓰고, 메모가 없으면(만료·run 비교표) 같은 관련 연구 검색(`precheck.search_research(req)`)을 한 번
+다시 한다. 목록 밖 문서는 점수가 없어 관련도도 없다(None). 높음·중간·낮음 경계는 `relevance`
+(config/overlap.yaml candidates.research.relevance, docs/eval-2026-11-04-reference-relevance.md).
 """
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from rra.application.ports import DocumentRepository
@@ -31,6 +37,7 @@ from rra.domain.rules.comparison import (
     draft_cells,
 )
 from rra.domain.rules.overlap import tier_of
+from rra.domain.rules.research_relevance import ResearchRelevanceRule
 from rra.domain.rules.similar_choice import merge_same_titles
 
 Precheck = Callable[[ProposalRequest], Awaitable[list[OverlapAlert]]]
@@ -41,6 +48,7 @@ class CompareProjects:
     repo: DocumentRepository
     precheck: Precheck | None = None
     extractor: Any | None = None  # CellExtractor (usecases/extract_cells)
+    relevance: ResearchRelevanceRule = field(default_factory=ResearchRelevanceRule)
 
     async def __call__(
         self,
@@ -69,8 +77,10 @@ class CompareProjects:
             if len(docs) >= MAX_PROJECTS:
                 break
         refs, _ = await load_references(self.repo, req.reference_ids, exclude=list(docs))
+        scores: dict[str, float] = {}
         if refs:
             empty_reason = None
+            scores = await self._research_scores(req)
         extracted: dict[str, dict[str, str]] = {}
         by: str | None = None
         if self.extractor is not None and getattr(self.extractor, "enabled", True):
@@ -85,10 +95,24 @@ class CompareProjects:
             draft=draft_cells(draft) if draft is not None else None,
             empty_reason=empty_reason,
             references=refs,
+            reference_scores=scores,
+            relevance=self.relevance,
         )
         if extracted:
             table = table.model_copy(update={"extraction": "ai", "extraction_by": by})
         return table
+
+    async def _research_scores(self, req: ProposalRequest) -> dict[str, float]:
+        """② 관련 연구 점수 {doc_id: e5} — 같은 입력의 메모(제안자가 본 목록), 없으면 같은 검색을
+        다시. precheck 가 둘 다 없으면 빈 dict."""
+        memo = getattr(self.precheck, "memo", None)
+        found = memo(req) if callable(memo) else None
+        if found is not None:
+            items = list(getattr(found, "related_research", []) or [])
+        else:
+            search = getattr(self.precheck, "search_research", None)
+            items = list(await search(req)) if callable(search) else []
+        return {r.doc_id: float(r.similarity) for r in items}
 
     async def _add_missing(
         self, req: ProposalRequest, alerts: list[OverlapAlert]

@@ -740,6 +740,8 @@ export interface ComparisonColumn {
   title_only: boolean;
   /** ADR 0053: similar = [유사함] 유사과제, reference = ② 관련 연구에서 고른 참고 논문 (구분 '선행연구'). 옛 서버는 없음 → similar */
   kind?: "similar" | "reference";
+  /** 참고 논문 열의 검색 관련도 (② 관련 연구 점수 → 높음·중간·낮음). 유사과제 열·점수 없음·옛 서버는 없음/null. 화면은 말로만 (ADR 0039) */
+  relevance?: "high" | "mid" | "low" | null;
   cells: Record<ComparisonAspect | string, string>;
 }
 

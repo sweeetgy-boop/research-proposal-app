@@ -31,6 +31,9 @@ class ComparisonColumn(BaseModel):
     # ADR 0053: similar = [유사함] 유사과제,
     # reference = ② 관련 연구에서 고른 참고 논문(구분 '선행연구')
     kind: Literal["similar", "reference"] = "similar"
+    # 참고 논문 열의 검색 관련도 — 높음·중간·낮음 (domain/rules/research_relevance).
+    # 유사과제 열·점수 없음은 None. 화면은 말로만 보인다(숫자 없음, ADR 0039)
+    relevance: Literal["high", "mid", "low"] | None = None
     cells: dict[str, str] = Field(default_factory=dict)  # aspect → 글 (MAX_CELL_CHARS)
 
 
