@@ -3,7 +3,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { expectNoRunWord, fillIdea, login, subnav, mainNav, goPrecheck } from "./helpers";
+import { expectNoRunWord, fillIdea, login, subnav, mainNav, goPrecheck, waitFiguresDone } from "./helpers";
 
 const SHOTS = process.env.VERSIONS_NAV_SCREENS ?? ""; // 캡처 폴더 (비면 찍지 않는다)
 
@@ -49,6 +49,7 @@ test("그림 확인함 3회 뒤에도 버전 수 그대로 · 확인 n건 · 버
   await page.setViewportSize({ width: 1280, height: 900 });
   await login(page);
   const id = await createRunViaBar(page);
+  await waitFiguresDone(page, id); // 그림 작업(ADR 0045)이 끝난 뒤 — 그림 도착 시점에 따라 버튼·버전·변경 수가 갈리지 않게
   await subnav(page, "직접 수정").click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/edit$`));
   const before = await versionCount(page, id);
@@ -77,6 +78,7 @@ test("초안 보기 → [수정 없이 최종 검토로] → 아래 막대로 �
   await page.setViewportSize({ width: 1280, height: 900 });
   await login(page);
   const id = await createRunViaBar(page);
+  await waitFiguresDone(page, id); // 그림 작업(ADR 0045)이 끝난 뒤 — 그림 도착 시점에 따라 버튼·버전·변경 수가 갈리지 않게
   await subnav(page, "초안 보기").click();
   await expectNoRunWord(page);
   await shot(page, "draft-bar");

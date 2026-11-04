@@ -3,12 +3,13 @@
  *  글자 고치기 → 확인함 → 빼기 → 버전 비교 → v1 복원 → 최종 검토 → 최종 마무리 확인 대화상자,
  *  추천 그림 넣기 확정·필요 없음(접힘)·다시 넣기·다른 기법으로 바꾸기. */
 import { expect, test } from "@playwright/test";
-import { createRun, login, subnav } from "./helpers";
+import { createRun, login, subnav, waitFiguresDone } from "./helpers";
 
 test.describe("[G] 그림 카드", () => {
   test("글자 고치기 → 확인함 → 빼기 → 버전 비교(그림 변경) → v1 복원 → 최종 마무리 확인 대화상자", async ({ page }) => {
     await login(page);
     const id = await createRun(page);
+    await waitFiguresDone(page, id); // 그림 작업(ADR 0045)이 끝난 뒤 — 그림 도착 시점에 따라 버튼·버전·변경 수가 갈리지 않게
 
     // ③ 초안 보기: 읽기 전용 카드 (확인함만)
     await expect(page.getByRole("group", { name: "현재·연구 후 비교 그림" })).toBeVisible();
@@ -90,7 +91,8 @@ test.describe("[G] 그림 카드", () => {
 
   test("[다른 그림 추가] 대화상자: 종류 8개·기본 섹션", async ({ page }) => {
     await login(page);
-    await createRun(page);
+    const id = await createRun(page);
+    await waitFiguresDone(page, id); // 그림 작업(ADR 0045)이 끝난 뒤 — 그림 도착 시점에 따라 버튼·버전·변경 수가 갈리지 않게
     await subnav(page, "직접 수정").click();
     await page.getByRole("button", { name: "다른 그림 추가" }).click();
     const dialog = page.getByRole("dialog");
@@ -107,7 +109,8 @@ test.describe("[G] 그림 카드", () => {
 
   test("그림 추천 넣기·빼기 — 넣기 확정, 필요 없음(접힘)·다시 넣기, 다른 기법으로 바꾸기", async ({ page }) => {
     await login(page);
-    await createRun(page);
+    const id = await createRun(page);
+    await waitFiguresDone(page, id); // 그림 작업(ADR 0045)이 끝난 뒤 — 그림 도착 시점에 따라 버튼·버전·변경 수가 갈리지 않게
     await subnav(page, "직접 수정").click();
     await expect(page.getByText("분석 기법 추천: 추천함")).toBeVisible();
     const swot = page.getByRole("region", { name: "추천 — SWOT 분석" });

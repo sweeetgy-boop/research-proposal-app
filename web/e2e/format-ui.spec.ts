@@ -3,7 +3,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { createRun, login, subnav } from "./helpers";
+import { createRun, login, subnav, waitFiguresDone } from "./helpers";
 
 const SHOTS = process.env.FORMAT_UI_SCREENS ?? ""; // 캡처 폴더 (비면 찍지 않는다)
 
@@ -21,6 +21,7 @@ test("단계 표시 이동 → 입력 변경 다시 쓰기 → 제출 전 점검
   await page.setViewportSize({ width: 1280, height: 900 });
   await login(page);
   const id = await createRun(page);
+  await waitFiguresDone(page, id); // 그림 작업(ADR 0045)이 끝난 뒤 — 그림 도착 시점에 따라 버튼·버전·변경 수가 갈리지 않게
 
   // 항목 2 — 머리에 과제 제목, run 번호는 작게
   const titleEl = page.getByTestId("run-title");
