@@ -711,6 +711,25 @@ Argon 점수(필요성·차별성·실현가능성·기대효과)는 이전 run 
   근거로 함께 보인다.
 - 실측(골든셋, Gemini 4 Argon, 2026-10-27): docs/overnight-2026-10-27.md [R] 절과 ADR 0012.
 
+#### 측정 파일 `cache/recommend_metrics.jsonl` (2026-11-04, ADR 0055 덧붙임)
+추천 호출이 끝날 때마다(건너뜀 포함, REST·CLI·MCP·Streamlit 공통 — 모두 `composition.build_recommender` 를 거친다) 한 줄.
+`recommend.done` 로그 줄(INFO 는 운영 로그에 남지 않는다)과 별도로, 운영에서 성공·대체·다시 받기 비율과 시간을 보려는 것이다.
+- 위치 `<data_dir>/cache/recommend_metrics.jsonl`(`config_loader._DATA_LOCATIONS["recommend_metrics"]`). 폴더 700·파일 600, 덧붙이기만.
+  쓰기 전에 5 MB 이상이면 `recommend_metrics.jsonl.1` 로 옮기고(옛 `.1` 은 덮어씀) 새 파일 — 많아야 두 파일.
+- 줄 모양(칸 순서 고정, `domain/rules/recommend_metrics.FIELDS`):
+  `{"ts": "2026-11-04T14:46:17+09:00", "provider": "gemini", "fallback_local": false, "calls": 2, "cards": 0, "discarded": 0,
+  "retry_used": true, "regenerated": false, "skipped_reason": null, "references": 0, "similar": 0, "mode": "initial", "seconds": 41.24}`
+- 칸: `ts` 지역 시각(KST) ISO 초 단위(응답 시간 파일과 같다) · `provider` gemini|mlx|… · `fallback_local` 로컬 모델로 대체·처음부터 로컬 ·
+  `calls` 외부 LLM 호출 수(다시 받기·겹친 카드 다시 받기 포함) · `cards` 보인 카드 수 · `discarded` 검증에서 뺀 수 · `retry_used` '새 영역'
+  다시 받기(ADR 0053) · `regenerated` 제외 사유 다시 받기 · `skipped_reason` no_alerts_or_evidence|no_documents|parse_failed|llm_failed|null ·
+  `references` 넣은 참고 논문 수 · `similar` 비교에 쓴 [유사함] 행 수 · `mode` initial|more(`/recommendations/more`) · `seconds` 호출 전체
+  벽시계 시간(검색·다시 받기·카드 겹침 재판정 포함).
+- 담지 않는 것: 가제·본문·사유 글·doc_id·사용자/소유자 id·아이디어 해시. 문자열은 열거 칸 셋(provider·skipped_reason·mode)뿐이고 짧은
+  영문 식별자가 아니면 null(보안 D). 예외로 끝난 호출(일일 상한·취소)은 결과가 없어 줄이 없다. 쓰기 실패는 debug 한 줄
+  `recommend.metrics_failed kind=<예외 클래스>` 만 남기고 추천은 그대로 돌려준다. 가짜 모드(RRA_FAKE_LLM)는 쓰지 않는다.
+- 구조: 포트 `application/ports/recommend_metrics.RecommendMetricsPort` → 어댑터 `adapters/logging/recommend_metrics.JsonlRecommendMetrics`
+  → `RecommendProjects.metrics`(None 이면 기록 없음), 조립 `composition.build_recommend_metrics`.
+
 ### 4.15 초안 품질 강화 8가지 [Q] (2026-10-27, ADR 0013)
 
 ③ 초안 생성의 품질 단계. 전부 `config/pipeline.yaml`(`PipelineConfig`)로 켜고 끄며, 기본값은 `rra eval` 측정에서

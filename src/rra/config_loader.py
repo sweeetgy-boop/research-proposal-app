@@ -294,6 +294,9 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
     ),
     # 원격 LLM(Argon) 연결 상태 — 마지막 호출 결과 열거값·시각 (/healthz·화면 알림 띠, ADR 0055)
     "llm_status": (lambda s: {}, "", "data/cache/llm_status.json"),
+    # 차별화 과제안 측정 줄(JSONL) — 호출마다 건수·시간·열거값만, 5 MB 넘으면 .1 로
+    # (ADR 0055 덧붙임)
+    "recommend_metrics": (lambda s: {}, "", "data/cache/recommend_metrics.jsonl"),
     "source_availability": (
         public_ip_config,
         "availability_file",

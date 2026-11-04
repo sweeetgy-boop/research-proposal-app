@@ -41,6 +41,12 @@ provider= fallback_local= calls= kept= discarded= skipped_reason= retry_used=`(�
 WARNING, 아니면 INFO). 열거값·건수만 — 프롬프트·응답 본문·예외 메시지·키는 싣지 않는다(보안 D).
 어댑터의 `llm.failed` 줄·연결 상태 기록(cache/llm_status.json)은 recommend 단계 LLM
 (openai_compat)이 이미 하므로 여기서 다시 하지 않는다.
+
+측정 줄(2026-11-04, ADR 0055 덧붙임): `metrics`(RecommendMetricsPort)가 있으면 추천이 끝날
+때마다(건너뜀 포함) 한 줄 — 건수·시간·열거값만(`domain/rules/recommend_metrics`). `seconds` 는
+호출 전체의 벽시계 시간(다시 받기·카드 겹침 재판정 포함), `mode` 는 `shown` 이 있으면 more.
+예외로 끝난 호출(일일 상한 BudgetExhausted·취소)은 결과가 없어 남기지 않는다. 기록 실패는
+추천을 막지 않는다(debug 한 줄).
 """
 
 from __future__ import annotations
@@ -49,11 +55,18 @@ import asyncio
 import contextlib
 import json
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
-from rra.application.ports import BudgetExhausted, DocumentRepository, LLMPort, PromptLibraryPort
+from rra.application.ports import (
+    BudgetExhausted,
+    DocumentRepository,
+    LLMPort,
+    PromptLibraryPort,
+    RecommendMetricsPort,
+)
 from rra.application.usecases.references import load_references
 from rra.application.usecases.similar_rows import basis_rows, similar_rows
 from rra.domain.models import (
@@ -68,6 +81,7 @@ from rra.domain.models.recommendation import RecommendationRef
 from rra.domain.rules.card_overlap import overlap_hint, shown_hint, warning_fields
 from rra.domain.rules.differentiation import candidate_text
 from rra.domain.rules.llm_output import parse_object
+from rra.domain.rules.recommend_metrics import MODE_INITIAL, MODE_MORE, metrics_row
 from rra.domain.rules.recommendation import (
     DISCARD_DUPLICATE,
     DISCARD_SELF_OVERLAP,
@@ -121,8 +135,43 @@ class RecommendProjects:
     local_slot: Any | None = None
     # 카드 겹침 재판정(CardOverlapCheck, ADR 0039). None 이면 종전 자기 중복 검사(e5)
     card_check: Any | None = None
+    # 측정 줄(cache/recommend_metrics.jsonl, ADR 0055 덧붙임). None 이면 기록하지 않는다
+    metrics: RecommendMetricsPort | None = None
 
     async def __call__(
+        self,
+        req: ProposalRequest,
+        alerts: list[OverlapAlert],
+        *,
+        similar_only: bool = False,
+        core_keywords: list[str] | None = None,
+        shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
+    ) -> RecommendationResult:
+        """추천 한 번 + 측정 줄 한 줄(metrics 가 있으면). 본문은 `_recommend`."""
+        started = time.perf_counter()
+        result = await self._recommend(
+            req, alerts, similar_only=similar_only, core_keywords=core_keywords, shown=shown
+        )
+        self._record(
+            result,
+            mode=MODE_MORE if shown else MODE_INITIAL,
+            similar=len(similar_rows(alerts, req.choice_map())),
+            seconds=time.perf_counter() - started,
+        )
+        return result
+
+    def _record(
+        self, result: RecommendationResult, *, mode: str, similar: int, seconds: float
+    ) -> None:
+        """측정 줄 — 쓰기 실패는 추천을 막지 않는다(어댑터가 OSError 를 삼키고, 그 밖도 여기서)."""
+        if self.metrics is None:
+            return
+        try:
+            self.metrics.record(metrics_row(result, mode=mode, similar=similar, seconds=seconds))
+        except Exception as exc:  # 측정은 부가 기능 — 열거값(예외 클래스)만 debug
+            logger.debug("recommend.metrics_failed kind=%s", type(exc).__name__)
+
+    async def _recommend(
         self,
         req: ProposalRequest,
         alerts: list[OverlapAlert],
