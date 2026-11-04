@@ -508,6 +508,24 @@ def test_gemini_llm_records_argon_status_in_the_data_dir_and_mlx_does_not(gemini
     assert view["gemini"] == "key_invalid" and set(view) == {"gemini", "since"}
 
 
+def test_image_generator_and_recommend_stage_share_the_argon_status_file(gemini_dir, tmp_path):
+    """ADR 0055 덧붙임 — 그림 생성기도 같은 상태 기록기(stage=figure_image)를 받고, 추천 단계 LLM 은
+    openai_compat(+ 일일 예산) 이라 실패 줄·상태 기록을 어댑터가 이미 한다(유스케이스는 다시 하지
+    않는다)."""
+    from rra.composition import build_image_generator, build_llm_status
+
+    (gemini_dir / "llm.yaml").write_text(
+        GEMINI_YAML + "  recommend: {provider: gemini}\n", encoding="utf-8"
+    )
+    s = settings_for(gemini_dir, gemini_api_key="gk-test-not-real", data_dir=tmp_path / "d")
+    status = build_llm_status(s)
+    images = build_image_generator(s)
+    assert images.status is status and images.stage == "figure_image"
+    recommend = build_llm(s, stage="recommend")
+    assert recommend.provider == "gemini" and recommend.status is status
+    assert recommend.stage == "recommend"
+
+
 def test_gemini_host_outside_allowed_domains_refuses_startup(gemini_dir):
     (gemini_dir / "security.yaml").write_text(
         "allowed_domains: [api.openalex.org]\n", encoding="utf-8"

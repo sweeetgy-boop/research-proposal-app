@@ -185,6 +185,23 @@ def error_codes(body: str, secrets: Iterable[str] = ()) -> ErrorCodes:
     return ErrorCodes(status=_enum(err.get("status"), keys), reason=reason)
 
 
+# 실패 경고 한 줄 — 텍스트(openai_compat)·그림(image_gen)이 같은 모양. 열거값만(키·URL·본문 없음)
+FAILURE_LOG = "llm.failed provider=%s stage=%s kind=%s http=%s status=%s reason=%s"
+
+
+def failure_args(provider: str, stage: str, exc: Any) -> tuple[str, ...]:
+    """FAILURE_LOG 인자 — 어댑터 예외(errors.LLMError)의 code·http_status·api_status·api_reason."""
+    http = getattr(exc, "http_status", None)
+    return (
+        provider,
+        stage or "-",
+        str(getattr(exc, "code", None) or "error"),
+        str(http) if http is not None else "-",
+        getattr(exc, "api_status", None) or "-",
+        getattr(exc, "api_reason", None) or "-",
+    )
+
+
 def is_key_invalid(status_code: int, body: str, codes: ErrorCodes) -> bool:
     """키 무효 400 — Google 은 401 이 아니라 400 INVALID_ARGUMENT/API_KEY_INVALID 로 답한다."""
     if status_code != 400:

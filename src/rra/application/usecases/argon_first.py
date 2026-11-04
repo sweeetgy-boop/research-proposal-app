@@ -160,10 +160,12 @@ class ArgonFirst:
                 out.calls += 1
                 out.remote_calls += int(remote)
                 reason = call_failure(exc)
+                code = getattr(exc, "code", None)  # 어댑터 예외 분류(auth·quota…, ADR 0055)
                 logger.info(
-                    "argon_first.failed model=%s reason=%s error=%s",
+                    "argon_first.failed model=%s reason=%s kind=%s error=%s",
                     label,
                     reason,
+                    code if isinstance(code, str) and code.isascii() else "-",
                     type(exc).__name__,
                 )
                 out.reason = out.reason if out.reason in ("empty", "filtered") else reason

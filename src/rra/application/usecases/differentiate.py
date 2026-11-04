@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -47,6 +48,8 @@ from rra.domain.rules.differentiation import (
 from rra.domain.rules.llm_output import parse_object
 from rra.domain.rules.reference_papers import reference_alert, reference_section, reference_text
 from rra.domain.rules.trust import escape_untrusted
+
+logger = logging.getLogger("rra.differentiate")
 
 SKIP_NO_CANDIDATES = "no_candidates"
 SKIP_NO_DOCUMENTS = "no_documents"
@@ -136,12 +139,22 @@ class Differentiate:
         """Argon 먼저, 실패(예외·해석 실패)면 로컬 — (JSON 또는 None, 로컬을 썼나). 예산 초과는
         올린다."""
         system = self.prompts.differentiate()
+        kind = "invalid"  # 예외 없이 해석만 실패
         try:
             data = parse_object(await self.llm.complete(prompt, system=system, json_mode=True))
         except BudgetExhausted:
             raise
-        except Exception:
-            data = None
+        except Exception as exc:  # 사유 열거값만 (ADR 0055 덧붙임) — 메시지·본문은 남기지 않는다
+            data, kind = None, _failure_kind(exc)
+        if data is None:
+            if self.fallback_local:  # 키가 없어 처음부터 로컬 모델
+                logger.warning("differentiate.local_failed kind=%s", kind)
+            else:
+                logger.warning(
+                    "differentiate.argon_failed kind=%s fallback=%s",
+                    kind,
+                    "local" if self.local is not None else "none",
+                )
         if data is not None or self.local is None:
             return data, False
         gate = (
@@ -150,9 +163,13 @@ class Differentiate:
         try:
             async with gate:
                 raw = await self.local.complete(prompt, system=system, json_mode=True)
-        except Exception:
+        except Exception as exc:
+            logger.warning("differentiate.local_failed kind=%s", _failure_kind(exc))
             return None, True
-        return parse_object(raw), True
+        data = parse_object(raw)
+        if data is None:
+            logger.warning("differentiate.local_failed kind=invalid")
+        return data, True
 
     # ── 프롬프트 ──────────────────────────────────────────
     def build_prompt(
@@ -223,3 +240,11 @@ class Differentiate:
             seen.add(item.doc_id)
             items.append(item)
         return items, discarded
+
+
+def _failure_kind(exc: BaseException) -> str:
+    """실패 종류 — 어댑터 예외의 code(auth·quota·timeout…), 없으면 예외 클래스 이름."""
+    code = getattr(exc, "code", None)
+    if isinstance(code, str) and code.isascii() and code.replace("_", "").isalnum():
+        return code[:64]
+    return type(exc).__name__
