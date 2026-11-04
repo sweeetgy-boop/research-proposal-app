@@ -62,3 +62,6 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-10-29,6edd9e5,그림 칸 글자 완결 구절(잘라 줄이지 않음),2329,,8,,,,,,,,,,,,,,,골든 run 5건 사본 그림 13장: 9pt 이상 13/13(최소 9.0·중앙 10.1pt)·본문 폭 13/13·최종 미완 구절 0(이전 14)·다시 그림 1/13·장당 중앙 54초·Gemini 텍스트 25·그림 14 (docs/eval-2026-10-29-figure-phrases.md)
 2026-10-29,feat-policy-popup,① 정책 근거 추천 팝업·다시 넣는 길 (ADR 0052),2419,,8,,,,,,,,,,,,,,,vitest 214·e2e 43(+3 skip)·실제 브라우저 axe 0(팝업·④·⑥)
 2026-11-03,feat-reference-papers,② 참고 논문·'새 영역' 과제안 (ADR 0053),2434,,8,,,,,,,,,,,,,,,vitest 223·e2e 45(+3 skip)
+2026-11-04,fix-gemini-auth-visible,Argon 키 무효 분류·연결 상태 띠 (ADR 0055),2461,,8,,,,,,,,,,,,,,,vitest 233·e2e 46(+3 skip)
+2026-11-04,fix-similar-count-rule,"유사함 0건" 한 규칙 (ADR 0054),2479,,8,,,,,,,,,,,,,,,vitest 233·e2e 46(+3 skip)
+2026-11-04,feat-reference-relevance,참고 논문 열 검색 관련도 (ADR 0053 후속),2492,,8,,,,,,,,,,,,,,,vitest 234·e2e 46(+3 skip)
