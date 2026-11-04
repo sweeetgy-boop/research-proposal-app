@@ -7,8 +7,8 @@
   연구방법·적용범위·차별화 방향)에서, 초안이 있으면 초안 섹션에서 온다 (2026-10-28 레인 A).
 - 참고 논문(ADR 0053): ② 관련 연구에서 고른 문서는 유사과제 열 뒤에 `kind="reference"`(구분
   '선행연구') 열로, reference_ids 순서대로 붙는다. 차단 없음, similarity 는 점수가 없으면 None.
-  similarity 는 ② 관련 연구 검색 점수(e5)이고, relevance 는 그 점수의 높음·중간·낮음
-  (research_relevance, 2026-11-04)이다.
+  similarity 는 ② 관련 연구 검색 점수(e5)이고, relevance_rank·relevance_total 은 그 관련 연구 목록
+  (제안자가 본 순서) 안의 자리 n/총수다(reference_rank, 2026-11-04 소유자 결정 — 경계값 표시 대신).
   [유사함] 0건이어도 참고 논문 열이 있으면 empty_reason 은 None.
 - 기존 과제 칸은 Argon 이 원문에서 뽑은 1~2문장(cell_from_llm 검증 통과분)을 우선 쓰고, 없으면 규칙
   추출 — 기호·잘린 문장 없이 온전한 문장만(clean_cell). 적용범위가 원문에 없으면 "정보 없음".
@@ -34,7 +34,7 @@ from rra.domain.rules.keywords import tokens
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.numbers import unsupported_numbers
 from rra.domain.rules.overlap import tier_of
-from rra.domain.rules.research_relevance import ResearchRelevanceRule
+from rra.domain.rules.reference_rank import research_ranks
 from rra.domain.rules.trust import escape_untrusted
 from rra.domain.rules.versions import split_sentences
 
@@ -200,10 +200,10 @@ def reference_column(
     doc: Document,
     extracted: Mapping[str, str] | None = None,
     similarity: float | None = None,
-    relevance: ResearchRelevanceRule | None = None,
+    rank: tuple[int, int] | None = None,
 ) -> ComparisonColumn:
     """참고 논문 열 (kind=reference, 차단 없음). similarity 는 ② 관련 연구 검색 점수(없으면 None),
-    relevance 가 있으면 그 점수의 높음·중간·낮음."""
+    rank 는 그 목록 안의 (순위, 총수) — 목록 밖이면 None."""
     cells, title_only = _cells(doc, extracted)
     return ComparisonColumn(
         doc_id=doc.doc_id,
@@ -214,7 +214,8 @@ def reference_column(
         basis=doc.text_basis,
         title_only=title_only,
         kind="reference",
-        relevance=relevance.level(similarity) if relevance is not None else None,
+        relevance_rank=rank[0] if rank is not None else None,
+        relevance_total=rank[1] if rank is not None else None,
         cells=cells,
     )
 
@@ -287,8 +288,9 @@ def comparison_table(
     empty_reason: str | None = None,
     references: Iterable[Document] = (),
     reference_scores: Mapping[str, float] | None = None,
-    relevance: ResearchRelevanceRule | None = None,
 ) -> ComparisonTable:
+    """reference_scores 는 ② 관련 연구 목록 전체 {doc_id: 점수}(목록 순서) — 참고 논문 열의
+    similarity 와 관련 순위 n/총수가 여기서 나온다."""
     ranked = sorted(alerts, key=lambda a: (-a.similarity, a.doc_id))
     seen: set[str] = set()
     projects: list[ComparisonColumn] = []
@@ -301,6 +303,8 @@ def comparison_table(
         )
         if len(projects) >= MAX_PROJECTS:
             break
+    scores = reference_scores or {}
+    ranks = research_ranks(scores.items())
     for doc in references:  # 참고 논문 — 유사과제 열 뒤, 요청 순서 (ADR 0053)
         if doc.doc_id in seen:
             continue
@@ -309,8 +313,8 @@ def comparison_table(
             reference_column(
                 doc,
                 (extracted or {}).get(doc.doc_id),
-                (reference_scores or {}).get(doc.doc_id),
-                relevance,
+                scores.get(doc.doc_id),
+                ranks.get(doc.doc_id),
             )
         )
     return ComparisonTable(

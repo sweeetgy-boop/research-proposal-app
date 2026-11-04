@@ -1,6 +1,7 @@
-"""참고 논문 열의 검색 관련도(높음·중간·낮음) — 순수 규칙·비교표 유스케이스·가짜 모드.
+"""참고 논문 열의 관련 순위("관련 순위 n/총수") — 순수 규칙·비교표 유스케이스·REST 직렬화.
 
-점수 출처: 같은 입력의 precheck 메모(제안자가 본 관련 연구) → 메모가 없으면 같은 관련 연구 검색을
+2026-11-04 소유자 결정: 고정 경계값 "검색 관련도 높음·중간·낮음" 대신 ② 관련 연구 목록 안의 자리.
+목록 출처: 같은 입력의 precheck 메모(제안자가 본 관련 연구) → 메모가 없으면 같은 관련 연구 검색을
 다시.
 """
 
@@ -8,12 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from rra.application.usecases.compare_projects import CompareProjects
 from rra.domain.models import Document, PrecheckResult, ProposalRequest
 from rra.domain.models.gap import RelatedResearch
-from rra.domain.rules.research_relevance import ResearchRelevanceRule
+from rra.domain.rules.reference_rank import research_ranks
 from rra.entrypoints.views import comparison_payload
 from tests.fakes import InMemoryRepository
 
@@ -43,27 +42,23 @@ def _related(doc_id, score):
 
 
 # ── 순수 규칙 ────────────────────────────────────────────
-@pytest.mark.parametrize(
-    ("score", "level"),
-    [
-        (0.93, "high"),
-        (0.895, "high"),
-        (0.8949, "mid"),
-        (0.885, "mid"),
-        (0.8849, "low"),
-        (0.60, "low"),
-        (None, None),
-    ],
-)
-def test_default_thresholds_from_measurement(score, level):
-    assert ResearchRelevanceRule().level(score) == level
+def test_ranks_follow_score_desc_and_total_is_list_length():
+    got = research_ranks([("a", 0.86), ("b", 0.91), ("c", 0.88)])
+    assert got == {"b": (1, 3), "c": (2, 3), "a": (3, 3)}
 
 
-def test_thresholds_are_configurable_and_ordered():
-    rule = ResearchRelevanceRule(high=0.5, mid=0.2)
-    assert [rule.level(x) for x in (0.6, 0.3, 0.1)] == ["high", "mid", "low"]
-    with pytest.raises(ValueError):
-        ResearchRelevanceRule(high=0.8, mid=0.9)
+def test_ties_keep_list_order():
+    got = research_ranks([("x", 0.9), ("y", 0.95), ("z", 0.9), ("w", 0.9)])
+    assert got == {"y": (1, 4), "x": (2, 4), "z": (3, 4), "w": (4, 4)}
+
+
+def test_missing_doc_has_no_rank_and_empty_list_is_empty():
+    assert research_ranks([("a", 0.9)]).get("other") is None
+    assert research_ranks([]) == {}
+
+
+def test_duplicate_doc_counts_once():
+    assert research_ranks([("a", 0.9), ("b", 0.8), ("a", 0.99)]) == {"a": (1, 2), "b": (2, 2)}
 
 
 # ── 비교표 유스케이스 ────────────────────────────────────
@@ -107,40 +102,61 @@ def _repo():
     return repo
 
 
-async def test_reference_relevance_comes_from_the_precheck_memo():
+async def test_reference_rank_comes_from_the_precheck_memo():
+    # 메모의 관련 연구 목록(화면 순서: 점수 내림차순) — 참고 논문은 그 안의 자리 n/총수
     pre = MemoPrecheck(
         [
+            _related("scienceon:p9", 0.93),
             _related("scienceon:p1", 0.91),
             _related("scienceon:p2", 0.889),
             _related("scienceon:p3", 0.87),
+            _related("scienceon:p8", 0.86),
         ]
     )
     uc = CompareProjects(_repo(), precheck=pre)
     req = REQ.model_copy(
-        update={"reference_ids": ["scienceon:p1", "scienceon:p2", "scienceon:p3", "scienceon:p4"]}
+        update={"reference_ids": ["scienceon:p3", "scienceon:p1", "scienceon:p4", "scienceon:p2"]}
     )
     table = await uc(req, [], similar_only=True)
-    got = {c.doc_id: (c.relevance, c.similarity) for c in table.projects}
+    got = {c.doc_id: (c.relevance_rank, c.relevance_total, c.similarity) for c in table.projects}
     assert got == {
-        "scienceon:p1": ("high", 0.91),
-        "scienceon:p2": ("mid", 0.889),
-        "scienceon:p3": ("low", 0.87),
-        "scienceon:p4": (None, None),  # 관련 연구 목록 밖 — 관련도 없음
+        "scienceon:p3": (4, 5, 0.87),
+        "scienceon:p1": (2, 5, 0.91),
+        "scienceon:p4": (None, None, None),  # 관련 연구 목록 밖 — 순위 없음
+        "scienceon:p2": (3, 5, 0.889),
     }
+    # 열 순서는 그대로 reference_ids 순서 (순위로 다시 줄 세우지 않는다)
+    assert [c.doc_id for c in table.projects] == req.reference_ids
     assert pre.searched == 0
     payload = comparison_payload(table)
-    assert [p["relevance"] for p in payload["projects"]] == ["high", "mid", "low", None]
+    projects = payload["projects"]
+    assert [(p["relevance_rank"], p["relevance_total"]) for p in projects] == [
+        (4, 5),
+        (2, 5),
+        (None, None),
+        (3, 5),
+    ]
+    assert all("relevance" not in p for p in [payload["proposal"], *projects])
+    assert payload["proposal"]["relevance_rank"] is None
+    assert payload["proposal"]["relevance_total"] is None
 
 
-async def test_reference_relevance_recomputes_the_research_search_without_memo():
-    pre = NoMemoPrecheck([_related("scienceon:p2", 0.9)])
-    uc = CompareProjects(
-        _repo(), precheck=pre, relevance=ResearchRelevanceRule(high=0.95, mid=0.85)
-    )
+async def test_reference_rank_recomputes_the_research_search_without_memo():
+    pre = NoMemoPrecheck([_related("scienceon:p1", 0.95), _related("scienceon:p2", 0.9)])
+    uc = CompareProjects(_repo(), precheck=pre)
     req = REQ.model_copy(update={"reference_ids": ["scienceon:p2"]})
     table = await uc(req, [], similar_only=True)
     (col,) = table.projects
-    assert col.kind == "reference" and col.relevance == "mid" and pre.searched == 1
+    assert col.kind == "reference" and (col.relevance_rank, col.relevance_total) == (2, 2)
+    assert col.similarity == 0.9 and pre.searched == 1
+
+
+async def test_no_precheck_list_means_no_rank():
+    pre = NoMemoPrecheck([])
+    uc = CompareProjects(_repo(), precheck=pre)
+    req = REQ.model_copy(update={"reference_ids": ["scienceon:p1"]})
+    (col,) = (await uc(req, [], similar_only=True)).projects
+    assert col.relevance_rank is None and col.relevance_total is None and col.similarity is None
 
 
 async def test_no_references_no_research_search():
@@ -150,14 +166,13 @@ async def test_no_references_no_research_search():
 
 
 # ── 설정·PrecheckOverlap ─────────────────────────────────
-def test_repo_config_holds_the_measured_thresholds(tmp_path):
-    from rra.config_loader import research_relevance
-    from rra.settings import Settings
+def test_repo_config_has_no_relevance_thresholds():
+    """경계값(옛 candidates.research.relevance)은 없앴다 — 재측정은 시범 사례가 쌓인 뒤."""
+    import yaml
 
     root = Path(__file__).resolve().parents[2]
-    s = Settings(_env_file=None, config_dir=root / "config", data_dir=tmp_path / "data")
-    assert research_relevance(s) == ResearchRelevanceRule(high=0.895, mid=0.885)
-    assert research_relevance(s) == ResearchRelevanceRule()  # 도메인 기본값과 같다
+    cfg = yaml.safe_load((root / "config" / "overlap.yaml").read_text(encoding="utf-8"))
+    assert "relevance" not in cfg["candidates"]["research"]
 
 
 async def test_precheck_search_research_repeats_the_related_research_search(docs, own):

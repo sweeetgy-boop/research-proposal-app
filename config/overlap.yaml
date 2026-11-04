@@ -195,12 +195,6 @@ candidates:
     size: 28
   research:
     k: 5
-    # 비교표 참고 논문 열의 "검색 관련도 높음·중간·낮음" 경계 — 관련 연구 검색의 e5 코사인
-    # (domain/rules/research_relevance). 2026-11-04 측정(docs/eval-2026-11-04-reference-relevance.md, 아이디어 12건·60행):
-    # 높음 17건 무관 0, 무관 10건 중 9건이 낮음. 임베딩 모델·적재 자료가 바뀌면 다시 잰다.
-    relevance:
-      high: 0.895
-      mid: 0.885
     members:
       - {source: scienceon}
       - {source: openalex}
