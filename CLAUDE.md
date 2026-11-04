@@ -217,6 +217,8 @@
   `/healthz llm.gemini`, 웹 `components/frame/ArgonStatusBanner`(사유 줄은 관리자만, ADR 0055).
   #120~#123(운영 79a39e7): 선택 기록 `SimilarChoice.source`(ai_prefill|user, 없으면 user, 기록은 생성 요청 때만, ADR 0056), 그림 생성(`image_gen.py`)·과제안·활용 제안도 같은 분류·경고
   (`recommend.argon_failed`·`recommend.done`, 그림만의 한도·무응답은 상태 파일 `gemini_image` 에만 — 띠·healthz 아님, ADR 0055 덧붙임), e2e 는 `route.fetch` 쓰면 `afterEach unrouteAll`.
+  #125~#127(운영 467e674): 선택 기록 `event: apply|generate`([선택 적용] = `POST /v1/precheck/choices?apply=true`, 같은 세션·바로 앞 줄과 같은 선택은 한 줄 — `entrypoints/api/choice_dedupe` LRU),
+  과제안 측정 `cache/recommend_metrics.jsonl`(`RecommendMetricsPort`, 건수·시간만, 5 MB 회전), e2e 는 그림 상태를 보면 ④ 전에 `waitFiguresDone`.
 - **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.
   이제 쓰지 않는 방식(로컬 7B 주 작성·③ 1차 검토·Cloudflare 계획·화면 "run" 표기)은 지우지 않고 "이전 방식"으로 표시한다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
