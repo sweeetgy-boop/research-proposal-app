@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from "react-router";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { applyRecommendation, ntisOutcomes } from "@/api/endpoints";
-import { comparisonFlow, differentiateFlow, judgePrecheck, recommendFlow, recommendMore } from "@/api/endpoints-precheck";
+import { applyChoices as recordApply, comparisonFlow, differentiateFlow, judgePrecheck, recommendFlow, recommendMore } from "@/api/endpoints-precheck";
 import type { PlanField, PlanRecommendation, PrecheckFlowOut, PrecheckOut, PrecheckRequest, SimilarChoiceValue } from "@/api/types";
 import { getIdea, updateIdea, useIdea } from "@/features/idea/store";
 import { RelatedResearchList } from "@/features/idea/RelatedResearchList";
@@ -267,6 +267,8 @@ export default function Precheck() {
     const nowRefs = [...refs];
     const r: PrecheckRequest = { ...base, similar_choices: choiceList(now, nowSources), reference_ids: nowRefs };
     updateIdea({ appliedChoices: now, appliedChoiceSources: nowSources, appliedReferenceIds: nowRefs, similarChoices: now, differentiationTransfer: null });
+    // 선택 기록 — [선택 적용] 한 번에 한 요청(event=apply, 출처 포함). 기록 실패는 화면을 막지 않는다 (ADR 0056 후속)
+    void recordApply(r).catch(() => undefined);
     const sim = choiceCounts(pre.alerts, now).similar;
     // 유사함 0건이어도 참고 논문이 있으면 활용 제안을 받는다 (ADR 0053)
     if (sim > 0 || nowRefs.length > 0) void runDifferentiate(r);

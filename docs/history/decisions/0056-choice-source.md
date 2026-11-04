@@ -56,3 +56,46 @@
   `tests/entrypoints/test_choice_source_api.py`(`_record_choices` 가 출처를 쓴다. 출처가 있든 없든 ② 응답·생성 게이트가 같다. run 요청에 출처가 남는다),
   vitest `features/precheck/ChoiceSource.test.tsx`·`features/idea/storeSources.test.ts`, e2e `precheck-v3`([선택 적용] 요청 본문의 출처).
 - 손대지 않은 것: 기록 시점(생성 요청 때만), Streamlit·CLI·MCP 의 선택 경로(출처를 보내지 않으므로 `user`).
+
+## 2026-11-04 후속: event·중복 한 줄 규칙 (feat/choice-log-apply)
+
+### 맥락
+- 위 결정까지 선택 기록은 생성 요청(`POST /v1/runs`) 때만 남았다. ② 에서 제안자가 [선택 적용] 을 여러 번 누르며 판단을 바꿔도 기록에는
+  마지막 생성 직전의 선택만 남았다. 판단이 어떻게 바뀌었는지가 평가 재료에서 빠졌다.
+- 웹의 [선택 적용] 은 비교표(`/v1/precheck/comparison`)·활용 제안(`/differentiate`)·과제안(`/recommendations`)만 불렀다. 이 요청들은 화면에
+  들어올 때·다시 열 때·과제안 다시 만들기 때도 나가므로, 여기서 적용을 추정하면 한 번 누른 것이 여러 줄이 된다.
+  `endpoints-precheck.ts` 의 `/v1/precheck/choices` 도우미는 있었지만 쓰이지 않았다.
+
+### 결정 (소유자 결정)
+- **기록 시점** 줄마다 `event` 를 쓴다. `generate` 는 생성 요청 때(지금과 같다), `apply` 는 ② [선택 적용] 때다.
+- **apply 신호** 웹은 [선택 적용] 을 누를 때마다 `POST /v1/precheck/choices?apply=true` 를 한 번 보낸다(적용한 선택 + 출처, 본문은
+  `ProposalRequest`). 서버는 `apply=true` 일 때만 기록한다. 쿼리를 빼면(옛 호출·시험) 지금처럼 선택 반영만 돌려주고 기록하지 않는다.
+  응답은 `apply` 유무와 상관없이 같다. 웹은 이 응답을 화면에 쓰지 않고, 실패해도 적용을 막지 않는다(오류 문구 없음).
+  비교표·활용 제안·과제안 요청에서는 적용을 추정하지 않는다.
+- **중복 한 줄** 같은 세션이 같은 선택을 잇따라 보내면 한 번만 쓴다.
+  - 세션 = 로그인 주체 키(`_owner_key` — 직원·공용 계정은 가명 키, 관리 토큰은 run 저장소 키) + 아이디어 해시. 둘을 다시 해시한 16자
+    (`similar_choice.session_key`)를 메모리에만 쓴다. 주체 키·사번은 기록 줄에 들어가지 않는다(세션 해시도 넣지 않는다).
+  - 같은 선택 = 서명(`similar_choice.choice_signature`)이 같다. 서명은 **event** 와 기록 줄의 (doc_id, 선택, 출처) 집합의 해시다.
+    점수·판정·시각·차단 해제·행 순서는 서명에 들지 않는다. 줄이 없는 요청(선택 없음)은 서명이 없고, 쓰지 않으며, 마지막 서명도 바꾸지 않는다.
+  - 잇따름 = 그 세션이 마지막으로 **기록한** 서명과 비교한다(`is_repeat`). 사이에 다른 서명이 기록되면 다시 쓴다.
+  - event 가 서명에 들어가므로 apply → generate(같은 선택)는 다른 사건이라 둘 다 남는다. apply → apply(같은 선택)는 한 번,
+    generate → generate(같은 선택으로 다시 생성)도 한 번이다. 생성 뒤 같은 선택을 다시 적용하면 마지막 서명(generate)과 달라 남는다.
+  - 상태는 API 프로세스 메모리(`entrypoints/api/choice_dedupe.ChoiceDedupe`, 최근 500 세션 LRU)다. 다시 띄우면 잊으므로 그 뒤 첫 기록은
+    같은 선택이라도 한 번 더 남는다. 쓰기에 실패하면(`OSError`, 경고 로그만) 마지막 서명으로 삼지 않아 다음 요청이 다시 쓴다.
+  - 규칙(서명·반복·세션 키)은 `domain/rules/similar_choice`, 상태는 진입점에 둔다.
+- **허용 키** `choice_log.ALLOWED_KEYS` 에 `event` 를 더했다.
+- **옛 줄** 2026-11-04 이전에 쓴 줄에는 `event` 가 없다. 그때는 생성 요청 때만 기록했으므로 `generate` 로 본다. 이 기능 전의 기록에는
+  apply 가 없고, 생성 요청이 잇따라도 모두 남아 있다(중복 한 줄 규칙 전).
+- **동작은 그대로** 차단 게이트·건수·③ 판정표·비교표·활용 제안·과제안·생성 게이트(409)·응답 본문은 바뀌지 않는다. 기록 실패는 막지 않는다.
+
+### 결과
+- 기록 한 줄(키는 이름 순, 값은 예):
+  `{"at": "2026-11-04T06:00:00+00:00", "blocking": false, "choice": "unrelated", "doc_id": "alio:…", "event": "apply", "idea": "<해시 16자>",
+  "judged_by": "argon", "judgment": "same", "keywords": 2, "merged_ids": [], "released": true, "rerank_score": 0.91, "rule_blocking": true,
+  "similarity": 0.8612, "source": "user", "tier": "alio"}`
+- openapi: `POST /v1/precheck/choices` 에 선택 쿼리 `apply`(boolean, 기본 false)가 생긴다. 요청 본문·응답은 그대로다.
+- 시험: `tests/domain/test_choice_log_event.py`(event, 서명이 보는 것과 안 보는 것, 반복·재설정, 옛 줄, 세션 키),
+  `tests/entrypoints/test_choice_dedupe.py`(apply·generate 순서, 세션별·LRU), `tests/entrypoints/test_choice_log_apply_api.py`(apply 한 묶음·반복 생략·
+  바뀐 선택·generate·세션 분리·줄에 주체 키·사번·원문 없음·응답 동일·기록 실패 비치명), vitest `features/precheck/ApplyRecord.test.tsx`,
+  e2e `precheck-v3`([선택 적용] 한 번에 apply 요청 한 번, 본문 = 비교표 요청의 선택·출처).
+- 손대지 않은 것: Streamlit·CLI·MCP(그 경로에는 [선택 적용] 기록이 없다), 기록 파일 위치·권한.

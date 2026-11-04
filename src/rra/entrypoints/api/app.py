@@ -63,13 +63,18 @@ from rra.domain.rules.recommendation import apply_recommendation, recommendation
 from rra.domain.rules.review_flow import InvalidTransition
 from rra.domain.rules.run_title import ascii_filename, hwpx_filename
 from rra.domain.rules.similar_choice import (
+    EVENT_APPLY,
+    EVENT_GENERATE,
     apply_choices,
     choice_records,
+    choice_signature,
     effective_blocking,
     idea_hash,
+    session_key,
 )
 from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.cancellable import CANCELLED_STATUS, ClientCancelled, cancel_on_disconnect
+from rra.entrypoints.api.choice_dedupe import ChoiceDedupe
 from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
 from rra.entrypoints.api.local_review_routes import register as register_local_review_routes
 from rra.entrypoints.api.progress_routes import register as register_progress_routes
@@ -593,6 +598,8 @@ def create_app(
         return {"sources": rows}
 
     recommendation_sessions = RecommendationSessions()
+    # 선택 기록 중복 한 줄 — 세션(주체 + 아이디어)마다 마지막 서명, 메모리에만 (ADR 0056 후속)
+    choice_dedupe = ChoiceDedupe()
 
     async def _recommend(
         request: Request,
@@ -633,24 +640,40 @@ def create_app(
             "similar_count": similar_count(alerts, choices),
         }
 
-    def _record_choices(req: ProposalRequest, alerts: list[Any], choices: dict[str, str]) -> None:
-        """임계치 조정용 선택 기록 — doc_id·선택·출처·점수·아이디어 해시만 (개인정보·본문 없음)."""
+    def _record_choices(
+        request: Request,
+        req: ProposalRequest,
+        alerts: list[Any],
+        choices: dict[str, str],
+        *,
+        event: str,
+    ) -> None:
+        """임계치 조정용 선택 기록 — doc_id·선택·출처·시점(event)·점수·아이디어 해시만 (개인정보·
+        본문 없음). 같은 세션(주체 + 아이디어)이 같은 서명(event + 선택·출처)을 잇따라 보내면 쓰지
+        않는다 (ADR 0056 후속). 기록 실패는 막지 않는다."""
         from datetime import UTC, datetime
 
         _, released = apply_choices(alerts, choices)
+        idea = idea_hash(req.search_text())
+        records = choice_records(
+            alerts,
+            choices,
+            idea=idea,
+            at=datetime.now(UTC).isoformat(timespec="seconds"),
+            released=released,
+            sources=req.choice_sources(),  # 출처는 기록에만 (ADR 0056)
+            event=event,
+        )
+        signature = choice_signature(records)
+        key = session_key(_owner_key(request), idea)
+        if signature is None or choice_dedupe.is_repeat(key, signature):
+            return
         try:
-            choice_log.append(
-                choice_records(
-                    alerts,
-                    choices,
-                    idea=idea_hash(req.search_text()),
-                    at=datetime.now(UTC).isoformat(timespec="seconds"),
-                    released=released,
-                    sources=req.choice_sources(),  # 출처는 기록에만 (ADR 0056)
-                )
-            )
+            choice_log.append(records)
         except OSError as exc:
             logger.warning("similar_choices.append_failed err=%s", type(exc).__name__)
+            return
+        choice_dedupe.remember(key, signature)
 
     def _precheck_body(
         req: ProposalRequest,
@@ -783,9 +806,21 @@ def create_app(
         return _precheck_body(req, result, [], None)
 
     @app.post(f"/{API_VERSION}/precheck/choices")
-    async def choices_route(request: Request, req: ProposalRequest) -> dict[str, Any]:
-        """② [유사함]/[관련 없음] 선택을 반영한 차단 여부·해제·다음 버튼 사유 (LLM 없음, 레인 A)."""
+    async def choices_route(
+        request: Request,
+        req: ProposalRequest,
+        apply: bool = Query(
+            default=False,
+            description="② [선택 적용] — 이 선택을 선택 기록에 event=apply 로 남긴다(같은 세션의 "
+            "잇따른 같은 선택은 한 번만). 응답은 같다.",
+        ),
+    ) -> dict[str, Any]:
+        """② [유사함]/[관련 없음] 선택을 반영한 차단 여부·해제·다음 버튼 사유 (LLM 없음, 레인 A).
+        apply=true 는 웹 [선택 적용] 한 번 — 선택 기록 event=apply (ADR 0056 후속)."""
         alerts = await _svc(request, "precheck")(req)
+        choices = req.choice_map()
+        if apply and choices and choice_log is not None:
+            _record_choices(request, req, list(alerts), choices, event=EVENT_APPLY)
         view = _choice_view(req, list(alerts))
         return {
             "notice": UNTRUSTED_NOTICE,
@@ -1116,7 +1151,7 @@ def create_app(
             if not policy.may_generate(shown, acknowledged=False):
                 raise HTTPException(409, "차단 유사과제 있음 — acknowledged=true 확인 뒤 생성.")
         if choices and choice_log is not None and alerts is not None:
-            _record_choices(req, alerts, choices)
+            _record_choices(request, req, alerts, choices, event=EVENT_GENERATE)
         recommendations = None
         if body.recommendation_id is not None:
             session = recommendation_sessions.get(body.recommendation_id)

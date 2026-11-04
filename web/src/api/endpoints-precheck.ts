@@ -30,9 +30,10 @@ export const recommendMore = (req: PrecheckRequest, recId: string, signal?: Abor
 /** 활용·차별화 제안 — [유사함] 행만 */
 export const differentiateFlow = (req: PrecheckRequest, signal?: AbortSignal) =>
   request<PrecheckFlowOut>(`${V}/precheck/differentiate`, { method: "POST", body: req, signal });
-/** 선택 반영 — 차단 여부·해제·다음 버튼 사유 (LLM 없음) + 선택 기록 */
+/** [선택 적용] 한 번 — 선택 반영(차단 여부·해제·다음 버튼 사유, LLM 없음) + 선택 기록 event=apply (ADR 0056 후속).
+ *  같은 선택을 잇따라 적용하면 서버가 한 번만 기록한다. 화면 동작은 이 응답을 쓰지 않는다. */
 export const applyChoices = (req: PrecheckRequest, signal?: AbortSignal) =>
-  request<PrecheckFlowOut>(`${V}/precheck/choices`, { method: "POST", body: req, signal });
+  request<PrecheckFlowOut>(`${V}/precheck/choices?apply=true`, { method: "POST", body: req, signal });
 /** 과제안 한 칸 [AI로 다듬기] */
 export const polishField = (req: PrecheckRequest, field: PlanField, text: string, signal?: AbortSignal) =>
   request<PolishOut>(`${V}/precheck/plan/polish`, { method: "POST", body: { request: req, field, text }, signal });
