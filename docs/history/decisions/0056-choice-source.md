@@ -99,3 +99,5 @@
   바뀐 선택·generate·세션 분리·줄에 주체 키·사번·원문 없음·응답 동일·기록 실패 비치명), vitest `features/precheck/ApplyRecord.test.tsx`,
   e2e `precheck-v3`([선택 적용] 한 번에 apply 요청 한 번, 본문 = 비교표 요청의 선택·출처).
 - 손대지 않은 것: Streamlit·CLI·MCP(그 경로에는 [선택 적용] 기록이 없다), 기록 파일 위치·권한.
+
+- 소유자 확인(2026-11-04): 중복 한 줄 규칙은 생성 요청에도 그대로 적용한다(생성 횟수는 runs 기록으로 충분). "연달아"는 그 세션에서 **바로 앞에 기록한 선택**과 같을 때만이다 — A→B→A 는 세 묶음 모두 남는다(`tests/entrypoints/test_choice_dedupe.py`).
