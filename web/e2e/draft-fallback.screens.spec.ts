@@ -6,6 +6,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRun, login } from "./helpers";
 
+// 시험이 끝날 때 아직 route.fetch() 를 기다리는 가로채기가 있으면 "route.fetch: Test ended" 로 실패한다(느린 CI 에서 간헐) —
+// 끝나기 전에 가로채기를 모두 떼고, 진행 중이던 처리의 오류는 무시한다.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 test.skip(!OUT, "RRA_SCREENS_DIR 가 없으면 건너뜀");
 
