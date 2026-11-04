@@ -183,3 +183,17 @@ async def test_chosen_direction_is_injected_into_objective_method_and_overlap_pr
     plain = FakeLLM(['[{"text": "x", "evidence": []}]'] * 4)
     await GenerateProposal(plain, repo, FakePromptLibrary(), rules, keys)(req)
     assert all("[제안자가 정한 차별화 방향" not in c for c in plain.calls)
+
+
+async def test_argon_failure_logs_kind_and_fallback_without_message(caplog):
+    """ADR 0055 덧붙임 — Argon 실패를 로그 없이 삼키지 않는다: 사유 열거값·대체 대상만."""
+    import logging
+
+    caplog.set_level(logging.WARNING, logger="rra.differentiate")
+    uc = usecase(json.dumps(GOOD, ensure_ascii=False))
+    uc.llm.fail_at = {0}  # TimeoutError("http://127.0.0.1… 제안 내용 포함 가능")
+    uc.local = FakeLLM([json.dumps(GOOD, ensure_ascii=False)])
+    proposal = await uc(REQ, ALERTS)
+    assert proposal.fallback_local is True and [i.doc_id for i in proposal.items] == ["own:1"]
+    lines = [r.getMessage() for r in caplog.records]
+    assert lines == ["differentiate.argon_failed kind=TimeoutError fallback=local"]

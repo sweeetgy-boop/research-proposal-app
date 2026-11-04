@@ -4,6 +4,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { login, loginStaff } from "./helpers";
 import { expectNoInternalIds } from "./helpers-text";
 
+// 시험이 끝날 때 아직 route.fetch() 를 기다리는 가로채기가 있으면 "route.fetch: Test ended" 로 실패한다(느린 CI 에서 간헐) —
+// 끝나기 전에 가로채기를 모두 떼고, 진행 중이던 처리의 오류는 무시한다.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 const TITLE = "AI(Argon) 연결 오류 — 로컬 모델로 대체 중";
 
 async function argonDown(page: Page, gemini = "key_invalid") {

@@ -740,8 +740,11 @@ export interface ComparisonColumn {
   title_only: boolean;
   /** ADR 0053: similar = [유사함] 유사과제, reference = ② 관련 연구에서 고른 참고 논문 (구분 '선행연구'). 옛 서버는 없음 → similar */
   kind?: "similar" | "reference";
-  /** 참고 논문 열의 검색 관련도 (② 관련 연구 점수 → 높음·중간·낮음). 유사과제 열·점수 없음·옛 서버는 없음/null. 화면은 말로만 (ADR 0039) */
-  relevance?: "high" | "mid" | "low" | null;
+  /** 참고 논문 열의 관련 순위 — ② 관련 연구 목록(점수 내림차순, related_research 순서) 안의 1부터 센 자리.
+   *  유사과제 열·목록 밖·옛 서버는 없음/null. 화면은 "관련 순위 n/총수" (2026-11-04 소유자 결정, 점수 숫자 없음 ADR 0039) */
+  relevance_rank?: number | null;
+  /** 관련 순위의 총수 = ② 관련 연구 목록 길이. relevance_rank 와 함께 null */
+  relevance_total?: number | null;
   cells: Record<ComparisonAspect | string, string>;
 }
 

@@ -48,7 +48,6 @@ from rra.config_loader import (
     render_template_path,
     require_credentials,
     rerank_rule,
-    research_relevance,
     resolve_data_dir,
     retention_days,
     retrieval_mix,
@@ -1877,6 +1876,8 @@ def build_image_generator(settings: Settings | None = None):
         ),
         budget=budget,
         cache_dir=cfg["cache_dir"],
+        # Argon 연결 상태(ADR 0055 덧붙임) — 그림은 gemini_image, 키 무효만 gemini 에도
+        status=build_llm_status(settings),
     )
 
 
@@ -2642,7 +2643,6 @@ def build_comparer(
         repo,
         precheck=precheck or build_precheck(settings, repo=repo),
         extractor=extractor,
-        relevance=research_relevance(settings),  # 참고 논문 열의 검색 관련도 경계
     )
 
 

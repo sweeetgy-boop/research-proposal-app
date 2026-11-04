@@ -8,6 +8,7 @@ import { clearSession } from "@/auth/session";
 import { getIdea, resetIdea, updateIdea } from "@/features/idea/store";
 import { RelatedResearchList } from "@/features/idea/RelatedResearchList";
 import { setPolicyChoice } from "@/features/policy/store";
+import { referenceRankLabel } from "@/lib/labels";
 import { emptyRequest } from "@/lib/validation";
 import Precheck from "@/routes/Precheck";
 import Clarify from "@/routes/Clarify";
@@ -267,32 +268,44 @@ describe("비교표·과제안 조각", () => {
     expect(within(c2 as HTMLElement).queryByTestId("comparison-kind")).toBeNull();
   });
 
-  it("참고 논문 열에 '검색 관련도 높음·중간·낮음' — 숫자는 보이지 않고, 관련도가 없으면 표시 없음 (axe 0)", async () => {
+  it("참고 논문 열에 '관련 순위 n/총수' — 표·카드 모두, 점수 숫자는 보이지 않고, 순위가 없으면 표시 없음 (axe 0)", async () => {
     const col = (over: Record<string, unknown>) => ({ tier: "scienceon", similarity: 0.9012, blocking: false, basis: null, title_only: false, cells: { objective: "목표" }, kind: "reference", ...over });
     const data = {
       ...COMPARISON,
       empty_reason: null,
       projects: [
-        { tier: "own", similarity: 0.88, blocking: false, basis: null, title_only: false, cells: { objective: "목표" }, doc_id: "own:1", title: "역사 조류 퇴치 과제" },
-        col({ doc_id: "scienceon:p1", title: "높은 논문", relevance: "high" }),
-        col({ doc_id: "scienceon:p2", title: "중간 논문", relevance: "mid" }),
-        col({ doc_id: "scienceon:p3", title: "낮은 논문", relevance: "low" }),
-        col({ doc_id: "scienceon:p4", title: "모르는 논문", relevance: null, similarity: null }),
+        { tier: "own", similarity: 0.88, blocking: false, basis: null, title_only: false, cells: { objective: "목표" }, doc_id: "own:1", title: "역사 조류 퇴치 과제", relevance_rank: null, relevance_total: null },
+        col({ doc_id: "scienceon:p2", title: "둘째 논문", relevance_rank: 2, relevance_total: 5 }),
+        col({ doc_id: "scienceon:p1", title: "첫째 논문", relevance_rank: 1, relevance_total: 5 }),
+        col({ doc_id: "scienceon:p4", title: "목록 밖 논문", relevance_rank: null, relevance_total: null, similarity: null }),
+        col({ doc_id: "scienceon:p5", title: "옛 서버 논문" }), // 필드 없음
       ],
     } as unknown as ComparisonFlow;
     const { container } = renderWithProviders(<ComparisonView data={data} />);
     const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
     expect(within(rows[1]!).queryByTestId("reference-relevance")).toBeNull(); // 유사과제 열에는 없다
-    expect(within(rows[2]!).getByTestId("reference-relevance")).toHaveTextContent("검색 관련도 높음");
-    expect(within(rows[3]!).getByTestId("reference-relevance")).toHaveTextContent("검색 관련도 중간");
-    expect(within(rows[4]!).getByTestId("reference-relevance")).toHaveTextContent("검색 관련도 낮음");
+    expect(within(rows[2]!).getByTestId("reference-relevance")).toHaveTextContent(/^관련 순위 2\/5$/);
+    expect(within(rows[3]!).getByTestId("reference-relevance")).toHaveTextContent(/^관련 순위 1\/5$/);
+    expect(within(rows[4]!).queryByTestId("reference-relevance")).toBeNull();
     expect(within(rows[5]!).queryByTestId("reference-relevance")).toBeNull();
     // 좁은 화면 카드에도 같은 말
     const cards = screen.getByRole("list", { name: /과제별 카드/ });
-    expect(within(cards).getAllByText(/^검색 관련도 (높음|중간|낮음)$/)).toHaveLength(3);
-    expect(container.textContent).not.toMatch(/0\.9012|0\.88\b/); // 숫자 없음 (ADR 0039)
+    expect(within(cards).getAllByTestId("reference-relevance").map((e) => e.textContent)).toEqual(["관련 순위 2/5", "관련 순위 1/5"]);
+    expect(container.textContent).not.toMatch(/검색 관련도/); // 옛 경계값 표시는 없다
+    expect(container.textContent).not.toMatch(/0\.9012|0\.88\b/); // 점수 숫자 없음 (ADR 0039)
     expect(container.textContent).not.toMatch(INTERNAL_ID);
     await expectNoA11yViolations(container);
+  });
+
+  it("referenceRankLabel — 값이 없거나 말이 안 되면 null", () => {
+    expect(referenceRankLabel(2, 5)).toBe("관련 순위 2/5");
+    expect(referenceRankLabel(1, 1)).toBe("관련 순위 1/1");
+    expect(referenceRankLabel(null, 5)).toBeNull();
+    expect(referenceRankLabel(2, null)).toBeNull();
+    expect(referenceRankLabel(undefined, undefined)).toBeNull();
+    expect(referenceRankLabel(0, 5)).toBeNull();
+    expect(referenceRankLabel(6, 5)).toBeNull();
+    expect(referenceRankLabel(1.5, 5)).toBeNull();
   });
 
   it("추천 0건 hint=reference — 두 단추가 각각 다시 만들기·원래 아이디어로 진행 (axe 0)", async () => {

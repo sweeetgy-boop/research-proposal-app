@@ -212,7 +212,7 @@
   판정·차단 미사용) → `usecases/references.load_references`(repo.get_document, 권한 밖·없는 id 는 뺌) → 과제안·활용 제안 `[참고 논문]` 구획(`domain/rules/reference_papers`),
   비교표 `kind=reference`('선행연구'). `recommend.md` "겹치는 과제 없음"은 빈 배열 사유 아님('새 영역' 1~3건), 유사함 0 + 0건이면 1회 다시(`retry_used`), 0건 + 참고 없음 `hint: reference`.
 - **유사함 기준·Argon 상태**(2026-11-04, #116~#118): ② 행의 [유사함] = 제안자 선택, 없으면 AI 판정 기본 선택(`domain/rules/similar_choice.effective_choice`,
-  입구 `application/usecases/similar_rows` 하나 — REST·CLI·MCP·Streamlit 공통, ADR 0054). 참고 논문 열 `relevance`(e5 경계 `overlap.yaml candidates.research.relevance`).
+  입구 `application/usecases/similar_rows` 하나 — REST·CLI·MCP·Streamlit 공통, ADR 0054). 참고 논문 열 "관련 순위 n/총수"(`relevance_rank`·`relevance_total`, `domain/rules/reference_rank` — 경계값 표시는 2026-11-04 소유자 결정으로 없앰).
   Gemini 400 `API_KEY_INVALID` → `LLMAuthError`, 429 quota → `LLMQuotaExceeded`, 실패 경고 `llm.failed`(열거값만), 상태 `LLMStatusPort`·`cache/llm_status.json`,
   `/healthz llm.gemini`, 웹 `components/frame/ArgonStatusBanner`(사유 줄은 관리자만, ADR 0055).
 - **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.

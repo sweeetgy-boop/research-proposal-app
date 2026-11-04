@@ -8,7 +8,16 @@
 - 공용 제한기 `limiter_for("gemini")` 를 거치고, 일일 상한 카운터(`DailyBudgetPort`)를 넘으면
   `ImageBudgetExhausted`. 같은 (모델, 프롬프트, 참고 이미지 해시, 비율, 크기)는 캐시 디렉터리에서
   돌려준다(호출·상한 소비 없음).
-- 429/5xx/타임아웃은 RetryPolicy 로 재시도, 401/403 은 즉시 실패.
+- 429/5xx/타임아웃은 RetryPolicy 로 재시도, 401/403·키 무효 400 은 즉시 실패.
+- 오류 분류(ADR 0055 덧붙임, 2026-11-04): 텍스트 호출(openai_compat)과 같은 `_payload` 분류 —
+  400 API_KEY_INVALID·401·403 → LLMAuthError, 429 할당량 → LLMQuotaExceeded(그 밖 429 는
+  LLMRateLimited), 타임아웃 → LLMTimeout, 연결 실패 code=connection, 5xx code=server. 실패 1건마다
+  같은 `llm.failed provider=gemini stage=figure_image …` 경고 한 줄(열거값만).
+- 상태(status, LLMStatusPort): 그림 결과는 `gemini_image` 에 적는다(/healthz 에 내지 않는다).
+  키 무효는 `gemini`(텍스트·띠) 에도 올리고, 그림 성공은 `gemini` 가 key_invalid 일 때만 ok 로
+  되돌린다. 그림의 할당량·응답 없음은 `gemini` 를 바꾸지 않는다
+  (domain/rules/llm_status.text_status_from_image).
+- 응답 시간 기록(`*.latency.jsonl`)은 그림 경로에 없다 — 일일 상한 카운터만 쓴다.
 """
 
 from __future__ import annotations
@@ -25,12 +34,22 @@ from typing import Any
 
 import httpx
 
+from rra.adapters.llm import _payload
 from rra.adapters.llm._endpoint import USER_AGENT, guard_base_url
-from rra.adapters.llm.errors import LLMError
+from rra.adapters.llm.errors import (
+    LLMAuthError,
+    LLMError,
+    LLMQuotaExceeded,
+    LLMRateLimited,
+    LLMResponseInvalid,
+    LLMTimeout,
+)
 from rra.adapters.llm.rate_limiter import RateLimiter, limiter_for, parse_retry_after
 from rra.adapters.runs._fs import ensure_dir, write_bytes
 from rra.application.ports.auth import DailyBudgetPort
 from rra.application.ports.figures import ImageBudgetExhausted, ImageResult
+from rra.application.ports.llm_status import LLMStatusPort
+from rra.domain.rules import llm_status
 
 logger = logging.getLogger("rra.llm.image")
 
@@ -41,6 +60,7 @@ MAX_PROMPT_CHARS = 6000
 MAX_RESPONSE_BYTES = 12 * 1024 * 1024
 _RETRY_STATUS = frozenset({408, 429, 500, 502, 503, 504})
 _HASH = re.compile(r"^[0-9a-f]{32}$")
+STAGE = "figure_image"  # 실패 경고 줄의 단계 이름
 
 
 def native_base_url(base_url: str) -> str:
@@ -68,6 +88,8 @@ class GeminiImageGenerator:
         budget: DailyBudgetPort | None = None,
         cache_dir: Path | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        status: LLMStatusPort | None = None,
+        stage: str = STAGE,
     ):
         if not api_key or not api_key.strip():
             raise LLMError("Gemini 키가 없습니다 (RRA_GEMINI_API_KEY).")
@@ -80,6 +102,9 @@ class GeminiImageGenerator:
         self.limiter = limiter or limiter_for("gemini")
         self.budget = budget
         self.cache_dir = Path(cache_dir) if cache_dir else None
+        # 연결 상태 기록(ADR 0055 덧붙임) — 조립이 텍스트와 같은 상태 파일을 넘긴다
+        self.status = status
+        self.stage = stage
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_sec, connect=10.0),
             headers={"user-agent": USER_AGENT},
@@ -121,11 +146,11 @@ class GeminiImageGenerator:
         self, prompt: str, image: bytes, mime: str, aspect: str, size: str
     ) -> ImageResult:
         if mime not in ALLOWED_MIME:
-            raise LLMError(f"지원하지 않는 이미지 형식입니다: {mime}")
+            raise LLMError(f"지원하지 않는 이미지 형식입니다: {mime}", code="not_sent")
         if not image or len(image) > MAX_REFERENCE_BYTES:
-            raise LLMError("참고 이미지가 비었거나 상한을 넘습니다.")
+            raise LLMError("참고 이미지가 비었거나 상한을 넘습니다.", code="not_sent")
         if len(prompt) > MAX_PROMPT_CHARS:
-            raise LLMError("프롬프트가 상한을 넘습니다.")
+            raise LLMError("프롬프트가 상한을 넘습니다.", code="not_sent")
         key = self._cache_key(prompt, image, aspect, size)
         cached = self._cache_get(key)
         if cached is not None:
@@ -158,7 +183,35 @@ class GeminiImageGenerator:
         return result
 
     async def _post(self, url: str, body: dict[str, Any]) -> dict[str, Any]:
-        last: Exception | None = None
+        """요청 1건(재시도 포함). 끝나면 연결 상태를 기록하고, 실패면 경고 한 줄을 남긴다
+        (텍스트 호출과 같은 분류·같은 줄, ADR 0055 덧붙임)."""
+        try:
+            data = await self._post_with_retry(url, body)
+        except LLMError as exc:
+            logger.warning(
+                _payload.FAILURE_LOG, *_payload.failure_args(self.provider, self.stage, exc)
+            )
+            self._note_status(llm_status.status_for_code(exc.code))
+            raise
+        self._note_status(llm_status.OK)
+        return data
+
+    def _note_status(self, image_status: str | None) -> None:
+        """그림 결과는 gemini_image 에, 텍스트(gemini) 상태에는 규칙이 정한 것만
+        (domain/rules/llm_status.text_status_from_image). 기록 실패는 호출 결과를 바꾸지 않는다."""
+        if image_status is None or self.status is None:
+            return
+        try:
+            self.status.record(llm_status.IMAGE_PROVIDER, image_status)
+            text = self.status.snapshot(llm_status.TEXT_PROVIDER) or {}
+            to_text = llm_status.text_status_from_image(image_status, text.get("status"))
+            if to_text is not None:
+                self.status.record(llm_status.TEXT_PROVIDER, to_text)
+        except (OSError, ValueError) as exc:
+            logger.debug("figure.status_failed err=%s", type(exc).__name__)
+
+    async def _post_with_retry(self, url: str, body: dict[str, Any]) -> dict[str, Any]:
+        last: LLMError | None = None
         for attempt in range(self.attempts):
             await self.limiter.acquire()
             try:
@@ -169,28 +222,56 @@ class GeminiImageGenerator:
                     headers={"x-goog-api-key": self._key, "content-type": "application/json"},
                 )
             except httpx.HTTPError as exc:
-                last = LLMError(f"이미지 생성 요청 실패: {type(exc).__name__}")
+                if isinstance(exc, httpx.TimeoutException):
+                    last = LLMTimeout(f"이미지 생성 응답 시간 초과 ({type(exc).__name__})")
+                else:
+                    last = LLMError(
+                        f"이미지 생성 요청 실패: {type(exc).__name__}", code="connection"
+                    )
                 self.limiter.release()
                 await asyncio.sleep(self._backoff(attempt))
                 continue
             try:
-                if resp.status_code in (401, 403):
-                    raise LLMError(f"이미지 생성 인증 실패 ({resp.status_code}).")
-                if resp.status_code in _RETRY_STATUS:
+                status = resp.status_code
+                if status == 200:
+                    if len(resp.content) > MAX_RESPONSE_BYTES:
+                        raise LLMResponseInvalid(
+                            "이미지 응답이 상한을 넘습니다.", http_status=status
+                        )
+                    try:
+                        return resp.json()
+                    except ValueError as exc:
+                        raise LLMResponseInvalid(
+                            "이미지 응답이 JSON 이 아닙니다.", http_status=status
+                        ) from exc
+                codes = _payload.error_codes(resp.text, [self._key])
+                where: dict[str, Any] = {
+                    "http_status": status,
+                    "api_status": codes.status,
+                    "api_reason": codes.reason,
+                }
+                # 401/403·키 무효 400(Google API_KEY_INVALID): 재시도 없음, 본문·키 노출 없음
+                if status in (401, 403) or _payload.is_key_invalid(status, resp.text, codes):
+                    raise LLMAuthError(f"이미지 생성 인증 실패 ({status}).", **where)
+                if status in _RETRY_STATUS:
                     wait = parse_retry_after(resp.headers.get("retry-after"))
-                    last = LLMError(f"이미지 생성 일시 실패 ({resp.status_code}).")
-                    if resp.status_code == 429:
+                    if status == 429:
                         self.limiter.note_429(wait)
+                        if _payload.is_quota_exhausted(resp.text, codes):
+                            last = LLMQuotaExceeded(f"이미지 생성 할당량 소진 ({status}).", **where)
+                        else:
+                            last = LLMRateLimited(
+                                f"이미지 생성 호출 한도 초과 ({status}).", **where
+                            )
+                    else:
+                        last = LLMError(
+                            f"이미지 생성 일시 실패 ({status}).",
+                            code="server" if status >= 500 else "http",
+                            **where,
+                        )
                     await asyncio.sleep(wait if wait is not None else self._backoff(attempt))
                     continue
-                if resp.status_code != 200:
-                    raise LLMError(f"이미지 생성 실패 ({resp.status_code}).")
-                if len(resp.content) > MAX_RESPONSE_BYTES:
-                    raise LLMError("이미지 응답이 상한을 넘습니다.")
-                try:
-                    return resp.json()
-                except ValueError as exc:
-                    raise LLMError("이미지 응답이 JSON 이 아닙니다.") from exc
+                raise LLMError(f"이미지 생성 실패 ({status}).", code="http", **where)
             finally:
                 self.limiter.release()
         raise last or LLMError("이미지 생성 실패.")

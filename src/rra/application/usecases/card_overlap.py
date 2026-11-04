@@ -213,6 +213,14 @@ class CardOverlapCheck:
             logger.info("card_overlap.budget origin=%s", origin)
             return None
         except Exception as exc:  # 오류 응답 — 다음 단계(로컬 → 규칙)
-            logger.warning("card_overlap.failed origin=%s err=%s", origin, type(exc).__name__)
+            code = getattr(
+                exc, "code", None
+            )  # 어댑터 예외의 분류 (ADR 0055) — 메시지는 싣지 않는다
+            logger.warning(
+                "card_overlap.failed origin=%s kind=%s err=%s",
+                origin,
+                code if isinstance(code, str) and code.isascii() else "-",
+                type(exc).__name__,
+            )
             return None
         return parse_card_verdicts(parse_object(raw), pairs)
