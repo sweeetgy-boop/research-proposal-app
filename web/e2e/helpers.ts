@@ -86,6 +86,23 @@ export async function goPrecheck(page: Page, button = page.getByRole("button", {
   await expect(page).toHaveURL(/\/new\/precheck$/);
 }
 
+/** 그림 백그라운드 작업(ADR 0045)이 끝날 때까지 기다린다 — 가짜 그림은 장마다 RRA_FAKE_FIGURE_DELAY 초라,
+ *  그림 도착 시점에 따라 ④ "변경 n건"(그림 추가)·저장 창(변경 없음 ↔ 이미 vN 까지 저장)·버전 번호가 달라진다.
+ *  ④ 이후를 시험하는 흐름은 ④ 에 들어가기 전에 부른다(CI 처럼 느린 곳에서도 같은 상태). 끝나면 done·failed, 그림이 꺼졌으면 null. */
+export async function waitFiguresDone(page: Page, runId: string, timeout = 60_000) {
+  await expect
+    .poll(
+      async () => {
+        const r = await page.request.get(`/v1/runs/${runId}`);
+        if (!r.ok()) return `http ${r.status()}`;
+        const body = (await r.json()) as { figures_status?: string | null };
+        return body.figures_status ?? "none";
+      },
+      { timeout, intervals: [500, 1000, 1000] },
+    )
+    .toMatch(/^(done|failed|none)$/);
+}
+
 /** ①→②→③ 을 지나 run 이 drafted 가 될 때까지. run id 를 돌려준다. */
 export async function createRun(page: Page): Promise<string> {
   await fillIdea(page);
