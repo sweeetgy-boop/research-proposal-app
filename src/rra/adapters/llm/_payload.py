@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
 from rra.adapters.llm.errors import LLMResponseInvalid
@@ -125,6 +128,79 @@ def redact(text: str, secrets: Iterable[str] = (), *, limit: int = ERROR_BODY_LI
             out = out.replace(s, "***")
     out = " ".join(out.split())
     return out[:limit] + "…" if len(out) > limit else out
+
+
+# ── 오류 응답 분류 (ADR 0055) ───────────────────────────────
+# Google(Gemini OpenAI 호환) 오류 본문:
+#   {"error": {"code", "message", "status", "details": [{"reason"}]}} — 목록으로 감싸 오기도 한다.
+# 로그·예외에는 status·reason 열거값만 싣고 message(본문)는 싣지 않는다.
+_ENUM_CODE = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
+ERROR_BODY_PARSE_LIMIT = 64_000
+KEY_INVALID_REASONS = frozenset({"API_KEY_INVALID"})
+KEY_INVALID_HINTS = ("api key not valid", "api_key_invalid")
+QUOTA_STATUSES = frozenset({"RESOURCE_EXHAUSTED"})
+QUOTA_REASONS = frozenset({"insufficient_quota"})
+QUOTA_HINTS = ("quota",)
+
+
+@dataclass(frozen=True)
+class ErrorCodes:
+    """오류 본문에서 뽑은 열거값 — 형식이 맞는 짧은 영문 식별자만(그 밖의 글자는 버린다)."""
+
+    status: str | None = None  # Google error.status (INVALID_ARGUMENT·RESOURCE_EXHAUSTED …)
+    reason: str | None = None  # Google details[].reason (API_KEY_INVALID …) 또는 OpenAI error.code
+
+
+def _enum(value: Any, secrets: Iterable[str]) -> str | None:
+    if not isinstance(value, str) or not _ENUM_CODE.fullmatch(value):
+        return None
+    for secret in secrets:
+        s = (secret or "").strip()
+        if len(s) >= 4 and (s in value or value in s):
+            return None  # 키 조각일 수 있는 값은 싣지 않는다 (보안 D)
+    return value
+
+
+def error_codes(body: str, secrets: Iterable[str] = ()) -> ErrorCodes:
+    """오류 본문(JSON) → ErrorCodes. JSON 이 아니거나 모양이 다르면 빈 값."""
+    try:
+        data = json.loads(body[:ERROR_BODY_PARSE_LIMIT])
+    except (ValueError, TypeError):
+        return ErrorCodes()
+    if isinstance(data, list) and data:
+        data = data[0]
+    err = data.get("error") if isinstance(data, dict) else None
+    if not isinstance(err, dict):
+        return ErrorCodes()
+    keys = list(secrets)
+    reason = None
+    details = err.get("details")
+    if isinstance(details, list):
+        for item in details[:10]:
+            if isinstance(item, dict) and (found := _enum(item.get("reason"), keys)):
+                reason = found
+                break
+    if reason is None:
+        reason = _enum(err.get("code"), keys)  # OpenAI 형식: code 가 문자열(insufficient_quota …)
+    return ErrorCodes(status=_enum(err.get("status"), keys), reason=reason)
+
+
+def is_key_invalid(status_code: int, body: str, codes: ErrorCodes) -> bool:
+    """키 무효 400 — Google 은 401 이 아니라 400 INVALID_ARGUMENT/API_KEY_INVALID 로 답한다."""
+    if status_code != 400:
+        return False
+    if codes.reason in KEY_INVALID_REASONS:
+        return True
+    low = body[:ERROR_BODY_PARSE_LIMIT].lower()
+    return any(h in low for h in KEY_INVALID_HINTS)
+
+
+def is_quota_exhausted(body: str, codes: ErrorCodes) -> bool:
+    """429 중 할당량 소진(RESOURCE_EXHAUSTED·quota 문구) — 그 밖의 429 는 일반 호출 한도."""
+    if codes.status in QUOTA_STATUSES or codes.reason in QUOTA_REASONS:
+        return True
+    low = body[:ERROR_BODY_PARSE_LIMIT].lower()
+    return any(h in low for h in QUOTA_HINTS)
 
 
 def extract_finish_reason(data: Any) -> str | None:

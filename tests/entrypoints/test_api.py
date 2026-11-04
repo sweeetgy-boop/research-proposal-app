@@ -89,6 +89,61 @@ async def test_healthz_reports_deploy_version_without_auth():
     assert body == {"status": "ok", "version": info}
 
 
+async def test_healthz_reports_argon_status_as_coarse_enum_only():
+    """ADR 0055 — 인증 없는 공개 경로라 열거값·시각만. 기존 status·version 은 그대로."""
+    from rra.entrypoints.api.app import create_app as make
+
+    info = {"commit": "d65d75b789a1", "short": "d65d75b", "deployed_at": "2026-10-28T09:34+09:00"}
+    a = make_assistant()
+    settings = Settings(_env_file=None)
+    view = {"gemini": "key_invalid", "since": "2026-11-03T16:14:49+09:00"}
+    app = make(
+        manager=a.manager,
+        precheck=a.precheck,
+        repo=a.repo,
+        user=a.user,
+        middlewares=api_middlewares(settings, TOKEN),
+        version=info,
+        llm_health=lambda: view,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8000"
+    ) as c:
+        body = (await c.get("/healthz")).json()
+    assert body == {"status": "ok", "version": info, "llm": view}
+
+
+@pytest.mark.parametrize(("env", "expected"), [(None, "unknown"), ("key_invalid", "key_invalid")])
+async def test_fake_mode_healthz_llm_is_unknown_unless_simulated(
+    tmp_path, monkeypatch, env, expected
+):
+    """가짜 모드는 상태 파일을 읽지 않는다 — RRA_FAKE_GEMINI_STATUS 로만 흉내 낸다(기본 꺼짐)."""
+    from pydantic import SecretStr
+
+    from rra.composition import build_api
+
+    if env is None:
+        monkeypatch.delenv("RRA_FAKE_GEMINI_STATUS", raising=False)
+    else:
+        monkeypatch.setenv("RRA_FAKE_GEMINI_STATUS", env)
+    settings = Settings(
+        _env_file=None,
+        fake_llm=True,
+        api_token=SecretStr(TOKEN),
+        runs_dir=tmp_path / "runs",
+        db_path=tmp_path / "never.sqlite",
+        static_dir=tmp_path / "no-dist",
+        data_dir=tmp_path / "data",
+    )
+    app = build_api(settings, sse_poll_sec=0.01)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        body = (await c.get("/healthz")).json()
+    assert body["status"] == "ok" and "version" in body
+    assert body["llm"]["gemini"] == expected
+    assert set(body["llm"]) == {"gemini", "since"}
+    assert (body["llm"]["since"] is None) == (env is None)
+
+
 async def test_missing_or_wrong_token_is_401_but_healthz_is_open(client):
     assert (await client.get("/healthz")).json() == {"status": "ok"}
     r = await client.post("/v1/precheck", json=SLOTS)

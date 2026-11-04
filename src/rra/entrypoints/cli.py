@@ -963,6 +963,20 @@ def cmd_llm_check(args: argparse.Namespace) -> int:
     except LLMUnavailable as exc:
         _eprint(f"LLM 사용 불가: {exc}")
         return EXIT_USAGE
+    except RuntimeError as exc:  # 분류된 실패(키 무효·할당량·무응답)는 본문 대신 분류만 (ADR 0055)
+        from rra.domain.rules import llm_status
+
+        label = llm_status.failure_label(getattr(exc, "code", None))
+        if label is None:
+            raise
+        http = getattr(exc, "http_status", None)
+        parts = [f"HTTP {http}"] if http is not None else []
+        parts += [
+            c for c in (getattr(exc, "api_status", None), getattr(exc, "api_reason", None)) if c
+        ]
+        detail = " · ".join(parts)
+        _eprint(f"LLM 호출 실패: {label}" + (f" ({detail})" if detail else ""))
+        return EXIT_ERROR
     print(f"model={cfg['model']} {time.monotonic() - started:.1f}s")
     print(_safe(output, limit=2000))
     return EXIT_OK

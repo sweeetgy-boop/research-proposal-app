@@ -123,6 +123,20 @@ export function referenceRelevanceLabel(relevance: string | null | undefined): s
   return word ? `검색 관련도 ${word}` : null;
 }
 
+/** Argon(Gemini) 연결 상태 알림 띠 (ADR 0055) — /healthz `llm.gemini` 열거값 → 화면 문구.
+ *  ok·unknown(기록 없음)·모르는 값이면 띠를 내지 않는다. 사유 줄은 관리자에게만. 코드는 화면에 내지 않는다. */
+export const ARGON_DOWN_TITLE = "AI(Argon) 연결 오류 — 로컬 모델로 대체 중";
+export const ARGON_REASON_LABELS: Record<string, string> = {
+  key_invalid: "API 키 확인 필요",
+  quota: "사용 한도 초과",
+  unavailable: "응답 없음",
+};
+
+/** 띠를 낼 상태면 사유 문구, 아니면 null */
+export function argonDownReason(state: string | null | undefined): string | null {
+  return (state && ARGON_REASON_LABELS[state]) || null;
+}
+
 /** provider 이름 → 화면 이름 */
 export function providerLabel(provider: string | null | undefined): string {
   if (provider === "gemini") return "Argon";

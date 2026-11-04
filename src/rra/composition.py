@@ -123,6 +123,8 @@ __all__ = [
     "build_ingest",
     "build_list_missing",
     "build_llm",
+    "build_llm_health",
+    "build_llm_status",
     "build_ntis_insights",
     "build_ntis_report_source",
     "build_ntis_source",
@@ -282,6 +284,36 @@ def build_review_budget(settings: Settings | None = None):
     return _BUDGETS[key]
 
 
+_LLM_STATUS: dict[str, Any] = {}
+
+
+def build_llm_status(settings: Settings | None = None):
+    """LLMStatusPort — 원격 LLM 연결 상태 파일(<data_dir>/cache/llm_status.json, ADR 0055).
+    같은 경로는 프로세스 안에서 하나를 공유한다. 가짜 모드는 파일 대신
+    RRA_FAKE_GEMINI_STATUS(기본 없음)."""
+    settings = settings or load_settings()
+    if settings.fake_llm:
+        from rra.adapters.fake import FakeLLMStatus
+
+        return FakeLLMStatus()
+    from rra.adapters.llm.status_file import FileLLMStatus
+
+    path = data_location(settings, "llm_status")
+    key = str(path)
+    if key not in _LLM_STATUS:
+        _LLM_STATUS[key] = FileLLMStatus(path)
+    return _LLM_STATUS[key]
+
+
+def build_llm_health(settings: Settings | None = None):
+    """/healthz `llm` 값을 만드는 함수 — {gemini: ok|key_invalid|quota|unavailable|unknown, since}.
+    열거값·시각만(인증 없는 공개 경로, domain/rules/llm_status.public_view)."""
+    from rra.domain.rules.llm_status import public_view
+
+    status = build_llm_status(settings)
+    return lambda: public_view(status.snapshot("gemini"))
+
+
 # ── 로그인 (레인 A) ─────────────────────────────────────
 def build_auth_store(settings: Settings | None = None):
     """AuthStorePort 구현체 — <data_dir>/auth (config/auth.yaml store_dir)."""
@@ -345,6 +377,8 @@ def _build_openai_compat(
         getattr(settings, cfg["api_key_field"]).get_secret_value() if cfg["api_key_field"] else None
     )
     limiter = limiter_for(cfg["provider"], **cfg["rate"]) if cfg.get("rate") else None
+    # Argon 연결 상태(ADR 0055) — gemini 호출 결과만 기록한다 (로컬 mlx 는 기록하지 않는다)
+    status = build_llm_status(settings) if cfg["provider"] == "gemini" else None
     return cls(
         cfg["base_url"],
         cfg["model"],
@@ -362,6 +396,8 @@ def _build_openai_compat(
         timeout=httpx.Timeout(**cfg["timeout"]),
         retry=RetryPolicy(**cfg["retry"]),
         limiter=limiter,
+        stage=stage,
+        status=status,
         **extra,
     )
 
@@ -2421,6 +2457,7 @@ def build_api(
         notice_snapshot_status=build_rnd_notice_source(settings).status,
         availability_notices=build_source_availability(settings).notices,
         version=build_version_info(settings),
+        llm_health=build_llm_health(settings),
         live_search=live if live.enabled else None,
     )
 

@@ -307,6 +307,7 @@ def create_app(
     guest_services: dict[str, Any] | None = None,
     client_ip: Callable[..., str] | None = None,
     version: dict[str, Any] | None = None,
+    llm_health: Callable[[], dict[str, Any]] | None = None,
     availability_notices: Callable[[], dict[str, str]] | None = None,
     live_search: Any | None = None,
     polish: Any | None = None,
@@ -470,10 +471,14 @@ def create_app(
     @app.get("/healthz")
     async def healthz() -> dict[str, Any]:
         """인증 없이. `version` 은 배포된 커밋·시각(공개 저장소 해시, 비밀 없음) — 화면 하단
-        표시용."""
-        if version is None:
-            return {"status": "ok"}
-        return {"status": "ok", "version": version}
+        표시용. `llm` 은 Argon 연결 상태 {gemini: ok|key_invalid|quota|unavailable|unknown, since}
+        — 열거값·시각만(주소·모델명·오류 문구·건수 없음, ADR 0055). 화면 위 알림 띠가 읽는다."""
+        out: dict[str, Any] = {"status": "ok"}
+        if version is not None:
+            out["version"] = version
+        if llm_health is not None:
+            out["llm"] = llm_health()
+        return out
 
     # ── 세션 ────────────────────────────────────────────
     public_host = _origin_host(public_origin)
