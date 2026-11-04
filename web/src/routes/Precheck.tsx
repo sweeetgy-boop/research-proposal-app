@@ -26,7 +26,7 @@ import {
   choiceCounts,
   choiceList,
   choicesSignature,
-  defaultChoiceOf,
+  chooseRow,
   effectiveBlocking,
   fullSignature,
   planFields,
@@ -35,6 +35,7 @@ import {
   toggleReference,
   withDefaults,
   type ChoiceMap,
+  type SourceMap,
 } from "@/features/precheck/model";
 import { NATIONAL_RND } from "@/lib/tiers";
 import { useAiCall, useElapsed } from "@/lib/useAiCall";
@@ -60,7 +61,10 @@ export default function Precheck() {
   const { toast } = useToast();
   const pre = idea.precheck as PrecheckFlowOut | null;
   const choices = idea.similarChoices;
+  // 행별 선택의 출처 — 미리 고른 AI 기본 선택(ai_prefill)인지 제안자가 바꾼 값(user)인지. 선택과 함께 서버로 간다 (ADR 0056)
+  const sources = idea.choiceSources;
   const applied: ChoiceMap = idea.appliedChoices ?? {};
+  const appliedSources: SourceMap = idea.appliedChoiceSources ?? {};
   // ② 관련 연구에서 [차별화에 참고] 로 고른 자료 (ADR 0053) — 판정·차단에는 쓰지 않는다
   const refs = idea.referenceIds;
   const appliedRefs = React.useMemo(() => idea.appliedReferenceIds ?? [], [idea.appliedReferenceIds]);
@@ -72,11 +76,14 @@ export default function Precheck() {
     () => ({ ...idea.request, title_hint: idea.request.title_hint || idea.quickTitle || "" }),
     [idea.request, idea.quickTitle],
   );
-  const req: PrecheckRequest = React.useMemo(() => ({ ...base, similar_choices: choiceList(choices), reference_ids: refs }), [base, choices, refs]);
+  const req: PrecheckRequest = React.useMemo(
+    () => ({ ...base, similar_choices: choiceList(choices, sources), reference_ids: refs }),
+    [base, choices, sources, refs],
+  );
   // [선택 적용] 한 선택 — 비교표·활용 제안은 이 입력으로
   const appliedReq: PrecheckRequest = React.useMemo(
-    () => ({ ...base, similar_choices: choiceList(applied), reference_ids: appliedRefs }),
-    [base, applied, appliedRefs],
+    () => ({ ...base, similar_choices: choiceList(applied, appliedSources), reference_ids: appliedRefs }),
+    [base, applied, appliedSources, appliedRefs],
   );
   // 과제안(다시 만들기·더 만들기) = 적용한 [유사함] 선택 + 지금 고른 참고 논문 — "참고 논문을 골라 [과제안 다시 만들기]" (ADR 0053)
   const planReq: PrecheckRequest = React.useMemo(() => ({ ...appliedReq, reference_ids: refs }), [appliedReq, refs]);
@@ -103,7 +110,8 @@ export default function Precheck() {
     // 판정 응답에는 실시간 검색 표시가 없다 — 표 먼저 응답의 live 를 이어받는다
     const live = new Set(cur.alerts.filter((a) => a.live).map((a) => a.doc_id));
     const alerts = out.alerts.map((a) => (live.has(a.doc_id) ? { ...a, live: true } : a));
-    const { map, addedSimilar, addedUnrelated } = withDefaults(getIdea().similarChoices, out.default_choices, alerts);
+    const now = getIdea();
+    const { map, sources: nextSources, addedSimilar, addedUnrelated } = withDefaults(now.similarChoices, out.default_choices, alerts, now.choiceSources);
     setDefaultsAdded({ similar: addedSimilar, unrelated: addedUnrelated });
     setPre(
       {
@@ -114,7 +122,7 @@ export default function Precheck() {
         core_keywords: out.core_keywords ?? cur.core_keywords,
         blocking: effectiveBlocking(alerts, map),
       },
-      { similarChoices: map },
+      { similarChoices: map, choiceSources: nextSources },
     );
     if (retry) toast(out.judgment?.retry_available ? "AI 판정이 다시 실패했습니다 — 규칙 기준을 유지합니다." : "AI 판정을 다시 받았습니다.", out.judgment?.retry_available ? "error" : "success");
   };
@@ -238,17 +246,13 @@ export default function Precheck() {
   const planRefsStale = idea.planSig !== null && (idea.planRefSig ?? "") !== referenceSignature(refs) && !cards.pending;
 
   const choose = (docId: string, value: SimilarChoiceValue | null) => {
-    const next = { ...choices };
-    // 묶음 행(같은 제목·같은 연작, ADR 0043)의 선택은 행 하나 — 구성원 doc_id 로 남은 옛 선택은 지운다
+    // 묶음 행의 구성원 선택 정리·지우면 AI 기본 선택으로·출처(user / ai_prefill)는 chooseRow 한 곳 (ADR 0054·0056)
     const row = pre.alerts.find((a) => a.doc_id === docId);
-    for (const id of row?.merged_ids ?? []) delete next[id];
-    // 선택을 지우면 AI 기본 선택으로 돌아간다 — 서버도 선택 없는 행은 기본 선택으로 센다 (ADR 0054)
-    const fallback = value ?? (row ? defaultChoiceOf(row, pre.default_choices) : undefined);
-    if (fallback) next[docId] = fallback;
-    else delete next[docId];
+    const next = chooseRow(choices, sources, row, docId, value, pre.default_choices);
     updateIdea({
-      similarChoices: next,
-      precheck: { ...pre, blocking: effectiveBlocking(pre.alerts, next) } as unknown as PrecheckOut,
+      similarChoices: next.map,
+      choiceSources: next.sources,
+      precheck: { ...pre, blocking: effectiveBlocking(pre.alerts, next.map) } as unknown as PrecheckOut,
     });
   };
 
@@ -259,9 +263,10 @@ export default function Precheck() {
   // [선택 적용] — 비교표·활용 제안·과제안 근거를 지금 선택(+ 참고 논문)으로 다시 만든다
   const applyChoices = () => {
     const now = { ...choices };
+    const nowSources = { ...sources };
     const nowRefs = [...refs];
-    const r: PrecheckRequest = { ...base, similar_choices: choiceList(now), reference_ids: nowRefs };
-    updateIdea({ appliedChoices: now, appliedReferenceIds: nowRefs, similarChoices: now, differentiationTransfer: null });
+    const r: PrecheckRequest = { ...base, similar_choices: choiceList(now, nowSources), reference_ids: nowRefs };
+    updateIdea({ appliedChoices: now, appliedChoiceSources: nowSources, appliedReferenceIds: nowRefs, similarChoices: now, differentiationTransfer: null });
     const sim = choiceCounts(pre.alerts, now).similar;
     // 유사함 0건이어도 참고 논문이 있으면 활용 제안을 받는다 (ADR 0053)
     if (sim > 0 || nowRefs.length > 0) void runDifferentiate(r);

@@ -634,7 +634,7 @@ def create_app(
         }
 
     def _record_choices(req: ProposalRequest, alerts: list[Any], choices: dict[str, str]) -> None:
-        """임계치 조정용 선택 기록 — doc_id·선택·점수·아이디어 해시만 (개인정보·본문 없음)."""
+        """임계치 조정용 선택 기록 — doc_id·선택·출처·점수·아이디어 해시만 (개인정보·본문 없음)."""
         from datetime import UTC, datetime
 
         _, released = apply_choices(alerts, choices)
@@ -646,6 +646,7 @@ def create_app(
                     idea=idea_hash(req.search_text()),
                     at=datetime.now(UTC).isoformat(timespec="seconds"),
                     released=released,
+                    sources=req.choice_sources(),  # 출처는 기록에만 (ADR 0056)
                 )
             )
         except OSError as exc:

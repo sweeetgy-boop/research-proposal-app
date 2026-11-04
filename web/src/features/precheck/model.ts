@@ -1,5 +1,6 @@
 /** ② 유사과제 흐름의 화면 규칙 (순수 함수) — 서버 domain/rules/similar_choice 와 같은 규칙. */
 import type {
+  ChoiceSource,
   IdeaVersion,
   IdeaVersionKind,
   JudgmentLevel,
@@ -14,13 +15,16 @@ import type {
 import { PLAN_FIELDS } from "@/api/types";
 
 export type ChoiceMap = Record<string, SimilarChoiceValue>;
+/** doc_id → 선택의 출처 (ADR 0056). ChoiceMap 과 같은 키 */
+export type SourceMap = Record<string, ChoiceSource>;
 
 export const GATE_REASON = "차단 경보를 확인해 주세요 — 차단 행에서 [유사함]·[관련 없음] 을 고르거나 확인란에 표시하십시오.";
 export const RELEASED_NOTE = "차단 과제를 모두 [관련 없음] 으로 골라 차단 경보를 풀었습니다.";
 export const MAX_VERSIONS = 10;
 
-export function choiceList(map: ChoiceMap): SimilarChoice[] {
-  return Object.entries(map).map(([doc_id, choice]) => ({ doc_id, choice }));
+/** 서버로 보내는 선택 목록 — 행마다 출처(source)를 함께. 출처가 없는 키는 user (서버 기본값과 같다, ADR 0056) */
+export function choiceList(map: ChoiceMap, sources: SourceMap): SimilarChoice[] {
+  return Object.entries(map).map(([doc_id, choice]) => ({ doc_id, choice, source: sources[doc_id] ?? "user" }));
 }
 
 export function choiceOf(alert: PrecheckAlert, map: ChoiceMap): SimilarChoiceValue | undefined {
@@ -96,25 +100,68 @@ export function withDefaults(
   map: ChoiceMap,
   defaults: SimilarChoice[] | undefined,
   alerts: PrecheckAlert[],
-): { map: ChoiceMap; added: number; addedSimilar: number; addedUnrelated: number } {
+  sources: SourceMap = {},
+): { map: ChoiceMap; sources: SourceMap; added: number; addedSimilar: number; addedUnrelated: number } {
   const next = { ...map };
+  const nextSources = { ...sources };
   let addedSimilar = 0;
   let addedUnrelated = 0;
   for (const d of defaults ?? []) {
     const alert = alerts.find((a) => a.doc_id === d.doc_id);
     if (alert && choiceOf(alert, next) === undefined) {
       next[d.doc_id] = d.choice;
+      nextSources[d.doc_id] = "ai_prefill"; // 미리 고른 값 — 제안자가 바꾸기 전까지 ai_prefill (ADR 0056)
       if (d.choice === "similar") addedSimilar += 1;
       else addedUnrelated += 1;
     }
   }
-  return { map: next, added: addedSimilar + addedUnrelated, addedSimilar, addedUnrelated };
+  return { map: next, sources: nextSources, added: addedSimilar + addedUnrelated, addedSimilar, addedUnrelated };
 }
 
 /** 행의 서버 기본 선택 (없으면 undefined) — 선택을 지우면 이 값으로 돌아간다 (서버도 선택 없는 행은 기본 선택) */
 export function defaultChoiceOf(alert: PrecheckAlert, defaults: SimilarChoice[] | undefined): SimilarChoiceValue | undefined {
   const ids = [alert.doc_id, ...(alert.merged_ids ?? [])];
   return (defaults ?? []).find((d) => ids.includes(d.doc_id))?.choice;
+}
+
+/** 행 하나의 선택을 바꾼다 (value = null 이면 지움) — 선택과 출처를 함께 (ADR 0056).
+ *  - 묶음 행(같은 제목·같은 연작, ADR 0043)의 선택은 행 하나 — 구성원 doc_id 로 남은 옛 선택·출처는 지운다.
+ *  - 지우면 AI 기본 선택으로 돌아간다(서버도 선택 없는 행은 기본 선택으로 센다, ADR 0054) — 출처는 ai_prefill.
+ *  - 고른 값이 AI 기본 선택과 같으면 ai_prefill(미리 고른 값을 다시 누른 것은 사람 판단으로 세지 않는다),
+ *    다르거나 기본 선택이 없는 행이면 user. */
+export function chooseRow(
+  map: ChoiceMap,
+  sources: SourceMap,
+  row: PrecheckAlert | undefined,
+  docId: string,
+  value: SimilarChoiceValue | null,
+  defaults: SimilarChoice[] | undefined,
+): { map: ChoiceMap; sources: SourceMap } {
+  const next = { ...map };
+  const nextSources = { ...sources };
+  for (const id of row?.merged_ids ?? []) {
+    delete next[id];
+    delete nextSources[id];
+  }
+  const prefill = row ? defaultChoiceOf(row, defaults) : undefined;
+  const chosen = value ?? prefill;
+  if (chosen) {
+    next[docId] = chosen;
+    nextSources[docId] = prefill !== undefined && chosen === prefill ? "ai_prefill" : "user";
+  } else {
+    delete next[docId];
+    delete nextSources[docId];
+  }
+  return { map: next, sources: nextSources };
+}
+
+/** 출처를 모르는 선택(이 기능 전에 저장된 화면 상태)의 출처 추정 — AI 기본 선택과 같은 값이면 ai_prefill, 아니면 user.
+ *  지금 규칙(기본 선택과 같은 값 = ai_prefill)과 같다. */
+export function inferSources(map: ChoiceMap, defaults: SimilarChoice[] | undefined): SourceMap {
+  const byId = new Map((defaults ?? []).map((d) => [d.doc_id, d.choice] as const));
+  const out: SourceMap = {};
+  for (const [id, c] of Object.entries(map)) out[id] = byId.get(id) === c ? "ai_prefill" : "user";
+  return out;
 }
 
 /** 선택 전체 서명 (유사함·관련 없음 모두) — [선택 적용] 뒤 바뀌었는지 */

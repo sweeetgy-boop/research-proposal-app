@@ -275,8 +275,10 @@ describe("② v3 화면 전체", () => {
     await userEvent.click(screen.getByRole("button", { name: "선택 적용" }));
     expect(await screen.findByText("선택 적용됨 · 비교표 갱신")).toBeInTheDocument();
     await waitFor(() => expect(comparisonBodies.length).toBe(before + 1));
-    const sent = comparisonBodies.at(-1) as { similar_choices: { doc_id: string; choice: string }[] };
-    expect(sent.similar_choices).toContainEqual({ doc_id: "own:part", choice: "similar" });
+    const sent = comparisonBodies.at(-1) as { similar_choices: { doc_id: string; choice: string; source: string }[] };
+    // 지워서 기본 선택으로 돌아간 행은 ai_prefill, 다른 값으로 바꾼 행은 user (ADR 0056)
+    expect(sent.similar_choices).toContainEqual({ doc_id: "own:part", choice: "similar", source: "ai_prefill" });
+    expect(sent.similar_choices).toContainEqual({ doc_id: "own:diff", choice: "similar", source: "user" });
   });
 
   it("AI 판정 [취소] — 표는 규칙 기준 그대로, [다시 시도] 가 남는다", async () => {

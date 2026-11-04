@@ -14,7 +14,8 @@ export interface paths {
         /**
          * Healthz
          * @description 인증 없이. `version` 은 배포된 커밋·시각(공개 저장소 해시, 비밀 없음) — 화면 하단
-         *     표시용.
+         *     표시용. `llm` 은 Argon 연결 상태 {gemini: ok|key_invalid|quota|unavailable|unknown, since}
+         *     — 열거값·시각만(주소·모델명·오류 문구·건수 없음, ADR 0055). 화면 위 알림 띠가 읽는다.
          */
         get: operations["healthz_healthz_get"];
         put?: never;
@@ -2492,6 +2493,13 @@ export interface components {
              * @enum {string}
              */
             choice: "similar" | "unrelated";
+            /**
+             * Source
+             * @description 선택의 출처 — user: 제안자가 직접 바꾼 값(AI 기본 선택과 다른 값을 눌렀거나, 기본 선택이 없는 행에서 골랐다), ai_prefill: AI 판정의 기본 선택이 그대로 남은 값(지웠다가 기본 선택으로 돌아간 행 포함). 보내지 않으면 user — 옛 웹 캐시·CLI·MCP 가 넘긴 선택은 명시적 선택이다. 선택 기록에만 남고 판정·차단·건수에는 쓰지 않는다 (ADR 0056)
+             * @default user
+             * @enum {string}
+             */
+            source?: "user" | "ai_prefill";
         };
         /**
          * StructureIn
