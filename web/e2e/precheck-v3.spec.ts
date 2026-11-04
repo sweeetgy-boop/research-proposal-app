@@ -34,9 +34,19 @@ test("② 표 먼저·선택 적용·과제안 더 만들기 — 내부 번호 �
     if (r.method() !== "POST" || !r.url().includes("/v1/precheck/comparison")) return false;
     return ((r.postDataJSON() as Sent).similar_choices ?? []).length > 0;
   });
+  // [선택 적용] 한 번 = 선택 기록 요청 한 번(event=apply, 적용한 선택 + 출처) (ADR 0056 후속)
+  const applyUrls: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("/v1/precheck/choices")) applyUrls.push(r.url());
+  });
+  const applyReq = page.waitForRequest((r) => r.method() === "POST" && r.url().includes("/v1/precheck/choices?apply=true"));
   await bar.getByRole("button", { name: "선택 적용" }).click();
   await expect(bar.getByText("선택 적용됨 · 비교표 갱신")).toBeVisible();
   const sent = ((await comparisonReq).postDataJSON() as Sent).similar_choices ?? [];
+  const applied = ((await applyReq).postDataJSON() as Sent).similar_choices ?? [];
+  expect(applied).toEqual(sent);
+  expect((await (await applyReq).response())?.status()).toBe(200);
+  expect(applyUrls).toHaveLength(1);
   expect(sent.length).toBe(await rows.count());
   expect(sent.every((c) => c.source === "user" || c.source === "ai_prefill")).toBe(true);
   const changed = sent.filter((c) => c.source === "user");
@@ -53,6 +63,8 @@ test("② 표 먼저·선택 적용·과제안 더 만들기 — 내부 번호 �
   await bar.getByRole("button", { name: "차별화 과제안 더 만들기" }).click();
   await expect(cards).toHaveCount(before + 2);
   await expect(page.getByText("새로 만든 안").first()).toBeVisible();
+  // 과제안 더 만들기는 선택 기록 요청을 보내지 않는다
+  expect(applyUrls).toHaveLength(1);
 
   // ② 화면 어디에도 내부 문서 번호·유사도 숫자가 없다
   const text = await page.locator("body").innerText();

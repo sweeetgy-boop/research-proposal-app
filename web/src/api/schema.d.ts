@@ -130,6 +130,7 @@ export interface paths {
         /**
          * Choices Route
          * @description ② [유사함]/[관련 없음] 선택을 반영한 차단 여부·해제·다음 버튼 사유 (LLM 없음, 레인 A).
+         *     apply=true 는 웹 [선택 적용] 한 번 — 선택 기록 event=apply (ADR 0056 후속).
          */
         post: operations["choices_route_v1_precheck_choices_post"];
         delete?: never;
@@ -2761,7 +2762,10 @@ export interface operations {
     };
     choices_route_v1_precheck_choices_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description ② [선택 적용] — 이 선택을 선택 기록에 event=apply 로 남긴다(같은 세션의 잇따른 같은 선택은 한 번만). 응답은 같다. */
+                apply?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;

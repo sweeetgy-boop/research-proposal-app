@@ -15,11 +15,16 @@
   해시만. 출처(source, ADR 0056)는 user(제안자가 직접 바꾼 값)·ai_prefill(화면이 미리 고른 AI
   기본 선택이 그대로 남은 값). 출처는 기록용 메타데이터 — 위 규칙(차단·유효 선택·건수)은 출처를
   보지 않는다.
+- 기록 시점·중복 한 줄 (ADR 0056 2026-11-04 후속): 줄마다 event — generate(생성 요청)·apply(②
+  [선택 적용]). 같은 세션(로그인 주체 + 아이디어 해시)이 같은 서명(event + (doc_id, 선택, 출처)
+  집합)을 잇따라 보내면 한 줄 묶음만 쓴다(choice_signature·is_repeat). 서명에 event 가 들어가므로
+  [선택 적용] 뒤 같은 선택의 생성 요청은 다른 사건이라 둘 다 남는다. 마지막 서명은 진입점의 메모리.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
@@ -34,6 +39,11 @@ _DEFAULT_BY_VERDICT: dict[str, str] = {"same": SIMILAR, "partial": SIMILAR, "dif
 # 선택 출처 (ADR 0056) — 보내지 않은 선택은 USER (domain/models/request.SimilarChoice.source 기본값)
 SOURCE_USER = "user"
 SOURCE_AI_PREFILL = "ai_prefill"
+# 기록 시점 (ADR 0056 후속, 2026-11-04) — event 가 없는 옛 줄은 2026-11-04 이전의 생성 요청 기록
+EVENT_GENERATE = "generate"
+EVENT_APPLY = "apply"
+EVENTS = (EVENT_APPLY, EVENT_GENERATE)
+SESSION_KEY_CHARS = 16
 
 
 def title_key(title: str) -> str:
@@ -169,11 +179,15 @@ def choice_records(
     at: str,
     released: bool = False,
     sources: Mapping[str, str] | None = None,
+    event: str = EVENT_GENERATE,
 ) -> list[dict[str, Any]]:
     """선택한 행마다 한 줄 — 임계치 조정용. 개인정보·본문 없음(doc_id·점수·판정·해시·시각).
     제안자가 보낸 선택만 남긴다 — 서버의 AI 기본 선택(effective_choice)은 선택 기록이 아니다
     (ADR 0054). 줄마다 source — 그 선택의 출처(sources: doc_id → user | ai_prefill, 선택이 걸린
-    doc_id 기준). sources 에 없으면 user (ADR 0056)."""
+    doc_id 기준). sources 에 없으면 user (ADR 0056). 줄마다 event — generate(생성 요청, 기본)·
+    apply([선택 적용]) (ADR 0056 후속)."""
+    if event not in EVENTS:
+        raise ValueError(f"모르는 기록 시점: {event}")
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for a in alerts:
@@ -185,6 +199,7 @@ def choice_records(
         out.append(
             {
                 "at": at,
+                "event": event,
                 "idea": idea,
                 "doc_id": a.doc_id,
                 "merged_ids": list(a.merged_ids),
@@ -202,3 +217,29 @@ def choice_records(
             }
         )
     return out
+
+
+def choice_signature(records: Sequence[Mapping[str, Any]]) -> str | None:
+    """같은 선택인지 가리는 서명 — event + (doc_id, 선택, 출처) 집합의 해시 (ADR 0056 후속).
+    점수·판정·시각·차단 해제는 서명에 들지 않는다. 줄이 없으면 None(쓸 것이 없다)."""
+    if not records:
+        return None
+    events = sorted({str(r.get("event") or EVENT_GENERATE) for r in records})
+    items = sorted(
+        {(str(r["doc_id"]), str(r["choice"]), str(r.get("source") or SOURCE_USER)) for r in records}
+    )
+    payload = json.dumps([events, items], ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def is_repeat(last_signature: str | None, signature: str | None) -> bool:
+    """마지막으로 기록한 서명과 같으면 True — 쓰지 않는다. 사이에 다른 서명이 기록되면 마지막
+    서명이 바뀌므로 다시 쓴다. 서명이 없으면(줄 없음) 반복이 아니다."""
+    return signature is not None and last_signature == signature
+
+
+def session_key(owner: str, idea: str) -> str:
+    """중복 판정의 세션 키 — 로그인 주체 키 + 아이디어 해시의 해시 앞 16자. 주체 키를 그대로
+    들고 다니지 않는다. 메모리에만 두고 기록 줄에는 쓰지 않는다."""
+    raw = "\x00".join((owner or "", idea or "")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()[:SESSION_KEY_CHARS]

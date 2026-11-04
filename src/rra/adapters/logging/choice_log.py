@@ -15,6 +15,9 @@ from typing import Any
 ALLOWED_KEYS = frozenset(
     {
         "at",
+        # ADR 0056 후속 — apply([선택 적용]) | generate(생성 요청). 이 키가 없는 옛 줄은 2026-11-04
+        # 이전의 생성 요청 기록(generate 로 본다)
+        "event",
         "idea",
         "doc_id",
         "merged_ids",
