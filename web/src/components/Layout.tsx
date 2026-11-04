@@ -4,6 +4,7 @@ import { Stepper } from "./Stepper";
 import { Sidebar } from "./frame/Sidebar";
 import { TopBar } from "./frame/TopBar";
 import { MobileMenu } from "./frame/MobileMenu";
+import { ArgonStatusBanner } from "./frame/ArgonStatusBanner";
 import { useLoggedIn } from "@/auth/useSession";
 import { LoginDialogProvider } from "@/features/auth/LoginDialog";
 import { useDeployVersion } from "@/api/hooks";
@@ -53,6 +54,7 @@ function Frame() {
       <MobileMenu open={menuOpen} onClose={closeMenu} />
       <div className="flex min-h-dvh flex-col pb-[var(--stepnav-h)] lg:pl-52">
         <TopBar onOpenMenu={() => setMenuOpen(true)} menuOpen={menuOpen} search={<GlobalSearch className="min-w-0 flex-1 sm:flex-none" />} />
+        <ArgonStatusBanner />
         {loggedIn && step !== null && !runInPath(pathname) && (
           <div className="mx-auto w-full max-w-6xl px-4 pt-4">
             <Stepper current={step} />
