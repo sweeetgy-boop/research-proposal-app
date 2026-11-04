@@ -3,7 +3,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { login, subnav, goPrecheck, policyPopup } from "./helpers";
+import { login, subnav, goPrecheck, policyPopup, waitFiguresDone } from "./helpers";
 
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 async function shot(page: Page, n: number, name: string) {
@@ -71,6 +71,7 @@ test.describe("U9 사용성 흐름", () => {
     // ③ 초안 → 근거 패널
     await expect(page.getByRole("heading", { name: "초안 본문" })).toBeVisible({ timeout: 30_000 });
     const id = /\/runs\/([0-9a-f-]+)/.exec(page.url())![1]!;
+    await waitFiguresDone(page, id); // 그림 작업(ADR 0045)이 끝난 뒤 — 그림 도착 시점에 따라 버튼·버전·변경 수가 갈리지 않게
     await page.getByRole("button", { name: /2-가-\(2\) 기술적 중요도 문장 1 근거 \d+건 보기/ }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "근거 보기" })).toBeVisible();
