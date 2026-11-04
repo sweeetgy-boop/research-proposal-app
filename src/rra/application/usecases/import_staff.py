@@ -20,6 +20,7 @@ class ImportReport:
     counts: RosterCounts
     result: StaffImportResult
     registered_after: int  # 저장 뒤(또는 dry_run 이면 저장했을 때의) 등록 수
+    test_after: int = 0  # 저장 뒤 시험 계정 수 (목록 교체로 빠진 시험 계정은 표시도 빠진다)
 
     @property
     def dry_run(self) -> bool:
@@ -36,7 +37,7 @@ class ImportReport:
                 f"(--dry-run: 저장하지 않음. 저장하면 등록 사번 {self.registered_after}건)"
             )
         else:
-            lines.append(f"등록된 사번: {self.registered_after}건")
+            lines.append(f"등록된 사번: {self.registered_after}건 (시험 계정 {self.test_after}건)")
         return lines
 
 
@@ -59,4 +60,9 @@ class ImportStaff:
         else:
             before = self.store.staff_count()
             after = result.added + result.existing if replace else before + result.added
-        return ImportReport(counts=plan.counts, result=result, registered_after=after)
+        return ImportReport(
+            counts=plan.counts,
+            result=result,
+            registered_after=after,
+            test_after=self.store.test_staff_count(),
+        )

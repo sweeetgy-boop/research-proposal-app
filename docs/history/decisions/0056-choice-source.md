@@ -101,3 +101,4 @@
 - 손대지 않은 것: Streamlit·CLI·MCP(그 경로에는 [선택 적용] 기록이 없다), 기록 파일 위치·권한.
 
 - 소유자 확인(2026-11-04): 중복 한 줄 규칙은 생성 요청에도 그대로 적용한다(생성 횟수는 runs 기록으로 충분). "연달아"는 그 세션에서 **바로 앞에 기록한 선택**과 같을 때만이다 — A→B→A 는 세 묶음 모두 남는다(`tests/entrypoints/test_choice_dedupe.py`).
+- 2026-11-04: 시험 계정 줄 표시·집계 제외 — 배포 확인용 임시 사번은 `rra auth staff add --test` 로 등록(`staff.json test_hmacs`, HMAC 표시만)하고, 그 세션(`Principal.test`)의 선택 기록·과제안 측정 줄에 `test: true` 를 붙인다(지우지 않고 표시, 그 밖의 줄은 키 없음). `rra feedback stats` 는 기본으로 시험 줄을 빼고 센다(`--include-test` 로 포함). 계기: 배포 확인 세션이 선택 기록 30줄·측정 1줄을 남겨 손으로 지웠다.

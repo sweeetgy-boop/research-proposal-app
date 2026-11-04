@@ -29,6 +29,10 @@ ROW_FIELDS = (
     "seconds",
 )
 FIELDS = ("ts", *ROW_FIELDS)
+# 있을 때만 쓰는 칸 — 시험 계정 세션(배포 확인용 임시 사번)의 줄만 `test: true`, 그 밖에는 키 없음
+# (ADR 0056 2026-11-04 덧붙임). 줄 끝에 붙는다
+TEST_FIELD = "test"
+OPTIONAL_FIELDS = (TEST_FIELD,)
 ENUM_FIELDS = frozenset({"provider", "skipped_reason", "mode"})
 
 
@@ -40,11 +44,16 @@ def enum_value(value: object) -> str | None:
 
 
 def metrics_row(
-    result: RecommendationResult, *, mode: str, similar: int, seconds: float
+    result: RecommendationResult,
+    *,
+    mode: str,
+    similar: int,
+    seconds: float,
+    test: bool = False,
 ) -> dict[str, object]:
     """추천 결과 → 측정 줄(ts 제외). similar = 비교에 쓴 [유사함] 행 수, seconds = 호출 전체
-    벽시계 시간(다시 받기·카드 겹침 재판정 포함)."""
-    return {
+    벽시계 시간(다시 받기·카드 겹침 재판정 포함). test 면(시험 계정 세션) `test: true` 를 붙인다."""
+    row: dict[str, object] = {
         "provider": enum_value(result.provider),
         "fallback_local": bool(result.fallback_local),
         "calls": int(result.calls),
@@ -58,3 +67,6 @@ def metrics_row(
         "mode": mode if mode in MODES else MODE_INITIAL,
         "seconds": round(max(0.0, float(seconds)), 2),
     }
+    if test:
+        row[TEST_FIELD] = True
+    return row

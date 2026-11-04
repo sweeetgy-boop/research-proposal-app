@@ -729,6 +729,10 @@ Argon 점수(필요성·차별성·실현가능성·기대효과)는 이전 run 
   `recommend.metrics_failed kind=<예외 클래스>` 만 남기고 추천은 그대로 돌려준다. 가짜 모드(RRA_FAKE_LLM)는 쓰지 않는다.
 - 구조: 포트 `application/ports/recommend_metrics.RecommendMetricsPort` → 어댑터 `adapters/logging/recommend_metrics.JsonlRecommendMetrics`
   → `RecommendProjects.metrics`(None 이면 기록 없음), 조립 `composition.build_recommend_metrics`.
+- 시험 계정 줄(2026-11-04, ADR 0056 덧붙임): 시험 계정(`rra auth staff add --test`, 배포 확인용 임시 사번) 세션이면 REST 가
+  `RecommendProjects.__call__(test=True)` 로 넘기고 줄 끝에 `"test": true` 가 붙는다(`recommend_metrics.OPTIONAL_FIELDS`, 그 밖의 줄은 키
+  없음 — 유스케이스는 세션을 모른다, CLI·MCP·Streamlit 은 늘 시험 아님). 선택 기록(`similar_choices.jsonl`)도 같다. 집계는
+  `rra feedback stats`(읽기만, 개수·provider·로컬 대체·seconds 중앙값, 시험 줄 기본 제외·`--include-test`, `domain/rules/feedback_stats`).
 
 ### 4.15 초안 품질 강화 8가지 [Q] (2026-10-27, ADR 0013)
 

@@ -1,8 +1,8 @@
 """차별화 과제안 측정 파일 — JSONL(데이터 폴더 cache/recommend_metrics.jsonl, ADR 0055 덧붙임).
 
 추천 호출 한 번 = 한 줄. 칸은 `domain/rules/recommend_metrics.FIELDS` 만
-(건수·시간·열거값, 본문 없음). `ts` 는 응답 시간 파일(`llm_budget.latency.jsonl`)과 같은 모양 —
-서버 지역 시각(KST)의 ISO, 초 단위.
+(건수·시간·열거값, 본문 없음). 시험 계정 세션의 줄만 끝에 `"test": true`(`OPTIONAL_FIELDS`).
+`ts` 는 응답 시간 파일(`llm_budget.latency.jsonl`)과 같은 모양 — 서버 지역 시각(KST)의 ISO, 초 단위.
 
 - 권한: 폴더 700(`ensure_dir`), 파일 600(O_APPEND·O_NOFOLLOW 로 연다). 같은 프로세스 안은
   잠금으로 한 줄씩.
@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from rra.adapters.runs._fs import FILE_MODE, ensure_dir
-from rra.domain.rules.recommend_metrics import FIELDS, ROW_FIELDS
+from rra.domain.rules.recommend_metrics import FIELDS, OPTIONAL_FIELDS, ROW_FIELDS, TEST_FIELD
 
 logger = logging.getLogger("rra.recommend")
 
@@ -44,11 +44,14 @@ class JsonlRecommendMetrics:
         return f"JsonlRecommendMetrics({self.path})"
 
     def record(self, row: Mapping[str, object]) -> None:
-        extra = set(row) - set(ROW_FIELDS)
+        extra = set(row) - set(ROW_FIELDS) - set(OPTIONAL_FIELDS)
         if extra:  # 허용 칸 밖은 쓰지 않는다 (본문이 섞여 들어오는 길을 막는다)
             raise ValueError(f"측정 줄에 허용되지 않은 키: {sorted(extra)}")
-        line = {"ts": _now(), **{k: row.get(k) for k in ROW_FIELDS}}
-        body = json.dumps({k: line[k] for k in FIELDS}, ensure_ascii=False) + "\n"
+        line: dict[str, object] = {"ts": _now(), **{k: row.get(k) for k in ROW_FIELDS}}
+        out = {k: line[k] for k in FIELDS}
+        if row.get(TEST_FIELD) is True:  # 시험 계정 세션만 — 그 밖의 줄에는 키가 없다
+            out[TEST_FIELD] = True
+        body = json.dumps(out, ensure_ascii=False) + "\n"
         try:
             with _LOCK:
                 ensure_dir(self.path.parent)

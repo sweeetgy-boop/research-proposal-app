@@ -32,6 +32,9 @@ ALLOWED_KEYS = frozenset(
         "judged_by",
         "blocking",
         "released",
+        # ADR 0056 2026-11-04 덧붙임 — 시험 계정(배포 확인용 임시 사번) 세션의 줄만 true. 그 밖의
+        # 줄에는 키가 없다. `rra feedback stats` 는 기본으로 이 줄을 세지 않는다
+        "test",
     }
 )
 

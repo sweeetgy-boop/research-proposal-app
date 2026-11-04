@@ -68,13 +68,24 @@ class AuthStorePort(Protocol):
         """등록된 공용 아이디 (없거나 비활성이면 None)."""
         ...
 
-    def add_staff(self, staff_no: str) -> bool:
-        """추가. 이미 있으면 False."""
+    def add_staff(self, staff_no: str, *, test: bool = False) -> bool:
+        """추가. 이미 있으면 False(이미 있는 사번의 시험 표시는 바꾸지 않는다). test 면 시험
+        계정(배포 확인용 임시 사번)으로 표시한다 — 저장은 HMAC 목록의 표시뿐, 원문 없음."""
         ...
 
-    def remove_staff(self, staff_no: str) -> bool: ...
+    def remove_staff(self, staff_no: str) -> bool:
+        """삭제. 시험 표시도 함께 지운다."""
+        ...
 
     def staff_count(self) -> int: ...
+
+    def is_test_staff(self, digest: str) -> bool:
+        """verify_staff 가 돌려준 다이제스트가 시험 계정으로 표시되어 있는가."""
+        ...
+
+    def test_staff_count(self) -> int:
+        """시험 계정으로 표시된 사번 수 (staff_count 에 포함된다)."""
+        ...
 
     def import_staff(
         self, staff_nos: Iterable[str], *, replace: bool = False, dry_run: bool = False
@@ -88,7 +99,7 @@ class AuthStorePort(Protocol):
     def disable_guest(self) -> bool: ...
 
     def status(self) -> dict[str, Any]:
-        """설정 여부만: {"staff_count": n, "guest": bool, "secret": bool}."""
+        """설정 여부만: {"staff_count": n, "test_staff_count": n, "guest": bool, "secret": bool}."""
         ...
 
 

@@ -465,6 +465,11 @@ def create_app(
             return guest_services.get(name, services[name])
         return services[name]
 
+    def _test_kwargs(request: Request) -> dict[str, Any]:
+        """시험 계정 세션이면 과제안 유스케이스에 `test=True` — 측정 줄에만 `test: true` 가 붙는다
+        (ADR 0056 2026-11-04 덧붙임). 아니면 빈 인자라 기존 호출과 같다."""
+        return {"test": True} if _who(request).test else {}
+
     def _ip(request: Request) -> str:
         found = getattr(request.state, "rra_client_ip", None)  # 미들웨어가 채운 값 (레인 W)
         if found:
@@ -610,11 +615,12 @@ def create_app(
         core_keywords: list[str] | None = None,
     ) -> dict[str, Any]:
         svc = _svc(request, "recommend")
+        mark = _test_kwargs(request)
         if similar_only:
             extra = {"core_keywords": core_keywords} if core_keywords else {}
-            result = await svc(req, alerts, similar_only=True, **extra)
+            result = await svc(req, alerts, similar_only=True, **extra, **mark)
         else:
-            result = await svc(req, alerts)
+            result = await svc(req, alerts, **mark)
         rec_id = recommendation_sessions.put(req, result)
         return {"id": rec_id, **recommendations_payload(result, clean=_clean)}
 
@@ -663,6 +669,7 @@ def create_app(
             released=released,
             sources=req.choice_sources(),  # 출처는 기록에만 (ADR 0056)
             event=event,
+            test=_who(request).test,  # 시험 계정 세션은 test: true (집계 제외, 줄은 남긴다)
         )
         signature = choice_signature(records)
         key = session_key(_owner_key(request), idea)
@@ -959,7 +966,7 @@ def create_app(
                 409, "과제안은 15건까지입니다 — [과제안 다시 만들기] 로 새로 받으십시오."
             )
         alerts, core = await _current_alerts(request, req)
-        kwargs: dict[str, Any] = {"similar_only": True, "shown": shown}
+        kwargs: dict[str, Any] = {"similar_only": True, "shown": shown, **_test_kwargs(request)}
         if core:
             kwargs["core_keywords"] = core
         try:

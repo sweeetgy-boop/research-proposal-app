@@ -1,7 +1,9 @@
 """AuthStorePort 구현 — `<data_dir>/auth/` (폴더 700, 파일 600).
 
     auth/secret       무작위 32바이트(hex). 처음 실행 때 만든다. 사번 HMAC 의 키.
-    auth/staff.json   {"hmacs": [hex …]}  — HMAC-SHA256(secret, 사번) 만. 사번 원문 없음.
+    auth/staff.json   {"hmacs": [hex …], "test_hmacs": [hex …]}  — HMAC-SHA256(secret, 사번) 만.
+                      사번 원문 없음. test_hmacs 는 hmacs 의 부분집합 — 시험 계정(배포 확인용 임시
+                      사번, `rra auth staff add --test`) 표시. 키가 없는 옛 파일은 시험 계정 0건.
     auth/guest.json   {"id", "salt", "hash", "n", "r", "p"} — scrypt. 비밀번호 원문 없음.
 
 - 사번·비밀번호 원문은 메서드 인자로만 들어와 다이제스트를 만든 뒤 버린다. 로그 없음.
@@ -70,15 +72,32 @@ class FileAuthStore:
     def _guest_file(self) -> Path:
         return self._ensure() / "guest.json"
 
-    def _load_staff(self) -> list[str]:
+    def _load_data(self) -> dict[str, Any]:
         path = self._staff_file()
         if not path.exists():
-            return []
+            return {}
         data = read_json(path)
+        return data if isinstance(data, dict) else {}
+
+    def _load_staff(self) -> list[str]:
+        data = self._load_data()
         return [str(h) for h in (data.get("hmacs") or []) if isinstance(h, str)]
 
-    def _save_staff(self, hmacs: list[str]) -> None:
-        write_json(self._staff_file(), {"hmacs": sorted(set(hmacs))[:MAX_STAFF]})
+    def _load_test(self) -> set[str]:
+        """시험 계정 표시 — 등록 목록에 있는 것만 (목록에서 빠진 표시는 무시)."""
+        data = self._load_data()
+        registered = {str(h) for h in (data.get("hmacs") or []) if isinstance(h, str)}
+        return {str(h) for h in (data.get("test_hmacs") or []) if isinstance(h, str)} & registered
+
+    def _save_staff(self, hmacs: list[str], test: set[str] | None = None) -> None:
+        """test 가 None 이면 지금 표시를 이어 받는다. 표시는 늘 hmacs 의 부분집합."""
+        kept = sorted(set(hmacs))[:MAX_STAFF]
+        marks = self._load_test() if test is None else set(test)
+        body: dict[str, Any] = {"hmacs": kept}
+        test_hmacs = sorted(marks & set(kept))
+        if test_hmacs:
+            body["test_hmacs"] = test_hmacs
+        write_json(self._staff_file(), body)
 
     def _digest(self, staff_no: str, secret: bytes | None = None) -> str:
         """정규화(공백·하이픈 제거) 뒤 HMAC. 등록·조회·일괄 등록·로그인이 같은 규칙을 쓴다."""
@@ -100,12 +119,15 @@ class FileAuthStore:
     def staff_enabled(self) -> bool:
         return bool(self._load_staff())
 
-    def add_staff(self, staff_no: str) -> bool:
+    def add_staff(self, staff_no: str, *, test: bool = False) -> bool:
         digest = self._digest(staff_no)
         current = self._load_staff()
         if digest in current:
             return False
-        self._save_staff([*current, digest])
+        marks = self._load_test()
+        if test:
+            marks.add(digest)
+        self._save_staff([*current, digest], marks)
         return True
 
     def remove_staff(self, staff_no: str) -> bool:
@@ -113,11 +135,23 @@ class FileAuthStore:
         current = self._load_staff()
         if digest not in current:
             return False
-        self._save_staff([h for h in current if h != digest])
+        self._save_staff([h for h in current if h != digest], self._load_test() - {digest})
         return True
 
     def staff_count(self) -> int:
         return len(self._load_staff())
+
+    def is_test_staff(self, digest: str) -> bool:
+        if not digest:
+            return False
+        found = False
+        for h in self._load_test():  # 전부 비교 — verify_staff 와 같은 방식
+            if secrets.compare_digest(h, digest):
+                found = True
+        return found
+
+    def test_staff_count(self) -> int:
+        return len(self._load_test())
 
     def import_staff(
         self, staff_nos: Iterable[str], *, replace: bool = False, dry_run: bool = False
@@ -208,6 +242,7 @@ class FileAuthStore:
         secret_ok = (self.root / "secret").exists()
         return {
             "staff_count": self.staff_count() if self.root.exists() else 0,
+            "test_staff_count": self.test_staff_count() if self.root.exists() else 0,
             "guest": self.guest_id() is not None,
             "secret": secret_ok,
             "dir_mode": oct(stat.S_IMODE(self.root.stat().st_mode)) if self.root.exists() else None,

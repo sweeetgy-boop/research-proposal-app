@@ -22,12 +22,17 @@ class ScriptedAuthStore:
     def __init__(self) -> None:
         self._staff: set[str] = {normalize_staff_no(s) for s in FAKE_STAFF}
         self._guest: tuple[str, str] | None = FAKE_GUEST
+        self._test: set[str] = set()  # 시험 계정 표시 (기본 없음)
+
+    @staticmethod
+    def _digest(staff_no: str) -> str:
+        return hashlib.sha256(f"fake:{staff_no}".encode()).hexdigest()
 
     def verify_staff(self, staff_no: str) -> str | None:
         staff_no = normalize_staff_no(staff_no)
         if staff_no not in self._staff:
             return None
-        return hashlib.sha256(f"fake:{staff_no}".encode()).hexdigest()
+        return self._digest(staff_no)
 
     def staff_enabled(self) -> bool:
         return bool(self._staff)
@@ -42,20 +47,31 @@ class ScriptedAuthStore:
     def guest_id(self) -> str | None:
         return self._guest[0] if self._guest else None
 
-    def add_staff(self, staff_no: str) -> bool:
-        before = len(self._staff)
-        self._staff.add(normalize_staff_no(staff_no))
-        return len(self._staff) > before
+    def add_staff(self, staff_no: str, *, test: bool = False) -> bool:
+        staff_no = normalize_staff_no(staff_no)
+        if staff_no in self._staff:
+            return False
+        self._staff.add(staff_no)
+        if test:
+            self._test.add(staff_no)
+        return True
 
     def remove_staff(self, staff_no: str) -> bool:
         staff_no = normalize_staff_no(staff_no)
         if staff_no not in self._staff:
             return False
         self._staff.discard(staff_no)
+        self._test.discard(staff_no)
         return True
 
     def staff_count(self) -> int:
         return len(self._staff)
+
+    def is_test_staff(self, digest: str) -> bool:
+        return any(secrets.compare_digest(self._digest(s), digest or "") for s in self._test)
+
+    def test_staff_count(self) -> int:
+        return len(self._test & self._staff)
 
     def import_staff(
         self, staff_nos: Iterable[str], *, replace: bool = False, dry_run: bool = False
@@ -66,6 +82,7 @@ class ScriptedAuthStore:
         removed = len(self._staff - incoming) if replace else 0
         if not dry_run:
             self._staff = incoming if replace else self._staff | incoming
+            self._test &= self._staff
         return StaffImportResult(added=added, existing=existing, removed=removed, saved=not dry_run)
 
     def set_guest(self, guest_id: str, password: str) -> None:
@@ -77,4 +94,9 @@ class ScriptedAuthStore:
         return had
 
     def status(self) -> dict[str, Any]:
-        return {"staff_count": len(self._staff), "guest": self._guest is not None, "secret": True}
+        return {
+            "staff_count": len(self._staff),
+            "test_staff_count": self.test_staff_count(),
+            "guest": self._guest is not None,
+            "secret": True,
+        }
