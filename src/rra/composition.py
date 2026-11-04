@@ -2781,6 +2781,8 @@ def build_recommender(
     근거 검색은 GenerateProposal.retrieve(관련도 하한·자료원별 최소 보장), 자기 중복 검사는
     precheck.
     llm 을 주면 그대로 쓴다(테스트용).
+    REST·CLI·MCP·Streamlit 이 모두 이 함수로 만들므로 측정 줄(build_recommend_metrics)도
+    모두 남는다.
     """
     from rra.application.usecases.recommend_projects import RecommendProjects
 
@@ -2813,7 +2815,19 @@ def build_recommender(
         local=local,
         local_slot=local_slot,
         card_check=card_check,
+        metrics=build_recommend_metrics(settings),
     )
+
+
+def build_recommend_metrics(settings: Settings | None = None):
+    """차별화 과제안 측정 줄(<data_dir>/cache/recommend_metrics.jsonl, ADR 0055 덧붙임). 가짜 모드는
+    None(데이터 폴더를 건드리지 않는다)."""
+    settings = settings or load_settings()
+    if settings.fake_llm:
+        return None
+    from rra.adapters.logging.recommend_metrics import JsonlRecommendMetrics
+
+    return JsonlRecommendMetrics(data_location(settings, "recommend_metrics"))
 
 
 def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):

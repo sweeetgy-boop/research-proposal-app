@@ -19,6 +19,7 @@ from .maintenance import DatabaseMaintenancePort
 from .ntis import CachePort, ProjectOutcomePort, RelatedProjectPort
 from .prompt_library import PromptLibraryPort
 from .public_ip import PublicIpPort, SourceAvailabilityPort
+from .recommend_metrics import RecommendMetricsPort
 from .renderer import RendererPort
 from .repository import DocumentRepository
 from .reranker import DocumentScorerPort, RerankerPort, rerank_stats
@@ -58,6 +59,7 @@ __all__ = [
     "ProjectOutcomePort",
     "RelatedProjectPort",
     "PromptLibraryPort",
+    "RecommendMetricsPort",
     "PublicIpPort",
     "SourceAvailabilityPort",
     "RendererPort",
