@@ -65,3 +65,4 @@ date,commit,label,tests_passed_recorded,test_functions_git,import_contracts,doma
 2026-11-04,fix-gemini-auth-visible,Argon 키 무효 분류·연결 상태 띠 (ADR 0055),2461,,8,,,,,,,,,,,,,,,vitest 233·e2e 46(+3 skip)
 2026-11-04,fix-similar-count-rule,"유사함 0건" 한 규칙 (ADR 0054),2479,,8,,,,,,,,,,,,,,,vitest 233·e2e 46(+3 skip)
 2026-11-04,feat-reference-relevance,참고 논문 열 검색 관련도 (ADR 0053 후속),2492,,8,,,,,,,,,,,,,,,vitest 234·e2e 46(+3 skip)
+2026-11-04,deploy-79a39e7,관련 순위·선택 출처·Argon 오류 전 경로 (#120~#123),2526,,8,,,,,,,,,,,,,,,vitest 245·e2e 46(+3 skip)
