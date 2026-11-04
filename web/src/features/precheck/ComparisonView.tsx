@@ -5,14 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { UntrustedText } from "@/components/UntrustedText";
-import { comparisonKindLabel, referenceRelevanceLabel } from "@/lib/labels";
+import { comparisonKindLabel, referenceRankLabel } from "@/lib/labels";
 import { tierLabel } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 
 const EMPTY_CELLS = new Set(["정보 없음", "정보 없음(제목 기준)", "—"]);
 
 /** 차별성 비교표 — [유사함] 으로 고른 과제 + ② 관련 연구에서 [차별화에 참고] 로 고른 자료(구분 '선행연구', ADR 0053).
- *  선행연구 열에는 "검색 관련도 높음·중간·낮음"(② 관련 연구 점수, 숫자 없음). 넓은 화면은 표(칸 최소 폭, 가로 스크롤),
+ *  선행연구 열에는 "관련 순위 n/총수"(② 관련 연구 목록 안의 자리, 점수 숫자 없음). 넓은 화면은 표(칸 최소 폭, 가로 스크롤),
  *  좁은 화면은 과제별 카드. */
 export function ComparisonView({
   data,
@@ -61,9 +61,9 @@ export function ComparisonView({
   const rows = [data.proposal, ...data.projects];
   const refCount = data.projects.filter((p) => p.kind === "reference").length;
   const simCount = data.projects.length - refCount;
-  // 선행연구 열의 "검색 관련도 높음·중간·낮음" — 관련도가 없으면(목록 밖·옛 서버) 표시 없음
+  // 선행연구 열의 "관련 순위 n/총수" — ② 관련 연구 목록 밖·옛 서버면 표시 없음
   const relevanceNote = (r: (typeof rows)[number]) => {
-    const label = r.kind === "reference" ? referenceRelevanceLabel(r.relevance) : null;
+    const label = r.kind === "reference" ? referenceRankLabel(r.relevance_rank, r.relevance_total) : null;
     return label ? (
       <span className="mt-1 block text-xs font-normal text-muted-foreground" data-testid="reference-relevance">
         {label}

@@ -121,7 +121,9 @@ async def test_no_similar_no_reference_gives_zero_cards_retry_and_reference_hint
 async def test_reference_turns_zero_into_cards_and_flows_through_comparison_and_run(parts):
     req = {**NONE_IDEA, "reference_ids": [PAPER]}
     async with _client(parts) as c:
-        await c.post("/v1/precheck?stage=rule", json=req, headers=AUTH)
+        rule = (await c.post("/v1/precheck?stage=rule", json=req, headers=AUTH)).json()
+        seen = [r["doc_id"] for r in rule["related_research"]]  # 제안자가 본 ② 관련 연구 순서
+        assert PAPER in seen
         body = (await c.post("/v1/precheck/recommendations", json=req, headers=AUTH)).json()
         rec = body["recommendations"]
         assert len(rec["recommendations"]) >= 1 and rec["hint"] is None
@@ -135,10 +137,15 @@ async def test_reference_turns_zero_into_cards_and_flows_through_comparison_and_
         cmp = table["comparison"]
         assert cmp["empty_reason"] is None
         assert [(p["doc_id"], p["kind"]) for p in cmp["projects"]] == [(PAPER, "reference")]
-        assert cmp["proposal"]["kind"] == "similar" and cmp["proposal"]["relevance"] is None
-        # 검색 관련도 — 같은 입력의 ② 관련 연구 점수(가짜 저장소: 낱말 겹침 비율이라 늘 낮음)
+        assert cmp["proposal"]["kind"] == "similar"
+        assert cmp["proposal"]["relevance_rank"] is None
+        assert cmp["proposal"]["relevance_total"] is None
+        assert "relevance" not in cmp["proposal"]  # 옛 경계값 표시(높음·중간·낮음)는 없앴다
+        # 관련 순위 — 같은 입력의 ② 관련 연구 목록 안의 자리 n/총수, 점수(similarity)는 그대로
         ref = cmp["projects"][0]
-        assert ref["relevance"] == "low" and 0 < ref["similarity"] < 0.885
+        assert ref["relevance_rank"] == seen.index(PAPER) + 1
+        assert ref["relevance_total"] == len(seen)
+        assert "relevance" not in ref and 0 < ref["similarity"] < 1
 
         # 활용 제안: [유사함] 0건이어도 참고 논문으로 실행
         diff = (await c.post("/v1/precheck/differentiate", json=req, headers=AUTH)).json()
