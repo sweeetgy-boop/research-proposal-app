@@ -6,10 +6,11 @@
 - 관련도는 reranker 점수 하나만 쉬운 말로: 높음(≥ 0.8) · 보통(≥ 0.5 = 규칙 차단 하한) · 낮음.
   e5 유사도는 철도 문서끼리 0.85~0.86 에 몰려 뜻이 없어 화면에 보이지 않는다.
   reranker 가 없으면 관련도도 없다.
-- 기본 선택: AI 가 "다르다" 로 본 행만 [관련 없음] 을 미리 고른다. 일부 겹침·같다는 비워 제안자가
-  정한다(차단 행은 고르기 전에는 [다음] 이 막힌다 — 종전 게이트 그대로).
-- 과제안 근거 행(basis_alerts): [유사함] 으로 고른 행이 있으면 그 행만, 없으면 [관련 없음] 이 아니고
-  (선택이 없으면) AI "다르다" 가 아닌 행.
+- 기본 선택(ADR 0054, similar_choice.default_choice): AI 가 같다·일부 겹침으로 본 행은
+  [유사함], 다르다로 본 행은 [관련 없음] 을 미리 고른다. 차단 게이트는 그대로 — 차단 행을
+  모두 [관련 없음] 으로 골라야만 풀린다(같다 행의 기본 선택은 [유사함] 이라 차단을 풀지 않는다).
+- 과제안 근거 행(basis_alerts): 유효 선택(제안자 선택, 없으면 AI 기본 선택)이 [유사함] 인 행이
+  있으면 그 행만, 없으면 유효 선택이 [관련 없음] 이 아닌 행.
 """
 
 from __future__ import annotations
@@ -18,7 +19,12 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from rra.domain.models import OverlapAlert
-from rra.domain.rules.similar_choice import SIMILAR, UNRELATED, choice_for
+from rra.domain.rules.similar_choice import (
+    UNRELATED,
+    default_choice,
+    effective_choice,
+    effective_similar,
+)
 
 BLOCKING, NEAR, LOW = "blocking", "near", "low"
 LEVEL_LABELS: dict[str, str] = {BLOCKING: "차단", NEAR: "근접", LOW: "관련 낮음"}
@@ -50,25 +56,22 @@ def relevance_level(score: float | None) -> str | None:
 
 
 def default_choices(alerts: Iterable[OverlapAlert]) -> dict[str, str]:
-    """AI 가 "다르다" 로 본 행만 [관련 없음] — doc_id → unrelated."""
-    return {a.doc_id: UNRELATED for a in alerts if getattr(a, "judgment", None) == "different"}
+    """AI 판정의 기본 선택 — doc_id → similar(같다·일부 겹침) | unrelated(다르다)."""
+    out: dict[str, str] = {}
+    for a in alerts:
+        choice = default_choice(a)
+        if choice is not None:
+            out[a.doc_id] = choice
+    return out
 
 
 def basis_alerts(alerts: Sequence[OverlapAlert], choices: Mapping[str, str]) -> list[OverlapAlert]:
-    """과제안(차별화 과제 추천)의 비교 대상 행. [유사함] 이 있으면 그것만, 없으면 [관련 없음] 이
-    아니고 (고르지 않은 행이면) AI "다르다" 가 아닌 행."""
-    similar = [a for a in alerts if choice_for(a, choices) == SIMILAR]
+    """과제안(차별화 과제 추천)의 비교 대상 행. 유효 [유사함] 이 있으면 그것만, 없으면 유효 선택이
+    [관련 없음] 이 아닌 행 (제안자 [관련 없음]·고르지 않은 AI "다르다" 를 뺀다)."""
+    similar = effective_similar(alerts, choices)
     if similar:
         return similar
-    out = []
-    for a in alerts:
-        choice = choice_for(a, choices)
-        if choice == UNRELATED:
-            continue
-        if choice is None and getattr(a, "judgment", None) == "different":
-            continue
-        out.append(a)
-    return out
+    return [a for a in alerts if effective_choice(a, choices) != UNRELATED]
 
 
 def level_view(alert: OverlapAlert) -> dict[str, Any]:

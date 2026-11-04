@@ -40,7 +40,15 @@ async def test_table_first_then_judgment_then_cards_and_more(parts):  # noqa: F8
         assert first["judgment"] == "same" and first["level"] == "blocking"
         assert first["level_label"] == "차단"
         assert all(a["level_label"] == "관련 낮음" for a in rest)  # 가짜: 나머지는 different
-        assert {d["doc_id"] for d in judged["default_choices"]} == {a["doc_id"] for a in rest}
+        # 기본 선택 (ADR 0054): '같다' → [유사함], '다르다' → [관련 없음]
+        defaults = {d["doc_id"]: d["choice"] for d in judged["default_choices"]}
+        assert defaults == {
+            first["doc_id"]: "similar",
+            **{a["doc_id"]: "unrelated" for a in rest},
+        }
+        assert (
+            judged["similar_count"] == 1 and judged["blocking"] is True
+        )  # 미리 고른 [유사함] 은 차단 유지
 
         rec = (await c.post("/v1/precheck/recommendations", json=IDEA, headers=AUTH)).json()
         cards = rec["recommendations"]

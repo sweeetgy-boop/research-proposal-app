@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { fillIdea, login, goPrecheck } from "./helpers";
 
-// ② v3 (레인 A, ADR 0039, 가짜 모드): 표 먼저 → AI 판정 → [유사함] → [선택 적용] → 비교표 갱신 → [차별화 과제안 더 만들기]
+// ② v3 (레인 A, ADR 0039, 가짜 모드): 표 먼저 → AI 판정 → 기본 선택(ADR 0054: 일부 겹침 → [유사함], 다르다 → [관련 없음])
+// → [선택 적용] → 비교표 갱신 → [차별화 과제안 더 만들기]
 const INTERNAL = /\b(own|alio|ntis|scienceon|openalex|korail_web|g2b):[\w-]+/;
 
 test("② 표 먼저·선택 적용·과제안 더 만들기 — 내부 번호 없음", async ({ page }) => {
@@ -15,11 +16,13 @@ test("② 표 먼저·선택 적용·과제안 더 만들기 — 내부 번호 �
   // AI 판정이 오면 판정 칸이 AI 기준(가짜: 첫 행 일부 겹침 → 근접, 나머지 다르다 → 관련 낮음)
   await expect(table.getByText("관련 낮음").first()).toBeVisible();
   await expect(page.getByText(/'다르다' 로 본 \d+건은 \[관련 없음\]/)).toBeVisible();
+  await expect(page.getByText(/'같다'·'일부 겹침' 으로 본 1건은 \[유사함\] 으로 미리 골랐습니다/)).toBeVisible();
 
   const bar = page.getByTestId("precheck-summary-bar");
   await expect(bar).toBeVisible();
   const rows = table.locator("tbody tr");
-  await rows.first().getByRole("button", { name: "유사함" }).click();
+  // 첫 행(일부 겹침)은 [유사함] 이 미리 골라져 있다 — 막대 건수도 서버와 같은 규칙
+  await expect(rows.first().getByRole("button", { name: "유사함" })).toHaveAttribute("aria-pressed", "true");
   await expect(bar.getByText(/유사함 1건/)).toBeVisible();
   await expect(bar.getByText(/선택이 바뀌었습니다/)).toBeVisible();
   await bar.getByRole("button", { name: "선택 적용" }).click();

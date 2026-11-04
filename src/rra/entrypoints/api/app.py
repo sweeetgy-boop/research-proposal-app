@@ -48,6 +48,7 @@ from rra.application.services.run_manager import (
     WorkingRejected,
 )
 from rra.application.usecases.login import LoginFailed
+from rra.application.usecases.similar_rows import default_choice_list, similar_count
 from rra.domain.models import PrecheckResult, Principal, ProposalRequest, ProposerInfo
 from rra.domain.models.proposer import Person
 from rra.domain.models.recommendation import MAX_TOTAL_RECOMMENDATIONS
@@ -57,7 +58,6 @@ from rra.domain.models.run import ACTIVE, is_valid_run_id
 from rra.domain.rules import agent_policy as policy
 from rra.domain.rules import auth_policy
 from rra.domain.rules.overlap import ALL_SOURCES, SOURCE_LABELS
-from rra.domain.rules.precheck_levels import default_choices
 from rra.domain.rules.precheck_view import GATE_BLOCKING, PENDING_JUDGMENT, RELEASED_NOTE
 from rra.domain.rules.recommendation import apply_recommendation, recommendation_hint
 from rra.domain.rules.review_flow import InvalidTransition
@@ -624,7 +624,8 @@ def create_app(
             "released": released,
             "released_note": RELEASED_NOTE if released else None,
             "gate_reason": GATE_BLOCKING if blocking else None,
-            "similar_count": sum(1 for a in shown if a.choice == "similar"),
+            # 제안자 선택, 없으면 AI 기본 선택 — 모든 진입점이 같은 규칙 (ADR 0054)
+            "similar_count": similar_count(alerts, choices),
         }
 
     def _record_choices(req: ProposalRequest, alerts: list[Any], choices: dict[str, str]) -> None:
@@ -666,10 +667,9 @@ def create_app(
             "gate_reason": view["gate_reason"],
             "similar_count": view["similar_count"],
             "judgment": judgment,
-            # AI 가 "다르다" 로 본 행만 [관련 없음] 을 미리 고른다 — 화면은 선택이 없는 행에만
-            "default_choices": [
-                {"doc_id": d, "choice": c} for d, c in default_choices(result.alerts).items()
-            ],
+            # AI 기본 선택 — 같다·일부 겹침 [유사함], 다르다 [관련 없음]. 화면은 선택이 없는 행에만
+            # 미리 고른다 (ADR 0054)
+            "default_choices": default_choice_list(result.alerts),
             "core_keywords": [_clean(k) for k in result.core_keywords],
             "keyword_origin": result.keyword_origin,
             # 관련 연구(논문·보고서·특허)는 판정이 아니다 — 화면은 "참고" 로 따로 보인다 (ADR 0028)
@@ -741,8 +741,9 @@ def create_app(
         if rec_out is not None:
             out["recommendations"] = rec_out
         try:
-            # 활용·차별화 제안은 [유사함] 으로 고른 과제가 있을 때만 (시범: 무관한 차단 과제로
-            # 엉뚱한 제안). 고른 참고 논문이 있으면 [유사함] 0건이어도 (ADR 0053)
+            # 활용·차별화 제안은 [유사함] 과제(제안자 선택, 없으면 AI 기본 선택 — ADR 0054)가
+            # 있을 때만 (시범: 무관한 차단 과제로 엉뚱한 제안). 고른 참고 논문이 있으면 [유사함]
+            # 0건이어도 (ADR 0053)
             if differentiate is not None and (out["similar_count"] or req.reference_ids):
                 proposal = await _svc(request, "differentiate")(
                     req, list(result.alerts), similar_only=True
@@ -974,8 +975,9 @@ def create_app(
         """기능 2 — precheck 뒤 차단·근접 유사과제별 활용·차별화 방향 (외부 LLM 출력, 비신뢰)."""
         if differentiate is None:
             raise HTTPException(503, "차별화 제안을 쓸 수 없습니다 (LLM 없음).")
-        alerts = await _svc(request, "precheck")(req)
-        # [유사함] 으로 고른 과제만 (레인 A) — 없으면 건너뜀(no_similar_selected)
+        # 지금 AI 판정(진행 중이면 기다림) — 기본 선택이 판정을 따르므로 과제안·비교표와 같은 근거
+        alerts, _ = await _current_alerts(request, req)
+        # [유사함] 과제만 (제안자 선택, 없으면 AI 기본 선택 — ADR 0054) — 없으면 건너뜀
         try:
             proposal = await cancel_on_disconnect(
                 request, _svc(request, "differentiate")(req, alerts, similar_only=True)
@@ -995,8 +997,9 @@ def create_app(
         svc = _svc(request, "compare")
         if svc is None:
             raise HTTPException(503, "차별성 비교표가 꺼져 있습니다 (usability.yaml comparison).")
-        alerts = await _svc(request, "precheck")(req)
-        # [유사함] 으로 고른 과제만 (레인 A) — 없으면 "유사한 과제를 고르면 비교표가 만들어집니다"
+        alerts, _ = await _current_alerts(request, req)
+        # [유사함] 과제만 (제안자 선택, 없으면 AI 기본 선택 — ADR 0054) — 없으면 "유사한 과제를
+        # 고르면 비교표가 만들어집니다"
         table = await cancel_on_disconnect(request, svc(req, alerts, similar_only=True))
         return {
             "notice": UNTRUSTED_NOTICE,

@@ -12,11 +12,13 @@ test("② 유사함·관련 없음 선택 → 비교표 → 과제안 고르기�
   await expect(page.getByText("같다").first()).toBeVisible();
   await expect(next).toBeDisabled();
   await expect(page.getByText(/차단 경보를 확인해 주세요/)).toBeVisible();
-  await expect(page.getByText("유사한 과제를 고르면 비교표가 만들어집니다")).toBeVisible();
 
   const table = page.getByRole("table", { name: /유사과제 목록/ });
   const rows = table.locator("tbody tr");
   const blocked = rows.filter({ has: page.getByText("차단", { exact: true }) }).first();
+  // '같다' 행은 [유사함] 이 미리 골라지지만(ADR 0054) 차단은 그대로 — [관련 없음] 을 골라야 풀린다
+  await expect(blocked.getByRole("button", { name: "유사함" })).toHaveAttribute("aria-pressed", "true");
+  await expect(next).toBeDisabled();
   await blocked.getByRole("button", { name: "관련 없음" }).click();
   await expect(next).toBeEnabled();
   await expect(page.getByText(/차단 경보를 풀었습니다/)).toBeVisible();

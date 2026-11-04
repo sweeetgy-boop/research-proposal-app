@@ -260,9 +260,20 @@ async def test_all_filtered_regenerates_once_with_reasons_to_reach_two():
 
 
 async def test_model_choosing_zero_does_not_regenerate():
+    """[유사함] 이 있으면(AI '일부 겹침' 기본 선택, ADR 0054) 0건이어도 다시 받지 않는다."""
+    judged = [ALERTS[0].model_copy(update={"judgment": "partial", "judged_by": "argon"}), ALERTS[1]]
     uc, llm, _ = make([reply([], reason="이미 충분히 다름")])
+    out = await uc(REQ, judged)
+    assert out.regenerated is False and out.retry_used is False and len(llm.calls) == 1
+    assert out.similar_doc_ids == ["own:1"]
+
+
+async def test_zero_with_no_ai_verdict_or_choice_retries_once_as_new_area():
+    """CLI·MCP·Streamlit(규칙 판정, 선택 없음)도 같은 규칙 — [유사함] 0건이면 '새 영역' 1회
+    (ADR 0054)."""
+    uc, llm, _ = make([reply([], reason="이미 충분히 다름"), reply([], reason="여전히 없음")])
     out = await uc(REQ, ALERTS)
-    assert out.regenerated is False and len(llm.calls) == 1
+    assert out.retry_used is True and len(llm.calls) == 2 and out.similar_doc_ids == []
 
 
 async def test_similar_only_uses_chosen_rows_and_drops_cards_overlapping_them():

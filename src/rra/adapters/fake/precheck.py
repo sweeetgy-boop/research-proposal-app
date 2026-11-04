@@ -3,7 +3,8 @@
 
 - 같음 판정: 첫 후보는 partial, 나머지는 different. 아이디어에 "(중복)" 이 있으면 첫 후보를
 same(차단) —
-  e2e 의 차단 → [관련 없음] → 차단 해제 경로.
+  e2e 의 차단 → [관련 없음] → 차단 해제 경로. "(추천 없음)" 이면 모두 different — 같다·일부 겹침은
+  기본 선택이 [유사함] 이라(ADR 0054) [유사함] 0건 장면을 만들려면 모든 행이 "다르다" 여야 한다.
 - 과제안: 아이디어에 "(추천 없음)" 이 있으면 0건 + 사유 (e2e "추천 0건" 경로), 아니면 2건.
   '새 영역' 다시 받기([새 영역] 지시, ADR 0053)에도 "(추천 없음)" 이면 다시 0건 — [유사함] 0건이면
   retry_used·hint "reference" 경로. 단 [참고 논문] 구획(`<doc … kind="reference">`)이 있으면
@@ -70,9 +71,10 @@ def matches(prompt: str) -> str | None:
 def judge_answer(prompt: str) -> str:
     ids = [m.group(1) for m in _DOC.finditer(prompt)]
     duplicate = "(중복)" in prompt
+    none_similar = "(추천 없음)" in prompt
     items = []
     for i, doc_id in enumerate(ids):
-        if i == 0:
+        if i == 0 and not none_similar:
             verdict = "same" if duplicate else "partial"
             reason = (
                 "궤도 상태를 감지해 보수 시기를 정하는 대상·문제·방법이 같음"

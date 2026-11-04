@@ -10,7 +10,7 @@ import type { PlanRecommendations, PrecheckAlert, PrecheckFlowOut, PrecheckOut }
 import { SimilarRowsTable } from "./SimilarRowsTable";
 import { PlanCards } from "./PlanCards";
 import { SummaryBar } from "./SummaryBar";
-import { levelOf, withDefaults } from "./model";
+import { choiceCounts, defaultChoiceOf, effectiveBlocking, levelOf, withDefaults } from "./model";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -51,6 +51,12 @@ const AI_ALERTS = [
   alert({ doc_id: "alio:same", title: "같은 과제", blocking: true, judgment: "same", judgment_label: "같다", judgment_reason: "대상·방법이 같음", judged_by: "argon" }),
   alert({ doc_id: "own:part", title: "일부 겹치는 과제", judgment: "partial", judgment_label: "일부 겹침", judgment_reason: "대상만 같음", judged_by: "argon" }),
   alert({ doc_id: "own:diff", title: "다른 과제", judgment: "different", judgment_label: "다르다", judgment_reason: "대상이 다름", judged_by: "argon" }),
+];
+// 서버 기본 선택 (ADR 0054)
+const DEFAULTS = [
+  { doc_id: "alio:same", choice: "similar" as const },
+  { doc_id: "own:part", choice: "similar" as const },
+  { doc_id: "own:diff", choice: "unrelated" as const },
 ];
 const JUDGED = { status: "ai" as const, judged_by: "argon", judged_by_label: "Argon", message: "Argon 이 판정했습니다 — '같다' 만 차단합니다.", retry_available: false, candidates: 3, provider: "gemini", model: "argon", calls: 1 };
 
@@ -123,11 +129,23 @@ describe("② v3 규칙", () => {
     ]);
   });
 
-  it("기본 선택: 선택이 없는 행에만 '다르다' → [관련 없음]", () => {
-    const { map, added } = withDefaults({ "own:diff": "similar" }, [{ doc_id: "own:diff", choice: "unrelated" }], AI_ALERTS);
-    expect(map).toEqual({ "own:diff": "similar" }); // 제안자가 고른 값은 그대로
-    expect(added).toBe(0);
-    expect(withDefaults({}, [{ doc_id: "own:diff", choice: "unrelated" }], AI_ALERTS)).toEqual({ map: { "own:diff": "unrelated" }, added: 1 });
+  it("기본 선택: 선택이 없는 행에만 — '같다'·'일부 겹침' → [유사함], '다르다' → [관련 없음] (ADR 0054)", () => {
+    const defaults = [
+      { doc_id: "alio:same", choice: "similar" as const },
+      { doc_id: "own:part", choice: "similar" as const },
+      { doc_id: "own:diff", choice: "unrelated" as const },
+    ];
+    const kept = withDefaults({ "own:diff": "similar" }, defaults, AI_ALERTS);
+    expect(kept.map).toEqual({ "own:diff": "similar", "alio:same": "similar", "own:part": "similar" }); // 제안자가 고른 값은 그대로
+    expect([kept.added, kept.addedSimilar, kept.addedUnrelated]).toEqual([2, 2, 0]);
+    const all = withDefaults({}, defaults, AI_ALERTS);
+    expect(all.map).toEqual({ "alio:same": "similar", "own:part": "similar", "own:diff": "unrelated" });
+    expect([all.added, all.addedSimilar, all.addedUnrelated]).toEqual([3, 2, 1]);
+    // 차단 게이트는 그대로 — 미리 고른 [유사함] 은 차단을 풀지 않는다
+    expect(effectiveBlocking(AI_ALERTS, all.map)).toBe(true);
+    expect(choiceCounts(AI_ALERTS, all.map)).toEqual({ similar: 2, unrelated: 1 });
+    expect(defaultChoiceOf(AI_ALERTS[1]!, defaults)).toBe("similar");
+    expect(defaultChoiceOf(RULE_ALERTS[0]!, [])).toBeUndefined();
   });
 });
 
@@ -229,18 +247,29 @@ describe("② v3 화면 전체", () => {
     // 판정 도착
     await act(async () => {
       releaseJudge(
-        new Response(JSON.stringify({ notice: "", alerts: AI_ALERTS, blocking: true, judgment: JUDGED, default_choices: [{ doc_id: "own:diff", choice: "unrelated" }] }), {
+        new Response(JSON.stringify({ notice: "", alerts: AI_ALERTS, blocking: true, judgment: JUDGED, default_choices: DEFAULTS }), {
           status: 200,
           headers: { "content-type": "application/json" },
         }),
       );
     });
     await waitFor(() => expect(screen.getAllByTestId("level").map((c) => c.textContent)).toEqual(["차단", "근접", "관련 낮음"]));
-    expect(getIdea().similarChoices).toEqual({ "own:diff": "unrelated" }); // 다르다만 미리 고름
+    // ADR 0054: 같다·일부 겹침 → [유사함], 다르다 → [관련 없음] 을 미리 고름
+    expect(getIdea().similarChoices).toEqual({ "alio:same": "similar", "own:part": "similar", "own:diff": "unrelated" });
+    expect(screen.getByText(/'같다'·'일부 겹침' 으로 본 2건은 \[유사함\] 으로 미리 골랐습니다/)).toBeInTheDocument();
     expect(screen.getByText(/'다르다' 로 본 1건은 \[관련 없음\]/)).toBeInTheDocument();
+    expect(screen.getByTestId("precheck-summary-bar")).toHaveTextContent(/유사함 2건 · 관련 없음 1건/);
+    // 미리 고른 [유사함] 은 차단을 풀지 않는다 — 게이트 그대로
+    expect(screen.getByRole("alert")).toHaveTextContent(/차단 경보/);
+    const part = within(screen.getByRole("group", { name: "일부 겹치는 과제 선택" }));
+    expect(part.getByRole("button", { name: "유사함" })).toHaveAttribute("aria-pressed", "true");
+    // 눌린 [유사함] 을 다시 눌러 지워도 AI 기본 선택으로 돌아간다 (서버도 선택 없는 행은 기본 선택으로 센다)
+    await userEvent.click(part.getByRole("button", { name: "유사함" }));
+    expect(getIdea().similarChoices["own:part"]).toBe("similar");
     // 선택 → 비교표는 아직 그대로(바뀜 안내) → [선택 적용]
     const before = comparisonBodies.length;
-    await userEvent.click(within(screen.getByRole("group", { name: "일부 겹치는 과제 선택" })).getByRole("button", { name: "유사함" }));
+    await userEvent.click(within(screen.getByRole("group", { name: "다른 과제 선택" })).getByRole("button", { name: "유사함" }));
+    expect(getIdea().similarChoices["own:diff"]).toBe("similar");
     expect(comparisonBodies.length).toBe(before); // 클릭만으로는 다시 만들지 않는다
     expect(screen.getByText(/선택이 바뀌었습니다/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "선택 적용" }));

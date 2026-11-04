@@ -28,6 +28,7 @@ from typing import Any
 
 from rra.application.ports import BudgetExhausted, DocumentRepository, LLMPort, PromptLibraryPort
 from rra.application.usecases.references import load_references
+from rra.application.usecases.similar_rows import differentiation_rows
 from rra.domain.models import (
     DifferentiationItem,
     DifferentiationProposal,
@@ -45,7 +46,6 @@ from rra.domain.rules.differentiation import (
 )
 from rra.domain.rules.llm_output import parse_object
 from rra.domain.rules.reference_papers import reference_alert, reference_section, reference_text
-from rra.domain.rules.similar_choice import similar_alerts
 from rra.domain.rules.trust import escape_untrusted
 
 SKIP_NO_CANDIDATES = "no_candidates"
@@ -73,18 +73,22 @@ class Differentiate:
     async def __call__(
         self, req: ProposalRequest, alerts: list[OverlapAlert], *, similar_only: bool = False
     ) -> DifferentiationProposal:
-        """similar_only=True(REST ②, 레인 A) 면 제안자가 [유사함] 으로 고른 과제만 — 차단·근접이어도
-        고르지 않았으면 쓰지 않는다. 고른 과제도 참고 논문(req.reference_ids)도 없으면
-        건너뛴다(no_similar_selected)."""
+        """대상은 [유사함] 행 — 제안자 선택, 없으면 AI 기본 선택(같다·일부 겹침, ADR 0054,
+        similar_rows.differentiation_rows). similar_only=True(REST ②)는 그 행만 — [유사함] 도 참고
+        논문(req.reference_ids)도 없으면 건너뛴다(no_similar_selected). 선택 화면이 없는 진입점
+        (similar_only=False: CLI·MCP·Streamlit)은 AI 판정도 선택도 없을 때만 종전 후보(차단 또는
+        임계치×0.9)를 쓴다."""
         base = {
             "provider": self.provider,
             "model": self.model,
             "fallback_local": self.fallback_local,
         }
-        if similar_only:
-            picked = similar_alerts(alerts, req.choice_map())[: self.max_candidates]
-        else:
-            picked = candidates(alerts, self.thresholds, self.max_candidates)
+        picked = differentiation_rows(
+            alerts,
+            req.choice_map(),
+            self.max_candidates,
+            fallback=None if similar_only else self._rule_candidates,
+        )
         refs, excluded = await load_references(
             self.repo,
             req.reference_ids,
@@ -124,6 +128,9 @@ class Differentiate:
             return DifferentiationProposal(**base, **transfer, skipped_reason=SKIP_PARSE_FAILED)
         items, discarded = self._validate(req, docs, data, refs)
         return DifferentiationProposal(**base, **transfer, items=items, discarded=discarded)
+
+    def _rule_candidates(self, alerts: Any) -> list[OverlapAlert]:
+        return candidates(alerts, self.thresholds, self.max_candidates)
 
     async def _ask(self, prompt: str) -> tuple[dict[str, Any] | None, bool]:
         """Argon 먼저, 실패(예외·해석 실패)면 로컬 — (JSON 또는 None, 로컬을 썼나). 예산 초과는

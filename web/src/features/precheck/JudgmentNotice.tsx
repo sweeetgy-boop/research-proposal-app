@@ -13,7 +13,7 @@ export function JudgmentNotice({
   elapsed = 0,
   onCancel,
   cancelled = false,
-  defaultsAdded = 0,
+  defaultsAdded = { similar: 0, unrelated: 0 },
 }: {
   judgment: JudgmentInfo | undefined;
   coreKeywords?: string[];
@@ -24,8 +24,8 @@ export function JudgmentNotice({
   onCancel?: () => void;
   /** 판정을 취소했다 (표는 규칙 기준 그대로) */
   cancelled?: boolean;
-  /** AI "다르다" 로 [관련 없음] 을 미리 고른 행 수 */
-  defaultsAdded?: number;
+  /** AI 판정으로 미리 고른 행 수 (ADR 0054) — 같다·일부 겹침 → [유사함], 다르다 → [관련 없음] */
+  defaultsAdded?: { similar: number; unrelated: number };
 }) {
   if (!judgment) return null;
   const pendingState = judgment.status === "pending";
@@ -48,8 +48,11 @@ export function JudgmentNotice({
         <div className="space-y-1">
           <p className="font-medium">{message}</p>
           {retrying && onCancel && <AiWaiting pending elapsed={elapsed} onCancel={onCancel} what="AI 판정" />}
-          {defaultsAdded > 0 && !pendingState && (
-            <p className="text-xs text-muted-foreground">AI 가 '다르다' 로 본 {defaultsAdded}건은 [관련 없음] 으로 미리 골랐습니다 — 바꿀 수 있습니다.</p>
+          {defaultsAdded.similar > 0 && !pendingState && (
+            <p className="text-xs text-muted-foreground">AI 가 '같다'·'일부 겹침' 으로 본 {defaultsAdded.similar}건은 [유사함] 으로 미리 골랐습니다 — 바꿀 수 있습니다.</p>
+          )}
+          {defaultsAdded.unrelated > 0 && !pendingState && (
+            <p className="text-xs text-muted-foreground">AI 가 '다르다' 로 본 {defaultsAdded.unrelated}건은 [관련 없음] 으로 미리 골랐습니다 — 바꿀 수 있습니다.</p>
           )}
           {coreKeywords && coreKeywords.length > 0 && (
             <p className="text-xs text-muted-foreground">겹친 키워드는 아이디어 핵심어만 셉니다: {coreKeywords.join(", ")}</p>

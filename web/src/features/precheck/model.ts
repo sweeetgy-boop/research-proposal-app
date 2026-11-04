@@ -90,22 +90,31 @@ export function levelOf(a: PrecheckAlert): { level: JudgmentLevel; label: string
   return { level, label: LEVEL_LABELS[level], basis: "rule" };
 }
 
-/** AI "다르다" 행의 기본 [관련 없음] 을 선택이 없는 행에만 채운다 (제안자가 고른 값은 바꾸지 않는다) */
+/** 서버 기본 선택(ADR 0054 — AI 같다·일부 겹침 → [유사함], 다르다 → [관련 없음])을 선택이 없는 행에만 채운다
+ *  (제안자가 고른 값은 바꾸지 않는다). 서버도 선택 없는 행에 같은 기본 선택을 쓰므로 건수가 서버와 같다. */
 export function withDefaults(
   map: ChoiceMap,
   defaults: SimilarChoice[] | undefined,
   alerts: PrecheckAlert[],
-): { map: ChoiceMap; added: number } {
+): { map: ChoiceMap; added: number; addedSimilar: number; addedUnrelated: number } {
   const next = { ...map };
-  let added = 0;
+  let addedSimilar = 0;
+  let addedUnrelated = 0;
   for (const d of defaults ?? []) {
     const alert = alerts.find((a) => a.doc_id === d.doc_id);
     if (alert && choiceOf(alert, next) === undefined) {
       next[d.doc_id] = d.choice;
-      added += 1;
+      if (d.choice === "similar") addedSimilar += 1;
+      else addedUnrelated += 1;
     }
   }
-  return { map: next, added };
+  return { map: next, added: addedSimilar + addedUnrelated, addedSimilar, addedUnrelated };
+}
+
+/** 행의 서버 기본 선택 (없으면 undefined) — 선택을 지우면 이 값으로 돌아간다 (서버도 선택 없는 행은 기본 선택) */
+export function defaultChoiceOf(alert: PrecheckAlert, defaults: SimilarChoice[] | undefined): SimilarChoiceValue | undefined {
+  const ids = [alert.doc_id, ...(alert.merged_ids ?? [])];
+  return (defaults ?? []).find((d) => ids.includes(d.doc_id))?.choice;
 }
 
 /** 선택 전체 서명 (유사함·관련 없음 모두) — [선택 적용] 뒤 바뀌었는지 */

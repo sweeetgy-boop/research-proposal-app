@@ -63,7 +63,13 @@ async def test_table_first_then_judgment_maps_levels_and_default_choices():
     labels = {a.doc_id: level_view(a)["level_label"] for a in judged.alerts}
     assert labels == {"own:station": "차단", "alio:proc": "근접", "ntis:tunnel": "관련 낮음"}
     assert {level_view(a)["level_basis"] for a in judged.alerts} == {"ai"}
-    assert default_choices(judged.alerts) == {"ntis:tunnel": "unrelated"}
+    # ADR 0054: 같다·일부 겹침 → [유사함], 다르다 → [관련 없음]
+    assert default_choices(judged.alerts) == {
+        "own:station": "similar",
+        "alio:proc": "similar",
+        "ntis:tunnel": "unrelated",
+    }
+    assert default_choices(rule.alerts) == {}  # 규칙 판정(AI 판정 전)은 기본 선택 없음
     again = await pre.judgment(IDEA)  # 메모 — 다시 부르지 않는다
     assert again.judgment.status == "ai" and len(llm.calls) == 1
 
@@ -138,9 +144,14 @@ def test_basis_alerts_use_similar_rows_or_drop_unrelated_and_unchosen_different(
             doc_id="c", title="C", tier="own", similarity=0.8, blocking=False, judgment="different"
         ),
     ]
+    # ADR 0054: 선택이 없으면 AI 기본 선택 — 같다·일부 겹침은 [유사함] 이라 그 행만
     assert [a.doc_id for a in basis_alerts(rows, {})] == ["a", "b"]
-    assert [a.doc_id for a in basis_alerts(rows, {"b": "unrelated", "c": "similar"})] == ["c"]
+    assert [a.doc_id for a in basis_alerts(rows, {"b": "unrelated", "c": "similar"})] == ["a", "c"]
     assert [a.doc_id for a in basis_alerts(rows, {"a": "unrelated"})] == ["b"]
+    # [유사함] 이 없으면 유효 [관련 없음] 이 아닌 행 (AI 판정 없는 행은 남는다)
+    plain = OverlapAlert(doc_id="d", title="D", tier="own", similarity=0.8, blocking=False)
+    none_similar = {"a": "unrelated", "b": "unrelated"}
+    assert [a.doc_id for a in basis_alerts([*rows, plain], none_similar)] == ["d"]
 
 
 # ── 카드 겹침 재판정 ─────────────────────────────────────

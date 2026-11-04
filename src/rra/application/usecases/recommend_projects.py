@@ -21,12 +21,13 @@ precheck·검색 안의 doc_id 만, 지어낸 수치·정책명·한자 → 폐�
 `[참고 논문]` 구획(`<doc kind="reference">`)으로 넣는다. 판정·차단에는 쓰지 않는다. 없는 id·볼 수
 없는 문서는 조용히 뺀다. 검증 허용 id = 알림 + 근거 + 실제로 넣은 참고 논문(`reference_doc_ids`).
 
-'새 영역' 다시 받기(ADR 0053): [유사함] 0건(similar_only 면 [유사함] 으로 고른 행 없음, 아니면
-비교 대상 알림 없음)인데 첫 응답이 검증 뒤 0건이면 `NEW_AREA_HINT` 를 붙여 **한 번만** 다시 받는다
-(`retry_used`). 이때 제외 사유가 있으면 같은 호출에 함께 붙인다 — 종전 "2건 미만 다시 받기"
-(`regenerated`)와 겹쳐 세 번 부르지 않는다. 묶음 받기는 어떤 경우에도 최대 2회(각 회 Argon →
-로컬 순서, 겹친 카드 하나만 다시 받는 호출은 종전대로 따로). [더 만들기](`shown`)에는 쓰지
-않는다. 최종 0건이고 참고 논문을 고르지 않았으면 `hint = "reference"`.
+'새 영역' 다시 받기(ADR 0053): [유사함] 0건(ADR 0054 한 규칙 — 제안자 선택, 없으면 AI 기본
+선택이 [유사함] 인 행이 없음, `usecases/similar_rows`)인데 첫 응답이 검증 뒤 0건이면
+`NEW_AREA_HINT` 를 붙여 **한 번만** 다시 받는다 (`retry_used`). 이때 제외 사유가 있으면 같은
+호출에 함께 붙인다 — 종전 "2건 미만 다시 받기"(`regenerated`)와 겹쳐 세 번 부르지 않는다.
+묶음 받기는 어떤 경우에도 최대 2회(각 회 Argon → 로컬 순서, 겹친 카드 하나만 다시 받는
+호출은 종전대로 따로). [더 만들기](`shown`)에는 쓰지 않는다. 최종 0건이고 참고 논문을
+고르지 않았으면 `hint = "reference"`.
 
 전송 범위·manifest 기록은 검토·차별화 단계와 같다(include_internal,
 `RecommendationResult.transfer()`).
@@ -45,6 +46,7 @@ from typing import Any
 
 from rra.application.ports import BudgetExhausted, DocumentRepository, LLMPort, PromptLibraryPort
 from rra.application.usecases.references import load_references
+from rra.application.usecases.similar_rows import basis_rows, similar_rows
 from rra.domain.models import (
     Document,
     OverlapAlert,
@@ -57,7 +59,6 @@ from rra.domain.models.recommendation import RecommendationRef
 from rra.domain.rules.card_overlap import overlap_hint, shown_hint, warning_fields
 from rra.domain.rules.differentiation import candidate_text
 from rra.domain.rules.llm_output import parse_object
-from rra.domain.rules.precheck_levels import basis_alerts
 from rra.domain.rules.recommendation import (
     DISCARD_DUPLICATE,
     DISCARD_SELF_OVERLAP,
@@ -72,7 +73,6 @@ from rra.domain.rules.recommendation import (
     validate_recommendation,
 )
 from rra.domain.rules.reference_papers import reference_section, reference_text
-from rra.domain.rules.similar_choice import similar_alerts
 from rra.domain.rules.trust import escape_untrusted
 
 SKIP_NO_INPUT = "no_alerts_or_evidence"
@@ -120,9 +120,11 @@ class RecommendProjects:
         core_keywords: list[str] | None = None,
         shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
     ) -> RecommendationResult:
-        """similar_only=True(REST ②) 면 [유사함] 으로 고른 과제만 비교 대상으로(없으면 [관련 없음]
-        과 고르지 않은 AI "다르다" 행을 뺀 알림 — precheck_levels.basis_alerts), [유사함] 과제와
-        겹치는 안은 뺀다. core_keywords 는 카드 겹침 재판정의 핵심어(아이디어와 같은 것).
+        """비교 대상은 [유사함] 행(제안자 선택, 없으면 AI 기본 선택 — ADR 0054), 없으면 유효 선택이
+        [관련 없음] 이 아닌 알림(similar_rows.basis_rows)이고, [유사함] 과제와 겹치는 안은 뺀다.
+        선택도 AI 판정도 없는 알림(CLI·MCP·Streamlit 의 규칙 판정)은 그대로 모두 비교 대상이다.
+        similar_only 는 종전 REST 표시(호출 호환) — 규칙은 모든 진입점이 같다.
+        core_keywords 는 카드 겹침 재판정의 핵심어(아이디어와 같은 것).
         shown 은 이미 보인 카드 — 그와 다른 안만 받는다([더 만들기])."""
         base = {
             "provider": self.provider,
@@ -131,13 +133,12 @@ class RecommendProjects:
         }
         snapshot = await self.retrieve(req)
         chunks = [c for c in snapshot.chunks if not c.chunk_id.endswith("#overlap")][:MAX_CHUNKS]
-        choices = req.choice_map() if similar_only else {}
-        similar = similar_alerts(alerts, choices)
-        if similar_only:
-            alerts = basis_alerts(alerts, choices)
+        choices = req.choice_map()
+        similar = similar_rows(alerts, choices)
+        alerts = basis_rows(alerts, choices)
         picked = _unique_alerts(alerts)[:MAX_ALERTS]
-        # [유사함] 0건 — '새 영역' 다시 받기 조건 (ADR 0053)
-        no_similar = not similar if similar_only else not picked
+        # [유사함] 0건 — '새 영역' 다시 받기 조건 (ADR 0053·0054)
+        no_similar = not similar
         refs, excluded = await load_references(
             self.repo,
             req.reference_ids,
