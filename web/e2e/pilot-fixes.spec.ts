@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectNoRunWord, fillIdea, login, subnav, goPrecheck } from "./helpers";
+import { expectNoRunWord, fillIdea, login, subnav, goPrecheck, waitFiguresDone } from "./helpers";
 import { expectNoInternalIds } from "./helpers-text";
 
 /** 시범 의견 2차(2026-10-28 밤): 모든 화면에 내부 번호(own:…·f:method:t1 …)와 "run" 단어가 보이지 않는다 */
@@ -59,7 +59,9 @@ test("17건 전체 경로: ② 선택 → 과제안 → 정책 작성안 → 생
   await expect(page.getByTestId("run-title")).not.toHaveText("제목 미정");
   await clean(page);
 
-  // ④ 직접 수정 — 변경 없이 저장 → 팝업 [취소]
+  // ④ 직접 수정 — 변경 없이 저장 → 팝업 [취소]. 그림 작업(ADR 0045)이 끝난 뒤에 들어간다 — ④ 를 연 뒤 그림이
+  // 도착하면 "그림 추가 n"·"이미 vN 까지 저장" 창이 되어 느린 CI 에서 결과가 갈렸다
+  await waitFiguresDone(page, id);
   await subnav(page, "직접 수정").click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/edit$`));
   await clean(page);

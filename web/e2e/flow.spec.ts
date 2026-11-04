@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createRun, detailMode, fillIdea, login, subnav, mainNav, openSourceSearch, goPrecheck } from "./helpers";
+import { createRun, detailMode, fillIdea, login, subnav, mainNav, openSourceSearch, goPrecheck, waitFiguresDone } from "./helpers";
 
 test.describe("전체 흐름 ①→⑥", () => {
   test("아이디어 → 유사과제(추천 0건) → 보강 질문(Argon) → 생성 → 초안 → 수정 → 버전 비교 → 최종 검토 → HWPX 내려받기 → 다시 열기", async ({ page }) => {
@@ -16,7 +16,9 @@ test.describe("전체 흐름 ①→⑥", () => {
     await expect(page.getByText("Argon 보완").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "Argon 1차 검토" })).toBeVisible();
 
-    // ④ 직접 수정: 수정안 사용은 1차 검토에서 이미 반영되어 없음 → 직접 수정 + 메모 + 저장
+    // ④ 직접 수정: 수정안 사용은 1차 검토에서 이미 반영되어 없음 → 직접 수정 + 메모 + 저장.
+    // 그림 작업(v2 그림)이 끝난 뒤에 들어가야 저장 버전이 늘 v3 이고 ⑤ 가 "그림 준비 중" 으로 기다리지 않는다
+    await waitFiguresDone(page, id);
     await subnav(page, "직접 수정").click();
     await expect(page).toHaveURL(new RegExp(`/runs/${id}/edit$`));
     const group = page.getByRole("radiogroup", { name: "2-나 연구목적 문장 1 처리" });

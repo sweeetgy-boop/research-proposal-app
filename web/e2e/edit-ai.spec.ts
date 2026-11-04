@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { fillIdea, login, subnav, goPrecheck } from "./helpers";
+import { fillIdea, login, subnav, goPrecheck, waitFiguresDone } from "./helpers";
 
 /** RRA_SCREENS_DIR 가 있으면 화면을 캡처한다 (docs/history/screens/2026-10-28-edit-ai-NN-*.png) */
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
@@ -42,10 +42,13 @@ test("보강 질문 정책 작성안 → 생성 → AI 다시 쓰기·보완 질
   // 2-가-(1) 은 고른 안 그대로
   await expect(page.getByText("인용 자료가 제시한 방향과 본 제안의 해결 목표가 이어짐.").first()).toBeVisible();
 
-  // ④ AI 다시 쓰기 (Argon) — 새 후보가 있고 반영할 수 있다
+  // ④ AI 다시 쓰기 (Argon) — 새 후보가 있고 반영할 수 있다. 그림 작업이 끝난 뒤에 들어간다(④ 를 연 뒤 그림이 도착하면 변경 수가 달라짐)
+  await waitFiguresDone(page, id);
   await subnav(page, "직접 수정").click();
   await expect(page).toHaveURL(new RegExp(`/runs/${id}/edit$`));
-  await expect(page.getByText(/변경 0건/)).toBeVisible();
+  const count = page.getByTestId("change-count");
+  await expect(count).toHaveText(/변경 \d+건/);
+  const before = Number(/(\d+)/.exec((await count.textContent()) ?? "")![1]);
   await page.getByRole("button", { name: "2-다 연구 방법 및 주요내용 AI 다시 쓰기" }).click();
   const rw = page.getByRole("dialog", { name: /AI 다시 쓰기 — 2-다/ });
   await expect(rw.getByText(/Argon 이 같은 지시·근거로 다시 씁니다/)).toBeVisible();
@@ -64,7 +67,7 @@ test("보강 질문 정책 작성안 → 생성 → AI 다시 쓰기·보완 질
   const rw2 = page.getByRole("dialog", { name: /AI 다시 쓰기 — 2-가-\(2\)/ });
   await expect(rw2.getByText(/새 후보 \d+문장/)).toBeVisible();
   await rw2.getByRole("button", { name: "닫기", exact: true }).last().click();
-  await expect(page.getByText(/변경 1건/)).toBeVisible(); // 보완 메모
+  await expect(count).toHaveText(`변경 ${before + 1}건`); // 보완 메모
 
   // 저장하지 않은 편집이 없어도 버튼은 켜져 있다 → 팝업 → [확인] 은 최종 검토로
   const save = page.getByRole("button", { name: "새 버전으로 저장" });
@@ -86,7 +89,11 @@ test("변경이 없으면 '변경된 내용이 없습니다' — [취소] 는 �
   await page.getByRole("button", { name: "건너뛰고 생성" }).click();
   await expect(page.getByRole("heading", { name: "초안 본문" })).toBeVisible({ timeout: 30_000 });
   const id = /\/runs\/([0-9a-f-]+)/.exec(page.url())![1]!;
+  // 그림 작업(ADR 0045)이 끝난 뒤에 ④ 로 — 끝난 그림은 v1 에도 채워져 변경이 아니다. ④ 를 연 뒤에 그림이 도착하면
+  // "그림 추가 n"·"이미 vN 까지 저장" 창이 되어 느린 CI 에서 결과가 갈렸다
+  await waitFiguresDone(page, id);
   await subnav(page, "직접 수정").click();
+  await expect(page.getByTestId("change-count")).toHaveText("변경 0건");
   await page.getByRole("button", { name: "새 버전으로 저장" }).click();
   const ask = page.getByRole("dialog", { name: "변경된 내용이 없습니다" });
   await expect(ask.getByText("변경된 내용이 없습니다. 최종 검토로 넘어갈까요?")).toBeVisible();
