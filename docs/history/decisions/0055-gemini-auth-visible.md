@@ -87,6 +87,9 @@
   `_ask` 를 지나므로 같은 줄이 남는다.
 - **상태 기록은 어댑터에서 한 번**: 추천 단계 LLM 은 `build_llm(stage="recommend")` = `OpenAICompatLLM`(+ `BudgetedLLM`)이라
   `llm.failed` 줄·`llm_status.json`·`error_code` 를 이미 남긴다(조립 시험으로 확인). 유스케이스는 `llm.failed` 를 다시 쓰지 않는다.
+- **측정 파일**(2026-11-04, feat/recommend-metrics): `recommend.done` 의 로그 단계는 그대로 두고, 추천마다 `cache/recommend_metrics.jsonl` 에
+  건수·시간·열거값 한 줄(provider·fallback_local·calls·cards·discarded·retry_used·regenerated·skipped_reason·references·similar·mode·seconds,
+  5 MB 넘으면 `.1`)을 더 남긴다 — INFO 가 운영 로그에 남지 않아서다. 칸 설명은 architecture §4.14 "측정 파일".
 - **같은 무로그 삼킴**: `usecases/differentiate._ask` 도 같은 모양이라 `differentiate.argon_failed|local_failed kind= fallback=` 를 더했다.
   `card_overlap.failed`·`argon_first.failed` 줄에는 `kind=`(어댑터 code)만 더했다.
 
