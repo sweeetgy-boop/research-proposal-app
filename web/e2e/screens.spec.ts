@@ -2,7 +2,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { fillIdea, login, subnav, mainNav, openSourceSearch, goPrecheck } from "./helpers";
+import { fillIdea, login, subnav, mainNav, openSourceSearch, goPrecheck, waitFiguresDone } from "./helpers";
 
 const OUT = process.env.RRA_SCREENS_DIR ?? "";
 test.skip(!OUT, "RRA_SCREENS_DIR 가 없으면 건너뜀");
@@ -33,6 +33,7 @@ test("모든 화면 캡처", async ({ page }) => {
   await page.getByRole("button", { name: "답하고 생성 시작" }).click();
   await expect(page.getByRole("heading", { name: "초안 본문" })).toBeVisible({ timeout: 30_000 });
   const id = /\/runs\/([0-9a-f-]+)/.exec(page.url())![1]!;
+  await waitFiguresDone(page, id); // 그림 작업(ADR 0045)이 끝난 뒤 — 그림 도착 시점에 따라 버튼·버전·변경 수가 갈리지 않게
   await subnav(page, "진행").click();
   await shot(page, 5, "progress");
   await subnav(page, "초안 보기").click();
