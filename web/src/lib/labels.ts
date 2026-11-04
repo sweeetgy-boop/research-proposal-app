@@ -110,17 +110,13 @@ export function comparisonKindLabel(kind: string | null | undefined): string {
   return COMPARISON_KIND_LABELS[kind ?? "similar"] ?? "유사과제";
 }
 
-/** 참고 논문 열의 검색 관련도 (서버 relevance) → 화면 말. 점수 숫자는 보이지 않는다 (ADR 0039) */
-export const REFERENCE_RELEVANCE_LABELS: Record<string, string> = {
-  high: "높음",
-  mid: "중간",
-  low: "낮음",
-};
-
-/** "검색 관련도 높음" — 관련도가 없거나 모르는 값이면 null (표시 없음) */
-export function referenceRelevanceLabel(relevance: string | null | undefined): string | null {
-  const word = relevance ? REFERENCE_RELEVANCE_LABELS[relevance] : undefined;
-  return word ? `검색 관련도 ${word}` : null;
+/** 참고 논문 열의 관련 순위 (서버 relevance_rank·relevance_total) → "관련 순위 2/5".
+ *  ② 관련 연구 목록(제안자가 본 순서) 안의 자리 n/총수다 (2026-11-04 소유자 결정 — 옛 "검색 관련도 높음·중간·낮음" 대신).
+ *  목록 밖·옛 서버(값 없음)·말이 안 되는 값(1 미만, 순위 > 총수, 정수 아님)이면 null (표시 없음). 점수 숫자는 보이지 않는다 (ADR 0039) */
+export function referenceRankLabel(rank: number | null | undefined, total: number | null | undefined): string | null {
+  if (rank == null || total == null) return null;
+  if (!Number.isInteger(rank) || !Number.isInteger(total) || rank < 1 || rank > total) return null;
+  return `관련 순위 ${rank}/${total}`;
 }
 
 /** Argon(Gemini) 연결 상태 알림 띠 (ADR 0055) — /healthz `llm.gemini` 열거값 → 화면 문구.

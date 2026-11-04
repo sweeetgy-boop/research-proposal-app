@@ -118,7 +118,7 @@ class PrecheckOverlap:
         return m.result if m is not None else None
 
     async def search_research(self, req: ProposalRequest) -> list[RelatedResearch]:
-        """② 관련 연구 검색만 다시 — 메모가 없을 때 비교표 참고 논문 열의 검색 관련도용(같은 질의·
+        """② 관련 연구 검색만 다시 — 메모가 없을 때 비교표 참고 논문 열의 관련 순위용(같은 질의·
         같은 자료원·같은 점수)."""
         return list(await self._research(req.search_text()))
 
