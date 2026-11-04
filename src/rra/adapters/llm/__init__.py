@@ -2,6 +2,8 @@ from rra.adapters.llm.errors import (
     InsecureLLMEndpoint,
     LLMAuthError,
     LLMError,
+    LLMQuotaExceeded,
+    LLMRateLimited,
     LLMResponseInvalid,
     LLMTimeout,
 )
@@ -13,6 +15,8 @@ __all__ = [
     "InsecureLLMEndpoint",
     "LLMAuthError",
     "LLMError",
+    "LLMQuotaExceeded",
+    "LLMRateLimited",
     "LLMResponseInvalid",
     "LLMTimeout",
     "OpenAICompatLLM",

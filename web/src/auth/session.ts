@@ -3,10 +3,12 @@
  *  볼 수 없고, 만료는 401 로 안다. */
 const KEY = "rra-csrf";
 const KIND_KEY = "rra-session-kind";
+const ROLE_KEY = "rra-session-role";
 type Listener = () => void;
 const listeners = new Set<Listener>();
 let csrf: string | null = readStored(KEY);
 let kindLabel: string | null = readStored(KIND_KEY);
+let role: string | null = readStored(ROLE_KEY);
 
 function readStored(key: string): string | null {
   try {
@@ -33,13 +35,24 @@ export function getSessionLabel(): string | null {
   return kindLabel;
 }
 
+/** 로그인 종류 코드 (admin | staff | guest). 화면 표시가 아니라 관리자 전용 문구를 가릴 때만 쓴다.
+ *  종류 코드를 저장하기 전(ADR 0055 이전 배포)에 로그인한 세션은 라벨로 짐작한다. */
+export function getSessionRole(): string | null {
+  if (role) return role;
+  if (kindLabel === "관리자") return "admin";
+  return null;
+}
+
 export function setSession(token: string, kind?: string, label?: string): void {
   csrf = token;
   kindLabel = label ?? (kind ?? null);
+  role = kind ?? null;
   try {
     sessionStorage.setItem(KEY, token);
     if (kindLabel) sessionStorage.setItem(KIND_KEY, kindLabel);
     else sessionStorage.removeItem(KIND_KEY);
+    if (role) sessionStorage.setItem(ROLE_KEY, role);
+    else sessionStorage.removeItem(ROLE_KEY);
   } catch {
     /* 저장소 없음 — 메모리만 */
   }
@@ -49,9 +62,11 @@ export function setSession(token: string, kind?: string, label?: string): void {
 export function clearSession(): void {
   csrf = null;
   kindLabel = null;
+  role = null;
   try {
     sessionStorage.removeItem(KEY);
     sessionStorage.removeItem(KIND_KEY);
+    sessionStorage.removeItem(ROLE_KEY);
   } catch {
     /* ignore */
   }

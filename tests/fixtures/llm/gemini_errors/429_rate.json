@@ -1,0 +1,7 @@
+{
+  "error": {
+    "message": "Too many requests. Please slow down.",
+    "type": "rate_limit_error",
+    "code": "rate_limit_exceeded"
+  }
+}

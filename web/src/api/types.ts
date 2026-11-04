@@ -39,10 +39,14 @@ export type SessionIn =
   | { kind: "staff"; staff_no: string }
   | { kind: "guest"; id: string; password: string };
 
-/** GET /healthz — 배포된 버전(커밋·시각). 인증 없음, 화면 하단 표시용 */
+/** Argon(Gemini) 연결 상태 — 마지막 호출 결과 (ADR 0055). unknown = 기록 없음 */
+export type ArgonState = "ok" | "key_invalid" | "quota" | "unavailable" | "unknown";
+
+/** GET /healthz — 배포된 버전(커밋·시각)·Argon 연결 상태(열거값·시각만). 인증 없음, 화면 하단·위 알림 띠 */
 export interface HealthOut {
   status: string;
   version?: { commit: string; short: string; deployed_at: string; prs?: string[]; source?: string };
+  llm?: { gemini: ArgonState; since: string | null };
 }
 
 export interface SessionInfo {
