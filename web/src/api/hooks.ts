@@ -27,6 +27,22 @@ export function useDeployVersion() {
   return useQuery({ queryKey: keys.health, queryFn: api.getHealth, staleTime: 5 * 60_000, retry: false });
 }
 
+/** Argon 연결 상태(화면 위 알림 띠, ADR 0055) — 하단 버전과 같은 /healthz 캐시. 로그인 뒤에만 60초마다·창으로
+ *  돌아올 때 다시 읽는다(추가 모델 호출 없음, 서버는 마지막 호출 결과만 돌려준다). */
+export const ARGON_POLL_MS = 60_000;
+export function useArgonStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: keys.health,
+    queryFn: api.getHealth,
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: enabled ? ARGON_POLL_MS : false,
+    refetchOnWindowFocus: true,
+    retry: false,
+    select: (h) => h.llm ?? null,
+  });
+}
+
 const ACTIVE = new Set<RunState["status"]>(["queued", "running", "draft_reviewing", "final_reviewing"]);
 export const isActive = (s: RunState["status"] | undefined) => !!s && ACTIVE.has(s);
 /** 그림 백그라운드 작업 중 (ADR 0045, features/figures/figureJob.ts 와 같은 규칙) */

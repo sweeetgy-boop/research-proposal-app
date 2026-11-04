@@ -488,6 +488,26 @@ def test_review_stage_with_key_binds_gemini_and_bearer(gemini_dir):
     assert forced.provider == "gemini"
 
 
+def test_gemini_llm_records_argon_status_in_the_data_dir_and_mlx_does_not(gemini_dir, tmp_path):
+    """ADR 0055 — gemini 어댑터만 상태 기록기를 받고, /healthz 값은 그 파일의 열거값·시각만."""
+    from rra.adapters.llm.status_file import FileLLMStatus
+    from rra.composition import build_llm_health, build_llm_status
+
+    s = settings_for(gemini_dir, gemini_api_key="gk-test-not-real", data_dir=tmp_path / "d")
+    status = build_llm_status(s)
+    assert isinstance(status, FileLLMStatus)
+    assert status.path == tmp_path / "d" / "cache" / "llm_status.json"
+    assert build_llm_status(s) is status  # 프로세스 안에서 하나
+    llm = build_llm(s, stage="review")
+    assert llm.status is status and llm.stage == "review"
+    assert build_llm(s, stage="compose").status is None  # 로컬 mlx 는 기록하지 않는다
+    health = build_llm_health(s)
+    assert health() == {"gemini": "unknown", "since": None}
+    status.record("gemini", "key_invalid")
+    view = health()
+    assert view["gemini"] == "key_invalid" and set(view) == {"gemini", "since"}
+
+
 def test_gemini_host_outside_allowed_domains_refuses_startup(gemini_dir):
     (gemini_dir / "security.yaml").write_text(
         "allowed_domains: [api.openalex.org]\n", encoding="utf-8"

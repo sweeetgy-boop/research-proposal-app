@@ -1,0 +1,1 @@
+2026-11-04,fix-gemini-auth-visible,Argon 키 무효 분류·연결 상태 띠 (ADR 0055),2461,,8,,,,,,,,,,,,,,,vitest 233·e2e 46(+3 skip)

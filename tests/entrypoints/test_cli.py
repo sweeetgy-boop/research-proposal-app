@@ -989,6 +989,57 @@ def test_llm_check_provider_gemini_without_key_is_a_usage_error(monkeypatch, cap
     assert "LLM 사용 불가" in err and "RRA_GEMINI_API_KEY" in err
 
 
+@pytest.mark.parametrize(
+    ("error", "shown"),
+    [
+        (
+            "auth",
+            "LLM 호출 실패: 인증 실패(API 키 무효) (HTTP 400 · INVALID_ARGUMENT · API_KEY_INVALID)",
+        ),
+        ("quota", "LLM 호출 실패: 사용 한도 초과(할당량 소진) (HTTP 429 · RESOURCE_EXHAUSTED)"),
+    ],
+)
+def test_llm_check_prints_the_classified_failure_instead_of_the_body(
+    monkeypatch, capsys, error, shown
+):
+    """ADR 0055 — 키 무효·할당량 소진은 응답 본문 대신 분류 한 줄."""
+    from rra.adapters.llm.errors import LLMAuthError, LLMQuotaExceeded
+
+    exc = (
+        LLMAuthError(
+            "LLM 인증 실패",
+            http_status=400,
+            api_status="INVALID_ARGUMENT",
+            api_reason="API_KEY_INVALID",
+        )
+        if error == "auth"
+        else LLMQuotaExceeded("LLM 할당량 소진", http_status=429, api_status="RESOURCE_EXHAUSTED")
+    )
+
+    class StubLLM:
+        async def complete(self, prompt, **kw):
+            raise exc
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr("rra.composition.load_settings", lambda: None)
+    monkeypatch.setattr(
+        "rra.composition.llm_config",
+        lambda *a, **k: {"provider": "gemini", "base_url": "https://g.example/v1", "model": "m"},
+    )
+    monkeypatch.setattr("rra.composition.build_llm", lambda *a, **k: StubLLM())
+    monkeypatch.setattr("rra.composition.build_served_model_check", lambda *a, **k: _none())
+    assert cli.main(["llm-check"]) == cli.EXIT_ERROR
+    err = capsys.readouterr().err
+    assert shown in err
+    assert "API key not valid" not in err
+
+
+async def _none():
+    return None
+
+
 def test_api_schema_exports_openapi_without_token_or_db(monkeypatch, tmp_path, capsys):
     from rra.settings import Settings
 

@@ -6,7 +6,11 @@
 - H: provider=mlx 면 생성자에서 base_url 을 검증하고 루프백이 아니면 기동을 거부한다.
 - A: json_mode 는 response_format 을 먼저 시도하고, 서버가 모르면 프롬프트 지시로 폴백한다.
      (파싱 자체는 유스케이스가 pydantic 으로 다시 검증한다)
-- D·I: 예외 메시지에 api_key 를 마스킹하고 응답 본문은 200자로 절단한다.
+- D·I: 예외 메시지에 api_key 를 마스킹하고 응답 본문은 200자로 절단한다. 인증 실패·429 는 본문 없이
+       분류만 싣는다. 실패마다 경고 한 줄(종류·HTTP 상태·Google status/reason 열거값만, ADR 0055).
+- 키 무효: Google 은 401 이 아니라 400 INVALID_ARGUMENT/API_KEY_INVALID 로 답한다 → LLMAuthError.
+- 상태: status(LLMStatusPort)가 있으면 호출이 끝날 때마다 ok·key_invalid·quota·unavailable 를
+       기록한다.
 - DoS: max_tokens 상한, 프롬프트 길이 상한, 재시도 횟수·백오프 상한.
 """
 
@@ -24,11 +28,14 @@ from rra.adapters.llm import _endpoint, _payload
 from rra.adapters.llm.errors import (
     LLMAuthError,
     LLMError,
+    LLMQuotaExceeded,
     LLMRateLimited,
     LLMResponseInvalid,
     LLMTimeout,
 )
 from rra.adapters.llm.rate_limiter import RateLimiter, parse_retry_after
+from rra.application.ports.llm_status import LLMStatusPort
+from rra.domain.rules import llm_status
 
 logger = logging.getLogger("rra.llm")
 
@@ -87,6 +94,8 @@ class OpenAICompatLLM:
         system_role: bool = True,
         stop: list[str] | None = None,
         limiter: RateLimiter | None = None,
+        stage: str = "",
+        status: LLMStatusPort | None = None,
     ):
         if json_mode not in ("auto", "native", "prompt"):
             raise ValueError(f"json_mode 는 auto|native|prompt 중 하나입니다: {json_mode}")
@@ -102,6 +111,9 @@ class OpenAICompatLLM:
         self.stop = [s for s in (stop or []) if s]
         # provider 별 공유 제한기(동시성·분당 상한·429 백오프). None 이면 제한 없음 (로컬 mlx)
         self.limiter = limiter
+        # 실패 경고 줄의 단계 이름·연결 상태 기록(ADR 0055, 원격 provider 만 조립이 넘긴다)
+        self.stage = stage
+        self.status = status
         # 벤치·진단용 집계 (본문은 담지 않는다): 호출 수·폴백 횟수·usage 최대 토큰·잘림(length) 횟수
         self.truncated = 0
         self.calls = 0
@@ -168,7 +180,8 @@ class OpenAICompatLLM:
     ) -> str:
         if len(prompt) > self.prompt_max_chars:
             raise LLMError(
-                f"프롬프트 길이 {len(prompt)} > 상한 {self.prompt_max_chars}. 전송하지 않았습니다."
+                f"프롬프트 길이 {len(prompt)} > 상한 {self.prompt_max_chars}. 전송하지 않았습니다.",
+                code="not_sent",
             )
 
         def make(system_text: str | None) -> list[dict[str, Any]]:
@@ -266,6 +279,38 @@ class OpenAICompatLLM:
             return await self._client.post(self._url, json=payload, headers=self._headers)
 
     async def _request(self, payload: dict[str, Any]) -> Any:
+        """요청 1건(재시도 포함). 끝나면 연결 상태를 기록하고, 실패면 경고 한 줄을 남긴다
+        (ADR 0055)."""
+        try:
+            data = await self._request_with_retry(payload)
+        except LLMError as exc:
+            self._note_failure(exc)
+            raise
+        self._note_status(llm_status.OK)
+        return data
+
+    def _note_status(self, status: str | None) -> None:
+        if status is None or self.status is None:
+            return
+        try:
+            self.status.record(self.provider, status)
+        except (OSError, ValueError) as exc:  # 상태 기록이 호출 결과를 바꾸지 않는다
+            logger.debug("llm.status_failed err=%s", type(exc).__name__)
+
+    def _note_failure(self, exc: LLMError) -> None:
+        """실패 1건 = 경고 1줄. 열거값(종류·HTTP 상태·Google status/reason)만 — 키·URL·본문 없음."""
+        logger.warning(
+            "llm.failed provider=%s stage=%s kind=%s http=%s status=%s reason=%s",
+            self.provider,
+            self.stage or "-",
+            exc.code,
+            exc.http_status if exc.http_status is not None else "-",
+            exc.api_status or "-",
+            exc.api_reason or "-",
+        )
+        self._note_status(llm_status.status_for_code(exc.code))
+
+    async def _request_with_retry(self, payload: dict[str, Any]) -> Any:
         native = "response_format" in payload
         last: LLMError | None = None
         extra_delay = 0.0
@@ -276,37 +321,62 @@ class OpenAICompatLLM:
             except httpx.TimeoutException as exc:
                 last = LLMTimeout(f"LLM 응답 시간 초과 ({type(exc).__name__})")
             except httpx.TransportError as exc:
-                last = LLMError(f"LLM 서버에 연결하지 못했습니다 ({type(exc).__name__})")
+                last = LLMError(
+                    f"LLM 서버에 연결하지 못했습니다 ({type(exc).__name__})", code="connection"
+                )
             else:
-                if resp.status_code < 400:
+                status = resp.status_code
+                if status < 400:
                     if self.limiter is not None:
                         self.limiter.note_success()
                     try:
                         return resp.json()
                     except ValueError as exc:
-                        raise LLMResponseInvalid("응답이 JSON 이 아닙니다.") from exc
-                if resp.status_code in AUTH_STATUS:  # 401/403: 재시도 없음, 본문·키 노출 없음
+                        raise LLMResponseInvalid(
+                            "응답이 JSON 이 아닙니다.", http_status=status
+                        ) from exc
+                codes = _payload.error_codes(resp.text, [self._api_key])
+                where: dict[str, Any] = {
+                    "http_status": status,
+                    "api_status": codes.status,
+                    "api_reason": codes.reason,
+                }
+                # 401/403·키 무효 400(Google API_KEY_INVALID): 재시도 없음, 본문·키 노출 없음
+                if status in AUTH_STATUS or _payload.is_key_invalid(status, resp.text, codes):
                     raise LLMAuthError(
-                        f"LLM 인증 실패 (HTTP {resp.status_code}, provider={self.provider}) — "
-                        "API 키(.env)를 확인하세요. 재시도하지 않았습니다."
+                        f"LLM 인증 실패 (HTTP {status}, provider={self.provider}) — "
+                        "API 키(.env)를 확인하세요. 재시도하지 않았습니다.",
+                        **where,
                     )
                 body = self._redact(resp.text)
-                if native and _payload.is_response_format_error(resp.status_code, resp.text):
+                if native and _payload.is_response_format_error(status, resp.text):
                     if self.json_mode == "native":
-                        raise LLMError(f"서버가 response_format 을 거부했습니다: {body}")
+                        raise LLMError(
+                            f"서버가 response_format 을 거부했습니다: {body}",
+                            code="format",
+                            **where,
+                        )
                     raise _ResponseFormatUnsupported(body)
-                message = f"LLM 오류 {resp.status_code}: {body}"
-                if resp.status_code not in RETRYABLE_STATUS:
-                    raise LLMError(message)  # 4xx 는 재시도하지 않는다
-                if resp.status_code == 429:  # Retry-After 존중 + 공유 백오프
+                message = f"LLM 오류 {status}: {body}"
+                if status not in RETRYABLE_STATUS:
+                    raise LLMError(message, code="http", **where)  # 4xx 는 재시도하지 않는다
+                if status == 429:  # Retry-After 존중 + 공유 백오프
                     retry_after = parse_retry_after(resp.headers.get("Retry-After"))
                     if self.limiter is not None:
                         extra_delay = self.limiter.note_429(retry_after)
                     elif retry_after is not None:
                         extra_delay = min(retry_after, MAX_RETRY_AFTER_SEC)
-                    last = LLMRateLimited(message)
+                    # 본문 대신 분류만(할당량 소진 / 일반 호출 한도) — 재시도·백오프는 둘 다 같다
+                    if _payload.is_quota_exhausted(resp.text, codes):
+                        last = LLMQuotaExceeded(
+                            f"LLM 할당량 소진 (HTTP 429, provider={self.provider})", **where
+                        )
+                    else:
+                        last = LLMRateLimited(
+                            f"LLM 호출 한도 초과 (HTTP 429, provider={self.provider})", **where
+                        )
                 else:
-                    last = LLMError(message)
+                    last = LLMError(message, code="server" if status >= 500 else "http", **where)
             if attempt < self.retry.attempts:
                 await self._sleep(max(self.retry.delay(attempt), extra_delay))
         raise last or LLMError("LLM 호출에 실패했습니다.")
