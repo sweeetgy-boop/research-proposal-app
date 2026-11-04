@@ -292,6 +292,8 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "counter",
         "data/cache/llm_budget.json",
     ),
+    # 원격 LLM(Argon) 연결 상태 — 마지막 호출 결과 열거값·시각 (/healthz·화면 알림 띠, ADR 0055)
+    "llm_status": (lambda s: {}, "", "data/cache/llm_status.json"),
     "source_availability": (
         public_ip_config,
         "availability_file",

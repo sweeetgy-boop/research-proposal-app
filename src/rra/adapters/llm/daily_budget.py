@@ -4,7 +4,8 @@
   프로세스 간(API·CLI·MCP) 같은 파일을 보며, 쓰기는 스레드 락 + 원자적 교체.
 - BudgetedLLM: LLMPort 를 감싸 호출마다 try_spend(). 상한이면 BudgetExhausted — 호출하지 않는다.
   호출마다 응답 시간을 카운터 옆 `<카운터 이름>.latency.jsonl` 에 한 줄씩 남긴다
-  (2026-10-28 밤, Argon 응답 시간 분포용) — 시각·단계·초·성공 여부·오류 종류만,
+  (2026-10-28 밤, Argon 응답 시간 분포용) — 시각·단계·초·성공 여부·오류 종류(클래스명)·실패 분류
+  (`error_code`: auth·quota·rate_limit·timeout·server … — 어댑터 예외의 code, ADR 0055)만,
   프롬프트·응답 본문은 남기지 않는다(보안 D).
 """
 
@@ -74,13 +75,16 @@ def latency_path(budget: FileDailyBudget) -> Path:
     return budget.path.with_name(f"{budget.path.stem}.latency.jsonl")
 
 
-def _log_latency(path: Path, stage: str, seconds: float, error: str | None) -> None:
+def _log_latency(
+    path: Path, stage: str, seconds: float, error: str | None, error_code: str | None = None
+) -> None:
     row = {
         "ts": datetime.now(UTC).astimezone().isoformat(timespec="seconds"),
         "stage": stage,
         "seconds": round(seconds, 2),
         "ok": error is None,
         "error": error,
+        "error_code": error_code,
     }
     try:
         with _LATENCY_LOCK:
@@ -114,12 +118,17 @@ class BudgetedLLM:
             raise BudgetExhausted("외부 LLM 의 오늘 호출 상한에 이르렀습니다.")
         t0 = time.perf_counter()
         error: str | None = None
+        error_code: str | None = None
         try:
             return await self._inner.complete(
                 prompt, system=system, max_tokens=max_tokens, json_mode=json_mode
             )
         except BaseException as exc:  # 취소(CancelledError)도 기록한다
             error = type(exc).__name__
+            code = getattr(exc, "code", None)  # 어댑터 예외의 분류 (열거값, 본문 없음)
+            error_code = code if isinstance(code, str) else None
             raise
         finally:
-            _log_latency(latency_path(self.budget), self.stage, time.perf_counter() - t0, error)
+            _log_latency(
+                latency_path(self.budget), self.stage, time.perf_counter() - t0, error, error_code
+            )

@@ -9,12 +9,14 @@ from rra.adapters.fake.auth import ScriptedAuthStore
 from rra.adapters.fake.figures import FakeImageGenerator
 from rra.adapters.fake.live import FakeKeywordLLM, FakeLiveSource, fake_live_sources
 from rra.adapters.fake.llm import ScriptedComposeLLM, ScriptedReviewLLM
+from rra.adapters.fake.llm_status import FakeLLMStatus
 from rra.adapters.fake.ntis import ScriptedNtisInsights
 from rra.adapters.fake.stores import InMemoryDocumentRepository, InMemoryRunStore, NoopRunLog
 
 __all__ = [
     "FakeImageGenerator",
     "FakeKeywordLLM",
+    "FakeLLMStatus",
     "FakeLiveSource",
     "fake_live_sources",
     "ScriptedAuthStore",

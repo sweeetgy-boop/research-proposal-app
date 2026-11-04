@@ -14,6 +14,7 @@ from .figures import FigureRendererPort, ImageBudgetExhausted, ImageGeneratorPor
 from .generation_slot import GenerationSlot
 from .live_search import IdentityLookupPort, LiveSourcePort, TimedAvailabilityPort
 from .llm import LLMPort, ModelListingPort, RateLimited
+from .llm_status import LLMStatusPort
 from .maintenance import DatabaseMaintenancePort
 from .ntis import CachePort, ProjectOutcomePort, RelatedProjectPort
 from .prompt_library import PromptLibraryPort
@@ -50,6 +51,7 @@ __all__ = [
     "LiveSourcePort",
     "TimedAvailabilityPort",
     "LLMPort",
+    "LLMStatusPort",
     "ModelListingPort",
     "RateLimited",
     "ProbingSource",
