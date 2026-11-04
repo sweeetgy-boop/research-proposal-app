@@ -48,6 +48,7 @@ from rra.config_loader import (
     render_template_path,
     require_credentials,
     rerank_rule,
+    research_relevance,
     resolve_data_dir,
     retention_days,
     retrieval_mix,
@@ -2601,7 +2602,10 @@ def build_comparer(
         local_slot=local_slot,
     )
     return CompareProjects(
-        repo, precheck=precheck or build_precheck(settings, repo=repo), extractor=extractor
+        repo,
+        precheck=precheck or build_precheck(settings, repo=repo),
+        extractor=extractor,
+        relevance=research_relevance(settings),  # 참고 논문 열의 검색 관련도 경계
     )
 
 

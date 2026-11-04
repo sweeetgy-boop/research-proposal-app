@@ -135,7 +135,10 @@ async def test_reference_turns_zero_into_cards_and_flows_through_comparison_and_
         cmp = table["comparison"]
         assert cmp["empty_reason"] is None
         assert [(p["doc_id"], p["kind"]) for p in cmp["projects"]] == [(PAPER, "reference")]
-        assert cmp["proposal"]["kind"] == "similar"
+        assert cmp["proposal"]["kind"] == "similar" and cmp["proposal"]["relevance"] is None
+        # 검색 관련도 — 같은 입력의 ② 관련 연구 점수(가짜 저장소: 낱말 겹침 비율이라 늘 낮음)
+        ref = cmp["projects"][0]
+        assert ref["relevance"] == "low" and 0 < ref["similarity"] < 0.885
 
         # 활용 제안: [유사함] 0건이어도 참고 논문으로 실행
         diff = (await c.post("/v1/precheck/differentiate", json=req, headers=AUTH)).json()

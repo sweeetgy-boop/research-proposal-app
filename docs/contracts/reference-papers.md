@@ -12,6 +12,11 @@
 ### 비교표 `comparison.projects[]` (ComparisonColumn)
 - `kind`: `"similar"`(기본, [유사함] 유사과제) | `"reference"`(참고 논문). 화면 구분 칸에는 `"선행연구"` 를 보인다.
 - reference 열 순서: similar 열 뒤, `reference_ids` 순서. `blocking` false, `similarity` 는 관련 연구 점수 또는 null.
+- (2026-11-04 추가, feat/reference-relevance) `relevance: "high" | "mid" | "low" | null` 이 모든 열에 붙는다. reference 열에서만
+  값이 있고, `similarity`(② 관련 연구 e5 점수)를 `config/overlap.yaml candidates.research.relevance`(높음 ≥ 0.895,
+  중간 ≥ 0.885) 경계로 나눈 것이다. 점수 출처는 같은 입력의 precheck 메모이고, 메모가 없으면 같은 관련 연구 검색을 다시 한다.
+  관련 연구 목록 밖이면 null 이다. similar 열·제안 열은 늘 null 이다. 화면은 "검색 관련도 높음·중간·낮음" 말로만 보이고
+  숫자는 보이지 않는다(ADR 0039). 측정: `docs/eval-2026-11-04-reference-relevance.md`.
 - [유사함] 0건이어도 reference 가 있으면 `empty_reason` 은 null 이고 reference 열만 나온다.
 
 ### 과제안 `recommendations` (RecommendationResult payload)

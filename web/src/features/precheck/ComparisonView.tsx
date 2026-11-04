@@ -5,14 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { UntrustedText } from "@/components/UntrustedText";
-import { comparisonKindLabel } from "@/lib/labels";
+import { comparisonKindLabel, referenceRelevanceLabel } from "@/lib/labels";
 import { tierLabel } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
 
 const EMPTY_CELLS = new Set(["정보 없음", "정보 없음(제목 기준)", "—"]);
 
 /** 차별성 비교표 — [유사함] 으로 고른 과제 + ② 관련 연구에서 [차별화에 참고] 로 고른 자료(구분 '선행연구', ADR 0053).
- *  넓은 화면은 표(칸 최소 폭, 가로 스크롤), 좁은 화면은 과제별 카드. */
+ *  선행연구 열에는 "검색 관련도 높음·중간·낮음"(② 관련 연구 점수, 숫자 없음). 넓은 화면은 표(칸 최소 폭, 가로 스크롤),
+ *  좁은 화면은 과제별 카드. */
 export function ComparisonView({
   data,
   loading,
@@ -60,6 +61,15 @@ export function ComparisonView({
   const rows = [data.proposal, ...data.projects];
   const refCount = data.projects.filter((p) => p.kind === "reference").length;
   const simCount = data.projects.length - refCount;
+  // 선행연구 열의 "검색 관련도 높음·중간·낮음" — 관련도가 없으면(목록 밖·옛 서버) 표시 없음
+  const relevanceNote = (r: (typeof rows)[number]) => {
+    const label = r.kind === "reference" ? referenceRelevanceLabel(r.relevance) : null;
+    return label ? (
+      <span className="mt-1 block text-xs font-normal text-muted-foreground" data-testid="reference-relevance">
+        {label}
+      </span>
+    ) : null;
+  };
   // 선행연구 열이 섞였을 때만 열마다 구분을 보인다 (유사과제만이면 예전 모양 그대로)
   const kindBadge = (kind: string | undefined) =>
     refCount > 0 ? (
@@ -100,6 +110,7 @@ export function ComparisonView({
                   {i > 0 && r.tier && (
                     <span className="mt-1 block text-xs font-normal text-muted-foreground">{tierLabel({ tier: r.tier })}</span>
                   )}
+                  {i > 0 && relevanceNote(r)}
                 </th>
                 {data.aspects.map((a) => {
                   const cell = r.cells[a.key] || "정보 없음";
@@ -123,6 +134,7 @@ export function ComparisonView({
                 <CardTitle className="text-base">
                   {i === 0 ? <Badge className="mr-2">제안 과제</Badge> : refCount > 0 ? <span className="mr-2">{kindBadge(r.kind)}</span> : null}
                   <UntrustedText text={r.title} />
+                  {i > 0 && relevanceNote(r)}
                 </CardTitle>
               </CardHeader>
               <CardContent>

@@ -7,6 +7,8 @@
   연구방법·적용범위·차별화 방향)에서, 초안이 있으면 초안 섹션에서 온다 (2026-10-28 레인 A).
 - 참고 논문(ADR 0053): ② 관련 연구에서 고른 문서는 유사과제 열 뒤에 `kind="reference"`(구분
   '선행연구') 열로, reference_ids 순서대로 붙는다. 차단 없음, similarity 는 점수가 없으면 None.
+  similarity 는 ② 관련 연구 검색 점수(e5)이고, relevance 는 그 점수의 높음·중간·낮음
+  (research_relevance, 2026-11-04)이다.
   [유사함] 0건이어도 참고 논문 열이 있으면 empty_reason 은 None.
 - 기존 과제 칸은 Argon 이 원문에서 뽑은 1~2문장(cell_from_llm 검증 통과분)을 우선 쓰고, 없으면 규칙
   추출 — 기호·잘린 문장 없이 온전한 문장만(clean_cell). 적용범위가 원문에 없으면 "정보 없음".
@@ -32,6 +34,7 @@ from rra.domain.rules.keywords import tokens
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.numbers import unsupported_numbers
 from rra.domain.rules.overlap import tier_of
+from rra.domain.rules.research_relevance import ResearchRelevanceRule
 from rra.domain.rules.trust import escape_untrusted
 from rra.domain.rules.versions import split_sentences
 
@@ -197,8 +200,10 @@ def reference_column(
     doc: Document,
     extracted: Mapping[str, str] | None = None,
     similarity: float | None = None,
+    relevance: ResearchRelevanceRule | None = None,
 ) -> ComparisonColumn:
-    """참고 논문 열 (kind=reference, 차단 없음)."""
+    """참고 논문 열 (kind=reference, 차단 없음). similarity 는 ② 관련 연구 검색 점수(없으면 None),
+    relevance 가 있으면 그 점수의 높음·중간·낮음."""
     cells, title_only = _cells(doc, extracted)
     return ComparisonColumn(
         doc_id=doc.doc_id,
@@ -209,6 +214,7 @@ def reference_column(
         basis=doc.text_basis,
         title_only=title_only,
         kind="reference",
+        relevance=relevance.level(similarity) if relevance is not None else None,
         cells=cells,
     )
 
@@ -280,6 +286,8 @@ def comparison_table(
     draft: Mapping[str, str] | None = None,
     empty_reason: str | None = None,
     references: Iterable[Document] = (),
+    reference_scores: Mapping[str, float] | None = None,
+    relevance: ResearchRelevanceRule | None = None,
 ) -> ComparisonTable:
     ranked = sorted(alerts, key=lambda a: (-a.similarity, a.doc_id))
     seen: set[str] = set()
@@ -297,7 +305,14 @@ def comparison_table(
         if doc.doc_id in seen:
             continue
         seen.add(doc.doc_id)
-        projects.append(reference_column(doc, (extracted or {}).get(doc.doc_id)))
+        projects.append(
+            reference_column(
+                doc,
+                (extracted or {}).get(doc.doc_id),
+                (reference_scores or {}).get(doc.doc_id),
+                relevance,
+            )
+        )
     return ComparisonTable(
         proposal=proposal_column(req, differentiation, draft),
         projects=projects,

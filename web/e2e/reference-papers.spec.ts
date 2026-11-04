@@ -30,6 +30,9 @@ test("관련 연구 1건 체크 → [선택 적용] → 비교표 '선행연구'
   await expect(compare).toBeVisible();
   await expect(compare.getByTestId("comparison-kind").filter({ hasText: "선행연구" }).first()).toBeVisible();
   await expect(compare.getByText(PAPER).first()).toBeVisible();
+  // 선행연구 열의 검색 관련도 — ② 관련 연구 점수를 말로만 (가짜 저장소는 낱말 겹침 비율이라 늘 '낮음'), 숫자 없음
+  await expect(compare.getByTestId("reference-relevance")).toHaveText(["검색 관련도 낮음"]);
+  await expect(compare).not.toContainText(/0\.\d{2,}/);
 
   // [선택 적용] 은 참고 논문이 바뀌면 과제안도 다시 받는다 — 고른 논문을 근거로 카드 ≥1, 0건 안내는 사라진다
   const cards = page.getByTestId("plan-card");

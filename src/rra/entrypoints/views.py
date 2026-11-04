@@ -1275,6 +1275,8 @@ def comparison_payload(table: Any, *, clean: Callable[[str], str] = _same) -> di
             "title_only": c.title_only,
             # similar = [유사함] 유사과제, reference = 참고 논문(구분 '선행연구', ADR 0053)
             "kind": getattr(c, "kind", "similar"),
+            # 참고 논문 열의 검색 관련도 high|mid|low|null — 화면은 "검색 관련도 높음" 같은 말로만
+            "relevance": getattr(c, "relevance", None),
             "cells": {k: clean(v) for k, v in c.cells.items()},
         }
 

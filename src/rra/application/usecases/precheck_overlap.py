@@ -38,7 +38,7 @@ from typing import Any
 
 from rra.application.ports import DocumentRepository
 from rra.domain.models import OverlapAlert, PrecheckResult, ProposalRequest
-from rra.domain.models.gap import JudgmentInfo
+from rra.domain.models.gap import JudgmentInfo, RelatedResearch
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.overlap import OwnUnit, RerankRule, judge
 from rra.domain.rules.overlap_candidates import OverlapCandidateRule
@@ -116,6 +116,11 @@ class PrecheckOverlap:
         """같은 입력의 최근 판정(있으면). 선택 기록·후속 화면이 점수·판정을 다시 계산하지 않게."""
         m = self._get(req)
         return m.result if m is not None else None
+
+    async def search_research(self, req: ProposalRequest) -> list[RelatedResearch]:
+        """② 관련 연구 검색만 다시 — 메모가 없을 때 비교표 참고 논문 열의 검색 관련도용(같은 질의·
+        같은 자료원·같은 점수)."""
+        return list(await self._research(req.search_text()))
 
     async def run(
         self,
