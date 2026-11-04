@@ -57,7 +57,9 @@ class Login:
             self.guard.failure(account, ip, now)
             raise LoginFailed(delay_sec=delay)
         self.guard.success(account)
-        return LoginResult(auth_policy.staff_principal(digest), delay_sec=delay)
+        # 시험 계정(배포 확인용 임시 사번)이면 주체에 표시 — 선택 기록·측정 줄이 집계에서 빠진다
+        test = bool(self.store.is_test_staff(digest))
+        return LoginResult(auth_policy.staff_principal(digest, test=test), delay_sec=delay)
 
     def guest(self, guest_id: str, password: str, *, ip: str | None = None) -> LoginResult:
         now = self._clock()

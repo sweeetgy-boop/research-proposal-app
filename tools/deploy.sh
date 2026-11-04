@@ -213,4 +213,5 @@ open(path, "w", encoding="utf-8").write("\n".join(kept).rstrip("\n") + "\n")
 EOF
 fi
 log "기록: ${RECORD#$ROOT/} (pending.md 비움). 이 파일은 docs PR 로 커밋한다."
+log "외부 주소를 임시 사번으로 확인하려면: rra auth staff add --test (끝나면 rra auth staff remove) — 그 세션 기록은 test: true 로 집계 제외."
 [ "$HEALTH_OK" = 1 ] && [ "$LOGIN_OK" = 1 ] && [ "$FUNNEL_OK" != "꺼짐" ] || exit 1

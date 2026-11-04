@@ -46,7 +46,8 @@ WARNING, 아니면 INFO). 열거값·건수만 — 프롬프트·응답 본문·
 때마다(건너뜀 포함) 한 줄 — 건수·시간·열거값만(`domain/rules/recommend_metrics`). `seconds` 는
 호출 전체의 벽시계 시간(다시 받기·카드 겹침 재판정 포함), `mode` 는 `shown` 이 있으면 more.
 예외로 끝난 호출(일일 상한 BudgetExhausted·취소)은 결과가 없어 남기지 않는다. 기록 실패는
-추천을 막지 않는다(debug 한 줄).
+추천을 막지 않는다(debug 한 줄). 시험 계정 세션은 진입점이 `test=True` 를 넘기고 줄에 `test: true`
+가 붙는다 — 이 유스케이스는 세션을 모른다(ADR 0056 2026-11-04 덧붙임).
 """
 
 from __future__ import annotations
@@ -146,8 +147,10 @@ class RecommendProjects:
         similar_only: bool = False,
         core_keywords: list[str] | None = None,
         shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
+        test: bool = False,
     ) -> RecommendationResult:
-        """추천 한 번 + 측정 줄 한 줄(metrics 가 있으면). 본문은 `_recommend`."""
+        """추천 한 번 + 측정 줄 한 줄(metrics 가 있으면). 본문은 `_recommend`. test 는 진입점이
+        넣는다(REST 시험 계정 세션만 True — 측정 줄에 `test: true`). 추천 내용은 바뀌지 않는다."""
         started = time.perf_counter()
         result = await self._recommend(
             req, alerts, similar_only=similar_only, core_keywords=core_keywords, shown=shown
@@ -157,17 +160,26 @@ class RecommendProjects:
             mode=MODE_MORE if shown else MODE_INITIAL,
             similar=len(similar_rows(alerts, req.choice_map())),
             seconds=time.perf_counter() - started,
+            test=test,
         )
         return result
 
     def _record(
-        self, result: RecommendationResult, *, mode: str, similar: int, seconds: float
+        self,
+        result: RecommendationResult,
+        *,
+        mode: str,
+        similar: int,
+        seconds: float,
+        test: bool = False,
     ) -> None:
         """측정 줄 — 쓰기 실패는 추천을 막지 않는다(어댑터가 OSError 를 삼키고, 그 밖도 여기서)."""
         if self.metrics is None:
             return
         try:
-            self.metrics.record(metrics_row(result, mode=mode, similar=similar, seconds=seconds))
+            self.metrics.record(
+                metrics_row(result, mode=mode, similar=similar, seconds=seconds, test=test)
+            )
         except Exception as exc:  # 측정은 부가 기능 — 열거값(예외 클래스)만 debug
             logger.debug("recommend.metrics_failed kind=%s", type(exc).__name__)
 

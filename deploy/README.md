@@ -133,6 +133,8 @@ main 을 운영 API 에 반영하는 명령은 `tools/deploy.sh` 하나다 — m
 (`rra runs active`, `--wait`/`--force`) → `data/deploy/version.json` → `launchctl kickstart -k gui/$(id -u)/com.rra.api` →
 healthz·로그인 화면·외부 주소 확인 → `docs/history/deploys/` 기록. 규칙(자동 재시작 금지, 반영 대기 목록, 보안·접속 오류는 즉시)은
 `docs/pilot-guide.md` §6.3. 화면 하단과 `/healthz` 의 `version` 이 배포된 커밋을 보여 준다.
+배포 뒤 외부 주소에서 임시 사번으로 확인할 때는 `rra auth staff add --test` 로 등록하고 끝나면 `rra auth staff remove` 로 지운다 —
+그 세션의 선택 기록·과제안 측정 줄은 `test: true` 로 남아 `rra feedback stats` 집계에서 빠진다(ADR 0056 2026-11-04 덧붙임).
 
 ## 5. 보존·백업·재색인 (보안 I)
 

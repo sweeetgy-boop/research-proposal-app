@@ -11,9 +11,11 @@ from rra.domain.rules.staff_roster import normalize_staff_no
 
 
 class FakeAuthStore:
-    def __init__(self, staff=(), guest=None):
+    def __init__(self, staff=(), guest=None, test=()):
         self._staff = {normalize_staff_no(s) for s in staff}  # 로그인 입력과 같은 정규화
         self._guest = guest  # (id, password) | None
+        self._test = {normalize_staff_no(s) for s in test}  # 시험 계정 표시
+        self._staff |= self._test
 
     def verify_staff(self, staff_no):
         staff_no = normalize_staff_no(staff_no)
@@ -30,16 +32,25 @@ class FakeAuthStore:
     def guest_id(self):
         return self._guest[0] if self._guest else None
 
-    def add_staff(self, staff_no):
+    def add_staff(self, staff_no, *, test=False):
         self._staff.add(normalize_staff_no(staff_no))
+        if test:
+            self._test.add(normalize_staff_no(staff_no))
         return True
 
     def remove_staff(self, staff_no):
         self._staff.discard(normalize_staff_no(staff_no))
+        self._test.discard(normalize_staff_no(staff_no))
         return True
 
     def staff_count(self):
         return len(self._staff)
+
+    def is_test_staff(self, digest):
+        return any(hashlib.sha256(s.encode()).hexdigest() == digest for s in self._test)
+
+    def test_staff_count(self):
+        return len(self._test)
 
     def import_staff(self, staff_nos, *, replace=False, dry_run=False):
         incoming = {normalize_staff_no(s) for s in staff_nos} - {""}

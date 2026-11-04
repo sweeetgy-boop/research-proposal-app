@@ -180,12 +180,14 @@ def choice_records(
     released: bool = False,
     sources: Mapping[str, str] | None = None,
     event: str = EVENT_GENERATE,
+    test: bool = False,
 ) -> list[dict[str, Any]]:
     """선택한 행마다 한 줄 — 임계치 조정용. 개인정보·본문 없음(doc_id·점수·판정·해시·시각).
     제안자가 보낸 선택만 남긴다 — 서버의 AI 기본 선택(effective_choice)은 선택 기록이 아니다
     (ADR 0054). 줄마다 source — 그 선택의 출처(sources: doc_id → user | ai_prefill, 선택이 걸린
     doc_id 기준). sources 에 없으면 user (ADR 0056). 줄마다 event — generate(생성 요청, 기본)·
-    apply([선택 적용]) (ADR 0056 후속)."""
+    apply([선택 적용]) (ADR 0056 후속). test 면(시험 계정 세션) 줄마다 `test: true` — 평가 집계에서
+    뺀다. 아니면 키를 넣지 않는다 (ADR 0056 2026-11-04 덧붙임)."""
     if event not in EVENTS:
         raise ValueError(f"모르는 기록 시점: {event}")
     out: list[dict[str, Any]] = []
@@ -214,6 +216,7 @@ def choice_records(
                 "judged_by": a.judged_by,
                 "blocking": a.blocking,
                 "released": released,
+                **({"test": True} if test else {}),
             }
         )
     return out

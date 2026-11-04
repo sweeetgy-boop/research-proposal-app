@@ -813,10 +813,17 @@ def _prompt_secret(label: str) -> str:
     return getpass.getpass(f"{label}: ").strip()
 
 
+def _staff_count_line(store: Any) -> str:
+    """`등록된 사번: n건 (시험 계정 m건)` — 개수만."""
+    return f"등록된 사번: {store.staff_count()}건 (시험 계정 {store.test_staff_count()}건)"
+
+
 def cmd_auth(args: argparse.Namespace) -> int:
-    """`rra auth staff add|remove|count|check`, `rra auth guest set --id <아이디>|disable`,
+    """`rra auth staff add [--test]|remove|count|check`, `rra auth guest set --id <아이디>|disable`,
     `rra auth status`.
-    사번·비밀번호는 getpass 로만 받고 출력·기록하지 않는다. 저장은 <data_dir>/auth (700/600)."""
+    사번·비밀번호는 getpass 로만 받고 출력·기록하지 않는다. 저장은 <data_dir>/auth (700/600).
+    `--test` 는 배포 확인용 임시 사번 — 그 세션의 선택 기록·과제안 측정 줄에 `test: true` 가 붙어
+    평가 집계(`rra feedback stats`)에서 빠진다 (ADR 0056 2026-11-04 덧붙임)."""
     from rra.composition import build_auth_store, load_settings
     from rra.config_loader import auth_config
     from rra.domain.rules.auth_policy import valid_guest_id, valid_password, valid_staff_no
@@ -831,7 +838,8 @@ def cmd_auth(args: argparse.Namespace) -> int:
         guest_state = "설정됨" if info["guest"] else "없음"
         secret_state = "있음" if info["secret"] else "없음"
         print(
-            f"직원 사번 등록: {info['staff_count']}건 ({staff_state}), "
+            f"직원 사번 등록: {info['staff_count']}건 ({staff_state}, "
+            f"시험 계정 {int(info.get('test_staff_count') or 0)}건), "
             f"공용 계정: {guest_state}, 비밀 키: {secret_state}"
         )
         if not store.permissions_ok():
@@ -839,7 +847,7 @@ def cmd_auth(args: argparse.Namespace) -> int:
         return EXIT_OK
     if group == "staff":
         if args.staff_cmd == "count":
-            print(f"등록된 사번: {store.staff_count()}건")
+            print(_staff_count_line(store))
             return EXIT_OK
         if args.staff_cmd == "import":
             return _auth_staff_import(args, settings, store)
@@ -850,15 +858,29 @@ def cmd_auth(args: argparse.Namespace) -> int:
             _eprint("사번 형식이 올바르지 않습니다 (영숫자·하이픈 2~32자).")
             return EXIT_USAGE
         if args.staff_cmd == "check":  # 로그인과 같은 정규화·HMAC 대조, 결과 한 단어만
-            print("등록됨" if store.verify_staff(staff_no) else "미등록")
+            digest = store.verify_staff(staff_no)
+            if not digest:
+                print("미등록")
+            else:
+                print("등록됨(시험 계정)" if store.is_test_staff(digest) else "등록됨")
             return EXIT_OK
         if args.staff_cmd == "add":
-            added = store.add_staff(staff_no)
-            print("등록했습니다." if added else "이미 등록된 사번입니다.")
+            test = bool(getattr(args, "test", False))
+            if store.add_staff(staff_no, test=test):
+                print("시험 계정으로 등록했습니다." if test else "등록했습니다.")
+            else:
+                digest = store.verify_staff(staff_no)
+                marked = bool(digest) and store.is_test_staff(digest)
+                print("이미 등록된 사번입니다" + (" (시험 계정)." if marked else "."))
+                if test and not marked:  # 실제 직원 사번에 시험 표시가 붙지 않게 바꾸지 않는다
+                    print(
+                        "시험 표시는 붙이지 않았습니다 — 시험 계정으로 쓰려면 remove 뒤 "
+                        "add --test 로 다시 등록하십시오."
+                    )
         else:
             removed = store.remove_staff(staff_no)
             print("삭제했습니다." if removed else "등록되지 않은 사번입니다.")
-        print(f"등록된 사번: {store.staff_count()}건")
+        print(_staff_count_line(store))
         return EXIT_OK
     if group == "guest":
         if args.guest_cmd == "disable":
@@ -918,6 +940,18 @@ def _auth_staff_import(args: argparse.Namespace, settings: Any, store: Any) -> i
             "안내: 사번 길이가 여러 가지입니다. 엑셀에서 앞자리 0 이 빠졌다면 "
             "--pad <자릿수> 로 다시 실행하십시오."
         )
+    return EXIT_OK
+
+
+# ── feedback ─────────────────────────────────────────────
+def cmd_feedback(args: argparse.Namespace) -> int:
+    """`rra feedback stats [--include-test]` — 선택 기록·과제안 측정 파일을 읽기만 하고 개수만
+    출력한다. doc_id·해시·시각 등 줄 내용은 출력하지 않는다 (ADR 0056 2026-11-04 덧붙임)."""
+    from rra.composition import build_feedback_stats, load_settings
+
+    report = build_feedback_stats(load_settings())(include_test=args.include_test)
+    for line in report.as_lines():
+        print(line)
     return EXIT_OK
 
 
@@ -2681,11 +2715,17 @@ def build_parser() -> argparse.ArgumentParser:
     auth_sub = auth.add_subparsers(dest="auth_cmd", required=True)
     a_staff = auth_sub.add_parser("staff", help="철도연구원 직원 사번 목록")
     a_staff_sub = a_staff.add_subparsers(dest="staff_cmd", required=True)
+    a_add = a_staff_sub.add_parser("add", help="사번 등록 (getpass 입력)")
+    a_add.add_argument(
+        "--test",
+        action="store_true",
+        help="시험 계정(배포 확인용 임시 사번)으로 표시 — 그 세션의 기록은 평가 집계에서 빠진다",
+    )
+    a_add.set_defaults(handler=cmd_auth)
     for name, desc in (
-        ("add", "사번 등록 (getpass 입력)"),
-        ("remove", "사번 삭제 (getpass 입력)"),
-        ("count", "등록된 사번 개수만"),
-        ("check", "사번 등록 여부만 (getpass 입력, 출력은 등록됨/미등록)"),
+        ("remove", "사번 삭제 (getpass 입력, 시험 표시도 지움)"),
+        ("count", "등록된 사번 개수만 (시험 계정 수 따로)"),
+        ("check", "사번 등록 여부만 (getpass 입력, 출력은 등록됨/등록됨(시험 계정)/미등록)"),
     ):
         a_staff_sub.add_parser(name, help=desc).set_defaults(handler=cmd_auth)
     a_imp = a_staff_sub.add_parser(
@@ -2712,6 +2752,15 @@ def build_parser() -> argparse.ArgumentParser:
     a_set.set_defaults(handler=cmd_auth)
     a_guest_sub.add_parser("disable", help="공용 계정 끄기").set_defaults(handler=cmd_auth)
     auth_sub.add_parser("status", help="설정 여부만 (값 없음)").set_defaults(handler=cmd_auth)
+    fb = sub.add_parser("feedback", help="평가 기록(선택 기록·과제안 측정) 집계 — 읽기만, 개수만")
+    fb_sub = fb.add_subparsers(dest="feedback_cmd", required=True)
+    fb_stats = fb_sub.add_parser(
+        "stats", help="줄 수·event·source·provider 별 개수, seconds 중앙값 (시험 계정 줄 제외)"
+    )
+    fb_stats.add_argument(
+        "--include-test", action="store_true", help="시험 계정 줄(test: true)도 함께 센다"
+    )
+    fb_stats.set_defaults(handler=cmd_feedback)
     db = sub.add_parser("db", help="DB 유지보수")
     db_sub = db.add_subparsers(dest="db_cmd", required=True)
     bk = db_sub.add_parser("backup", help="DB 사본 (VACUUM INTO, 권한 600)")

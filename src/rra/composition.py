@@ -2688,6 +2688,21 @@ def build_choice_log(settings: Settings | None = None):
     return JsonlChoiceLog(data_location(settings, "similar_choices"))
 
 
+def build_feedback_stats(settings: Settings | None = None):
+    """`rra feedback stats` — 선택 기록·과제안 측정 파일을 읽기만 해서 개수를 센다(ADR 0056
+    2026-11-04 덧붙임). 시험 계정 줄은 기본 제외."""
+    from rra.adapters.logging.feedback_reader import JsonlFeedbackReader
+    from rra.application.usecases.feedback_stats import FeedbackStats
+
+    settings = settings or load_settings()
+    return FeedbackStats(
+        JsonlFeedbackReader(
+            data_location(settings, "similar_choices"),
+            data_location(settings, "recommend_metrics"),
+        )
+    )
+
+
 def build_briefer(settings: Settings | None = None, *, repo=None, llm=None):
     """U5 선행연구 브리핑(BriefPriorWork) — stage brief(기본 gemini), 키 없으면 compose(로컬)로
     fallback_local=True. usability.brief 가 꺼지면 None. llm 을 주면 그대로 쓴다(테스트용)."""

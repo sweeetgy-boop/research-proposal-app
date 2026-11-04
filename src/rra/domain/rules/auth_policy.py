@@ -76,8 +76,9 @@ def guest_principal(guest_id: str) -> Principal:
     return Principal(kind="guest", id=f"{GUEST_PREFIX}{guest_id}")
 
 
-def staff_principal(digest_hex: str) -> Principal:
-    return Principal(kind="staff", id=staff_pseudonym(digest_hex))
+def staff_principal(digest_hex: str, *, test: bool = False) -> Principal:
+    """직원 주체. test 는 저장소가 시험 계정으로 표시한 사번일 때만 True."""
+    return Principal(kind="staff", id=staff_pseudonym(digest_hex), test=bool(test))
 
 
 def admin_principal() -> Principal:

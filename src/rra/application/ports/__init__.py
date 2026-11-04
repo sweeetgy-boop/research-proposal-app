@@ -10,6 +10,7 @@ from .auth import (
 from .catalog import CatalogPort
 from .choice_log import ChoiceLogPort
 from .embedding import EmbeddingPort
+from .feedback_reader import FeedbackReaderPort, JsonlRows
 from .figures import FigureRendererPort, ImageBudgetExhausted, ImageGeneratorPort, ImageResult
 from .generation_slot import GenerationSlot
 from .live_search import IdentityLookupPort, LiveSourcePort, TimedAvailabilityPort
@@ -64,6 +65,8 @@ __all__ = [
     "SourceAvailabilityPort",
     "RendererPort",
     "ChoiceLogPort",
+    "FeedbackReaderPort",
+    "JsonlRows",
     "DocumentScorerPort",
     "RerankerPort",
     "rerank_stats",

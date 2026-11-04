@@ -198,7 +198,7 @@ grep "api.access\|api.login.fail\|api.auth.reject" ~/Library/Logs/rra-api.err.lo
 - 정규화: 앞뒤 공백·하이픈 제거, 문자열로 처리. 로그인 입력도 같은 규칙이라 `00-123-45` 와 `0012345` 는 같은 사번입니다.
 - 출력의 **길이별 분포**("5자리 2건, 7자리 40건")로 0 빠짐을 알아챕니다. 길이가 섞여 있으면 `--pad <원래 자릿수>` 로 다시 실행하세요(이미 등록된 짧은 값은 `--replace` 로 정리).
 - 저장되면 **API 재시작 없이** 다음 로그인부터 반영됩니다(로그인마다 `data/auth/staff.json` 을 읽습니다).
-- 한 명씩: `rra auth staff add|remove`(화면에 안 보이는 입력), 개수 `rra auth staff count`.
+- 한 명씩: `rra auth staff add|remove`(화면에 안 보이는 입력), 개수 `rra auth staff count`(시험 계정 수는 괄호 안에 따로). 배포 확인용 임시 사번은 `add --test`(§6.3).
 - 등록 여부 확인: `rra auth staff check` — 사번을 화면에 안 보이게 입력받아 **"등록됨" 또는 "미등록"만** 출력합니다(로그인과 같은 정규화). 동료가 로그인이 안 된다고 할 때 씁니다.
 
 ### 6.2 공용 계정
@@ -232,6 +232,18 @@ run 확인(`rra runs active`; 있으면 `--wait` 대기, `--force` 는 무시하
 | `--wait [--wait-max 초]` | 생성 run 이 끝날 때까지 20초 간격으로 기다림(기본 최대 1800초) |
 | `--force` | 생성 run 이 있어도 재시작(그 run 은 interrupted) |
 | `--no-build` / `--no-external` | web 빌드 생략 / 외부 주소 확인 생략 |
+
+**배포 뒤 외부 주소로 직접 확인할 때**(2026-11-04): 임시 사번은 반드시 **시험 계정**으로 등록한다 — 그 세션의 선택 기록·과제안 측정
+줄에 `test: true` 가 붙어 평가 집계(`rra feedback stats`)에서 빠진다. 사번은 화면에 안 보이는 입력(getpass)으로만 넣는다 — 터미널이 없으면
+권한 600 파일에서 파이프로 넣어도 된다(인자·셸 기록에 남기지 않는다).
+```
+.venv/bin/rra auth staff add --test      # "시험 계정으로 등록했습니다." / "등록된 사번: 84건 (시험 계정 1건)"
+.venv/bin/rra auth staff check           # "등록됨(시험 계정)"
+# … 외부 주소에서 로그인·② 확인·[선택 적용]·생성 …
+.venv/bin/rra auth staff remove          # 표시도 함께 지운다 → "등록된 사번: 83건 (시험 계정 0건)"
+.venv/bin/rra feedback stats             # 개수만. 시험 줄은 "시험 계정 줄: n건 (제외)", --include-test 로 포함
+```
+이미 일반 사번으로 등록된 값에 `--test` 를 붙이면 표시를 바꾸지 않는다(실제 직원 사번 보호) — remove 뒤 `add --test` 로 다시 등록한다.
 
 실패하면 `~/Library/Logs/rra-api.err.log` 와 `launchctl list | grep com.rra.api` 를 본다. 이전 버전으로 되돌리려면
 `git checkout <이전 커밋>` 뒤 `tools/deploy.sh --force` 가 아니라, main 을 되돌리는 PR(revert)을 합친 뒤 같은 절차로 배포한다.
