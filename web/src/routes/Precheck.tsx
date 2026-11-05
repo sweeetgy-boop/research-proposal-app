@@ -15,6 +15,7 @@ import { SimilarRowsTable } from "@/features/precheck/SimilarRowsTable";
 import { JudgmentNotice } from "@/features/precheck/JudgmentNotice";
 import { ComparisonView } from "@/features/precheck/ComparisonView";
 import { PlanCards } from "@/features/precheck/PlanCards";
+import { isNovel, type AnyRecommendations } from "@/api/types-novel";
 import { PlanEditor } from "@/features/precheck/PlanEditor";
 import { SummaryBar } from "@/features/precheck/SummaryBar";
 import { StepNavBar } from "@/components/StepNavBar";
@@ -234,6 +235,28 @@ export default function Precheck() {
 
   if (!pre) return <Navigate to="/new" replace />;
 
+  // 과제안 갈래 (ADR 0057) — mode 가 없으면 differentiate. novel 은 더 만들기·카드 적용이 없고 과제명만 가제 칸에 넣는다
+  const planRec: AnyRecommendations | undefined = pre.recommendations;
+  const novelMode = isNovel(planRec);
+  const applyNovelTitle = (title: string) => {
+    const now = getIdea();
+    updateIdea({
+      request: {
+        ...now.request,
+        title_hint: title,
+        idea_versions: addVersion(now.request.idea_versions, "edited", { title_hint: title }),
+      },
+      planSource: "edited",
+      recommendationIndex: null,
+      similarChoices: now.similarChoices,
+    });
+    toast("과제명을 가제 칸에 넣었습니다 — 고칠 수 있습니다.", "success");
+  };
+  const editNovelTitle = (title: string) => {
+    const now = getIdea();
+    updateIdea({ request: { ...now.request, title_hint: title }, similarChoices: now.similarChoices });
+  };
+
   const blocking = effectiveBlocking(pre.alerts, choices);
   const released = isReleased(pre.alerts, choices);
   const gateOk = !blocking || idea.acknowledged;
@@ -405,6 +428,7 @@ export default function Precheck() {
         onKeepOriginal={keepOriginal}
         onWrite={() => setEditing(true)}
         onRegenerate={() => void runCards(planReq, applied)}
+        novelTitle={{ titleHint: idea.request.title_hint ?? "", onUseTitle: applyNovelTitle, onTitleHintChange: editNovelTitle }}
       />
       {editing && (
         <PlanEditor request={req} initial={planFields(idea.request)} original={original} onConfirm={confirmEdit} onCancel={() => setEditing(false)} />
@@ -423,6 +447,7 @@ export default function Precheck() {
         morePending={more.pending}
         moreElapsed={more.elapsed}
         onCancelMore={more.cancel}
+        showMore={!novelMode}
       />
       {/* 레인 D 항목 22: 아래 이동 막대 — ② 게이트(차단 행을 고르기 전에는 다음으로 못 간다)를 막대에 넣는다 */}
       <StepNavBar

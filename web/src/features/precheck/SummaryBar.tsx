@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { AiWaiting } from "@/components/AiWaiting";
 
 /** ② 선택 요약 막대 — 화면 아래에 붙어 스크롤해도 보인다 (ADR 0039).
+ *  새 과제안 갈래(ADR 0057)에서는 [차별화 과제안 더 만들기] 를 숨긴다(showMore=false).
  *  "유사함 n건 · 관련 없음 m건 → [선택 적용] [차별화 과제안 더 만들기]". 선택이 바뀌면 [선택 적용] 이 다시 켜지고
  *  지금 비교표가 예전 선택 기준임을 알린다. 아래 단계 막대(레인 D) 높이 `--stepnav-h` 위에 놓인다. */
 export function SummaryBar({
@@ -18,6 +19,7 @@ export function SummaryBar({
   moreElapsed,
   onCancelMore,
   references = 0,
+  showMore = true,
 }: {
   similar: number;
   unrelated: number;
@@ -34,6 +36,8 @@ export function SummaryBar({
   morePending: boolean;
   moreElapsed: number;
   onCancelMore: () => void;
+  /** 새 과제안(신규 영역) 갈래면 false — 더 만들기가 없다 (ADR 0057, [과제안 다시 만들기]로 새로 받는다) */
+  showMore?: boolean;
 }) {
   return (
     <div
@@ -57,10 +61,12 @@ export function SummaryBar({
         <Button size="sm" onClick={onApply} disabled={!stale || applying} variant={stale ? "default" : "outline"}>
           {applying ? "적용 중…" : "선택 적용"}
         </Button>
-        <Button size="sm" variant="outline" onClick={onMore} disabled={moreDisabled || morePending}>
-          <Plus aria-hidden="true" />
-          차별화 과제안 더 만들기
-        </Button>
+        {showMore && (
+          <Button size="sm" variant="outline" onClick={onMore} disabled={moreDisabled || morePending}>
+            <Plus aria-hidden="true" />
+            차별화 과제안 더 만들기
+          </Button>
+        )}
         <span role="status" className="text-xs text-muted-foreground">
           {stale ? (
             "선택이 바뀌었습니다 — 비교표·활용 제안은 아직 이전 선택 기준입니다"
