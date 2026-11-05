@@ -3,7 +3,8 @@ import { fillIdea, login, goPrecheck } from "./helpers";
 import { expectNoInternalIds } from "./helpers-text";
 
 // ② 참고 논문 (ADR 0053, 가짜 모드). 아이디어 끝의 " (추천 없음)" 표식이면 가짜 추천기가 0건을 낸다
-// ('새 영역' 1회 재요청 뒤에도 0건). 참고 논문(scienceon:fake-1 — "궤도 틀림 진행 속도 추정 논문 (가짜)")을 고르면 카드가 나온다.
+// (1회 재요청 뒤에도 0건). 참고 논문(scienceon:fake-1 — "궤도 틀림 진행 속도 추정 논문 (가짜)")을 고르면 카드가 나온다.
+// 유사함 0·차단 없음이라 과제안은 '새 과제안' 갈래다 (ADR 0057) — 카드는 novel-card, 0건 안내 표식은 차별화와 같다.
 const PAPER = "궤도 틀림 진행 속도 추정 논문 (가짜)";
 
 test("관련 연구 1건 체크 → [선택 적용] → 비교표 '선행연구' 열 → 과제안 카드 ≥1", async ({ page }) => {
@@ -11,9 +12,10 @@ test("관련 연구 1건 체크 → [선택 적용] → 비교표 '선행연구'
   await fillIdea(page, " (추천 없음)");
   await goPrecheck(page);
 
-  // 처음에는 유사함 0·참고 0 → 과제안 0건 + 참고 논문 안내
+  // 처음에는 유사함 0·참고 0 → 새 과제안 갈래, 과제안 0건 + 참고 논문 안내
+  await expect(page.locator("#plan-cards-heading")).toHaveText("새 과제안 고르기 (신규 영역)");
   await expect(page.getByTestId("plan-reference-hint")).toBeVisible();
-  await expect(page.getByTestId("plan-card")).toHaveCount(0);
+  await expect(page.getByTestId("novel-card")).toHaveCount(0);
 
   const section = page.getByRole("region", { name: /관련 연구 \d+건/ });
   const box = section.getByRole("checkbox", { name: new RegExp(`^차별화에 참고 — ${PAPER.replace(/[()]/g, "\\$&")}`) });
@@ -37,10 +39,10 @@ test("관련 연구 1건 체크 → [선택 적용] → 비교표 '선행연구'
   await expect(compare).not.toContainText(/0\.\d{2,}/);
 
   // [선택 적용] 은 참고 논문이 바뀌면 과제안도 다시 받는다 — 고른 논문을 근거로 카드 ≥1, 0건 안내는 사라진다
-  const cards = page.getByTestId("plan-card");
+  const cards = page.getByTestId("novel-card");
   await expect(cards.first()).toBeVisible();
   expect(await cards.count()).toBeGreaterThanOrEqual(1);
-  await expect(cards.first().getByText(PAPER)).toBeVisible(); // 근거 과제·자료에 참고 논문
+  await expect(cards.first().getByText(PAPER).first()).toBeVisible(); // 근거 자료에 참고 논문
   await expect(page.getByTestId("plan-reference-hint")).toHaveCount(0);
 
   await expectNoInternalIds(page);
@@ -68,6 +70,6 @@ test("유사함 0·참고 0 → 과제안 0건 안내 문구와 [원래 아이�
   await section.getByTestId("reference-checkbox").first().check();
   await expect(regen).toBeEnabled();
   await regen.click();
-  await expect(page.getByTestId("plan-card").first()).toBeVisible();
+  await expect(page.getByTestId("novel-card").first()).toBeVisible();
   await expect(hint).toHaveCount(0);
 });

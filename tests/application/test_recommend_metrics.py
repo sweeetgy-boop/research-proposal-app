@@ -24,7 +24,7 @@ from rra.domain.rules.recommend_metrics import (
 from tests.application.test_recommend_projects import ALERTS, REQ, make, rec, reply
 
 BOOL_FIELDS = {"fallback_local", "retry_used", "regenerated"}
-INT_FIELDS = {"calls", "cards", "discarded", "references", "similar"}
+INT_FIELDS = {"calls", "cards", "discarded", "references", "similar", "barriers", "titles"}
 
 
 class MemoryMetrics:
@@ -59,6 +59,7 @@ def _assert_shape(row: dict) -> None:
             assert key in ENUM_FIELDS, key
             assert value is None or (type(value) is str and enum_value(value) == value), key
     assert row["mode"] in ("initial", "more")
+    assert row["branch"] in ("differentiate", "novel")
 
 
 def test_port_is_runtime_checkable():
@@ -85,6 +86,9 @@ async def test_one_run_records_one_line_with_exact_keys():
         "references": 0,
         "similar": 0,
         "mode": "initial",
+        "branch": "differentiate",
+        "barriers": 0,
+        "titles": 0,
     }
 
 

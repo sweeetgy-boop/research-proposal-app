@@ -15,6 +15,7 @@ import { SimilarRowsTable } from "@/features/precheck/SimilarRowsTable";
 import { JudgmentNotice } from "@/features/precheck/JudgmentNotice";
 import { ComparisonView } from "@/features/precheck/ComparisonView";
 import { PlanCards } from "@/features/precheck/PlanCards";
+import { isNovel, type AnyRecommendations } from "@/api/types-novel";
 import { PlanEditor } from "@/features/precheck/PlanEditor";
 import { SummaryBar } from "@/features/precheck/SummaryBar";
 import { StepNavBar } from "@/components/StepNavBar";
@@ -30,6 +31,7 @@ import {
   effectiveBlocking,
   fullSignature,
   planFields,
+  planSignature,
   referenceSignature,
   released as isReleased,
   toggleReference,
@@ -136,7 +138,8 @@ export default function Precheck() {
     setPre({ ...cur, recommendations: out.recommendations }, {
       recommendationId: out.recommendations?.id ?? null,
       recommendationIndex: null,
-      planSig: choicesSignature(used),
+      // 서버가 실제로 쓴 선택(기본 선택 포함)의 서명. AI 판정이 아직 화면에 없으면 모름(null) — [선택 적용] 이 다시 받는다
+      planSig: cur.judgment?.status === "pending" ? null : planSignature(used, cur.default_choices, cur.alerts),
       planRefSig: referenceSignature(r.reference_ids),
     });
   };
@@ -234,6 +237,28 @@ export default function Precheck() {
 
   if (!pre) return <Navigate to="/new" replace />;
 
+  // 과제안 갈래 (ADR 0057) — mode 가 없으면 differentiate. novel 은 더 만들기·카드 적용이 없고 과제명만 가제 칸에 넣는다
+  const planRec: AnyRecommendations | undefined = pre.recommendations;
+  const novelMode = isNovel(planRec);
+  const applyNovelTitle = (title: string) => {
+    const now = getIdea();
+    updateIdea({
+      request: {
+        ...now.request,
+        title_hint: title,
+        idea_versions: addVersion(now.request.idea_versions, "edited", { title_hint: title }),
+      },
+      planSource: "edited",
+      recommendationIndex: null,
+      similarChoices: now.similarChoices,
+    });
+    toast("과제명을 가제 칸에 넣었습니다 — 고칠 수 있습니다.", "success");
+  };
+  const editNovelTitle = (title: string) => {
+    const now = getIdea();
+    updateIdea({ request: { ...now.request, title_hint: title }, similarChoices: now.similarChoices });
+  };
+
   const blocking = effectiveBlocking(pre.alerts, choices);
   const released = isReleased(pre.alerts, choices);
   const gateOk = !blocking || idea.acknowledged;
@@ -242,7 +267,7 @@ export default function Precheck() {
   const appliedCounts = choiceCounts(pre.alerts, idea.appliedChoices ?? withDefaults({}, pre.default_choices, pre.alerts).map);
   // '선택이 바뀌었습니다' — [유사함]/[관련 없음] 이나 참고 논문이 마지막 [선택 적용] 과 다르면
   const choicesStale = fullSignature(choices) !== fullSignature(applied) || referenceSignature(refs) !== referenceSignature(appliedRefs);
-  const planStale = idea.planSig !== null && idea.planSig !== choicesSignature(applied) && !cards.pending;
+  const planStale = idea.planSig !== null && idea.planSig !== planSignature(applied, pre.default_choices, pre.alerts) && !cards.pending;
   const planRefsStale = idea.planSig !== null && (idea.planRefSig ?? "") !== referenceSignature(refs) && !cards.pending;
 
   const choose = (docId: string, value: SimilarChoiceValue | null) => {
@@ -277,7 +302,8 @@ export default function Precheck() {
       const cur = currentPre();
       if (cur) setPre({ ...cur, differentiation: undefined });
     }
-    const plansChanged = choicesSignature(now) !== idea.planSig || referenceSignature(nowRefs) !== (idea.planRefSig ?? "");
+    const plansChanged =
+      planSignature(now, pre.default_choices, pre.alerts) !== idea.planSig || referenceSignature(nowRefs) !== (idea.planRefSig ?? "");
     if (plansChanged || !pre.recommendations) void runCards(r, now);
     toast("선택을 적용했습니다 — 비교표를 다시 만듭니다.", "success");
   };
@@ -405,6 +431,7 @@ export default function Precheck() {
         onKeepOriginal={keepOriginal}
         onWrite={() => setEditing(true)}
         onRegenerate={() => void runCards(planReq, applied)}
+        novelTitle={{ titleHint: idea.request.title_hint ?? "", onUseTitle: applyNovelTitle, onTitleHintChange: editNovelTitle }}
       />
       {editing && (
         <PlanEditor request={req} initial={planFields(idea.request)} original={original} onConfirm={confirmEdit} onCancel={() => setEditing(false)} />
@@ -423,6 +450,7 @@ export default function Precheck() {
         morePending={more.pending}
         moreElapsed={more.elapsed}
         onCancelMore={more.cancel}
+        showMore={!novelMode}
       />
       {/* 레인 D 항목 22: 아래 이동 막대 — ② 게이트(차단 행을 고르기 전에는 다음으로 못 간다)를 막대에 넣는다 */}
       <StepNavBar

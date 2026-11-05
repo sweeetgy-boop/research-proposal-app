@@ -53,6 +53,9 @@ class FakePromptLibrary:
     def recommend(self) -> str:
         return "RECOMMEND: 추천 0~5건 또는 사유, 자료·입력 안에서만, 한국어, JSON 객체 하나"
 
+    def recommend_novel(self) -> str:
+        return "RECOMMEND_NOVEL: 새 과제안 2~3건·장벽·과제명, 자료·입력 안에서만, JSON 객체 하나"
+
     def outline(self) -> str:
         return "OUTLINE: 섹션별 핵심 메시지·근거 id·연결, JSON 객체 하나"
 

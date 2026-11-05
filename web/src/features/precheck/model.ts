@@ -53,6 +53,13 @@ export function choicesSignature(map: ChoiceMap): string {
     .join("|");
 }
 
+/** 과제안이 실제로 쓴 [유사함] 서명 — 선택이 없는 행은 서버처럼 AI 기본 선택을 따른다 (ADR 0054).
+ *  처음 과제안은 빈 선택으로 요청되고 서버가 기본 선택([유사함])으로 만든다 — 빈 선택 서명("")으로 적으면
+ *  그 행을 [관련 없음] 으로 바꿔 [선택 적용] 해도 서명이 같아 과제안을 다시 받지 않았다 (2026-11-05, ADR 0057 통합). */
+export function planSignature(map: ChoiceMap, defaults: SimilarChoice[] | undefined, alerts: PrecheckAlert[]): string {
+  return choicesSignature(withDefaults(map, defaults, alerts).map);
+}
+
 export function planFields(req: PrecheckRequest): Record<PlanField, string> {
   const out = {} as Record<PlanField, string>;
   for (const f of PLAN_FIELDS) out[f.key] = String((req as Record<string, unknown>)[f.key] ?? "");

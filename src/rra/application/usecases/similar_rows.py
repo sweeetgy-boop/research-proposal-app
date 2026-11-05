@@ -8,6 +8,8 @@
 - similar_rows / similar_count / no_similar: 비교표 [유사함] 열·활용 제안 대상·'새 영역' 다시 받기
   조건·② 화면 "유사함 n건"·/v1/precheck stage=full 의 활용 제안 실행 조건.
 - basis_rows: 과제안(차별화 과제 추천)의 비교 대상 행 (precheck_levels.basis_alerts).
+- recommend_mode: 과제안 갈래 — [유사함] 0건이고 차단도 없으면 novel(새 과제 추천), 아니면
+  differentiate(차별화 과제안). 갈래 판정은 이 함수 한 곳 (ADR 0057).
 - default_choice_list: 화면이 선택 없는 행에 미리 고를 선택 ([유사함]·[관련 없음]).
 - differentiation_rows: 활용·차별화 제안 대상. 선택 화면이 없는 진입점(CLI·MCP·Streamlit,
   `fallback`)은 AI 판정도 선택도 없을 때만 종전 후보 규칙(차단 또는 임계치×0.9)을 쓴다.
@@ -21,8 +23,13 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 
 from rra.domain.models import OverlapAlert
+from rra.domain.models.novel import MODE_DIFFERENTIATE, MODE_NOVEL, RecommendMode
 from rra.domain.rules.precheck_levels import basis_alerts, default_choices
-from rra.domain.rules.similar_choice import effective_choice, effective_similar
+from rra.domain.rules.similar_choice import (
+    effective_blocking,
+    effective_choice,
+    effective_similar,
+)
 
 Choices = Mapping[str, str]
 
@@ -40,6 +47,14 @@ def similar_count(alerts: Sequence[OverlapAlert], choices: Choices) -> int:
 def no_similar(alerts: Sequence[OverlapAlert], choices: Choices) -> bool:
     """[유사함] 0건 — '새 영역' 다시 받기 조건 (ADR 0053)."""
     return not similar_rows(alerts, choices)
+
+
+def recommend_mode(alerts: Sequence[OverlapAlert], choices: Choices) -> RecommendMode:
+    """과제안 갈래 (ADR 0057) — [유사함] 0건 AND 차단 없음(선택 반영, effective_blocking)이면
+    novel, 아니면 differentiate. 모든 진입점·유스케이스는 이 함수로만 갈래를 정한다."""
+    if no_similar(alerts, choices) and not effective_blocking(alerts, choices):
+        return MODE_NOVEL
+    return MODE_DIFFERENTIATE
 
 
 def basis_rows(alerts: Sequence[OverlapAlert], choices: Choices) -> list[OverlapAlert]:

@@ -50,11 +50,11 @@ def test_file_is_600_and_folder_is_700(tmp_path):
 
 def test_rotates_to_dot_one_when_over_the_size_cap(tmp_path):
     path = tmp_path / "recommend_metrics.jsonl"
-    sink = JsonlRecommendMetrics(path, max_bytes=300)
+    sink = JsonlRecommendMetrics(path, max_bytes=360)  # 한 줄 약 300바이트(2026-11-05 갈래 칸 추가)
     sink.record(_row())
-    sink.record(_row())  # 첫 줄만으로는 300 미만 → 같은 파일
+    sink.record(_row())  # 첫 줄만으로는 360 미만 → 같은 파일
     assert len(path.read_text().splitlines()) == 2
-    sink.record(_row())  # 300 이상 → .1 로 옮기고 새 파일
+    sink.record(_row())  # 360 이상 → .1 로 옮기고 새 파일
     old = path.with_name("recommend_metrics.jsonl.1")
     assert len(old.read_text().splitlines()) == 2 and len(path.read_text().splitlines()) == 1
     sink.record(_row())

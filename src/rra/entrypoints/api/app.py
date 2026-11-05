@@ -250,6 +250,11 @@ def _named_events(prev: Any, current: Any) -> list[tuple[str, dict[str, Any]]]:
 
 MORE_NONE = "이미 보인 안과 다른 새 안을 만들지 못했습니다 — 다시 시도하십시오."
 MORE_FAILED = "과제안을 더 만들지 못했습니다 — 다시 시도하십시오."
+# 새 과제안 갈래(ADR 0057)는 [더 만들기]·미리보기 적용이 없다
+# — 화면은 [과제안 다시 만들기]·[이 과제명으로 진행]
+NOVEL_NO_MORE = "새 과제안은 [과제안 다시 만들기]로 새로 받습니다."
+NOVEL_NO_APPLY = "새 과제안은 [이 과제명으로 진행]으로 가제 칸에 넣습니다."
+_NOVELTY_ROWS = "_novelty_rows"  # _recommend → 부른 쪽 내부 칸 (응답에 나가지 않는다)
 
 
 class RecommendationSessions:
@@ -622,7 +627,21 @@ def create_app(
         else:
             result = await svc(req, alerts, **mark)
         rec_id = recommendation_sessions.put(req, result)
-        return {"id": rec_id, **recommendations_payload(result, clean=_clean)}
+        out = {"id": rec_id, **recommendations_payload(result, clean=_clean)}
+        # ADR 0057 — 새로움 확인에서 새로 걸린 유사 과제(differentiate 로 되돌림)는 ② 표에 더한다.
+        # 응답 최상위 alerts 에 합치는 것은 부른 쪽(_with_novelty_rows) — 여기는 행만 넘긴다
+        out[_NOVELTY_ROWS] = list(getattr(result, "novelty_alerts", []) or [])
+        return out
+
+    def _with_novelty_rows(
+        rec: dict[str, Any] | None, alerts: list[Any]
+    ) -> tuple[dict[str, Any] | None, list[Any]]:
+        """과제안 응답에서 새로 걸린 행을 꺼내 알림 목록 뒤에 더한다(같은 doc_id 는 한 번)."""
+        if rec is None:
+            return None, alerts
+        rows = rec.pop(_NOVELTY_ROWS, [])
+        seen = {a.doc_id for a in alerts}
+        return rec, [*alerts, *(a for a in rows if a.doc_id not in seen)]
 
     async def _live(request: Request, req: ProposalRequest) -> Any | None:
         """[4] 실시간 검색 세션 시작(또는 이어 쓰기) + 최대 wait_seconds 기다림. 꺼져 있으면
@@ -773,6 +792,9 @@ def create_app(
                     rec_out = await _recommend(request, req, list(result.alerts), similar_only=True)
                 except BudgetExhausted:
                     budget_hit = True
+        rec_out, merged = _with_novelty_rows(rec_out, list(result.alerts))
+        if len(merged) != len(result.alerts):  # 새로움 확인에서 새로 걸린 행 (ADR 0057)
+            result = result.model_copy(update={"alerts": merged})
         out = _precheck_body(req, result, live_ids, live)
         if rec_out is not None:
             out["recommendations"] = rec_out
@@ -927,6 +949,7 @@ def create_app(
             )
         except BudgetExhausted as exc:
             raise HTTPException(409, "오늘 외부 AI 호출 한도에 이르렀습니다.") from exc
+        rec, alerts = _with_novelty_rows(rec, list(alerts))
         return {
             "notice": UNTRUSTED_NOTICE,
             **alerts_payload(_choice_view(req, list(alerts))["shown"], clean=_clean),
@@ -958,6 +981,8 @@ def create_app(
         if session is None:
             raise HTTPException(404, "추천 세션을 찾을 수 없습니다 (만료 또는 모르는 id).")
         _, before = session
+        if getattr(before, "mode", "differentiate") == "novel":
+            raise HTTPException(409, NOVEL_NO_MORE)
         req = body.request
         shown = list(before.recommendations)
         room = MAX_TOTAL_RECOMMENDATIONS - len(shown)
@@ -1010,6 +1035,8 @@ def create_app(
         if session is None:
             raise HTTPException(404, "추천 세션을 찾을 수 없습니다 (만료 또는 모르는 id).")
         req, result = session
+        if getattr(result, "mode", "differentiate") == "novel":
+            raise HTTPException(409, NOVEL_NO_APPLY)
         if body.index >= len(result.recommendations):
             raise HTTPException(422, "그 번호의 추천이 없습니다.")
         after, preview = apply_recommendation(req, result.recommendations[body.index], body.index)

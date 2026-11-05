@@ -186,6 +186,7 @@ class LiveSearch:
         availability: SourceAvailabilityPort | None = None,
         public_ip: PublicIpPort | None = None,
         chunk_max_chars: int = 1500,
+        keyword_cache: bool = True,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
     ):
@@ -199,6 +200,9 @@ class LiveSearch:
         self.availability = availability
         self.public_ip = public_ip
         self.chunk_max_chars = chunk_max_chars
+        # False 면 같은 입력의 키워드 캐시를 읽지도 쓰지도 않는다 — 키워드를 따로 만드는 인스턴스
+        # (유추 검색의 '문제' 축 키워드, ADR 0057)가 평소 키워드를 가져다 쓰지 않게
+        self.keyword_cache = keyword_cache
         self._clock = clock
         self._wall = wall_clock
         self._sessions: dict[str, LiveSession] = {}
@@ -353,7 +357,7 @@ class LiveSearch:
         if port is None:
             return result("error", notice=NOTICE_NO_SOURCE), []
         words = session.keywords.en if port.lang == "en" else session.keywords.ko
-        queries = source_queries(words)
+        queries = source_queries(words, limit=self.config.max_queries)
         if not queries:
             return result("ok", notice=NOTICE_NO_KEYWORDS), []
         blocked = self._recent_block(name)
@@ -456,9 +460,19 @@ class LiveSearch:
             logger.info("live.public_ip_failed err=%s", type(exc).__name__)
             return None
 
+    async def keywords_for(self, req: ProposalRequest) -> LiveKeywords:
+        """같은 입력의 키워드 — 캐시(24시간)에 있으면 그것, 없으면 만들어 캐시에 넣는다. 세션을 열지
+        않는다(검색 없음). 유추 검색(ADR 0057)이 같은 키워드를 Argon 을 다시 부르지 않고 쓴다."""
+        cached = self._cached_keywords(req)
+        if cached is not None:
+            return cached
+        found = await self.keywords(req)
+        self._cache_keywords(req, found)
+        return found
+
     def _cached_keywords(self, req: ProposalRequest) -> LiveKeywords | None:
         """같은 입력의 LLM 키워드(24시간) — Argon 호출을 아끼고 검색 캐시가 맞게 한다."""
-        if self.cache is None or self.config.cache_hours <= 0:
+        if not self.keyword_cache or self.cache is None or self.config.cache_hours <= 0:
             return None
         try:
             value = self.cache.get(keyword_cache_key(req))
@@ -469,7 +483,8 @@ class LiveSearch:
 
     def _cache_keywords(self, req: ProposalRequest, kw: LiveKeywords) -> None:
         if (
-            self.cache is None
+            not self.keyword_cache
+            or self.cache is None
             or self.config.cache_hours <= 0
             or kw.origin not in ("argon", "local")
         ):

@@ -32,6 +32,7 @@ MAX_ABSTRACT_CHARS = 10_000
 MAX_ABSTRACT_WORDS = 5_000
 MAX_ABSTRACT_POSITIONS = 100_000
 MAX_AUTHORS = 100
+MAX_VENUE_CHARS = 200
 
 _ID = re.compile(r"^W\d{1,15}$")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
@@ -188,6 +189,8 @@ def normalize_work(raw: dict[str, Any]) -> Document:
             "openalex_id": native,
             "type": raw.get("type"),
             "field": _clean_text(raw.get("_field"))[:40] or None,  # 질의 목록의 분야 (적재 통계용)
+            # 학술지·출처 이름 (primary_location.source) — 유추 검색의 분야 표시(ADR 0057)
+            "venue": _venue(raw.get("primary_location")),
         },
     )
 
@@ -253,6 +256,13 @@ def _authors(authorships: Any) -> list[str]:
         if name:
             names.append(name[:200])
     return names
+
+
+def _venue(location: Any) -> str | None:
+    """primary_location.source.display_name (학술지 이름). 없으면 None."""
+    source = location.get("source") if isinstance(location, dict) else None
+    name = source.get("display_name") if isinstance(source, dict) else None
+    return _clean_text(name)[:MAX_VENUE_CHARS] or None
 
 
 def _landing_url(location: Any) -> str | None:
