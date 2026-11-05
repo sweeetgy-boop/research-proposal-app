@@ -221,6 +221,12 @@
   과제안 측정 `cache/recommend_metrics.jsonl`(`RecommendMetricsPort`, 건수·시간만, 5 MB 회전), e2e 는 그림 상태를 보면 ④ 전에 `waitFiguresDone`.
   #129(운영 801109e): 배포 확인용 임시 사번은 `rra auth staff add --test`(`staff.json test_hmacs`, 이미 일반 사번이면 표시를 바꾸지 않고 안내만) → 그 세션의 선택 기록·과제안
   측정 줄에 `test: true`(응답·화면엔 없음), 집계 `rra feedback stats [--include-test]`(시험 줄 기본 제외, 개수만). 표시 이전 시험 줄은 손으로 지움(백업 `*.bak-20261104`).
+- **새 과제 추천 갈래**(2026-11-05, ADR 0057, 계약 `docs/contracts/novel-recommend.md`): ② 과제안 갈래는 `usecases/similar_rows.recommend_mode` 한 곳 —
+  [유사함] 0건 AND 차단 없음 → `novel`, 아니면 `differentiate`(종전 그대로, 응답에 `mode` 만 더함). novel = 새로움 확인 `usecases/novelty.WideNoveltyCheck`
+  (넓힌 실시간 검색 `config/novelty.yaml`, 새 차단 행이 걸리면 differentiate 로 되돌림 `novelty_reverted`·행은 ② alerts 에 합침, coverage 는 실제 확인한 자료원만) →
+  유추 검색 `ProblemAnalogySearch`(대상·장소 말 뺀 문제 축, 철도 분야 제외 `rail_field`, 분야 이름은 메타데이터만, 하한 0.79) → `recommend_novel.md`(안 2~3, 장벽 5갈래
+  근거 있음/추정+확인 방법, 장벽 해소형 과제명) → 검증 `domain/rules/novel_recommendation`. 조립 `composition.build_novelty`. novel 세션은 `/more`·`/apply` 409,
+  웹 `features/precheck/NovelPlans.tsx`([이 과제명으로 진행] = 가제 칸만). 측정 줄 `branch`·`barriers`·`titles`. CLI·MCP·Streamlit 은 novelty 없이 저장 자료만.
 - **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.
   이제 쓰지 않는 방식(로컬 7B 주 작성·③ 1차 검토·Cloudflare 계획·화면 "run" 표기)은 지우지 않고 "이전 방식"으로 표시한다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),

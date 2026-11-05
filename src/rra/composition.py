@@ -2410,6 +2410,7 @@ def build_api(
             ntis_insights=fake["ntis_insights"] if fake else None,
             local_slot=slot,
             keyword_source=live.keywords,
+            live=live,
         )
     return create_app(
         manager=manager,
@@ -2426,6 +2427,7 @@ def build_api(
             card_check=build_card_check(
                 settings, precheck=precheck, repo=repo, llm=llm, local_slot=slot
             ),
+            **_novelty_kwargs(settings, repo=repo, precheck=precheck, live=live),
         ),
         recommend_auto=recommend_policy(settings)["auto"],
         clarify=build_clarifier(settings, llm=llm, local_slot=manager.slot)
@@ -2481,9 +2483,11 @@ def build_scoped_services(
     ntis_insights=None,
     local_slot=None,
     keyword_source=None,
+    live=None,
 ) -> dict[str, Any]:
     """공용 계정(guest)용 서비스 묶음 — 같은 유스케이스를 internal 제외 저장소로 조립 (레인 A).
-    키는 create_app 의 인자 이름과 같다."""
+    키는 create_app 의 인자 이름과 같다. live 는 REST 의 LiveSearch(새 과제 추천 갈래의
+    새로움 확인·유추 검색이 키워드를 함께 쓴다, ADR 0057) — 없으면 novel 은 저장 자료만."""
     precheck = build_precheck(
         settings,
         repo=repo,
@@ -2507,6 +2511,9 @@ def build_scoped_services(
             local_slot=local_slot,
             card_check=build_card_check(
                 settings, precheck=precheck, repo=repo, llm=llm, local_slot=local_slot
+            ),
+            **_novelty_kwargs(
+                settings, repo=repo, precheck=precheck, live=live, include_internal=False
             ),
         ),
         "compare": build_comparer(
@@ -2789,8 +2796,11 @@ def build_recommender(
     precheck=None,
     local_slot=None,
     card_check=None,
+    novelty=None,
+    analogies=None,
 ):
-    """차별화 과제 추천 유스케이스(RecommendProjects, ADR 0012).
+    """차별화 과제 추천 유스케이스(RecommendProjects, ADR 0012). novelty·analogies 는 새 과제 추천
+    갈래의 새로움 확인·유추 검색(build_novelty, ADR 0057) — 없으면 novel 은 저장 자료만.
 
     recommend 단계 LLM(기본 gemini) 키가 없으면 compose(로컬) 모델로 대신하고 fallback_local=True.
     근거 검색은 GenerateProposal.retrieve(관련도 하한·자료원별 최소 보장), 자기 중복 검사는
@@ -2831,7 +2841,113 @@ def build_recommender(
         local_slot=local_slot,
         card_check=card_check,
         metrics=build_recommend_metrics(settings),
+        novelty=novelty,
+        analogies=analogies,
     )
+
+
+def _novelty_kwargs(
+    settings: Settings, *, repo, precheck, live, include_internal: bool = True
+) -> dict[str, Any]:
+    """build_recommender 에 넘길 novelty·analogies — live 가 없으면 빈 dict(저장 자료만)."""
+    if live is None:
+        return {}
+    novelty, analogies = build_novelty(
+        settings, repo=repo, precheck=precheck, live=live, include_internal=include_internal
+    )
+    return {"novelty": novelty, "analogies": analogies}
+
+
+def build_novelty(settings: Settings, *, repo, precheck, live, include_internal: bool = True):
+    """새 과제 추천 갈래의 협력자 (새로움 확인, 유추 검색) — ADR 0057, config/novelty.yaml.
+
+    live 는 REST 의 평소 LiveSearch(키워드 만들기·24시간 키워드 캐시를 함께 쓴다 — Argon 을 다시
+    부르지 않는다). 넓힌 검색은 따로 만든 자료원 어댑터(novelty.yaml 상한)를 쓴다. 가짜 모드는
+    기존 실시간 검색처럼 꺼진 채(가짜 자료원) — coverage 는 저장 자료만. include_internal=False
+    (공용 계정)이면 repo·precheck 도 internal 을 뺀 것을 넘긴다."""
+    from rra.adapters.persistence.file_cache import FileCache
+    from rra.adapters.runs import AsyncioTaskRunner
+    from rra.application.usecases.live_search import LiveSearch
+    from rra.application.usecases.novelty import (
+        ProblemAnalogySearch,
+        ProblemKeywords,
+        WideNoveltyCheck,
+        precheck_rule_check,
+    )
+    from rra.config_loader import live_search_config, novelty_config, relevance_floor
+
+    nov = novelty_config(settings)
+    base = live_search_config(settings)
+    if settings.fake_llm and not base.fake_mode:
+        base = base.model_copy(update={"enabled": False})
+    wide_cfg = nov.novelty.live.live_config(base)
+    analogy_cfg = nov.analogy.live.live_config(base)
+    cache = (
+        FileCache(data_location(settings, "live_search_cache"), ttl_sec=base.cache_hours * 3600)
+        if base.cache_hours > 0 and not settings.fake_llm
+        else None
+    )
+    availability = None if settings.fake_llm else build_source_availability(settings)
+    public_ip = None if settings.fake_llm else build_public_ip_probe(settings)
+
+    def _sources(cfg):
+        if settings.fake_llm:
+            from rra.adapters.fake import fake_live_sources
+
+            return fake_live_sources()
+
+        def make() -> dict[str, Any]:  # 처음 쓸 때 만든다 (꺼져 있으면 만들지 않는다)
+            return build_live_sources(settings, config=cfg)
+
+        return make
+
+    runner = AsyncioTaskRunner()
+    wide_live = LiveSearch(
+        wide_cfg,
+        repo,
+        runner,
+        sources=_sources(wide_cfg),
+        keywords=live.keywords,
+        cache=cache,
+        availability=availability,
+        public_ip=public_ip,
+    )
+    novelty = WideNoveltyCheck(
+        repo,
+        rule_check=precheck_rule_check(precheck),
+        live=wide_live,
+        settings=nov.novelty,
+        stored_sources=overlap_candidates(settings).project_sources(),
+        include_internal=include_internal,
+        memo_size=nov.memo_size,
+        memo_minutes=nov.memo_minutes,
+    )
+    maker = ProblemKeywords(rule=keyword_rule(settings), settings=nov.analogy)
+    analogy_live = LiveSearch(
+        analogy_cfg,
+        repo,
+        runner,
+        sources=_sources(analogy_cfg),
+        keywords=maker,
+        keyword_cache=False,
+        cache=cache,
+        availability=availability,
+        public_ip=public_ip,
+    )
+    analogies = ProblemAnalogySearch(
+        repo,
+        live=analogy_live,
+        problem_keywords=maker,
+        keyword_source=getattr(live, "keywords_for", None),
+        settings=nov.analogy,
+        rail=nov.rail_field,
+        keywords=keyword_rule(settings),
+        floor=relevance_floor(settings),
+        include_internal=include_internal,
+        memo_size=nov.memo_size,
+        memo_minutes=nov.memo_minutes,
+    )
+    return novelty, analogies
 
 
 def build_recommend_metrics(settings: Settings | None = None):
@@ -2871,15 +2987,18 @@ def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
 
 
 # ── [4] 실시간 자료 검색 (ADR 0031) ───────────────────────────
-def build_live_sources(settings: Settings | None = None, *, transport=None, resolver=None):
+def build_live_sources(
+    settings: Settings | None = None, *, transport=None, resolver=None, config=None
+):
     """실시간 검색 전용 자료원 어댑터 {scienceon, ntis, openalex}. 야간 적재와 다른 인스턴스라 요청
     예산이 섞이지 않는다. 키가 없는 자료원(MissingCredential)은 빠진다 — 세션 상태에 error 로
-    보인다."""
+    보인다. config 를 주면 그 자료원 상한(max_requests)으로 만든다 — 새로움 확인의 넓힌 검색은
+    질의가 많아 상한이 크다(config/novelty.yaml, ADR 0057)."""
     from rra.adapters.sources.live import LiveNtis, LiveOpenAlex, LiveScienceOn
     from rra.config_loader import live_search_config
 
     settings = settings or load_settings()
-    cfg = live_search_config(settings)
+    cfg = config if config is not None else live_search_config(settings)
     out: dict[str, Any] = {}
     kw = {"transport": transport, "resolver": resolver}
     if cfg.source("scienceon").enabled:
