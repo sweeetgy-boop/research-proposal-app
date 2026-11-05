@@ -31,6 +31,11 @@ class PromptLibraryPort(Protocol):
         """차별화 과제 추천 시스템 프롬프트 — 추천 0~5건 또는 사유, 자료 안에서만, JSON 객체."""
         ...
 
+    def recommend_novel(self) -> str:
+        """새 과제 추천(novel 갈래, ADR 0057) 시스템 프롬프트 — 접근 방식이 다른 안 2~3건, 장벽
+        5갈래 점검·장벽 해소형 과제명, 근거 있음/추정, 자료·입력 안에서만, JSON 객체."""
+        ...
+
     def outline(self) -> str:
         """Q2 섹션 설계도 시스템 프롬프트 — 섹션별 핵심 메시지·근거 id·연결, JSON 객체."""
         ...

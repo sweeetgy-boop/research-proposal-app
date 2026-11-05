@@ -364,7 +364,9 @@ async def test_parse_failure_and_empty_inputs_are_skipped():
     out = await uc(REQ, [])
     assert out.skipped_reason == SKIP_NO_INPUT and llm.calls == []
     uc, llm, _ = make([reply([])], chunks=[], include_internal=False)
-    out = await uc(REQ, [ALERTS[1]])  # internal 문서 하나뿐 → 보낼 것이 없다
+    # internal 문서 하나뿐 → 보낼 것이 없다. 차단 행이라 차별화 갈래 (ADR 0057 — 차단 없는
+    # [유사함] 0건은 새 과제 추천 갈래: tests/application/test_recommend_novel.py)
+    out = await uc(REQ, [ALERTS[1].model_copy(update={"blocking": True})])
     assert out.skipped_reason == SKIP_NO_DOCUMENTS and out.excluded_doc_ids == ["alio:sum-1"]
     assert llm.calls == []
 
@@ -421,7 +423,7 @@ async def test_argon_failure_logs_one_use_case_line_and_summary_without_body_or_
     done = _lines(caplog, "recommend.done")
     assert done == [
         "recommend.done provider=gemini fallback_local=true calls=1 kept=2 discarded=0 "
-        "skipped_reason=- retry_used=false"
+        "skipped_reason=- retry_used=false mode=differentiate"
     ]
     assert next(r for r in caplog.records if r.getMessage() == done[0]).levelno == logging.WARNING
     text = "\n".join(r.getMessage() for r in caplog.records)
@@ -442,7 +444,7 @@ async def test_argon_failure_without_local_logs_fallback_none_and_class_name(cap
     ]
     assert _lines(caplog, "recommend.done") == [
         "recommend.done provider=gemini fallback_local=false calls=1 kept=0 discarded=0 "
-        "skipped_reason=parse_failed retry_used=false"
+        "skipped_reason=parse_failed retry_used=false mode=differentiate"
     ]
     text = "\n".join(r.getMessage() for r in caplog.records)
     assert "127.0.0.1" not in text and "제안 내용" not in text
@@ -466,5 +468,5 @@ async def test_unparseable_argon_reply_logs_invalid_and_success_logs_only_the_in
     assert record.levelno == logging.INFO
     assert record.getMessage() == (
         "recommend.done provider=gemini fallback_local=false calls=1 kept=1 discarded=0 "
-        "skipped_reason=- retry_used=false"
+        "skipped_reason=- retry_used=false mode=differentiate"
     )

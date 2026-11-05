@@ -20,6 +20,7 @@ from rra.domain.rules.doc_category import CATEGORY_LABELS, RESEARCH_SERVICE
 from rra.domain.rules.doc_refs import UNTITLED, source_name, source_of
 from rra.domain.rules.draft_failures import reason_label
 from rra.domain.rules.local_review import review_view
+from rra.domain.rules.novel_recommendation import coverage_status_label, novel_discard_label
 from rra.domain.rules.overlap import SOURCE_LABELS, STATUS_LABELS, tier_label
 from rra.domain.rules.precheck_levels import level_view
 from rra.domain.rules.precheck_view import (
@@ -985,7 +986,146 @@ OVERLAP_BY_LABELS: dict[str, str] = {
 
 
 def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
-    """RecommendationResult → dict (CLI·MCP·REST 공용). 본문은 LLM 출력(비신뢰) → clean."""
+    """RecommendationResult → dict (CLI·MCP·REST 공용). 본문은 LLM 출력(비신뢰) → clean.
+
+    모든 응답에 `mode` (ADR 0057). differentiate 는 종전 모양 그대로 + `novelty_reverted`·
+    `novelty_alert_ids`, novel 은 계약 5절 모양(`novel_recommendations_payload`)."""
+    if getattr(result, "mode", "differentiate") == "novel":
+        return novel_recommendations_payload(result, clean=clean)
+    return {
+        **_differentiate_payload(result, clean=clean),
+        "mode": "differentiate",
+        "novelty_reverted": bool(getattr(result, "novelty_reverted", False)),
+        "novelty_alert_ids": [a.doc_id for a in getattr(result, "novelty_alerts", []) or []],
+    }
+
+
+def _ref_source_label(source: str, doc_id: str) -> str:
+    return SOURCE_LABELS.get(source or "", "") or source_label_of(doc_id)
+
+
+def novel_recommendations_payload(
+    result: Any, *, clean: Callable[[str], str] = _same
+) -> dict[str, Any]:
+    """새 과제 추천(novel) → 계약 5절 모양 (web `types-novel.ts` NovelRecommendations).
+    글 칸은 모두 clean(비신뢰). doc_id 는 화면에 보이지 않는다 — 화면은 refs·analogies 제목."""
+    coverage = getattr(result, "coverage", None)
+    cov: dict[str, Any] | None = None
+    if coverage is not None:
+        cov = {
+            "searched": list(coverage.searched),
+            "searched_labels": [clean(x) for x in coverage.searched_labels],
+            "live": bool(coverage.live),
+            "unavailable": [
+                {
+                    "source": str(u.get("source", "")),
+                    "label": SOURCE_LABELS.get(str(u.get("source", "")), "")
+                    or str(u.get("source", "")),
+                    "status": str(u.get("status", "")),
+                    "status_label": coverage_status_label(str(u.get("status", ""))),
+                }
+                for u in coverage.unavailable
+            ],
+            "note": clean(coverage.note),
+        }
+    return {
+        "mode": "novel",
+        "coverage": cov,
+        "analogies": [
+            {
+                "doc_id": a.doc_id,
+                "title": clean(display_title(a.title)),
+                "source": a.source,
+                "source_label": clean(a.source_label) or _ref_source_label(a.source, a.doc_id),
+                "domain_label": clean(a.domain_label),
+                "why_relevant": clean(a.why_relevant),
+                "url": a.url,
+                "year": a.year,
+                "live": bool(a.live),
+            }
+            for a in result.analogies
+        ],
+        "recommendations": [
+            {
+                "index": i,
+                "approach": clean(r.approach),
+                "summary": clean(r.summary),
+                "first_step": clean(r.first_step),
+                "stages": [{"stage": s.stage, "text": clean(s.text)} for s in r.stages],
+                "maturity": r.maturity,
+                "evidence": list(r.evidence),
+                "refs": [
+                    {
+                        "doc_id": ref.get("doc_id", ""),
+                        "title": clean(display_title(ref.get("title", ""))),
+                        "source": ref.get("source", ""),
+                        "source_label": _ref_source_label(
+                            ref.get("source", ""), ref.get("doc_id", "")
+                        ),
+                        "url": ref.get("url") or None,
+                    }
+                    for ref in r.refs
+                ],
+                "barriers": [
+                    {
+                        "type": b.type,
+                        "statement": clean(b.statement),
+                        "basis": {"level": b.basis.level, "doc_ids": list(b.basis.doc_ids)},
+                        "check": clean(b.check),
+                    }
+                    for b in r.barriers
+                ],
+                "titles": [
+                    {
+                        "title": clean(t.title),
+                        "resolves": list(t.resolves),
+                        "resolves_types": [
+                            r.barriers[k].type for k in t.resolves if 0 <= k < len(r.barriers)
+                        ],
+                        "reason": clean(t.reason),
+                    }
+                    for t in r.titles
+                ],
+            }
+            for i, r in enumerate(result.novel)
+        ],
+        "no_recommendation_reason": (
+            clean(result.no_recommendation_reason) if result.no_recommendation_reason else None
+        ),
+        "hint": getattr(result, "hint", None),
+        "retry_used": bool(getattr(result, "retry_used", False)),
+        "reference_doc_ids": list(getattr(result, "reference_doc_ids", []) or []),
+        "discarded": [
+            {
+                **{k: clean(str(v)) for k, v in d.items()},
+                "reason_label": novel_discard_label(str(d.get("reason", ""))),
+            }
+            for d in result.discarded
+        ],
+        "skipped_reason": result.skipped_reason,
+        "skipped_label": recommendation_skip_label(result.skipped_reason),
+        "provider": result.provider,
+        "model": result.model,
+        "fallback_local": result.fallback_local,
+        "transfer": {
+            "public_doc_ids": list(result.public_doc_ids),
+            "internal_doc_ids": list(result.internal_doc_ids),
+            "excluded_doc_ids": list(result.excluded_doc_ids),
+            "calls": result.calls,
+        },
+        # 차별화 응답과 같은 칸 (웹 PlanRecommendations 호환) — novel 에는 해당 없음
+        "regenerated": False,
+        "overlap_checked": False,
+        "overlap_regenerated": 0,
+        "overlap_found": 0,
+        "similar_doc_ids": list(getattr(result, "similar_doc_ids", []) or []),
+        "novelty_reverted": False,
+        "novelty_alert_ids": [],
+    }
+
+
+def _differentiate_payload(result: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+    """차별화 과제안 — 종전 모양 그대로."""
     return {
         "skipped_reason": result.skipped_reason,
         "skipped_label": recommendation_skip_label(result.skipped_reason),

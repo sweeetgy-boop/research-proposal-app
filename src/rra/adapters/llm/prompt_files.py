@@ -14,6 +14,7 @@ PROMPT_PACKAGE = "rra.adapters.llm.prompts"
 REVIEW_NAME = "review"
 DIFFERENTIATE_NAME = "differentiate"
 RECOMMEND_NAME = "recommend"
+RECOMMEND_NOVEL_NAME = "recommend_novel"
 OUTLINE_NAME = "outline"
 CLARIFY_NAME = "clarify"
 VISION_NAME = "vision"
@@ -71,6 +72,9 @@ class FilePromptLibrary:
 
     def recommend(self) -> str:
         return self._read(RECOMMEND_NAME)
+
+    def recommend_novel(self) -> str:
+        return self._read(RECOMMEND_NOVEL_NAME)
 
     def outline(self) -> str:
         return self._read(OUTLINE_NAME)

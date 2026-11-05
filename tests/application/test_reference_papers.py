@@ -3,6 +3,11 @@
 운영 재현: "철도역사 비둘기 침입 방지" 는 유사과제 10건이 모두 '다르다'(유사함 0건)라
 과제안 0건이었다. 관련 있는 자료는 ② 관련 연구의 실시간 검색 논문 하나뿐 — 제안자가
 그 논문을 참고로 고르면 과제안이 나와야 한다. 참고 논문은 판정·차단에 쓰지 않는다(ADR 0028).
+
+ADR 0057 이후: [유사함] 0건이고 차단도 없으면 새 과제 추천(novel) 갈래다 — 그 경로는
+tests/application/test_recommend_novel.py. 여기의 차별화 과제안 시험은 차단 행(BLOCKED, AI 판정
+'다르다' — 제안자가 [관련 없음] 으로 고르지 않아 차단은 남고 비교 대상에서는 빠진다)을 더해 차별화
+갈래에서 [유사함] 0건인 경우('새 영역' 다시 받기가 남는 유일한 경우)를 본다.
 """
 
 from __future__ import annotations
@@ -70,6 +75,16 @@ DIFFERENT = OverlapAlert(
     blocking=False,
     judgment="different",
 )
+# 차단 기준은 넘었으나 AI 판정 '다르다' — 제안자 선택 없이는 차단이 남는다(갈래 = differentiate),
+# 비교 대상([유사과제] 구획)에서는 빠진다(basis_alerts)
+BLOCKED = OverlapAlert(
+    doc_id="ntis:blocked",
+    title="역사 출입문 관리",
+    tier="national_rnd",
+    similarity=0.9,
+    blocking=True,
+    judgment="different",
+)
 
 
 def card(title: str, **kw):
@@ -110,7 +125,8 @@ def recommender(answers, *, repo=None, chunks=()):
 async def test_similar_zero_with_one_reference_gives_cards_citing_the_reference():
     req = REQ.model_copy(update={"reference_ids": ["scienceon:LIVE-PIGEON"]})
     uc, llm = recommender([reply([card("역사 승강장 맞춤 비둘기 출입 차단")])])
-    out = await uc(req, [DIFFERENT], similar_only=True)
+    out = await uc(req, [DIFFERENT, BLOCKED], similar_only=True)
+    assert out.mode == "differentiate"
     assert [r.title for r in out.recommendations] == ["역사 승강장 맞춤 비둘기 출입 차단"]
     rec = out.recommendations[0]
     assert rec.compared_with == ["scienceon:LIVE-PIGEON"]  # 참고 논문 id 가 검증을 통과
@@ -124,7 +140,7 @@ async def test_similar_zero_with_one_reference_gives_cards_citing_the_reference(
     # 수집 텍스트의 구획 위조는 무력화된다 (보안 A)
     assert '<doc id="evil">' not in prompt and "&lt;/doc&gt;&lt;doc" in prompt
     # 판정 '다르다' 행은 [유사과제] 에 들어가지 않는다 (basis_alerts 규칙 그대로)
-    assert '<doc id="ntis:far"' not in prompt
+    assert '<doc id="ntis:far"' not in prompt and '<doc id="ntis:blocked"' not in prompt
     payload = recommendations_payload(out)
     assert payload["reference_doc_ids"] == ["scienceon:LIVE-PIGEON"]
     assert payload["retry_used"] is False and payload["hint"] is None
@@ -145,7 +161,8 @@ async def test_similar_zero_no_reference_empty_answers_retry_once_with_new_area_
         [reply([], "겹치는 과제 없음"), reply([], "근거 없음")],
         chunks=[Chunk(chunk_id="x:1#0", doc_id="x:1", ordinal=0, text="역사 비둘기 배설물 민원")],
     )
-    out = await uc(REQ, [DIFFERENT], similar_only=True)
+    out = await uc(REQ, [DIFFERENT, BLOCKED], similar_only=True)
+    assert out.mode == "differentiate"
     assert out.recommendations == [] and out.retry_used is True and out.hint == "reference"
     assert len(llm.calls) == 2 and out.calls == 2  # 정확히 두 번 — 세 번 부르지 않는다
     assert NEW_AREA_HINT not in llm.calls[0] and NEW_AREA_HINT in llm.calls[1]
@@ -164,7 +181,7 @@ async def test_new_area_retry_succeeds_and_carries_discard_reasons_in_the_same_c
             reply([card("세 번째는 없어야 함")]),
         ]
     )
-    out = await uc(req, [], similar_only=True)
+    out = await uc(req, [BLOCKED], similar_only=True)
     assert len(llm.calls) == 2 and out.calls == 2
     assert out.retry_used is True and out.regenerated is True
     assert "[앞 응답에서 제외된 이유]" in llm.calls[1] and NEW_AREA_HINT in llm.calls[1]
@@ -191,7 +208,7 @@ async def test_missing_and_forbidden_reference_ids_are_dropped_silently():
     )
     uc, llm = recommender([reply([card("역사 승강장 맞춤 비둘기 출입 차단")])], repo=repo)
     uc.repo = PublicOnlyRepository(repo)  # 공용 계정 — internal 은 보이지 않는다
-    out = await uc(req, [], similar_only=True)
+    out = await uc(req, [BLOCKED], similar_only=True)
     assert out.reference_doc_ids == ["scienceon:LIVE-PIGEON"]
     assert "alio:secret" not in llm.calls[0] and "nope:1" not in llm.calls[0]
     assert "alio:secret" not in out.excluded_doc_ids  # 권한 밖은 기록도 남기지 않는다
@@ -345,5 +362,5 @@ async def test_live_search_item_is_stored_before_it_can_be_used_as_reference():
     req = REQ.model_copy(update={"reference_ids": ["scienceon:LIVE-PIGEON"]})
     uc, llm = recommender([reply([card("역사 승강장 맞춤 비둘기 출입 차단")])], repo=repo)
     uc.repo = PublicOnlyRepository(repo)
-    out = await uc(req, [], similar_only=True)
+    out = await uc(req, [BLOCKED], similar_only=True)
     assert out.reference_doc_ids == ["scienceon:LIVE-PIGEON"] and len(out.recommendations) == 1
