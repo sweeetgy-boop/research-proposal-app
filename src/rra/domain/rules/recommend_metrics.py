@@ -13,7 +13,13 @@ MODE_INITIAL = "initial"  # 처음 받기 (자동 1회·[다시 받기]·CLI·MC
 MODE_MORE = "more"  # [차별화 과제안 더 만들기] (/recommendations/more, 이미 보인 카드 `shown`)
 MODES = (MODE_INITIAL, MODE_MORE)
 
-# 줄의 칸 순서 (ts 포함). 값 형식: bool 3칸, int 5칸, float 1칸, 열거 문자열(또는 null) 3칸
+BRANCH_DIFFERENTIATE = "differentiate"  # 과제안 갈래 (ADR 0057) — 차별화
+BRANCH_NOVEL = "novel"  # 새 과제 추천
+BRANCHES = (BRANCH_DIFFERENTIATE, BRANCH_NOVEL)
+
+# 줄의 칸 순서 (ts 포함). 값 형식: bool 3칸, int 7칸, float 1칸, 열거 문자열(또는 null) 4칸.
+# branch·barriers·titles 는 2026-11-05(ADR 0057) 추가 — 그 전 줄에는 없다
+# (읽는 쪽은 없으면 differentiate·0 으로 본다)
 ROW_FIELDS = (
     "provider",
     "fallback_local",
@@ -27,13 +33,16 @@ ROW_FIELDS = (
     "similar",
     "mode",
     "seconds",
+    "branch",
+    "barriers",
+    "titles",
 )
 FIELDS = ("ts", *ROW_FIELDS)
 # 있을 때만 쓰는 칸 — 시험 계정 세션(배포 확인용 임시 사번)의 줄만 `test: true`, 그 밖에는 키 없음
 # (ADR 0056 2026-11-04 덧붙임). 줄 끝에 붙는다
 TEST_FIELD = "test"
 OPTIONAL_FIELDS = (TEST_FIELD,)
-ENUM_FIELDS = frozenset({"provider", "skipped_reason", "mode"})
+ENUM_FIELDS = frozenset({"provider", "skipped_reason", "mode", "branch"})
 
 
 def enum_value(value: object) -> str | None:
@@ -52,12 +61,16 @@ def metrics_row(
     test: bool = False,
 ) -> dict[str, object]:
     """추천 결과 → 측정 줄(ts 제외). similar = 비교에 쓴 [유사함] 행 수, seconds = 호출 전체
-    벽시계 시간(다시 받기·카드 겹침 재판정 포함). test 면(시험 계정 세션) `test: true` 를 붙인다."""
+    벽시계 시간(다시 받기·카드 겹침 재판정 포함). test 면(시험 계정 세션) `test: true` 를 붙인다.
+    branch 는 결과의 갈래(ADR 0057), cards 는 갈래의 안 수(novel 이면 새 과제안 수),
+    barriers·titles 는 novel 안들의 장벽·과제명 수 합(differentiate 는 0), discarded 는 두 갈래
+    모두 폐기 수."""
+    novel = result.mode == BRANCH_NOVEL
     row: dict[str, object] = {
         "provider": enum_value(result.provider),
         "fallback_local": bool(result.fallback_local),
         "calls": int(result.calls),
-        "cards": len(result.recommendations),
+        "cards": len(result.novel) if novel else len(result.recommendations),
         "discarded": len(result.discarded),
         "retry_used": bool(result.retry_used),
         "regenerated": bool(result.regenerated),
@@ -66,6 +79,9 @@ def metrics_row(
         "similar": max(0, int(similar)),
         "mode": mode if mode in MODES else MODE_INITIAL,
         "seconds": round(max(0.0, float(seconds)), 2),
+        "branch": BRANCH_NOVEL if novel else BRANCH_DIFFERENTIATE,
+        "barriers": sum(len(r.barriers) for r in result.novel) if novel else 0,
+        "titles": sum(len(r.titles) for r in result.novel) if novel else 0,
     }
     if test:
         row[TEST_FIELD] = True
