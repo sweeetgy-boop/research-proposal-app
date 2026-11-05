@@ -83,8 +83,11 @@ async def test_precheck_flow_choices_comparison_cards_polish_and_run(parts):
         assert pre["similar_count"] == 1
         assert {"doc_id": first["doc_id"], "choice": "similar"} in pre["default_choices"]
         assert [i["doc_id"] for i in pre["differentiation"]["items"]] == [first["doc_id"]]
-        cards = pre["recommendations"]["recommendations"]
-        assert len(cards) == 2 and cards[0]["method"] and cards[0]["goal"]
+        # stage=full 의 과제안은 AI 판정과 동시에 규칙 알림(판정 전 — [유사함] 0건·차단 없음)으로
+        # 돌아 새 과제 추천 갈래다 (ADR 0057). 판정·선택 뒤의 차별화 과제안은 아래 again
+        full = pre["recommendations"]
+        assert full["mode"] == "novel" and len(full["recommendations"]) == 2
+        assert full["recommendations"][0]["approach"] and full["recommendations"][0]["titles"]
         assert pre["core_keywords"]  # 핵심 키워드 (가짜 키워드 LLM)
 
         # 비교표 — 선택이 없으면 AI 기본 선택([유사함] = '같다' 행) 그대로 (ADR 0054)
@@ -131,6 +134,9 @@ async def test_precheck_flow_choices_comparison_cards_polish_and_run(parts):
         again = (await c.post("/v1/precheck/recommendations", json=chosen, headers=AUTH)).json()
         rec = again["recommendations"]
         assert rec["similar_doc_ids"] == others[:1] and len(rec["recommendations"]) == 2
+        assert rec["mode"] == "differentiate" and rec["novelty_reverted"] is False
+        cards = rec["recommendations"]
+        assert cards[0]["method"] and cards[0]["goal"]
 
         polished = (
             await c.post(

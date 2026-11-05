@@ -29,6 +29,17 @@ precheck·검색 안의 doc_id 만, 지어낸 수치·정책명·한자 → 폐�
 호출은 종전대로 따로). [더 만들기](`shown`)에는 쓰지 않는다. 최종 0건이고 참고 논문을
 고르지 않았으면 `hint = "reference"`.
 
+'새 영역' 다시 받기는 차별화 갈래에서 [유사함] 0건인 경우(= 차단이 있는 경우)에만 남는다 —
+[유사함] 0건이고 차단도 없으면 아래 새 과제 추천 갈래로 간다 (ADR 0057).
+
+새 과제 추천 갈래(ADR 0057, 계약 docs/contracts/novel-recommend.md): 갈래는
+`similar_rows.recommend_mode` 한 곳이 정한다. novel 이고 `shown` 이 없으면 `novelty`(NoveltyCheck)로
+넓게 한 번 더 확인 — 유사 과제가 새로 걸리면(`new_alerts`) novel 을 취소하고 그 행을 알림에 더해
+차별화 경로를 그대로 돈다(`novelty_reverted`·`novelty_alerts`). 아니면 coverage(없으면 저장 자료만)·
+`analogies`(AnalogySearch, 없으면 [])·`recommend_novel.md` → Argon → 로컬(`_ask` 같은 오류
+분류·로그) → 검증(`domain/rules/novel_recommendation`) → 0건이면 1회 다시(`retry_used`) →
+그래도 0건이면 사유 + `hint`. 협력자가 실패(예외)하면 없는 것처럼 계속한다(경고 한 줄, 열거값만).
+
 전송 범위·manifest 기록은 검토·차별화 단계와 같다(include_internal,
 `RecommendationResult.transfer()`).
 모델: llm.yaml stages.recommend (기본 Gemini). 키가 없으면 조립이 로컬(compose) 모델로 바꾸고
@@ -37,8 +48,9 @@ fallback_local=True.
 실패 기록(ADR 0055 덧붙임, 2026-11-04): Argon 이 실패(예외·해석 실패)해 로컬로 넘어가거나 끝나면
 경고 한 줄 `recommend.argon_failed kind=<어댑터 code 또는 예외 클래스·invalid> fallback=local|none`,
 로컬도 실패하면 `recommend.local_failed kind=…`. 추천이 끝날 때마다 요약 한 줄 `recommend.done
-provider= fallback_local= calls= kept= discarded= skipped_reason= retry_used=`(로컬 대체·실패면
-WARNING, 아니면 INFO). 열거값·건수만 — 프롬프트·응답 본문·예외 메시지·키는 싣지 않는다(보안 D).
+provider= fallback_local= calls= kept= discarded= skipped_reason= retry_used= mode=`(로컬 대체·
+실패면 WARNING, 아니면 INFO). 열거값·건수만 — 프롬프트·응답 본문·예외 메시지·키는 싣지
+않는다(보안 D).
 어댑터의 `llm.failed` 줄·연결 상태 기록(cache/llm_status.json)은 recommend 단계 LLM
 (openai_compat)이 이미 하므로 여기서 다시 하지 않는다.
 
@@ -68,8 +80,17 @@ from rra.application.ports import (
     PromptLibraryPort,
     RecommendMetricsPort,
 )
+from rra.application.usecases.novel_contract import AnalogySearch, NoveltyCheck
+from rra.application.usecases.recommend_novel import (
+    build_novel_prompt,
+    gather_analogies,
+    novel_allowed,
+    screen_novel,
+    stored_only_coverage,
+    with_novel_refs,
+)
 from rra.application.usecases.references import load_references
-from rra.application.usecases.similar_rows import basis_rows, similar_rows
+from rra.application.usecases.similar_rows import basis_rows, recommend_mode, similar_rows
 from rra.domain.models import (
     Document,
     OverlapAlert,
@@ -78,10 +99,12 @@ from rra.domain.models import (
     RecommendationResult,
     RetrievalSnapshot,
 )
+from rra.domain.models.novel import MODE_NOVEL, NoveltyCoverage
 from rra.domain.models.recommendation import RecommendationRef
 from rra.domain.rules.card_overlap import overlap_hint, shown_hint, warning_fields
 from rra.domain.rules.differentiation import candidate_text
 from rra.domain.rules.llm_output import parse_object
+from rra.domain.rules.novel_recommendation import no_novel_text, novel_retry_hint
 from rra.domain.rules.recommend_metrics import MODE_INITIAL, MODE_MORE, metrics_row
 from rra.domain.rules.recommendation import (
     DISCARD_DUPLICATE,
@@ -138,6 +161,9 @@ class RecommendProjects:
     card_check: Any | None = None
     # 측정 줄(cache/recommend_metrics.jsonl, ADR 0055 덧붙임). None 이면 기록하지 않는다
     metrics: RecommendMetricsPort | None = None
+    # 새 과제 추천 갈래의 협력자 (ADR 0057). 둘 다 None 이면 novel 은 저장 자료만·사례 없이 계속
+    novelty: NoveltyCheck | None = None
+    analogies: AnalogySearch | None = None
 
     async def __call__(
         self,
@@ -192,8 +218,168 @@ class RecommendProjects:
         core_keywords: list[str] | None = None,
         shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
     ) -> RecommendationResult:
-        """비교 대상은 [유사함] 행(제안자 선택, 없으면 AI 기본 선택 — ADR 0054), 없으면 유효 선택이
-        [관련 없음] 이 아닌 알림(similar_rows.basis_rows)이고, [유사함] 과제와 겹치는 안은 뺀다.
+        """갈래 판정(ADR 0057) — novel 이고 [더 만들기]가 아니면 새로움 확인 → 새 과제 추천,
+        확인에서 유사 과제가 새로 걸리면 그 행을 더해 차별화로 되돌린다. 그 밖은 차별화."""
+        if not shown and recommend_mode(alerts, req.choice_map()) == MODE_NOVEL:
+            coverage: NoveltyCoverage | None = None
+            if self.novelty is not None:
+                try:
+                    outcome = await self.novelty(req, alerts, core_keywords=core_keywords)
+                except BudgetExhausted:
+                    raise
+                except Exception as exc:  # 새로움 확인 실패 → 저장 자료만으로 계속 (열거값만)
+                    logger.warning("recommend.novelty_failed kind=%s", _failure_kind(exc))
+                    outcome = None
+                if outcome is not None:
+                    known = {a.doc_id for a in alerts}
+                    fresh = _unique_alerts([a for a in outcome.new_alerts if a.doc_id not in known])
+                    if fresh:
+                        logger.info("recommend.novelty_reverted alerts=%d", len(fresh))
+                        result = await self._differentiate(
+                            req,
+                            [*alerts, *fresh],
+                            similar_only=similar_only,
+                            core_keywords=core_keywords,
+                        )
+                        return result.model_copy(
+                            update={"novelty_reverted": True, "novelty_alerts": fresh}
+                        )
+                    coverage = outcome.coverage
+            return await self._novel(req, coverage=coverage, core_keywords=core_keywords)
+        return await self._differentiate(
+            req, alerts, similar_only=similar_only, core_keywords=core_keywords, shown=shown
+        )
+
+    async def _novel(
+        self,
+        req: ProposalRequest,
+        *,
+        coverage: NoveltyCoverage | None,
+        core_keywords: list[str] | None,
+    ) -> RecommendationResult:
+        """새 과제 추천 (계약 2절 3~4). 비교할 기존 과제가 없으므로 [유사과제] 구획 없이
+        참고 논문·다른 분야 사례·근거만 넣는다. 셋 다 없으면 차별화와 같이 부르지 않는다
+        (no_alerts_or_evidence), 모두 전송 범위 밖이면 no_documents."""
+        base: dict[str, Any] = {
+            "provider": self.provider,
+            "model": self.model,
+            "fallback_local": self.fallback_local,
+            "mode": MODE_NOVEL,
+            "coverage": coverage or stored_only_coverage(),
+        }
+        snapshot = await self.retrieve(req)
+        chunks = [c for c in snapshot.chunks if not c.chunk_id.endswith("#overlap")][:MAX_CHUNKS]
+        refs, excluded = await load_references(
+            self.repo, req.reference_ids, exclude=[], include_internal=self.include_internal
+        )
+        pairs, analog_excluded = await gather_analogies(
+            self.analogies,
+            self.repo,
+            req,
+            core_keywords=core_keywords,
+            include_internal=self.include_internal,
+            exclude=[d.doc_id for d in refs],
+        )
+        excluded.extend(analog_excluded)
+        if not chunks and not refs and not pairs and not excluded:
+            return _finish(req, RecommendationResult(**base, skipped_reason=SKIP_NO_INPUT))
+        sent_chunks = [c for c in chunks if self.include_internal or _visibility(c) != "internal"]
+        excluded.extend(c.doc_id for c in chunks if c not in sent_chunks)
+        if not sent_chunks and not refs and not pairs:
+            return _finish(
+                req,
+                RecommendationResult(
+                    **base,
+                    excluded_doc_ids=list(dict.fromkeys(excluded)),
+                    skipped_reason=SKIP_NO_DOCUMENTS,
+                ),
+            )
+
+        def internal(doc: Any) -> bool:
+            return doc is not None and _visibility(doc) == "internal"
+
+        public_ids = list(
+            dict.fromkeys(
+                [d.doc_id for d in refs if not internal(d)]
+                + [a.doc_id for a, d in pairs if not internal(d)]
+                + [c.doc_id for c in sent_chunks if not internal(c)]
+            )
+        )
+        internal_ids = list(
+            dict.fromkeys(
+                [d.doc_id for d in refs if internal(d)]
+                + [a.doc_id for a, d in pairs if internal(d)]
+                + [c.doc_id for c in sent_chunks if internal(c)]
+            )
+        )
+        sizes = {"max_doc_chars": self.max_doc_chars, "max_chunk_chars": self.max_chunk_chars}
+        prompt = build_novel_prompt(req, refs, pairs, sent_chunks, **sizes)
+        allowed_ids, allowed_texts = novel_allowed(req, refs, pairs, sent_chunks, **sizes)
+        reference_ids = [d.doc_id for d in refs]
+        base = {
+            **base,
+            "reference_doc_ids": reference_ids,
+            "analogies": [a for a, _ in pairs],
+            "public_doc_ids": public_ids,
+            "internal_doc_ids": internal_ids,
+            "excluded_doc_ids": list(dict.fromkeys(excluded)),
+        }
+        system = self.prompts.recommend_novel()
+        data, used_local, calls = await self._ask(prompt, system=system)
+        if used_local:
+            base["fallback_local"] = True
+        if data is None:
+            skipped = SKIP_PARSE_FAILED if calls else SKIP_LLM_FAILED
+            return _finish(req, RecommendationResult(**base, calls=calls, skipped_reason=skipped))
+        screen = {
+            "allowed_doc_ids": allowed_ids,
+            "allowed_texts": allowed_texts,
+            "reference_doc_ids": reference_ids,
+        }
+        items, discarded = screen_novel(data, **screen)
+        retry_used = False
+        if not items:  # 0건 → 제외 사유와 다시 쓰는 규칙을 주고 한 번만 다시
+            retry_used = True
+            again, again_local, more = await self._ask(
+                f"{prompt}\n\n{novel_retry_hint(discarded)}", system=system
+            )
+            calls += more
+            if again_local:
+                base["fallback_local"] = True
+            if again is not None:
+                items, more_discarded = screen_novel(again, **screen)
+                discarded = [*discarded, *more_discarded]
+                data = again if not items else data
+        known = {d.doc_id: (d.title, d.source, d.url or "") for d in refs}
+        known.update({a.doc_id: (a.title, a.source, a.url or "") for a, _ in pairs})
+        items = await with_novel_refs(items, self.repo, known)
+        reason = None
+        if not items:
+            reason = no_novel_text(data.get("no_recommendation_reason"), len(discarded))
+        return _finish(
+            req,
+            RecommendationResult(
+                **base,
+                calls=calls,
+                novel=items,
+                discarded=discarded,
+                no_recommendation_reason=reason,
+                retry_used=retry_used,
+            ),
+        )
+
+    async def _differentiate(
+        self,
+        req: ProposalRequest,
+        alerts: list[OverlapAlert],
+        *,
+        similar_only: bool = False,
+        core_keywords: list[str] | None = None,
+        shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
+    ) -> RecommendationResult:
+        """차별화 과제안. 비교 대상은 [유사함] 행(제안자 선택, 없으면 AI 기본 선택 — ADR 0054),
+        없으면 유효 선택이 [관련 없음] 이 아닌 알림(similar_rows.basis_rows)이고, [유사함] 과제와
+        겹치는 안은 뺀다.
         선택도 AI 판정도 없는 알림(CLI·MCP·Streamlit 의 규칙 판정)은 그대로 모두 비교 대상이다.
         similar_only 는 종전 REST 표시(호출 호환) — 규칙은 모든 진입점이 같다.
         core_keywords 는 카드 겹침 재판정의 핵심어(아이디어와 같은 것).
@@ -209,7 +395,8 @@ class RecommendProjects:
         similar = similar_rows(alerts, choices)
         alerts = basis_rows(alerts, choices)
         picked = _unique_alerts(alerts)[:MAX_ALERTS]
-        # [유사함] 0건 — '새 영역' 다시 받기 조건 (ADR 0053·0054)
+        # [유사함] 0건 — '새 영역' 다시 받기 조건 (ADR 0053·0054). 이 경로에 [유사함] 0건으로
+        # 오는 것은 차단이 있는 경우(또는 새로움 확인 되돌림)뿐이다 (ADR 0057)
         no_similar = not similar
         refs, excluded = await load_references(
             self.repo,
@@ -417,14 +604,18 @@ class RecommendProjects:
             out.append(rec.model_copy(update={"refs": refs}))
         return out
 
-    async def _ask(self, prompt: str) -> tuple[dict[str, Any] | None, bool, int]:
+    async def _ask(
+        self, prompt: str, *, system: str | None = None
+    ) -> tuple[dict[str, Any] | None, bool, int]:
         """Argon 먼저(호출 수 셈), 실패(예외·해석 실패)면 로컬 — (JSON, 로컬을 썼나, 외부 호출
-        수)."""
+        수). system 이 없으면 차별화 프롬프트(recommend), novel 갈래는 recommend_novel."""
+        if system is None:
+            system = self.prompts.recommend()
         calls = 0
         kind = "invalid"  # 예외 없이 해석만 실패
         try:
             calls += 1
-            raw = await self.llm.complete(prompt, system=self.prompts.recommend(), json_mode=True)
+            raw = await self.llm.complete(prompt, system=system, json_mode=True)
             data = parse_object(raw)
         except BudgetExhausted:
             raise
@@ -443,9 +634,7 @@ class RecommendProjects:
         )
         try:
             async with gate:
-                raw = await self.local.complete(
-                    prompt, system=self.prompts.recommend(), json_mode=True
-                )
+                raw = await self.local.complete(prompt, system=system, json_mode=True)
         except Exception as exc:
             logger.warning("recommend.local_failed kind=%s", _failure_kind(exc))
             return None, True, calls
@@ -594,6 +783,7 @@ def _finish(req: ProposalRequest, result: RecommendationResult) -> Recommendatio
     """화면 안내(hint)를 채운다 — 0건이고 참고 논문을 고르지 않았으면 "reference" (ADR 0053).
     끝날 때마다 요약 한 줄(열거값·건수만, ADR 0055 덧붙임). 로컬 대체·호출 실패로 끝났으면 WARNING
     (운영 로그는 rra.api 밖은 WARNING 부터 남는다), 아니면 INFO."""
+    kept = len(result.recommendations) + len(result.novel)  # 갈래마다 한쪽만 찬다
     degraded = result.fallback_local or result.skipped_reason in (
         SKIP_LLM_FAILED,
         SKIP_PARSE_FAILED,
@@ -601,18 +791,17 @@ def _finish(req: ProposalRequest, result: RecommendationResult) -> Recommendatio
     logger.log(
         logging.WARNING if degraded else logging.INFO,
         "recommend.done provider=%s fallback_local=%s calls=%d kept=%d discarded=%d "
-        "skipped_reason=%s retry_used=%s",
+        "skipped_reason=%s retry_used=%s mode=%s",
         _enum(result.provider),
         str(result.fallback_local).lower(),
         result.calls,
-        len(result.recommendations),
+        kept,
         len(result.discarded),
         _enum(result.skipped_reason),
         str(result.retry_used).lower(),
+        _enum(result.mode),
     )
-    return result.model_copy(
-        update={"hint": recommendation_hint(len(result.recommendations), req.reference_ids)}
-    )
+    return result.model_copy(update={"hint": recommendation_hint(kept, req.reference_ids)})
 
 
 def _failure_kind(exc: BaseException) -> str:

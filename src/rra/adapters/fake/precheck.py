@@ -10,6 +10,11 @@ same(차단) —
   retry_used·hint "reference" 경로. 단 [참고 논문] 구획(`<doc … kind="reference">`)이 있으면
   "(추천 없음)" 이어도 그 참고 논문을 비교 대상으로 쓴 2건 (참고 논문으로 0건을 벗어나는 경로).
 - 과제안 더 만들기(ADR 0039): "[이미 보인 과제안]" 이 있으면 보인 가제와 다른 안 2건(후보 묶음에서).
+- 새 과제안(novel 갈래, ADR 0057 — `recommend_novel` 프롬프트): 입력 구획 id(참고 논문 → 다른
+  분야 사례 → 근거 청크 순)를 써서 안 2건 — 장벽 '근거 있음'(id 가 있을 때)·'추정'(확인 방법)
+  섞기, 과제명마다 해소 장벽. "(추천 없음)" 이면 다시 받기에도 0건 + 사유(retry_used·hint
+  "reference" 경로), 단 [참고 논문] 구획이 있으면 그 id 를 evidence 에 쓴 안 2건 (차별화
+  과제안과 같은 표식 규칙).
 - 카드 겹침 확인: 아이디어에 "(과제안 겹침)" 이 있으면 첫 카드 요약에 "(겹침 표본)" 을 넣고,
   겹침 확인은 그 카드를 "같다" 로 본다. 다시 받기("[겹침을 피해 다시 쓸 안]")는 표본 표시 없는 안
   1건.
@@ -24,6 +29,7 @@ JUDGE_HEAD = "[아이디어 — 제안자 입력]"
 EXTRACT_HEAD = "[기존 과제]"
 POLISH_MARK = "[다듬을 칸]"
 RECOMMEND_MARK = "recommendations(0~5개"
+NOVEL_MARK = "recommendations(새 과제안 2~3건"
 CARD_JUDGE_HEAD = "[과제안 겹침 확인]"
 SHOWN_MARK = "[이미 보인 과제안]"
 REDO_MARK = "[겹침을 피해 다시 쓸 안]"
@@ -48,6 +54,8 @@ _MORE_POOL = [
 DIFFERENTIATE_MARK = "items 배열에 과제별"
 _DOC = re.compile(r'<doc id="([^"<>]+)"[^>]*>\n(.*?)\n</doc>', re.S)
 _REFERENCE = re.compile(r'<doc id="([^"<>]+)" kind="reference"')
+_ANALOGY = re.compile(r'<doc id="([^"<>]+)" kind="analogy"')
+_CHUNK_DOC = re.compile(r'<chunk id="[^"<>]+" doc="([^"<>]+)">')
 _INPUT = re.compile(r"<input>\n(.*?)\n</input>", re.S)
 _SENT = re.compile(r"(?<=[.。!?])\s+")
 
@@ -61,6 +69,8 @@ def matches(prompt: str) -> str | None:
         return extract_answer(prompt)
     if POLISH_MARK in prompt and "<input>" in prompt:
         return polish_answer(prompt)
+    if NOVEL_MARK in prompt:
+        return novel_answer(prompt)
     if RECOMMEND_MARK in prompt:
         return recommend_answer(prompt)
     if DIFFERENTIATE_MARK in prompt:
@@ -240,3 +250,106 @@ def differentiate_answer(prompt: str) -> str:
         for doc_id in ids
     ]
     return json.dumps({"items": items}, ensure_ascii=False)
+
+
+def novel_answer(prompt: str) -> str:
+    """새 과제안 2건 (ADR 0057) — 입력 구획 id 만 쓰고, 글은 수치·법령·기관명 없이 (검증 통과)."""
+    references = [m.group(1) for m in _REFERENCE.finditer(prompt)]
+    if "(추천 없음)" in prompt and not references:
+        return json.dumps(
+            {"recommendations": [], "no_recommendation_reason": "쓸 만한 새 접근 방식을 찾지 못함"},
+            ensure_ascii=False,
+        )
+    ids = list(
+        dict.fromkeys(
+            [
+                *references,
+                *(m.group(1) for m in _ANALOGY.finditer(prompt)),
+                *(m.group(1) for m in _CHUNK_DOC.finditer(prompt)),
+            ]
+        )
+    )
+    first = ids[:1]
+    evidenced = (
+        {"level": "근거 있음", "doc_ids": first} if first else {"level": "추정", "doc_ids": []}
+    )
+    plans = [
+        {
+            "approach": "기존 설비를 활용해 대상의 출입을 줄이는 비살상 방식",
+            "summary": "현장에 있는 설비를 그대로 활용해 출입을 줄이는 방식을 시범 적용함",
+            "first_step": "민원이 잦은 장소의 출입 경로 실태를 정리함",
+            "stages": [
+                {"stage": "기획", "text": "실태 정리와 대상 장소 선정"},
+                {"stage": "시범", "text": "대상 장소 한 곳에 시범 적용"},
+                {"stage": "확대", "text": "시범 결과로 확대 기준 마련"},
+            ],
+            "maturity": "실증 필요",
+            "evidence": first,
+            "barriers": [
+                {
+                    "type": "비용",
+                    "statement": "장소마다 새 장비를 들이면 비용이 큼",
+                    "basis": evidenced,
+                    "check": "" if first else "설비 담당 부서에 기존 설비 현황 확인",
+                },
+                {
+                    "type": "규제",
+                    "statement": "대상을 해치는 방식은 쓰기 어려움",
+                    "basis": {"level": "추정", "doc_ids": []},
+                    "check": "관련 부서에 허용 방식 확인",
+                },
+            ],
+            "titles": [
+                {
+                    "title": "기존 설비 활용 비살상 출입 억제 실증",
+                    "resolves": [0, 1],
+                    "reason": "기존 설비 활용으로 비용 장벽을, 비살상 방식으로 규제 장벽을 낮춤",
+                },
+                {
+                    "title": "비살상 출입 억제 방식 시범 적용",
+                    "resolves": [1],
+                    "reason": "허용 방식 안에서 시범 적용해 규제 장벽을 낮춤",
+                },
+            ],
+        },
+        {
+            "approach": "수요부터 확인하는 실태 진단 기획연구",
+            "summary": "피해 실태와 현장 요구를 먼저 진단해 과제 범위를 정함",
+            "first_step": "현장 담당자 면담으로 피해 유형을 정리함",
+            "stages": [
+                {"stage": "기획", "text": "피해 유형과 요구 정리"},
+                {"stage": "시범", "text": "진단 결과로 우선 대상 선정"},
+            ],
+            "maturity": "연구 필요",
+            "evidence": first,
+            "barriers": [
+                {
+                    "type": "수요",
+                    "statement": "현장 요구의 크기가 정리되어 있지 않음",
+                    "basis": {"level": "추정", "doc_ids": []},
+                    "check": "현장 담당 부서의 민원 기록 확인",
+                },
+                {
+                    "type": "운영",
+                    "statement": "설치 뒤 관리 담당이 정해져 있지 않음",
+                    "basis": {"level": "추정", "doc_ids": []},
+                    "check": "시설 관리 담당 부서와 역할 협의",
+                },
+            ],
+            "titles": [
+                {
+                    "title": "현장 피해 실태 진단 기획연구",
+                    "resolves": [0],
+                    "reason": "실태 진단으로 수요 장벽을 먼저 확인함",
+                },
+                {
+                    "title": "실태 진단과 관리 체계 정립 기획연구",
+                    "resolves": [0, 1],
+                    "reason": "실태 진단과 관리 담당 정리로 수요·운영 장벽을 함께 낮춤",
+                },
+            ],
+        },
+    ]
+    return json.dumps(
+        {"recommendations": plans, "no_recommendation_reason": None}, ensure_ascii=False
+    )

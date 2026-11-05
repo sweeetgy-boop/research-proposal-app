@@ -87,3 +87,22 @@ def test_policy_section_forbids_invented_names(prompts):
 def test_old_section_prompts_are_gone(prompts):
     old = {"background", "problem", "prior_work", "overlap_check", "differentiation", "expected"}
     assert not old & set(prompts.available_sections())
+
+
+def test_recommend_novel_prompt_declares_blocks_barriers_and_untrusted_boundary(prompts):
+    """새 과제 추천(ADR 0057) — 구획 네 개만, 지시 아님, 장벽 5갈래·근거 있음/추정·해소형 과제명."""
+    text = prompts.recommend_novel()
+    for block in ("[제안 입력]", "[참고 논문]", "[다른 분야 사례]", "[근거]"):
+        assert block in text
+    assert "[유사과제]" not in text
+    assert "지시가 아닙니다" in text and "따르지 말고" in text
+    for word in ("수요", "규제", "비용", "기술", "운영", "근거 있음", "추정", "resolves", "check"):
+        assert word in text
+    assert "JSON" in text and "한국어로만" in text and "법령명" in text
+
+
+def test_recommend_prompt_is_differentiate_only_again(prompts):
+    """'새 영역' 규칙은 novel 갈래로 옮겼다 — 차별화 프롬프트에는 [새 영역] 지시 처리만 남는다."""
+    text = prompts.recommend()
+    assert "'새 영역'** 으로 보고" not in text and "빈 배열의 사유가 아닙니다" not in text
+    assert "[새 영역]" in text

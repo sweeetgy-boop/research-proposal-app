@@ -3,7 +3,10 @@
 1. ② 관련 연구에 `scienceon:fake-1`(시드 논문)이 보이고, 그 id 가 참고 논문으로 읽힌다.
 2. 아이디어 "(추천 없음)" + 참고 논문 0건 → 과제안 0건 · retry_used · hint "reference".
 3. 같은 아이디어 + reference_ids=["scienceon:fake-1"] → 과제안 ≥1, 비교표 kind=reference 열,
-   활용 제안 실행, [적용]·[더 만들기]·생성 요청이 reference_ids 를 지킨다.
+   활용 제안 실행, 생성 요청이 reference_ids 를 지킨다. [유사함] 0건·차단 없음이라 새 과제 추천
+   갈래(ADR 0057) — 안의 근거 첫 자리가 참고 논문.
+4. 같은 아이디어에서 행 하나를 [유사함] 으로 고르면 차별화 갈래 — 카드가 참고 논문과 비교하고
+   [적용]·[더 만들기]·생성 요청이 reference_ids 를 지킨다 (novel 에는 [적용]·[더 만들기]가 없다).
 참고 논문은 판정·차단·기본 선택·선택 기록에 쓰이지 않는다.
 """
 
@@ -126,11 +129,12 @@ async def test_reference_turns_zero_into_cards_and_flows_through_comparison_and_
         assert PAPER in seen
         body = (await c.post("/v1/precheck/recommendations", json=req, headers=AUTH)).json()
         rec = body["recommendations"]
+        assert rec["mode"] == "novel"
         assert len(rec["recommendations"]) >= 1 and rec["hint"] is None
         assert rec["retry_used"] is False and rec["reference_doc_ids"] == [PAPER]
         card = rec["recommendations"][0]
-        assert card["compared_with"] == [PAPER]
-        assert [r["doc_id"] for r in card["refs"]] == [PAPER]
+        assert card["evidence"][0] == PAPER  # 참고 논문(제안자 선택)이 근거 첫 자리
+        assert PAPER in [r["doc_id"] for r in card["refs"]]
 
         # 비교표: [유사함] 0건 + 참고 논문 → 참고 논문 열만, 안내 없음, 모든 열에 kind
         table = (await c.post("/v1/precheck/comparison", json=req, headers=AUTH)).json()
@@ -151,6 +155,33 @@ async def test_reference_turns_zero_into_cards_and_flows_through_comparison_and_
         diff = (await c.post("/v1/precheck/differentiate", json=req, headers=AUTH)).json()
         assert diff["differentiation"]["skipped_reason"] is None
         assert [i["doc_id"] for i in diff["differentiation"]["items"]] == [PAPER]
+
+        # 생성 요청 — request.json 에 reference_ids 가 남는다
+        r = await c.post("/v1/runs", json={**req, "acknowledged": True}, headers=AUTH)
+        assert r.status_code == 202, r.text
+        run_id = r.json()["run_id"]
+    store = parts["store"]
+    saved = [v for (_, rid), v in store.requests.items() if rid == run_id]
+    assert saved and saved[0].reference_ids == [PAPER]
+
+
+async def test_reference_ids_survive_apply_more_and_run_on_differentiate_cards(parts):
+    """행 하나를 [유사함] 으로 고르면 차별화 갈래 — 참고 논문과 비교한 카드, [적용]·[더 만들기]·
+    생성 요청이 reference_ids 를 지킨다 (ADR 0053 — 갈래가 나뉜 뒤에도 차별화 경로에서)."""
+    base = {**NONE_IDEA, "reference_ids": [PAPER]}
+    async with _client(parts) as c:
+        rule = (await c.post("/v1/precheck?stage=rule", json=base, headers=AUTH)).json()
+        assert rule["alerts"], "가짜 모드 규칙 판정 행"
+        first = rule["alerts"][0]["doc_id"]
+        req = {**base, "similar_choices": [{"doc_id": first, "choice": "similar"}]}
+        body = (await c.post("/v1/precheck/recommendations", json=req, headers=AUTH)).json()
+        rec = body["recommendations"]
+        assert rec["mode"] == "differentiate" and rec["novelty_reverted"] is False
+        assert len(rec["recommendations"]) >= 1 and rec["hint"] is None
+        assert rec["retry_used"] is False and rec["reference_doc_ids"] == [PAPER]
+        card = rec["recommendations"][0]
+        assert card["compared_with"] == [PAPER]
+        assert [r["doc_id"] for r in card["refs"]] == [PAPER]
 
         # [적용] 미리보기 — 세션에 남은 입력의 reference_ids 를 그대로
         applied = (
