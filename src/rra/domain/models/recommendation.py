@@ -11,6 +11,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .gap import OverlapAlert
+from .novel import Analogy, NovelRecommendation, NoveltyCoverage, RecommendMode
+
 MAX_RECOMMENDATIONS = 5  # 한 번에 받는 과제안 상한
 # [차별화 과제안 더 만들기] 로 쌓이는 전체 상한 (2026-10-28 밤 레인 A, ADR 0039)
 MAX_TOTAL_RECOMMENDATIONS = 15
@@ -92,10 +95,21 @@ class RecommendationResult(BaseModel):
     # 추천 0건일 때 화면 안내: "reference" = ② 관련 연구에서 참고 논문을 고르면 다시 만들 수 있음
     hint: Literal["reference"] | None = None
     reference_doc_ids: list[str] = Field(default_factory=list)  # 입력으로 쓴 참고 논문 doc_id
+    # ── 새 과제 추천 갈래 (ADR 0057, docs/contracts/novel-recommend.md) ──
+    # differentiate = 종전 차별화 과제안(recommendations), novel = 새 과제안(novel)
+    mode: RecommendMode = "differentiate"
+    coverage: NoveltyCoverage | None = None  # novel 일 때 새로움 확인 범위
+    analogies: list[Analogy] = Field(default_factory=list)  # novel 일 때 다른 분야 사례 (최대 5)
+    novel: list[NovelRecommendation] = Field(default_factory=list)  # novel 일 때 새 과제안 (최대 3)
+    # 새로움 확인에서 유사 과제가 새로 걸려 novel 을 취소하고 differentiate 로 되돌렸다
+    novelty_reverted: bool = False
+    # 그때 새로 걸린 행 — ② 표에 더한다 (진입점이 알림 목록에 합친다)
+    novelty_alerts: list[OverlapAlert] = Field(default_factory=list)
 
     def transfer(self) -> dict[str, object]:
-        """manifest 에 남기는 전송 기록 (본문 없음)."""
-        return {
+        """manifest 에 남기는 전송 기록 (본문 없음). differentiate 는 종전 칸 그대로,
+        novel·되돌림이면 갈래 칸을 더한다 (ADR 0057)."""
+        out: dict[str, object] = {
             "provider": self.provider,
             "model": self.model,
             "fallback_local": self.fallback_local,
@@ -108,6 +122,16 @@ class RecommendationResult(BaseModel):
             "skipped_reason": self.skipped_reason,
             "regenerated": self.regenerated,
         }
+        if self.mode == "novel" or self.novelty_reverted:
+            out.update(
+                {
+                    "mode": self.mode,
+                    "analogies": len(self.analogies),
+                    "novel": len(self.novel),
+                    "novelty_reverted": self.novelty_reverted,
+                }
+            )
+        return out
 
 
 class RecommendationPreview(BaseModel):
