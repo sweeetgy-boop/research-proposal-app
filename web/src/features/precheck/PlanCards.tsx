@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Lightbulb, PencilLine, RefreshCw } from "lucide-react";
-import type { PlanRecommendation, PlanRecommendations } from "@/api/types";
+import type { PlanRecommendation } from "@/api/types";
+import { isNovel, type AnyRecommendations } from "@/api/types-novel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +9,24 @@ import { EmptyState } from "@/components/EmptyState";
 import { SkeletonBlock } from "@/components/ui/skeleton";
 import { UntrustedText } from "@/components/UntrustedText";
 import { AiCancelledNote, AiWaiting } from "@/components/AiWaiting";
+import { NovelContext, NovelPlans } from "./NovelPlans";
 
 export const REFS_SHOWN = 3;
+
+export const PLAN_HEADINGS = {
+  differentiate: "차별화 과제안 고르기",
+  novel: "새 과제안 고르기 (신규 영역)",
+} as const;
+
+export const NOVELTY_REVERTED_NOTE = "넓은 검색에서 비슷한 과제를 새로 찾아 차별화 과제안으로 바꿨습니다";
+
+/** 새 과제안(신규 영역) 갈래의 과제명 → 가제 칸 (ADR 0057) */
+export interface NovelTitleProps {
+  /** 지금 가제(title_hint) 칸 값 */
+  titleHint: string;
+  onUseTitle: (title: string) => void;
+  onTitleHintChange: (title: string) => void;
+}
 
 const DIFF_VARIANT: Record<string, "success" | "secondary" | "warning"> = {
   high: "success",
@@ -24,7 +41,9 @@ export interface CardsWaiting {
   onCancel: () => void;
 }
 
-/** 차별화 과제안 고르기 — 카드(가제·연구목표·연구방법·적용범위·차이·근거). 모델 출력(비신뢰).
+/** 과제안 고르기 — 응답 mode 로 두 갈래(ADR 0057): differentiate(없으면 이것) "차별화 과제안 고르기" / novel "새 과제안 고르기 (신규 영역)"
+ *  (NovelPlans — coverage·다른 분야 사례·안 카드·장벽·과제명). [과제안 다시 만들기]·참고 논문 안내(hint=reference)는 두 갈래 공통.
+ *  차별화 갈래 — 카드(가제·연구목표·연구방법·적용범위·차이·근거). 모델 출력(비신뢰).
  *  v3(ADR 0039): 근거는 제목 + 자료원(상위 3건, 나머지는 [더 보기]), 겹침 경고는 ② 판정과 같은 기준의 재판정 결과
  *  (가까운 과제 제목 1~2건 + 판정의 한 줄 겹치는 점), 카드는 차별성 높은 순. */
 export function PlanCards({
@@ -39,8 +58,9 @@ export function PlanCards({
   refsStale = false,
   referenceCount = 0,
   onFindReferences,
+  novelTitle,
 }: {
-  rec: PlanRecommendations | null | undefined;
+  rec: AnyRecommendations | null | undefined;
   waiting: CardsWaiting;
   chosenIndex: number | null;
   /** 과제안을 만든 뒤 [유사함] 선택이 바뀌었다 */
@@ -55,13 +75,16 @@ export function PlanCards({
   referenceCount?: number;
   /** 0건 안내의 [관련 연구로 이동] — 관련 연구 목록으로 스크롤·포커스 */
   onFindReferences?: () => void;
+  /** novel 갈래의 [이 과제명으로 진행]·가제 칸 — 없으면 가제 칸 없이 보인다 */
+  novelTitle?: NovelTitleProps;
 }) {
   const loading = waiting.pending;
+  const novel = isNovel(rec) ? rec : null;
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 id="plan-cards-heading" className="flex items-center gap-2 text-lg font-semibold">
         <Lightbulb className="size-5" aria-hidden="true" />
-        차별화 과제안 고르기
+        {novel ? PLAN_HEADINGS.novel : PLAN_HEADINGS.differentiate}
       </h2>
       <Button variant={stale || refsStale ? "default" : "outline"} size="sm" onClick={onRegenerate} disabled={loading}>
         <RefreshCw className={loading ? "animate-spin" : ""} aria-hidden="true" />
@@ -71,7 +94,7 @@ export function PlanCards({
   );
   const waitingRow = (
     <>
-      <AiWaiting pending={waiting.pending} elapsed={waiting.elapsed} onCancel={waiting.onCancel} what="차별화 과제안 만들기" />
+      <AiWaiting pending={waiting.pending} elapsed={waiting.elapsed} onCancel={waiting.onCancel} what={novel ? "새 과제안 만들기" : "차별화 과제안 만들기"} />
       <AiCancelledNote show={waiting.cancelled && !waiting.pending} />
     </>
   );
@@ -106,9 +129,15 @@ export function PlanCards({
     ) : null;
   const retryNote = rec?.retry_used ? (
     <p className="text-xs text-muted-foreground" data-testid="plan-retry-note">
-      겹치는 기존 과제가 없어 '새 영역' 기준으로 한 번 더 받았습니다.
+      {novel ? "검증에서 남은 안이 없어 한 번 더 받았습니다." : "겹치는 기존 과제가 없어 '새 영역' 기준으로 한 번 더 받았습니다."}
     </p>
   ) : null;
+  const revertedNote =
+    !novel && rec?.novelty_reverted ? (
+      <p role="status" className="rounded-md border border-warning/30 bg-apricot p-2 text-sm" data-testid="novelty-reverted-note">
+        {NOVELTY_REVERTED_NOTE}
+      </p>
+    ) : null;
   if (cards.length === 0) {
     const reason =
       rec?.no_recommendation_reason || rec?.skipped_label || "과제안이 없습니다 — [과제안 만들기] 로 받거나 직접 작성하십시오.";
@@ -117,6 +146,8 @@ export function PlanCards({
         {header}
         {waitingRow}
         {staleNote}
+        {revertedNote}
+        {novel && <NovelContext rec={novel} />}
         <EmptyState
           icon={Lightbulb}
           title={rec ? "추천 0건" : "과제안 없음"}
@@ -161,11 +192,32 @@ export function PlanCards({
       </section>
     );
   }
+  if (novel) {
+    return (
+      <section className="space-y-3" aria-labelledby="plan-cards-heading" id="plan-cards" data-mode="novel">
+        {header}
+        {waitingRow}
+        {staleNote}
+        <NovelContext rec={novel} />
+        {retryNote}
+        <NovelPlans
+          rec={novel}
+          titleHint={novelTitle?.titleHint ?? ""}
+          onUseTitle={novelTitle?.onUseTitle ?? (() => undefined)}
+          onTitleHintChange={novelTitle?.onTitleHintChange ?? (() => undefined)}
+        />
+        {actions}
+        <ExcludedList items={excluded} />
+      </section>
+    );
+  }
+  const diffCards = isNovel(rec) ? [] : (rec?.recommendations ?? []);
   return (
-    <section className="space-y-3" aria-labelledby="plan-cards-heading" id="plan-cards">
+    <section className="space-y-3" aria-labelledby="plan-cards-heading" id="plan-cards" data-mode="differentiate">
       {header}
       {waitingRow}
       {staleNote}
+      {revertedNote}
       <p className="text-sm text-muted-foreground">
         기존 과제와 겹치지 않는 방향 {cards.length}건입니다 — 차별성이 높은 안부터 놓았습니다(차별성은 판단, 모델 출력 — 확인 뒤 사용).
         {rec?.regenerated ? " 검증에서 걸러진 안이 있어 한 번 더 받았습니다." : ""}
@@ -174,7 +226,7 @@ export function PlanCards({
       </p>
       {retryNote}
       <ul className="grid gap-3 md:grid-cols-2">
-        {cards.map((c) => (
+        {diffCards.map((c) => (
           <li key={c.index} id={`rec-${c.index}`}>
             <PlanCard card={c} chosen={chosenIndex === c.index} onPick={() => onPick(c)} />
           </li>
