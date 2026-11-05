@@ -27,8 +27,13 @@ test("유사함 0건 → '새 과제안' 제목·확인 범위·장벽 배지·�
 
   const table = page.getByRole("table", { name: /유사과제 목록/ });
   const rows = table.locator("tbody tr");
+  // AI 판정의 기본 선택이 다 들어오고 첫 과제안(차별화)이 뜬 뒤에 선택을 바꾼다 — 판정 응답이 화면에 들어오는 순간
+  // 누르면 기본 선택이 클릭을 덮을 수 있다(CI 에서 [선택 적용] 이 빈 선택으로 나간 일, 2026-11-05)
+  await expect(page.getByText(/'같다'·'일부 겹침' 으로 본 1건은 \[유사함\] 으로 미리 골랐습니다/)).toBeVisible();
+  await expect(page.getByTestId("plan-card").first()).toBeVisible();
   await expect(rows.first().getByRole("button", { name: "유사함" })).toHaveAttribute("aria-pressed", "true");
   await rows.first().getByRole("button", { name: "관련 없음" }).click();
+  await expect(rows.first().getByRole("button", { name: "관련 없음" })).toHaveAttribute("aria-pressed", "true");
   const bar = page.getByTestId("precheck-summary-bar");
   await expect(bar.getByText(/유사함 0건/)).toBeVisible();
   await bar.getByRole("button", { name: "선택 적용" }).click();

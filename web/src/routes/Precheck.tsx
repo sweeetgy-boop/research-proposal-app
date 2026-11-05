@@ -31,6 +31,7 @@ import {
   effectiveBlocking,
   fullSignature,
   planFields,
+  planSignature,
   referenceSignature,
   released as isReleased,
   toggleReference,
@@ -137,7 +138,8 @@ export default function Precheck() {
     setPre({ ...cur, recommendations: out.recommendations }, {
       recommendationId: out.recommendations?.id ?? null,
       recommendationIndex: null,
-      planSig: choicesSignature(used),
+      // 서버가 실제로 쓴 선택(기본 선택 포함)의 서명. AI 판정이 아직 화면에 없으면 모름(null) — [선택 적용] 이 다시 받는다
+      planSig: cur.judgment?.status === "pending" ? null : planSignature(used, cur.default_choices, cur.alerts),
       planRefSig: referenceSignature(r.reference_ids),
     });
   };
@@ -265,7 +267,7 @@ export default function Precheck() {
   const appliedCounts = choiceCounts(pre.alerts, idea.appliedChoices ?? withDefaults({}, pre.default_choices, pre.alerts).map);
   // '선택이 바뀌었습니다' — [유사함]/[관련 없음] 이나 참고 논문이 마지막 [선택 적용] 과 다르면
   const choicesStale = fullSignature(choices) !== fullSignature(applied) || referenceSignature(refs) !== referenceSignature(appliedRefs);
-  const planStale = idea.planSig !== null && idea.planSig !== choicesSignature(applied) && !cards.pending;
+  const planStale = idea.planSig !== null && idea.planSig !== planSignature(applied, pre.default_choices, pre.alerts) && !cards.pending;
   const planRefsStale = idea.planSig !== null && (idea.planRefSig ?? "") !== referenceSignature(refs) && !cards.pending;
 
   const choose = (docId: string, value: SimilarChoiceValue | null) => {
@@ -300,7 +302,8 @@ export default function Precheck() {
       const cur = currentPre();
       if (cur) setPre({ ...cur, differentiation: undefined });
     }
-    const plansChanged = choicesSignature(now) !== idea.planSig || referenceSignature(nowRefs) !== (idea.planRefSig ?? "");
+    const plansChanged =
+      planSignature(now, pre.default_choices, pre.alerts) !== idea.planSig || referenceSignature(nowRefs) !== (idea.planRefSig ?? "");
     if (plansChanged || !pre.recommendations) void runCards(r, now);
     toast("선택을 적용했습니다 — 비교표를 다시 만듭니다.", "success");
   };
