@@ -1,0 +1,69 @@
+# 새 과제 추천 갈래 (ADR 0057, docs/contracts/novel-recommend.md) — 새로움 확인·유추 검색.
+# 규칙은 src/rra/domain/rules/novelty.py, 유스케이스는 src/rra/application/usecases/novelty.py.
+# 실시간 검색 값은 config/live_search.yaml 위에 덮어쓴다(그 파일은 그대로). live_search.yaml 이 꺼져 있으면(가짜 모드
+# 기본) 여기서 켜도 꺼진 채 — coverage 는 저장 자료만(live=false). 외부 호출 도메인은 기존 세 곳(security.yaml)뿐이다.
+
+# ① 새로움 확인: [유사함] 0건·차단 없음(novel)이면 실시간 검색을 넓혀 한 번 더 보고, ② 와 같은 규칙 판정(후보 자료원·
+#    차단 기준 그대로)에서 원래 알림에 없던 차단 행이 걸리면 차별화 과제안으로 되돌린다.
+novelty:
+  enabled: true
+  live:
+    enabled: true
+    max_queries: 5                    # 자료원마다 보낼 키워드 수 (live_search 기본 3 → 5, 키워드는 최대 5개)
+    per_source_timeout_seconds: 15    # live_search 10 → 15
+    overall_timeout_seconds: 22       # live_search 15 → 22
+    wait_seconds: 25                  # 과제안이 기다리는 상한. 넘으면 응답 못 받은 자료원은 timeout 으로 적는다
+    sources:                          # 자료원당 상한 (live_search 30). max_requests 는 질의 5개를 다 보낼 만큼
+      scienceon: {enabled: true, top_n: 45, max_requests: 16}   # 논문·보고서·특허 target 3 × 질의 5 + 토큰 1
+      ntis:      {enabled: true, top_n: 40, max_requests: 10}   # IP 거부가 기록돼 있으면 호출하지 않고 ip_blocked
+      openalex:  {enabled: true, top_n: 40, max_requests: 5}    # 해외 논문, 영문 키워드
+
+# ② 유추 검색: 아이디어에서 장소·시설·철도 단어를 빼고 '문제' 축 단어만 남겨(예: "철도역사 비둘기 침입 방지" →
+#    비둘기·침입·방지) 저장 자료 + 실시간 검색 → 철도 분야 자료를 빼고 관련도 하한(overlap.yaml evidence_floor
+#    min_similarity, 0.79 — 여기서 바꾸지 않는다) 이상 다른 분야 자료 최대 5건.
+analogy:
+  enabled: true
+  max_results: 5
+  search_k: 60                        # 저장 자료 후보 수 (철도 자료가 대부분이라 넉넉히)
+  search_sources: [scienceon, openalex, ntis, kipris_kr, kipris_intl]   # 철도 전용 자료원은 처음부터 뺀다
+  min_shared_terms: 1                 # 한글 자료는 문제어가 1개 이상 겹쳐야 (영문 자료는 유사도만)
+  axis:
+    max_terms: 6
+    max_phrases: 3
+    # 장소·시설·철도 말 — 어절이 이 말들로만 이루어지면 뺀다 ("철도역사" = 철도 + 역사)
+    place_ko: [철도, 철도역, 역사, 역사내, 역, 역내, 승강장, 대합실, 선로, 궤도, 열차, 전동차, 차량, 객차, 지하철,
+               도시철도, 고속철도, 광역철도, 터널, 교량, 차량기지, 기지, 정거장, 플랫폼, 코레일, 공사, 구내, 시설,
+               시설물, 건물, 내부, 외부, 지붕, 천장, ktx, srt]
+    place_en: [railway, railways, railroad, rail, rails, train, trains, station, stations, platform, platforms,
+               subway, metro, track, tracks, tunnel, tunnels, bridge, bridges, depot, facility, facilities,
+               building, buildings, korail, ktx, in, at, of, for, the, a, an, "on"]   # "on" 은 따옴표 (YAML 참·거짓)
+  live:
+    enabled: true
+    max_queries: 3
+    per_source_timeout_seconds: 15
+    overall_timeout_seconds: 22
+    wait_seconds: 25
+    sources:
+      scienceon: {enabled: true, top_n: 30, max_requests: 8}
+      ntis:      {enabled: true, top_n: 20, max_requests: 6}
+      openalex:  {enabled: true, top_n: 30, max_requests: 3}
+
+# 같은 분야(철도) 판정 — 데이터에 있는 것만 본다. 하나라도 맞으면 유추 사례에서 뺀다.
+rail_field:
+  # 수집 범위가 철도(공사)로 한정된 자료원 (사내 과제·공시·공사 홈페이지·국토부 철도 정책·철도 통계·공사 감사·경영평가)
+  sources: [own, alio, korail_web, molit, datago, bai, mofe]
+  orgs: [korail, krri, kr]            # 기관 태그 (sources.yaml institutions)
+  corpus_field_sources: [openalex]    # raw.field = sources.yaml 철도 분야 질의 목록으로 적재된 문서
+  # 제목·키워드·과학기술분류·과제명·학술지 칸 (한글은 어절이 이 말로 시작하면, 영문은 낱말이 같으면)
+  terms_ko: [철도, 열차, 전동차, 지하철, 도시철도, 고속철도, 광역철도, 경전철, 궤도, 선로, 승강장, 철도역, 전차선,
+             레일, 코레일, 철도차량, ktx, srt]
+  terms_en: [railway, railways, railroad, railroads, rail, rails, train, trains, metro, subway, tram, tramway,
+             locomotive, locomotives, catenary, pantograph, bogie, ktx]
+  # 초록 앞부분(abstract_chars)에서는 강한 말만
+  abstract_terms_ko: [철도, 도시철도, 고속철도]
+  abstract_terms_en: [railway, railways, railroad, railroads]
+  abstract_chars: 600
+
+# 같은 입력(입력 글·정책 근거·핵심어·원래 알림)은 프로세스 안에서 재사용 (세션 안)
+memo_minutes: 30
+memo_size: 64

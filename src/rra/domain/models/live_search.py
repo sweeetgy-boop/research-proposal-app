@@ -58,6 +58,9 @@ class LiveSearchConfig(BaseModel):
     # 가짜 모드(RRA_FAKE_LLM)에서도 가짜 자료원으로 켤지 — 기본 끔(가짜 모드 e2e 의 고정 결과를
     # 지킨다)
     fake_mode: bool = False
+    # 자료원마다 보낼 질의(키워드) 수 상한 — 기본 3(종전). 새로움 확인(ADR 0057,
+    # config/novelty.yaml)이 넓힌다
+    max_queries: int = Field(default=3, ge=1, le=MAX_KEYWORDS)
     keywords: LiveKeywordConfig = Field(default_factory=LiveKeywordConfig)
     sources: dict[str, LiveSourceConfig] = Field(
         default_factory=lambda: {name: LiveSourceConfig() for name in LIVE_SOURCES}

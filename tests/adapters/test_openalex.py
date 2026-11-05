@@ -35,6 +35,7 @@ def test_normalize_real_record():
         "openalex_id": "W1966732442",
         "type": PAGE["results"][0]["type"],
         "field": None,
+        "venue": "Vehicle System Dynamics",
     }
 
 
