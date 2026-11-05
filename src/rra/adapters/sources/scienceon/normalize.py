@@ -35,6 +35,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "lang": ("Lang", "Nation"),
     "keyword": ("Keyword",),
     "dbcode": ("DBCode",),
+    "journal": ("JournalName",),
     # 기관(사람 이름 아님). 순서대로 모두 모은다.
     "orgs": (
         "Affiliation",
@@ -55,6 +56,7 @@ DOC_TYPES = {"ARTI": "paper", "REPORT": "internal_report", "PATENT": "patent"}
 MAX_TITLE_CHARS = 500
 MAX_ABSTRACT_CHARS = 8000
 MAX_ORGS = 10
+MAX_JOURNAL_CHARS = 200
 _ID = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _TAG = re.compile(r"<[^>]{0,200}>")
 _DOI = re.compile(r"10\.\d{4,9}/\S+")
@@ -151,5 +153,7 @@ def normalize_record(
             "status": _pick(raw, "status") or None,
             "project_no": _pick(raw, "project_no") or None,
             "keywords": [k for k in re.split(r"\s*[.;,]\s*", _pick(raw, "keyword")) if k][:20],
+            # 학술지 이름(국내논문) — 유추 검색의 분야 표시(ADR 0057). 기관명과 같은 공개 서지 정보
+            "journal": _pick(raw, "journal")[:MAX_JOURNAL_CHARS] or None,
         },
     )

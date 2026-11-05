@@ -691,6 +691,18 @@ def live_search_config(settings: Settings):
     return LiveSearchConfig(**cfg)
 
 
+def novelty_config(settings: Settings):
+    """config/novelty.yaml → NoveltyConfig (새 과제 추천 갈래의 새로움 확인·유추 검색, ADR 0057).
+    파일이 없으면 기본값. 모르는 키는 오류(맨 위 단계만 — 아래 단계는 pydantic 이 막는다)."""
+    from rra.domain.rules.novelty import NoveltyConfig
+
+    cfg = read_config("novelty.yaml", settings) or {}
+    unknown = set(cfg) - set(NoveltyConfig.model_fields)
+    if unknown:
+        raise ValueError(f"config/novelty.yaml 에 모르는 키: {sorted(unknown)}")
+    return NoveltyConfig.model_validate(cfg)
+
+
 def usability_config(settings: Settings):
     """config/usability.yaml → UsabilityConfig (파일이 없으면 기본값 = 전부 켬). 모르는 키 오류."""
     from rra.domain.models import UsabilityConfig
