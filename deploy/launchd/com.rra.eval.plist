@@ -26,6 +26,11 @@
     <string>l1</string>
     <string>--label</string>
     <string>nightly</string>
+    <string>--n</string>
+    <string>80</string>
+    <string>--repeats</string>
+    <string>1</string>
+    <string>--no-recommend</string>
   </array>
   <key>WorkingDirectory</key>
   <string>/Users/chan/projects/research-proposal-app</string>

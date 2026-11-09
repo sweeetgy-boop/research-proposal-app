@@ -22,7 +22,13 @@ from dataclasses import dataclass
 from rra.domain.models.eval_result import CI95, METRIC_KEYS, EvalMetrics
 
 BOOTSTRAP_ITERS = 2000
-RATE_METRICS: tuple[str, ...] = ("recall_at5", "false_block", "novel_rate", "rec_zero_rate")
+RATE_METRICS: tuple[str, ...] = (
+    "recall_at5",
+    "reverse_block",
+    "false_block",
+    "novel_rate",
+    "rec_zero_rate",
+)
 
 
 @dataclass(frozen=True)
@@ -98,6 +104,7 @@ def compute_metrics(
     """문제별 반복 결과 → (지표, ci95, 메모). outcomes[i] = i 번째 문제의 반복 결과 목록."""
     means_by: dict[str, list[float]] = {
         "recall_at5": _problem_means(outcomes, "reverse", "hit"),
+        "reverse_block": _problem_means(outcomes, "reverse", "blocked"),
         "false_block": _problem_means(outcomes, "trap", "blocked"),
         "novel_rate": _problem_means(outcomes, "novel", "novel"),
         "rec_zero_rate": [

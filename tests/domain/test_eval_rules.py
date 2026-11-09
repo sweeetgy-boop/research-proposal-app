@@ -136,6 +136,7 @@ def test_compute_metrics_by_kind_with_repeats():
     ]
     m, ci, notes = compute_metrics(outcomes, repeats=2, seed=3)
     assert m.recall_at5 == 0.75 and m.false_block == 0.5 and m.novel_rate == 1.0
+    assert m.reverse_block is not None  # 역방향 차단율 (2026-11-09, idf 켬 판단 기준)
     assert m.novel_estimated_barrier_ratio == 0.25 and m.rec_zero_rate == 0.0
     assert m.latency_p50 == 1.0 and m.latency_p90 == 1.0
     assert "recall_at5" in ci and "false_block" not in ci  # 문제 1개짜리 지표는 구간 없음

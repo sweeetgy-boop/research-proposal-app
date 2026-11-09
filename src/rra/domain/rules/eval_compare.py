@@ -20,6 +20,7 @@ LOWER_IS_BETTER: frozenset[str] = frozenset(
 )
 METRIC_LABELS: dict[str, str] = {
     "recall_at5": "역방향 정답 상위 5 적중률 (recall_at5)",
+    "reverse_block": "역방향 차단율 (reverse_block, 정답을 유사과제로 잡음 — 높을수록 좋음)",
     "false_block": "함정 차단율 (false_block, 낮을수록 좋음)",
     "novel_rate": "새 영역 novel 판정률 (novel_rate)",
     "novel_estimated_barrier_ratio": "novel 장벽 '추정' 비율 (낮을수록 좋음)",

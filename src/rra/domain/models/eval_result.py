@@ -23,6 +23,7 @@ SUITE_LABELS: dict[str, str] = {
 # 지표 이름 (계약 고정 — 바꾸려면 계약 파일부터). 값은 모두 숫자(비율 0~1, 초, 건수)
 METRIC_KEYS: tuple[str, ...] = (
     "recall_at5",  # 역방향 문제: 정답 과제가 ② 상위 5행 안에 든 비율
+    "reverse_block",  # 역방향 문제: 차단된 비율(정답을 유사과제로 잡음 — 높을수록 좋다, 2026-11-09)
     "false_block",  # 함정 문제·새 영역 문제: 차단된 비율 (낮을수록 좋다)
     "novel_rate",  # 새 영역 문제: novel 갈래로 간 비율
     "novel_estimated_barrier_ratio",  # novel 과제안의 '추정' 장벽 비율
@@ -45,6 +46,7 @@ class EvalMetrics(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     recall_at5: float | None = None
+    reverse_block: float | None = None
     false_block: float | None = None
     novel_rate: float | None = None
     novel_estimated_barrier_ratio: float | None = None

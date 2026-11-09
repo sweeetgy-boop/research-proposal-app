@@ -26,9 +26,14 @@ def _settings(tmp_path: Path, overlap: str) -> Settings:
     return Settings(_env_file=None, config_dir=cfg, data_dir=tmp_path / "data")
 
 
-def test_repo_config_has_all_switches_off():
+def test_repo_config_switches_match_decision():
+    """운영 설정의 스위치 = 결정 상태. 2026-11-09 저녁 사용자 결정으로 idf_weighting 만 켬
+    (docs/eval-2026-11-09-compare.md, ADR 0059) — facets 보류, synonyms 는 검토표 확인 전 금지."""
     s = Settings(_env_file=None, config_dir=ROOT / "config")
-    assert load_overlap_switches(s) == OFF
+    sw = load_overlap_switches(s)
+    assert sw.idf_weighting is True
+    assert sw.facets is False and sw.synonyms is False
+    assert OFF.idf_weighting is False  # 기본값 자체는 그대로 off
     assert idf_weighting_rule(s).min_weight_ratio == 1.0
     assert facets_config(s)["local_stage"] == "clarify"
     assert data_location(s, "idf_cache").name == "idf.json"
