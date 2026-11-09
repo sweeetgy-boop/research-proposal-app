@@ -17,11 +17,14 @@ from typing import Any
 import yaml
 
 from rra.domain.models import StrategyCatalog
+from rra.domain.rules.idf import IdfWeightingRule
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.lint import LintRules
 from rra.domain.rules.overlap import OwnUnit
+from rra.domain.rules.overlap_switches import OverlapSwitches
 from rra.domain.rules.relevance import RelevanceFloor
 from rra.domain.rules.source_ip import IpPolicy
+from rra.domain.rules.synonyms import SynonymConfig
 from rra.domain.rules.writer import on_off, parse_writer
 from rra.settings import Settings
 
@@ -316,6 +319,12 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         lambda s: _live_search_raw(s),
         "cache_dir",
         "data/cache/live_search",
+    ),
+    # 말뭉치 IDF 표 (ADR 0059, `rra db idf` 가 쓰고 스위치 idf_weighting 일 때 ② 판정이 읽는다)
+    "idf_cache": (
+        lambda s: read_config("overlap.yaml", s).get("idf_weighting") or {},
+        "cache",
+        "data/cache/idf.json",
     ),
 }
 DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
@@ -837,6 +846,62 @@ def relevance_floor(settings: Settings) -> RelevanceFloor:
     if mix is not None and "min_per_source" in mix:
         values["min_per_source"] = mix["min_per_source"]
     return RelevanceFloor.model_validate(values)
+
+
+def load_overlap_switches(settings: Settings) -> OverlapSwitches:
+    """유사과제 고도화 1단계 기능 스위치 (config/overlap.yaml `facets`·`idf_weighting`·`synonyms` 의
+    `enabled`, ADR 0059). 절이 없거나 enabled 가 없으면 false."""
+    cfg = read_config("overlap.yaml", settings)
+    values: dict[str, bool] = {}
+    for key in ("facets", "idf_weighting", "synonyms"):
+        section = cfg.get(key) or {}
+        if not isinstance(section, dict):
+            raise ValueError(f"overlap.yaml {key} 는 매핑이어야 합니다.")
+        values[key] = bool(section.get("enabled", False))
+    return OverlapSwitches(**values)
+
+
+def idf_weighting_rule(settings: Settings) -> IdfWeightingRule:
+    """config/overlap.yaml `idf_weighting` 절의 값(enabled·cache 제외). 없으면 도메인 기본값."""
+    cfg = read_config("overlap.yaml", settings).get("idf_weighting") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError("overlap.yaml idf_weighting 은 매핑이어야 합니다.")
+    keys = ("min_weight_ratio", "min_doc_freq", "max_terms")
+    return IdfWeightingRule.model_validate({k: cfg[k] for k in keys if k in cfg})
+
+
+def synonym_config(settings: Settings) -> SynonymConfig:
+    """config/overlap.yaml `synonyms` 절의 선별 값(enabled·candidates 제외)."""
+    cfg = read_config("overlap.yaml", settings).get("synonyms") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError("overlap.yaml synonyms 는 매핑이어야 합니다.")
+    keys = ("min_doc_freq", "min_cooccur", "min_contain_extra")
+    return SynonymConfig.model_validate({k: cfg[k] for k in keys if k in cfg})
+
+
+def synonym_groups(settings: Settings) -> list[list[str]]:
+    """`synonyms.candidates` 구역의 묶음(검토 전 후보) — 질의 확장용 [대표어, 구성원…]. 스위치가
+    꺼져
+    있으면 어디서도 쓰지 않는다."""
+    cfg = read_config("overlap.yaml", settings).get("synonyms") or {}
+    out: list[list[str]] = []
+    for item in (cfg.get("candidates") if isinstance(cfg, dict) else None) or []:
+        if not isinstance(item, dict):
+            continue
+        terms = [str(t) for t in (item.get("terms") or []) if t]
+        canonical = str(item.get("canonical") or "")
+        group = [canonical, *terms] if canonical else terms
+        if len(group) >= 2:
+            out.append(list(dict.fromkeys(group)))
+    return out
+
+
+def facets_config(settings: Settings) -> dict[str, Any]:
+    """config/overlap.yaml `facets` 절의 값 — local_stage(분해에 쓰는 로컬 단계, 기본 clarify)."""
+    cfg = read_config("overlap.yaml", settings).get("facets") or {}
+    if not isinstance(cfg, dict):
+        raise ValueError("overlap.yaml facets 는 매핑이어야 합니다.")
+    return {"local_stage": str(cfg.get("local_stage") or "clarify")}
 
 
 def overlap_candidates(settings: Settings):

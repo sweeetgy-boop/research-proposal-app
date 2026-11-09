@@ -584,6 +584,95 @@ def build_extract_facts(
     return ExtractTableFacts(table_source, repo, repo)
 
 
+def build_idf(settings: Settings | None = None, *, repo=None):
+    """`rra db idf` — 말뭉치 IDF 표 만들기 (ADR 0059). (유스케이스, 캐시 경로). DB 는 읽기만."""
+    from rra.adapters.terms import JsonIdfCache
+    from rra.application.usecases.build_idf import BuildIdf
+    from rra.config_loader import idf_weighting_rule
+
+    settings = settings or load_settings()
+    if repo is None:
+        repo = build_repository(build_embedding(settings), settings)
+    path = data_location(settings, "idf_cache")
+    return BuildIdf(repo, JsonIdfCache(path), rule=idf_weighting_rule(settings)), path
+
+
+def build_idf_weights(settings: Settings | None = None):
+    """캐시된 IDF 표 (없으면 None = 가중 없음). 스위치 idf_weighting 일 때만 precheck 에 넘긴다."""
+    from rra.adapters.terms import JsonIdfCache
+    from rra.application.usecases.build_idf import load_idf
+
+    settings = settings or load_settings()
+    return load_idf(JsonIdfCache(data_location(settings, "idf_cache")))
+
+
+def build_terms_review(
+    settings: Settings | None = None,
+    *,
+    review_path: str | Path | None = None,
+    candidates_dir: str | Path | None = None,
+):
+    """`rra terms review` — 후보 yaml 두 개 → 검토표 + overlap.yaml synonyms.candidates 구역
+    (ADR 0059).
+    스위치 `synonyms.enabled` 는 건드리지 않는다."""
+    from rra.adapters.terms import TermsReviewFiles, YamlTermCandidatesReader
+    from rra.application.usecases.terms_review import TermsReview
+    from rra.config_loader import synonym_config
+
+    settings = settings or load_settings()
+    config_dir = Path(settings.config_dir)
+    out = Path(review_path) if review_path else Path("docs") / "review" / "terms-review.md"
+    return TermsReview(
+        YamlTermCandidatesReader(Path(candidates_dir) if candidates_dir else config_dir),
+        TermsReviewFiles(out, config_dir / "overlap.yaml"),
+        keyword_rule(settings),
+        config=synonym_config(settings),
+    )
+
+
+def build_facet_splitter(settings: Settings | None = None, *, local_llm=None, local_slot=None):
+    """② 4축 분해(FacetSplitter, ADR 0059) — 로컬 모델(overlap.yaml facets.local_stage, 기본
+    clarify)
+    우선, 없으면 규칙만. Argon 은 쓰지 않는다. local_llm 을 주면(테스트) 그것을 로컬 자리로."""
+    from rra.application.usecases.facet_split import FacetSplitter
+    from rra.config_loader import facets_config
+
+    settings = settings or load_settings()
+    local = local_llm
+    if local is None:
+        stage = facets_config(settings)["local_stage"]
+        try:
+            local = build_llm(settings, stage=stage)
+        except (LLMUnavailable, KeyError, ValueError):
+            local = None
+    return FacetSplitter(local=local, keyword_rule=keyword_rule(settings), local_slot=local_slot)
+
+
+def apply_overlap_switches(
+    precheck, settings: Settings | None = None, *, local_llm=None, local_slot=None, switches=None
+):
+    """스위치(overlap.yaml facets·idf_weighting·synonyms, ADR 0059)를 이미 만든 PrecheckOverlap 에
+    붙인다. 모두 false(기본)면 아무것도 바꾸지 않는다. build_api 는 통합 때
+    `precheck = apply_overlap_switches(
+    precheck, settings, local_slot=slot)` 한 줄을 붙인다(PR 본문). 측정 도구는 switches 를 직접
+    준다."""
+    from rra.config_loader import idf_weighting_rule, load_overlap_switches
+
+    settings = settings or load_settings()
+    sw = switches or load_overlap_switches(settings)
+    precheck.switches = sw
+    if sw.facets:
+        precheck.facet_split = build_facet_splitter(
+            settings, local_llm=local_llm, local_slot=local_slot
+        )
+        if getattr(precheck, "same_judge", None) is not None:
+            precheck.same_judge.facets = True
+    if sw.idf_weighting:
+        precheck.idf = build_idf_weights(settings)
+        precheck.idf_rule = idf_weighting_rule(settings)
+    return precheck
+
+
 def build_term_candidates(settings: Settings | None = None, *, repo=None):
     """용어 후보 유스케이스 + YAML 쓰기 함수. 후보 파일만 적는다 (overlap.yaml 은 건드리지
     않는다)."""

@@ -17,6 +17,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from rra.domain.models import OverlapAlert
+from rra.domain.models.facets import FacetOverlap
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.trust import escape_untrusted, normalize_evidence_id
@@ -87,31 +88,51 @@ def parse_verdicts(
     return out or None
 
 
+def parse_facet_overlaps(
+    data: Mapping[str, Any] | None, allowed_ids: Sequence[str]
+) -> dict[str, FacetOverlap]:
+    """LLM JSON items[].facet_overlap → {doc_id: FacetOverlap} (ADR 0059, 스위치 facets 일 때만).
+    선택 항목이라 없거나 형식이 틀려도 판정은 실패가 아니다 — 범위 밖 값은 0(from_mapping)."""
+    if not isinstance(data, Mapping) or not isinstance(data.get("items"), list):
+        return {}
+    allowed = set(allowed_ids)
+    out: dict[str, FacetOverlap] = {}
+    for raw in data["items"][: len(allowed) * 2]:
+        if not isinstance(raw, Mapping):
+            continue
+        doc_id = normalize_evidence_id(str(raw.get("doc_id", "")))
+        fo = raw.get("facet_overlap")
+        if doc_id in allowed and doc_id not in out and isinstance(fo, Mapping):
+            out[doc_id] = FacetOverlap.from_mapping(fo)
+    return out
+
+
 def apply_verdicts(
     alerts: Sequence[OverlapAlert],
     verdicts: Mapping[str, tuple[str, str]],
     judged_ids: Sequence[str],
     judged_by: str,
+    facet_overlaps: Mapping[str, FacetOverlap] | None = None,
 ) -> list[OverlapAlert]:
     """판정을 행에 붙인다. 판정한 행: same 만 차단. 보낸 후보인데 빠진 행: 규칙 판정 그대로.
-    보내지 않은 행(상위 밖): 차단하지 않는다 — AI 가 본 상위 후보보다 낮은 순위다."""
+    보내지 않은 행(상위 밖): 차단하지 않는다 — AI 가 본 상위 후보보다 낮은 순위다.
+    facet_overlaps(ADR 0059)가 있으면 그 행에 축별 겹침을 붙인다 — 차단에는 영향 없음."""
     sent = set(judged_ids)
     out: list[OverlapAlert] = []
     for a in alerts:
         rule = a.rule_blocking if a.rule_blocking is not None else a.blocking
         if a.doc_id in verdicts:
             verdict, reason = verdicts[a.doc_id]
-            out.append(
-                a.model_copy(
-                    update={
-                        "judgment": verdict,
-                        "judgment_reason": reason,
-                        "judged_by": judged_by,
-                        "blocking": verdict == "same",
-                        "rule_blocking": rule,
-                    }
-                )
-            )
+            update: dict[str, Any] = {
+                "judgment": verdict,
+                "judgment_reason": reason,
+                "judged_by": judged_by,
+                "blocking": verdict == "same",
+                "rule_blocking": rule,
+            }
+            if facet_overlaps and a.doc_id in facet_overlaps:
+                update["facet_overlap"] = facet_overlaps[a.doc_id]
+            out.append(a.model_copy(update=update))
         elif a.doc_id in sent:
             out.append(
                 a.model_copy(
