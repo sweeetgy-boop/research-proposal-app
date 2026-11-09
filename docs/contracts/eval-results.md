@@ -37,7 +37,8 @@
 - 생성기: `usecases/eval_problems.py`(새) — seed 로 DB 에서 뽑는다. 매 실행 새 seed(기본 오늘 날짜 숫자).
 - **시험용 봉인 묶음**: seed 고정(`config/eval.yaml sealed_seed`), 파일 `data/eval/sealed/<suite>.jsonl` 권한 600, `.gitignore`.
   개선 작업(레인 E·A) 중에는 열지 않는다 — `rra eval run --sealed` 만 읽고, 결과에는 수치만(`sealed: true`). 문서 `docs/eval-protocol.md` 에 명시.
-- **연습용 묶음**: `data/eval/practice/<suite>-<seed>.jsonl`, 자유롭게 본다.
+- **연습용 묶음**: `data/eval/practice/<suite>-<seed>.jsonl`, 자유롭게 본다. **스위치를 켤지 판단하는 비교(가·나·다)는 연습용 묶음으로 한다**
+  (2026-11-09 사용자 조정). 봉인 묶음은 판단이 끝난 뒤 최종 확인(보고서용 수치)에 **한 번만** 쓴다.
 - `test: true` 줄(시험 계정)은 실사용 기록 지표에서 뺀다. 실사용 기록 지표(`similar_choices.jsonl` source=user 의 AI 판정 일치율,
   `recommend_metrics.jsonl` 의 채택률·갈래별)는 `rra eval usage` 로 따로 내고 `EvalResult.notes` 가 아닌 별도 JSON(`eval/results/<날짜>-usage.json`)에 쓴다.
 

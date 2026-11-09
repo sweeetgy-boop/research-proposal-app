@@ -73,10 +73,11 @@ export const clarify = (req: ProposalRequest) =>
   request<ClarifyOut>(`${V}/precheck/clarify`, { method: "POST", body: req });
 export const recommend = (req: ProposalRequest) =>
   request<PrecheckOut>(`${V}/precheck/recommendations`, { method: "POST", body: req });
-export const applyRecommendation = (id: string, index: number) =>
+/** 고른 과제안의 미리보기 — `req`(지금 선택)를 함께 보내면 서버가 세션의 갈래와 대조해 바뀌었으면 409 code=mode_changed */
+export const applyRecommendation = (id: string, index: number, req?: ProposalRequest) =>
   request<RecommendationPreview>(`${V}/precheck/recommendations/${enc(id)}/apply`, {
     method: "POST",
-    body: { index },
+    body: req ? { index, request: req } : { index },
   });
 export const differentiate = (req: ProposalRequest) =>
   request<PrecheckOut>(`${V}/precheck/differentiate`, { method: "POST", body: req });
