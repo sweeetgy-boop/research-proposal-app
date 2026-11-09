@@ -201,3 +201,13 @@ candidates:
       - {source: kipris_kr}
       - {source: kipris_intl}
       - {source: ntis, doc_types: [report]}
+
+# ── 유사과제 고도화 1단계 기능 스위치 (2026-11-09, ADR 0059, 계약 docs/contracts/overlap-facets.md) ──
+# 절 이름과 enabled 키는 계약(0단계). 기본 모두 false — false 면 결과는 지금과 같다(회귀 시험). 운영에서 켜는 조건은
+# L1 비교 평가(ADR 0058)에서 recall_at5 가 떨어지지 않고 false_block 이 늘지 않음 + 동의어는 사람이 검토표 확인 뒤.
+facets:
+  enabled: false        # 4축(target·problem·method·place) 분해 → 축별 질의 RRF 합침 + 판정 출력 facet_overlap
+idf_weighting:
+  enabled: false        # 핵심어 겹침에 말뭉치 IDF 가중 (data/cache/idf.json, 적재·재색인 때 계산)
+synonyms:
+  enabled: false        # 동의어 확장 — docs/review/terms-review.md 사람 검토 전에는 켜지 않는다

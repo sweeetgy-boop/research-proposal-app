@@ -42,11 +42,18 @@ export type SessionIn =
 /** Argon(Gemini) 연결 상태 — 마지막 호출 결과 (ADR 0055). unknown = 기록 없음 */
 export type ArgonState = "ok" | "key_invalid" | "quota" | "unavailable" | "unknown";
 
-/** GET /healthz — 배포된 버전(커밋·시각)·Argon 연결 상태(열거값·시각만). 인증 없음, 화면 하단·위 알림 띠 */
+/** 로컬 모델(mlx) 상태 — 마지막 점검 결과 (계약 docs/contracts/healthz-status.md). unknown = 기록 없음 */
+export type LocalLlmState = "ok" | "unavailable" | "unknown";
+/** 외부 접속 경로(Tailscale Funnel) 상태 — 값만, 경로·IP 없음 */
+export type TunnelState = "ok" | "down" | "unknown";
+
+/** GET /healthz — 배포된 버전(커밋·시각)·Argon 연결 상태(열거값·시각만)·운영 상태(tunnel·llm.local, 2026-11-09 계약).
+ *  인증 없음, 화면 하단·위 알림 띠. 새 칸은 모두 선택 — 없으면 unknown 으로 본다 */
 export interface HealthOut {
   status: string;
   version?: { commit: string; short: string; deployed_at: string; prs?: string[]; source?: string };
-  llm?: { gemini: ArgonState; since: string | null };
+  llm?: { gemini: ArgonState; since: string | null; local?: LocalLlmState };
+  tunnel?: TunnelState;
 }
 
 export interface SessionInfo {
