@@ -2488,6 +2488,8 @@ def build_api(
     precheck = build_precheck(
         settings, repo=repo, judge=True, llm=llm, local_slot=slot, keyword_source=live.keywords
     )
+    # ADR 0059 스위치(facets·idf_weighting·synonyms) — 모두 false(기본)면 무변화
+    precheck = apply_overlap_switches(precheck, settings, local_slot=slot)
     pipeline = pipeline_config(settings)
     auth = auth_config(settings)
     guest_services = None
@@ -2585,6 +2587,7 @@ def build_scoped_services(
         local_slot=local_slot,
         keyword_source=keyword_source,
     )
+    precheck = apply_overlap_switches(precheck, settings, local_slot=local_slot)  # ADR 0059
     return {
         "repo": repo,
         "precheck": precheck,

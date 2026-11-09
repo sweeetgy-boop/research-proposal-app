@@ -760,11 +760,33 @@ def cmd_reindex(args: argparse.Namespace) -> int:
     """모든 청크를 설정된 임베딩 모델로 다시 색인 (모델·차원이 바뀌었을 때)."""
     from rra.composition import build_db_maintenance, load_settings
 
-    reindex, _ = build_db_maintenance(load_settings())
+    settings = load_settings()
+    reindex, _ = build_db_maintenance(settings)
     stats = asyncio.run(reindex())
     model = stats["model"] or "-"
     print(f"재색인 완료: 청크 {stats['chunks']:,}개, 차원 {stats['dim']}, 모델 {model}")
+    _refresh_idf(settings)
     return EXIT_OK
+
+
+def _refresh_idf(settings) -> None:
+    """적재·재색인 뒤 말뭉치 IDF 표 갱신 (ADR 0059 §3, 레인 E 제안). 스위치(idf_weighting)가 꺼져
+    있고 표도 없으면 만들지 않는다(`rra db idf` 로 수동). 실패해도 적재 결과를 바꾸지 않는다."""
+    from rra.composition import build_idf
+    from rra.config_loader import data_location, load_overlap_switches
+
+    try:
+        wanted = load_overlap_switches(settings).idf_weighting
+        if not wanted and not data_location(settings, "idf_cache").exists():
+            return
+        usecase, path = build_idf(settings)
+    except Exception:  # noqa: BLE001 — 설정·조립 문제는 조용히 건너뛴다
+        return
+    try:
+        asyncio.run(usecase())
+        print(f"IDF 표 갱신: {path.name}")
+    except Exception as exc:  # noqa: BLE001
+        _eprint(f"IDF 표 갱신 건너뜀: {type(exc).__name__}")
 
 
 def cmd_db_backup(args: argparse.Namespace) -> int:
@@ -1076,6 +1098,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         )
         for w in report.warnings:
             _eprint(_warning_line(w))
+    if not failed:
+        _refresh_idf(settings)
     return EXIT_ERROR if failed else EXIT_OK
 
 
@@ -2571,6 +2595,8 @@ def cmd_ui(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("rra", description="연구과제 제안서 작성 보조")
     sub = parser.add_subparsers(dest="cmd")
+    from rra.entrypoints.cli_overlap import register_db as register_overlap_db
+    from rra.entrypoints.cli_overlap import register_terms as register_overlap_terms
 
     pre = sub.add_parser("precheck", help="제안 5슬롯으로 기수행 과제 중복 사전 점검")
     for slot in SLOTS:
@@ -2763,6 +2789,7 @@ def build_parser() -> argparse.ArgumentParser:
     fb_stats.set_defaults(handler=cmd_feedback)
     db = sub.add_parser("db", help="DB 유지보수")
     db_sub = db.add_subparsers(dest="db_cmd", required=True)
+    register_overlap_db(db_sub)  # rra db idf — 말뭉치 IDF 표 (레인 E, ADR 0059)
     bk = db_sub.add_parser("backup", help="DB 사본 (VACUUM INTO, 권한 600)")
     bk.add_argument("--out", required=True, help="저장 경로 또는 폴더(폴더면 날짜 이름)")
     bk.add_argument("--keep", type=int, default=7, help="같은 폴더에 남길 사본 수 (기본 7)")
@@ -2955,6 +2982,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     terms = sub.add_parser("terms", help="용어 후보 (P2-9): 코퍼스 표본의 철도 용어·흔한 단어 후보")
     terms_sub = terms.add_subparsers(dest="terms_cmd", required=True)
+    register_overlap_terms(terms_sub)  # rra terms review — 동의어 검토표 (레인 E)
     tc = terms_sub.add_parser(
         "candidates", help="config/rail_terms.candidates.yaml·generic_terms.candidates.yaml 쓰기"
     )
