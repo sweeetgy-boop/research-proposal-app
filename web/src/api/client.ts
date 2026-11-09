@@ -36,6 +36,7 @@ async function toProblem(res: Response): Promise<Problem> {
         title: body.title ?? fallback.title,
         status: typeof body.status === "number" ? body.status : res.status,
         detail: typeof body.detail === "string" ? body.detail : fallback.detail,
+        ...(typeof body.code === "string" ? { code: body.code } : {}),
       };
     }
   } catch {
