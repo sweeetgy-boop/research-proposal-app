@@ -3050,6 +3050,42 @@
         }
       }
     },
+    "/v1/precheck/recommendations/stream": {
+      "post": {
+        "summary": "Recommend Stream Route",
+        "operationId": "recommend_stream_route_v1_precheck_recommendations_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/search/docs": {
       "get": {
         "summary": "Search Docs Route",

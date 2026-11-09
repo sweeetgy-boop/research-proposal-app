@@ -79,6 +79,7 @@ from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_rout
 from rra.entrypoints.api.health_view import with_ops
 from rra.entrypoints.api.local_review_routes import register as register_local_review_routes
 from rra.entrypoints.api.progress_routes import register as register_progress_routes
+from rra.entrypoints.api.progress_routes import register_recommend_stream
 from rra.entrypoints.api.recommend_switch import (
     ModeChanged,
     check_mode_unchanged,
@@ -631,9 +632,12 @@ def create_app(
         *,
         similar_only: bool = False,
         core_keywords: list[str] | None = None,
+        progress: Any | None = None,
     ) -> dict[str, Any]:
         svc = _svc(request, "recommend")
         mark = _test_kwargs(request)
+        if progress is not None:  # SSE 진행 콜백 (레인 A, ADR 0060) — 없으면 종전 호출 그대로
+            mark = {**mark, "progress": progress}
         if similar_only:
             extra = {"core_keywords": core_keywords} if core_keywords else {}
             result = await svc(req, alerts, similar_only=True, **extra, **mark)
@@ -955,13 +959,20 @@ def create_app(
         recommendation_id 로 run 에 복사된다 (외부 LLM 출력, 비신뢰)."""
         if recommend is None:
             raise HTTPException(503, "과제 추천을 쓸 수 없습니다 (LLM 없음).")
-        alerts, core = await _current_alerts(request, req)
         try:
-            rec = await cancel_on_disconnect(
-                request, _recommend(request, req, alerts, similar_only=True, core_keywords=core)
-            )
+            return await cancel_on_disconnect(request, _recommend_full(request, req, None))
         except BudgetExhausted as exc:
             raise HTTPException(409, "오늘 외부 AI 호출 한도에 이르렀습니다.") from exc
+
+    async def _recommend_full(
+        request: Request, req: ProposalRequest, progress: Any | None
+    ) -> dict[str, Any]:
+        """과제안 경로 한 벌 — 지금 AI 판정 → 추천(progress 콜백) → 되돌림 행 합치기 → 응답 본문.
+        POST /recommendations 와 SSE /recommendations/stream(레인 A, ADR 0060)이 같이 쓴다."""
+        alerts, core = await _current_alerts(request, req)
+        rec = await _recommend(
+            request, req, alerts, similar_only=True, core_keywords=core, progress=progress
+        )
         rec, alerts = _with_novelty_rows(rec, list(alerts))
         return {
             "notice": UNTRUSTED_NOTICE,
@@ -1733,6 +1744,11 @@ def create_app(
     register_progress_routes(  # ADR 0045 작성 중 섹션 먼저 보기
         app, api_version=API_VERSION, manager=manager, own=_own, clean=_clean
     )
+    if recommend is not None:  # ADR 0060 과제안 SSE — 다른 분야 사례 먼저, 과제안은 이어서
+        # LLM 없는 조립(시험·가짜 없음)에서는 등록하지 않는다 — 시험이 같은 경로를 직접 등록한다
+        register_recommend_stream(
+            app, api_version=API_VERSION, recommend_full=_recommend_full, clean=_clean
+        )
     register_search_routes(  # [UI] 통합 검색 "자료" 묶음·자료 검색 화면 (공용 계정은 internal 제외)
         app,
         api_version=API_VERSION,
