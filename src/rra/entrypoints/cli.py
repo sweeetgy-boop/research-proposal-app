@@ -2599,10 +2599,10 @@ def cmd_ui(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("rra", description="연구과제 제안서 작성 보조")
     sub = parser.add_subparsers(dest="cmd")
-    from rra.entrypoints.cli_overlap import register_db as register_overlap_db
-    from rra.entrypoints.cli_overlap import register_terms as register_overlap_terms
     from rra.entrypoints.cli_eval import register as register_eval
     from rra.entrypoints.cli_ops import register as register_ops
+    from rra.entrypoints.cli_overlap import register_db as register_overlap_db
+    from rra.entrypoints.cli_overlap import register_terms as register_overlap_terms
 
     register_ops(sub)  # rra ops check — 터널·로컬 모델 상태 점검 (레인 C, ADR 0062)
 
