@@ -15,3 +15,8 @@ trust_cf_connecting_ip: false
 #   Funnel 뒤에서는 모든 외부 접속이 127.0.0.1 로 보여, 이것 없이는 접속자를 구분할 수 없다(2026-10-28 접속 장애).
 #   접속자 IP 를 끝내 모르면(루프백·빈 값) 로그인 IP 별 잠금은 걸지 않는다 — 계정별 잠금·전체 지연은 그대로.
 trust_forwarded_from_loopback: true
+
+# 운영 점검(`rra ops check`, com.rra.opscheck) 의 tailscale 명령 경로 (2026-11-09). GUI 앱 안의 바이너리는 launchd 환경에서
+# "The Tailscale GUI failed to start" 로 실패해 tunnel 이 늘 unknown 이었다 — /usr/local/bin 의 래퍼(sh 경유)는 최소 환경에서도 응답한다.
+ops:
+  tailscale_bin: /usr/local/bin/tailscale
