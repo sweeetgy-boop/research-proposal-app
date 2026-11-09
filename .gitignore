@@ -9,3 +9,4 @@ __pycache__/
 .ruff_cache/
 .import_linter_cache/
 /config/templates/proposal_korail.hwpx
+/eval/results/ci-l0.json

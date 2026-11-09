@@ -75,6 +75,17 @@ launchctl unload -w ~/Library/LaunchAgents/com.rra.awake.plist   # 끄기 (다�
 ```
 Streamlit 화면(`rra ui`, 127.0.0.1:8501)은 시연 때만 손으로 띄운다.
 
+**야간 평가 L1 (`com.rra.eval.plist`, ADR 0058, 2026-11-09)** — 매일 04:30(백업 03:30 뒤) 자동 생성 문제 120건 × 3회를 돌려
+`eval/results/<날짜>-l1-nightly.json`(수치만)을 남긴다. `tools/with_heavy_lock.py` 를 거치므로 적재·재색인과 겹치지 않고,
+Gemini 는 `config/eval.yaml daily_llm_calls`(150) 안에서만 — 카운터는 운영 예산(`llm.yaml budget`, 600)과 다른 파일이다.
+통합 전에는 `python -m rra.entrypoints.cli_eval`, 통합 뒤에는 `rra eval run --suite l1` 과 같다. 절차·봉인 묶음 규칙은 `docs/eval-protocol.md`.
+```bash
+cp deploy/launchd/com.rra.eval.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.eval.plist
+launchctl list | grep com.rra.eval          # 등록 확인
+tail -n 20 ~/Library/Logs/rra-eval.log      # 다음 날 아침 결과 한 줄·저장 경로
+launchctl unload -w ~/Library/LaunchAgents/com.rra.eval.plist   # 끄기
+```
+
 ## 3. 점검 명령
 
 ```bash
