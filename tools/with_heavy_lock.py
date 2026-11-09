@@ -1,5 +1,5 @@
-"""무거운 작업 대기열 — 프로세스 간 파일 락(runs/.heavy.lock, FlockSlot 방식)으로 한 번에 하나만
-돌린다.
+"""무거운 작업 대기열 — 프로세스 간 파일 락(원 저장소 runs/.heavy.lock, FlockSlot 방식)으로 한 번에
+하나만 돌린다. worktree 에서 돌려도 같은 잠금 파일을 쓴다(git 공용 디렉터리 기준).
 
 사용: .venv/bin/python tools/with_heavy_lock.py [--wait-log 경로] -- <명령…>
 mlx 서버 사용(생성·평가·벤치), 임베딩·재색인, 대량 파싱·OCR, 적재, 측정이 대상이다. 락을 기다린
@@ -10,10 +10,28 @@ from __future__ import annotations
 
 import fcntl
 import os
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+
+def _default_lock() -> Path:
+    """기본 잠금 파일 — 원 저장소 `runs/.heavy.lock`. worktree 에서 돌려도 같은 파일을 쓰도록 git
+    공용 디렉터리(`git rev-parse --git-common-dir`)의 부모를 기준으로 한다(2026-11-09: worktree 와
+    원 저장소에서 각각 돌린 평가 두 건이 다른 잠금을 잡아 16분 겹쳐 돈 뒤). git 이 없으면 cwd 기준."""
+    git = shutil.which("git")
+    if git:
+        try:
+            out = subprocess.run(  # noqa: S603 — 고정 인자, 사용자 입력 없음
+                [git, "rev-parse", "--git-common-dir"], capture_output=True, text=True, check=True
+            ).stdout.strip()
+            if out:
+                return (Path(out).resolve().parent / "runs" / ".heavy.lock").resolve()
+        except (OSError, subprocess.CalledProcessError):
+            pass
+    return Path("runs/.heavy.lock")
 
 
 def main(argv: list[str]) -> int:
@@ -25,7 +43,7 @@ def main(argv: list[str]) -> int:
     if not argv:
         print("사용: with_heavy_lock.py [--wait-log 경로] -- <명령…>", file=sys.stderr)
         return 2
-    lock_path = Path(os.environ.get("RRA_HEAVY_LOCK", "runs/.heavy.lock"))
+    lock_path = Path(os.environ.get("RRA_HEAVY_LOCK") or _default_lock())
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     started = time.time()
     with open(lock_path, "a+") as fh:
