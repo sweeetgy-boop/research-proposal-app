@@ -14,7 +14,7 @@ export interface NoveltyUnavailable {
   source: string;
   /** 화면 이름 (예: "NTIS") */
   label: string;
-  /** 열거값: ip_blocked | timeout | error | off | no_key */
+  /** 열거값: ip_blocked | timeout | error | off | no_key | rate_limited(일일 호출 한도) */
   status: string;
   /** 한국어 설명 (예: "서버 IP 등록 필요로 확인 못 함") */
   status_label: string;

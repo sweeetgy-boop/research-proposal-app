@@ -27,3 +27,8 @@ def rate_limit_notice(source: str, *, anonymous: bool = False, key_env: str = ""
     if anonymous:
         return NOTICE_ANONYMOUS_LIMITED.format(source=source, env=key_env or "API 키")
     return NOTICE_RATE_LIMITED.format(source=source)
+
+
+def daily_cap_notice(source_label: str, used: int, cap: int) -> str:
+    """일일 호출 상한 근접 — 이번 세션은 그 자료원만 건너뛴다(다른 자료원은 계속). 숫자만."""
+    return f"{source_label} 오늘 호출 {used}/{cap} — 일일 한도 초과로 이번 검색은 건너뜀"

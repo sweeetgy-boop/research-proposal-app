@@ -583,3 +583,11 @@ async def test_analogy_per_source_floor_brings_in_a_source_crowded_out_of_the_gl
     old = await ProblemAnalogySearch(repo2, settings=AnalogySettings(per_source=0))(_req())
     assert not any(a.source == "kipris_kr" for a in old)
     assert sum(1 for n, _ in repo2.calls if n == "find_similar") == 1
+
+
+def test_unavailable_status_passes_rate_limited_through():
+    from rra.application.usecases.novelty import _unavailable_status
+    from rra.domain.rules.novel_recommendation import coverage_status_label
+
+    assert _unavailable_status("rate_limited", "KIPRIS 오늘 호출 500/500 …") == "rate_limited"
+    assert coverage_status_label("rate_limited") == "일일 호출 한도 초과로 확인 못 함"

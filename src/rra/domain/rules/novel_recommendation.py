@@ -78,6 +78,7 @@ COVERAGE_STATUS_LABELS: dict[str, str] = {
     "error": "오류로 확인 못 함",
     "off": "실시간 검색이 꺼져 있어 확인 못 함",
     "no_key": "이용 키가 없어 확인 못 함",
+    "rate_limited": "일일 호출 한도 초과로 확인 못 함",
 }
 UNKNOWN_COVERAGE_STATUS = "확인 못 함"
 # 계약 3.1 — 실시간 검색을 하지 않았을 때(live=false)의 확인 범위 문구

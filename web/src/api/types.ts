@@ -134,7 +134,7 @@ export interface LocalCheck extends Omit<LocalReviewView, "enabled" | "mismatche
 // ── [4] 실시간 검색 — ② 유사과제 확인 때 외부 자료원을 바로 조회한 요약. 옛 응답에는 없다. ───
 export type LiveSearchStatus = "done" | "partial" | "pending" | "off";
 export type LiveSourceName = "scienceon" | "ntis" | "openalex";
-export type LiveSourceStatus = "ok" | "timeout" | "ip_blocked" | "error" | "off";
+export type LiveSourceStatus = "ok" | "timeout" | "ip_blocked" | "error" | "off" | "rate_limited";
 
 export interface LiveSearchSource {
   source: LiveSourceName | string;
