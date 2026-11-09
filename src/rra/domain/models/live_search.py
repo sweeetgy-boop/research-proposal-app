@@ -12,8 +12,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-LIVE_SOURCES: tuple[str, ...] = ("scienceon", "ntis", "openalex", "kipris_kr")  # kipris_kr 2026-11-09
-LiveSourceName = Literal["scienceon", "ntis", "openalex"]
+# kipris_kr 은 2026-11-09 KIPRIS 키 투입 뒤 추가
+LIVE_SOURCES: tuple[str, ...] = ("scienceon", "ntis", "openalex", "kipris_kr")
+LiveSourceName = Literal["scienceon", "ntis", "openalex", "kipris_kr"]
 # ok=검색 완료(0건 포함), timeout=제한 시간 초과로 건너뜀, ip_blocked=호출 IP 거부(NTIS),
 # error=그 밖의 실패(예외 클래스명만 로그), off=설정에서 끔
 LiveSourceState = Literal["ok", "timeout", "ip_blocked", "error", "off"]
@@ -63,7 +64,10 @@ class LiveSearchConfig(BaseModel):
     max_queries: int = Field(default=3, ge=1, le=MAX_KEYWORDS)
     keywords: LiveKeywordConfig = Field(default_factory=LiveKeywordConfig)
     sources: dict[str, LiveSourceConfig] = Field(
-        default_factory=lambda: {name: LiveSourceConfig() for name in LIVE_SOURCES}
+        # 기본값: 종전 세 자료원 켬, kipris_kr 은 설정 파일이 켤 때만(키 투입 뒤) — 옛 설정과 호환
+        default_factory=lambda: {
+            name: LiveSourceConfig(enabled=name != "kipris_kr") for name in LIVE_SOURCES
+        }
     )
 
     def source(self, name: str) -> LiveSourceConfig:
