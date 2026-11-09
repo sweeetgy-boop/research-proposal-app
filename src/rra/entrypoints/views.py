@@ -1004,47 +1004,71 @@ def _ref_source_label(source: str, doc_id: str) -> str:
     return SOURCE_LABELS.get(source or "", "") or source_label_of(doc_id)
 
 
+def novel_coverage_payload(
+    coverage: Any, *, clean: Callable[[str], str] = _same
+) -> dict[str, Any] | None:
+    """NoveltyCoverage → 계약 5절 `coverage` (None 이면 None)."""
+    if coverage is None:
+        return None
+    return {
+        "searched": list(coverage.searched),
+        "searched_labels": [clean(x) for x in coverage.searched_labels],
+        "live": bool(coverage.live),
+        "unavailable": [
+            {
+                "source": str(u.get("source", "")),
+                "label": SOURCE_LABELS.get(str(u.get("source", "")), "")
+                or str(u.get("source", "")),
+                "status": str(u.get("status", "")),
+                "status_label": coverage_status_label(str(u.get("status", ""))),
+            }
+            for u in coverage.unavailable
+        ],
+        "note": clean(coverage.note),
+    }
+
+
+def novel_analogies_payload(
+    analogies: Any, *, clean: Callable[[str], str] = _same
+) -> list[dict[str, Any]]:
+    """[Analogy] → 계약 5절 `analogies` (제목·분야·이유는 clean)."""
+    return [
+        {
+            "doc_id": a.doc_id,
+            "title": clean(display_title(a.title)),
+            "source": a.source,
+            "source_label": clean(a.source_label) or _ref_source_label(a.source, a.doc_id),
+            "domain_label": clean(a.domain_label),
+            "why_relevant": clean(a.why_relevant),
+            "url": a.url,
+            "year": a.year,
+            "live": bool(a.live),
+        }
+        for a in analogies
+    ]
+
+
+def novel_progress_payload(
+    coverage: Any, analogies: Any, *, clean: Callable[[str], str] = _same
+) -> dict[str, Any]:
+    """과제안 SSE 의 `analogies` 이벤트(2026-11-09) — 과제안보다 먼저 보내는 확인 범위·다른 분야
+    사례. 칸 모양은 최종 novel 응답의 `coverage`·`analogies` 와 같다."""
+    return {
+        "mode": "novel",
+        "coverage": novel_coverage_payload(coverage, clean=clean),
+        "analogies": novel_analogies_payload(analogies, clean=clean),
+    }
+
+
 def novel_recommendations_payload(
     result: Any, *, clean: Callable[[str], str] = _same
 ) -> dict[str, Any]:
     """새 과제 추천(novel) → 계약 5절 모양 (web `types-novel.ts` NovelRecommendations).
     글 칸은 모두 clean(비신뢰). doc_id 는 화면에 보이지 않는다 — 화면은 refs·analogies 제목."""
-    coverage = getattr(result, "coverage", None)
-    cov: dict[str, Any] | None = None
-    if coverage is not None:
-        cov = {
-            "searched": list(coverage.searched),
-            "searched_labels": [clean(x) for x in coverage.searched_labels],
-            "live": bool(coverage.live),
-            "unavailable": [
-                {
-                    "source": str(u.get("source", "")),
-                    "label": SOURCE_LABELS.get(str(u.get("source", "")), "")
-                    or str(u.get("source", "")),
-                    "status": str(u.get("status", "")),
-                    "status_label": coverage_status_label(str(u.get("status", ""))),
-                }
-                for u in coverage.unavailable
-            ],
-            "note": clean(coverage.note),
-        }
     return {
         "mode": "novel",
-        "coverage": cov,
-        "analogies": [
-            {
-                "doc_id": a.doc_id,
-                "title": clean(display_title(a.title)),
-                "source": a.source,
-                "source_label": clean(a.source_label) or _ref_source_label(a.source, a.doc_id),
-                "domain_label": clean(a.domain_label),
-                "why_relevant": clean(a.why_relevant),
-                "url": a.url,
-                "year": a.year,
-                "live": bool(a.live),
-            }
-            for a in result.analogies
-        ],
+        "coverage": novel_coverage_payload(getattr(result, "coverage", None), clean=clean),
+        "analogies": novel_analogies_payload(result.analogies, clean=clean),
         "recommendations": [
             {
                 "index": i,

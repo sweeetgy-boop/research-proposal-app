@@ -1,0 +1,6098 @@
+{
+ "meta": {
+  "count": 40,
+  "query_chars": 40,
+  "recorded": "2026-11-09"
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/W2540323111",
+   "doi": "https://doi.org/10.1186/s40064-016-3559-5",
+   "display_name": "Visual deterrents and physical barriers as non-lethal pigeon control on University of South Africa’s Muckleneuk campus",
+   "publication_date": "2016-10-27",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-0-0"
+     },
+     "institutions": [
+      {
+       "display_name": "University of South Africa"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-0-1"
+     },
+     "institutions": [
+      {
+       "display_name": "Tshwane University of Technology"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-0-2"
+     },
+     "institutions": [
+      {
+       "display_name": "University of South Africa"
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "A": [
+     0
+    ],
+    "study": [
+     1
+    ],
+    "on": [
+     2,
+     7,
+     63,
+     82
+    ],
+    "a": [
+     3,
+     24,
+     58
+    ],
+    "population": [
+     4,
+     34,
+     116
+    ],
+    "of": [
+     5,
+     10,
+     74,
+     123,
+     129,
+     132
+    ],
+    "pigeons": [
+     6
+    ],
+    "the": [
+     8,
+     32,
+     37,
+     43,
+     64,
+     75,
+     83,
+     90,
+     109,
+     114,
+     121,
+     124,
+     130
+    ],
+    "University": [
+     9
+    ],
+    "South": [
+     11
+    ],
+    "Africa's": [
+     12
+    ],
+    "Muckleneuk": [
+     13
+    ],
+    "campus": [
+     14,
+     38,
+     84
+    ],
+    "was": [
+     15,
+     70
+    ],
+    "conducted": [
+     16,
+     22
+    ],
+    "over": [
+     17
+    ],
+    "2": [
+     18
+    ],
+    "years.": [
+     19
+    ],
+    "Counts": [
+     20
+    ],
+    "were": [
+     21,
+     61,
+     93
+    ],
+    "during": [
+     23
+    ],
+    "baseline": [
+     25
+    ],
+    "year": [
+     26,
+     45
+    ],
+    "(March": [
+     27
+    ],
+    "2013-February": [
+     28
+    ],
+    "2014)": [
+     29
+    ],
+    "to": [
+     30,
+     139
+    ],
+    "establish": [
+     31
+    ],
+    "pigeon": [
+     33,
+     80,
+     115,
+     133,
+     145
+    ],
+    "index": [
+     35,
+     81
+    ],
+    "inhabiting": [
+     36
+    ],
+    "buildings,": [
+     39
+    ],
+    "and": [
+     40,
+     57
+    ],
+    "again": [
+     41
+    ],
+    "in": [
+     42,
+     100
+    ],
+    "management": [
+     44,
+     138
+    ],
+    "(August": [
+     46
+    ],
+    "2014-August": [
+     47
+    ],
+    "2015)": [
+     48
+    ],
+    "once": [
+     49,
+     89
+    ],
+    "Eagle": [
+     50
+    ],
+    "Eyes™,": [
+     51
+    ],
+    "Fire": [
+     52
+    ],
+    "(Flash)": [
+     53
+    ],
+    "Flags,": [
+     54
+    ],
+    "bird": [
+     55,
+     106
+    ],
+    "spikes": [
+     56,
+     107
+    ],
+    "combination": [
+     59
+    ],
+    "thereof": [
+     60
+    ],
+    "implemented": [
+     62
+    ],
+    "buildings.": [
+     65
+    ],
+    "An": [
+     66
+    ],
+    "efficacy": [
+     67,
+     101,
+     111,
+     122,
+     131
+    ],
+    "reduction": [
+     68
+    ],
+    "percentage": [
+     69
+    ],
+    "determined": [
+     71
+    ],
+    "for": [
+     72
+    ],
+    "each": [
+     73,
+     103
+    ],
+    "control": [
+     76,
+     91,
+     125,
+     134
+    ],
+    "structures.": [
+     77
+    ],
+    "The": [
+     78
+    ],
+    "total": [
+     79
+    ],
+    "declined": [
+     85
+    ],
+    "by": [
+     86
+    ],
+    "50": [
+     87
+    ],
+    "%": [
+     88
+    ],
+    "structures": [
+     92
+    ],
+    "implemented.": [
+     94
+    ],
+    "Control": [
+     95
+    ],
+    "structures;": [
+     96
+    ],
+    "however,": [
+     97
+    ],
+    "differed": [
+     98
+    ],
+    "markedly": [
+     99
+    ],
+    "from": [
+     102
+    ],
+    "other.": [
+     104
+    ],
+    "Whilst": [
+     105
+    ],
+    "indicated": [
+     108
+    ],
+    "highest": [
+     110
+    ],
+    "at": [
+     112
+    ],
+    "reducing": [
+     113,
+     144
+    ],
+    "index,": [
+     117
+    ],
+    "seasonality": [
+     118
+    ],
+    "also": [
+     119
+    ],
+    "influenced": [
+     120
+    ],
+    "structure.": [
+     126
+    ],
+    "Quantified": [
+     127
+    ],
+    "understanding": [
+     128
+    ],
+    "measures": [
+     135
+    ],
+    "allows": [
+     136
+    ],
+    "urban": [
+     137
+    ],
+    "make": [
+     140
+    ],
+    "informed": [
+     141
+    ],
+    "decisions": [
+     142
+    ],
+    "about": [
+     143
+    ],
+    "populations.": [
+     146
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.1186/s40064-016-3559-5",
+    "doi": "https://doi.org/10.1186/s40064-016-3559-5",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.1186/s40064-016-3559-5",
+    "pdf_url": "https://springerplus.springeropen.com/track/pdf/10.1186/s40064-016-3559-5",
+    "source": {
+     "id": "https://openalex.org/S2531072874",
+     "display_name": "SpringerPlus",
+     "issn_l": "2193-1801",
+     "issn": [
+      "2193-1801"
+     ],
+     "is_oa": true,
+     "is_in_doaj": false,
+     "is_core": true,
+     "listed_in": [
+      "cwts-core",
+      "jufo-1",
+      "poland-40",
+      "vabb-shw"
+     ],
+     "host_organization": "https://openalex.org/P4310319972",
+     "host_organization_name": "Springer International Publishing",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310319972",
+      "https://openalex.org/P4310319965"
+     ],
+     "host_organization_lineage_names": [
+      "Springer International Publishing",
+      "Springer Nature"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "SpringerPlus",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W2997972703",
+   "doi": "https://doi.org/10.5070/v42811040",
+   "display_name": "A Review of Bird Deterrents Used in Agriculture",
+   "publication_date": "2018-01-01",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-1-0"
+     },
+     "institutions": [
+      {
+       "display_name": "University of Arizona"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-1-1"
+     },
+     "institutions": [
+      {
+       "display_name": "California State University, Sacramento"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-1-2"
+     },
+     "institutions": [
+      {
+       "display_name": "Université Bretagne Loire"
+      },
+      {
+       "display_name": "Oniris"
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "Animal": [
+     0
+    ],
+    "intrusion": [
+     1
+    ],
+    "causes": [
+     2
+    ],
+    "significant": [
+     3
+    ],
+    "agricultural": [
+     4,
+     48,
+     95,
+     121
+    ],
+    "losses": [
+     5
+    ],
+    "each": [
+     6
+    ],
+    "year.": [
+     7
+    ],
+    "Wild": [
+     8
+    ],
+    "and": [
+     9,
+     16,
+     19,
+     61,
+     123
+    ],
+    "domestic": [
+     10
+    ],
+    "animals": [
+     11,
+     43
+    ],
+    "destroy": [
+     12
+    ],
+    "crops": [
+     13
+    ],
+    "by": [
+     14
+    ],
+    "eating": [
+     15
+    ],
+    "trampling": [
+     17
+    ],
+    "them,": [
+     18,
+     56
+    ],
+    "can": [
+     20,
+     165
+    ],
+    "pose": [
+     21
+    ],
+    "food": [
+     22
+    ],
+    "safety": [
+     23
+    ],
+    "risks": [
+     24
+    ],
+    "due": [
+     25
+    ],
+    "to": [
+     26,
+     44,
+     54,
+     90,
+     140,
+     168
+    ],
+    "the": [
+     27,
+     34,
+     40,
+     72,
+     79,
+     142,
+     170
+    ],
+    "deposition": [
+     28
+    ],
+    "of": [
+     29,
+     39,
+     47,
+     66,
+     71,
+     111,
+     144,
+     172
+    ],
+    "feces": [
+     30
+    ],
+    "on": [
+     31
+    ],
+    "or": [
+     32
+    ],
+    "near": [
+     33
+    ],
+    "crops.": [
+     35
+    ],
+    "Birds": [
+     36
+    ],
+    "are": [
+     37,
+     99,
+     116
+    ],
+    "one": [
+     38
+    ],
+    "most": [
+     41,
+     145,
+     161
+    ],
+    "challenging": [
+     42
+    ],
+    "keep": [
+     45
+    ],
+    "out": [
+     46
+    ],
+    "fields.": [
+     49
+    ],
+    "Growers": [
+     50
+    ],
+    "try": [
+     51
+    ],
+    "countless": [
+     52
+    ],
+    "methods": [
+     53,
+     68,
+     114
+    ],
+    "deter": [
+     55,
+     91
+    ],
+    "including": [
+     57,
+     104
+    ],
+    "visual,": [
+     58
+    ],
+    "auditory,": [
+     59
+    ],
+    "tactile,": [
+     60
+    ],
+    "olfactory": [
+     62
+    ],
+    "means.": [
+     63
+    ],
+    "While": [
+     64
+    ],
+    "some": [
+     65,
+     70
+    ],
+    "these": [
+     67
+    ],
+    "work": [
+     69
+    ],
+    "time,": [
+     73
+    ],
+    "none": [
+     74
+    ],
+    "provide": [
+     75,
+     107
+    ],
+    "stand-alone": [
+     76
+    ],
+    "protection": [
+     77
+    ],
+    "all": [
+     78
+    ],
+    "time.": [
+     80
+    ],
+    "Recently": [
+     81
+    ],
+    "there": [
+     82
+    ],
+    "has": [
+     83
+    ],
+    "been": [
+     84,
+     138
+    ],
+    "interest": [
+     85
+    ],
+    "in": [
+     86,
+     94,
+     118,
+     120
+    ],
+    "developing": [
+     87
+    ],
+    "technology-based": [
+     88
+    ],
+    "solutions": [
+     89
+    ],
+    "nuisance": [
+     92
+    ],
+    "birds": [
+     93
+    ],
+    "settings,": [
+     96,
+     122
+    ],
+    "while": [
+     97
+    ],
+    "others": [
+     98
+    ],
+    "exploring": [
+     100
+    ],
+    "more": [
+     101
+    ],
+    "natural": [
+     102
+    ],
+    "methods,": [
+     103
+    ],
+    "falconry.": [
+     105
+    ],
+    "We": [
+     106,
+     129
+    ],
+    "a": [
+     108,
+     150
+    ],
+    "general": [
+     109
+    ],
+    "overview": [
+     110
+    ],
+    "bird": [
+     112,
+     146
+    ],
+    "deterrent": [
+     113,
+     147
+    ],
+    "that": [
+     115,
+     131
+    ],
+    "currently": [
+     117
+    ],
+    "use": [
+     119
+    ],
+    "explore": [
+     124
+    ],
+    "options": [
+     125
+    ],
+    "for": [
+     126
+    ],
+    "novel": [
+     127
+    ],
+    "methods.": [
+     128,
+     148
+    ],
+    "found": [
+     130
+    ],
+    "very": [
+     132
+    ],
+    "few": [
+     133
+    ],
+    "independent": [
+     134
+    ],
+    "scientific": [
+     135
+    ],
+    "studies": [
+     136
+    ],
+    "have": [
+     137
+    ],
+    "conducted": [
+     139
+    ],
+    "assess": [
+     141
+    ],
+    "efficacy": [
+     143
+    ],
+    "Ultimately,": [
+     149
+    ],
+    "multi-tiered": [
+     151
+    ],
+    "approach": [
+     152
+    ],
+    "using": [
+     153
+    ],
+    "integrated": [
+     154
+    ],
+    "pest": [
+     155
+    ],
+    "management": [
+     156
+    ],
+    "techniques": [
+     157
+    ],
+    "will": [
+     158
+    ],
+    "likely": [
+     159
+    ],
+    "be": [
+     160,
+     166
+    ],
+    "useful": [
+     162
+    ],
+    "as": [
+     163
+    ],
+    "it": [
+     164
+    ],
+    "tailored": [
+     167
+    ],
+    "meet": [
+     169
+    ],
+    "needs": [
+     171
+    ],
+    "individual": [
+     173
+    ],
+    "farmers.": [
+     174
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.5070/v42811040",
+    "doi": "https://doi.org/10.5070/v42811040",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.5070/v42811040",
+    "pdf_url": null,
+    "source": {
+     "id": "https://openalex.org/S4306524349",
+     "display_name": "Proceedings - Vertebrate Pest Conference",
+     "issn_l": "0507-6773",
+     "issn": [
+      "0507-6773",
+      "2641-273X"
+     ],
+     "is_oa": true,
+     "is_in_doaj": false,
+     "is_core": false,
+     "listed_in": [],
+     "host_organization": null,
+     "host_organization_name": null,
+     "host_organization_lineage": [],
+     "host_organization_lineage_names": [],
+     "type": "conference"
+    },
+    "license": null,
+    "license_id": null,
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Proceedings of the Vertebrate Pest Conference",
+    "raw_type": "journal-article"
+   },
+   "type": "conference-paper"
+  },
+  {
+   "id": "https://openalex.org/W2606176636",
+   "doi": null,
+   "display_name": "Strategic interdisciplinary approach for non-lethal pigeon control on the University of South Africa's Mukleneuk campus",
+   "publication_date": "2016-08-01",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-2-0"
+     },
+     "institutions": []
+    }
+   ],
+   "abstract_inverted_index": {
+    "Often": [
+     0
+    ],
+    "perceived": [
+     1,
+     41
+    ],
+    "as": [
+     2,
+     102,
+     409
+    ],
+    "pests,": [
+     3
+    ],
+    "pigeon": [
+     4,
+     42,
+     197,
+     268,
+     280,
+     303
+    ],
+    "control": [
+     5,
+     52,
+     140,
+     188,
+     274
+    ],
+    "is": [
+     6
+    ],
+    "applied": [
+     7
+    ],
+    "without": [
+     8,
+     376
+    ],
+    "investigating": [
+     9
+    ],
+    "environmental,": [
+     10
+    ],
+    "ecological": [
+     11
+    ],
+    "and": [
+     12,
+     19,
+     38,
+     49,
+     64,
+     95,
+     109,
+     169,
+     182,
+     211,
+     216,
+     267,
+     306,
+     315,
+     341,
+     362,
+     367
+    ],
+    "anthropogenic": [
+     13
+    ],
+    "factors": [
+     14
+    ],
+    "which": [
+     15,
+     393
+    ],
+    "affect": [
+     16
+    ],
+    "their": [
+     17,
+     118,
+     128
+    ],
+    "populations": [
+     18
+    ],
+    "response": [
+     20
+    ],
+    "to": [
+     21,
+     36,
+     117,
+     131,
+     214,
+     222,
+     246,
+     322,
+     355,
+     388,
+     396,
+     431
+    ],
+    "controls.": [
+     22
+    ],
+    "Estate": [
+     23
+    ],
+    "Management": [
+     24
+    ],
+    "of": [
+     25,
+     28,
+     53,
+     98,
+     111,
+     226,
+     313,
+     339,
+     344,
+     360
+    ],
+    "the": [
+     26,
+     47,
+     54,
+     76,
+     83,
+     93,
+     106,
+     125,
+     143,
+     162,
+     183,
+     196,
+     206,
+     254,
+     273,
+     278,
+     283,
+     297,
+     302,
+     342,
+     348,
+     357,
+     365,
+     371,
+     383,
+     389,
+     400,
+     413,
+     432
+    ],
+    "University": [
+     27
+    ],
+    "South": [
+     29
+    ],
+    "Africa’s": [
+     30
+    ],
+    "Muckleneuk": [
+     31
+    ],
+    "campus": [
+     32,
+     164,
+     284
+    ],
+    "identified": [
+     33
+    ],
+    "a": [
+     34,
+     40,
+     77,
+     133,
+     260
+    ],
+    "need": [
+     35
+    ],
+    "investigate": [
+     37
+    ],
+    "address": [
+     39
+    ],
+    "problem.": [
+     43,
+     134
+    ],
+    "\\nStaff": [
+     44
+    ],
+    "perceptions": [
+     45
+    ],
+    "regarding": [
+     46
+    ],
+    "presence": [
+     48
+    ],
+    "attitude": [
+     50
+    ],
+    "towards": [
+     51,
+     82
+    ],
+    "pigeons": [
+     55,
+     84,
+     99,
+     126,
+     220,
+     345,
+     410
+    ],
+    "was": [
+     56,
+     70,
+     73,
+     85,
+     136,
+     186,
+     270,
+     330,
+     334,
+     405
+    ],
+    "undertaken": [
+     57
+    ],
+    "through": [
+     58,
+     150
+    ],
+    "an": [
+     59,
+     316,
+     335,
+     426
+    ],
+    "online": [
+     60
+    ],
+    "Survey": [
+     61
+    ],
+    "Monkey": [
+     62
+    ],
+    "questionnaire": [
+     63
+    ],
+    "semi-": [
+     65
+    ],
+    "structured": [
+     66
+    ],
+    "interviews": [
+     67
+    ],
+    "until": [
+     68
+    ],
+    "saturation": [
+     69
+    ],
+    "achieved.": [
+     71
+    ],
+    "It": [
+     72,
+     135
+    ],
+    "determined": [
+     74,
+     194,
+     331
+    ],
+    "that": [
+     75,
+     105,
+     138,
+     195,
+     332
+    ],
+    "s": [
+     78
+    ],
+    "sumed": [
+     79
+    ],
+    "negative": [
+     80
+    ],
+    "perception": [
+     81
+    ],
+    "in": [
+     86,
+     113,
+     229,
+     244,
+     252,
+     292,
+     425
+    ],
+    "fact": [
+     87
+    ],
+    "incorrect.": [
+     88
+    ],
+    "Participants": [
+     89,
+     121
+    ],
+    "would": [
+     90
+    ],
+    "rather": [
+     91,
+     146,
+     153
+    ],
+    "encourage": [
+     92
+    ],
+    "nesting": [
+     94
+    ],
+    "breeding": [
+     96,
+     203
+    ],
+    "activities": [
+     97,
+     130
+    ],
+    "on": [
+     100,
+     158,
+     161,
+     282,
+     347
+    ],
+    "campus,": [
+     101
+    ],
+    "they": [
+     103
+    ],
+    "felt": [
+     104,
+     137
+    ],
+    "human–pigeon": [
+     107
+    ],
+    "interactions": [
+     108
+    ],
+    "viewing": [
+     110
+    ],
+    "squabs": [
+     112
+    ],
+    "nests": [
+     114
+    ],
+    "contributed": [
+     115
+    ],
+    "positively": [
+     116,
+     387
+    ],
+    "work": [
+     119
+    ],
+    "environment.": [
+     120
+    ],
+    "did": [
+     122,
+     308
+    ],
+    "not": [
+     123,
+     240
+    ],
+    "consider": [
+     124
+    ],
+    "or": [
+     127,
+     380
+    ],
+    "related": [
+     129
+    ],
+    "pose": [
+     132
+    ],
+    "should": [
+     139,
+     145
+    ],
+    "be": [
+     141,
+     147
+    ],
+    "imposed,": [
+     142
+    ],
+    "birds": [
+     144
+    ],
+    "humanely": [
+     148
+    ],
+    "managed": [
+     149
+    ],
+    "non-lethal": [
+     151
+    ],
+    "measures": [
+     152,
+     189,
+     275
+    ],
+    "than": [
+     154
+    ],
+    "eradication.": [
+     155
+    ],
+    "\\nPigeon": [
+     156
+    ],
+    "numbers": [
+     157
+    ],
+    "five": [
+     159
+    ],
+    "buildings": [
+     160
+    ],
+    "University’s": [
+     163
+    ],
+    "were": [
+     165,
+     190,
+     276,
+     320,
+     353
+    ],
+    "counted": [
+     166
+    ],
+    "at": [
+     167,
+     300,
+     364
+    ],
+    "dawn": [
+     168,
+     366
+    ],
+    "dusk,": [
+     170
+    ],
+    "every": [
+     171
+    ],
+    "week,": [
+     172
+    ],
+    "for": [
+     173,
+     257
+    ],
+    "two": [
+     174
+    ],
+    "years.": [
+     175
+    ],
+    "The": [
+     176,
+     192,
+     219,
+     402
+    ],
+    "first": [
+     177
+    ],
+    "year": [
+     178,
+     185
+    ],
+    "provided": [
+     179
+    ],
+    "baseline": [
+     180
+    ],
+    "data": [
+     181
+    ],
+    "second": [
+     184
+    ],
+    "when": [
+     187,
+     239
+    ],
+    "applied.": [
+     191
+    ],
+    "study": [
+     193
+    ],
+    "population": [
+     198,
+     217,
+     304
+    ],
+    "index": [
+     199,
+     281,
+     305
+    ],
+    "fluctuated": [
+     200
+    ],
+    "seasonally": [
+     201
+    ],
+    "while": [
+     202,
+     236,
+     259
+    ],
+    "occurred": [
+     204
+    ],
+    "throughout": [
+     205
+    ],
+    "year,": [
+     207
+    ],
+    "with": [
+     208
+    ],
+    "notable": [
+     209
+    ],
+    "peaks": [
+     210
+    ],
+    "declines": [
+     212
+    ],
+    "relating": [
+     213
+    ],
+    "physiological": [
+     215
+    ],
+    "dynamics.": [
+     218
+    ],
+    "seemed": [
+     221
+    ],
+    "make": [
+     223
+    ],
+    "opportunistic": [
+     224
+    ],
+    "use": [
+     225
+    ],
+    "crop": [
+     227
+    ],
+    "availability": [
+     228
+    ],
+    "surrounding": [
+     230
+    ],
+    "farmlands": [
+     231
+    ],
+    "during": [
+     232,
+     370
+    ],
+    "optimal": [
+     233
+    ],
+    "production": [
+     234
+    ],
+    "periods,": [
+     235
+    ],
+    "conserving": [
+     237
+    ],
+    "energy": [
+     238
+    ],
+    "favourable.": [
+     241
+    ],
+    "Site": [
+     242
+    ],
+    "selection": [
+     243
+    ],
+    "relation": [
+     245
+    ],
+    "building": [
+     247
+    ],
+    "aspect": [
+     248
+    ],
+    "indicated": [
+     249,
+     296
+    ],
+    "significant": [
+     250,
+     262
+    ],
+    "differences": [
+     251
+    ],
+    "all": [
+     253
+    ],
+    "seasons": [
+     255
+    ],
+    "except": [
+     256
+    ],
+    "winter,": [
+     258
+    ],
+    "positive": [
+     261
+    ],
+    "relationship": [
+     263
+    ],
+    "between": [
+     264,
+     337
+    ],
+    "level": [
+     265
+    ],
+    "height": [
+     266
+    ],
+    "number": [
+     269,
+     343
+    ],
+    "recorded.": [
+     271
+    ],
+    "\\nOnce": [
+     272
+    ],
+    "applied,": [
+     277
+    ],
+    "total": [
+     279
+    ],
+    "declined": [
+     285
+    ],
+    "by": [
+     286
+    ],
+    "50%.": [
+     287
+    ],
+    "Control": [
+     288
+    ],
+    "structures": [
+     289
+    ],
+    "differed": [
+     290
+    ],
+    "significantly": [
+     291
+    ],
+    "efficacy.": [
+     293
+    ],
+    "Bird": [
+     294
+    ],
+    "spikes": [
+     295
+    ],
+    "highest": [
+     298
+    ],
+    "efficacy": [
+     299
+    ],
+    "reducing": [
+     301
+    ],
+    "seasonality": [
+     307
+    ],
+    "influence": [
+     309
+    ],
+    "this": [
+     310
+    ],
+    "efficiency.": [
+     311
+    ],
+    "Birds": [
+     312
+    ],
+    "prey": [
+     314
+    ],
+    "audio": [
+     317,
+     372
+    ],
+    "bird": [
+     318,
+     373
+    ],
+    "scarer": [
+     319,
+     374
+    ],
+    "used": [
+     321
+    ],
+    "compare": [
+     323
+    ],
+    "actual": [
+     324
+    ],
+    "versus": [
+     325
+    ],
+    "implied": [
+     326
+    ],
+    "predator": [
+     327
+    ],
+    "presence,": [
+     328,
+     392
+    ],
+    "it": [
+     329
+    ],
+    "there": [
+     333
+    ],
+    "association": [
+     336
+    ],
+    "method": [
+     338
+    ],
+    "scaring": [
+     340
+    ],
+    "observed": [
+     346,
+     354
+    ],
+    "different": [
+     349
+    ],
+    "time": [
+     350
+    ],
+    "periods.": [
+     351
+    ],
+    "Pigeons": [
+     352,
+     385
+    ],
+    "continue": [
+     356
+    ],
+    "natural": [
+     358
+    ],
+    "trend": [
+     359
+    ],
+    "dispersion": [
+     361
+    ],
+    "return": [
+     363
+    ],
+    "dusk": [
+     368
+    ],
+    "counts": [
+     369
+    ],
+    "trial": [
+     375
+    ],
+    "being": [
+     377
+    ],
+    "actively": [
+     378
+    ],
+    "discouraged": [
+     379
+    ],
+    "dislodged": [
+     381
+    ],
+    "from": [
+     382,
+     399
+    ],
+    "building.": [
+     384
+    ],
+    "reacted": [
+     386
+    ],
+    "visual": [
+     390,
+     403
+    ],
+    "raptor": [
+     391
+    ],
+    "caused": [
+     394
+    ],
+    "them": [
+     395
+    ],
+    "take": [
+     397
+    ],
+    "flight": [
+     398
+    ],
+    "buildings.": [
+     401
+    ],
+    "effect": [
+     404
+    ],
+    "only": [
+     406
+    ],
+    "temporary": [
+     407
+    ],
+    "however": [
+     408
+    ],
+    "returned": [
+     411
+    ],
+    "once": [
+     412
+    ],
+    "threat": [
+     414
+    ],
+    "had": [
+     415
+    ],
+    "been": [
+     416
+    ],
+    "removed": [
+     417
+    ],
+    "10": [
+     418
+    ],
+    "minutes": [
+     419
+    ],
+    "post": [
+     420
+    ],
+    "scare.": [
+     421
+    ],
+    "\\nThe": [
+     422
+    ],
+    "studies": [
+     423
+    ],
+    "concluded": [
+     424
+    ],
+    "interdisciplinary": [
+     427
+    ],
+    "management": [
+     428
+    ],
+    "plan": [
+     429
+    ],
+    "presented": [
+     430
+    ],
+    "\\nUniversity": [
+     433
+    ],
+    "Estates.": [
+     434
+    ]
+   },
+   "primary_location": {
+    "id": "pmh:oai:uir.unisa.ac.za:10500/22180",
+    "doi": null,
+    "is_oa": true,
+    "landing_page_url": "http://hdl.handle.net/10500/22180",
+    "pdf_url": "http://hdl.handle.net/10500/22180",
+    "source": {
+     "id": "https://openalex.org/S4306400472",
+     "display_name": "Unisa Institutional Repository (University of South Africa)",
+     "issn_l": null,
+     "issn": null,
+     "is_oa": false,
+     "is_in_doaj": false,
+     "is_core": false,
+     "listed_in": [],
+     "host_organization": "https://openalex.org/I165390105",
+     "host_organization_name": "University of South Africa",
+     "host_organization_lineage": [
+      "https://openalex.org/I165390105"
+     ],
+     "host_organization_lineage_names": [],
+     "type": "repository"
+    },
+    "license": "other-oa",
+    "license_id": "https://openalex.org/licenses/other-oa",
+    "version": "submittedVersion",
+    "is_accepted": false,
+    "is_published": false,
+    "raw_source_name": "",
+    "raw_type": "Dissertation"
+   },
+   "type": "dissertation"
+  },
+  {
+   "id": "https://openalex.org/W1921053529",
+   "doi": null,
+   "display_name": "An autonomous bird deterrent system",
+   "publication_date": "2004-10-01",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-3-0"
+     },
+     "institutions": []
+    }
+   ],
+   "abstract_inverted_index": {
+    "The": [
+     0,
+     30,
+     120
+    ],
+    "need": [
+     1
+    ],
+    "for": [
+     2,
+     71,
+     137,
+     152,
+     159
+    ],
+    "an": [
+     3
+    ],
+    "effective": [
+     4,
+     48
+    ],
+    "bird": [
+     5,
+     60
+    ],
+    "deterrent": [
+     6,
+     61,
+     155
+    ],
+    "is": [
+     7
+    ],
+    "important": [
+     8
+    ],
+    "in": [
+     9,
+     49,
+     92,
+     161
+    ],
+    "many": [
+     10,
+     19
+    ],
+    "of": [
+     11,
+     32,
+     59,
+     69,
+     87,
+     100,
+     106,
+     127,
+     154,
+     164
+    ],
+    "today's": [
+     12
+    ],
+    "industries.": [
+     13
+    ],
+    "In\\nthe": [
+     14
+    ],
+    "past": [
+     15
+    ],
+    "there": [
+     16,
+     128
+    ],
+    "have": [
+     17
+    ],
+    "been": [
+     18,
+     143
+    ],
+    "attempts": [
+     20
+    ],
+    "to": [
+     21,
+     36
+    ],
+    "develop": [
+     22,
+     37
+    ],
+    "a": [
+     23,
+     138,
+     149,
+     162
+    ],
+    "successful": [
+     24
+    ],
+    "system": [
+     25,
+     41,
+     74,
+     89,
+     141
+    ],
+    "with": [
+     26,
+     133,
+     156
+    ],
+    "few\\nachieving": [
+     27
+    ],
+    "adequate": [
+     28
+    ],
+    "results.": [
+     29
+    ],
+    "aim": [
+     31
+    ],
+    "this": [
+     33,
+     66,
+     140
+    ],
+    "project": [
+     34
+    ],
+    "was": [
+     35,
+     80
+    ],
+    "and": [
+     38,
+     53,
+     64,
+     94,
+     110,
+     131,
+     135
+    ],
+    "design": [
+     39,
+     79,
+     114
+    ],
+    "an\\nautonomous": [
+     40
+    ],
+    "that": [
+     42,
+     116
+    ],
+    "creates": [
+     43
+    ],
+    "minimal": [
+     44
+    ],
+    "disturbance": [
+     45
+    ],
+    "whilst": [
+     46
+    ],
+    "being": [
+     47
+    ],
+    "bird\\ndeterrence.\\nAn": [
+     50
+    ],
+    "initial": [
+     51,
+     104
+    ],
+    "investigation": [
+     52
+    ],
+    "evaluation": [
+     54
+    ],
+    "into": [
+     55
+    ],
+    "the": [
+     56,
+     67,
+     72,
+     77,
+     82,
+     88,
+     98,
+     101,
+     103,
+     107,
+     157
+    ],
+    "current": [
+     57
+    ],
+    "types": [
+     58
+    ],
+    "systems\\nwas": [
+     62
+    ],
+    "performed": [
+     63
+    ],
+    "from": [
+     65
+    ],
+    "method": [
+     68
+    ],
+    "deterrence": [
+     70
+    ],
+    "designed": [
+     73,
+     91
+    ],
+    "was\\nselected.": [
+     75
+    ],
+    "Once": [
+     76
+    ],
+    "conceptual": [
+     78
+    ],
+    "completed": [
+     81
+    ],
+    "mechanical,": [
+     83
+    ],
+    "electrical": [
+     84
+    ],
+    "and\\nsoftware": [
+     85
+    ],
+    "sections": [
+     86,
+     130
+    ],
+    "were": [
+     90,
+     123
+    ],
+    "detail": [
+     93
+    ],
+    "partially": [
+     95
+    ],
+    "constructed": [
+     96
+    ],
+    "to\\ndiscover": [
+     97
+    ],
+    "effectiveness": [
+     99
+    ],
+    "system.\\nDuring": [
+     102
+    ],
+    "implementation": [
+     105
+    ],
+    "system,": [
+     108
+    ],
+    "expected": [
+     109
+    ],
+    "unexpected": [
+     111
+    ],
+    "problems": [
+     112,
+     122
+    ],
+    "in\\nthe": [
+     113
+    ],
+    "arose": [
+     115
+    ],
+    "needed": [
+     117
+    ],
+    "dealt": [
+     118
+    ],
+    "with.": [
+     119
+    ],
+    "encountered": [
+     121
+    ],
+    "then": [
+     124
+    ],
+    "listed": [
+     125
+    ],
+    "in\\neach": [
+     126
+    ],
+    "relative": [
+     129
+    ],
+    "supplied": [
+     132
+    ],
+    "solutions": [
+     134
+    ],
+    "suggestions": [
+     136
+    ],
+    "design\\nrevision.\\nOnce": [
+     139
+    ],
+    "has": [
+     142
+    ],
+    "fully": [
+     144
+    ],
+    "developed,": [
+     145
+    ],
+    "it": [
+     146
+    ],
+    "will": [
+     147
+    ],
+    "provide": [
+     148
+    ],
+    "frame": [
+     150
+    ],
+    "work": [
+     151
+    ],
+    "multiple\\ntypes": [
+     153
+    ],
+    "possibility": [
+     158
+    ],
+    "use": [
+     160
+    ],
+    "variety": [
+     163
+    ],
+    "applications.\\n\\n": [
+     165
+    ]
+   },
+   "primary_location": {
+    "id": "pmh:oai:eprints.usq.edu.au:64",
+    "doi": null,
+    "is_oa": true,
+    "landing_page_url": "http://eprints.usq.edu.au/64/1/TimCLARKE-2004.pdf",
+    "pdf_url": "http://eprints.usq.edu.au/64/1/TimCLARKE-2004.pdf",
+    "source": {
+     "id": "https://openalex.org/S4306400692",
+     "display_name": "University of Southern Queensland ePrints (University of Southern Queensland)",
+     "issn_l": null,
+     "issn": null,
+     "is_oa": false,
+     "is_in_doaj": false,
+     "is_core": false,
+     "listed_in": [],
+     "host_organization": "https://openalex.org/I185523456",
+     "host_organization_name": "University of Southern Queensland",
+     "host_organization_lineage": [
+      "https://openalex.org/I185523456"
+     ],
+     "host_organization_lineage_names": [],
+     "type": "repository"
+    },
+    "license": null,
+    "license_id": null,
+    "version": "submittedVersion",
+    "is_accepted": false,
+    "is_published": false,
+    "raw_source_name": "",
+    "raw_type": "USQ Project"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W4403541171",
+   "doi": "https://doi.org/10.2478/srj-2024-0006",
+   "display_name": "Using birds of prey to manage pest bird flocks under lethal and non-lethal conditions – A review",
+   "publication_date": "2024-03-01",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-4-0"
+     },
+     "institutions": [
+      {
+       "display_name": "Federation University"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-4-1"
+     },
+     "institutions": []
+    }
+   ],
+   "abstract_inverted_index": {
+    "Abstract": [
+     0
+    ],
+    "Raptors": [
+     1
+    ],
+    "have": [
+     2,
+     50
+    ],
+    "been": [
+     3,
+     21,
+     51
+    ],
+    "successfully": [
+     4
+    ],
+    "used": [
+     5
+    ],
+    "to": [
+     6
+    ],
+    "disperse": [
+     7
+    ],
+    "and": [
+     8
+    ],
+    "often": [
+     9
+    ],
+    "control": [
+     10
+    ],
+    "flocks": [
+     11
+    ],
+    "of": [
+     12,
+     31,
+     40
+    ],
+    "pest": [
+     13
+    ],
+    "birds.": [
+     14
+    ],
+    "However,": [
+     15
+    ],
+    "the": [
+     16,
+     25,
+     32,
+     38,
+     45
+    ],
+    "question": [
+     17
+    ],
+    "that": [
+     18,
+     49,
+     53
+    ],
+    "has": [
+     19
+    ],
+    "not": [
+     20
+    ],
+    "resolved": [
+     22
+    ],
+    "is,": [
+     23
+    ],
+    "“If": [
+     24
+    ],
+    "raptor": [
+     26
+    ],
+    "kills": [
+     27
+    ],
+    "a": [
+     28
+    ],
+    "small": [
+     29
+    ],
+    "number": [
+     30
+    ],
+    "target": [
+     33
+    ],
+    "flock,": [
+     34
+    ],
+    "does": [
+     35
+    ],
+    "this": [
+     36,
+     58
+    ],
+    "improve": [
+     37
+    ],
+    "efficiency": [
+     39
+    ],
+    "control?”": [
+     41
+    ],
+    "This": [
+     42
+    ],
+    "mini-review": [
+     43
+    ],
+    "examines": [
+     44
+    ],
+    "few": [
+     46
+    ],
+    "research": [
+     47
+    ],
+    "reports": [
+     48
+    ],
+    "published": [
+     52
+    ],
+    "can": [
+     54
+    ],
+    "shed": [
+     55
+    ],
+    "light": [
+     56
+    ],
+    "on": [
+     57
+    ],
+    "question.": [
+     59
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.2478/srj-2024-0006",
+    "doi": "https://doi.org/10.2478/srj-2024-0006",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.2478/srj-2024-0006",
+    "pdf_url": "https://reference-global.com/2/v2/download/article/10.2478/srj-2024-0006.pdf",
+    "source": {
+     "id": "https://openalex.org/S2737265022",
+     "display_name": "Raptor Journal",
+     "issn_l": "1337-3463",
+     "issn": [
+      "1337-3463",
+      "1338-7227",
+      "2644-5239",
+      "2644-5247"
+     ],
+     "is_oa": true,
+     "is_in_doaj": true,
+     "is_core": false,
+     "listed_in": [
+      "ddh",
+      "doaj",
+      "norway-1",
+      "poland-20",
+      "russia-white-list-2"
+     ],
+     "host_organization": "https://openalex.org/P4310320322",
+     "host_organization_name": "De Gruyter Open",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310320322",
+      "https://openalex.org/P4310313990"
+     ],
+     "host_organization_lineage_names": [
+      "De Gruyter Open",
+      "De Gruyter"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by-nc-nd",
+    "license_id": "https://openalex.org/licenses/cc-by-nc-nd",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Raptor Journal",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W4361208800",
+   "doi": "https://doi.org/10.3390/agriculture13040774",
+   "display_name": "Bird Deterrent Solutions for Crop Protection: Approaches, Challenges, and Opportunities",
+   "publication_date": "2023-03-27",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-5-0"
+     },
+     "institutions": [
+      {
+       "display_name": "Universidade Politécnica de Castelo Branco"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-5-1"
+     },
+     "institutions": [
+      {
+       "display_name": "Universidade Politécnica de Castelo Branco"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-5-2"
+     },
+     "institutions": [
+      {
+       "display_name": "University of Beira Interior"
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "Weeds,": [
+     0
+    ],
+    "pathogens,": [
+     1
+    ],
+    "and": [
+     2,
+     28,
+     57,
+     63,
+     69,
+     81
+    ],
+    "animal": [
+     3
+    ],
+    "pests": [
+     4,
+     8
+    ],
+    "are": [
+     5,
+     71,
+     79,
+     86
+    ],
+    "among": [
+     6
+    ],
+    "the": [
+     7,
+     14,
+     48
+    ],
+    "that": [
+     9
+    ],
+    "pose": [
+     10,
+     25
+    ],
+    "a": [
+     11,
+     26,
+     36
+    ],
+    "threat": [
+     12
+    ],
+    "to": [
+     13
+    ],
+    "productivity": [
+     15
+    ],
+    "of": [
+     16,
+     59
+    ],
+    "crops": [
+     17
+    ],
+    "meant": [
+     18
+    ],
+    "for": [
+     19,
+     31,
+     42,
+     83
+    ],
+    "human": [
+     20
+    ],
+    "consumption.": [
+     21
+    ],
+    "Bird-caused": [
+     22
+    ],
+    "crop": [
+     23,
+     43
+    ],
+    "losses": [
+     24
+    ],
+    "serious": [
+     27
+    ],
+    "costly": [
+     29
+    ],
+    "challenge": [
+     30
+    ],
+    "farmers.": [
+     32
+    ],
+    "This": [
+     33
+    ],
+    "work": [
+     34
+    ],
+    "presents": [
+     35
+    ],
+    "survey": [
+     37
+    ],
+    "on": [
+     38,
+     74
+    ],
+    "bird": [
+     39
+    ],
+    "deterrent": [
+     40
+    ],
+    "solutions": [
+     41
+    ],
+    "protection.": [
+     44
+    ],
+    "It": [
+     45
+    ],
+    "first": [
+     46
+    ],
+    "introduces": [
+     47
+    ],
+    "related": [
+     49,
+     64
+    ],
+    "concepts.": [
+     50
+    ],
+    "Then,": [
+     51
+    ],
+    "it": [
+     52
+    ],
+    "provides": [
+     53
+    ],
+    "an": [
+     54
+    ],
+    "extensive": [
+     55
+    ],
+    "review": [
+     56
+    ],
+    "categorization": [
+     58
+    ],
+    "existing": [
+     60
+    ],
+    "methods,": [
+     61
+    ],
+    "techniques,": [
+     62
+    ],
+    "studies.": [
+     65
+    ],
+    "Further,": [
+     66
+    ],
+    "their": [
+     67
+    ],
+    "strengths": [
+     68
+    ],
+    "limitations": [
+     70
+    ],
+    "discussed.": [
+     72
+    ],
+    "Based": [
+     73
+    ],
+    "this": [
+     75
+    ],
+    "review,": [
+     76
+    ],
+    "current": [
+     77
+    ],
+    "gaps": [
+     78
+    ],
+    "identified,": [
+     80
+    ],
+    "strategies": [
+     82
+    ],
+    "future": [
+     84
+    ],
+    "research": [
+     85
+    ],
+    "proposed.": [
+     87
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.3390/agriculture13040774",
+    "doi": "https://doi.org/10.3390/agriculture13040774",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.3390/agriculture13040774",
+    "pdf_url": "https://www.mdpi.com/2077-0472/13/4/774/pdf?version=1679923157",
+    "source": {
+     "id": "https://openalex.org/S4210202585",
+     "display_name": "Agriculture",
+     "issn_l": "2077-0472",
+     "issn": [
+      "2077-0472"
+     ],
+     "is_oa": true,
+     "is_in_doaj": true,
+     "is_core": true,
+     "listed_in": [
+      "anvur-scientific",
+      "cwts-core",
+      "doaj",
+      "norway-1",
+      "poland-100",
+      "russia-white-list-1",
+      "vabb-shw"
+     ],
+     "host_organization": "https://openalex.org/P4310310987",
+     "host_organization_name": "Multidisciplinary Digital Publishing Institute",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310310987"
+     ],
+     "host_organization_lineage_names": [
+      "Multidisciplinary Digital Publishing Institute"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Agriculture",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W4312295859",
+   "doi": "https://doi.org/10.3391/mbi.2023.14.1.01",
+   "display_name": "A review of nonlethal and lethal control tools for managing the damage of invasive birds to human assets and economic activities",
+   "publication_date": "2022-11-11",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-6-0"
+     },
+     "institutions": [
+      {
+       "display_name": "Animal and Plant Health Inspection Service"
+      },
+      {
+       "display_name": "United States Department of Agriculture"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-6-1"
+     },
+     "institutions": [
+      {
+       "display_name": "Animal and Plant Health Inspection Service"
+      },
+      {
+       "display_name": "United States Department of Agriculture"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-6-2"
+     },
+     "institutions": [
+      {
+       "display_name": "Animal and Plant Health Inspection Service"
+      },
+      {
+       "display_name": "United States Department of Agriculture"
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "Invasive": [
+     0
+    ],
+    "birds": [
+     1,
+     55,
+     136,
+     177
+    ],
+    "cause": [
+     2
+    ],
+    "damage": [
+     3,
+     79,
+     87,
+     115,
+     161,
+     240,
+     257
+    ],
+    "to": [
+     4,
+     69,
+     77,
+     106,
+     120,
+     144,
+     158,
+     195,
+     238,
+     243
+    ],
+    "economies,": [
+     5
+    ],
+    "natural": [
+     6
+    ],
+    "resources,": [
+     7
+    ],
+    "and": [
+     8,
+     42,
+     51,
+     94,
+     101,
+     110,
+     123,
+     129,
+     174,
+     193,
+     217,
+     234
+    ],
+    "human": [
+     9
+    ],
+    "safety": [
+     10
+    ],
+    "across": [
+     11,
+     148
+    ],
+    "the": [
+     12,
+     14,
+     49,
+     99,
+     138,
+     149,
+     207,
+     239
+    ],
+    "globe.In": [
+     13
+    ],
+    "United": [
+     15,
+     139
+    ],
+    "States,": [
+     16,
+     140
+    ],
+    "rock": [
+     17
+    ],
+    "doves": [
+     18,
+     23
+    ],
+    "(Columba": [
+     19
+    ],
+    "livia),": [
+     20
+    ],
+    "Eurasian": [
+     21
+    ],
+    "collared": [
+     22
+    ],
+    "(Streptopelia": [
+     24
+    ],
+    "decaocto),": [
+     25
+    ],
+    "rose-ringed": [
+     26
+    ],
+    "parakeets": [
+     27,
+     31
+    ],
+    "(Psittacula": [
+     28
+    ],
+    "krameri),": [
+     29
+    ],
+    "monk": [
+     30
+    ],
+    "(Myiopsitta": [
+     32
+    ],
+    "monachus),": [
+     33
+    ],
+    "common": [
+     34
+    ],
+    "mynas": [
+     35
+    ],
+    "(Acridotheres": [
+     36
+    ],
+    "tristis),": [
+     37
+    ],
+    "European": [
+     38
+    ],
+    "starlings": [
+     39
+    ],
+    "(Sturnus": [
+     40
+    ],
+    "vulgaris),": [
+     41
+    ],
+    "house": [
+     43
+    ],
+    "sparrows": [
+     44
+    ],
+    "(Passer": [
+     45
+    ],
+    "domesticus)": [
+     46
+    ],
+    "are": [
+     47,
+     178
+    ],
+    "among": [
+     48
+    ],
+    "invasive": [
+     50,
+     135,
+     245
+    ],
+    "often": [
+     52
+    ],
+    "harmful": [
+     53
+    ],
+    "small-bodied": [
+     54
+    ],
+    "inhabiting": [
+     56
+    ],
+    "periurban": [
+     57
+    ],
+    "habitats.The": [
+     58
+    ],
+    "destructive": [
+     59
+    ],
+    "nature": [
+     60
+    ],
+    "of": [
+     61,
+     67,
+     103,
+     125,
+     209
+    ],
+    "these": [
+     62,
+     91,
+     104
+    ],
+    "species": [
+     63,
+     105,
+     147
+    ],
+    "warrants": [
+     64
+    ],
+    "a": [
+     65
+    ],
+    "review": [
+     66,
+     132,
+     151
+    ],
+    "methods": [
+     68,
+     76,
+     163
+    ],
+    "reduce": [
+     70,
+     78,
+     204,
+     244
+    ],
+    "or": [
+     71,
+     188
+    ],
+    "eradicate": [
+     72
+    ],
+    "populations": [
+     73,
+     197,
+     246
+    ],
+    "along": [
+     74,
+     220,
+     250
+    ],
+    "with": [
+     75,
+     221,
+     251
+    ],
+    "when": [
+     80
+    ],
+    "population": [
+     81,
+     189
+    ],
+    "eradication": [
+     82,
+     187,
+     211
+    ],
+    "cannot": [
+     83
+    ],
+    "be": [
+     84,
+     248
+    ],
+    "achieved.We": [
+     85
+    ],
+    "reviewed": [
+     86
+    ],
+    "management": [
+     88,
+     162,
+     182,
+     230
+    ],
+    "literature": [
+     89
+    ],
+    "from": [
+     90
+    ],
+    "species'": [
+     92
+    ],
+    "native": [
+     93
+    ],
+    "introduced": [
+     95
+    ],
+    "ranges.Additionally,": [
+     96
+    ],
+    "we": [
+     97
+    ],
+    "used": [
+     98,
+     249
+    ],
+    "behavior": [
+     100
+    ],
+    "ecology": [
+     102
+    ],
+    "inform": [
+     107
+    ],
+    "tool": [
+     108
+    ],
+    "recommendations": [
+     109
+    ],
+    "potential": [
+     111
+    ],
+    "efficacy": [
+     112,
+     208
+    ],
+    "under": [
+     113
+    ],
+    "various": [
+     114
+    ],
+    "scenarios,": [
+     116
+    ],
+    "while": [
+     117
+    ],
+    "being": [
+     118
+    ],
+    "sensitive": [
+     119
+    ],
+    "cultural": [
+     121
+    ],
+    "preferences": [
+     122
+    ],
+    "location": [
+     124
+    ],
+    "implementation": [
+     126
+    ],
+    "(residential,": [
+     127
+    ],
+    "commercial,": [
+     128
+    ],
+    "agricultural).Although": [
+     130
+    ],
+    "this": [
+     131
+    ],
+    "focuses": [
+     133
+    ],
+    "on": [
+     134,
+     186,
+     214
+    ],
+    "in": [
+     137
+    ],
+    "it": [
+     141
+    ],
+    "is": [
+     142,
+     156
+    ],
+    "applicable": [
+     143
+    ],
+    "other": [
+     145
+    ],
+    "pest": [
+     146,
+     181,
+     229
+    ],
+    "globe.Our": [
+     150
+    ],
+    "highlights": [
+     152
+    ],
+    "areas": [
+     153
+    ],
+    "where": [
+     154,
+     200
+    ],
+    "research": [
+     155
+    ],
+    "needed": [
+     157
+    ],
+    "validate": [
+     159
+    ],
+    "promising": [
+     160
+    ],
+    "(lethal": [
+     164
+    ],
+    "control,": [
+     165,
+     167
+    ],
+    "fertility": [
+     166
+    ],
+    "habitat": [
+     168
+    ],
+    "modification,": [
+     169
+    ],
+    "exclusionary": [
+     170
+    ],
+    "methods,": [
+     171
+    ],
+    "frightening": [
+     172
+    ],
+    "devices,": [
+     173
+    ],
+    "chemical": [
+     175
+    ],
+    "repellents).Where": [
+     176
+    ],
+    "invasive,": [
+     179
+    ],
+    "integrated": [
+     180,
+     228,
+     252
+    ],
+    "techniques": [
+     183
+    ],
+    "should": [
+     184,
+     247
+    ],
+    "focus": [
+     185
+    ],
+    "reduction": [
+     190
+    ],
+    "(toxicants,": [
+     191
+    ],
+    "shooting,": [
+     192
+    ],
+    "trapping)": [
+     194
+    ],
+    "keep": [
+     196
+    ],
+    "at": [
+     198
+    ],
+    "levels": [
+     199
+    ],
+    "nonlethal": [
+     201,
+     235
+    ],
+    "tools": [
+     202,
+     236
+    ],
+    "can": [
+     203
+    ],
+    "damage.We": [
+     205
+    ],
+    "acknowledge": [
+     206
+    ],
+    "an": [
+     210
+    ],
+    "campaign": [
+     212
+    ],
+    "depends": [
+     213
+    ],
+    "biological,": [
+     215
+    ],
+    "environmental,": [
+     216
+    ],
+    "economic": [
+     218
+    ],
+    "factors,": [
+     219
+    ],
+    "social": [
+     222
+    ],
+    "license": [
+     223
+    ],
+    "for": [
+     224,
+     255
+    ],
+    "lethal": [
+     225,
+     233
+    ],
+    "removal.We": [
+     226
+    ],
+    "recommend": [
+     227
+    ],
+    "strategies": [
+     231,
+     254
+    ],
+    "including": [
+     232
+    ],
+    "specific": [
+     237
+    ],
+    "problem.Sustained": [
+     241
+    ],
+    "efforts": [
+     242
+    ],
+    "deterrent": [
+     253
+    ],
+    "short-term": [
+     256
+    ],
+    "relief.": [
+     258
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.3391/mbi.2023.14.1.01",
+    "doi": "https://doi.org/10.3391/mbi.2023.14.1.01",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.3391/mbi.2023.14.1.01",
+    "pdf_url": "https://www.reabic.net/journals/mbi/2023/Accepted/MBI_2023_Klug_etal_correctedproof.pdf",
+    "source": {
+     "id": "https://openalex.org/S2764453701",
+     "display_name": "Management of Biological Invasions",
+     "issn_l": "1989-8649",
+     "issn": [
+      "1989-8649"
+     ],
+     "is_oa": true,
+     "is_in_doaj": true,
+     "is_core": true,
+     "listed_in": [
+      "cwts-core",
+      "doaj",
+      "dongbi-c",
+      "jufo-1",
+      "norway-1",
+      "oarl",
+      "poland-70",
+      "russia-white-list-1"
+     ],
+     "host_organization": "https://openalex.org/P4310317002",
+     "host_organization_name": "Regional Euro-Asian Biological Invasions Centre (REABIC)",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310317002"
+     ],
+     "host_organization_lineage_names": [
+      "Regional Euro-Asian Biological Invasions Centre (REABIC)"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Management of Biological Invasions",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W7162454831",
+   "doi": "https://doi.org/10.32628/ijsrset2513875",
+   "display_name": "Bird Repeller and Deterrent System Using Blackbox Information",
+   "publication_date": "2025-12-20",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-7-0"
+     },
+     "institutions": []
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-7-1"
+     },
+     "institutions": []
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-7-2"
+     },
+     "institutions": []
+    }
+   ],
+   "abstract_inverted_index": {
+    "The": [
+     0,
+     94,
+     118
+    ],
+    "Bird": [
+     1,
+     16,
+     72
+    ],
+    "Repeller": [
+     2,
+     73
+    ],
+    "and": [
+     3,
+     33,
+     61,
+     74,
+     85,
+     100,
+     108,
+     116,
+     137,
+     159
+    ],
+    "Deterrent": [
+     4,
+     75
+    ],
+    "System": [
+     5,
+     76
+    ],
+    "Using": [
+     6
+    ],
+    "Blackbox": [
+     7
+    ],
+    "Information": [
+     8,
+     80
+    ],
+    "is": [
+     9,
+     21
+    ],
+    "a": [
+     10,
+     22
+    ],
+    "safety-focused": [
+     11
+    ],
+    "innovation": [
+     12
+    ],
+    "designed": [
+     13,
+     88
+    ],
+    "to": [
+     14,
+     27,
+     58,
+     104,
+     110,
+     125,
+     142
+    ],
+    "prevent": [
+     15
+    ],
+    "intrusion": [
+     17
+    ],
+    "in": [
+     18
+    ],
+    "agricultural": [
+     19,
+     92,
+     150
+    ],
+    "fields": [
+     20
+    ],
+    "persistent": [
+     23
+    ],
+    "challenge": [
+     24
+    ],
+    "that": [
+     25
+    ],
+    "leads": [
+     26
+    ],
+    "significant": [
+     28
+    ],
+    "crop": [
+     29
+    ],
+    "damage,": [
+     30
+    ],
+    "reduced": [
+     31
+    ],
+    "yield,": [
+     32
+    ],
+    "economic": [
+     34
+    ],
+    "loss": [
+     35
+    ],
+    "for": [
+     36,
+     90,
+     149
+    ],
+    "farmers.": [
+     37
+    ],
+    "Conventional": [
+     38
+    ],
+    "bird": [
+     39,
+     59,
+     111,
+     134
+    ],
+    "deterrent": [
+     40,
+     138
+    ],
+    "methods": [
+     41
+    ],
+    "such": [
+     42
+    ],
+    "as": [
+     43
+    ],
+    "scarecrows,": [
+     44
+    ],
+    "sound": [
+     45
+    ],
+    "crackers,": [
+     46
+    ],
+    "reflective": [
+     47
+    ],
+    "objects,": [
+     48
+    ],
+    "or": [
+     49
+    ],
+    "chemical": [
+     50
+    ],
+    "repellents": [
+     51
+    ],
+    "often": [
+     52
+    ],
+    "become": [
+     53
+    ],
+    "ineffective": [
+     54
+    ],
+    "over": [
+     55
+    ],
+    "time": [
+     56
+    ],
+    "due": [
+     57
+    ],
+    "adaptation": [
+     60
+    ],
+    "lack": [
+     62
+    ],
+    "of": [
+     63,
+     120,
+     129
+    ],
+    "real-time": [
+     64
+    ],
+    "intelligence.": [
+     65
+    ],
+    "To": [
+     66
+    ],
+    "overcome": [
+     67
+    ],
+    "these": [
+     68
+    ],
+    "limitations,": [
+     69
+    ],
+    "the": [
+     70,
+     126
+    ],
+    "proposed": [
+     71
+    ],
+    "using": [
+     77
+    ],
+    "Black": [
+     78
+    ],
+    "Box": [
+     79,
+     122
+    ],
+    "offers": [
+     81
+    ],
+    "an": [
+     82,
+     143
+    ],
+    "advanced,": [
+     83
+    ],
+    "data-driven,": [
+     84
+    ],
+    "automated": [
+     86
+    ],
+    "solution": [
+     87
+    ],
+    "specifically": [
+     89
+    ],
+    "modern": [
+     91
+    ],
+    "environments.": [
+     93
+    ],
+    "system": [
+     95,
+     132
+    ],
+    "integrates": [
+     96
+    ],
+    "sensors,": [
+     97
+    ],
+    "machine": [
+     98
+    ],
+    "learning,": [
+     99
+    ],
+    "intelligent": [
+     101
+    ],
+    "data": [
+     102
+    ],
+    "logging": [
+     103
+    ],
+    "continuously": [
+     105
+    ],
+    "monitor,": [
+     106
+    ],
+    "analyze,": [
+     107
+    ],
+    "respond": [
+     109
+    ],
+    "activities": [
+     112
+    ],
+    "with": [
+     113
+    ],
+    "high": [
+     114
+    ],
+    "accuracy": [
+     115
+    ],
+    "reliability.": [
+     117
+    ],
+    "concept": [
+     119
+    ],
+    "“Black": [
+     121
+    ],
+    "Information”": [
+     123
+    ],
+    "refers": [
+     124
+    ],
+    "systematic": [
+     127
+    ],
+    "recording": [
+     128
+    ],
+    "environmental": [
+     130
+    ],
+    "parameters,": [
+     131
+    ],
+    "responses,": [
+     133
+    ],
+    "movement": [
+     135
+    ],
+    "patterns,": [
+     136
+    ],
+    "performance": [
+     139
+    ],
+    "metrics": [
+     140
+    ],
+    "similar": [
+     141
+    ],
+    "aviation": [
+     144
+    ],
+    "black": [
+     145
+    ],
+    "box": [
+     146
+    ],
+    "but": [
+     147
+    ],
+    "adapted": [
+     148
+    ],
+    "automation.": [
+     151
+    ],
+    "This": [
+     152
+    ],
+    "stored": [
+     153
+    ],
+    "information": [
+     154
+    ],
+    "enables": [
+     155
+    ],
+    "continuous": [
+     156
+    ],
+    "improvement,": [
+     157
+    ],
+    "decision-making,": [
+     158
+    ],
+    "predictive": [
+     160
+    ],
+    "analysis.": [
+     161
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.32628/ijsrset2513875",
+    "doi": "https://doi.org/10.32628/ijsrset2513875",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.32628/ijsrset2513875",
+    "pdf_url": "https://ijsrset.com/index.php/home/article/download/IJSRSET2513875/IJSRSET2513875",
+    "source": {
+     "id": "https://openalex.org/S2764474857",
+     "display_name": "International Journal of Scientific Research in Science Engineering and Technology",
+     "issn_l": "2394-4099",
+     "issn": [
+      "2394-4099",
+      "2395-1990"
+     ],
+     "is_oa": true,
+     "is_in_doaj": false,
+     "is_core": false,
+     "listed_in": [],
+     "host_organization": "https://openalex.org/P4323237734",
+     "host_organization_name": "Technoscience Academy",
+     "host_organization_lineage": [
+      "https://openalex.org/P4323237734"
+     ],
+     "host_organization_lineage_names": [
+      "Technoscience Academy"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "International Journal of Scientific Research in Science, Engineering and Technology",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W4402672119",
+   "doi": "https://doi.org/10.11591/eei.v13i6.7359",
+   "display_name": "Evaluating drones as bird deterrents in industrial environments: multirotor vs fixed-wing efficacy",
+   "publication_date": "2024-09-20",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-8-0"
+     },
+     "institutions": [
+      {
+       "display_name": "Universiti Sains Malaysia"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-8-1"
+     },
+     "institutions": [
+      {
+       "display_name": "Universiti Sains Malaysia"
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "Unmanned": [
+     0
+    ],
+    "aerial": [
+     1
+    ],
+    "vehicles": [
+     2
+    ],
+    "(UAVs)": [
+     3
+    ],
+    "or": [
+     4
+    ],
+    "drones": [
+     5,
+     42,
+     56,
+     163
+    ],
+    "have": [
+     6,
+     19
+    ],
+    "been": [
+     7,
+     20
+    ],
+    "proposed": [
+     8
+    ],
+    "as": [
+     9,
+     54
+    ],
+    "deterrent": [
+     10
+    ],
+    "tools": [
+     11
+    ],
+    "to": [
+     12,
+     22,
+     29,
+     62,
+     111,
+     144,
+     170
+    ],
+    "mitigate": [
+     13
+    ],
+    "pest": [
+     14,
+     68
+    ],
+    "birds’": [
+     15
+    ],
+    "problems.": [
+     16
+    ],
+    "Many": [
+     17
+    ],
+    "studies": [
+     18
+    ],
+    "conducted": [
+     21
+    ],
+    "evaluate": [
+     23,
+     63
+    ],
+    "the": [
+     24,
+     79,
+     172
+    ],
+    "efficacy": [
+     25,
+     65
+    ],
+    "of": [
+     26,
+     51,
+     78,
+     98,
+     153,
+     175
+    ],
+    "drones,": [
+     27,
+     52,
+     59
+    ],
+    "mainly": [
+     28
+    ],
+    "protect": [
+     30
+    ],
+    "crops,": [
+     31
+    ],
+    "fishponds": [
+     32
+    ],
+    "and": [
+     33,
+     57,
+     101,
+     131,
+     140,
+     151,
+     164
+    ],
+    "airports.": [
+     34
+    ],
+    "Little": [
+     35
+    ],
+    "information": [
+     36
+    ],
+    "can": [
+     37
+    ],
+    "be": [
+     38
+    ],
+    "acquired": [
+     39
+    ],
+    "on": [
+     40
+    ],
+    "using": [
+     41
+    ],
+    "in": [
+     43,
+     66,
+     76,
+     82
+    ],
+    "industrial": [
+     44
+    ],
+    "areas.": [
+     45
+    ],
+    "In": [
+     46
+    ],
+    "this": [
+     47
+    ],
+    "study,": [
+     48
+    ],
+    "two": [
+     49
+    ],
+    "types": [
+     50
+    ],
+    "categorized": [
+     53
+    ],
+    "multirotor": [
+     55,
+     128
+    ],
+    "fixed-wing": [
+     58,
+     137
+    ],
+    "were": [
+     60,
+     108
+    ],
+    "used": [
+     61
+    ],
+    "their": [
+     64
+    ],
+    "reducing": [
+     67
+    ],
+    "birds,": [
+     69
+    ],
+    "Asian": [
+     70
+    ],
+    "glossy": [
+     71
+    ],
+    "starling": [
+     72
+    ],
+    "(Aplonis": [
+     73
+    ],
+    "panayensis)": [
+     74
+    ],
+    "flocks": [
+     75
+    ],
+    "one": [
+     77
+    ],
+    "semiconductor": [
+     80
+    ],
+    "factories": [
+     81
+    ],
+    "Kulim": [
+     83
+    ],
+    "Hi-tech": [
+     84
+    ],
+    "Park,": [
+     85
+    ],
+    "Kedah,": [
+     86
+    ],
+    "Malaysia": [
+     87
+    ],
+    "during": [
+     88,
+     94
+    ],
+    "dusk.": [
+     89
+    ],
+    "Each": [
+     90
+    ],
+    "drone": [
+     91,
+     113,
+     118,
+     129,
+     138
+    ],
+    "was": [
+     92
+    ],
+    "evaluated": [
+     93
+    ],
+    "its": [
+     95
+    ],
+    "five": [
+     96,
+     102
+    ],
+    "minutes": [
+     97,
+     103
+    ],
+    "operation": [
+     99
+    ],
+    "time": [
+     100
+    ],
+    "after": [
+     104
+    ],
+    "landing.": [
+     105
+    ],
+    "Control": [
+     106
+    ],
+    "data": [
+     107
+    ],
+    "also": [
+     109
+    ],
+    "taken": [
+     110
+    ],
+    "compare": [
+     112
+    ],
+    "treatment": [
+     114,
+     119,
+     130,
+     133,
+     139,
+     142
+    ],
+    "days": [
+     115
+    ],
+    "with": [
+     116
+    ],
+    "no": [
+     117
+    ],
+    "days.": [
+     120
+    ],
+    "Our": [
+     121
+    ],
+    "result": [
+     122
+    ],
+    "shows": [
+     123
+    ],
+    "a": [
+     124
+    ],
+    "significant": [
+     125
+    ],
+    "difference": [
+     126
+    ],
+    "between": [
+     127,
+     136
+    ],
+    "control": [
+     132,
+     141
+    ],
+    "but": [
+     134
+    ],
+    "not": [
+     135
+    ],
+    "due": [
+     143
+    ],
+    "different": [
+     145
+    ],
+    "altitudes": [
+     146
+    ],
+    "applied,": [
+     147
+    ],
+    "ambient": [
+     148
+    ],
+    "light": [
+     149
+    ],
+    "intensity": [
+     150
+    ],
+    "size": [
+     152
+    ],
+    "flight": [
+     154
+    ],
+    "path": [
+     155
+    ],
+    "covered.": [
+     156
+    ],
+    "We": [
+     157
+    ],
+    "suggest": [
+     158
+    ],
+    "implementing": [
+     159
+    ],
+    "biomimetic": [
+     160
+    ],
+    "design": [
+     161
+    ],
+    "into": [
+     162
+    ],
+    "applying": [
+     165
+    ],
+    "other": [
+     166
+    ],
+    "conventional": [
+     167
+    ],
+    "ground": [
+     168
+    ],
+    "deterrents": [
+     169
+    ],
+    "prolong": [
+     171
+    ],
+    "residual": [
+     173
+    ],
+    "effect": [
+     174
+    ],
+    "post-treatment.": [
+     176
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.11591/eei.v13i6.7359",
+    "doi": "https://doi.org/10.11591/eei.v13i6.7359",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.11591/eei.v13i6.7359",
+    "pdf_url": "https://beei.org/index.php/EEI/article/download/7359/3948",
+    "source": {
+     "id": "https://openalex.org/S2765016208",
+     "display_name": "Bulletin of Electrical Engineering and Informatics",
+     "issn_l": "2089-3191",
+     "issn": [
+      "2089-3191",
+      "2302-9285"
+     ],
+     "is_oa": true,
+     "is_in_doaj": false,
+     "is_core": false,
+     "listed_in": [
+      "jufo-1",
+      "poland-20",
+      "russia-white-list-2"
+     ],
+     "host_organization": "https://openalex.org/P4310315009",
+     "host_organization_name": "Institute of Advanced Engineering and Science (IAES)",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310315009"
+     ],
+     "host_organization_lineage_names": [
+      "Institute of Advanced Engineering and Science (IAES)"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by-sa",
+    "license_id": "https://openalex.org/licenses/cc-by-sa",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Bulletin of Electrical Engineering and Informatics",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W4205616846",
+   "doi": "https://doi.org/10.1109/access.2021.3137031",
+   "display_name": "Autonomous Detection and Deterrence of Pigeons on Buildings by Drones",
+   "publication_date": "2021-12-20",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-9-0"
+     },
+     "institutions": [
+      {
+       "display_name": "École Polytechnique Fédérale de Lausanne"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-9-1"
+     },
+     "institutions": [
+      {
+       "display_name": "École Polytechnique Fédérale de Lausanne"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-9-2"
+     },
+     "institutions": [
+      {
+       "display_name": "École Polytechnique Fédérale de Lausanne"
+      }
+     ]
+    }
+   ],
+   "abstract_inverted_index": {
+    "Pigeons": [
+     0
+    ],
+    "may": [
+     1
+    ],
+    "transmit": [
+     2
+    ],
+    "diseases": [
+     3
+    ],
+    "to": [
+     4,
+     9,
+     27,
+     33,
+     90,
+     103,
+     160,
+     187
+    ],
+    "humans": [
+     5
+    ],
+    "and": [
+     6,
+     12,
+     35,
+     50,
+     61,
+     114,
+     142,
+     152,
+     176
+    ],
+    "cause": [
+     7
+    ],
+    "damages": [
+     8
+    ],
+    "buildings,": [
+     10
+    ],
+    "monuments,": [
+     11
+    ],
+    "other": [
+     13
+    ],
+    "infrastructure.": [
+     14
+    ],
+    "Therefore,": [
+     15
+    ],
+    "several": [
+     16
+    ],
+    "control": [
+     17
+    ],
+    "strategies": [
+     18
+    ],
+    "have": [
+     19,
+     24
+    ],
+    "been": [
+     20,
+     25
+    ],
+    "developed,": [
+     21
+    ],
+    "but": [
+     22
+    ],
+    "they": [
+     23
+    ],
+    "found": [
+     26
+    ],
+    "be": [
+     28,
+     180
+    ],
+    "either": [
+     29
+    ],
+    "ineffective": [
+     30
+    ],
+    "or": [
+     31
+    ],
+    "harmful": [
+     32
+    ],
+    "animals": [
+     34,
+     113
+    ],
+    "often": [
+     36
+    ],
+    "depend": [
+     37
+    ],
+    "on": [
+     38,
+     53,
+     82
+    ],
+    "human": [
+     39
+    ],
+    "operation.": [
+     40
+    ],
+    "This": [
+     41
+    ],
+    "study": [
+     42,
+     165
+    ],
+    "proposes": [
+     43
+    ],
+    "a": [
+     44,
+     57,
+     71,
+     78,
+     86,
+     99,
+     183
+    ],
+    "system": [
+     45,
+     107,
+     172
+    ],
+    "capable": [
+     46
+    ],
+    "of": [
+     47,
+     63,
+     112,
+     133,
+     150,
+     170
+    ],
+    "autonomously": [
+     48
+    ],
+    "detecting": [
+     49
+    ],
+    "deterring": [
+     51,
+     174
+    ],
+    "pigeons": [
+     52,
+     64
+    ],
+    "building": [
+     54
+    ],
+    "roofs": [
+     55
+    ],
+    "using": [
+     56,
+     74
+    ],
+    "drone.": [
+     58,
+     128
+    ],
+    "The": [
+     59
+    ],
+    "presence": [
+     60
+    ],
+    "position": [
+     62
+    ],
+    "were": [
+     65,
+     96
+    ],
+    "detected": [
+     66
+    ],
+    "in": [
+     67,
+     98,
+     146,
+     173
+    ],
+    "real": [
+     68
+    ],
+    "time": [
+     69
+    ],
+    "by": [
+     70,
+     77,
+     108
+    ],
+    "neural": [
+     72
+    ],
+    "network": [
+     73
+    ],
+    "images": [
+     75
+    ],
+    "taken": [
+     76
+    ],
+    "video": [
+     79
+    ],
+    "camera": [
+     80
+    ],
+    "located": [
+     81
+    ],
+    "the": [
+     83,
+     92,
+     105,
+     110,
+     123,
+     127,
+     130,
+     135,
+     148,
+     168,
+     188
+    ],
+    "roof.": [
+     84
+    ],
+    "Moreover,": [
+     85
+    ],
+    "drone": [
+     87,
+     136
+    ],
+    "was": [
+     88,
+     137,
+     143
+    ],
+    "utilized": [
+     89
+    ],
+    "deter": [
+     91
+    ],
+    "animals.": [
+     93
+    ],
+    "Field": [
+     94
+    ],
+    "experiments": [
+     95
+    ],
+    "conducted": [
+     97
+    ],
+    "real-world": [
+     100
+    ],
+    "urban": [
+     101
+    ],
+    "setting": [
+     102
+    ],
+    "assess": [
+     104
+    ],
+    "proposed": [
+     106
+    ],
+    "comparing": [
+     109
+    ],
+    "number": [
+     111,
+     149
+    ],
+    "their": [
+     115,
+     153
+    ],
+    "stay": [
+     116,
+     154
+    ],
+    "durations": [
+     117,
+     155
+    ],
+    "for": [
+     118
+    ],
+    "over": [
+     119
+    ],
+    "five": [
+     120,
+     131
+    ],
+    "days": [
+     121,
+     132
+    ],
+    "against": [
+     122
+    ],
+    "21-day-trial": [
+     124
+    ],
+    "experiment": [
+     125
+    ],
+    "without": [
+     126,
+     156
+    ],
+    "During": [
+     129
+    ],
+    "experiments,": [
+     134
+    ],
+    "automatically": [
+     138
+    ],
+    "deployed": [
+     139
+    ],
+    "55": [
+     140
+    ],
+    "times": [
+     141
+    ],
+    "significantly": [
+     144
+    ],
+    "effective": [
+     145
+    ],
+    "reducing": [
+     147
+    ],
+    "birds": [
+     151
+    ],
+    "causing": [
+     157
+    ],
+    "any": [
+     158
+    ],
+    "harm": [
+     159
+    ],
+    "them.": [
+     161
+    ],
+    "In": [
+     162
+    ],
+    "conclusion,": [
+     163
+    ],
+    "this": [
+     164,
+     171,
+     177
+    ],
+    "has": [
+     166
+    ],
+    "proven": [
+     167
+    ],
+    "effectiveness": [
+     169
+    ],
+    "birds,": [
+     175
+    ],
+    "approach": [
+     178
+    ],
+    "can": [
+     179
+    ],
+    "seen": [
+     181
+    ],
+    "as": [
+     182
+    ],
+    "fully": [
+     184
+    ],
+    "autonomous": [
+     185
+    ],
+    "alternative": [
+     186
+    ],
+    "already": [
+     189
+    ],
+    "existing": [
+     190
+    ],
+    "methods.": [
+     191
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.1109/access.2021.3137031",
+    "doi": "https://doi.org/10.1109/access.2021.3137031",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.1109/access.2021.3137031",
+    "pdf_url": "https://ieeexplore.ieee.org/ielx7/6287639/9668973/09656717.pdf",
+    "source": {
+     "id": "https://openalex.org/S2485537415",
+     "display_name": "IEEE Access",
+     "issn_l": "2169-3536",
+     "issn": [
+      "2169-3536"
+     ],
+     "is_oa": true,
+     "is_in_doaj": true,
+     "is_core": true,
+     "listed_in": [
+      "anvur-scientific",
+      "cwts-core",
+      "doaj",
+      "jufo-1",
+      "ki-jl-1",
+      "norway-1",
+      "oarl",
+      "poland-100",
+      "russia-white-list-1",
+      "vabb-shw"
+     ],
+     "host_organization": "https://openalex.org/P4310319808",
+     "host_organization_name": "Institute of Electrical and Electronics Engineers",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310319808"
+     ],
+     "host_organization_lineage_names": [
+      "Institute of Electrical and Electronics Engineers"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "IEEE Access",
+    "raw_type": "journal-article"
+   },
+   "type": "article"
+  },
+  {
+   "id": "https://openalex.org/W3237455",
+   "doi": "https://doi.org/10.5070/v418110158",
+   "display_name": "The use of aerosol repellents as an avian deterrent strategy",
+   "publication_date": "1998-01-01",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-10-0"
+     },
+     "institutions": [
+      {
+       "display_name": "Colorado State University"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-10-1"
+     },
+     "institutions": [
+      {
+       "display_name": "National Wildlife Research Center"
+      }
+     ]
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-10-2"
+     },
+     "institutions": []
+    }
+   ],
+   "abstract_inverted_index": {
+    "Traditional": [
+     0
+    ],
+    "protective": [
+     1
+    ],
+    "measures": [
+     2
+    ],
+    "to": [
+     3,
+     31,
+     47,
+     58,
+     89,
+     102,
+     110,
+     142
+    ],
+    "keep": [
+     4
+    ],
+    "wildlife": [
+     5,
+     28,
+     45,
+     91
+    ],
+    "away": [
+     6
+    ],
+    "from": [
+     7
+    ],
+    "areas": [
+     8
+    ],
+    "include": [
+     9
+    ],
+    "exclusion": [
+     10
+    ],
+    "by": [
+     11,
+     54
+    ],
+    "use": [
+     12,
+     36
+    ],
+    "of": [
+     13,
+     97,
+     126
+    ],
+    "netting,": [
+     14
+    ],
+    "hazing,": [
+     15
+    ],
+    "and": [
+     16,
+     72,
+     79,
+     147
+    ],
+    "chemical": [
+     17,
+     98
+    ],
+    "repellents.": [
+     18
+    ],
+    "The": [
+     19
+    ],
+    "primary": [
+     20
+    ],
+    "problem": [
+     21
+    ],
+    "with": [
+     22
+    ],
+    "most": [
+     23
+    ],
+    "hazing": [
+     24,
+     140
+    ],
+    "systems": [
+     25
+    ],
+    "is": [
+     26
+    ],
+    "that": [
+     27
+    ],
+    "quickly": [
+     29
+    ],
+    "habituate": [
+     30
+    ],
+    "the": [
+     32,
+     107
+    ],
+    "devices": [
+     33
+    ],
+    "if": [
+     34
+    ],
+    "their": [
+     35
+    ],
+    "falls": [
+     37
+    ],
+    "into": [
+     38
+    ],
+    "a": [
+     39,
+     56,
+     60,
+     65,
+     87,
+     113,
+     117,
+     127
+    ],
+    "predictable": [
+     40
+    ],
+    "pattern.": [
+     41
+    ],
+    "Repellent": [
+     42
+    ],
+    "substances": [
+     43
+    ],
+    "cause": [
+     44
+    ],
+    "species": [
+     46
+    ],
+    "avoid": [
+     48
+    ],
+    "otherwise": [
+     49
+    ],
+    "attractive": [
+     50
+    ],
+    "or": [
+     51,
+     63
+    ],
+    "palatable": [
+     52
+    ],
+    "resources": [
+     53
+    ],
+    "creating": [
+     55
+    ],
+    "disincentive": [
+     57
+    ],
+    "visit": [
+     59
+    ],
+    "specific": [
+     61
+    ],
+    "area": [
+     62,
+     115
+    ],
+    "consume": [
+     64
+    ],
+    "particular": [
+     66
+    ],
+    "resource.": [
+     67
+    ],
+    "Chemical": [
+     68
+    ],
+    "repellents,": [
+     69
+    ],
+    "both": [
+     70
+    ],
+    "lethal": [
+     71
+    ],
+    "non-lethal,": [
+     73
+    ],
+    "are": [
+     74
+    ],
+    "typically": [
+     75
+    ],
+    "used": [
+     76,
+     133
+    ],
+    "for": [
+     77
+    ],
+    "agricultural": [
+     78
+    ],
+    "horticultural": [
+     80
+    ],
+    "purposes,": [
+     81
+    ],
+    "but": [
+     82
+    ],
+    "in": [
+     83,
+     92,
+     106,
+     112,
+     138
+    ],
+    "addition": [
+     84
+    ],
+    "may": [
+     85
+    ],
+    "provide": [
+     86
+    ],
+    "strategy": [
+     88
+    ],
+    "deter": [
+     90
+    ],
+    "other": [
+     93
+    ],
+    "contexts.": [
+     94
+    ],
+    "Aerosol": [
+     95
+    ],
+    "delivery": [
+     96,
+     125
+    ],
+    "repellents": [
+     99
+    ],
+    "might": [
+     100
+    ],
+    "work": [
+     101
+    ],
+    "effectively": [
+     103
+    ],
+    "target": [
+     104
+    ],
+    "birds": [
+     105
+    ],
+    "air": [
+     108
+    ],
+    "prior": [
+     109
+    ],
+    "landing": [
+     111
+    ],
+    "hazardous": [
+     114
+    ],
+    "(i.e.,": [
+     116
+    ],
+    "toxic": [
+     118
+    ],
+    "waste": [
+     119
+    ],
+    "water": [
+     120
+    ],
+    "impoundment).": [
+     121
+    ],
+    "In": [
+     122
+    ],
+    "theory,": [
+     123
+    ],
+    "aerosol": [
+     124
+    ],
+    "known": [
+     128
+    ],
+    "avian": [
+     129
+    ],
+    "irritant": [
+     130
+    ],
+    "could": [
+     131
+    ],
+    "be": [
+     132
+    ],
+    "as": [
+     134
+    ],
+    "an": [
+     135
+    ],
+    "ancillary": [
+     136
+    ],
+    "tool": [
+     137
+    ],
+    "bird": [
+     139
+    ],
+    "systems,": [
+     141
+    ],
+    "complement": [
+     143
+    ],
+    "more": [
+     144
+    ],
+    "traditional": [
+     145
+    ],
+    "auditory": [
+     146
+    ],
+    "visual": [
+     148
+    ],
+    "scare": [
+     149
+    ],
+    "tactics.": [
+     150
+    ]
+   },
+   "primary_location": {
+    "id": "doi:10.5070/v418110158",
+    "doi": "https://doi.org/10.5070/v418110158",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.5070/v418110158",
+    "pdf_url": "https://cloudfront.escholarship.org/dist/prd/content/qt5671w5sh/qt5671w5sh.pdf?t=plumcd",
+    "source": {
+     "id": "https://openalex.org/S4306524349",
+     "display_name": "Proceedings - Vertebrate Pest Conference",
+     "issn_l": "0507-6773",
+     "issn": [
+      "0507-6773",
+      "2641-273X"
+     ],
+     "is_oa": true,
+     "is_in_doaj": false,
+     "is_core": false,
+     "listed_in": [],
+     "host_organization": null,
+     "host_organization_name": null,
+     "host_organization_lineage": [],
+     "host_organization_lineage_names": [],
+     "type": "conference"
+    },
+    "license": null,
+    "license_id": null,
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Proceedings of the Vertebrate Pest Conference",
+    "raw_type": "journal-article"
+   },
+   "type": "conference-paper"
+  },
+  {
+   "id": "https://openalex.org/W1489205178",
+   "doi": null,
+   "display_name": "The status of lines in bird damage control--a review.",
+   "publication_date": "1990-07-01",
+   "language": "en",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-11-0"
+     },
+     "institutions": []
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-11-1"
+     },
+     "institutions": []
+    },
+    {
+     "author": {
+      "display_name": "NAME-REMOVED-11-2"
+     },
+     "institutions": []
+    }
+   ],
+   "abstract_inverted_index": {
+    "One": [
+     0
+    ],
+    "technique": [
+     1
+    ],
+    "for": [
+     2,
+     68,
+     190
+    ],
+    "repelling": [
+     3,
+     69,
+     193
+    ],
+    "or": [
+     4,
+     13,
+     21,
+     60,
+     192
+    ],
+    "excluding": [
+     5,
+     191
+    ],
+    "birds": [
+     6,
+     34,
+     71,
+     106,
+     178
+    ],
+    "is": [
+     7,
+     179
+    ],
+    "to": [
+     8
+    ],
+    "stretch": [
+     9
+    ],
+    "wires,": [
+     10
+    ],
+    "monofilament": [
+     11,
+     92,
+     147
+    ],
+    "lines,": [
+     12
+    ],
+    "nylon": [
+     14
+    ],
+    "strings": [
+     15
+    ],
+    "across": [
+     16
+    ],
+    "sites": [
+     17,
+     110
+    ],
+    "needing": [
+     18
+    ],
+    "protection.": [
+     19
+    ],
+    "Wires": [
+     20
+    ],
+    "lines": [
+     22,
+     93,
+     148,
+     175
+    ],
+    "spaced": [
+     23,
+     94
+    ],
+    "at": [
+     24,
+     95,
+     154
+    ],
+    "various": [
+     25,
+     29,
+     108
+    ],
+    "intervals": [
+     26,
+     98
+    ],
+    "and": [
+     27,
+     45,
+     79,
+     104,
+     111,
+     127,
+     132,
+     143,
+     153,
+     161
+    ],
+    "in": [
+     28,
+     87,
+     120,
+     149
+    ],
+    "configurations": [
+     30
+    ],
+    "have": [
+     31,
+     122,
+     187
+    ],
+    "successfully": [
+     32
+    ],
+    "repelled": [
+     33,
+     99,
+     169
+    ],
+    "such": [
+     35,
+     72
+    ],
+    "as": [
+     36,
+     73,
+     196,
+     198
+    ],
+    "ring-billed": [
+     37
+    ],
+    "(Larus": [
+     38
+    ],
+    "delawarensis)": [
+     39
+    ],
+    "and/or": [
+     40,
+     140
+    ],
+    "herring": [
+     41
+    ],
+    "(L.": [
+     42
+    ],
+    "argentatus)": [
+     43
+    ],
+    "gulls,": [
+     44
+    ],
+    "brant": [
+     46
+    ],
+    "(Branta": [
+     47
+    ],
+    "bernicla": [
+     48
+    ],
+    "bernicla)": [
+     49
+    ],
+    "from": [
+     50,
+     76,
+     82,
+     107,
+     116
+    ],
+    "reservoirs,": [
+     51
+    ],
+    "sanitary": [
+     52
+    ],
+    "landfills,": [
+     53
+    ],
+    "fish": [
+     54
+    ],
+    "hatcheries,": [
+     55
+    ],
+    "nesting": [
+     56,
+     117
+    ],
+    "areas,": [
+     57
+    ],
+    "public": [
+     58
+    ],
+    "places,": [
+     59
+    ],
+    "farm": [
+     61
+    ],
+    "fields.": [
+     62
+    ],
+    "Black": [
+     63
+    ],
+    "thread": [
+     64
+    ],
+    "has": [
+     65
+    ],
+    "been": [
+     66
+    ],
+    "suggested": [
+     67
+    ],
+    "small": [
+     70
+    ],
+    "sparrows": [
+     74,
+     101
+    ],
+    "(unspecified)": [
+     75,
+     81
+    ],
+    "garden": [
+     77
+    ],
+    "seedlings": [
+     78
+    ],
+    "bullfinches": [
+     80
+    ],
+    "fruit": [
+     83
+    ],
+    "trees.": [
+     84
+    ],
+    "Recent": [
+     85
+    ],
+    "observations": [
+     86
+    ],
+    "New": [
+     88
+    ],
+    "Mexico": [
+     89
+    ],
+    "indicated": [
+     90
+    ],
+    "that": [
+     91,
+     166,
+     185
+    ],
+    "30-cm": [
+     96
+    ],
+    "(1-ft)": [
+     97
+    ],
+    "house": [
+     100,
+     170
+    ],
+    "(Passer": [
+     102
+    ],
+    "domesticus)": [
+     103
+    ],
+    "other": [
+     105
+    ],
+    "feeding": [
+     109,
+     155
+    ],
+    "barn": [
+     112
+    ],
+    "swallows": [
+     113
+    ],
+    "(Hirundo": [
+     114
+    ],
+    "rustica)": [
+     115
+    ],
+    "sites.": [
+     118
+    ],
+    "Experiments": [
+     119
+    ],
+    "Nebraska": [
+     121
+    ],
+    "tested": [
+     123
+    ],
+    "size": [
+     124
+    ],
+    "(1.8-,": [
+     125
+    ],
+    "5.4-,": [
+     126
+    ],
+    "9-kg": [
+     128
+    ],
+    "test),": [
+     129
+    ],
+    "color": [
+     130
+    ],
+    "(clear": [
+     131
+    ],
+    "fluorescent": [
+     133
+    ],
+    "golden),": [
+     134
+    ],
+    "orientation": [
+     135
+    ],
+    "(north-south,": [
+     136
+    ],
+    "east-west,": [
+     137
+    ],
+    "horizontal,": [
+     138
+    ],
+    "vertical)": [
+     139
+    ],
+    "spacing": [
+     141
+    ],
+    "(30": [
+     142
+    ],
+    "60": [
+     144
+    ],
+    "cm)": [
+     145
+    ],
+    "of": [
+     146,
+     158
+    ],
+    "a": [
+     150
+    ],
+    "grape": [
+     151
+    ],
+    "vineyard": [
+     152
+    ],
+    "stations.": [
+     156
+    ],
+    "Results": [
+     157
+    ],
+    "food": [
+     159
+    ],
+    "consumption": [
+     160
+    ],
+    "bird": [
+     162
+    ],
+    "count": [
+     163
+    ],
+    "data": [
+     164
+    ],
+    "indicate": [
+     165
+    ],
+    "all": [
+     167
+    ],
+    "treatments": [
+     168
+    ],
+    "sparrows.": [
+     171
+    ],
+    "Although": [
+     172
+    ],
+    "the": [
+     173
+    ],
+    "reasons": [
+     174
+    ],
+    "repel": [
+     176
+    ],
+    "certain": [
+     177,
+     194
+    ],
+    "not": [
+     180
+    ],
+    "fully": [
+     181
+    ],
+    "understood,": [
+     182
+    ],
+    "it": [
+     183
+    ],
+    "appears": [
+     184
+    ],
+    "they": [
+     186
+    ],
+    "probable": [
+     188
+    ],
+    "applications": [
+     189
+    ],
+    "terrestrial": [
+     195
+    ],
+    "well": [
+     197
+    ],
+    "aquatic": [
+     199
+    ],
+    "species.": [
+     200
+    ]
+   },
+   "primary_location": {
+    "id": "pmh:oai:digitalcommons.unl.edu:vpc14-1069",
+    "doi": null,
+    "is_oa": true,
+    "landing_page_url": "https://digitalcommons.unl.edu/vpc14/70",
+    "pdf_url": "https://digitalcommons.unl.edu/vpc14/70",
+    "source": {
+     "id": "https://openalex.org/S4306400577",
+     "display_name": "Lincoln (University of Nebraska)",
+     "issn_l": null,
+     "issn": null,
+     "is_oa": false,
+     "is_in_doaj": false,
+     "is_core": false,
+     "listed_in": [],
+     "host_organization": "https://openalex.org/I114395901",
+     "host_organization_name": "University of Nebraska–Lincoln",
+     "host_organization_lineage": [
+      "https://openalex.org/I114395901"
+     ],
+     "host_organization_lineage_names": [],
+     "type": "repository"
+    },
+    "license": null,
+    "license_id": null,
+    "version": "submittedVersion",
+    "is_accepted": false,
+    "is_published": false,
+    "raw_source_name": "Vertebrate Pest Conference Proceedings: 14th (1990)",
+    "raw_type": "text"
+   },
+   "type": "conference-paper"
+  }
+ ]
+}

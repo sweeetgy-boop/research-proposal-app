@@ -8,7 +8,8 @@
    영문, ScienceON(논문·보고서·특허)·NTIS(과제+연구보고서) 는 국문. 자료원당 상위 30.
    같은 질의는 24시간 캐시(자료원+정규화 질의의 해시). NTIS 가 IP 거부(SourceIpBlocked)면 그 세션은
    건너뛰고 자료원 가용 상태(source_availability)에 같은 안내를 남긴다 — 기록이 최근이면 호출하지
-   않는다.
+   않는다. 자료원이 호출을 제한(SourceRateLimited, OpenAlex 익명 429)하면 기다리지 않고 그 자료원만
+   error + 안내로 남긴다(2026-11-09).
 3. 저장 — 사람 이름 제거·public·raw.live=true 로 정리하고, 실시간 결과끼리(DOI·과제번호·보고서번호·
    제목+연도) 그리고 DB 와(같은 doc_id 또는 같은 동일성 키) 중복을 정리한 뒤 새 문서만 청크·임베딩·
    upsert. 이후 ② 유사과제·관련 연구, 선행연구 브리핑, ③ 섹션 검색은 평소 검색(hybrid_search·
@@ -71,6 +72,7 @@ from rra.domain.rules.live_search import (
 from rra.domain.rules.llm_output import parse_object
 from rra.domain.rules.overlap import SOURCE_LABELS
 from rra.domain.rules.source_ip import SourceIpBlocked, unregistered_notice
+from rra.domain.rules.source_limits import SourceRateLimited
 from rra.domain.services.chunking import chunk_document
 
 logger = logging.getLogger("rra.live_search")
@@ -381,6 +383,9 @@ class LiveSearch:
             self._record(name, notice)
             logger.warning("live.ip_blocked source=%s", name)
             return result("ip_blocked", notice=notice), []
+        except SourceRateLimited as exc:  # 429 — 기다리지 않고 이 자료원만 건너뛴다 (짧은 안내)
+            logger.warning("live.rate_limited source=%s", name)
+            return result("error", notice=str(exc)[:200] or None), []
         except Exception as exc:  # 자료원 격리 — 클래스명만 (D: 메시지에 URL 이 섞일 수 있다)
             logger.warning("live.source_failed source=%s err=%s", name, type(exc).__name__)
             return result("error", notice=None), []

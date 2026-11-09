@@ -75,6 +75,11 @@ openalex:
   max_response_mb: 20
   max_redirects: 3
   retries: 3
+  # 2026-11 부터 OpenAlex 는 익명(API 키 없음) 검색을 혼잡 때 HTTP 429 Retry-After 30~31초로 막고(야간 적재 2026-11-09
+  # "[openalex] 실패: RateLimited" 의 원인), 키 없는 요청은 같은 공인 IP 가 하루 예산을 나눠 쓴다. 적재는 그 시간을 기다렸다
+  # 다시 보낸다(상한 60초). 실시간 검색(live.py LiveOpenAlex)은 기다리지 않고 그 자료원만 건너뛴다. 근본 해결은 무료 API 키
+  # → .env RRA_OPENALEX_API_KEY (요청 파라미터로만 실린다, 보안 D).
+  max_backoff_sec: 60
   timeout: {connect: 10, read: 30}
   # polite pool 이메일은 .env RRA_OPENALEX_MAILTO (환경변수가 있으면 그쪽이 이긴다). 여기 mailto 를 적어도 된다.
 # 자료원 IP 확인 (레인 I, 2026-10-27). `rra sources check` 가 현재 공인 IP 를 lookup_url 로 한 번 조회해

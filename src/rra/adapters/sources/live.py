@@ -7,7 +7,8 @@
   세워 자료원별 호출 간격(rate_limit)을 지킨다.
 - 질의는 앞에서부터 보내고 limit 건이 차면 뒤 질의는 보내지 않는다. 같은 문서는 한 번만.
 - ScienceON: 논문·보고서·특허 target 마다 limit/target 수. NTIS: 과제 절반·연구보고서 절반을 동시에.
-  OpenAlex: 영문 질의, 초록 있는 것만.
+  OpenAlex: 영문 질의, 초록 있는 것만. 429(익명 검색 제한)는 기다리지 않고 SourceRateLimited 로
+  올린다(2026-11-09, 운영 오류 원인).
 """
 
 from __future__ import annotations
@@ -18,9 +19,10 @@ import math
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from rra.adapters.sources._base import GuardedClient
+from rra.adapters.sources._base import GuardedClient, RateLimited
 from rra.domain.models import Document
 from rra.domain.rules.source_ip import SourceIpBlocked
+from rra.domain.rules.source_limits import OPENALEX_KEY_ENV, SourceRateLimited, rate_limit_notice
 
 logger = logging.getLogger("rra.sources.live")
 
@@ -140,12 +142,22 @@ class LiveNtis:
 
 
 class LiveOpenAlex:
+    """OpenAlex 는 2026-11 부터 익명(API 키 없음) 검색을 혼잡 때 429 `Retry-After: 30` 으로
+    막는다(tests/fixtures/openalex/rate_limited_429.json). 실시간 검색의 자료원 제한 시간(10~15초)
+    보다 길어 기다릴 수 없으므로 429 대기 상한을 `max_wait_sec` 로 줄여 바로 `SourceRateLimited` 로
+    올린다 — 유스케이스는 그 자료원만 `error` + 안내(키 등록 권고)로 남기고 나머지 자료원으로
+    계속한다. 야간 적재의 OpenAlexSource 는 다른 인스턴스라 그쪽 대기 상한(sources.yaml
+    max_backoff_sec)은 그대로다."""
+
     source = "openalex"
     lang = "en"
 
-    def __init__(self, inner: Any, *, max_requests: int = 3):
+    def __init__(self, inner: Any, *, max_requests: int = 3, max_wait_sec: float = 5.0):
         self.inner = inner  # OpenAlexSource
         self._budget = _Budget([inner.client], max_requests)
+        client = inner.client
+        if hasattr(client, "max_backoff_sec"):
+            client.max_backoff_sec = min(float(client.max_backoff_sec), float(max_wait_sec))
 
     def __repr__(self) -> str:
         return "LiveOpenAlex()"
@@ -158,7 +170,19 @@ class LiveOpenAlex:
             self.inner.per_page = max(1, min(200, limit))
             out: dict[str, Document] = {}
             for q in queries:
-                raws = await self.inner.search_query(q, limit, require_abstract=True)
+                try:
+                    raws = await self.inner.search_query(q, limit, require_abstract=True)
+                except RateLimited as exc:
+                    if out:  # 앞 질의는 받았다 — 받은 만큼으로 계속 (건수만 로그)
+                        logger.info("live.openalex_rate_limited_partial docs=%d", len(out))
+                        break
+                    raise SourceRateLimited(
+                        rate_limit_notice(
+                            "OpenAlex",
+                            anonymous=getattr(self.inner, "api_key", None) is None,
+                            key_env=OPENALEX_KEY_ENV,
+                        )
+                    ) from exc
                 _add(out, _normalized(raws, self.inner.normalize), limit)
                 if len(out) >= limit:
                     break
