@@ -1,0 +1,41 @@
+{
+  "suite": "l0",
+  "seed": 20261109,
+  "n": 20,
+  "repeats": 1,
+  "metrics": {
+    "recall_at5": 0.9,
+    "false_block": 0.0,
+    "novel_rate": 1.0,
+    "novel_estimated_barrier_ratio": null,
+    "latency_p50": 0.0,
+    "latency_p90": 0.0,
+    "rec_zero_rate": null
+  },
+  "ci95": {},
+  "config_flags": {
+    "facets.enabled": false,
+    "idf_weighting.enabled": false,
+    "synonyms.enabled": false,
+    "judgment.enabled": true,
+    "series.enabled": true,
+    "rerank.threshold": 0.5,
+    "llm": "none",
+    "corpus": "synthetic",
+    "rerank.enabled": false,
+    "with_recommend": false,
+    "keywords": "rule"
+  },
+  "label": "",
+  "commit": "434581b",
+  "started_at": "2026-11-09T14:34:48+09:00",
+  "seconds": 0.1,
+  "sealed": false,
+  "llm_calls": 0,
+  "cache_hits": 20,
+  "notes": [
+    "새 영역 문제 차단 0/4건 (false_block 분모 밖)",
+    "캐시 재생 적중 20건 · 미스 0건(규칙 판정)",
+    "문제 종류: novel 4, reverse 10, trap 6"
+  ]
+}

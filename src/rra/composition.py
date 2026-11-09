@@ -3234,3 +3234,224 @@ def build_live_search(
         availability=None if settings.fake_llm else build_source_availability(settings),
         public_ip=None if settings.fake_llm else build_public_ip_probe(settings),
     )
+
+
+# ── 평가 체계 (ADR 0058, 계약 docs/contracts/eval-results.md, 레인 D) ───────────────────
+EVAL_RESULTS_DIR = "eval/results"  # 저장소 경로(커밋 대상, 수치만) — 데이터 폴더가 아니다
+
+
+def build_eval_stores(settings: Settings | None = None):
+    """(결과 JSON 저장소, 문제 묶음 저장소). 문제 묶음은 데이터 폴더 `eval/sealed|practice`
+    (600)."""
+    from rra.adapters.eval import JsonlProblemStore, JsonResultStore
+
+    settings = settings or load_settings()
+    return (
+        JsonResultStore(Path(EVAL_RESULTS_DIR)),
+        JsonlProblemStore(
+            data_location(settings, "eval_sealed"), data_location(settings, "eval_practice")
+        ),
+    )
+
+
+def build_eval_llm(settings: Settings | None = None, *, stage: str | None = None):
+    """평가용 원격 LLM — (llm | None, 평가 예산 카운터 | None). 운영 `build_llm` 의 BudgetedLLM(일일
+    600)을 거치지 않고 **별도 카운터**(`data/cache/eval_llm_budget.json`,
+    `eval.yaml daily_llm_calls`)로
+    감싼다 — 야간 평가가 운영 Argon 예산을 깎지 않는다. 키가 없거나 provider 가 원격이 아니면
+    (None, None)."""
+    from rra.adapters.llm import OpenAICompatLLM
+    from rra.adapters.llm.daily_budget import BudgetedLLM, FileDailyBudget
+    from rra.config_loader import eval_config
+
+    settings = settings or load_settings()
+    stage = stage or same_judgment_config(settings)["stage"]
+    if not llm_available(settings, stage=stage):
+        return None, None
+    try:
+        llm = _build_openai_compat(OpenAICompatLLM, settings, stage=stage, provider=None)
+    except (LLMUnavailable, KeyError, ValueError):
+        return None, None
+    if llm.provider not in ("gemini", "openai"):
+        return llm, None  # 로컬 모델은 예산 없음
+    limit = eval_config(settings).daily_llm_calls
+    if limit <= 0:
+        return llm, None
+    budget = FileDailyBudget(data_location(settings, "eval_llm_budget"), limit)
+    return BudgetedLLM(llm, budget, stage=f"eval:{stage}"), budget
+
+
+def _rule_keyword_source(settings: Settings):
+    """평가 ② 의 핵심어 — 규칙만(Argon 키워드 호출 없음). 운영의 규칙 대체 경로와 같은 결과."""
+    from rra.application.usecases.live_search import LiveKeywordMaker
+
+    return LiveKeywordMaker(primary=None, local=None, rule=keyword_rule(settings))
+
+
+def build_eval_precheck(
+    settings: Settings, *, repo, reranker=None, llm=None, local_llm=None, judge: bool = True
+):
+    """평가용 ② — 운영 REST 와 같은 규칙(후보 자료원·풀·reranker·연작·AI 같음 판정)이되 핵심어는
+    규칙만. llm 은 판정의 Argon 자리(캐시 재생·평가 예산 LLM·가짜), local_llm 은 로컬 대체."""
+    from rra.application.usecases.precheck_overlap import PrecheckOverlap
+
+    same_judge = None
+    if judge and same_judgment_config(settings)["enabled"] and (llm or local_llm):
+        same_judge = build_same_judge(settings, repo=repo, llm=llm, local_llm=local_llm)
+    return PrecheckOverlap(
+        repo,
+        own=own_unit(settings),
+        keywords=keyword_rule(settings),
+        reranker=reranker,
+        mix=retrieval_mix(settings),
+        candidates=overlap_candidates(settings),
+        rerank=rerank_rule(settings),
+        series=series_rule(settings),
+        same_judge=same_judge,
+        keyword_source=_rule_keyword_source(settings),
+    )
+
+
+def build_problem_generator(settings: Settings, *, repo, precheck):
+    """L1 문제 생성기 — 과제형 자료원(eval.yaml l1.sources)·주제 사전, 새 영역 사전 확인은 규칙
+    판정."""
+    from rra.application.usecases.eval_problems import ProblemGenerator, precheck_blocks
+    from rra.config_loader import eval_config
+
+    cfg = eval_config(settings)
+    return ProblemGenerator(
+        repo,
+        sources=cfg.l1.sources,
+        topics=cfg.novel_topics,
+        keywords=keyword_rule(settings),
+        rule_check=precheck_blocks(precheck),
+        min_text_chars=cfg.l1.min_text_chars,
+    )
+
+
+def build_eval_suite(
+    settings: Settings | None = None,
+    *,
+    suite: str,
+    seed: int,
+    repeats: int = 1,
+    label: str = "",
+    sealed: bool = False,
+    real: bool = False,
+    record: bool = False,
+    with_recommend: bool | None = None,
+    progress=None,
+) -> dict[str, Any]:
+    """suite 실행 부품 — {"suite": EvaluateSuite, "generator": ProblemGenerator | None,
+    "repo", "precheck", "aclose": 코루틴 함수, "replay": CacheReplayLLM | None}.
+
+    - l0: 합성 코퍼스 메모리 저장소(adapters/eval/l0_repo) + 캐시 재생 LLM(미스면 규칙 판정),
+      reranker 없음. `real=True` 면 운영 DB·e5·reranker 로(로컬 명령). `record=True` 면 캐시 미스를
+      평가 예산 LLM 으로 채워 녹화한다.
+    - l1: 운영 DB(읽기만)·e5·pipeline reranker, 판정 Argon = 평가 예산 LLM → 로컬
+      (judgment.local_stage)
+      → 규칙, 과제안(with_recommend) 도 평가 예산 LLM. 측정 줄(recommend_metrics)은 남기지 않는다.
+    - 가짜 모드(RRA_FAKE_LLM=1)는 ScriptedComposeLLM 이 판정·과제안을 맡는다(외부 호출 0).
+    실시간 검색은 평가에서 쓰지 않는다(네트워크 변동 배제)."""
+    from rra.adapters.deploy.version import _git_head
+    from rra.adapters.eval import CacheReplayLLM, L0Repository, load_corpus
+    from rra.application.usecases.evaluate_suite import EvaluateSuite
+    from rra.config_loader import eval_config, eval_config_flags
+
+    settings = settings or load_settings()
+    cfg = eval_config(settings)
+    flags = eval_config_flags(settings)
+    closers: list[Any] = []
+    replay = None
+    local_llm = None
+    budget = None
+    if settings.fake_llm:
+        from rra.adapters.fake import ScriptedComposeLLM
+
+        llm: Any = ScriptedComposeLLM()
+        flags["llm"] = "fake"
+    else:
+        llm, budget = build_eval_llm(settings)
+        if llm is not None:
+            closers.append(llm)
+        flags["llm"] = getattr(llm, "provider", None) or "none"
+        local_stage = same_judgment_config(settings)["local_stage"]
+        if local_stage and llm_available(settings, stage=local_stage):
+            try:
+                local_llm = build_llm(settings, stage=local_stage)
+                closers.append(local_llm)
+            except (LLMUnavailable, KeyError, ValueError):
+                local_llm = None
+    if suite == "l0" and not real:
+        repo = L0Repository(load_corpus(Path(cfg.l0.corpus)))
+        replay = CacheReplayLLM(Path(cfg.l0.cache_dir), inner=llm if record else None)
+        precheck = build_eval_precheck(settings, repo=repo, reranker=None, llm=replay)
+        flags["corpus"] = "synthetic"
+        flags["rerank.enabled"] = False
+    else:
+        repo = build_repository(build_embedding(settings), settings)
+        pipeline = pipeline_config(settings)
+        reranker = build_reranker(settings) if pipeline.reranker else None
+        flags["rerank.enabled"] = reranker is not None
+        if suite == "l0":
+            replay = CacheReplayLLM(Path(cfg.l0.cache_dir), inner=llm if record else None)
+            precheck = build_eval_precheck(settings, repo=repo, reranker=reranker, llm=replay)
+        else:
+            precheck = build_eval_precheck(
+                settings, repo=repo, reranker=reranker, llm=llm, local_llm=local_llm
+            )
+    recommender = None
+    use_rec = cfg.l1.with_recommend if with_recommend is None else with_recommend
+    if suite == "l1" and use_rec and llm is not None:
+        recommender = build_recommender(settings, repo=repo, llm=llm, precheck=precheck)
+        # 운영 측정 줄(recommend_metrics.jsonl)에 평가 호출을 섞지 않는다
+        recommender.metrics = None
+    flags["with_recommend"] = recommender is not None
+    flags["keywords"] = "rule"
+    generator = (
+        build_problem_generator(settings, repo=repo, precheck=precheck) if suite == "l1" else None
+    )
+    commit = _git_head(Path.cwd())[:7]
+
+    async def aclose() -> None:
+        for c in closers:
+            close = getattr(c, "aclose", None)
+            if close is not None:
+                await close()
+
+    evaluator = EvaluateSuite(
+        precheck,
+        suite=suite,
+        seed=seed,
+        repeats=repeats,
+        label=label,
+        commit=commit,
+        sealed=sealed,
+        config_flags=flags,
+        recommender=recommender,
+        replay=replay,
+        budget_exhausted=(budget.exhausted if budget is not None else None),
+        progress=progress,
+    )
+    return {
+        "suite": evaluator,
+        "generator": generator,
+        "repo": repo,
+        "precheck": precheck,
+        "replay": replay,
+        "aclose": aclose,
+    }
+
+
+def build_eval_usage(settings: Settings | None = None):
+    """`rra eval usage` — 선택 기록·과제안 측정 파일 읽기만 (source=user·시험 줄 제외)."""
+    from rra.adapters.logging.feedback_reader import JsonlFeedbackReader
+    from rra.application.usecases.eval_usage import UsageMetrics
+
+    settings = settings or load_settings()
+    return UsageMetrics(
+        JsonlFeedbackReader(
+            data_location(settings, "similar_choices"),
+            data_location(settings, "recommend_metrics"),
+        )
+    )

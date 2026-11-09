@@ -1,0 +1,119 @@
+# 평가 체계 (ADR 0058, 계약 docs/contracts/eval-results.md, 절차 docs/eval-protocol.md) — 레인 D.
+# 모델: src/rra/domain/models/eval_problem.py (EvalSuiteConfig). 모르는 키는 오류.
+
+sealed_seed: 20261109          # 봉인 묶음 seed — `rra eval seal` 이 쓴다. 개선 작업 중 묶음 열람 금지, 최종 확인 1회만
+daily_llm_calls: 150           # 평가용 Gemini 일일 상한. 카운터는 운영(llm.yaml budget, 600)과 **별도 파일**
+                               # data/cache/eval_llm_budget.json — 운영 예산을 깎지 않는다. 넘으면 로컬·규칙 판정
+
+l0:                            # PR 마다 (CI job eval-l0) — 검색·판정만, LLM 은 캐시 재생
+  problems: tests/eval/l0_problems.jsonl
+  corpus: tests/eval/l0_corpus.jsonl
+  cache_dir: tests/eval/l0_cache
+
+l1:                            # 매일 밤 04:30 (deploy/launchd/com.rra.eval.plist)
+  n: 120
+  repeats: 3
+  mix: {reverse: 0.6, trap: 0.25, novel: 0.15}
+  sources:                     # 문제 재료 = 과제형 자료원 (overlap.yaml candidates.project 와 같은 범위, g2b 제외)
+    - {source: own}
+    - {source: alio}
+    - {source: ntis, doc_types: [rnd_project]}
+  min_text_chars: 150          # 초록·본문이 이보다 짧은 과제는 재료로 쓰지 않는다
+  with_recommend: true         # 과제안까지 (rec_zero_rate·novel_estimated_barrier_ratio). 지연에 포함
+
+l2:                            # 배포 전·주 1회 (사람이 돌림) — 골든셋 + 초안 (기존 rra eval 재사용)
+  sample_ratio: 0.1            # 사람 확인 표본 (run id 만 출력)
+
+# 새 영역(novel) 문제의 재료 — 철도 밖 주제. 생성기가 규칙 판정으로 "유사 과제 없음" 을 미리 확인한다.
+# 합성 문장이며 실제 기관·사람·수치를 가리키지 않는다.
+novel_topics:
+  - title_hint: 연안 양식장 수온 급변 조기 경보
+    current_state: 연안 가두리 양식장은 수온을 하루 한두 번 손으로 재고 급변을 뒤늦게 안다.
+    root_cause: 수온 센서가 드물고 측정값이 어민 개인 기록으로만 남아 공유되지 않는다.
+    limitation: 급변을 안 뒤에는 이미 폐사가 시작돼 손실을 줄이기 어렵다.
+    goal: 저가 수온 센서망과 문자 경보로 수온 급변을 미리 알려 폐사를 줄인다.
+  - title_hint: 공공도서관 장서 점검 자동화
+    current_state: 공공도서관은 연 1회 전 직원이 서가를 돌며 장서를 손으로 점검한다.
+    root_cause: 바코드 스캔이 한 권씩 이루어지고 잘못 꽂힌 책은 사람이 찾아야 한다.
+    limitation: 점검 기간에는 대출이 멈추고 분실 도서를 찾는 데 시간이 오래 든다.
+    goal: 서가 촬영 영상으로 꽂힌 순서와 분실 여부를 자동 판별해 점검 기간을 줄인다.
+  - title_hint: 농업 드론 방제 경로 최적화
+    current_state: 논밭 방제 드론은 조종자가 정한 경로를 따라 같은 양을 뿌린다.
+    root_cause: 작물 생육 상태와 병해 분포를 반영하는 경로 계획 도구가 없다.
+    limitation: 약제가 필요 없는 구역에도 뿌려 비용과 환경 부담이 커진다.
+    goal: 생육 영상으로 병해 구역을 구분해 필요한 곳에만 뿌리는 경로를 자동으로 짠다.
+  - title_hint: 병원 약품 재고 유효기간 관리
+    current_state: 중소 병원 약품 창고는 유효기간을 수기 장부로 관리한다.
+    root_cause: 입고 시점과 유효기간이 전산에 함께 기록되지 않는다.
+    limitation: 기간이 지난 약품을 폐기하거나 급히 재구매하는 일이 반복된다.
+    goal: 입고 라벨을 읽어 유효기간을 등록하고 선입선출 순서를 알려 폐기를 줄인다.
+  - title_hint: 학교 급식 잔반량 예측
+    current_state: 초등학교 급식실은 전날 식수 인원으로 조리량을 정한다.
+    root_cause: 메뉴 선호와 날씨·행사에 따른 잔반 변화를 반영하지 않는다.
+    limitation: 인기 없는 메뉴 날에는 잔반이 많고 음식물 처리 비용이 늘어난다.
+    goal: 메뉴·요일·행사 자료로 잔반량을 예측해 조리량을 조정한다.
+  - title_hint: 산림 산불 연기 조기 감지
+    current_state: 산불 감시는 감시탑 근무자의 육안과 신고에 의존한다.
+    root_cause: 야간과 안개 때는 연기를 보기 어렵고 감시 인력도 부족하다.
+    limitation: 초기 발견이 늦어 진화 비용과 피해 면적이 커진다.
+    goal: 산 능선 카메라 영상에서 연기를 자동 감지해 초기 진화를 돕는다.
+  - title_hint: 해안 쓰레기 집적 지점 예측
+    current_state: 해안 쓰레기 수거는 정기 순찰 뒤 많은 곳부터 치운다.
+    root_cause: 조류와 바람에 따라 쓰레기가 모이는 지점이 매번 달라진다.
+    limitation: 순찰 인력이 적어 외진 해안은 오래 방치된다.
+    goal: 조류·바람 자료로 집적 지점을 예측해 수거 경로를 정한다.
+  - title_hint: 공동주택 층간소음 측정 표준화
+    current_state: 층간소음 분쟁은 당사자 진술과 간이 측정에 의존한다.
+    root_cause: 측정 위치·시간·장비가 제각각이라 결과를 비교할 수 없다.
+    limitation: 분쟁 조정이 길어지고 결과를 양쪽이 받아들이지 않는다.
+    goal: 측정 절차와 기록 양식을 표준화해 조정 근거를 만든다.
+  - title_hint: 도심 양봉 꿀벌 활동량 관측
+    current_state: 도심 옥상 양봉은 양봉가가 벌통을 열어 상태를 확인한다.
+    root_cause: 벌통 내부 온도·무게·출입 수를 재는 장치가 없다.
+    limitation: 질병이나 분봉 징후를 늦게 알아 군집을 잃는다.
+    goal: 벌통 무게와 출입 수를 재어 이상 징후를 알려 준다.
+  - title_hint: 박물관 수장고 온습도 변동 관리
+    current_state: 수장고 온습도는 기록지에 하루 두 번 적는다.
+    root_cause: 공조 설비 가동과 외부 날씨에 따른 변동을 연속으로 기록하지 않는다.
+    limitation: 유물 손상 원인을 사후에 추적하기 어렵다.
+    goal: 연속 측정 자료로 변동 원인을 찾아 공조 운전을 조정한다.
+  - title_hint: 하수관 악취 발생 구간 진단
+    current_state: 하수관 악취 민원은 접수 뒤 현장에서 냄새를 맡아 원인을 찾는다.
+    root_cause: 관 내부 퇴적과 환기 상태를 재는 자료가 없다.
+    limitation: 원인 구간을 찾는 데 여러 번 출동한다.
+    goal: 관 내부 가스 농도 센서로 악취 발생 구간을 짚어 준다.
+  - title_hint: 공공자전거 재배치 수요 예측
+    current_state: 공공자전거 대여소는 출퇴근 시간에 비거나 넘친다.
+    root_cause: 재배치 트럭 운행이 전날 경험에 따라 정해진다.
+    limitation: 이용자가 빈 대여소를 만나고 트럭은 헛걸음한다.
+    goal: 시간대별 대여·반납 자료로 재배치 순서를 미리 정한다.
+  - title_hint: 소규모 공방 전력 사용 진단
+    current_state: 소규모 목공방은 전기요금 고지서로만 전력 사용을 안다.
+    root_cause: 기계별 사용량을 따로 재지 않는다.
+    limitation: 어느 기계가 요금을 올리는지 몰라 절감 방법을 못 찾는다.
+    goal: 기계별 소비 전력을 재어 절감 순서를 제안한다.
+  - title_hint: 지역 축제 인파 밀집 안내
+    current_state: 지역 축제장은 안내 요원이 눈으로 혼잡을 판단한다.
+    root_cause: 구역별 인원을 세는 방법이 없다.
+    limitation: 밀집이 심해진 뒤에야 통제가 시작된다.
+    goal: 구역별 인원 추정으로 밀집 전에 분산 안내를 한다.
+  - title_hint: 저수지 녹조 발생 예측
+    current_state: 농업용 저수지 녹조는 눈에 띈 뒤 약제를 뿌린다.
+    root_cause: 수온·영양염·일조 자료가 따로 관리된다.
+    limitation: 발생 뒤 대응이라 용수 공급이 중단되기도 한다.
+    goal: 수질·기상 자료로 녹조 발생을 예측해 사전 대응한다.
+  - title_hint: 고령자 가정 낙상 위험 환경 평가
+    current_state: 고령자 가정 방문 점검은 점검원의 경험으로 위험 요소를 찾는다.
+    root_cause: 조명·문턱·미끄럼 같은 요소를 재는 공통 지표가 없다.
+    limitation: 점검 결과가 점검원마다 달라 개선 우선순위를 정하기 어렵다.
+    goal: 사진과 간단한 측정으로 낙상 위험 점수를 매겨 개선 순서를 정한다.
+  - title_hint: 중소 제과점 재료 발주량 결정
+    current_state: 동네 제과점은 주인의 감으로 밀가루·버터 발주량을 정한다.
+    root_cause: 판매 기록과 날씨·요일을 묶어 보는 도구가 없다.
+    limitation: 재료가 남아 버리거나 모자라 품절이 난다.
+    goal: 판매·날씨 자료로 재료 발주량을 추천한다.
+  - title_hint: 유기동물 보호소 입양 매칭
+    current_state: 유기동물 보호소는 방문자가 직접 둘러보며 입양 대상을 고른다.
+    root_cause: 동물 성격·건강과 입양 희망자 환경을 맞추는 기준이 없다.
+    limitation: 파양이 반복되고 장기 보호 동물이 늘어난다.
+    goal: 성격·환경 설문으로 어울리는 동물을 추천해 파양을 줄인다.

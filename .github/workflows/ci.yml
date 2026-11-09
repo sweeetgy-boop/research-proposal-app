@@ -72,6 +72,28 @@ jobs:
       - name: pytest (entrypoints, parallel)
         run: .venv/bin/python -m pytest -q -p no:cacheprovider -n auto tests/entrypoints
 
+  eval-l0:
+    # 평가 L0 (ADR 0058, docs/contracts/eval-results.md §6) — 합성 코퍼스·캐시 재생, 모델·DB·키 없음.
+    # 직전 main 결과(eval/results/latest-l0.json) 대비 recall_at5 −0.05·false_block +0.05 넘으면 실패.
+    # 통합 전에는 `python -m rra.entrypoints.cli_eval`, 통합 뒤에는 `rra eval run` 과 같다.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Python 3.12 venv + dev extras
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv/bin/python -e ".[dev]"
+      - name: L0 suite (synthetic corpus, cache replay)
+        run: >-
+          .venv/bin/python -m rra.entrypoints.cli_eval run --suite l0
+          --label ci --out eval/results/ci-l0.json
+      - name: gate against latest-l0.json
+        run: .venv/bin/python tools/eval_gate.py eval/results/ci-l0.json
+
   backend:
     # 모음 job — 보호 규칙의 필수 검사 이름. 나눈 job 이 모두 success 일 때만 성공한다.
     needs: [backend-unit, backend-api]

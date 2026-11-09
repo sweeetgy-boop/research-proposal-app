@@ -336,6 +336,11 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "cache_dir",
         "data/cache/live_search",
     ),
+    # 평가 체계(ADR 0058, 레인 D) — 봉인·연습 문제 묶음(문제 본문, 600), 평가용 Gemini 일일 카운터
+    # (운영 llm_budget.json 과 별도 파일 — 운영 예산을 깎지 않는다)
+    "eval_sealed": (lambda s: {}, "", "data/eval/sealed"),
+    "eval_practice": (lambda s: {}, "", "data/eval/practice"),
+    "eval_llm_budget": (lambda s: {}, "", "data/cache/eval_llm_budget.json"),
 }
 DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
 
@@ -722,6 +727,41 @@ def novelty_config(settings: Settings):
     if unknown:
         raise ValueError(f"config/novelty.yaml 에 모르는 키: {sorted(unknown)}")
     return NoveltyConfig.model_validate(cfg)
+
+
+def eval_config(settings: Settings):
+    """config/eval.yaml → EvalSuiteConfig (평가 체계, ADR 0058). 파일이 없으면 기본값. 모르는 키는
+    오류."""
+    from rra.domain.models.eval_problem import EvalSuiteConfig
+
+    cfg = read_config("eval.yaml", settings) or {}
+    unknown = set(cfg) - set(EvalSuiteConfig.model_fields)
+    if unknown:
+        raise ValueError(f"config/eval.yaml 에 모르는 키: {sorted(unknown)}")
+    return EvalSuiteConfig.model_validate(cfg)
+
+
+def eval_config_flags(settings: Settings) -> dict[str, bool | int | float | str]:
+    """EvalResult.config_flags — 비교에 뜻이 있는 스위치만(overlap.yaml facets·idf_weighting·
+    synonyms·
+    judgment·rerank·series). 경로·키 없음."""
+    cfg = read_config("overlap.yaml", settings) or {}
+
+    def enabled(section: str, default: bool) -> bool:
+        raw = cfg.get(section) or {}
+        return bool(raw.get("enabled", default)) if isinstance(raw, dict) else default
+
+    rerank = cfg.get("rerank") or {}
+    return {
+        "facets.enabled": enabled("facets", False),
+        "idf_weighting.enabled": enabled("idf_weighting", False),
+        "synonyms.enabled": enabled("synonyms", False),
+        "judgment.enabled": enabled("judgment", True),
+        "series.enabled": enabled("series", True),
+        "rerank.threshold": (
+            float(rerank.get("threshold", 0.5)) if isinstance(rerank, dict) else 0.5
+        ),
+    }
 
 
 def usability_config(settings: Settings):

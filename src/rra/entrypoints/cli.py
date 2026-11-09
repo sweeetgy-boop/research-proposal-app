@@ -2575,6 +2575,7 @@ def cmd_ui(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("rra", description="연구과제 제안서 작성 보조")
     sub = parser.add_subparsers(dest="cmd")
+    from rra.entrypoints.cli_eval import register as register_eval
     from rra.entrypoints.cli_ops import register as register_ops
 
     register_ops(sub)  # rra ops check — 터널·로컬 모델 상태 점검 (레인 C, ADR 0062)
@@ -2714,6 +2715,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ev.add_argument("--department", help="--finalize 의 제안부서 (기본 철도연구원, 저장 안 함)")
     ev.set_defaults(handler=cmd_eval)
+    register_eval(sub, ev)  # rra eval run|compare|usage|seal — 평가 체계 (레인 D, ADR 0058)
     ri = sub.add_parser("reindex", help="모든 청크를 설정 임베딩 모델로 재색인")
     ri.set_defaults(handler=cmd_reindex)
     auth = sub.add_parser(
