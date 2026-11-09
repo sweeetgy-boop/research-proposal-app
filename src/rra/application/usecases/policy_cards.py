@@ -116,7 +116,8 @@ class PolicyCards:
         query = " ".join(p for p in (req.search_text(), req.policy_basis, req.supplement) if p)
         skip = set(exclude_docs)
         docs: dict[str, Document | None] = {}
-        scored: list[tuple[int, float, PolicySource]] = []
+        # (온전함, 키워드 겹침 수, 유사도, 구간) — 불완전한 인용은 뒤로 (ADR 0061)
+        scored: list[tuple[bool, int, float, PolicySource]] = []
         seen: set[str] = set()
         for _, sources in SEARCH_GROUPS:
             chunks = await self.repo.hybrid_search([query], k=self.per_group, sources=list(sources))
@@ -129,11 +130,17 @@ class PolicyCards:
                 found = policy_passage(doc, chunk.text, chunk.similarity, query, self.keywords)
                 if found is None or doc is None:
                     continue
-                quote, hits = found
                 seen.add(chunk.doc_id)
-                scored.append((len(hits), chunk.similarity or 0.0, self._source(doc, chunk, quote)))
-        scored.sort(key=lambda x: (-x[0], -x[1], x[2].doc_id))
-        return [s for _, _, s in scored]
+                scored.append(
+                    (
+                        found.complete,
+                        len(found.hits),
+                        chunk.similarity or 0.0,
+                        self._source(doc, chunk, found.quote),
+                    )
+                )
+        scored.sort(key=lambda x: (not x[0], -x[1], -x[2], x[3].doc_id))
+        return [s for *_, s in scored]
 
     @staticmethod
     def _source(doc: Document, chunk: Chunk, quote: str) -> PolicySource:

@@ -19,7 +19,7 @@ from rra.application.ports import DocumentRepository
 from rra.domain.models import MAX_SUGGESTIONS, Chunk, Document, PolicySuggestion, ProposalRequest
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.policy_cards import CARD_SOURCES, policy_passage
-from rra.domain.rules.policy_phrases import rank
+from rra.domain.rules.policy_phrases import Passage, rank
 
 POLICY_SOURCES = list(CARD_SOURCES)  # 작성안과 같은 자료원 (rnd_notice: 공고문도 후보, P2-7)
 
@@ -58,12 +58,11 @@ class PolicySuggest:
             passage = policy_passage(doc, chunk.text, chunk.similarity, query, self.keywords)
             if passage is None or doc is None:
                 continue
-            found.append(self._suggestion(doc, chunk, *passage))
+            found.append(self._suggestion(doc, chunk, passage))
+        # 온전한 문장 먼저 — 넓혀도 불완전한 인용은 뒤로 (ADR 0061)
         return rank(found)[: self.k]
 
-    def _suggestion(
-        self, doc: Document, chunk: Chunk, quote: str, hits: list[str]
-    ) -> PolicySuggestion:
+    def _suggestion(self, doc: Document, chunk: Chunk, passage: Passage) -> PolicySuggestion:
         page = chunk.heading or (
             f"{doc.raw['pages']}쪽 문서" if isinstance(doc.raw.get("pages"), int) else None
         )
@@ -72,11 +71,12 @@ class PolicySuggest:
             title=doc.title,
             year=_year(doc),
             page=page[:120] if page else None,
-            quote=quote,
+            quote=passage.quote,
             url=doc.url,
             menu_path=str(doc.raw.get("menu_path") or "")[:200] or None,
-            keywords=hits,
+            keywords=passage.hits,
             similarity=chunk.similarity,
+            complete=passage.complete,
         )
 
 

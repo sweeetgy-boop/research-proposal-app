@@ -13,6 +13,7 @@ import type {
   SimilarChoiceValue,
 } from "@/api/types";
 import { PLAN_FIELDS } from "@/api/types";
+import type { RecommendMode } from "@/api/types-novel";
 
 export type ChoiceMap = Record<string, SimilarChoiceValue>;
 /** doc_id → 선택의 출처 (ADR 0056). ChoiceMap 과 같은 키 */
@@ -58,6 +59,38 @@ export function choicesSignature(map: ChoiceMap): string {
  *  그 행을 [관련 없음] 으로 바꿔 [선택 적용] 해도 서명이 같아 과제안을 다시 받지 않았다 (2026-11-05, ADR 0057 통합). */
 export function planSignature(map: ChoiceMap, defaults: SimilarChoice[] | undefined, alerts: PrecheckAlert[]): string {
   return choicesSignature(withDefaults(map, defaults, alerts).map);
+}
+
+/** 서버가 고를 과제안 갈래 (ADR 0057, 서버 `similar_rows.recommend_mode` 와 같은 규칙) — [유사함] 0건(선택 없는 행은 AI 기본
+ *  선택) AND 차단 없음(차단 게이트는 제안자 선택만 — 미리 고른 값은 풀지 않는다)이면 novel, 아니면 differentiate. */
+export function expectedMode(map: ChoiceMap, defaults: SimilarChoice[] | undefined, alerts: PrecheckAlert[]): RecommendMode {
+  const effective = withDefaults(map, defaults, alerts).map;
+  return similarIds(alerts, effective).length === 0 && !effectiveBlocking(alerts, map) ? "novel" : "differentiate";
+}
+
+/** 과제안을 만든 기준의 열쇠 = 갈래 + [유사함] 서명. 차단 행만 [관련 없음] 으로 바꿔 유사함 집합은 그대로인데 갈래가
+ *  novel 로 바뀌는 경우(2026-11-09 레인 B)도 잡는다 — 이 열쇠가 다르면 [선택 적용] 이 과제안을 다시 받는다. */
+export function planKey(map: ChoiceMap, defaults: SimilarChoice[] | undefined, alerts: PrecheckAlert[]): string {
+  return `${expectedMode(map, defaults, alerts)}:${planSignature(map, defaults, alerts)}`;
+}
+
+/** 지금 화면의 과제안(mode 가 없으면 differentiate)이 지금 선택으로 계산한 갈래와 다른가 — 다르면 [더 만들기]·카드 적용 대신
+ *  과제안을 새로 받는다(서버도 같은 경우 409 code=mode_changed 를 낸다). */
+export function modeMismatch(rec: object | null | undefined, map: ChoiceMap, defaults: SimilarChoice[] | undefined, alerts: PrecheckAlert[]): boolean {
+  if (!rec) return false;
+  const { mode, novelty_reverted } = rec as { mode?: RecommendMode; novelty_reverted?: boolean };
+  if (!mode) return false; // 갈래를 모르는 응답(옛 서버) — 서버 판정에 맡긴다
+  const expected = expectedMode(map, defaults, alerts);
+  // 넓은 검색에서 새 행이 걸려 서버가 novel 을 차별화로 되돌린 과제안(ADR 0057)은 novel 입력에 대한 서버의 답이다 — 전환 아님
+  if (mode === "differentiate" && expected === "novel" && novelty_reverted) return false;
+  return mode !== expected;
+}
+
+export const MODE_CHANGED_CODE = "mode_changed";
+
+/** 서버 problem+json 이 갈래 전환(409 code=mode_changed)인가 */
+export function isModeChanged(err: unknown): boolean {
+  return !!err && typeof err === "object" && (err as { problem?: { code?: string } }).problem?.code === MODE_CHANGED_CODE;
 }
 
 export function planFields(req: PrecheckRequest): Record<PlanField, string> {

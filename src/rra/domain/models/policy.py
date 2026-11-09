@@ -25,6 +25,9 @@ class PolicySuggestion(BaseModel):
     menu_path: str | None = Field(default=None, max_length=200)
     keywords: list[str] = Field(default_factory=list)  # 질의와 겹친 키워드
     similarity: float | None = None
+    # 인용 문장이 온전한가(문장 경계까지 넓힌 뒤에도 앞이 조사·소문자로 시작하거나 끝이 없으면
+    # False) — 순위를 내릴 뿐 버리지 않는다 (2026-11-09 레인 B, ADR 0061)
+    complete: bool = True
 
 
 # ── 정책적 중요도 작성안 (보강 질문 단계, 2026-10-28 레인 B) ─────────────────

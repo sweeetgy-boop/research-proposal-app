@@ -22,6 +22,8 @@ export interface Problem {
   title: string;
   status: number;
   detail: string;
+  /** 화면이 동작을 가를 때만 오는 열거값(예: mode_changed — ② 과제안 갈래 전환). 문구는 detail·lib/labels */
+  code?: string;
 }
 
 export type SessionKind = "admin" | "staff" | "guest";
