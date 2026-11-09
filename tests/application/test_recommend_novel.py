@@ -379,7 +379,9 @@ async def test_novelty_new_alerts_revert_to_differentiate_with_the_new_rows():
     assert out.mode == "differentiate" and out.novelty_reverted is True
     # 원래 알림에 있던 행(ntis:far)은 새 행이 아니다
     assert [a.doc_id for a in out.novelty_alerts] == ["ntis:new"]
-    assert llm.systems == [FakePromptLibrary().recommend()] and analogies.calls == 0
+    # 유추 검색은 새로움 확인과 동시에 돌았지만(2026-11-09) 되돌림이면 결과에 쓰지 않는다
+    assert llm.systems == [FakePromptLibrary().recommend()] and analogies.calls == 1
+    assert out.analogies == []
     assert '<doc id="ntis:new"' in llm.calls[0]  # 새 행이 [유사과제] 비교 대상
     assert out.coverage is None and out.novel == []
     t = out.transfer()

@@ -145,9 +145,9 @@ class LiveOpenAlex:
     """OpenAlex 는 2026-11 부터 익명(API 키 없음) 검색을 혼잡 때 429 `Retry-After: 30` 으로
     막는다(tests/fixtures/openalex/rate_limited_429.json). 실시간 검색의 자료원 제한 시간(10~15초)
     보다 길어 기다릴 수 없으므로 429 대기 상한을 `max_wait_sec` 로 줄여 바로 `SourceRateLimited` 로
-    올린다 — 유스케이스는 그 자료원만 `error` + 안내(키 등록 권고)로 남기고 나머지 자료원으로 계속한다.
-    야간 적재의 OpenAlexSource 는 다른 인스턴스라 그쪽 대기 상한(sources.yaml max_backoff_sec)은
-    그대로다."""
+    올린다 — 유스케이스는 그 자료원만 `error` + 안내(키 등록 권고)로 남기고 나머지 자료원으로
+    계속한다. 야간 적재의 OpenAlexSource 는 다른 인스턴스라 그쪽 대기 상한(sources.yaml
+    max_backoff_sec)은 그대로다."""
 
     source = "openalex"
     lang = "en"

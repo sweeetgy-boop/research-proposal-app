@@ -25,6 +25,8 @@ from tests.application.test_recommend_projects import ALERTS, REQ, make, rec, re
 
 BOOL_FIELDS = {"fallback_local", "retry_used", "regenerated"}
 INT_FIELDS = {"calls", "cards", "discarded", "references", "similar", "barriers", "titles"}
+# 단계별 초 (2026-11-09) — 돌지 않은 단계는 None
+STAGE_FIELDS = {"seconds_search", "seconds_analogy", "seconds_generate"}
 
 
 class MemoryMetrics:
@@ -55,6 +57,8 @@ def _assert_shape(row: dict) -> None:
             assert type(value) is int and value >= 0, key
         elif key == "seconds":
             assert type(value) is float and value >= 0, key
+        elif key in STAGE_FIELDS:
+            assert value is None or (type(value) is float and value >= 0), key
         else:
             assert key in ENUM_FIELDS, key
             assert value is None or (type(value) is str and enum_value(value) == value), key
@@ -74,7 +78,10 @@ async def test_one_run_records_one_line_with_exact_keys():
     assert len(out.recommendations) == 1
     (row,) = uc.metrics.rows
     _assert_shape(row)
-    assert {k: v for k, v in row.items() if k != "seconds"} == {
+    # 차별화 갈래: 근거 검색·작성 시간은 있고 유추 검색은 없다(null)
+    assert row["seconds_search"] is not None and row["seconds_generate"] is not None
+    assert row["seconds_analogy"] is None
+    assert {k: v for k, v in row.items() if k != "seconds" and k not in STAGE_FIELDS} == {
         "provider": "gemini",
         "fallback_local": False,
         "calls": 1,

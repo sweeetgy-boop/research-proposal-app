@@ -135,6 +135,41 @@ MAX_CHUNKS = 12
 
 Precheck = Callable[[ProposalRequest], Awaitable[list[OverlapAlert]]]
 Retrieve = Callable[[ProposalRequest], Awaitable[RetrievalSnapshot]]
+# 진행 콜백 (2026-11-09 레인 A) — 진입점(SSE)이 넘긴다. (이름, 자료). 이름은 아래 PROGRESS_* 뿐.
+Progress = Callable[[str, dict[str, Any]], None]
+PROGRESS_STAGE = "stage"  # {"stage": search|generate, "status": started|reverted}
+PROGRESS_ANALOGIES = "analogies"  # {"coverage": NoveltyCoverage, "analogies": [Analogy]} — novel 만
+STAGE_SEARCH = "search"  # 새로움 확인(넓힌 실시간 검색·규칙 판정) 또는 차별화의 근거 검색
+STAGE_ANALOGY = "analogy"  # 유추 검색 (novel, search 와 동시에)
+STAGE_GENERATE = "generate"  # LLM 작성 (다시 받기·카드 재판정 포함)
+
+
+class _Progress:
+    """콜백 예외가 추천을 막지 않게 감싼다. None 이면 아무것도 하지 않는다."""
+
+    def __init__(self, fn: Progress | None):
+        self.fn = fn
+
+    def __call__(self, name: str, data: dict[str, Any]) -> None:
+        if self.fn is None:
+            return
+        try:
+            self.fn(name, data)
+        except Exception as exc:  # 진행 표시는 부가 기능 — 열거값(예외 클래스)만
+            logger.debug("recommend.progress_failed kind=%s", type(exc).__name__)
+
+
+async def _all_three(*aws: Awaitable[Any]) -> tuple[Any, ...]:
+    """동시에 돌리고 모두 기다린다. 하나가 예외(BudgetExhausted 등)로 끝나면 나머지를 취소하고
+    그 예외를 올린다 — 홀로 도는 작업을 남기지 않는다."""
+    tasks = [asyncio.ensure_future(a) for a in aws]
+    try:
+        return tuple(await asyncio.gather(*tasks))
+    except BaseException:
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+        raise
 
 
 @dataclass
@@ -174,12 +209,21 @@ class RecommendProjects:
         core_keywords: list[str] | None = None,
         shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
         test: bool = False,
+        progress: Progress | None = None,
     ) -> RecommendationResult:
         """추천 한 번 + 측정 줄 한 줄(metrics 가 있으면). 본문은 `_recommend`. test 는 진입점이
-        넣는다(REST 시험 계정 세션만 True — 측정 줄에 `test: true`). 추천 내용은 바뀌지 않는다."""
+        넣는다(REST 시험 계정 세션만 True — 측정 줄에 `test: true`). 추천 내용은 바뀌지 않는다.
+        progress(단계 이름, 자료) 는 진입점(SSE)이 넘기는 선택 콜백 — `PROGRESS_*` 이름만 부른다."""
         started = time.perf_counter()
+        timings: dict[str, float] = {}
         result = await self._recommend(
-            req, alerts, similar_only=similar_only, core_keywords=core_keywords, shown=shown
+            req,
+            alerts,
+            similar_only=similar_only,
+            core_keywords=core_keywords,
+            shown=shown,
+            timings=timings,
+            progress=_Progress(progress),
         )
         self._record(
             result,
@@ -187,6 +231,7 @@ class RecommendProjects:
             similar=len(similar_rows(alerts, req.choice_map())),
             seconds=time.perf_counter() - started,
             test=test,
+            stages=timings,
         )
         return result
 
@@ -198,13 +243,16 @@ class RecommendProjects:
         similar: int,
         seconds: float,
         test: bool = False,
+        stages: dict[str, float] | None = None,
     ) -> None:
         """측정 줄 — 쓰기 실패는 추천을 막지 않는다(어댑터가 OSError 를 삼키고, 그 밖도 여기서)."""
         if self.metrics is None:
             return
         try:
             self.metrics.record(
-                metrics_row(result, mode=mode, similar=similar, seconds=seconds, test=test)
+                metrics_row(
+                    result, mode=mode, similar=similar, seconds=seconds, test=test, stages=stages
+                )
             )
         except Exception as exc:  # 측정은 부가 기능 — 열거값(예외 클래스)만 debug
             logger.debug("recommend.metrics_failed kind=%s", type(exc).__name__)
@@ -217,38 +265,114 @@ class RecommendProjects:
         similar_only: bool = False,
         core_keywords: list[str] | None = None,
         shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
+        timings: dict[str, float] | None = None,
+        progress: _Progress | None = None,
     ) -> RecommendationResult:
-        """갈래 판정(ADR 0057) — novel 이고 [더 만들기]가 아니면 새로움 확인 → 새 과제 추천,
-        확인에서 유사 과제가 새로 걸리면 그 행을 더해 차별화로 되돌린다. 그 밖은 차별화."""
+        """갈래 판정(ADR 0057) — novel 이고 [더 만들기]가 아니면 새로움 확인 ∥ 유추 검색 ∥ 참고
+        논문을 동시에 돌리고(2026-11-09 레인 A) → 새 과제 추천, 확인에서 유사 과제가 새로 걸리면 그
+        행을 더해 차별화로 되돌린다(유추 결과는 버린다). 그 밖은 차별화."""
+        timings = timings if timings is not None else {}
+        progress = progress or _Progress(None)
         if not shown and recommend_mode(alerts, req.choice_map()) == MODE_NOVEL:
+            progress(PROGRESS_STAGE, {"stage": STAGE_SEARCH, "status": "started"})
+            outcome, (pairs, analog_excluded), (refs, ref_excluded) = await _all_three(
+                self._novelty_outcome(req, alerts, core_keywords, timings),
+                self._analogy_pairs(req, core_keywords, timings),
+                load_references(
+                    self.repo,
+                    req.reference_ids,
+                    exclude=[],
+                    include_internal=self.include_internal,
+                ),
+            )
             coverage: NoveltyCoverage | None = None
-            if self.novelty is not None:
-                try:
-                    outcome = await self.novelty(req, alerts, core_keywords=core_keywords)
-                except BudgetExhausted:
-                    raise
-                except Exception as exc:  # 새로움 확인 실패 → 저장 자료만으로 계속 (열거값만)
-                    logger.warning("recommend.novelty_failed kind=%s", _failure_kind(exc))
-                    outcome = None
-                if outcome is not None:
-                    known = {a.doc_id for a in alerts}
-                    fresh = _unique_alerts([a for a in outcome.new_alerts if a.doc_id not in known])
-                    if fresh:
-                        logger.info("recommend.novelty_reverted alerts=%d", len(fresh))
-                        result = await self._differentiate(
-                            req,
-                            [*alerts, *fresh],
-                            similar_only=similar_only,
-                            core_keywords=core_keywords,
-                        )
-                        return result.model_copy(
-                            update={"novelty_reverted": True, "novelty_alerts": fresh}
-                        )
-                    coverage = outcome.coverage
-            return await self._novel(req, coverage=coverage, core_keywords=core_keywords)
+            if outcome is not None:
+                known = {a.doc_id for a in alerts}
+                fresh = _unique_alerts([a for a in outcome.new_alerts if a.doc_id not in known])
+                if fresh:
+                    logger.info("recommend.novelty_reverted alerts=%d", len(fresh))
+                    progress(PROGRESS_STAGE, {"stage": STAGE_SEARCH, "status": "reverted"})
+                    result = await self._differentiate(
+                        req,
+                        [*alerts, *fresh],
+                        similar_only=similar_only,
+                        core_keywords=core_keywords,
+                        timings=timings,
+                        progress=progress,
+                    )
+                    return result.model_copy(
+                        update={"novelty_reverted": True, "novelty_alerts": fresh}
+                    )
+                coverage = outcome.coverage
+            ref_ids = {d.doc_id for d in refs}
+            pairs = [(a, d) for a, d in pairs if a.doc_id not in ref_ids]  # 참고 논문 구획이 우선
+            progress(
+                PROGRESS_ANALOGIES,
+                {
+                    "coverage": coverage or stored_only_coverage(),
+                    "analogies": [a for a, _ in pairs],
+                },
+            )
+            return await self._novel(
+                req,
+                coverage=coverage,
+                core_keywords=core_keywords,
+                refs=refs,
+                pairs=pairs,
+                excluded=[*ref_excluded, *analog_excluded],
+                timings=timings,
+                progress=progress,
+            )
         return await self._differentiate(
-            req, alerts, similar_only=similar_only, core_keywords=core_keywords, shown=shown
+            req,
+            alerts,
+            similar_only=similar_only,
+            core_keywords=core_keywords,
+            shown=shown,
+            timings=timings,
+            progress=progress,
         )
+
+    async def _novelty_outcome(
+        self,
+        req: ProposalRequest,
+        alerts: list[OverlapAlert],
+        core_keywords: list[str] | None,
+        timings: dict[str, float],
+    ) -> Any:
+        """새로움 확인 — 실패(BudgetExhausted 제외)는 저장 자료만으로 계속(None). 소요 초는
+        timings['search']."""
+        if self.novelty is None:
+            return None
+        started = time.perf_counter()
+        try:
+            return await self.novelty(req, alerts, core_keywords=core_keywords)
+        except BudgetExhausted:
+            raise
+        except Exception as exc:  # 새로움 확인 실패 → 저장 자료만으로 계속 (열거값만)
+            logger.warning("recommend.novelty_failed kind=%s", _failure_kind(exc))
+            return None
+        finally:
+            timings[STAGE_SEARCH] = time.perf_counter() - started
+
+    async def _analogy_pairs(
+        self, req: ProposalRequest, core_keywords: list[str] | None, timings: dict[str, float]
+    ) -> tuple[list[tuple[Any, Document | None]], list[str]]:
+        """유추 검색(실패는 빈 목록) — 소요 초는 timings['analogy']. 참고 논문과 겹치는 사례는 부른
+        쪽이 뺀다."""
+        if self.analogies is None:
+            return [], []
+        started = time.perf_counter()
+        try:
+            return await gather_analogies(
+                self.analogies,
+                self.repo,
+                req,
+                core_keywords=core_keywords,
+                include_internal=self.include_internal,
+            )
+        finally:
+            timings[STAGE_ANALOGY] = time.perf_counter() - started
 
     async def _novel(
         self,
@@ -256,10 +380,16 @@ class RecommendProjects:
         *,
         coverage: NoveltyCoverage | None,
         core_keywords: list[str] | None,
+        refs: list[Document],
+        pairs: list[tuple[Any, Document | None]],
+        excluded: list[str],
+        timings: dict[str, float],
+        progress: _Progress,
     ) -> RecommendationResult:
         """새 과제 추천 (계약 2절 3~4). 비교할 기존 과제가 없으므로 [유사과제] 구획 없이
         참고 논문·다른 분야 사례·근거만 넣는다. 셋 다 없으면 차별화와 같이 부르지 않는다
-        (no_alerts_or_evidence), 모두 전송 범위 밖이면 no_documents."""
+        (no_alerts_or_evidence), 모두 전송 범위 밖이면 no_documents. refs·pairs 는 `_recommend` 가
+        새로움 확인과 동시에 모은 것."""
         base: dict[str, Any] = {
             "provider": self.provider,
             "model": self.model,
@@ -269,18 +399,7 @@ class RecommendProjects:
         }
         snapshot = await self.retrieve(req)
         chunks = [c for c in snapshot.chunks if not c.chunk_id.endswith("#overlap")][:MAX_CHUNKS]
-        refs, excluded = await load_references(
-            self.repo, req.reference_ids, exclude=[], include_internal=self.include_internal
-        )
-        pairs, analog_excluded = await gather_analogies(
-            self.analogies,
-            self.repo,
-            req,
-            core_keywords=core_keywords,
-            include_internal=self.include_internal,
-            exclude=[d.doc_id for d in refs],
-        )
-        excluded.extend(analog_excluded)
+        excluded = list(excluded)
         if not chunks and not refs and not pairs and not excluded:
             return _finish(req, RecommendationResult(**base, skipped_reason=SKIP_NO_INPUT))
         sent_chunks = [c for c in chunks if self.include_internal or _visibility(c) != "internal"]
@@ -325,10 +444,13 @@ class RecommendProjects:
             "excluded_doc_ids": list(dict.fromkeys(excluded)),
         }
         system = self.prompts.recommend_novel()
+        progress(PROGRESS_STAGE, {"stage": STAGE_GENERATE, "status": "started"})
+        generate_started = time.perf_counter()
         data, used_local, calls = await self._ask(prompt, system=system)
         if used_local:
             base["fallback_local"] = True
         if data is None:
+            timings[STAGE_GENERATE] = time.perf_counter() - generate_started
             skipped = SKIP_PARSE_FAILED if calls else SKIP_LLM_FAILED
             return _finish(req, RecommendationResult(**base, calls=calls, skipped_reason=skipped))
         screen = {
@@ -350,6 +472,7 @@ class RecommendProjects:
                 items, more_discarded = screen_novel(again, **screen)
                 discarded = [*discarded, *more_discarded]
                 data = again if not items else data
+        timings[STAGE_GENERATE] = time.perf_counter() - generate_started
         known = {d.doc_id: (d.title, d.source, d.url or "") for d in refs}
         known.update({a.doc_id: (a.title, a.source, a.url or "") for a, _ in pairs})
         items = await with_novel_refs(items, self.repo, known)
@@ -376,6 +499,8 @@ class RecommendProjects:
         similar_only: bool = False,
         core_keywords: list[str] | None = None,
         shown: list[ProjectRecommendation] | tuple[ProjectRecommendation, ...] = (),
+        timings: dict[str, float] | None = None,
+        progress: _Progress | None = None,
     ) -> RecommendationResult:
         """차별화 과제안. 비교 대상은 [유사함] 행(제안자 선택, 없으면 AI 기본 선택 — ADR 0054),
         없으면 유효 선택이 [관련 없음] 이 아닌 알림(similar_rows.basis_rows)이고, [유사함] 과제와
@@ -383,13 +508,20 @@ class RecommendProjects:
         선택도 AI 판정도 없는 알림(CLI·MCP·Streamlit 의 규칙 판정)은 그대로 모두 비교 대상이다.
         similar_only 는 종전 REST 표시(호출 호환) — 규칙은 모든 진입점이 같다.
         core_keywords 는 카드 겹침 재판정의 핵심어(아이디어와 같은 것).
-        shown 은 이미 보인 카드 — 그와 다른 안만 받는다([더 만들기])."""
+        shown 은 이미 보인 카드 — 그와 다른 안만 받는다([더 만들기]).
+        timings 에는 근거 검색(search)·LLM 작성(generate, 다시 받기·카드 재판정 포함) 초를 둔다."""
+        timings = timings if timings is not None else {}
+        progress = progress or _Progress(None)
         base = {
             "provider": self.provider,
             "model": self.model,
             "fallback_local": self.fallback_local,
         }
+        search_started = time.perf_counter()
         snapshot = await self.retrieve(req)
+        timings[STAGE_SEARCH] = timings.get(STAGE_SEARCH, 0.0) + (
+            time.perf_counter() - search_started
+        )
         chunks = [c for c in snapshot.chunks if not c.chunk_id.endswith("#overlap")][:MAX_CHUNKS]
         choices = req.choice_map()
         similar = similar_rows(alerts, choices)
@@ -446,6 +578,8 @@ class RecommendProjects:
         prompt = self.build_prompt(req, docs, sent_chunks, refs)
         if shown:
             prompt = f"{prompt}\n\n{shown_hint(shown)}"
+        progress(PROGRESS_STAGE, {"stage": STAGE_GENERATE, "status": "started"})
+        generate_started = time.perf_counter()
         data, used_local, calls = await self._ask(prompt)
         transfer = {
             "public_doc_ids": public_ids,
@@ -457,6 +591,7 @@ class RecommendProjects:
         if used_local:
             base = {**base, "fallback_local": True}
         if data is None:
+            timings[STAGE_GENERATE] = time.perf_counter() - generate_started
             skipped = SKIP_PARSE_FAILED if calls else SKIP_LLM_FAILED
             return _finish(req, RecommendationResult(**base, **transfer, skipped_reason=skipped))
         items, discarded = self._screen(req, docs, sent_chunks, data, similar, shown, refs)
@@ -504,6 +639,7 @@ class RecommendProjects:
                 else:
                     kept.append(rec.model_copy(update={"overlap_warning": close}))
         kept = await self._with_refs(kept, docs, refs)
+        timings[STAGE_GENERATE] = time.perf_counter() - generate_started
         reason = None
         model_reason = data.get("no_recommendation_reason")
         if not kept:

@@ -15,7 +15,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from rra.domain.rules.recommend_metrics import TEST_FIELD, enum_value
+from rra.domain.rules.recommend_metrics import BRANCHES, STAGE_FIELDS, TEST_FIELD, enum_value
 from rra.domain.rules.similar_choice import EVENTS, SOURCE_AI_PREFILL, SOURCE_USER
 
 NONE_LABEL = "없음"  # 키가 없는 옛 줄 (event·source 도입 전)
@@ -69,6 +69,10 @@ class MetricsStats:
     by_provider: dict[str, int] = field(default_factory=dict)
     fallback_local: int = 0
     median_seconds: float | None = None
+    # 단계별 초 중앙값 (2026-11-09, 칸 seconds_search·seconds_analogy·seconds_generate) — 그 칸이
+    # 있는 줄만 센다(옛 줄·돌지 않은 단계는 null 이라 빠진다). 키는 STAGE_FIELDS 순서, 없으면 None
+    median_stage_seconds: dict[str, float | None] = field(default_factory=dict)
+    by_branch: dict[str, int] = field(default_factory=dict)  # differentiate|novel (옛 줄은 없음)
 
 
 def choice_stats(rows: Iterable[Mapping[str, Any]], *, include_test: bool = False) -> ChoiceStats:
@@ -103,7 +107,9 @@ def _seconds(value: object) -> float | None:
 def metrics_stats(rows: Iterable[Mapping[str, Any]], *, include_test: bool = False) -> MetricsStats:
     """측정 줄 → 개수·provider 별·로컬 대체 수·seconds 중앙값."""
     providers: Counter[str] = Counter()
+    branches: Counter[str] = Counter()
     seconds: list[float] = []
+    stage_seconds: dict[str, list[float]] = {k: [] for k in STAGE_FIELDS}
     total = tests = fallback = 0
     for row in rows:
         if is_test_line(row):
@@ -113,11 +119,17 @@ def metrics_stats(rows: Iterable[Mapping[str, Any]], *, include_test: bool = Fal
         total += 1
         raw = row.get("provider")
         providers[NONE_LABEL if raw is None else (enum_value(raw) or OTHER_LABEL)] += 1
+        branch = row.get("branch")
+        branches[_bucket(branch, BRANCHES)] += 1
         if row.get("fallback_local") is True:
             fallback += 1
         sec = _seconds(row.get("seconds"))
         if sec is not None:
             seconds.append(sec)
+        for key in STAGE_FIELDS:
+            stage = _seconds(row.get(key))
+            if stage is not None:
+                stage_seconds[key].append(stage)
     named = sorted(k for k in providers if k not in (OTHER_LABEL, NONE_LABEL))
     return MetricsStats(
         found=True,
@@ -127,4 +139,8 @@ def metrics_stats(rows: Iterable[Mapping[str, Any]], *, include_test: bool = Fal
         by_provider=_ordered(providers, named),
         fallback_local=fallback,
         median_seconds=round(statistics.median(seconds), 2) if seconds else None,
+        median_stage_seconds={
+            k: (round(statistics.median(v), 2) if v else None) for k, v in stage_seconds.items()
+        },
+        by_branch=_ordered(branches, BRANCHES),
     )

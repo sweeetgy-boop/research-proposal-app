@@ -315,7 +315,13 @@ async def test_same_input_reuses_outcome():
     first = await check(_req(), [], core_keywords=["a"])
     second = await check(_req(), [], core_keywords=["a"])
     assert first is second and len(rule.calls) == 1 and len(src.calls) == 1
-    await check(_req(goal="다른 목표"), [], core_keywords=["a"])  # 입력이 다르면 다시
+    # 입력이 다르면 검색은 다시 하지만, 받은 문서가 모두 DB 에 이미 있으면(새 문서 0) ② 가 이미 본
+    # 범위라 규칙 판정은 다시 돌리지 않는다 (2026-11-09 응답 시간)
+    out = await check(_req(goal="다른 목표"), [], core_keywords=["a"])
+    assert len(src.calls) == 2 and len(rule.calls) == 1 and out.coverage.live is True
+    # 새 문서가 들어오면 다시 판정한다
+    src.docs.append(_doc("ntis:P10", doc_type="rnd_project"))
+    await check(_req(goal="또 다른 목표"), [], core_keywords=["a"])
     assert len(rule.calls) == 2
 
 
