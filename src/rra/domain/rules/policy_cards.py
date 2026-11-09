@@ -43,7 +43,7 @@ from rra.domain.rules.grounding import ungrounded
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.numbers import unsupported_numbers
-from rra.domain.rules.policy_phrases import match_text, pick_quote
+from rra.domain.rules.policy_phrases import Passage, match_text, pick_passage
 from rra.domain.rules.trust import escape_untrusted, normalize_evidence_id
 
 POLICY_SECTION = "policy_importance"
@@ -108,19 +108,21 @@ def policy_passage(
     similarity: float | None,
     query: str,
     rule: KeywordRule | None = None,
-) -> tuple[str, list[str]] | None:
+) -> Passage | None:
     """정책 근거 구간 하나 — 정책 문서(is_policy_basis)이고, 고른 인용 문장이 있고, 아이디어와
-    관련(키워드 겹침 ≥ 1 또는 유사도 ≥ MIN_PASSAGE_SIMILARITY)일 때만 (인용, 겹친 키워드).
+    관련(키워드 겹침 ≥ 1 또는 유사도 ≥ MIN_PASSAGE_SIMILARITY)일 때만 Passage(인용, 겹친 키워드,
+    온전함). 인용은 문서 본문 안에서 문장 경계까지 넓히고 각주 번호를 뗀다(policy_phrases,
+    ADR 0061).
 
     ① 정책 근거 추천과 ③ 정책적 중요도 작성안이 같이 쓰는 한 규칙."""
     if doc is None or not is_policy_basis(doc):
         return None
-    quote, hits = pick_quote(chunk_text, query, rule)
-    if not quote:
+    passage = pick_passage(chunk_text, query, rule, body=doc.body)
+    if not passage.quote:
         return None
-    if not hits and (similarity or 0.0) < MIN_PASSAGE_SIMILARITY:
+    if not passage.hits and (similarity or 0.0) < MIN_PASSAGE_SIMILARITY:
         return None
-    return quote, hits
+    return passage
 
 
 def is_regional(quote: str) -> bool:

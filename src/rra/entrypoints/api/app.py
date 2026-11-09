@@ -78,6 +78,11 @@ from rra.entrypoints.api.choice_dedupe import ChoiceDedupe
 from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
 from rra.entrypoints.api.local_review_routes import register as register_local_review_routes
 from rra.entrypoints.api.progress_routes import register as register_progress_routes
+from rra.entrypoints.api.recommend_switch import (
+    ModeChanged,
+    check_mode_unchanged,
+    mode_changed_response,
+)
 from rra.entrypoints.api.routes_format import register_format_routes
 from rra.entrypoints.api.schemas import (
     ConfirmIn,
@@ -393,6 +398,11 @@ def create_app(
         return problem_response(
             503, "외부 LLM 의 오늘 호출 상한에 이르렀습니다 — 내일 다시 시도하십시오."
         )
+
+    @app.exception_handler(ModeChanged)
+    async def _mode_changed(_req: Request, exc: ModeChanged) -> JSONResponse:
+        # ② 선택이 바뀌어 과제안 갈래가 달라짐 (레인 B, ADR 0061) — 409 + code=mode_changed
+        return mode_changed_response(exc)
 
     @app.exception_handler(ClientCancelled)
     async def _cancelled(_req: Request, _exc: ClientCancelled) -> JSONResponse:
@@ -981,16 +991,17 @@ def create_app(
         if session is None:
             raise HTTPException(404, "추천 세션을 찾을 수 없습니다 (만료 또는 모르는 id).")
         _, before = session
+        req = body.request
+        alerts, core = await _current_alerts(request, req)
+        check_mode_unchanged(before, alerts, req)  # 갈래가 바뀌었으면 409 mode_changed (ADR 0061)
         if getattr(before, "mode", "differentiate") == "novel":
             raise HTTPException(409, NOVEL_NO_MORE)
-        req = body.request
         shown = list(before.recommendations)
         room = MAX_TOTAL_RECOMMENDATIONS - len(shown)
         if room <= 0:
             raise HTTPException(
                 409, "과제안은 15건까지입니다 — [과제안 다시 만들기] 로 새로 받으십시오."
             )
-        alerts, core = await _current_alerts(request, req)
         kwargs: dict[str, Any] = {"similar_only": True, "shown": shown, **_test_kwargs(request)}
         if core:
             kwargs["core_keywords"] = core
@@ -1028,13 +1039,18 @@ def create_app(
         return {"notice": UNTRUSTED_NOTICE, "recommendations": out}
 
     @app.post(f"/{API_VERSION}/precheck/recommendations/{{rec_id}}/apply")
-    async def recommend_apply_route(rec_id: str, body: RecommendationApplyIn) -> dict[str, Any]:
+    async def recommend_apply_route(
+        request: Request, rec_id: str, body: RecommendationApplyIn
+    ) -> dict[str, Any]:
         """고른 추천을 제안자 입력에 채운 '수정 전 미리보기'. 저장하지 않는다 — 사용자가 고쳐 확정한
         입력을 POST /v1/runs 로 보낸다."""
         session = recommendation_sessions.get(rec_id)
         if session is None:
             raise HTTPException(404, "추천 세션을 찾을 수 없습니다 (만료 또는 모르는 id).")
         req, result = session
+        if body.request is not None:  # 지금 선택으로 갈래 대조 (ADR 0061)
+            alerts, _ = await _current_alerts(request, body.request)
+            check_mode_unchanged(result, alerts, body.request)
         if getattr(result, "mode", "differentiate") == "novel":
             raise HTTPException(409, NOVEL_NO_APPLY)
         if body.index >= len(result.recommendations):

@@ -122,6 +122,9 @@ class RecommendationApplyIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     index: int = Field(ge=0, le=14)  # [더 만들기] 로 15건까지 (ADR 0039)
+    # 지금 선택을 담은 입력(선택) — 있으면 세션의 갈래와 대조해 바뀌었으면 409 code=mode_changed
+    # (레인 B, 2026-11-09). 없으면 세션 입력 그대로(옛 화면·MCP 호환).
+    request: ProposalRequest | None = None
 
 
 class RecommendMoreIn(BaseModel):
