@@ -5253,6 +5253,16 @@
             "maximum": 14.0,
             "minimum": 0.0,
             "title": "Index"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
