@@ -24,14 +24,14 @@ def test_rate_limit_notice_text():
     assert issubclass(SourceRateLimited, RuntimeError)
 
 
-async def test_rate_limited_source_is_error_with_notice_and_others_continue(caplog):
+async def test_rate_limited_source_is_rate_limited_with_notice_and_others_continue(caplog):
     notice = rate_limit_notice("OpenAlex", anonymous=True, key_env=OPENALEX_KEY_ENV)
     limited = FakeSource("openalex", "en", error=SourceRateLimited(notice))
     live = _live(_three(openalex=limited))
     with caplog.at_level(logging.WARNING, logger="rra.live_search"):
         summary = await live.prepare("u1", _req())
     by = {r.source: r for r in summary.sources}
-    assert by["openalex"].status == "error" and by["openalex"].notice == notice
+    assert by["openalex"].status == "rate_limited" and by["openalex"].notice == notice  # 429 = 한도
     assert by["openalex"].seconds < 1.0  # 기다리지 않았다
     assert "scienceon:A1" in summary.doc_ids and "ntis:P1" in summary.doc_ids
     assert summary.status == "partial"
@@ -39,10 +39,10 @@ async def test_rate_limited_source_is_error_with_notice_and_others_continue(capl
     assert "http" not in json.dumps(summary.payload(), ensure_ascii=False)
 
 
-async def test_rate_limited_source_shows_as_error_in_novelty_coverage():
+async def test_rate_limited_source_shows_as_rate_limited_in_novelty_coverage():
     notice = rate_limit_notice("OpenAlex", anonymous=True, key_env=OPENALEX_KEY_ENV)
     live = _live(_three(openalex=FakeSource("openalex", "en", error=SourceRateLimited(notice))))
     summary = await live.prepare("u1", _req())
     cov = build_coverage(["own"], summary, live_sources=["scienceon", "ntis", "openalex"])
     assert cov.live is True and set(cov.searched) == {"own", "scienceon", "ntis"}
-    assert cov.unavailable == [{"source": "openalex", "status": "error"}]
+    assert cov.unavailable == [{"source": "openalex", "status": "rate_limited"}]

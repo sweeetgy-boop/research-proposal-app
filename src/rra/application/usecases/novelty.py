@@ -137,7 +137,7 @@ def _unavailable_status(status: str, notice: str | None) -> str | None:
         return "off" if notice == NOTICE_NO_KEYWORDS else None  # 검색어가 없어 보내지 않음
     if status == "error" and notice == NOTICE_NO_SOURCE:
         return "no_key"
-    if status in ("ip_blocked", "timeout", "error", "off"):
+    if status in ("ip_blocked", "timeout", "error", "off", "rate_limited"):
         return status
     return "error"
 

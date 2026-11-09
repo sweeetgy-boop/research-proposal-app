@@ -339,6 +339,8 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "cache_dir",
         "data/cache/live_search",
     ),
+    # KIPRIS 일일 호출 카운터 {"date","count"} (live_search.yaml kipris_kr.daily_cap, 2026-11-09)
+    "kipris_calls": (lambda s: {}, "", "data/cache/kipris_calls.json"),
     # 말뭉치 IDF 표 (ADR 0059, `rra db idf` 가 쓰고 스위치 idf_weighting 일 때 ② 판정이 읽는다)
     "idf_cache": (
         lambda s: read_config("overlap.yaml", s).get("idf_weighting") or {},

@@ -31,3 +31,9 @@ def test_missing_file_is_off_and_unknown_key_rejected(tmp_path):
 def test_cache_dir_under_data_dir(tmp_path):
     settings = Settings(_env_file=None, data_dir=tmp_path / "data")
     assert data_location(settings, "live_search_cache") == tmp_path / "data/cache/live_search"
+
+
+def test_kipris_daily_cap_in_repo_config():
+    cfg = live_search_config(Settings(_env_file=None))
+    assert cfg.source("kipris_kr").daily_cap == 500
+    assert cfg.source("scienceon").daily_cap is None  # 다른 자료원은 상한 없음(종전)

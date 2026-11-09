@@ -200,3 +200,23 @@ async def test_kipris_live_fetches_korean_queries_dedupes_and_resets_budget():
         assert "accessKey" in str(r.url) and "word=" in str(r.url)
     assert await live.fetch([], 20) == [] and await live.fetch(["x"], 0) == []
     assert len(await live.fetch(["x"], 5)) >= 1  # 세션마다 예산이 처음부터
+
+
+async def test_kipris_live_daily_cap_skips_only_kipris(tmp_path):
+    """일일 호출 상한(FileDailyBudget) — 질의 1건 = 1회. 상한에 닿으면 받은 것이 있으면 그만큼으로,
+    없으면 SourceRateLimited(한도 초과 안내) → 유스케이스가 그 자료원만 rate_limited 로 건너뛴다."""
+    from rra.adapters.llm.daily_budget import FileDailyBudget
+    from rra.adapters.sources.live import LiveKipris
+    from rra.domain.rules.source_limits import SourceRateLimited
+    from tests.adapters.test_kipris import page, source_for
+
+    src, requests = source_for([page(1, 1), page(1, 1), page(1, 1)], docs=50, max_requests=None)
+    counter = FileDailyBudget(tmp_path / "kipris_calls.json", 2)
+    live = LiveKipris(src, max_requests=3, counter=counter)
+    docs = await live.fetch(["비둘기 침입 방지", "비둘기 퇴치", "조류 착좌 방지"], 20)
+    assert len(requests) == 2 and len(docs) >= 1  # 세 번째 질의는 상한 — 받은 만큼으로 계속
+    assert counter.remaining() == 0
+    with pytest.raises(SourceRateLimited) as exc:
+        await live.fetch(["다시"], 20)
+    assert "한도" in str(exc.value) and "2/2" in str(exc.value)
+    assert len(requests) == 2  # 상한 뒤에는 요청을 보내지 않는다

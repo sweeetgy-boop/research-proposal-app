@@ -22,7 +22,12 @@ from typing import Any
 from rra.adapters.sources._base import GuardedClient, RateLimited
 from rra.domain.models import Document
 from rra.domain.rules.source_ip import SourceIpBlocked
-from rra.domain.rules.source_limits import OPENALEX_KEY_ENV, SourceRateLimited, rate_limit_notice
+from rra.domain.rules.source_limits import (
+    OPENALEX_KEY_ENV,
+    SourceRateLimited,
+    daily_cap_notice,
+    rate_limit_notice,
+)
 
 logger = logging.getLogger("rra.sources.live")
 
@@ -197,9 +202,12 @@ class LiveKipris:
     source = "kipris_kr"
     lang = "ko"
 
-    def __init__(self, inner: Any, *, max_requests: int = 3):
+    def __init__(self, inner: Any, *, max_requests: int = 3, counter: Any | None = None):
         self.inner = inner  # KiprisPatentSource
         self._budget = _Budget([inner.client], max_requests)
+        # 일일 호출 카운터(FileDailyBudget 모양: try_spend(n)·remaining()·limit) — 없으면 상한 없음.
+        # 질의 1건 = 요청 1건으로 센다(docs_count ≥ limit 이라 한 질의가 한 페이지).
+        self.counter = counter
 
     def __repr__(self) -> str:
         return "LiveKipris()"
@@ -207,12 +215,33 @@ class LiveKipris:
     async def fetch(self, queries: list[str], limit: int) -> list[Document]:
         if limit <= 0 or not queries:
             return []
+        calls = 0
         async with self._budget.lock:
             self._budget.reset()
             out: dict[str, Document] = {}
             for q in queries:
+                if self.counter is not None and not self.counter.try_spend(1):
+                    cap = int(getattr(self.counter, "limit", 0))
+                    used = cap - int(self.counter.remaining())
+                    if out:  # 앞 질의는 받았다 — 받은 만큼으로 계속
+                        logger.info(
+                            "live.kipris_cap_partial calls=%d used=%d cap=%d", calls, used, cap
+                        )
+                        break
+                    raise SourceRateLimited(daily_cap_notice("KIPRIS", used, cap))
+                calls += 1
                 raws = await self.inner.search(q, limit)
                 _add(out, _normalized(raws, self.inner.normalize), limit)
                 if len(out) >= limit:
                     break
+        if self.counter is not None:
+            cap = int(getattr(self.counter, "limit", 0))
+            logger.info(
+                "live.kipris_calls session=%d today=%d cap=%d",
+                calls,
+                cap - int(self.counter.remaining()),
+                cap,
+            )
+        else:
+            logger.info("live.kipris_calls session=%d", calls)
         return list(out.values())

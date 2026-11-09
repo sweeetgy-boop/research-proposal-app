@@ -549,3 +549,11 @@ async def test_keywords_for_uses_cache_and_keyword_cache_flag():
     )
     own = await other.keywords_for(_req())
     assert own.origin == "rule" and "철도역사" not in " ".join(own.ko)
+
+
+def test_unavailable_status_passes_rate_limited_through():
+    from rra.application.usecases.novelty import _unavailable_status
+    from rra.domain.rules.novel_recommendation import coverage_status_label
+
+    assert _unavailable_status("rate_limited", "KIPRIS 오늘 호출 500/500 …") == "rate_limited"
+    assert coverage_status_label("rate_limited") == "일일 호출 한도 초과로 확인 못 함"
