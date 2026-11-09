@@ -14,6 +14,7 @@ PLISTS = {
     "com.rra.ingest": ROOT / "deploy/launchd/com.rra.ingest.plist",
     "com.rra.tunnel": ROOT / "deploy/launchd/com.rra.tunnel.plist",
     "com.rra.awake": ROOT / "deploy/launchd/com.rra.awake.plist",
+    "com.rra.opscheck": ROOT / "deploy/launchd/com.rra.opscheck.plist",
 }
 TUNNEL_EXAMPLE = ROOT / "deploy/cloudflared/config.example.yml"
 SECRET_NAMES = ("TOKEN", "KEY", "MAC", "CLIENT_ID", "PASSWORD")
@@ -97,6 +98,30 @@ def test_tunnel_example_config_routes_public_host_to_loopback_only():
     assert all(r["service"].startswith("http://127.0.0.1:") for r in named)
     assert "8501" not in text  # Streamlit 은 공개하지 않는다
     assert "api_token" not in text.lower() and "-----BEGIN" not in text
+
+
+def test_opscheck_plist_runs_rra_ops_check_every_five_minutes_read_only():
+    """운영 점검(계약 healthz-status.md §3): `rra ops check` 5분 주기, 원 저장소 venv·data 절대
+    경로, 비밀 없음, 상시(KeepAlive) 아님. serve/funnel 을 바꾸는 인자는 없다(읽기만)."""
+    data = load("com.rra.opscheck")
+    args = data["ProgramArguments"]
+    assert args[0].endswith("/.venv/bin/rra") and args[1:] == ["ops", "check"]
+    assert data["StartInterval"] == 300 and data["RunAtLoad"] is True
+    assert "KeepAlive" not in data and "StartCalendarInterval" not in data
+    env = data["EnvironmentVariables"]
+    assert env["RRA_DATA_DIR"].endswith("/research-proposal-app/data")
+    assert env["RRA_CONFIG_DIR"].endswith("/research-proposal-app/config")
+    assert data["StandardOutPath"].endswith("Logs/rra-opscheck.log")
+    text = PLISTS["com.rra.opscheck"].read_text(encoding="utf-8")
+    assert "funnel --" not in text and "serve " not in text and "launchctl kickstart" not in text
+
+
+def test_mlx_plist_restart_policy_after_2026_11_03_hang():
+    """ADR 0062: 비정상 종료만 재시작(SuccessfulExit=false), ThrottleInterval 30 — 적재 실패 반복이
+    10초마다 재기동하지 않게."""
+    data = load("com.rra.mlx")
+    assert data["KeepAlive"] == {"SuccessfulExit": False}
+    assert data["ThrottleInterval"] == 30 and data["RunAtLoad"] is True
 
 
 def test_awake_plist_keeps_caffeinate_running():
