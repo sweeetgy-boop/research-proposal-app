@@ -61,6 +61,20 @@ PRIVATE_NETS = [
 ]
 USER_AGENT = "rra/0.1"
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+
+# httpcore(1.0.x) 는 요청을 보내는 길(`_send_event`)에서 h11 의 LocalProtocolError 를 감싸지
+# 않는다 — 풀에서 꺼낸 연결이 이미 깨진 상태(ERROR·엇갈린 사이클)면 httpx.TransportError 가 아닌
+# h11 예외가 그대로 올라온다(2026-11-05 운영 OpenAlex `err=LocalProtocolError`). httpcore 는 그
+# 연결을 닫으므로 전송 오류와 같이 새 연결로 재시도한다.
+try:
+    import h11 as _h11
+
+    TRANSPORT_ERRORS: tuple[type[BaseException], ...] = (
+        httpx.TransportError,
+        _h11.LocalProtocolError,
+    )
+except ImportError:  # pragma: no cover - h11 은 httpx 의 의존성
+    TRANSPORT_ERRORS = (httpx.TransportError,)
 DEFAULT_TIMEOUT = httpx.Timeout(10.0, read=30.0)
 
 Resolver = Callable[[str], bool]
@@ -269,7 +283,7 @@ class GuardedClient:
                 status, headers, body, final = await self._fetch(
                     target, headers, method=method, content=content
                 )
-            except httpx.TransportError as exc:
+            except TRANSPORT_ERRORS as exc:
                 if attempt >= self.retries:
                     safe = strip_secrets(str(target))
                     raise FetchError(f"{type(exc).__name__}: {safe}") from None

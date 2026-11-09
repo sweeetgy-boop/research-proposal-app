@@ -1,0 +1,10 @@
+{
+ "status": 429,
+ "headers": {"content-type": "application/json", "content-length": "253", "cache-control": "no-store", "retry-after": "30"},
+ "body": {
+  "error": "Rate limit exceeded",
+  "message": "Anonymous search is temporarily rate-limited while the search cluster is under elevated load. Please retry in 30s, or use a free API key for uninterrupted access: https://openalex.org/rest-api.",
+  "retryAfter": 30
+ },
+ "_recorded": "2026-11-09 GET /works?search=…&filter=has_abstract:true (익명, mailto·api_key 없음). 2026-11-05 운영 live.source_failed source=openalex err=RateLimited 의 원인"
+}
