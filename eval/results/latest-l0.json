@@ -20,15 +20,15 @@
     "judgment.enabled": true,
     "series.enabled": true,
     "rerank.threshold": 0.5,
-    "llm": "none",
+    "llm": "gemini",
     "corpus": "synthetic",
     "rerank.enabled": false,
     "with_recommend": false,
     "keywords": "rule"
   },
-  "label": "",
-  "commit": "434581b",
-  "started_at": "2026-11-09T14:34:48+09:00",
+  "label": "latest",
+  "commit": "3854659",
+  "started_at": "2026-11-09T16:16:40+09:00",
   "seconds": 0.1,
   "sealed": false,
   "llm_calls": 0,
@@ -37,5 +37,187 @@
     "새 영역 문제 차단 0/4건 (false_block 분모 밖)",
     "캐시 재생 적중 20건 · 미스 0건(규칙 판정)",
     "문제 종류: novel 4, reverse 10, trap 6"
+  ],
+  "problems": [
+    {
+      "id": "4760139b58b31137",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "5e6f740bb0ee01f1",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "893cbafbc9386f74",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "88c7ad8ef4985505",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "8ba257622970ce08",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "c20b460543c9c524",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "4aaf2c13b3fb25f3",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "82d88539f52e2163",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "a40839253c52edd3",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "6b02376b0b50cbbb",
+      "kind": "reverse",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "59caac3db860a350",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "87418fd527ba3f02",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "d46990738d973737",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "45d60b266b083508",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "a6817bc70b7f8b6c",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "9db100b0b5071d4d",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "7530a4b17d20fc82",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "faa17188eddae8c3",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 0.003
+    },
+    {
+      "id": "c211974baa714c20",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    },
+    {
+      "id": "83aa7af73173afdc",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 0.003
+    }
   ]
 }
