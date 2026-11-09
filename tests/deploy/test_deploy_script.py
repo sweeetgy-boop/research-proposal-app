@@ -39,6 +39,10 @@ def test_script_contains_required_steps_and_no_secrets():
         "funnel status",
         "(Funnel on)",
         "| Funnel on |",
+        # 운영 상태 칸(계약 healthz-status.md §4) — 값이 나빠도 배포를 막지 않고 표에 두 줄만
+        "| healthz tunnel | $OPS_TUNNEL |",
+        "| healthz llm.local | $OPS_LOCAL |",
+        "배포는 막지 않음",
     ):
         assert needle in text, needle
     assert "RRA_API_TOKEN" not in text and "GEMINI" not in text

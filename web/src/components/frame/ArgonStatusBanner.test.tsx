@@ -62,6 +62,65 @@ describe("Argon 연결 오류 알림 띠", () => {
     expect(screen.queryByTestId("argon-status-banner")).toBeNull();
   });
 
+  it("관리자: Argon 띠 + 운영 상태 줄(터널 내려감·로컬 모델 응답 없음)이 함께 보인다", async () => {
+    setSession("c5", "admin", "관리자");
+    mockFetch({
+      "/healthz": { ...health("unavailable"), tunnel: "down", llm: { gemini: "unavailable", since: null, local: "unavailable" } },
+      "/v1/runs": { runs: [] },
+    });
+    const { container } = renderWithProviders(<Layout />, { route: "/runs" });
+    const banner = await screen.findByTestId("argon-status-banner");
+    expect(banner).toHaveTextContent(TITLE);
+    await waitFor(() => expect(screen.getAllByTestId("ops-status-line")).toHaveLength(2));
+    expect(banner).toHaveTextContent("외부 접속 경로(Funnel) 내려감");
+    expect(banner).toHaveTextContent("로컬 모델 응답 없음");
+    expect(document.body.textContent).not.toMatch(/\bdown\b|unavailable|tunnel|llm\.local/);
+    await expectNoA11yViolations(container);
+  });
+
+  it.each([
+    ["tunnel down", { tunnel: "down", local: "ok" }, "외부 접속 경로(Funnel) 내려감"],
+    ["llm.local unavailable", { tunnel: "ok", local: "unavailable" }, "로컬 모델 응답 없음"],
+  ])("관리자: Argon 은 ok 여도 %s 이면 운영 상태 줄만 보인다", async (_name, ops, line) => {
+    setSession("c6", "admin", "관리자");
+    mockFetch({
+      "/healthz": { status: "ok", tunnel: ops.tunnel, llm: { gemini: "ok", since: null, local: ops.local } },
+      "/v1/runs": { runs: [] },
+    });
+    renderWithProviders(<Layout />, { route: "/runs" });
+    const banner = await screen.findByTestId("argon-status-banner");
+    expect(banner).toHaveTextContent(line);
+    expect(screen.getAllByTestId("ops-status-line")).toHaveLength(1);
+    expect(screen.queryByText(TITLE)).toBeNull();
+    expect(screen.queryByTestId("argon-status-reason")).toBeNull();
+  });
+
+  it.each([["staff", "직원"], ["guest", "공용 계정"]])(
+    "%s: 터널 내려감·로컬 모델 응답 없음은 보이지 않는다 (관리자 전용, Argon ok 면 띠 없음)",
+    async (kind, label) => {
+      setSession("c7", kind, label);
+      const { calls } = mockFetch({
+        "/healthz": { status: "ok", tunnel: "down", llm: { gemini: "ok", since: null, local: "unavailable" } },
+        "/v1/runs": { runs: [] },
+      });
+      renderWithProviders(<Layout />, { route: "/runs" });
+      await waitFor(() => expect(calls.some((c) => c.url === "/healthz")).toBe(true));
+      expect(screen.queryByTestId("argon-status-banner")).toBeNull();
+      expect(document.body.textContent).not.toContain("Funnel");
+    },
+  );
+
+  it("관리자: tunnel·llm.local 이 unknown 이거나 칸이 없으면 운영 상태 줄이 없다", async () => {
+    setSession("c8", "admin", "관리자");
+    const { calls } = mockFetch({
+      "/healthz": { status: "ok", tunnel: "unknown", llm: { gemini: "ok", since: null } },
+      "/v1/runs": { runs: [] },
+    });
+    renderWithProviders(<Layout />, { route: "/runs" });
+    await waitFor(() => expect(calls.some((c) => c.url === "/healthz")).toBe(true));
+    expect(screen.queryByTestId("argon-status-banner")).toBeNull();
+  });
+
   it("다시 읽어 ok 가 되면 띠가 사라진다 (60초 주기)", async () => {
     expect(ARGON_POLL_MS).toBe(60_000);
     setSession("c4", "guest", "공용 계정");

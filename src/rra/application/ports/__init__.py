@@ -18,6 +18,13 @@ from .llm import LLMPort, ModelListingPort, RateLimited
 from .llm_status import LLMStatusPort
 from .maintenance import DatabaseMaintenancePort
 from .ntis import CachePort, ProjectOutcomePort, RelatedProjectPort
+from .ops_status import (
+    LocalLlmProbePort,
+    OpsStatusPort,
+    OpsStatusWriterPort,
+    TunnelProbe,
+    TunnelProbePort,
+)
 from .prompt_library import PromptLibraryPort
 from .public_ip import PublicIpPort, SourceAvailabilityPort
 from .recommend_metrics import RecommendMetricsPort
@@ -54,6 +61,11 @@ __all__ = [
     "TimedAvailabilityPort",
     "LLMPort",
     "LLMStatusPort",
+    "LocalLlmProbePort",
+    "OpsStatusPort",
+    "OpsStatusWriterPort",
+    "TunnelProbe",
+    "TunnelProbePort",
     "ModelListingPort",
     "RateLimited",
     "ProbingSource",

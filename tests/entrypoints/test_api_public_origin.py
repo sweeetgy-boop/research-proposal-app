@@ -156,6 +156,7 @@ def test_api_config_defaults_when_file_missing(tmp_path):
         "public_origin": "",
         "trust_cf_connecting_ip": False,
         "trust_forwarded_from_loopback": False,
+        "ops": {"tailscale_bin": "/Applications/Tailscale.app/Contents/MacOS/Tailscale"},
     }
     assert api_config(settings_with(tmp_path, None)) == empty
     assert api_config(settings_with(tmp_path, "public_origin: ''\n")) == empty
@@ -171,6 +172,7 @@ def test_api_config_normalizes_and_validates(tmp_path):
         "public_origin": "https://rra.example.test",
         "trust_cf_connecting_ip": True,
         "trust_forwarded_from_loopback": False,
+        "ops": {"tailscale_bin": "/Applications/Tailscale.app/Contents/MacOS/Tailscale"},
     }
     for bad in (
         "public_origin: http://rra.example.test\n",

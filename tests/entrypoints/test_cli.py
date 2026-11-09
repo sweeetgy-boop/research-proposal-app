@@ -141,6 +141,22 @@ def test_search_uses_the_same_untrusted_wrapping(monkeypatch, capsys, docs, chun
     assert repo.calls[-1][1]["k"] == 5
 
 
+def _patch_llm_check(monkeypatch, stub, *, provider="mlx", served=False):
+    """cmd_llm_check 는 build_llm 대신 build_llm_check(LlmCheck) 를 쓴다 (레인 C 통합) — 스텁 LLM 을
+    감싼 유스케이스를 돌려준다. served=True 면 served_model 진단 코루틴도 실제로 만든다."""
+    from rra import composition
+    from rra.application.usecases.llm_check import LlmCheck
+
+    def fake(settings=None, *, stage="compose", read_timeout=None, **_):
+        # cli 는 provider=args.provider(None) 를 넘긴다 — 스텁의 provider 는 호출자가 정한 값
+        check = (
+            composition.build_served_model_check(settings, stub, stage=stage) if served else None
+        )
+        return LlmCheck(stub, provider=provider, status=None, served_check=check)
+
+    monkeypatch.setattr("rra.composition.build_llm_check", fake)
+
+
 def test_llm_check_round_trip(monkeypatch, capsys):
     class StubLLM:
         def __init__(self):
@@ -159,7 +175,7 @@ def test_llm_check_round_trip(monkeypatch, capsys):
         "rra.composition.llm_config",
         lambda *a, **k: {"provider": "mlx", "base_url": "http://127.0.0.1:8080/v1", "model": "m"},
     )
-    monkeypatch.setattr("rra.composition.build_llm", lambda *a, **k: stub)
+    _patch_llm_check(monkeypatch, stub)
 
     assert cli.main(["llm-check"]) == cli.EXIT_OK
     out = capsys.readouterr().out
@@ -189,7 +205,7 @@ def test_llm_check_warns_but_does_not_block_on_unknown_served_model(monkeypatch,
             "served_model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
         },
     )
-    monkeypatch.setattr("rra.composition.build_llm", lambda *a, **k: StubLLM())
+    _patch_llm_check(monkeypatch, StubLLM(), served=True)
     assert cli.main(["llm-check"]) == cli.EXIT_OK  # 경고만, 왕복은 계속
     captured = capsys.readouterr()
     assert "served_model=mlx-community/Qwen2.5-3B-Instruct-4bit" in captured.out
@@ -1028,8 +1044,7 @@ def test_llm_check_prints_the_classified_failure_instead_of_the_body(
         "rra.composition.llm_config",
         lambda *a, **k: {"provider": "gemini", "base_url": "https://g.example/v1", "model": "m"},
     )
-    monkeypatch.setattr("rra.composition.build_llm", lambda *a, **k: StubLLM())
-    monkeypatch.setattr("rra.composition.build_served_model_check", lambda *a, **k: _none())
+    _patch_llm_check(monkeypatch, StubLLM(), provider="gemini")
     assert cli.main(["llm-check"]) == cli.EXIT_ERROR
     err = capsys.readouterr().err
     assert shown in err

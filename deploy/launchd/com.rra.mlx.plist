@@ -6,6 +6,10 @@
   docs/llm-bench-2026-10-26.md). 다른 프로필로 바꾸면 model 인자와 llm.yaml providers.mlx.model_profile 을 함께 바꾼다.
   설치: cp deploy/launchd/com.rra.mlx.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.mlx.plist
   mlx-lm 은 `uv tool install mlx-lm` (실행 파일 ~/.local/bin/mlx_lm.server).
+  재시작 정책(2026-11-09 점검, ADR 0062): KeepAlive SuccessfulExit=false — 비정상 종료만 다시 띄운다(launchctl stop 은 안 띄움).
+  ThrottleInterval 10 → 30 — 모델 적재 실패가 반복될 때 10초마다 다시 올리며 메모리를 흔들지 않게. 2026-11-03 "멈춤"은
+  서버가 죽은 것이 아니라(종료 기록 없음) 긴 생성 1건이 16분 넘게 붙들고 있던 것 — 살아 있는지는 com.rra.opscheck 가
+  5분마다 GET /v1/models 로 보고 /healthz llm.local 에 낸다.
 -->
 <plist version="1.0">
 <dict>
@@ -40,7 +44,7 @@
     <false/>
   </dict>
   <key>ThrottleInterval</key>
-  <integer>10</integer>
+  <integer>30</integer>
   <key>StandardOutPath</key>
   <string>/Users/chan/Library/Logs/rra-mlx.log</string>
   <key>StandardErrorPath</key>
