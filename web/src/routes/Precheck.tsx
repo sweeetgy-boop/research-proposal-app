@@ -30,8 +30,10 @@ import {
   chooseRow,
   effectiveBlocking,
   fullSignature,
+  isModeChanged,
+  modeMismatch,
   planFields,
-  planSignature,
+  planKey,
   referenceSignature,
   released as isReleased,
   toggleReference,
@@ -50,6 +52,9 @@ import { useToast } from "@/components/ui/toast";
 import { Eyebrow } from "@/components/ui/eyebrow";
 
 const currentPre = () => getIdea().precheck as unknown as PrecheckFlowOut | null;
+/** 갈래 전환 표식 — [더 만들기]·카드 적용이 "선택이 바뀌어 갈래가 다르다" 로 끝났다 (화면 판단 또는 서버 409 code=mode_changed) */
+const MODE_CHANGED = Symbol("mode_changed");
+export const MODE_CHANGED_NOTE = "선택이 바뀌어 과제안을 다시 받습니다 — 새 갈래의 과제안을 만드는 중입니다.";
 const setPre = (next: PrecheckFlowOut, patch: Parameters<typeof updateIdea>[0] = {}) =>
   updateIdea({ precheck: next as unknown as PrecheckOut, similarChoices: getIdea().similarChoices, ...patch });
 
@@ -138,17 +143,32 @@ export default function Precheck() {
     setPre({ ...cur, recommendations: out.recommendations }, {
       recommendationId: out.recommendations?.id ?? null,
       recommendationIndex: null,
-      // 서버가 실제로 쓴 선택(기본 선택 포함)의 서명. AI 판정이 아직 화면에 없으면 모름(null) — [선택 적용] 이 다시 받는다
-      planSig: cur.judgment?.status === "pending" ? null : planSignature(used, cur.default_choices, cur.alerts),
+      // 서버가 실제로 쓴 선택(기본 선택 포함)의 갈래 + 서명. AI 판정이 아직 화면에 없으면 모름(null) — [선택 적용] 이 다시 받는다
+      planSig: cur.judgment?.status === "pending" ? null : planKey(used, cur.default_choices, cur.alerts),
       planRefSig: referenceSignature(r.reference_ids),
     });
   };
-  const more = useAiCall((args: { r: PrecheckRequest; id: string }, signal: AbortSignal) => recommendMore(args.r, args.id, signal));
+  // 갈래 전환(2026-11-09 레인 B): 선택이 바뀌어 서버가 고를 갈래(novel ↔ 차별화)가 지금 카드와 다르면 [더 만들기]·카드 적용 대신
+  // 과제안을 새로 받는다 — 화면이 먼저 알아채고(modeMismatch), 못 알아챘으면 서버 409 code=mode_changed 를 같은 길로 보낸다
+  const switchBranch = async () => {
+    toast(MODE_CHANGED_NOTE, "info");
+    await runCards(planReq, applied);
+  };
+  const more = useAiCall(async (args: { r: PrecheckRequest; id: string }, signal: AbortSignal) => {
+    try {
+      return await recommendMore(args.r, args.id, signal);
+    } catch (e) {
+      if (isModeChanged(e)) return MODE_CHANGED;
+      throw e;
+    }
+  });
   const runMore = async () => {
     const id = pre?.recommendations?.id;
-    if (!id) return;
-    const before = pre?.recommendations?.recommendations.length ?? 0;
+    if (!id || !pre) return;
+    if (modeMismatch(pre.recommendations, applied, pre.default_choices, pre.alerts)) return void switchBranch();
+    const before = pre.recommendations?.recommendations.length ?? 0;
     const out = await more.run({ r: planReq, id });
+    if (out === MODE_CHANGED) return void switchBranch();
     const cur = currentPre();
     if (!out?.recommendations || !cur) return;
     setPre({ ...cur, recommendations: out.recommendations });
@@ -217,12 +237,19 @@ export default function Precheck() {
   };
 
   const pickM = useMutation({
-    mutationFn: async (card: PlanRecommendation) => {
+    mutationFn: async (card: PlanRecommendation): Promise<PlanRecommendation | typeof MODE_CHANGED> => {
       const rid = pre?.recommendations?.id;
-      if (rid) await applyRecommendation(rid, card.index); // 서버 미리보기 확인(세션 유효성) — 칸은 카드 그대로
+      if (pre && modeMismatch(pre.recommendations, applied, pre.default_choices, pre.alerts)) return MODE_CHANGED;
+      try {
+        if (rid) await applyRecommendation(rid, card.index, planReq); // 서버 미리보기 확인(세션 유효성·갈래) — 칸은 카드 그대로
+      } catch (e) {
+        if (isModeChanged(e)) return MODE_CHANGED;
+        throw e;
+      }
       return card;
     },
     onSuccess: (card) => {
+      if (card === MODE_CHANGED) return void switchBranch();
       const fields = cardFields(card, idea.request);
       updateIdea({
         request: { ...idea.request, ...fields, idea_versions: addVersion(idea.request.idea_versions, "card", fields, card.index) },
@@ -267,7 +294,7 @@ export default function Precheck() {
   const appliedCounts = choiceCounts(pre.alerts, idea.appliedChoices ?? withDefaults({}, pre.default_choices, pre.alerts).map);
   // '선택이 바뀌었습니다' — [유사함]/[관련 없음] 이나 참고 논문이 마지막 [선택 적용] 과 다르면
   const choicesStale = fullSignature(choices) !== fullSignature(applied) || referenceSignature(refs) !== referenceSignature(appliedRefs);
-  const planStale = idea.planSig !== null && idea.planSig !== planSignature(applied, pre.default_choices, pre.alerts) && !cards.pending;
+  const planStale = idea.planSig !== null && idea.planSig !== planKey(applied, pre.default_choices, pre.alerts) && !cards.pending;
   const planRefsStale = idea.planSig !== null && (idea.planRefSig ?? "") !== referenceSignature(refs) && !cards.pending;
 
   const choose = (docId: string, value: SimilarChoiceValue | null) => {
@@ -302,8 +329,9 @@ export default function Precheck() {
       const cur = currentPre();
       if (cur) setPre({ ...cur, differentiation: undefined });
     }
+    // 갈래(novel ↔ 차별화)나 [유사함] 집합이 바뀌었으면 과제안을 새 갈래로 다시 받는다 (버튼 한 번 — 2026-11-09 레인 B)
     const plansChanged =
-      planSignature(now, pre.default_choices, pre.alerts) !== idea.planSig || referenceSignature(nowRefs) !== (idea.planRefSig ?? "");
+      planKey(now, pre.default_choices, pre.alerts) !== idea.planSig || referenceSignature(nowRefs) !== (idea.planRefSig ?? "");
     if (plansChanged || !pre.recommendations) void runCards(r, now);
     toast("선택을 적용했습니다 — 비교표를 다시 만듭니다.", "success");
   };

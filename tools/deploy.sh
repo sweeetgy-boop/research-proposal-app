@@ -163,6 +163,18 @@ while [ "$TRIES" -lt 30 ]; do
 done
 HEALTH_OK=0; LOGIN_OK=0; EXT_OK="생략"
 if [ "$GOT" = "$HEAD_SHA" ]; then HEALTH_OK=1; log "healthz ok — 버전 $SHORT."; else log "경고: healthz 가 $SHORT 를 보고하지 않습니다 (받은 값: ${GOT:0:7}). ~/Library/Logs/rra-api.err.log 확인."; fi
+# 운영 상태 칸(계약 docs/contracts/healthz-status.md): tunnel ok|down|unknown · llm.local ok|unavailable|unknown.
+# 값이 나빠도 배포를 막지 않는다 — 기록 표에 두 줄만. 처음 배포(상태 파일 없음)·opscheck 미등록이면 unknown.
+health_field() {  # $1 = python 식 (d 가 healthz JSON) → 값 또는 unknown
+  curl -s -m 3 "$LOCAL_URL/healthz" 2>/dev/null | "$PY" -c "import json,sys
+try:
+    d = json.load(sys.stdin); v = $1; print(v if isinstance(v, str) and v else 'unknown')
+except Exception:
+    print('unknown')" 2>/dev/null || echo unknown
+}
+OPS_TUNNEL="$(health_field 'd.get("tunnel")')"
+OPS_LOCAL="$(health_field '(d.get("llm") or {}).get("local")')"
+log "healthz tunnel=$OPS_TUNNEL llm.local=$OPS_LOCAL (표시만, 배포는 막지 않음)."
 LOGIN_CODE="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$LOCAL_URL/login" || echo 000)"
 if [ "$LOGIN_CODE" = "200" ]; then LOGIN_OK=1; log "로그인 화면 200."; else log "경고: /login 이 $LOGIN_CODE 입니다 (web/dist 확인)."; fi
 if [ "$EXTERNAL" = 1 ]; then
@@ -196,6 +208,8 @@ RECORD="$DEPLOY_DIR/$(date +%Y-%m-%d-%H%M).md"
   echo "| 로그인 화면 | $([ "$LOGIN_OK" = 1 ] && echo ok || echo "실패($LOGIN_CODE)") |"
   echo "| 외부 주소 | $EXT_OK ($EXTERNAL_URL, 이 맥에서는 tailnet 경로) |"
   echo "| Funnel on | $FUNNEL_OK |"
+  echo "| healthz tunnel | $OPS_TUNNEL |"
+  echo "| healthz llm.local | $OPS_LOCAL |"
   if [ -n "$PENDING_LINES" ]; then
     echo
     echo "## 반영 대기 목록(pending.md)에서 옮김"

@@ -122,8 +122,14 @@ __all__ = [
     "build_ingest",
     "build_list_missing",
     "build_llm",
+    "build_llm_check",
+    "build_llm_check_client",
     "build_llm_health",
     "build_llm_status",
+    "build_local_llm_probe",
+    "build_ops_check",
+    "build_ops_status",
+    "build_tunnel_probe",
     "build_ntis_insights",
     "build_ntis_report_source",
     "build_ntis_source",
@@ -313,6 +319,112 @@ def build_llm_health(settings: Settings | None = None):
     return lambda: public_view(status.snapshot("gemini"))
 
 
+def build_llm_check_client(
+    settings: Settings | None = None,
+    *,
+    stage: str = DEFAULT_STAGE,
+    provider: str | None = None,
+    read_timeout: float | None = None,
+    attempts: int = 1,
+):
+    """`rra llm-check` 전용 LLM 클라이언트 — 읽기 제한을 인자로(기본 로컬 120초·Argon 은 llm.yaml
+    timeout.read), 재시도 없음(멈춤 금지, 계약 healthz-status.md §3). 그 밖은 build_llm 과 같다
+    (gemini 는 일일 예산 카운터를 거친다)."""
+    from rra.adapters.llm import OpenAICompatLLM
+
+    settings = settings or load_settings()
+    llm = _build_openai_compat(
+        OpenAICompatLLM,
+        settings,
+        stage=stage,
+        provider=provider,
+        read_timeout=read_timeout,
+        attempts=attempts,
+    )
+    if llm.provider == "gemini":
+        budget = build_review_budget(settings)
+        if budget is not None:
+            from rra.adapters.llm.daily_budget import BudgetedLLM
+
+            llm = BudgetedLLM(llm, budget, stage=stage)
+    return llm
+
+
+def build_llm_check(
+    settings: Settings | None = None,
+    *,
+    stage: str = DEFAULT_STAGE,
+    provider: str | None = None,
+    read_timeout: float | None = None,
+    served_check: bool = True,
+):
+    """`rra llm-check` 유스케이스(usecases/llm_check.LlmCheck) — 읽기 제한(없으면 로컬 120초·Argon
+    llm.yaml timeout.read) 재시도 없이 1회, 로컬이면 결과를 운영 상태 파일(llm_local)에 적는다.
+    cli.py 의 cmd_llm_check 가 build_llm 대신 이것을 쓴다(통합 때 메인이 연결)."""
+    from rra.application.usecases.llm_check import LlmCheck, default_timeout
+
+    settings = settings or load_settings()
+    cfg = llm_config(settings, stage, provider=provider)
+    timeout = read_timeout if read_timeout is not None else default_timeout(cfg["provider"])
+    llm = build_llm_check_client(
+        settings, stage=stage, provider=provider, read_timeout=timeout, attempts=1
+    )
+    check = (
+        build_served_model_check(settings, llm, stage=stage, provider=provider)
+        if served_check
+        else None
+    )
+    return LlmCheck(
+        llm, provider=cfg["provider"], status=build_ops_status(settings), served_check=check
+    )
+
+
+_OPS_STATUS: dict[str, Any] = {}
+
+
+def build_ops_status(settings: Settings | None = None):
+    """OpsStatusPort·OpsStatusWriterPort — 운영 상태 파일(<data_dir>/cache/ops_status.json, 계약
+    healthz-status.md). 같은 경로는 프로세스 안에서 하나를 공유한다. `/healthz` 는 이것을
+    `entrypoints/api/health_view.with_ops` 로 읽는다(통합 때 build_api 에 ops_status= 로 연결)."""
+    from rra.adapters.deploy.ops_status import FileOpsStatus
+
+    settings = settings or load_settings()
+    path = data_location(settings, "ops_status")
+    key = str(path)
+    if key not in _OPS_STATUS:
+        _OPS_STATUS[key] = FileOpsStatus(path)
+    return _OPS_STATUS[key]
+
+
+def build_tunnel_probe(settings: Settings | None = None):
+    """TunnelProbePort — tailscale 명령(config/api.yaml ops.tailscale_bin). 없으면 None(unknown)."""
+    from rra.adapters.deploy.tunnel_status import TailscaleProbe
+
+    settings = settings or load_settings()
+    probe = TailscaleProbe(api_config(settings)["ops"]["tailscale_bin"])
+    return probe if probe.available else None
+
+
+def build_local_llm_probe(settings: Settings | None = None):
+    """LocalLlmProbePort — 로컬 작성 모델 서버(providers.mlx.base_url) GET /v1/models, 5초."""
+    from rra.adapters.llm.local_status import LocalLlmProbe
+
+    settings = settings or load_settings()
+    return LocalLlmProbe(llm_config(settings, DEFAULT_STAGE, provider="mlx")["base_url"])
+
+
+def build_ops_check(settings: Settings | None = None):
+    """`rra ops check` 유스케이스 — 터널·로컬 모델 점검 1회 → 상태 파일."""
+    from rra.application.usecases.ops_check import OpsCheck
+
+    settings = settings or load_settings()
+    return OpsCheck(
+        status=build_ops_status(settings),
+        local=build_local_llm_probe(settings),
+        tunnel=build_tunnel_probe(settings),
+    )
+
+
 # ── 로그인 (레인 A) ─────────────────────────────────────
 def build_auth_store(settings: Settings | None = None):
     """AuthStorePort 구현체 — <data_dir>/auth (config/auth.yaml store_dir)."""
@@ -357,7 +469,14 @@ def public_repository(repo):
 
 
 def _build_openai_compat(
-    cls, settings: Settings | None, *, stage: str, provider: str | None, **extra
+    cls,
+    settings: Settings | None,
+    *,
+    stage: str,
+    provider: str | None,
+    read_timeout: float | None = None,
+    attempts: int | None = None,
+    **extra,
 ):
     """OpenAI 호환 어댑터 공용 조립 — 텍스트(build_llm)·이미지(build_vision_reader). 원격 provider
     는
@@ -378,6 +497,12 @@ def _build_openai_compat(
     limiter = limiter_for(cfg["provider"], **cfg["rate"]) if cfg.get("rate") else None
     # Argon 연결 상태(ADR 0055) — gemini 호출 결과만 기록한다 (로컬 mlx 는 기록하지 않는다)
     status = build_llm_status(settings) if cfg["provider"] == "gemini" else None
+    timeout = dict(cfg["timeout"])
+    if read_timeout is not None:  # rra llm-check --timeout (계약 healthz-status.md §3)
+        timeout["read"] = float(read_timeout)
+    retry = dict(cfg["retry"])
+    if attempts is not None:
+        retry["attempts"] = max(1, int(attempts))
     return cls(
         cfg["base_url"],
         cfg["model"],
@@ -392,11 +517,13 @@ def _build_openai_compat(
         prompt_max_chars=cfg["prompt_max_chars"],
         temperature=cfg["temperature"],
         json_mode=cfg["json_mode"],
-        timeout=httpx.Timeout(**cfg["timeout"]),
-        retry=RetryPolicy(**cfg["retry"]),
+        timeout=httpx.Timeout(**timeout),
+        retry=RetryPolicy(**retry),
         limiter=limiter,
         stage=stage,
         status=status,
+        # 로컬 첫 요청(모델 적재) 읽기 제한 — 어댑터가 로컬 provider 일 때만 쓴다
+        first_request_timeout=cfg.get("first_request_timeout"),
         **extra,
     )
 
@@ -2461,6 +2588,7 @@ def build_api(
         availability_notices=build_source_availability(settings).notices,
         version=build_version_info(settings),
         llm_health=build_llm_health(settings),
+        ops_status=build_ops_status(settings),
         live_search=live if live.enabled else None,
     )
 

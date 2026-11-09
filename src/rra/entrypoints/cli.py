@@ -959,9 +959,8 @@ def cmd_feedback(args: argparse.Namespace) -> int:
 def cmd_llm_check(args: argparse.Namespace) -> int:
     from rra.composition import (
         LLMUnavailable,
-        build_llm,
+        build_llm_check,
         build_prompt_library,
-        build_served_model_check,
         llm_config,
         llm_key_present,
         load_settings,
@@ -978,31 +977,36 @@ def cmd_llm_check(args: argparse.Namespace) -> int:
     if cfg.get("reasoning_effort"):
         print(f"reasoning_effort={cfg['reasoning_effort']} json_mode={cfg['json_mode']}")
 
-    async def run() -> str:
-        llm = build_llm(settings, stage=args.stage, provider=args.provider)
-        try:
-            check = build_served_model_check(
-                settings, llm, stage=args.stage, provider=args.provider
-            )
-            if warning := await check:
-                _eprint(f"경고: {_safe(warning, 500)}")
-            system = build_prompt_library(settings).system() if args.system else None
-            return await llm.complete(args.prompt, system=system, json_mode=args.json_mode)
-        finally:
-            await llm.aclose()
+    async def run():
+        # 읽기 제한(없으면 로컬 120초·Argon 은 llm.yaml timeout.read), 재시도 없이 1회 — 멈춤 금지
+        # (레인 C, ADR 0062). 로컬 무응답은 운영 상태 파일(llm_local=unavailable)에 남는다.
+        check = build_llm_check(
+            settings, stage=args.stage, provider=args.provider, read_timeout=args.timeout
+        )
+        system = build_prompt_library(settings).system() if args.system else None
+        return await check(args.prompt, system=system, json_mode=args.json_mode)
 
-    started = time.monotonic()
     try:
-        output = asyncio.run(run())
+        result = asyncio.run(run())
     except LLMUnavailable as exc:
         _eprint(f"LLM 사용 불가: {exc}")
         return EXIT_USAGE
-    except RuntimeError as exc:  # 분류된 실패(키 무효·할당량·무응답)는 본문 대신 분류만 (ADR 0055)
+    if result.warning:
+        _eprint(f"경고: {_safe(result.warning, 500)}")
+    if result.unresponsive:
+        _eprint(
+            "로컬 모델 응답 없음 — 상태 unavailable 로 기록했습니다. "
+            "서버 확인: launchctl print gui/$(id -u)/com.rra.mlx"
+        )
+        return EXIT_ERROR
+    if result.failure is not None:
+        # 분류된 실패(키 무효·할당량·무응답)는 본문 대신 분류만 (ADR 0055)
         from rra.domain.rules import llm_status
 
+        exc = result.failure
         label = llm_status.failure_label(getattr(exc, "code", None))
         if label is None:
-            raise
+            raise exc
         http = getattr(exc, "http_status", None)
         parts = [f"HTTP {http}"] if http is not None else []
         parts += [
@@ -1011,8 +1015,8 @@ def cmd_llm_check(args: argparse.Namespace) -> int:
         detail = " · ".join(parts)
         _eprint(f"LLM 호출 실패: {label}" + (f" ({detail})" if detail else ""))
         return EXIT_ERROR
-    print(f"model={cfg['model']} {time.monotonic() - started:.1f}s")
-    print(_safe(output, limit=2000))
+    print(f"model={cfg['model']} {result.seconds:.1f}s")
+    print(_safe(result.output, limit=2000))
     return EXIT_OK
 
 
@@ -2571,6 +2575,10 @@ def cmd_ui(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("rra", description="연구과제 제안서 작성 보조")
     sub = parser.add_subparsers(dest="cmd")
+    from rra.entrypoints.cli_eval import register as register_eval
+    from rra.entrypoints.cli_ops import register as register_ops
+
+    register_ops(sub)  # rra ops check — 터널·로컬 모델 상태 점검 (레인 C, ADR 0062)
 
     pre = sub.add_parser("precheck", help="제안 5슬롯으로 기수행 과제 중복 사전 점검")
     for slot in SLOTS:
@@ -2707,6 +2715,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ev.add_argument("--department", help="--finalize 의 제안부서 (기본 철도연구원, 저장 안 함)")
     ev.set_defaults(handler=cmd_eval)
+    register_eval(sub, ev)  # rra eval run|compare|usage|seal — 평가 체계 (레인 D, ADR 0058)
     ri = sub.add_parser("reindex", help="모든 청크를 설정 임베딩 모델로 재색인")
     ri.set_defaults(handler=cmd_reindex)
     auth = sub.add_parser(
@@ -2782,6 +2791,12 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--prompt", default=DEFAULT_LLM_CHECK_PROMPT)
     check.add_argument("--system", action="store_true", help="실제 시스템 프롬프트를 함께 보냄")
     check.add_argument("--json-mode", action="store_true", dest="json_mode")
+    check.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="응답 읽기 제한(초). 없으면 로컬 120, Argon 은 llm.yaml timeout.read. 재시도 없음",
+    )
     check.set_defaults(handler=cmd_llm_check)
 
     mcp = sub.add_parser("mcp", help="MCP 서버 실행 (stdio)")

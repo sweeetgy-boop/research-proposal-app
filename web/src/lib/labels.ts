@@ -26,6 +26,7 @@ export const PROBLEM_LABELS: Record<string, string> = {
   generation_failed: "작성하지 못한 섹션",
   schedule_exceeds_period: "일정이 연구 기간을 넘음",
   figure_schedule_exceeds_period: "그림 일정이 연구 기간을 넘음",
+  mode_changed: "선택이 바뀌어 과제안을 다시 받습니다",
 };
 export const UNKNOWN_PROBLEM = "확인이 필요한 알림";
 
@@ -131,6 +132,17 @@ export const ARGON_REASON_LABELS: Record<string, string> = {
 /** 띠를 낼 상태면 사유 문구, 아니면 null */
 export function argonDownReason(state: string | null | undefined): string | null {
   return (state && ARGON_REASON_LABELS[state]) || null;
+}
+
+/** 운영 상태 띠 (계약 docs/contracts/healthz-status.md, 레인 C) — /healthz `tunnel`·`llm.local` 열거값 → 관리자에게만 보이는
+ *  한 줄. ok·unknown(기록 없음)·모르는 값이면 줄을 내지 않는다. 내부 코드(down·unavailable)는 화면에 내지 않는다. */
+export const OPS_TUNNEL_DOWN = "외부 접속 경로(Funnel) 내려감";
+export const OPS_LOCAL_LLM_DOWN = "로컬 모델 응답 없음";
+export function opsAlertLines(ops: { tunnel?: string | null; local?: string | null } | null | undefined): string[] {
+  const lines: string[] = [];
+  if (ops?.tunnel === "down") lines.push(OPS_TUNNEL_DOWN);
+  if (ops?.local === "unavailable") lines.push(OPS_LOCAL_LLM_DOWN);
+  return lines;
 }
 
 /** provider 이름 → 화면 이름 */
