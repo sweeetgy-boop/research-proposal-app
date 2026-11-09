@@ -211,9 +211,9 @@ def _run_l2(args: argparse.Namespace, settings: Any, cfg: Any, results: Any) -> 
     """l2 = 기존 `rra eval --label …`(cli.cmd_eval, 골든셋 + 초안)을 그대로 돌린 뒤 EvalResult 로
     담고
     사람 확인 표본(run id)을 뽑는다."""
-    from rra.adapters.deploy.version import _git_head
     from rra.application.usecases.eval_problems import today_seed
     from rra.application.usecases.evaluate_suite import l2_from_quality
+    from rra.composition import build_version_info
     from rra.config_loader import eval_config_flags
     from rra.entrypoints import cli
     from rra.entrypoints.views_eval import summary_line
@@ -253,7 +253,7 @@ def _run_l2(args: argparse.Namespace, settings: Any, cfg: Any, results: Any) -> 
         seed=seed,
         sample_ratio=cfg.l2.sample_ratio,
         label=args.label,
-        commit=_git_head(Path.cwd())[:7],
+        commit=(build_version_info(settings).get("commit") or "")[:7],
         config_flags=eval_config_flags(settings),
     )
     out = results.write(result, path=Path(args.out) if args.out else None)
@@ -268,13 +268,13 @@ def _run_l2(args: argparse.Namespace, settings: Any, cfg: Any, results: Any) -> 
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
-    from rra.adapters.eval import JsonResultStore
+    from rra.composition import build_eval_stores
     from rra.entrypoints.views_eval import compare_markdown
 
     if len(args.results) < 2:
         _eprint("비교할 결과 JSON 이 2개 이상 필요합니다.")
         return EXIT_USAGE
-    store = JsonResultStore(Path("eval/results"))
+    store, _ = build_eval_stores()  # 어댑터는 조립 지점을 거친다(계층 계약)
     results = [store.read(Path(p)) for p in args.results]
     text = compare_markdown(results, date=time.strftime("%Y-%m-%d"))
     if args.out:
