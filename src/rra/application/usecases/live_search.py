@@ -386,7 +386,7 @@ class LiveSearch:
             return result("ip_blocked", notice=notice), []
         except SourceRateLimited as exc:  # 429 — 기다리지 않고 이 자료원만 건너뛴다 (짧은 안내)
             logger.warning("live.rate_limited source=%s", name)
-            return result("error", notice=str(exc)[:200] or None), []
+            return result("rate_limited", notice=str(exc)[:200] or None), []
         except Exception as exc:  # 자료원 격리 — 클래스명만 (D: 메시지에 URL 이 섞일 수 있다)
             logger.warning("live.source_failed source=%s err=%s", name, type(exc).__name__)
             return result("error", notice=None), []

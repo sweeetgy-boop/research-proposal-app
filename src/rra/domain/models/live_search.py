@@ -17,7 +17,8 @@ LIVE_SOURCES: tuple[str, ...] = ("scienceon", "ntis", "openalex", "kipris_kr")
 LiveSourceName = Literal["scienceon", "ntis", "openalex", "kipris_kr"]
 # ok=검색 완료(0건 포함), timeout=제한 시간 초과로 건너뜀, ip_blocked=호출 IP 거부(NTIS),
 # error=그 밖의 실패(예외 클래스명만 로그), off=설정에서 끔
-LiveSourceState = Literal["ok", "timeout", "ip_blocked", "error", "off"]
+# rate_limited: 자료원 호출 한도(일일 상한 근접·429)로 이번 세션은 건너뜀 (2026-11-09)
+LiveSourceState = Literal["ok", "timeout", "ip_blocked", "error", "off", "rate_limited"]
 # done=모든 자료원 ok(또는 off), partial=끝났지만 일부 자료원 실패, pending=아직 도는 중, off=기능
 # 꺼짐
 LiveStatus = Literal["done", "partial", "pending", "off"]
@@ -32,6 +33,9 @@ class LiveSourceConfig(BaseModel):
     enabled: bool = True
     top_n: int = Field(default=30, ge=1, le=100)
     max_requests: int = Field(default=8, ge=1, le=40)  # 세션 하나의 요청 상한 (토큰 요청 포함)
+    # 하루 호출 상한(요청 수). 넘기 직전이면 그 자료원만 rate_limited 로 건너뛴다. None 이면 없음
+    # (KIPRIS, 2026-11-09)
+    daily_cap: int | None = Field(default=None, ge=1)
 
 
 class LiveKeywordConfig(BaseModel):

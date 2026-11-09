@@ -35,7 +35,7 @@ novel 이면: coverage = 저장 자료만, analogies = [] 로 계속한다. 조�
 | `searched` | `str[]` | **실제로 확인한** 자료원 코드만(저장 자료 검색에 쓴 자료원 + 실시간 응답이 온 자료원). 확인 안 한 자료원 금지 |
 | `searched_labels` | `str[]` | 같은 순서의 화면 이름 (`SOURCE_LABELS`) |
 | `live` | `bool` | 실시간 검색이 한 자료원이라도 응답했으면 true |
-| `unavailable` | `{source, status}[]` | 확인 못 한 자료원과 열거값 `ip_blocked`·`timeout`·`error`·`off`·`no_key` |
+| `unavailable` | `{source, status}[]` | 확인 못 한 자료원과 열거값 `ip_blocked`·`timeout`·`error`·`off`·`no_key`·`rate_limited`(일일 호출 한도, 2026-11-09) |
 | `note` | `str` | 기본 "저장 자료와 실시간 검색 범위 안에서 기존 과제 없음". live=false 면 "저장 자료 범위 안에서 기존 과제 없음" |
 
 ### 3.2 `Analogy` (최대 5)

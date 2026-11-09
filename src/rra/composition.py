@@ -3207,6 +3207,21 @@ def build_assistant(settings: Settings | None = None, *, repo=None, llm=None):
 
 
 # ── [4] 실시간 자료 검색 (ADR 0031) ───────────────────────────
+def build_kipris_daily_counter(settings: Settings | None = None):
+    """KIPRIS 일일 호출 카운터 — live_search.yaml kipris_kr.daily_cap(요청 수). 없으면 None.
+    파일 data/cache/kipris_calls.json {"date","count"} — 넓힌 검색(novelty)과 ② 실시간 검색이
+    같은 파일을 센다. 한도 근접이면 그 세션은 KIPRIS 만 rate_limited 로 건너뛰고 다른 자료원은
+    계속한다."""
+    from rra.adapters.llm.daily_budget import FileDailyBudget
+    from rra.config_loader import live_search_config
+
+    settings = settings or load_settings()
+    cap = live_search_config(settings).source("kipris_kr").daily_cap
+    if not cap:
+        return None
+    return FileDailyBudget(data_location(settings, "kipris_calls"), int(cap))
+
+
 def build_live_sources(
     settings: Settings | None = None, *, transport=None, resolver=None, config=None
 ):
@@ -3248,6 +3263,7 @@ def build_live_sources(
             out["kipris_kr"] = LiveKipris(
                 build_kipris_source(settings, **kw),
                 max_requests=cfg.source("kipris_kr").max_requests,
+                counter=build_kipris_daily_counter(settings),
             )
         except MissingCredential:
             logger.info("live.source_missing_key source=kipris_kr")

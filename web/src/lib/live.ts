@@ -5,6 +5,7 @@ export const LIVE_SOURCE_LABELS: Record<string, string> = {
   scienceon: "ScienceON",
   ntis: "NTIS",
   openalex: "OpenAlex",
+  kipris_kr: "KIPRIS 국내 특허",
 };
 
 export const LIVE_SOURCE_STATUS_LABELS: Record<string, string> = {
@@ -13,6 +14,7 @@ export const LIVE_SOURCE_STATUS_LABELS: Record<string, string> = {
   ip_blocked: "IP 차단",
   error: "오류",
   off: "꺼짐",
+  rate_limited: "한도 초과",
 };
 
 export const LIVE_SEARCH_STATUS_LABELS: Record<string, string> = {
@@ -30,6 +32,7 @@ export const LIVE_SOURCE_STATUS_VARIANT: Record<string, Variant> = {
   ip_blocked: "destructive",
   error: "destructive",
   off: "outline",
+  rate_limited: "warning",
 };
 
 export const LIVE_SEARCH_STATUS_VARIANT: Record<string, Variant> = {
