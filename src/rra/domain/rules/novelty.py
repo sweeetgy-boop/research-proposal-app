@@ -240,6 +240,8 @@ class AnalogySettings(BaseModel):
     enabled: bool = True
     max_results: int = Field(default=5, ge=0, le=5)
     search_k: int = Field(default=60, ge=1, le=500)  # 저장 자료에서 받을 후보 수
+    # 자료원별 최소 보장 — 자료원마다 상위 per_source 건을 먼저(0 이면 끔 = 종전). 2026-11-09
+    per_source: int = Field(default=12, ge=0, le=100)
     # 저장 자료 검색 자료원 (철도 전용 자료원은 어차피 빠지므로 처음부터 뺀다). 비면 전부
     search_sources: tuple[str, ...] = ("scienceon", "openalex", "ntis", "kipris_kr", "kipris_intl")
     # 한글 자료는 문제어가 이만큼 겹쳐야 남긴다 (relevance.min_keyword_hits 와 같은 뜻)

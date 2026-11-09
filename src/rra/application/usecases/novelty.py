@@ -397,12 +397,30 @@ class ProblemAnalogySearch:
         if not query:
             return []
         sources = list(self.settings.search_sources) or None
+        found: dict[str, _Candidate] = {}
+        # 자료원별 최소 보장(2026-11-09): 자료원마다 상위 per_source 건을 먼저 — NTIS·ScienceON 국문
+        # 요약이 e5 상위를 메워 KIPRIS 특허가 60 중 1건만 들던 것(ADR 0028 과 같은 현상). 그 뒤 전체
+        # 순위로 search_k 까지. 같은 문서는 한 번. 순위 매김은 _pick 이 유사도로 다시 한다.
+        per = self.settings.per_source
+        if per > 0 and sources:
+            for src in sources:
+                try:
+                    hits = await self.repo.find_similar(query, k=per, sources=[src])
+                except Exception as exc:  # 한 자료원 실패는 건너뛴다
+                    logger.warning(
+                        "analogy.source_search_failed src=%s err=%s", src, type(exc).__name__
+                    )
+                    continue
+                for d, s in hits:
+                    found.setdefault(d.doc_id, _Candidate(d, float(s)))
         try:
             hits = await self.repo.find_similar(query, k=self.settings.search_k, sources=sources)
-        except Exception as exc:  # 저장 자료 검색 실패 — 사례 없이 계속
+        except Exception as exc:  # 저장 자료 검색 실패 — 자료원별로 모은 것으로 계속
             logger.warning("analogy.search_failed err=%s", type(exc).__name__)
-            return []
-        return [_Candidate(d, float(s)) for d, s in hits]
+            return list(found.values())
+        for d, s in hits:
+            found.setdefault(d.doc_id, _Candidate(d, float(s)))
+        return list(found.values())
 
     def _pick(
         self,

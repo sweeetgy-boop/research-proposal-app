@@ -2552,12 +2552,24 @@ def _api_logging() -> None:
     logger = logging.getLogger("rra.api")
     if any(getattr(h, "_rra_api", False) for h in logger.handlers):
         return
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
     handler = logging.StreamHandler()
     handler._rra_api = True  # type: ignore[attr-defined]
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    handler.setFormatter(fmt)
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     logger.propagate = False
+    # 다른 rra.* 로거(자료원·실시간 검색 …)의 WARNING 이상도 시각을 붙여 같은 stderr 로 — 2026-11-09
+    # 까지는 파이썬 lastResort 핸들러가 시각 없이 메시지만 적어 오류 시점을 가릴 수 없었다
+    root = logging.getLogger("rra")
+    if not any(getattr(h, "_rra_warn", False) for h in root.handlers):
+        warn = logging.StreamHandler()
+        warn._rra_warn = True  # type: ignore[attr-defined]
+        warn.setFormatter(fmt)
+        warn.setLevel(logging.WARNING)
+        root.addHandler(warn)
+        if root.level == logging.NOTSET or root.level > logging.WARNING:
+            root.setLevel(logging.WARNING)
 
 
 def cmd_api(args: argparse.Namespace) -> int:

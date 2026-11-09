@@ -26,6 +26,9 @@ analogy:
   enabled: true
   max_results: 5
   search_k: 60                        # 저장 자료 후보 수 (철도 자료가 대부분이라 넉넉히)
+  # 자료원별 최소 보장(2026-11-09): 자료원마다 상위 per_source 건을 먼저 넣고 나머지는 전체 순위로 search_k 까지 —
+  # NTIS·ScienceON 국문 요약이 e5 상위를 메워 KIPRIS 특허가 60 중 1건만 들던 것(ADR 0028 과 같은 현상). 0 이면 종전
+  per_source: 12
   search_sources: [scienceon, openalex, ntis, kipris_kr, kipris_intl]   # 철도 전용 자료원은 처음부터 뺀다
   min_shared_terms: 1                 # 한글 자료는 문제어가 1개 이상 겹쳐야 (영문 자료는 유사도만)
   axis:
@@ -45,7 +48,7 @@ analogy:
     overall_timeout_seconds: 22
     wait_seconds: 25
     sources:
-      scienceon: {enabled: true, top_n: 30, max_requests: 8}
+      scienceon: {enabled: true, top_n: 30, max_requests: 10}   # 대상 3 × 질의 3 + 토큰 1 (8 이면 budget_exhausted, 2026-11-09)
       ntis:      {enabled: true, top_n: 20, max_requests: 6}
       openalex:  {enabled: true, top_n: 30, max_requests: 3}
       kipris_kr: {enabled: true, top_n: 30, max_requests: 3}   # 2026-11-09 KIPRIS 키 투입 뒤 — 새로움 확인에 국내 특허 포함
