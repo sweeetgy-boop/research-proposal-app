@@ -493,7 +493,9 @@ async def test_analogy_reuses_same_input():
     first = await search(_req())
     second = await search(_req())
     assert [a.doc_id for a in first] == [a.doc_id for a in second]
-    assert sum(1 for name, _ in repo.calls if name == "find_similar") == 1
+    # 자료원별 최소 보장(5 자료원) + 전체 1 = 6회, 두 번째는 메모 재사용이라 새 호출 없음
+    calls = sum(1 for name, _ in repo.calls if name == "find_similar")
+    assert calls == 1 + len(AnalogySettings().search_sources)
 
 
 async def test_analogy_without_problem_terms_returns_empty():
@@ -549,3 +551,35 @@ async def test_keywords_for_uses_cache_and_keyword_cache_flag():
     )
     own = await other.keywords_for(_req())
     assert own.origin == "rule" and "철도역사" not in " ".join(own.ko)
+
+
+async def test_analogy_per_source_floor_brings_in_a_source_crowded_out_of_the_global_top():
+    """자료원별 최소 보장(2026-11-09): 전체 순위 60 안에 없던 KIPRIS 특허도 자료원별 상위로 후보에
+    든다. per_source=0 이면 종전(전체 순위만)."""
+
+    class RoutedRepo(Repo):
+        async def find_similar(self, text, *, k=10, sources=None):
+            self.calls.append(("find_similar", {"text": text, "k": k, "sources": sources}))
+            if sources == ["kipris_kr"]:
+                return [
+                    (
+                        _doc(
+                            "kipris_kr:1020230000001",
+                            "건물 외벽 조류 착좌 방지 와이어 장치",
+                            source="kipris_kr",
+                            doc_type="patent",
+                        ),
+                        0.85,
+                    )
+                ]
+            if sources and len(sources) == 1:
+                return []
+            return _analogy_docs()[:k]
+
+    repo = RoutedRepo()
+    out = await ProblemAnalogySearch(repo)(_req())
+    assert any(a.source == "kipris_kr" for a in out)
+    repo2 = RoutedRepo()
+    old = await ProblemAnalogySearch(repo2, settings=AnalogySettings(per_source=0))(_req())
+    assert not any(a.source == "kipris_kr" for a in old)
+    assert sum(1 for n, _ in repo2.calls if n == "find_similar") == 1

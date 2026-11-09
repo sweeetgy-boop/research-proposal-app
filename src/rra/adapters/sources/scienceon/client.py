@@ -38,7 +38,11 @@ MAX_QUERY_CHARS = 200
 
 
 class ScienceOnError(RuntimeError):
-    """API 가 오류 코드를 돌려줬다. 메시지에는 코드만."""
+    """API 가 오류 코드를 돌려줬다. 메시지에는 코드만. `code` 는 로그용(키·본문 없음)."""
+
+    def __init__(self, message: str, *, code: str = ""):
+        super().__init__(message)
+        self.code = code[:20]
 
 
 class ScienceOnSource:
@@ -109,7 +113,10 @@ class ScienceOnSource:
                         # 버리지 않는다 — 그 조합만 건너뛰고 모은 것은 적재한다
                         failed.append((target, q, exc))
                         logger.warning(
-                            "scienceon.target_failed target=%s error=%s", target, type(exc).__name__
+                            "scienceon.target_failed target=%s error=%s code=%s",
+                            target,
+                            type(exc).__name__,
+                            getattr(exc, "code", "") or "-",
                         )
                         break
                     strikes = 0
@@ -165,14 +172,14 @@ class ScienceOnSource:
                     continue
                 if code in RATE_LIMIT_CODES:
                     raise RateLimited(f"ScienceON 한도 초과 (code={code[:20]})")
-                raise ScienceOnError(f"ScienceON 오류 (code={code[:20]})")
+                raise ScienceOnError(f"ScienceON 오류 (code={code[:20]})", code=code)
             total_text = _xml.first_text(root, "TotalCount")
             total = int(total_text) if total_text.isdigit() else 0
             records = [
                 {"target": target, **_xml.flatten(r)} for r in _xml.find_records(root, "record")
             ]
             return records, total
-        raise ScienceOnError("ScienceON 토큰 갱신 후에도 만료 응답")
+        raise ScienceOnError("ScienceON 토큰 갱신 후에도 만료 응답", code="token_expired")
 
     def normalize(self, raw: dict[str, Any]) -> Document:
         return normalize_record(raw, self.institutions)
