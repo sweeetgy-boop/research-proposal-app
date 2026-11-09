@@ -841,10 +841,21 @@ def alerts_payload(
                 "source_label": source_label_of(a.doc_id),
                 # 같은 연작 묶음 (ADR 0043) — "광역철도 수송수요 예측(연작 7건)" + 연도별 목록
                 "series": series_payload(getattr(a, "series", None), clean=clean),
+                # 축별 겹침 (ADR 0059, 스위치 facets.enabled) — 값이 있을 때만 칸을 낸다 (없으면
+                # 종전 응답과 같다). 프론트엔드 영향: ② 행 facet_overlap
+                # {target,problem,method,place: 0|1|2}
+                **facet_overlap_view(getattr(a, "facet_overlap", None)),
             }
             for a in alerts
         ],
     }
+
+
+def facet_overlap_view(fo: Any) -> dict[str, Any]:
+    """OverlapAlert.facet_overlap → {"facet_overlap": {축: 0|1|2}} 또는 빈 dict(None)."""
+    if fo is None:
+        return {}
+    return {"facet_overlap": fo.as_dict()}
 
 
 def source_label_of(doc_id: str) -> str:

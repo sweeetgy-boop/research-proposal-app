@@ -14,7 +14,15 @@ from pydantic import BaseModel, ConfigDict
 
 from rra.domain.models import Document, OverlapAlert, SourceType, Tier
 from rra.domain.models.gap import OwnDetail
-from rra.domain.rules.keywords import KeywordRule, core_keyword_overlap, enough, keyword_overlap
+from rra.domain.rules.idf import IdfWeightingRule, IdfWeights, enough_weighted, weighted_overlap
+from rra.domain.rules.keywords import (
+    KeywordRule,
+    core_keyword_overlap,
+    core_terms,
+    enough,
+    keyword_overlap,
+    tokens,
+)
 
 # national_rnd(NTIS 과제검색)·procurement(발주 용역 공고, P2-6)는 own 과 같은 0.80 으로 시작 —
 # 표본이 쌓이면 config/overlap.yaml 설명대로 조정 (2026-10-27, ADR 0020·0021)
@@ -140,6 +148,8 @@ def judge(
     scores: Mapping[str, float] | None = None,
     rerank: RerankRule | None = None,
     core_keywords: Sequence[str] | None = None,
+    idf: IdfWeights | None = None,
+    idf_rule: IdfWeightingRule | None = None,
 ) -> list[OverlapAlert]:
     """임계치 초과 문서를 경보로. `keywords` 가 있으면 차단에는 질의 키워드가 문서에도
     `min_hits` 개 이상 등장해야 한다 (e5 유사도만으로는 무관한 한국어 문서도 임계치를 넘는다).
@@ -147,7 +157,10 @@ def judge(
 
     `scores`(doc_id → reranker 점수)와 `rerank` 가 있으면 점수가 있는 문서는 reranker 점수 ≥
     rerank.threshold 로 본다(e5 티어 임계치 대신). `core_keywords`(아이디어 핵심어)가 있으면 공유
-    키워드는 핵심어 중 문서에 있는 것만 센다."""
+    키워드는 핵심어 중 문서에 있는 것만 센다.
+
+    `idf`(말뭉치 IDF 표, ADR 0059 — 스위치 idf_weighting 일 때만 넘어온다)가 있고 핵심어로 셀 때는
+    핵심어 조건을 가중 합(`idf.enough_weighted`)으로 본다. 겹친 키워드 목록 자체는 같다."""
     th = thresholds or DEFAULT_THRESHOLDS
     alerts = []
     for doc, sim in hits:
@@ -164,7 +177,20 @@ def judge(
             over = score >= rerank.threshold
         else:
             over = sim >= th[t]
-        blocking = over and (keywords is None or enough(shared, keywords, core=bool(core_keywords)))
+        if keywords is None:
+            has_terms = True
+        elif idf is not None and core_keywords and core_terms(list(core_keywords), keywords):
+            terms = core_terms(list(core_keywords), keywords)
+            has_terms = enough_weighted(
+                weighted_overlap(terms, tokens(text), idf),
+                terms,
+                idf,
+                min_hits=keywords.core_min_hits,
+                ratio=(idf_rule or IdfWeightingRule()).min_weight_ratio,
+            )
+        else:
+            has_terms = enough(shared, keywords, core=bool(core_keywords))
+        blocking = over and has_terms
         status = doc.raw.get("status")
         alerts.append(
             OverlapAlert(

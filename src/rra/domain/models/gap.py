@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .document import TextBasis
+from .facets import FacetOverlap, Facets
 
 Tier = Literal["own", "national_rnd", "domestic_rail", "external", "procurement"]
 # 사내(철도연구원·공사 과제 기록) / 국가R&D 과제(NTIS 과제검색, 수행기관 무관) / 공단 등 /
@@ -74,6 +75,10 @@ class OverlapAlert(BaseModel):
     choice: SimilarChoiceValue | None = None  # 제안자 선택 [유사함]=similar / [관련 없음]=unrelated
     # 같은 연작 묶음(ADR 0043) — 판이 둘 이상일 때만. 판의 doc_id 는 모두 merged_ids 에도 있다
     series: SeriesInfo | None = None
+    # 축별 겹침 {target·problem·method·place: 0|1|2} — AI 판정 출력(ADR 0059, 스위치 facets.enabled
+    # 일
+    # 때만). None 이면 REST 행에 내보내지 않는다(종전 응답과 같음). 차단에는 쓰지 않는다.
+    facet_overlap: FacetOverlap | None = None
 
 
 class RelatedResearch(BaseModel):
@@ -114,6 +119,8 @@ class PrecheckResult(BaseModel):
     judgment: JudgmentInfo = Field(default_factory=JudgmentInfo)
     core_keywords: list[str] = Field(default_factory=list)  # 공유 키워드 판정에 쓴 아이디어 핵심어
     keyword_origin: str = "rule"  # argon | local | rule
+    # 아이디어 4축 분해 (ADR 0059) — 스위치 facets.enabled 일 때만 값이 있다
+    facets: Facets | None = None
 
     @property
     def blocking(self) -> bool:

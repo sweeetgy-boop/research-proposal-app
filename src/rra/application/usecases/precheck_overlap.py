@@ -23,6 +23,17 @@ A — e5 유사도는 철도 문서끼리 0.85~0.86 에 몰려 가르지 못한�
   그 작업을 기다린다(과제안 요청과 판정 요청이 같은 작업을 공유). 기다리는 쪽이 모두 취소되면 작업도
   취소한다 — 화면 [취소] 는 그 작업만 멈춘다.
 - `current(req)` 는 지금 판정(진행 중이면 기다린 결과, 없으면 메모의 규칙 판정) — 과제안 근거용.
+
+2026-11-09 레인 E (ADR 0059) — 기능 스위치 `switches`(모두 false 가 기본, false 면 아래는 전혀 돌지
+않아
+결과가 종전과 바이트 단위로 같다 — tests/application/test_overlap_switch_off.py):
+- facets: 핵심어 뒤 `facet_split`(로컬 모델 → 규칙)로 4축을 나누고, 비어 있지 않은 축 2~4개를 각각
+  저장소 검색(`find_similar` — 풀이 문서 단위라 청크 검색 대신 같은 문서 검색을 축마다 부른다)해
+  RRF(k=60)로 합친 뒤 기존 풀 규칙(`candidates.pool`)로 이어 준다. 풀 크기·reranker 입력 수는 종전과
+  같다.
+  같음 판정에는 `facet_overlap` 을 요구한다(SameJudge.facets).
+- idf_weighting: `idf`(말뭉치 IDF 표)를 judge 에 넘겨 핵심어 조건을 가중 합으로 본다.
+- synonyms: 1단계에서는 검색 질의 확장만 가능(`expand_terms`) — 사람 검토 전에는 켜지 않는다.
 """
 
 from __future__ import annotations
@@ -38,10 +49,15 @@ from typing import Any
 
 from rra.application.ports import DocumentRepository
 from rra.domain.models import OverlapAlert, PrecheckResult, ProposalRequest
+from rra.domain.models.facets import Facets
 from rra.domain.models.gap import JudgmentInfo, RelatedResearch
+from rra.domain.rules.facets import facet_queries
+from rra.domain.rules.fusion import reciprocal_rank_fusion
+from rra.domain.rules.idf import IdfWeightingRule, IdfWeights
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.overlap import OwnUnit, RerankRule, judge
 from rra.domain.rules.overlap_candidates import OverlapCandidateRule
+from rra.domain.rules.overlap_switches import OFF, OverlapSwitches
 from rra.domain.rules.retrieval_scope import overlap_candidates
 from rra.domain.rules.series import (
     SeriesRule,
@@ -54,8 +70,12 @@ from rra.domain.rules.similar_choice import merge_same_titles
 
 logger = logging.getLogger("rra.precheck")
 KeywordSource = Callable[[ProposalRequest], Awaitable[Any]]  # → LiveKeywords (ko·origin)
+FacetSplit = Callable[
+    [ProposalRequest, list[str] | None], Awaitable[Facets]
+]  # usecases/facet_split
 MEMO_MAX = 200
 SERIES_FETCH_ROUNDS = 3
+RRF_K = 60
 
 
 @dataclass
@@ -93,8 +113,15 @@ class PrecheckOverlap:
         keyword_source: KeywordSource | None = None,
         memo_ttl: float = 1800.0,
         clock: Callable[[], float] = time.monotonic,
+        switches: OverlapSwitches | None = None,  # ADR 0059 — None·모두 false 면 종전과 같다
+        facet_split: FacetSplit | None = None,  # 4축 분해 (facets 스위치일 때만 호출)
+        idf: IdfWeights | None = None,  # 말뭉치 IDF 표 (idf_weighting 스위치일 때만 쓴다)
+        idf_rule: IdfWeightingRule | None = None,
     ):
         self.repo, self.k, self.own, self.keywords = repo, k, own, keywords
+        self.switches = switches or OFF
+        self.facet_split = facet_split
+        self.idf, self.idf_rule = idf, idf_rule
         self.reranker, self.rerank_multiplier, self.mix = reranker, rerank_multiplier, mix
         self.candidates = candidates
         self.rerank = rerank
@@ -158,13 +185,14 @@ class PrecheckOverlap:
             if found is not None:
                 core_keywords, keyword_origin = list(found.ko), str(found.origin)
         wide = self.k * self.rerank_multiplier if self.reranker is not None else self.k
+        facets = await self._facets(req, core_keywords)  # 스위치 off 면 None (호출 없음)
         if self.series is not None:
             alerts, related, pool = await self._series_alerts(
-                query, wide, core_keywords=core_keywords, research=research
+                query, wide, core_keywords=core_keywords, research=research, facets=facets
             )
             rows = merge_series(alerts, pool=pool)[: self.k]
         else:
-            hits = self._filter(await self._search(query, wide))
+            hits = self._filter(await self._search(query, wide, facets=facets))
             scores: dict[str, float] | None = None
             if self.reranker is not None:
                 # 관련 연구 검색은 reranker(스레드) 와 겹쳐 돌린다 — 지연 상한 2초
@@ -175,15 +203,7 @@ class PrecheckOverlap:
                 hits = sorted(hits, key=lambda ds: -ds[1])[: self.k]
                 related = await self._research(query) if research else []
             # judge 는 입력 순서(유사도 순 또는 reranker 순)를 차단 여부 안에서 유지한다
-            alerts = judge(
-                hits,
-                own=self.own,
-                query=query,
-                keywords=self.keywords,
-                scores=scores,
-                rerank=self.rerank if scores is not None else None,
-                core_keywords=core_keywords,
-            )
+            alerts = self._judge(hits, query, scores, core_keywords)
             rows = merge_same_titles(alerts)
         result = PrecheckResult(
             alerts=rows,
@@ -192,6 +212,8 @@ class PrecheckOverlap:
             core_keywords=list(core_keywords or []),
             keyword_origin=keyword_origin or "rule",
         )
+        if facets is not None:
+            result = result.model_copy(update={"facets": facets})
         if remember:
             memo = self._get(req)
             if memo is None or not memo.judged:  # 이미 AI 판정한 같은 입력은 덮어쓰지 않는다
@@ -306,8 +328,41 @@ class PrecheckOverlap:
         except Exception:  # 키워드 실패는 판정을 막지 않는다 — 질의 키워드로
             return None
 
+    def _judge(self, hits, query: str, scores, core_keywords) -> list[OverlapAlert]:
+        """규칙 판정 — idf 스위치가 켜졌을 때만 IDF 표를 넘긴다(아니면 종전 호출과 같다)."""
+        extra: dict[str, Any] = {}
+        if self.switches.idf_weighting and self.idf is not None:
+            extra = {"idf": self.idf, "idf_rule": self.idf_rule}
+        return judge(
+            hits,
+            own=self.own,
+            query=query,
+            keywords=self.keywords,
+            scores=scores,
+            rerank=self.rerank if scores is not None else None,
+            core_keywords=core_keywords,
+            **extra,
+        )
+
+    async def _facets(self, req: ProposalRequest, core_keywords: list[str] | None) -> Facets | None:
+        """4축 분해 (ADR 0059) — facets 스위치가 켜져 있고 분해기가 있을 때만. 실패는 None(한
+        질의)."""
+        if not self.switches.facets or self.facet_split is None:
+            return None
+        try:
+            return await self.facet_split(req, core_keywords)
+        except Exception as exc:  # 분해 실패는 ② 를 막지 않는다 — 종전 한 질의 검색
+            logger.warning("precheck.facet_split_failed err=%s", type(exc).__name__)
+            return None
+
     async def _series_alerts(
-        self, query: str, wide: int, *, core_keywords: list[str] | None, research: bool
+        self,
+        query: str,
+        wide: int,
+        *,
+        core_keywords: list[str] | None,
+        research: bool,
+        facets: Facets | None = None,
     ):
         """연작 묶기(ADR 0043) — 후보를 fetch_multiplier 배로 넓게 받아 서로 다른 묶음 wide 개까지
         풀을 만들고, 묶음마다 e5 상위 rerank_per_series 건만 reranker 에 보낸다(비용은 종전과 같은
@@ -317,7 +372,13 @@ class PrecheckOverlap:
         pool: list = []
         for _ in range(SERIES_FETCH_ROUNDS):  # 묶은 뒤 k 줄이 안 되면 더 넓게 (최대 2번)
             wider = self._filter(
-                await self._search(query, wide, fetch=fetch, group=lambda d: group_key(d.title))
+                await self._search(
+                    query,
+                    wide,
+                    fetch=fetch,
+                    group=lambda d: group_key(d.title),
+                    facets=facets,
+                )
             )
             grew = len(wider) > len(pool)
             pool = wider
@@ -341,15 +402,7 @@ class PrecheckOverlap:
             )
             scores = None
             related = await self._research(query) if research else []
-        alerts = judge(
-            hits,
-            own=self.own,
-            query=query,
-            keywords=self.keywords,
-            scores=scores,
-            rerank=self.rerank if scores is not None else None,
-            core_keywords=core_keywords,
-        )
+        alerts = self._judge(hits, query, scores, core_keywords)
         return alerts, related, pool
 
     async def _rerank(self, query: str, hits, *, keep: int | None = None):
@@ -365,30 +418,57 @@ class PrecheckOverlap:
         order = sorted(range(len(hits)), key=lambda i: -values[i])[:top]
         return [hits[i] for i in order], {hits[i][0].doc_id: float(values[i]) for i in order}
 
-    async def _search(self, query: str, k: int, *, fetch: int = 1, group=None):
+    async def _search(
+        self, query: str, k: int, *, fetch: int = 1, group=None, facets: Facets | None = None
+    ):
         """판정 후보 풀. fetch>1·group(연작 묶기, ADR 0043)이면 저장소에서 fetch 배로 받아 서로 다른
-        묶음 k 개(자료원별 per_source 묶음)까지 — 같은 묶음의 다른 판은 구성원으로 붙는다."""
+        묶음 k 개(자료원별 per_source 묶음)까지 — 같은 묶음의 다른 판은 구성원으로 붙는다.
+        facets(ADR 0059, 스위치 facets 일 때만 값이 온다)가 있으면 축별 질의로 같은 검색을 각각 하고
+        RRF 로 합친 목록을 종전 검색 자리에 쓴다 — 풀 크기는 같다."""
         rule = self.candidates
+        queries = facet_queries(facets)
+        find = self._fused_find if queries else self._plain_find
         if rule is None or not rule.restricts:
-            return await self.repo.find_similar(query, k=k * fetch)
+            return await find(queries or [query], k=k * fetch)
         sources = rule.project_sources()
         if rule.per_source <= 0:
-            return await self.repo.find_similar(query, k=k * fetch, sources=sources)
+            return await find(queries or [query], k=k * fetch, sources=sources)
         size = max(k, rule.pool_size)
         # 전체 검색을 먼저(질의 임베딩 한 번), 자료원별 검색은 그 뒤에 — 저장소가 같은 질의 임베딩을
         # 메모하므로 자료원 수만큼 임베딩하지 않는다.
-        overall = await self.repo.find_similar(query, k=size * fetch, sources=sources)
+        overall = await find(queries or [query], k=size * fetch, sources=sources)
         by_source = await asyncio.gather(
-            *(
-                self.repo.find_similar(query, k=rule.per_source * fetch, sources=[s])
-                for s in sources
-            )
+            *(find(queries or [query], k=rule.per_source * fetch, sources=[s]) for s in sources)
         )
         return rule.model_copy(update={"pool_size": size}).pool(
             dict(zip(sources, by_source, strict=True)),
             overall,
             group=group,
         )
+
+    async def _plain_find(self, queries: list[str], *, k: int, sources: list[str] | None = None):
+        """종전 한 질의 검색 — 호출 모양(find_similar 인자)을 그대로 둔다."""
+        if sources is None:
+            return await self.repo.find_similar(queries[0], k=k)
+        return await self.repo.find_similar(queries[0], k=k, sources=sources)
+
+    async def _fused_find(self, queries: list[str], *, k: int, sources: list[str] | None = None):
+        """축별 질의 검색 → RRF(k=60) 합침 (ADR 0059). 결과 수는 k 로 같고, 유사도는 그 문서가 어느
+        축에서든 받은 최고 e5 값(표시용 — 차단은 reranker·핵심어가 정한다)."""
+        kw: dict[str, Any] = {"k": k}
+        if sources is not None:
+            kw["sources"] = sources
+        results = await asyncio.gather(*(self.repo.find_similar(q, **kw) for q in queries))
+        docs: dict[str, Any] = {}
+        best: dict[str, float] = {}
+        for hits in results:
+            for doc, sim in hits:
+                docs.setdefault(doc.doc_id, doc)
+                best[doc.doc_id] = max(best.get(doc.doc_id, 0.0), float(sim))
+        fused = reciprocal_rank_fusion(
+            [[doc.doc_id for doc, _ in hits] for hits in results], k=RRF_K
+        )
+        return [(docs[i], best[i]) for i, _ in fused[:k]]
 
     def _filter(self, hits):
         hits = overlap_candidates(hits)
