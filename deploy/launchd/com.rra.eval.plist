@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  rra 야간 평가 L1 (ADR 0058) — launchd 사용자 에이전트 (매일 04:30, 백업 03:30 뒤).
+  자동 생성 문제(연습용 묶음, 그날 seed) 100건 이상 × 3회 → eval/results/<날짜>-l1.json (수치만).
+  무거운 작업 잠금(tools/with_heavy_lock.py) 안에서 돈다 — 적재·재색인과 겹치지 않는다.
+  Gemini 는 config/eval.yaml daily_llm_calls(150) 안에서만, 카운터는 운영 예산과 별도 파일.
+  설치: cp deploy/launchd/com.rra.eval.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.eval.plist
+  해제: launchctl unload -w ~/Library/LaunchAgents/com.rra.eval.plist
+  비밀은 적지 않는다 (.env 는 settings 가 읽는다). 통합 뒤에는 `rra eval run` (suite l1) 과 같다.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rra.eval</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin/python</string>
+    <string>/Users/chan/projects/research-proposal-app/tools/with_heavy_lock.py</string>
+    <string>--</string>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin/python</string>
+    <string>-m</string>
+    <string>rra.entrypoints.cli_eval</string>
+    <string>run</string>
+    <string>--suite</string>
+    <string>l1</string>
+    <string>--label</string>
+    <string>nightly</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chan/projects/research-proposal-app</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin:/usr/bin:/bin</string>
+    <key>RRA_CONFIG_DIR</key>
+    <string>/Users/chan/projects/research-proposal-app/config</string>
+    <key>RRA_DATA_DIR</key>
+    <string>/Users/chan/projects/research-proposal-app/data</string>
+    <key>RRA_HEAVY_LOCK</key>
+    <string>/Users/chan/projects/research-proposal-app/runs/.heavy.lock</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>4</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/chan/Library/Logs/rra-eval.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chan/Library/Logs/rra-eval.err.log</string>
+</dict>
+</plist>

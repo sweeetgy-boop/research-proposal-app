@@ -96,6 +96,7 @@ class OpenAICompatLLM:
         limiter: RateLimiter | None = None,
         stage: str = "",
         status: LLMStatusPort | None = None,
+        first_request_timeout: float | None = None,
     ):
         if json_mode not in ("auto", "native", "prompt"):
             raise ValueError(f"json_mode 는 auto|native|prompt 중 하나입니다: {json_mode}")
@@ -134,6 +135,14 @@ class OpenAICompatLLM:
         self._sleep = sleep
         self._native_json_supported: bool | None = None
         self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
+        # 로컬 서버의 첫 요청(모델 적재)은 읽기 제한을 이 값 이상으로 — llm.yaml
+        # timeout.first_request (healthz-status.md §3). 원격 provider 는 쓰지 않는다. 첫 전송에만
+        self._first_request_timeout = (
+            float(first_request_timeout)
+            if first_request_timeout and provider.lower() in _endpoint.LOCAL_PROVIDERS
+            else None
+        )
+        self._sent = 0
 
     def __repr__(self) -> str:  # D: 키가 repr 로 새지 않게 명시적으로 정의
         return (
@@ -272,11 +281,23 @@ class OpenAICompatLLM:
     def _redact(self, text: str) -> str:
         return _payload.redact(text, [self._api_key])
 
+    def _request_timeout(self) -> httpx.Timeout | None:
+        """첫 전송이고 로컬이면 읽기 제한을 first_request 이상으로 늘린 Timeout, 아니면 None."""
+        if self._sent or self._first_request_timeout is None:
+            return None
+        base = self._client.timeout
+        read = max(float(base.read or 0.0), self._first_request_timeout)
+        return httpx.Timeout(connect=base.connect, read=read, write=base.write, pool=base.pool)
+
     async def _post(self, payload: dict[str, Any]) -> httpx.Response:
+        extra: dict[str, Any] = {}
+        if (timeout := self._request_timeout()) is not None:
+            extra["timeout"] = timeout
+        self._sent += 1
         if self.limiter is None:
-            return await self._client.post(self._url, json=payload, headers=self._headers)
+            return await self._client.post(self._url, json=payload, headers=self._headers, **extra)
         async with self.limiter:  # 동시성·분당 상한·429 대기 (provider 공유)
-            return await self._client.post(self._url, json=payload, headers=self._headers)
+            return await self._client.post(self._url, json=payload, headers=self._headers, **extra)
 
     async def _request(self, payload: dict[str, Any]) -> Any:
         """요청 1건(재시도 포함). 끝나면 연결 상태를 기록하고, 실패면 경고 한 줄을 남긴다

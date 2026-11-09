@@ -19,6 +19,11 @@ from rra.domain.rules.feedback_stats import (
 
 CHOICE_LABEL = "선택 기록 (feedback/similar_choices.jsonl)"
 METRICS_LABEL = "과제안 측정 (cache/recommend_metrics.jsonl)"
+STAGE_LABELS = {
+    "seconds_search": "검색",
+    "seconds_analogy": "유추",
+    "seconds_generate": "생성",
+}
 
 
 def _counts(values: dict[str, int]) -> str:
@@ -57,6 +62,14 @@ class FeedbackReport:
             lines.append(f"  로컬 대체(fallback_local): {m.fallback_local}건")
             median = "없음" if m.median_seconds is None else f"{m.median_seconds:g}초"
             lines.append(f"  seconds 중앙값: {median}")
+            if m.by_branch:
+                lines.append(f"  갈래(branch): {_counts(m.by_branch)}")
+            stages = {k: v for k, v in m.median_stage_seconds.items() if v is not None}
+            if stages:  # 2026-11-09 단계별 초 칸이 있는 줄만 (옛 줄은 빠진다)
+                lines.append(
+                    "  단계 중앙값: "
+                    + " · ".join(f"{STAGE_LABELS.get(k, k)} {v:g}초" for k, v in stages.items())
+                )
         if not (c.include_test and m.include_test) and (c.test_lines or m.test_lines):
             lines.append("(시험 계정 줄까지 세려면 --include-test)")
         return lines

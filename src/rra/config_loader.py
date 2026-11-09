@@ -97,14 +97,23 @@ def llm_budget(settings: Settings) -> dict[str, Any]:
 
 
 API_CONFIG_FILE = "api.yaml"
-API_CONFIG_KEYS = ("public_origin", "trust_cf_connecting_ip", "trust_forwarded_from_loopback")
+API_CONFIG_KEYS = (
+    "public_origin",
+    "trust_cf_connecting_ip",
+    "trust_forwarded_from_loopback",
+    "ops",
+)
+# 운영 점검(`rra ops check`, 계약 healthz-status.md) — tailscale 명령 경로. 없으면 tunnel unknown
+OPS_TAILSCALE_BIN_DEFAULT = "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+OPS_CONFIG_KEYS = ("tailscale_bin",)
 
 
 def api_config(settings: Settings) -> dict[str, Any]:
     """config/api.yaml → {"public_origin": str, "trust_cf_connecting_ip": bool,
-    "trust_forwarded_from_loopback": bool} (보안 G).
+    "trust_forwarded_from_loopback": bool, "ops": {"tailscale_bin": str}} (보안 G).
 
-    파일이 없으면 public_origin "" · 나머지 False. 모르는 키는 오류.
+    파일이 없으면 public_origin "" · 나머지 False · ops.tailscale_bin 은 기본 경로. 모르는 키는
+    오류.
     public_origin 은 `https://host[:port]` 만(경로·쿼리 없음, 끝 슬래시 제거) — 공개 주소는
     항상 TLS 종단(역프록시) 뒤에 있어야 한다.
     """
@@ -130,7 +139,14 @@ def api_config(settings: Settings) -> dict[str, Any]:
         if not isinstance(value, bool):
             raise ValueError(f"config/{API_CONFIG_FILE} {key} 는 true/false 여야 합니다.")
         flags[key] = value
-    return {"public_origin": origin, **flags}
+    ops_raw = raw.get("ops") or {}
+    if not isinstance(ops_raw, dict):
+        raise ValueError(f"config/{API_CONFIG_FILE} ops 는 표(mapping)여야 합니다.")
+    unknown_ops = set(ops_raw) - set(OPS_CONFIG_KEYS)
+    if unknown_ops:
+        raise ValueError(f"config/{API_CONFIG_FILE} ops 에 모르는 키: {sorted(unknown_ops)}")
+    tailscale_bin = str(ops_raw.get("tailscale_bin") or OPS_TAILSCALE_BIN_DEFAULT).strip()
+    return {"public_origin": origin, **flags, "ops": {"tailscale_bin": tailscale_bin}}
 
 
 def retention_days(settings: Settings, default: int = 180) -> int:
@@ -297,6 +313,9 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
     ),
     # 원격 LLM(Argon) 연결 상태 — 마지막 호출 결과 열거값·시각 (/healthz·화면 알림 띠, ADR 0055)
     "llm_status": (lambda s: {}, "", "data/cache/llm_status.json"),
+    # 운영 상태(터널·로컬 모델) — `rra ops check`·`rra llm-check` 가 적고 /healthz 가 읽는다
+    # (계약 docs/contracts/healthz-status.md, 열거값·시각만)
+    "ops_status": (lambda s: {}, "", "data/cache/ops_status.json"),
     # 차별화 과제안 측정 줄(JSONL) — 호출마다 건수·시간·열거값만, 5 MB 넘으면 .1 로
     # (ADR 0055 덧붙임)
     "recommend_metrics": (lambda s: {}, "", "data/cache/recommend_metrics.jsonl"),
@@ -326,6 +345,11 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "cache",
         "data/cache/idf.json",
     ),
+    # 평가 체계(ADR 0058, 레인 D) — 봉인·연습 문제 묶음(문제 본문, 600), 평가용 Gemini 일일 카운터
+    # (운영 llm_budget.json 과 별도 파일 — 운영 예산을 깎지 않는다)
+    "eval_sealed": (lambda s: {}, "", "data/eval/sealed"),
+    "eval_practice": (lambda s: {}, "", "data/eval/practice"),
+    "eval_llm_budget": (lambda s: {}, "", "data/cache/eval_llm_budget.json"),
 }
 DATA_LOCATION_KEYS = ("db", *_DATA_LOCATIONS)
 
@@ -416,6 +440,8 @@ def llm_config(
             "write": float(timeout.get("write", 10)),
             "pool": float(timeout.get("pool", 5)),
         },
+        # 로컬 서버의 첫 요청(모델 적재) 읽기 제한 — 어댑터가 첫 호출에만 쓴다 (healthz-status §3)
+        "first_request_timeout": float(timeout.get("first_request", 300)),
         "retry": {
             "attempts": int(retries.get("attempts", 3)),
             "backoff_sec": float(retries.get("backoff_sec", 0.5)),
@@ -710,6 +736,41 @@ def novelty_config(settings: Settings):
     if unknown:
         raise ValueError(f"config/novelty.yaml 에 모르는 키: {sorted(unknown)}")
     return NoveltyConfig.model_validate(cfg)
+
+
+def eval_config(settings: Settings):
+    """config/eval.yaml → EvalSuiteConfig (평가 체계, ADR 0058). 파일이 없으면 기본값. 모르는 키는
+    오류."""
+    from rra.domain.models.eval_problem import EvalSuiteConfig
+
+    cfg = read_config("eval.yaml", settings) or {}
+    unknown = set(cfg) - set(EvalSuiteConfig.model_fields)
+    if unknown:
+        raise ValueError(f"config/eval.yaml 에 모르는 키: {sorted(unknown)}")
+    return EvalSuiteConfig.model_validate(cfg)
+
+
+def eval_config_flags(settings: Settings) -> dict[str, bool | int | float | str]:
+    """EvalResult.config_flags — 비교에 뜻이 있는 스위치만(overlap.yaml facets·idf_weighting·
+    synonyms·
+    judgment·rerank·series). 경로·키 없음."""
+    cfg = read_config("overlap.yaml", settings) or {}
+
+    def enabled(section: str, default: bool) -> bool:
+        raw = cfg.get(section) or {}
+        return bool(raw.get("enabled", default)) if isinstance(raw, dict) else default
+
+    rerank = cfg.get("rerank") or {}
+    return {
+        "facets.enabled": enabled("facets", False),
+        "idf_weighting.enabled": enabled("idf_weighting", False),
+        "synonyms.enabled": enabled("synonyms", False),
+        "judgment.enabled": enabled("judgment", True),
+        "series.enabled": enabled("series", True),
+        "rerank.threshold": (
+            float(rerank.get("threshold", 0.5)) if isinstance(rerank, dict) else 0.5
+        ),
+    }
 
 
 def usability_config(settings: Settings):

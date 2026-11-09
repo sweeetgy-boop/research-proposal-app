@@ -125,6 +125,12 @@ async def _prepare(live: LiveSearchLike | None, owner: str, req: ProposalRequest
         return None
 
 
+def _has_fresh(summary: LiveSearchSummary) -> bool:
+    """넓힌 검색이 DB 에 새로 저장한 문서가 있는가(LiveSourceResult.new). 캐시·기존 문서뿐이면
+    ② 판정이 이미 본 범위라 다시 판정하지 않는다."""
+    return any(r.new > 0 for r in summary.sources)
+
+
 def _unavailable_status(status: str, notice: str | None) -> str | None:
     """LiveSourceResult → coverage.unavailable 열거값. 응답이 왔으면(ok) None."""
     if status == "ok":
@@ -231,7 +237,9 @@ class WideNoveltyCheck:
             return cached
         summary = await _prepare(self.live, NOVELTY_OWNER, req, "novelty")
         new_alerts: list[OverlapAlert] = []
-        if summary is not None and summary.doc_ids:
+        if summary is not None and summary.doc_ids and _has_fresh(summary):
+            # 규칙 판정(검색 → reranker)은 DB 에 새로 들어온 문서가 있을 때만 — 이미 있던 문서는
+            # ② 가 같은 검색으로 이미 보았다(2026-11-09 레인 A, 응답 시간)
             try:
                 rows = await self.rule_check(req, list(core_keywords) if core_keywords else None)
             except Exception as exc:  # 판정 실패는 novel 을 막지 않는다 — 되돌림 없음
