@@ -49,6 +49,14 @@
 | l1 | 매일 밤(launchd `com.rra.eval.plist`, 04:30 — 백업 03:30 뒤) | 자동 생성 ≥100건, 3회 평균, 과제안 포함 | 10~20분 | Gemini 는 `config/eval.yaml daily_llm_calls`(기본 150) 안에서만 — 넘으면 남은 문제는 로컬·규칙, `notes` 에 적음 |
 | l2 | 배포 전·주 1회(사람이 돌림) | 골든셋 10건(`tests/golden`) + 초안까지(기존 `rra eval` 재사용), 사람 확인 표본 10% 목록 출력 | — | 기존 예산 |
 
+## 4.1 짝 비교 (2026-11-09 사용자 보완)
+- 결과 파일에 `problems: [{id, kind, correct, runs, correct_runs, blocked, seconds}]`(모델 `ProblemRecord`) — `id` 는 문제 id 의
+  sha256 앞 16자(본문·doc_id 없음), `correct` 는 종류별 정답 기준(역방향 = 상위 5 적중, 함정 = 차단 안 됨, 새 영역 = novel 갈래)·반복이면 과반.
+- `rra eval compare` 는 기준 열과 같은 문제 id 를 가진 열에 대해 **문제별 맞힘 대조**(둘 다·기준만·비교만·둘 다 틀림, 종류별)와
+  **McNemar 정확 검정(양측)** p 를 표에 더한다(`domain/rules/eval_compare.paired`). p < 0.05 면 갈린 쪽이 많은 구성을 개선/악화, 아니면 차이 없음.
+- 비교 묶음 구성(스위치 판단용 40문제): 역방향 ≥ 20·함정 ≥ 12·새 영역 ≥ 8 → `rra eval run --n 40 --mix 0.5,0.3,0.2`(새 묶음을 만들 때만).
+- 3회 반복은 두 구성의 결과가 **갈린 문제만**: `compare --discordant-out ids.txt` → `run --ids @ids.txt --repeats 3`(두 구성 모두). 예산 150 안에서.
+
 ## 5. 명령
 - `rra eval run --suite l0|l1|l2 [--seed N] [--sealed] [--repeats N] [--label 이름] [--out 경로]` → 결과 JSON 경로 출력.
 - `rra eval compare <a.json> <b.json> [<c.json> …] [--out docs/eval-<날짜>-compare.md]` → 지표별 열 비교표(값·ci95·차이), 한국어.

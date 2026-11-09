@@ -53,9 +53,27 @@ class EvalMetrics(BaseModel):
     rec_zero_rate: float | None = None
 
 
+class ProblemRecord(BaseModel):
+    """문제 한 건의 결과 요약 — 짝 비교(같은 묶음을 두 구성으로 돌린 뒤 문제별 맞힘 대조,
+    McNemar)용. `id` 는 문제 해시(본문·doc_id 아님). `correct` 는 종류별 정답 기준(역방향 = 상위 5
+    적중, 함정 = 차단 안 됨, 새 영역 = novel 갈래)이고 반복이 여러 번이면 과반. 2026-11-09 보완."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    kind: str  # reverse | trap | novel
+    correct: bool | None = None  # 판정 불가(종류 밖)면 None
+    runs: int = Field(default=1, ge=1)
+    correct_runs: int = Field(default=0, ge=0)
+    blocked: bool = False  # 마지막 실행 기준
+    seconds: float = 0.0  # 실행 평균 초
+
+
 class EvalResult(BaseModel):
     """한 번의 평가 실행. `config_flags` 는 비교에 뜻이 있는 스위치만(facets·idf_weighting·synonyms·
-    judgment 등 — 열거값·불리언·숫자만, 경로·키 금지). `label` 은 비교표의 열 이름(가·나·다 …)."""
+    judgment 등 — 열거값·불리언·숫자만, 경로·키 금지). `label` 은 비교표의 열 이름(가·나·다 …).
+    `problems` 는 문제별 요약(선택) — 두 결과가 같은 문제 id 를 가지면 `rra eval compare` 가 짝
+    비교를 낸다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -74,3 +92,4 @@ class EvalResult(BaseModel):
     llm_calls: int = 0  # 외부(Gemini) 호출 수 — 일일 상한 안에서만
     cache_hits: int = 0  # L0 캐시 재생 수
     notes: list[str] = Field(default_factory=list)  # 짧은 메모(문제 본문 금지)
+    problems: list[ProblemRecord] = Field(default_factory=list)  # 문제별 요약 (짝 비교용, 선택)

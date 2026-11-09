@@ -27,13 +27,14 @@ from typing import Any
 from rra.application.ports.eval_store import ReplayCountsPort
 from rra.application.usecases.similar_rows import recommend_mode
 from rra.domain.models.eval_problem import EvalProblem
-from rra.domain.models.eval_result import EvalMetrics, EvalResult
+from rra.domain.models.eval_result import EvalMetrics, EvalResult, ProblemRecord
 from rra.domain.models.novel import BASIS_ESTIMATED, MODE_NOVEL
 from rra.domain.rules.eval_metrics import (
     ProblemOutcome,
     compute_metrics,
     count_kinds,
     percentile,
+    problem_records,
 )
 from rra.domain.rules.eval_problems import answer_hit
 from rra.domain.rules.similar_choice import effective_blocking
@@ -120,6 +121,11 @@ class EvaluateSuite:
             llm_calls=max(0, calls - hits - dry_misses),
             cache_hits=hits,
             notes=notes,
+            # 문제별 요약(id 해시·종류·맞힘·반복) — 짝 비교(McNemar)·갈린 문제 재측정용
+            problems=[
+                ProblemRecord(**rec)  # type: ignore[arg-type]
+                for rec in problem_records([p.id for p in problems], outcomes)
+            ],
         )
 
     async def one(self, problem: EvalProblem) -> ProblemOutcome:

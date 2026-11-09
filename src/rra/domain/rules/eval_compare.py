@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -121,3 +122,78 @@ def gate(
                 f"(+{rise:.3f} > {max_false_block_rise})"
             )
     return failures
+
+
+# ── 짝 비교 (같은 문제 묶음을 두 구성으로, 2026-11-09 사용자 보완) ───────────────
+@dataclass(frozen=True)
+class PairedStats:
+    """기준(a)·비교(b)의 문제별 맞힘 대조. `discordant_ids` 는 두 구성의 결과가 갈린 문제 id —
+    그 문제만 3회 반복해 다시 잰다(`rra eval run --ids`)."""
+
+    n_common: int
+    both_correct: int
+    a_only: int  # 기준만 맞힘
+    b_only: int  # 비교만 맞힘
+    both_wrong: int
+    mcnemar_p: float | None  # 정확 이항 양측 p (갈린 문제 0건이면 None)
+    by_kind: dict[str, tuple[int, int, int, int]] = field(
+        default_factory=dict
+    )  # kind → (둘다, a만, b만, 둘다틀림)
+    discordant_ids: tuple[str, ...] = ()
+
+    @property
+    def verdict(self) -> str:
+        if self.mcnemar_p is None:
+            return VERDICT_SAME if self.n_common else VERDICT_NA
+        if self.mcnemar_p < 0.05:
+            return VERDICT_BETTER if self.b_only > self.a_only else VERDICT_WORSE
+        return VERDICT_SAME
+
+
+def mcnemar_exact(a_only: int, b_only: int) -> float | None:
+    """McNemar 정확 검정(양측) — 갈린 문제 수가 적을 때 맞는 이항 검정. b+c=0 이면 None."""
+    n = a_only + b_only
+    if n == 0:
+        return None
+    k = min(a_only, b_only)
+    tail = sum(math.comb(n, i) for i in range(k + 1)) / (2**n)
+    return round(min(1.0, 2 * tail), 4)
+
+
+def paired(a: EvalResult, b: EvalResult) -> PairedStats | None:
+    """두 결과가 같은 문제 id 를 공유할 때만 — 아니면 None(짝 비교 불가)."""
+    ra = {p.id: p for p in a.problems if p.correct is not None}
+    rb = {p.id: p for p in b.problems if p.correct is not None}
+    common = sorted(set(ra) & set(rb))
+    if not common:
+        return None
+    both = a_only = b_only = wrong = 0
+    kinds: dict[str, list[int]] = {}
+    disc: list[str] = []
+    for pid in common:
+        ca, cb = ra[pid].correct, rb[pid].correct
+        cell = kinds.setdefault(ra[pid].kind, [0, 0, 0, 0])
+        if ca and cb:
+            both += 1
+            cell[0] += 1
+        elif ca:
+            a_only += 1
+            cell[1] += 1
+            disc.append(pid)
+        elif cb:
+            b_only += 1
+            cell[2] += 1
+            disc.append(pid)
+        else:
+            wrong += 1
+            cell[3] += 1
+    return PairedStats(
+        n_common=len(common),
+        both_correct=both,
+        a_only=a_only,
+        b_only=b_only,
+        both_wrong=wrong,
+        mcnemar_p=mcnemar_exact(a_only, b_only),
+        by_kind={k: tuple(v) for k, v in sorted(kinds.items())},  # type: ignore[misc]
+        discordant_ids=tuple(disc),
+    )

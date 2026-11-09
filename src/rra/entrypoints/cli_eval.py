@@ -52,6 +52,27 @@ def _eprint(*args: object) -> None:
 
 
 # ── 파서 ─────────────────────────────────────────────────
+def parse_mix(text: str):
+    """`--mix 0.5,0.3,0.2` → ProblemMix(reverse, trap, novel). 세 수가 아니면 ValueError."""
+    from rra.domain.models.eval_problem import ProblemMix
+
+    parts = [float(x) for x in text.split(",")]
+    if len(parts) != 3:
+        raise ValueError("--mix 는 reverse,trap,novel 세 수여야 합니다 (예: 0.5,0.3,0.2)")
+    return ProblemMix(reverse=parts[0], trap=parts[1], novel=parts[2])
+
+
+def parse_ids(text: str | None) -> set[str] | None:
+    """`--ids a,b,c` 또는 `--ids @파일`(한 줄 하나) → id 집합. 없으면 None(= 전부)."""
+    if not text:
+        return None
+    if text.startswith("@"):
+        raw = Path(text[1:]).read_text(encoding="utf-8").split()
+    else:
+        raw = text.split(",")
+    return {t.strip() for t in raw if t.strip()}
+
+
 def add_subcommands(ev_sub: argparse._SubParsersAction) -> None:
     run = ev_sub.add_parser("run", help=RUN_HELP, description=RUN_HELP)
     run.add_argument("--suite", required=True, choices=list(SUITES))
@@ -81,12 +102,26 @@ def add_subcommands(ev_sub: argparse._SubParsersAction) -> None:
         help="l0 캐시 미스를 평가 예산 LLM 으로 채워 녹화 (tests/eval/l0_cache)",
     )
     run.add_argument("--no-recommend", action="store_true", help="l1 에서 과제안 단계를 건너뛴다")
+    run.add_argument(
+        "--mix",
+        help="l1 새 묶음의 종류 비율 reverse,trap,novel (예: 0.5,0.3,0.2 → n=40 이면 20/12/8). "
+        "기존 묶음을 재사용할 때는 무시",
+    )
+    run.add_argument(
+        "--ids",
+        help="이 문제 id 들만 돌린다 — 쉼표 목록 또는 @파일(한 줄 하나). 짝 비교에서 갈린 문제만 "
+        "3회 반복할 때(`compare --discordant-out`)",
+    )
     run.add_argument("--golden", default="tests/golden", help="l2 골든셋 폴더")
     run.set_defaults(handler=cmd_run)
 
     cmp = ev_sub.add_parser("compare", help="결과 JSON 2개 이상 → 지표별 비교표 (한국어 Markdown)")
     cmp.add_argument("results", nargs="+", help="결과 JSON 경로 (첫 파일이 기준)")
     cmp.add_argument("--out", help="Markdown 저장 경로 (예: docs/eval-<날짜>-compare.md)")
+    cmp.add_argument(
+        "--discordant-out",
+        help="기준과 두 번째 열의 결과가 갈린 문제 id 를 한 줄에 하나씩 저장 (→ run --ids @파일)",
+    )
     cmp.set_defaults(handler=cmd_compare)
 
     usage = ev_sub.add_parser(
@@ -191,9 +226,16 @@ def cmd_run(args: argparse.Namespace) -> int:
                     _eprint(f"연습용 묶음 재사용: {len(problems)}건 (seed {seed})")
                 else:
                     n = args.n if args.n is not None else cfg.l1.n
-                    problems = await parts["generator"].generate(seed=seed, n=n, mix=cfg.l1.mix)
+                    mix = parse_mix(args.mix) if getattr(args, "mix", None) else cfg.l1.mix
+                    problems = await parts["generator"].generate(seed=seed, n=n, mix=mix)
                     problems_store.save(path, problems)
                     _eprint(f"연습용 묶음 생성: {len(problems)}건 (seed {seed})")
+            wanted = parse_ids(getattr(args, "ids", None))
+            if wanted is not None:
+                from rra.domain.rules.eval_metrics import record_id
+
+                problems = [p for p in problems if p.id in wanted or record_id(p.id) in wanted]
+                _eprint(f"--ids: {len(problems)}건만 돌린다")
             return await parts["suite"](problems)
         finally:
             await parts["aclose"]()
@@ -277,6 +319,15 @@ def cmd_compare(args: argparse.Namespace) -> int:
     store, _ = build_eval_stores()  # 어댑터는 조립 지점을 거친다(계층 계약)
     results = [store.read(Path(p)) for p in args.results]
     text = compare_markdown(results, date=time.strftime("%Y-%m-%d"))
+    if getattr(args, "discordant_out", None):
+        from rra.domain.rules.eval_compare import paired
+
+        st = paired(results[0], results[1])
+        ids = list(st.discordant_ids) if st is not None else []
+        dpath = Path(args.discordant_out)
+        dpath.parent.mkdir(parents=True, exist_ok=True)
+        dpath.write_text("\n".join(ids) + ("\n" if ids else ""), encoding="utf-8")
+        print(f"갈린 문제 id {len(ids)}건 저장: {dpath}")
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)

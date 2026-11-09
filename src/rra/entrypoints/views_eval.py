@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from rra.domain.models.eval_result import CI95, EvalResult
-from rra.domain.rules.eval_compare import CompareRow, column_labels, compare
+from rra.domain.rules.eval_compare import CompareRow, column_labels, compare, paired
 
 
 def fmt_value(value: float | None, ci: CI95 | None = None) -> str:
@@ -58,11 +58,78 @@ def compare_markdown(results: Sequence[EvalResult], *, date: str) -> str:
             f"{'예' if r.sealed else '아니오'} | "
             f"{r.commit or '—'} | {r.llm_calls} | {r.cache_hits} | {r.seconds:g} | {flags} |"
         )
+    paired_lines = _paired_section(results, labels)
+    if paired_lines:
+        lines += ["", *paired_lines]
     notes = [(lab, n) for lab, r in zip(labels, results, strict=True) for n in r.notes]
     if notes:
         lines += ["", "## 메모", ""]
         lines += [f"- {lab}: {n}" for lab, n in notes]
     return "\n".join(lines) + "\n"
+
+
+KIND_LABELS = {"reverse": "역방향", "trap": "함정", "novel": "새 영역"}
+
+
+def _paired_section(results: Sequence[EvalResult], labels: Sequence[str]) -> list[str]:
+    """같은 문제 묶음을 돌린 열끼리 문제별 맞힘 대조 + McNemar(정확 이항, 양측). 공통 문제가
+    없으면 빈 목록(절을 내지 않는다). 2026-11-09 사용자 보완."""
+    base = results[0]
+    out: list[str] = []
+    for lab, other in zip(labels[1:], results[1:], strict=True):
+        st = paired(base, other)
+        if st is None:
+            continue
+        if not out:
+            out += [
+                "## 짝 비교 (같은 문제, 문제별 맞힘 대조)",
+                "",
+                "기준 열과 같은 문제 id 를 가진 열만. '기준만'·'비교만' 은 두 구성의 결과가 갈린 "
+                "문제 수, McNemar p 는 그 둘의 정확 이항 검정(양측). p < 0.05 면 갈린 쪽이 많은 "
+                "구성을 개선/악화로, 아니면 '차이 없음'. 갈린 문제만 3회 반복해 다시 재는 것이 "
+                "다음 단계다.",
+                "",
+            ]
+        out += [
+            f"### {labels[0]} vs {lab}",
+            "",
+            "| 종류 | 공통 | 둘 다 맞힘 | 기준만 | 비교만 | 둘 다 틀림 | McNemar p | 판정 |",
+            "|---|---|---|---|---|---|---|---|",
+            _paired_row(
+                "전체",
+                st.n_common,
+                st.both_correct,
+                st.a_only,
+                st.b_only,
+                st.both_wrong,
+                st.mcnemar_p,
+                st.verdict,
+            ),
+        ]
+        for kind, (both, a_only, b_only, wrong) in st.by_kind.items():
+            out.append(
+                _paired_row(
+                    KIND_LABELS.get(kind, kind),
+                    both + a_only + b_only + wrong,
+                    both,
+                    a_only,
+                    b_only,
+                    wrong,
+                    None,
+                    "",
+                )
+            )
+        out.append("")
+        out.append(f"갈린 문제 {len(st.discordant_ids)}건 (id 는 `--discordant-out` 으로 저장)")
+        out.append("")
+    return out
+
+
+def _paired_row(
+    name: str, n: int, both: int, a: int, b: int, wrong: int, p: float | None, verdict: str
+) -> str:
+    p_txt = "—" if p is None else f"{p:.4f}"
+    return f"| {name} | {n} | {both} | {a} | {b} | {wrong} | {p_txt} | {verdict} |"
 
 
 def _row_line(row: CompareRow) -> str:

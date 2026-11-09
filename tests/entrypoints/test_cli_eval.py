@@ -7,6 +7,8 @@ import argparse
 import json
 from pathlib import Path
 
+import pytest
+
 from rra.domain.models.eval_problem import EvalProblem
 from rra.domain.models.eval_result import EvalMetrics, EvalResult
 from rra.entrypoints import cli_eval
@@ -216,3 +218,19 @@ def test_sealed_is_l1_only_and_sealed_run_prints_warning(monkeypatch, capsys, tm
     assert cli_eval.main(["run", "--suite", "l1", "--sealed"]) == 0
     captured = capsys.readouterr()
     assert cli_eval.SEALED_WARNING in captured.err and "저장:" in captured.out
+
+
+def test_parse_mix_and_ids(tmp_path):
+    """--mix 0.5,0.3,0.2 → n=40 이면 20/12/8 (역방향 ≥20·함정 ≥12·새 영역 ≥8), --ids 는 쉼표
+    또는 @파일."""
+    from rra.entrypoints.cli_eval import parse_ids, parse_mix
+
+    mix = parse_mix("0.5,0.3,0.2")
+    assert mix.counts(40) == {"reverse": 20, "trap": 12, "novel": 8}
+    with pytest.raises(ValueError):
+        parse_mix("0.5,0.5")
+    assert parse_ids(None) is None
+    assert parse_ids("a, b,,c") == {"a", "b", "c"}
+    f = tmp_path / "ids.txt"
+    f.write_text("p1\np2\n\n", encoding="utf-8")
+    assert parse_ids(f"@{f}") == {"p1", "p2"}

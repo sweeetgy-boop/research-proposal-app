@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import random
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -135,4 +136,50 @@ def count_kinds(outcomes: Sequence[Sequence[ProblemOutcome]]) -> dict[str, int]:
     for runs in outcomes:
         if runs:
             out[runs[0].kind] = out.get(runs[0].kind, 0) + 1
+    return out
+
+
+# ── 문제별 요약 (짝 비교용, 2026-11-09 사용자 보완) ─────────────────────────
+def outcome_correct(outcome: ProblemOutcome) -> bool | None:
+    """종류별 정답 기준 — reverse: 상위 5 적중, trap: 차단 안 됨, novel: novel 갈래(차단 아님)."""
+    if outcome.kind == "reverse":
+        return outcome.hit
+    if outcome.kind == "trap":
+        return not outcome.blocked
+    if outcome.kind == "novel":
+        return None if outcome.novel is None else (outcome.novel and not outcome.blocked)
+    return None
+
+
+def record_id(problem_id: str) -> str:
+    """결과 파일에 적는 문제 id — 원 id 의 sha256 앞 16자. 생성기 id 는 이미 해시지만 시험·외부
+    묶음의 id 가 doc_id 를 품어도 결과 파일에 새지 않도록 한 번 더 감싼다. `--ids` 는 둘 다
+    받는다."""
+    return hashlib.sha256(problem_id.encode("utf-8")).hexdigest()[:16]
+
+
+def problem_records(
+    ids: Sequence[str], outcomes: Sequence[Sequence[ProblemOutcome]]
+) -> list[dict[str, object]]:
+    """문제 id 와 실행 묶음 → `ProblemRecord` 로 만들 딕셔너리(도메인 모델은 호출 쪽이 만든다).
+    반복이 여러 번이면 과반 맞힘을 `correct` 로."""
+    out: list[dict[str, object]] = []
+    for pid, runs in zip(ids, outcomes, strict=True):
+        if not runs:
+            continue
+        verdicts = [outcome_correct(r) for r in runs]
+        known = [v for v in verdicts if v is not None]
+        correct_runs = sum(1 for v in known if v)
+        correct = (correct_runs * 2 > len(known)) if known else None
+        out.append(
+            {
+                "id": record_id(pid),
+                "kind": runs[0].kind,
+                "correct": correct,
+                "runs": len(runs),
+                "correct_runs": correct_runs,
+                "blocked": runs[-1].blocked,
+                "seconds": round(sum(r.seconds for r in runs) / len(runs), 3),
+            }
+        )
     return out
