@@ -1,0 +1,56 @@
+# 자동 생성된 후보 목록 — config/overlap.yaml 에 자동 반영되지 않는다. 사람이 검토해 옮긴다.
+# 만든 명령: rra terms candidates
+notice: 후보 목록입니다 — config/overlap.yaml 에 자동 반영되지 않습니다. 사람이 검토해 옮깁니다 (철도 용어는 유사과제 키워드 판정에서 '세는 말', 흔한 단어는
+  generic_terms 에 추가 후보).
+generated: '2026-10-27'
+sample:
+  chunks: 3657
+  documents: 1483
+  sources:
+    alio: 120
+    bai: 11
+    datago: 16
+    korail_web: 9
+    mofe: 10
+    molit: 6
+    openalex: 359
+    own: 500
+    rnd_notice: 5
+    scienceon: 447
+config:
+  min_chars: 2
+  max_chars: 8
+  min_doc_freq: 3
+  generic_doc_ratio: 0.15
+  generic_min_sources: 2
+  examples: 3
+  limit: 200
+kind: generic_terms
+candidates:
+- term: 응용연구
+  doc_freq: 356
+  chunk_freq: 358
+  doc_ratio: 0.2401
+  sources:
+    own: 355
+    rnd_notice: 1
+  examples:
+  - own:56ea69ab9e61fd76
+  - own:4a2d46ea9089db7a
+  - own:8020fe09e7e89aff
+- term: 궤도
+  doc_freq: 240
+  chunk_freq: 300
+  doc_ratio: 0.1618
+  sources:
+    alio: 3
+    bai: 7
+    molit: 1
+    own: 3
+    rnd_notice: 1
+    scienceon: 225
+  examples:
+  - alio:sum-992f47e5bbb2deb6
+  - alio:sum-46fbac1116635377
+  - alio:sum-bf7a113ee747aa7b
+  hint: rail_seed

@@ -1,0 +1,3038 @@
+# 자동 생성된 후보 목록 — config/overlap.yaml 에 자동 반영되지 않는다. 사람이 검토해 옮긴다.
+# 만든 명령: rra terms candidates
+notice: 후보 목록입니다 — config/overlap.yaml 에 자동 반영되지 않습니다. 사람이 검토해 옮깁니다 (철도 용어는 유사과제 키워드 판정에서 '세는 말', 흔한 단어는
+  generic_terms 에 추가 후보).
+generated: '2026-10-27'
+sample:
+  chunks: 3657
+  documents: 1483
+  sources:
+    alio: 120
+    bai: 11
+    datago: 16
+    korail_web: 9
+    mofe: 10
+    molit: 6
+    openalex: 359
+    own: 500
+    rnd_notice: 5
+    scienceon: 447
+config:
+  min_chars: 2
+  max_chars: 8
+  min_doc_freq: 3
+  generic_doc_ratio: 0.15
+  generic_min_sources: 2
+  examples: 3
+  limit: 200
+kind: rail_terms
+candidates:
+- term: 과제명
+  doc_freq: 500
+  chunk_freq: 500
+  doc_ratio: 0.3372
+  sources:
+    own: 500
+  examples:
+  - own:4c4112c0d35b46ba
+  - own:56ea69ab9e61fd76
+  - own:b500d3293f945f2b
+- term: 과제목록
+  doc_freq: 482
+  chunk_freq: 482
+  doc_ratio: 0.325
+  sources:
+    own: 482
+  examples:
+  - own:4c4112c0d35b46ba
+  - own:56ea69ab9e61fd76
+  - own:b500d3293f945f2b
+- term: 총연구비
+  doc_freq: 466
+  chunk_freq: 466
+  doc_ratio: 0.3142
+  sources:
+    own: 466
+  examples:
+  - own:4c4112c0d35b46ba
+  - own:56ea69ab9e61fd76
+  - own:b500d3293f945f2b
+- term: 레일
+  doc_freq: 168
+  chunk_freq: 196
+  doc_ratio: 0.1133
+  sources:
+    alio: 6
+    bai: 5
+    korail_web: 3
+    molit: 1
+    own: 3
+    rnd_notice: 4
+    scienceon: 146
+  examples:
+  - alio:sum-992f47e5bbb2deb6
+  - alio:sum-b349baa893b6ddd3
+  - alio:sum-93c9a5b0f86eb7a6
+  hint: rail_seed
+- term: 유지보수
+  doc_freq: 155
+  chunk_freq: 221
+  doc_ratio: 0.1045
+  sources:
+    alio: 35
+    bai: 6
+    korail_web: 4
+    molit: 2
+    own: 13
+    rnd_notice: 4
+    scienceon: 91
+  examples:
+  - alio:sum-7e3d59f9a1bb2c0c
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-76e62110d7562fe4
+  hint: rail_seed
+- term: 차량
+  doc_freq: 149
+  chunk_freq: 357
+  doc_ratio: 0.1005
+  sources:
+    alio: 17
+    bai: 8
+    datago: 3
+    korail_web: 4
+    molit: 2
+    own: 6
+    rnd_notice: 5
+    scienceon: 104
+  examples:
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+  hint: rail_seed
+- term: 경영연구처
+  doc_freq: 255
+  chunk_freq: 255
+  doc_ratio: 0.1719
+  sources:
+    own: 255
+  examples:
+  - own:4a2d46ea9089db7a
+  - own:8020fe09e7e89aff
+  - own:df1118b5364efd29
+- term: 기술연구처
+  doc_freq: 245
+  chunk_freq: 245
+  doc_ratio: 0.1652
+  sources:
+    own: 245
+  examples:
+  - own:4c4112c0d35b46ba
+  - own:56ea69ab9e61fd76
+  - own:b500d3293f945f2b
+- term: 정기
+  doc_freq: 217
+  chunk_freq: 229
+  doc_ratio: 0.1463
+  sources:
+    bai: 2
+    datago: 1
+    korail_web: 1
+    own: 212
+    scienceon: 1
+  examples:
+  - bai:3287
+  - bai:3137
+  - datago:3050961
+- term: 철도차량
+  doc_freq: 108
+  chunk_freq: 200
+  doc_ratio: 0.0728
+  sources:
+    alio: 14
+    bai: 4
+    datago: 1
+    korail_web: 2
+    molit: 2
+    own: 22
+    rnd_notice: 4
+    scienceon: 59
+  examples:
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-85ca467fd23e1e34
+  - alio:sum-c83e7c80c3619a7b
+  hint: rail_seed
+- term: 있는
+  doc_freq: 213
+  chunk_freq: 560
+  doc_ratio: 0.1436
+  sources:
+    alio: 29
+    bai: 11
+    korail_web: 2
+    mofe: 4
+    molit: 1
+    own: 1
+    rnd_notice: 5
+    scienceon: 160
+  examples:
+  - alio:sum-700aa3c1f24338f1
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-992f47e5bbb2deb6
+- term: 고속철
+  doc_freq: 93
+  chunk_freq: 221
+  doc_ratio: 0.0627
+  sources:
+    alio: 15
+    bai: 8
+    datago: 6
+    korail_web: 4
+    molit: 3
+    own: 13
+    rnd_notice: 2
+    scienceon: 42
+  examples:
+  - alio:sum-700aa3c1f24338f1
+  - alio:sum-193a7fc09665d358
+  - alio:sum-f66df369dfdf986b
+  hint: rail_seed
+- term: 운행
+  doc_freq: 90
+  chunk_freq: 216
+  doc_ratio: 0.0607
+  sources:
+    alio: 18
+    bai: 6
+    datago: 1
+    korail_web: 2
+    molit: 2
+    own: 4
+    rnd_notice: 4
+    scienceon: 53
+  examples:
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+  hint: rail_seed
+- term: 것으
+  doc_freq: 176
+  chunk_freq: 349
+  doc_ratio: 0.1187
+  sources:
+    alio: 6
+    bai: 11
+    korail_web: 1
+    mofe: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 150
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+- term: 수송수요
+  doc_freq: 84
+  chunk_freq: 107
+  doc_ratio: 0.0566
+  sources:
+    alio: 26
+    bai: 1
+    molit: 1
+    own: 55
+    scienceon: 1
+  examples:
+  - alio:sum-193a7fc09665d358
+  - alio:sum-f66df369dfdf986b
+  - alio:sum-e01291827bf21949
+  hint: rail_seed
+- term: 국가
+  doc_freq: 163
+  chunk_freq: 386
+  doc_ratio: 0.1099
+  sources:
+    alio: 2
+    bai: 5
+    datago: 1
+    korail_web: 2
+    molit: 1
+    own: 144
+    rnd_notice: 5
+    scienceon: 3
+  examples:
+  - alio:sum-88971fc30eceb729
+  - alio:sum-4c21a58b1a1f4e6f
+  - bai:3287
+- term: 선로
+  doc_freq: 80
+  chunk_freq: 203
+  doc_ratio: 0.0539
+  sources:
+    alio: 7
+    bai: 7
+    datago: 3
+    korail_web: 2
+    molit: 2
+    own: 1
+    rnd_notice: 3
+    scienceon: 55
+  examples:
+  - alio:sum-8584da591771a3de
+  - alio:sum-62abec14608a0eab
+  - alio:sum-7ecd35e52390de4e
+  hint: rail_seed
+- term: 수시
+  doc_freq: 159
+  chunk_freq: 208
+  doc_ratio: 0.1072
+  sources:
+    bai: 2
+    datago: 6
+    korail_web: 1
+    own: 144
+    rnd_notice: 4
+    scienceon: 2
+  examples:
+  - bai:3109
+  - bai:2784
+  - datago:15088862
+- term: 차륜
+  doc_freq: 79
+  chunk_freq: 85
+  doc_ratio: 0.0533
+  sources:
+    bai: 1
+    korail_web: 1
+    own: 3
+    rnd_notice: 2
+    scienceon: 72
+  examples:
+  - bai:3287
+  - korail_web:d741f037283f5e0b
+  - own:3e176a83349a2c57
+  hint: rail_seed
+- term: 또한
+  doc_freq: 157
+  chunk_freq: 293
+  doc_ratio: 0.1059
+  sources:
+    alio: 6
+    bai: 10
+    korail_web: 1
+    mofe: 3
+    molit: 1
+    rnd_notice: 5
+    scienceon: 131
+  examples:
+  - alio:sum-b349baa893b6ddd3
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-62abec14608a0eab
+- term: 관한
+  doc_freq: 151
+  chunk_freq: 239
+  doc_ratio: 0.1018
+  sources:
+    bai: 9
+    datago: 1
+    korail_web: 2
+    mofe: 2
+    molit: 2
+    own: 47
+    rnd_notice: 5
+    scienceon: 83
+  examples:
+  - bai:3360
+  - bai:3287
+  - bai:3137
+- term: 영향
+  doc_freq: 147
+  chunk_freq: 202
+  doc_ratio: 0.0991
+  sources:
+    alio: 18
+    bai: 9
+    korail_web: 1
+    mofe: 3
+    molit: 1
+    own: 5
+    rnd_notice: 5
+    scienceon: 105
+  examples:
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-850bd199802ffd58
+  - alio:sum-c83e7c80c3619a7b
+- term: 궤도틀림
+  doc_freq: 72
+  chunk_freq: 83
+  doc_ratio: 0.0486
+  sources:
+    alio: 2
+    bai: 1
+    datago: 2
+    own: 2
+    scienceon: 65
+  examples:
+  - alio:sum-93c9a5b0f86eb7a6
+  - alio:sum-bf7a113ee747aa7b
+  - bai:2563
+  hint: rail_seed
+- term: 따라
+  doc_freq: 142
+  chunk_freq: 498
+  doc_ratio: 0.0958
+  sources:
+    alio: 12
+    bai: 11
+    korail_web: 2
+    mofe: 7
+    molit: 1
+    rnd_notice: 5
+    scienceon: 104
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-c83e7c80c3619a7b
+- term: 검측
+  doc_freq: 68
+  chunk_freq: 73
+  doc_ratio: 0.0459
+  sources:
+    alio: 3
+    bai: 2
+    korail_web: 1
+    rnd_notice: 1
+    scienceon: 61
+  examples:
+  - alio:sum-02163ce76920ec88
+  - alio:sum-46fbac1116635377
+  - alio:sum-bbfc37410435c45a
+  hint: rail_seed
+- term: 기대효
+  doc_freq: 131
+  chunk_freq: 138
+  doc_ratio: 0.0883
+  sources:
+    alio: 114
+    korail_web: 1
+    molit: 1
+    rnd_notice: 2
+    scienceon: 13
+  examples:
+  - alio:sum-dfc888753b28306a
+  - alio:sum-68e5828ad95d53df
+  - alio:sum-700aa3c1f24338f1
+- term: 연구내용
+  doc_freq: 131
+  chunk_freq: 163
+  doc_ratio: 0.0883
+  sources:
+    alio: 117
+    rnd_notice: 5
+    scienceon: 9
+  examples:
+  - alio:sum-dfc888753b28306a
+  - alio:sum-68e5828ad95d53df
+  - alio:sum-700aa3c1f24338f1
+- term: 연구목적
+  doc_freq: 125
+  chunk_freq: 135
+  doc_ratio: 0.0843
+  sources:
+    alio: 119
+    rnd_notice: 4
+    scienceon: 2
+  examples:
+  - alio:sum-dfc888753b28306a
+  - alio:sum-68e5828ad95d53df
+  - alio:sum-700aa3c1f24338f1
+- term: 예측
+  doc_freq: 122
+  chunk_freq: 199
+  doc_ratio: 0.0823
+  sources:
+    alio: 24
+    bai: 3
+    korail_web: 1
+    molit: 1
+    own: 60
+    rnd_notice: 5
+    scienceon: 28
+  examples:
+  - alio:sum-62bf43f61914e227
+  - alio:sum-193a7fc09665d358
+  - alio:sum-e01291827bf21949
+- term: 이를
+  doc_freq: 121
+  chunk_freq: 325
+  doc_ratio: 0.0816
+  sources:
+    alio: 6
+    bai: 11
+    datago: 1
+    korail_web: 1
+    mofe: 1
+    rnd_notice: 5
+    scienceon: 96
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-5e5d11ff2fd7d672
+- term: 기준
+  doc_freq: 119
+  chunk_freq: 490
+  doc_ratio: 0.0802
+  sources:
+    alio: 22
+    bai: 10
+    datago: 2
+    korail_web: 4
+    mofe: 6
+    molit: 2
+    own: 4
+    rnd_notice: 5
+    scienceon: 64
+  examples:
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-992f47e5bbb2deb6
+  - alio:sum-75ff411b9a6e0eb5
+- term: 설계
+  doc_freq: 118
+  chunk_freq: 367
+  doc_ratio: 0.0796
+  sources:
+    alio: 27
+    bai: 8
+    datago: 2
+    korail_web: 1
+    molit: 1
+    own: 3
+    rnd_notice: 5
+    scienceon: 71
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-2b91fb3d9c70f8d4
+- term: 침목
+  doc_freq: 59
+  chunk_freq: 87
+  doc_ratio: 0.0398
+  sources:
+    alio: 2
+    bai: 5
+    korail_web: 1
+    own: 1
+    scienceon: 50
+  examples:
+  - alio:sum-483e43133e5fdf6e
+  - alio:sum-75ec72ecb26b1d49
+  - bai:3137
+  hint: rail_seed
+- term: 통한
+  doc_freq: 116
+  chunk_freq: 391
+  doc_ratio: 0.0782
+  sources:
+    alio: 40
+    bai: 7
+    korail_web: 3
+    mofe: 1
+    molit: 2
+    own: 11
+    rnd_notice: 5
+    scienceon: 47
+  examples:
+  - alio:sum-700aa3c1f24338f1
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-533718cc04b2eecc
+- term: 의한
+  doc_freq: 111
+  chunk_freq: 155
+  doc_ratio: 0.0748
+  sources:
+    alio: 14
+    bai: 7
+    korail_web: 2
+    mofe: 1
+    molit: 2
+    rnd_notice: 5
+    scienceon: 80
+  examples:
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-c83e7c80c3619a7b
+- term: 특성
+  doc_freq: 110
+  chunk_freq: 167
+  doc_ratio: 0.0742
+  sources:
+    alio: 20
+    bai: 5
+    korail_web: 1
+    mofe: 2
+    own: 2
+    rnd_notice: 5
+    scienceon: 75
+  examples:
+  - alio:sum-8584da591771a3de
+  - alio:sum-d03d8bbf4e1511b9
+  - alio:sum-f1e218969ac2df50
+- term: 경우
+  doc_freq: 108
+  chunk_freq: 388
+  doc_ratio: 0.0728
+  sources:
+    alio: 5
+    bai: 11
+    korail_web: 2
+    mofe: 6
+    molit: 1
+    rnd_notice: 5
+    scienceon: 78
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-4c21a58b1a1f4e6f
+- term: 교량
+  doc_freq: 54
+  chunk_freq: 81
+  doc_ratio: 0.0364
+  sources:
+    alio: 2
+    bai: 4
+    datago: 2
+    own: 2
+    rnd_notice: 4
+    scienceon: 40
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-bf7a113ee747aa7b
+  - bai:3287
+  hint: rail_seed
+- term: 변화
+  doc_freq: 106
+  chunk_freq: 215
+  doc_ratio: 0.0715
+  sources:
+    alio: 19
+    bai: 4
+    korail_web: 2
+    mofe: 2
+    molit: 2
+    own: 5
+    rnd_notice: 5
+    scienceon: 67
+  examples:
+  - alio:sum-dfc888753b28306a
+  - alio:sum-193a7fc09665d358
+  - alio:sum-f66df369dfdf986b
+- term: 활용계획
+  doc_freq: 102
+  chunk_freq: 142
+  doc_ratio: 0.0688
+  sources:
+    alio: 81
+    rnd_notice: 4
+    scienceon: 17
+  examples:
+  - alio:sum-dfc888753b28306a
+  - alio:sum-68e5828ad95d53df
+  - alio:sum-700aa3c1f24338f1
+- term: 신호
+  doc_freq: 51
+  chunk_freq: 120
+  doc_ratio: 0.0344
+  sources:
+    alio: 2
+    bai: 6
+    datago: 1
+    korail_web: 1
+    mofe: 1
+    molit: 1
+    own: 1
+    rnd_notice: 2
+    scienceon: 36
+  examples:
+  - alio:sum-d03d8bbf4e1511b9
+  - alio:sum-88971fc30eceb729
+  - bai:3287
+  hint: rail_seed
+- term: 개발연구
+  doc_freq: 101
+  chunk_freq: 101
+  doc_ratio: 0.0681
+  sources:
+    bai: 1
+    own: 99
+    rnd_notice: 1
+  examples:
+  - bai:2525
+  - own:4c4112c0d35b46ba
+  - own:b500d3293f945f2b
+- term: 고속
+  doc_freq: 49
+  chunk_freq: 117
+  doc_ratio: 0.033
+  sources:
+    alio: 2
+    bai: 6
+    datago: 1
+    korail_web: 3
+    molit: 2
+    own: 4
+    rnd_notice: 5
+    scienceon: 26
+  examples:
+  - alio:sum-193a7fc09665d358
+  - alio:sum-25070a7eb6df239c
+  - bai:3287
+  hint: rail_seed
+- term: 것을
+  doc_freq: 92
+  chunk_freq: 162
+  doc_ratio: 0.062
+  sources:
+    alio: 6
+    bai: 6
+    korail_web: 2
+    mofe: 1
+    rnd_notice: 2
+    scienceon: 75
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+- term: 도상
+  doc_freq: 46
+  chunk_freq: 55
+  doc_ratio: 0.031
+  sources:
+    alio: 1
+    bai: 5
+    own: 2
+    scienceon: 38
+  examples:
+  - alio:sum-b349baa893b6ddd3
+  - bai:3137
+  - bai:3108
+  hint: rail_seed
+- term: 있으
+  doc_freq: 91
+  chunk_freq: 196
+  doc_ratio: 0.0614
+  sources:
+    alio: 4
+    bai: 8
+    korail_web: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 72
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-4c21a58b1a1f4e6f
+- term: 등을
+  doc_freq: 90
+  chunk_freq: 515
+  doc_ratio: 0.0607
+  sources:
+    alio: 22
+    bai: 11
+    korail_web: 3
+    mofe: 6
+    molit: 2
+    rnd_notice: 5
+    scienceon: 41
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-74ac656cede2cf53
+  - alio:sum-850bd199802ffd58
+- term: 따라서
+  doc_freq: 90
+  chunk_freq: 141
+  doc_ratio: 0.0607
+  sources:
+    alio: 3
+    bai: 7
+    korail_web: 1
+    rnd_notice: 3
+    scienceon: 76
+  examples:
+  - alio:sum-b349baa893b6ddd3
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-62abec14608a0eab
+- term: 위하여
+  doc_freq: 90
+  chunk_freq: 198
+  doc_ratio: 0.0607
+  sources:
+    alio: 5
+    bai: 8
+    korail_web: 2
+    molit: 2
+    rnd_notice: 5
+    scienceon: 68
+  examples:
+  - alio:sum-7e3d59f9a1bb2c0c
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-ca2a4c7c5464848f
+- term: 성능
+  doc_freq: 89
+  chunk_freq: 176
+  doc_ratio: 0.06
+  sources:
+    alio: 13
+    bai: 6
+    korail_web: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 62
+  examples:
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-9024bd37c9e08daf
+  - alio:sum-02163ce76920ec88
+- term: 안전성
+  doc_freq: 89
+  chunk_freq: 168
+  doc_ratio: 0.06
+  sources:
+    alio: 16
+    bai: 7
+    korail_web: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 59
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-850bd199802ffd58
+  - alio:sum-b349baa893b6ddd3
+- term: 또는
+  doc_freq: 87
+  chunk_freq: 306
+  doc_ratio: 0.0587
+  sources:
+    alio: 10
+    bai: 11
+    korail_web: 2
+    mofe: 7
+    molit: 1
+    rnd_notice: 5
+    scienceon: 51
+  examples:
+  - alio:sum-85ca467fd23e1e34
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-5e5d11ff2fd7d672
+- term: 발생
+  doc_freq: 86
+  chunk_freq: 197
+  doc_ratio: 0.058
+  sources:
+    alio: 17
+    bai: 11
+    datago: 2
+    korail_web: 3
+    mofe: 5
+    molit: 1
+    own: 3
+    rnd_notice: 4
+    scienceon: 40
+  examples:
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-93c9a5b0f86eb7a6
+- term: 발생하
+  doc_freq: 86
+  chunk_freq: 127
+  doc_ratio: 0.058
+  sources:
+    alio: 5
+    bai: 9
+    datago: 1
+    korail_web: 1
+    mofe: 1
+    rnd_notice: 4
+    scienceon: 65
+  examples:
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-9024bd37c9e08daf
+  - alio:sum-0b1307e4464ff3ab
+- term: 이상
+  doc_freq: 86
+  chunk_freq: 298
+  doc_ratio: 0.058
+  sources:
+    alio: 10
+    bai: 10
+    korail_web: 3
+    mofe: 8
+    molit: 1
+    rnd_notice: 5
+    scienceon: 49
+  examples:
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-8584da591771a3de
+- term: 비교
+  doc_freq: 84
+  chunk_freq: 119
+  doc_ratio: 0.0566
+  sources:
+    alio: 7
+    bai: 10
+    korail_web: 1
+    mofe: 3
+    molit: 1
+    rnd_notice: 5
+    scienceon: 57
+  examples:
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-4acdce365b3d0467
+  - alio:sum-4d59966971635239
+- term: 터널
+  doc_freq: 42
+  chunk_freq: 103
+  doc_ratio: 0.0283
+  sources:
+    alio: 2
+    bai: 7
+    datago: 3
+    rnd_notice: 4
+    scienceon: 26
+  examples:
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-6e4e2b2d0a477d96
+  - bai:3360
+  hint: rail_seed
+- term: 목적
+  doc_freq: 82
+  chunk_freq: 199
+  doc_ratio: 0.0553
+  sources:
+    alio: 9
+    bai: 11
+    korail_web: 1
+    molit: 2
+    rnd_notice: 5
+    scienceon: 54
+  examples:
+  - alio:sum-85ca467fd23e1e34
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-40fd995ab55a3eda
+- term: 시험
+  doc_freq: 82
+  chunk_freq: 131
+  doc_ratio: 0.0553
+  sources:
+    alio: 22
+    bai: 5
+    korail_web: 2
+    own: 2
+    rnd_notice: 4
+    scienceon: 47
+  examples:
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-850bd199802ffd58
+- term: 고려한
+  doc_freq: 81
+  chunk_freq: 226
+  doc_ratio: 0.0546
+  sources:
+    alio: 17
+    bai: 4
+    korail_web: 1
+    mofe: 1
+    molit: 1
+    own: 4
+    rnd_notice: 5
+    scienceon: 48
+  examples:
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-f66df369dfdf986b
+  - alio:sum-f1e218969ac2df50
+- term: 발명
+  doc_freq: 79
+  chunk_freq: 79
+  doc_ratio: 0.0533
+  sources:
+    rnd_notice: 1
+    scienceon: 78
+  examples:
+  - rnd_notice:a1c312a4dbb4bd9f
+  - scienceon:KOR1020170102984
+  - scienceon:KOR1020000064079
+- term: 상기
+  doc_freq: 79
+  chunk_freq: 88
+  doc_ratio: 0.0533
+  sources:
+    alio: 2
+    rnd_notice: 4
+    scienceon: 73
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-25070a7eb6df239c
+  - rnd_notice:c3d1f842795e5f0c
+- term: 실제
+  doc_freq: 79
+  chunk_freq: 148
+  doc_ratio: 0.0533
+  sources:
+    alio: 5
+    bai: 10
+    datago: 5
+    korail_web: 1
+    molit: 1
+    own: 1
+    rnd_notice: 5
+    scienceon: 51
+  examples:
+  - alio:sum-62bf43f61914e227
+  - alio:sum-8584da591771a3de
+  - alio:sum-9024bd37c9e08daf
+- term: 궤도구조
+  doc_freq: 39
+  chunk_freq: 41
+  doc_ratio: 0.0263
+  sources:
+    own: 1
+    scienceon: 38
+  examples:
+  - own:01bad397bf37f7f5
+  - scienceon:JAKO201129362564139
+  - scienceon:JAKO201609562999252
+  hint: rail_seed
+- term: 구조
+  doc_freq: 77
+  chunk_freq: 147
+  doc_ratio: 0.0519
+  sources:
+    alio: 10
+    bai: 7
+    korail_web: 1
+    molit: 2
+    rnd_notice: 5
+    scienceon: 52
+  examples:
+  - alio:sum-aa8524320594e401
+  - alio:sum-75ed29c2205be243
+  - alio:sum-62abec14608a0eab
+- term: 이용하여
+  doc_freq: 77
+  chunk_freq: 129
+  doc_ratio: 0.0519
+  sources:
+    alio: 4
+    bai: 4
+    korail_web: 1
+    rnd_notice: 4
+    scienceon: 64
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-a5f3f68904081cfb
+  - alio:sum-9eac91e627db128b
+- term: 콘크리트
+  doc_freq: 77
+  chunk_freq: 107
+  doc_ratio: 0.0519
+  sources:
+    alio: 2
+    bai: 4
+    own: 1
+    rnd_notice: 4
+    scienceon: 66
+  examples:
+  - alio:sum-b349baa893b6ddd3
+  - alio:sum-46fbac1116635377
+  - bai:3137
+- term: 하는
+  doc_freq: 77
+  chunk_freq: 246
+  doc_ratio: 0.0519
+  sources:
+    alio: 3
+    bai: 10
+    korail_web: 2
+    mofe: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 54
+  examples:
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-98de6b7e3d8ac792
+- term: 노반
+  doc_freq: 38
+  chunk_freq: 61
+  doc_ratio: 0.0256
+  sources:
+    bai: 5
+    rnd_notice: 1
+    scienceon: 32
+  examples:
+  - bai:3137
+  - bai:3109
+  - bai:3108
+  hint: rail_seed
+- term: 제작
+  doc_freq: 75
+  chunk_freq: 145
+  doc_ratio: 0.0506
+  sources:
+    alio: 26
+    bai: 4
+    datago: 2
+    korail_web: 2
+    molit: 1
+    own: 2
+    rnd_notice: 5
+    scienceon: 33
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-85ca467fd23e1e34
+  - alio:sum-2b91fb3d9c70f8d4
+- term: 통하여
+  doc_freq: 75
+  chunk_freq: 91
+  doc_ratio: 0.0506
+  sources:
+    alio: 6
+    bai: 5
+    molit: 1
+    rnd_notice: 3
+    scienceon: 60
+  examples:
+  - alio:sum-68e5828ad95d53df
+  - alio:sum-483e43133e5fdf6e
+  - alio:sum-ca2a4c7c5464848f
+- term: 있도록
+  doc_freq: 74
+  chunk_freq: 179
+  doc_ratio: 0.0499
+  sources:
+    alio: 3
+    bai: 7
+    korail_web: 1
+    mofe: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 55
+  examples:
+  - alio:sum-8584da591771a3de
+  - alio:sum-4c21a58b1a1f4e6f
+  - alio:own-8c3ede505d984164
+- term: 도시철
+  doc_freq: 73
+  chunk_freq: 160
+  doc_ratio: 0.0492
+  sources:
+    alio: 2
+    bai: 5
+    datago: 4
+    korail_web: 1
+    molit: 1
+    own: 8
+    rnd_notice: 2
+    scienceon: 50
+  examples:
+  - alio:sum-4c21a58b1a1f4e6f
+  - alio:sum-8e2a38f330531c2d
+  - bai:3287
+- term: 환경
+  doc_freq: 73
+  chunk_freq: 272
+  doc_ratio: 0.0492
+  sources:
+    alio: 29
+    bai: 1
+    datago: 3
+    korail_web: 5
+    mofe: 4
+    molit: 2
+    rnd_notice: 5
+    scienceon: 24
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-40fd995ab55a3eda
+  - alio:sum-f1e218969ac2df50
+- term: 가능한
+  doc_freq: 72
+  chunk_freq: 164
+  doc_ratio: 0.0486
+  sources:
+    alio: 12
+    bai: 9
+    korail_web: 2
+    own: 1
+    rnd_notice: 5
+    scienceon: 43
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-b349baa893b6ddd3
+  - alio:sum-75ff411b9a6e0eb5
+- term: 검증
+  doc_freq: 72
+  chunk_freq: 237
+  doc_ratio: 0.0486
+  sources:
+    alio: 24
+    bai: 4
+    korail_web: 1
+    mofe: 1
+    own: 6
+    rnd_notice: 5
+    scienceon: 31
+  examples:
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-76e62110d7562fe4
+- term: 등의
+  doc_freq: 72
+  chunk_freq: 309
+  doc_ratio: 0.0486
+  sources:
+    alio: 11
+    bai: 11
+    datago: 2
+    korail_web: 2
+    mofe: 2
+    molit: 2
+    rnd_notice: 5
+    scienceon: 37
+  examples:
+  - alio:sum-74ac656cede2cf53
+  - alio:sum-9024bd37c9e08daf
+  - alio:sum-62abec14608a0eab
+- term: 이용한
+  doc_freq: 72
+  chunk_freq: 86
+  doc_ratio: 0.0486
+  sources:
+    alio: 5
+    bai: 4
+    own: 2
+    rnd_notice: 3
+    scienceon: 58
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-75ed29c2205be243
+  - alio:sum-483e43133e5fdf6e
+- term: 향후
+  doc_freq: 72
+  chunk_freq: 131
+  doc_ratio: 0.0486
+  sources:
+    alio: 12
+    bai: 9
+    korail_web: 1
+    mofe: 6
+    molit: 1
+    rnd_notice: 5
+    scienceon: 38
+  examples:
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-5e5d11ff2fd7d672
+- term: 대차
+  doc_freq: 36
+  chunk_freq: 48
+  doc_ratio: 0.0243
+  sources:
+    alio: 3
+    bai: 2
+    own: 2
+    scienceon: 29
+  examples:
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-9eac91e627db128b
+  - alio:sum-b7a646f8220a33c6
+  hint: rail_seed
+- term: 것이다
+  doc_freq: 71
+  chunk_freq: 73
+  doc_ratio: 0.0479
+  sources:
+    alio: 4
+    bai: 1
+    scienceon: 66
+  examples:
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-a0505d3ec0f62152
+- term: 미치
+  doc_freq: 71
+  chunk_freq: 82
+  doc_ratio: 0.0479
+  sources:
+    alio: 4
+    bai: 4
+    korail_web: 1
+    own: 5
+    rnd_notice: 3
+    scienceon: 54
+  examples:
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-0b1307e4464ff3ab
+- term: 자료
+  doc_freq: 71
+  chunk_freq: 384
+  doc_ratio: 0.0479
+  sources:
+    alio: 18
+    bai: 11
+    datago: 8
+    korail_web: 1
+    mofe: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 26
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-62bf43f61914e227
+  - alio:sum-8584da591771a3de
+- term: 도출
+  doc_freq: 70
+  chunk_freq: 237
+  doc_ratio: 0.0472
+  sources:
+    alio: 32
+    bai: 3
+    korail_web: 1
+    own: 3
+    rnd_notice: 5
+    scienceon: 26
+  examples:
+  - alio:sum-dfc888753b28306a
+  - alio:sum-68e5828ad95d53df
+  - alio:sum-700aa3c1f24338f1
+- term: 의해
+  doc_freq: 70
+  chunk_freq: 72
+  doc_ratio: 0.0472
+  sources:
+    alio: 1
+    bai: 5
+    datago: 3
+    korail_web: 2
+    rnd_notice: 2
+    scienceon: 57
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - bai:3109
+  - bai:3108
+- term: 인한
+  doc_freq: 69
+  chunk_freq: 178
+  doc_ratio: 0.0465
+  sources:
+    alio: 20
+    bai: 6
+    datago: 1
+    korail_web: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 34
+  examples:
+  - alio:sum-dfc888753b28306a
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+- term: 진동
+  doc_freq: 69
+  chunk_freq: 83
+  doc_ratio: 0.0465
+  sources:
+    alio: 5
+    bai: 3
+    molit: 1
+    own: 2
+    rnd_notice: 3
+    scienceon: 55
+  examples:
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-8584da591771a3de
+  - alio:sum-4c21a58b1a1f4e6f
+- term: 위치
+  doc_freq: 67
+  chunk_freq: 123
+  doc_ratio: 0.0452
+  sources:
+    alio: 4
+    bai: 10
+    korail_web: 1
+    rnd_notice: 5
+    scienceon: 47
+  examples:
+  - alio:sum-04811bb76954f320
+  - alio:sum-1c14f67142f43dd8
+  - alio:sum-b21b194f9c50e2e6
+- term: 있어
+  doc_freq: 67
+  chunk_freq: 162
+  doc_ratio: 0.0452
+  sources:
+    alio: 8
+    bai: 9
+    datago: 3
+    korail_web: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 40
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-b349baa893b6ddd3
+  - alio:sum-75ff411b9a6e0eb5
+- term: 있음
+  doc_freq: 67
+  chunk_freq: 272
+  doc_ratio: 0.0452
+  sources:
+    alio: 5
+    bai: 11
+    datago: 1
+    korail_web: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 43
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-e666b32b9997edd2
+  - alio:sum-014debe95234ab00
+- term: 확대
+  doc_freq: 67
+  chunk_freq: 238
+  doc_ratio: 0.0452
+  sources:
+    alio: 29
+    bai: 7
+    korail_web: 4
+    mofe: 7
+    molit: 3
+    own: 2
+    rnd_notice: 5
+    scienceon: 10
+  examples:
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-aa8524320594e401
+- term: 대하여
+  doc_freq: 66
+  chunk_freq: 177
+  doc_ratio: 0.0445
+  sources:
+    alio: 2
+    bai: 10
+    korail_web: 1
+    mofe: 1
+    rnd_notice: 5
+    scienceon: 47
+  examples:
+  - alio:sum-85ca467fd23e1e34
+  - alio:sum-c83e7c80c3619a7b
+  - bai:3360
+- term: 이러한
+  doc_freq: 66
+  chunk_freq: 103
+  doc_ratio: 0.0445
+  sources:
+    alio: 1
+    bai: 5
+    korail_web: 1
+    rnd_notice: 2
+    scienceon: 57
+  examples:
+  - alio:sum-a0505d3ec0f62152
+  - bai:3287
+  - bai:3137
+- term: 이에
+  doc_freq: 66
+  chunk_freq: 200
+  doc_ratio: 0.0445
+  sources:
+    alio: 2
+    bai: 10
+    korail_web: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 47
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-62abec14608a0eab
+  - bai:3360
+- term: 기술개발
+  doc_freq: 65
+  chunk_freq: 266
+  doc_ratio: 0.0438
+  sources:
+    alio: 6
+    korail_web: 2
+    molit: 3
+    own: 31
+    rnd_notice: 5
+    scienceon: 18
+  examples:
+  - alio:sum-40fd995ab55a3eda
+  - alio:sum-5b9310c88fd558b3
+  - alio:sum-04811bb76954f320
+- term: 사이
+  doc_freq: 64
+  chunk_freq: 75
+  doc_ratio: 0.0432
+  sources:
+    alio: 2
+    bai: 7
+    korail_web: 1
+    rnd_notice: 2
+    scienceon: 52
+  examples:
+  - alio:sum-f42b23167df70601
+  - alio:sum-3fa2fb4d065e5356
+  - bai:3287
+- term: 수준
+  doc_freq: 63
+  chunk_freq: 232
+  doc_ratio: 0.0425
+  sources:
+    alio: 8
+    bai: 6
+    korail_web: 2
+    mofe: 4
+    molit: 4
+    own: 2
+    rnd_notice: 5
+    scienceon: 32
+  examples:
+  - alio:sum-68e5828ad95d53df
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-8584da591771a3de
+- term: 장치
+  doc_freq: 63
+  chunk_freq: 79
+  doc_ratio: 0.0425
+  sources:
+    alio: 6
+    bai: 4
+    korail_web: 1
+    own: 4
+    rnd_notice: 4
+    scienceon: 44
+  examples:
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-a9ba4b519a500bb2
+  - alio:sum-62abec14608a0eab
+- term: 특히
+  doc_freq: 63
+  chunk_freq: 126
+  doc_ratio: 0.0425
+  sources:
+    alio: 4
+    bai: 6
+    korail_web: 1
+    mofe: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 44
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-65af3a62975875ad
+- term: 바탕
+  doc_freq: 62
+  chunk_freq: 148
+  doc_ratio: 0.0418
+  sources:
+    alio: 8
+    bai: 5
+    korail_web: 2
+    rnd_notice: 5
+    scienceon: 42
+  examples:
+  - alio:sum-b6696d266328d62d
+  - alio:sum-bf7a113ee747aa7b
+  - alio:sum-b7a646f8220a33c6
+- term: 분석하였다
+  doc_freq: 62
+  chunk_freq: 65
+  doc_ratio: 0.0418
+  sources:
+    bai: 2
+    scienceon: 60
+  examples:
+  - bai:2973
+  - bai:2596
+  - scienceon:JAKO201129362564139
+- term: 고속선
+  doc_freq: 31
+  chunk_freq: 40
+  doc_ratio: 0.0209
+  sources:
+    alio: 2
+    bai: 1
+    korail_web: 1
+    molit: 1
+    own: 7
+    scienceon: 19
+  examples:
+  - alio:sum-93c9a5b0f86eb7a6
+  - alio:sum-46fbac1116635377
+  - bai:3108
+  hint: rail_seed
+- term: 원인
+  doc_freq: 60
+  chunk_freq: 105
+  doc_ratio: 0.0405
+  sources:
+    alio: 7
+    bai: 9
+    datago: 4
+    korail_web: 1
+    molit: 1
+    own: 3
+    rnd_notice: 3
+    scienceon: 32
+  examples:
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-5e5d11ff2fd7d672
+- term: 중장기
+  doc_freq: 60
+  chunk_freq: 94
+  doc_ratio: 0.0405
+  sources:
+    alio: 20
+    bai: 3
+    korail_web: 3
+    molit: 4
+    own: 23
+    rnd_notice: 4
+    scienceon: 3
+  examples:
+  - alio:sum-193a7fc09665d358
+  - alio:sum-483e43133e5fdf6e
+  - alio:sum-40c4c9e049b77419
+- term: 해석
+  doc_freq: 60
+  chunk_freq: 71
+  doc_ratio: 0.0405
+  sources:
+    alio: 3
+    rnd_notice: 3
+    scienceon: 54
+  examples:
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-0b1307e4464ff3ab
+  - alio:sum-e66ca9ade356f30e
+- term: 구조물
+  doc_freq: 59
+  chunk_freq: 106
+  doc_ratio: 0.0398
+  sources:
+    alio: 1
+    bai: 6
+    datago: 3
+    korail_web: 1
+    own: 3
+    rnd_notice: 4
+    scienceon: 41
+  examples:
+  - alio:sum-e66ca9ade356f30e
+  - bai:3287
+  - bai:3109
+- term: 주행
+  doc_freq: 58
+  chunk_freq: 66
+  doc_ratio: 0.0391
+  sources:
+    alio: 1
+    bai: 1
+    korail_web: 1
+    rnd_notice: 4
+    scienceon: 51
+  examples:
+  - alio:sum-a9ba4b519a500bb2
+  - bai:3287
+  - korail_web:262ce54cdd97762b
+- term: 신뢰성
+  doc_freq: 57
+  chunk_freq: 108
+  doc_ratio: 0.0384
+  sources:
+    alio: 18
+    bai: 2
+    korail_web: 1
+    molit: 1
+    own: 1
+    rnd_notice: 5
+    scienceon: 29
+  examples:
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-36ad9ca6b9bf8a40
+  - alio:sum-75ff411b9a6e0eb5
+- term: 연구결
+  doc_freq: 57
+  chunk_freq: 62
+  doc_ratio: 0.0384
+  sources:
+    alio: 27
+    bai: 1
+    molit: 1
+    rnd_notice: 1
+    scienceon: 27
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-992f47e5bbb2deb6
+- term: 출처
+  doc_freq: 57
+  chunk_freq: 70
+  doc_ratio: 0.0384
+  sources:
+    bai: 1
+    datago: 1
+    korail_web: 1
+    rnd_notice: 4
+    scienceon: 50
+  examples:
+  - bai:3109
+  - datago:15119094
+  - korail_web:262ce54cdd97762b
+- term: 측면
+  doc_freq: 57
+  chunk_freq: 82
+  doc_ratio: 0.0384
+  sources:
+    alio: 2
+    bai: 4
+    korail_web: 1
+    molit: 1
+    own: 1
+    rnd_notice: 5
+    scienceon: 43
+  examples:
+  - alio:sum-0b1307e4464ff3ab
+  - alio:sum-e66ca9ade356f30e
+  - bai:3287
+- term: 논문
+  doc_freq: 56
+  chunk_freq: 110
+  doc_ratio: 0.0378
+  sources:
+    rnd_notice: 5
+    scienceon: 51
+  examples:
+  - rnd_notice:c3d1f842795e5f0c
+  - rnd_notice:bd2436f24acf971b
+  - rnd_notice:6d68c8c061094ccc
+- term: 높은
+  doc_freq: 56
+  chunk_freq: 106
+  doc_ratio: 0.0378
+  sources:
+    alio: 6
+    bai: 3
+    korail_web: 1
+    mofe: 5
+    molit: 1
+    rnd_notice: 5
+    scienceon: 35
+  examples:
+  - alio:sum-8584da591771a3de
+  - alio:sum-9024bd37c9e08daf
+  - alio:sum-cb1e72fc26e10a59
+- term: 설치
+  doc_freq: 56
+  chunk_freq: 185
+  doc_ratio: 0.0378
+  sources:
+    alio: 11
+    bai: 9
+    datago: 1
+    korail_web: 2
+    molit: 1
+    own: 2
+    rnd_notice: 5
+    scienceon: 25
+  examples:
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-b349baa893b6ddd3
+  - alio:sum-8584da591771a3de
+- term: 특징
+  doc_freq: 56
+  chunk_freq: 89
+  doc_ratio: 0.0378
+  sources:
+    alio: 1
+    mofe: 9
+    molit: 1
+    rnd_notice: 1
+    scienceon: 44
+  examples:
+  - alio:sum-04811bb76954f320
+  - mofe:MOSF_000000000078271
+  - mofe:MOSF_000000000074194
+- term: 전차선
+  doc_freq: 28
+  chunk_freq: 48
+  doc_ratio: 0.0189
+  sources:
+    alio: 4
+    bai: 3
+    korail_web: 1
+    own: 5
+    scienceon: 15
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-2d4a3d48c4da6570
+  - alio:sum-d4b627c74dccf0d5
+  hint: rail_seed
+- term: 같은
+  doc_freq: 55
+  chunk_freq: 171
+  doc_ratio: 0.0371
+  sources:
+    alio: 2
+    bai: 8
+    korail_web: 1
+    rnd_notice: 2
+    scienceon: 42
+  examples:
+  - alio:sum-62abec14608a0eab
+  - alio:sum-25070a7eb6df239c
+  - bai:3360
+- term: 조건
+  doc_freq: 55
+  chunk_freq: 88
+  doc_ratio: 0.0371
+  sources:
+    alio: 6
+    bai: 5
+    korail_web: 1
+    own: 1
+    rnd_notice: 5
+    scienceon: 37
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-8584da591771a3de
+- term: 하고
+  doc_freq: 55
+  chunk_freq: 247
+  doc_ratio: 0.0371
+  sources:
+    alio: 4
+    bai: 11
+    korail_web: 2
+    mofe: 4
+    molit: 1
+    rnd_notice: 5
+    scienceon: 28
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-4c21a58b1a1f4e6f
+- term: 하였다
+  doc_freq: 55
+  chunk_freq: 122
+  doc_ratio: 0.0371
+  sources:
+    bai: 11
+    mofe: 4
+    scienceon: 40
+  examples:
+  - bai:3360
+  - bai:3287
+  - bai:3137
+- term: 등에
+  doc_freq: 54
+  chunk_freq: 315
+  doc_ratio: 0.0364
+  sources:
+    alio: 9
+    bai: 11
+    datago: 1
+    korail_web: 2
+    mofe: 3
+    molit: 2
+    rnd_notice: 5
+    scienceon: 21
+  examples:
+  - alio:sum-74ac656cede2cf53
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-8584da591771a3de
+- term: 속도
+  doc_freq: 54
+  chunk_freq: 77
+  doc_ratio: 0.0364
+  sources:
+    alio: 1
+    bai: 6
+    korail_web: 2
+    molit: 1
+    own: 1
+    rnd_notice: 4
+    scienceon: 39
+  examples:
+  - alio:sum-8584da591771a3de
+  - bai:3287
+  - bai:3108
+- term: 실용화
+  doc_freq: 54
+  chunk_freq: 187
+  doc_ratio: 0.0364
+  sources:
+    alio: 32
+    korail_web: 1
+    own: 6
+    rnd_notice: 4
+    scienceon: 11
+  examples:
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-a9ba4b519a500bb2
+  - alio:sum-aa8524320594e401
+- term: 필요한
+  doc_freq: 54
+  chunk_freq: 195
+  doc_ratio: 0.0364
+  sources:
+    alio: 14
+    bai: 6
+    korail_web: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 26
+  examples:
+  - alio:sum-9024bd37c9e08daf
+  - alio:sum-1aa493a9b7422203
+  - alio:sum-cf7a53fa5504de50
+- term: 경부고속철
+  doc_freq: 27
+  chunk_freq: 42
+  doc_ratio: 0.0182
+  sources:
+    bai: 4
+    korail_web: 2
+    molit: 2
+    own: 1
+    scienceon: 18
+  examples:
+  - bai:3108
+  - bai:2784
+  - bai:2563
+  hint: rail_seed
+- term: 열차운행
+  doc_freq: 27
+  chunk_freq: 77
+  doc_ratio: 0.0182
+  sources:
+    alio: 9
+    bai: 5
+    korail_web: 3
+    mofe: 1
+    scienceon: 9
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-193a7fc09665d358
+  hint: rail_seed
+- term: 화차
+  doc_freq: 27
+  chunk_freq: 43
+  doc_ratio: 0.0182
+  sources:
+    alio: 7
+    bai: 4
+    korail_web: 2
+    own: 6
+    scienceon: 8
+  examples:
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-d6afded904badf11
+  - alio:sum-7f54d027f755009b
+  hint: rail_seed
+- term: 내용
+  doc_freq: 53
+  chunk_freq: 362
+  doc_ratio: 0.0357
+  sources:
+    alio: 2
+    bai: 11
+    korail_web: 1
+    molit: 2
+    rnd_notice: 5
+    scienceon: 32
+  examples:
+  - alio:sum-7ecd35e52390de4e
+  - alio:sum-beaa02fd23491996
+  - bai:3360
+- term: 장비
+  doc_freq: 53
+  chunk_freq: 102
+  doc_ratio: 0.0357
+  sources:
+    alio: 16
+    bai: 5
+    datago: 2
+    korail_web: 1
+    rnd_notice: 4
+    scienceon: 25
+  examples:
+  - alio:sum-992f47e5bbb2deb6
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-5b9310c88fd558b3
+- term: 각각
+  doc_freq: 52
+  chunk_freq: 78
+  doc_ratio: 0.0351
+  sources:
+    alio: 2
+    bai: 11
+    korail_web: 1
+    mofe: 4
+    molit: 1
+    rnd_notice: 1
+    scienceon: 32
+  examples:
+  - alio:sum-f1e218969ac2df50
+  - alio:sum-0b1307e4464ff3ab
+  - bai:3360
+- term: 매우
+  doc_freq: 52
+  chunk_freq: 64
+  doc_ratio: 0.0351
+  sources:
+    bai: 4
+    korail_web: 1
+    mofe: 1
+    molit: 1
+    rnd_notice: 3
+    scienceon: 42
+  examples:
+  - bai:3287
+  - bai:3108
+  - bai:2784
+- term: 유지관리
+  doc_freq: 52
+  chunk_freq: 131
+  doc_ratio: 0.0351
+  sources:
+    alio: 3
+    bai: 6
+    datago: 3
+    korail_web: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 33
+  examples:
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-4c21a58b1a1f4e6f
+  - alio:sum-3fa2fb4d065e5356
+- term: 효율적
+  doc_freq: 52
+  chunk_freq: 77
+  doc_ratio: 0.0351
+  sources:
+    alio: 14
+    bai: 2
+    korail_web: 2
+    molit: 1
+    own: 6
+    rnd_notice: 4
+    scienceon: 23
+  examples:
+  - alio:sum-992f47e5bbb2deb6
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-74ac656cede2cf53
+- term: 고속열차
+  doc_freq: 26
+  chunk_freq: 45
+  doc_ratio: 0.0175
+  sources:
+    alio: 6
+    bai: 3
+    korail_web: 2
+    molit: 1
+    own: 6
+    scienceon: 8
+  examples:
+  - alio:sum-93c9a5b0f86eb7a6
+  - alio:sum-57f98a3f7965ba46
+  - alio:sum-7f54d027f755009b
+  hint: rail_seed
+- term: 고속화
+  doc_freq: 26
+  chunk_freq: 41
+  doc_ratio: 0.0175
+  sources:
+    alio: 1
+    bai: 2
+    korail_web: 2
+    molit: 3
+    scienceon: 18
+  examples:
+  - alio:sum-4c21a58b1a1f4e6f
+  - bai:3108
+  - bai:2784
+  hint: rail_seed
+- term: 분기기
+  doc_freq: 26
+  chunk_freq: 50
+  doc_ratio: 0.0175
+  sources:
+    alio: 1
+    bai: 2
+    own: 3
+    rnd_notice: 2
+    scienceon: 18
+  examples:
+  - alio:sum-b7a646f8220a33c6
+  - bai:3108
+  - bai:2784
+  hint: rail_seed
+- term: 가능
+  doc_freq: 51
+  chunk_freq: 182
+  doc_ratio: 0.0344
+  sources:
+    alio: 23
+    bai: 7
+    korail_web: 2
+    mofe: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 12
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-992f47e5bbb2deb6
+  - alio:sum-2b91fb3d9c70f8d4
+- term: 대비
+  doc_freq: 51
+  chunk_freq: 193
+  doc_ratio: 0.0344
+  sources:
+    alio: 9
+    bai: 8
+    korail_web: 1
+    mofe: 7
+    molit: 1
+    own: 1
+    rnd_notice: 5
+    scienceon: 19
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-992f47e5bbb2deb6
+  - alio:sum-b349baa893b6ddd3
+- term: 동적
+  doc_freq: 50
+  chunk_freq: 64
+  doc_ratio: 0.0337
+  sources:
+    alio: 1
+    rnd_notice: 3
+    scienceon: 46
+  examples:
+  - alio:sum-2b91fb3d9c70f8d4
+  - rnd_notice:c3d1f842795e5f0c
+  - rnd_notice:bd2436f24acf971b
+- term: 많은
+  doc_freq: 50
+  chunk_freq: 60
+  doc_ratio: 0.0337
+  sources:
+    alio: 1
+    bai: 4
+    korail_web: 1
+    molit: 1
+    rnd_notice: 2
+    scienceon: 41
+  examples:
+  - alio:sum-76e62110d7562fe4
+  - bai:3287
+  - bai:3108
+- term: 작업
+  doc_freq: 50
+  chunk_freq: 75
+  doc_ratio: 0.0337
+  sources:
+    alio: 13
+    bai: 3
+    datago: 1
+    korail_web: 1
+    own: 1
+    rnd_notice: 5
+    scienceon: 26
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-aa8524320594e401
+- term: 저감
+  doc_freq: 50
+  chunk_freq: 95
+  doc_ratio: 0.0337
+  sources:
+    alio: 6
+    korail_web: 1
+    molit: 1
+    own: 2
+    rnd_notice: 5
+    scienceon: 35
+  examples:
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-6e4e2b2d0a477d96
+  - alio:sum-483e43133e5fdf6e
+- term: 증가
+  doc_freq: 50
+  chunk_freq: 136
+  doc_ratio: 0.0337
+  sources:
+    alio: 5
+    bai: 9
+    datago: 1
+    korail_web: 1
+    mofe: 3
+    molit: 2
+    rnd_notice: 5
+    scienceon: 24
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-9024bd37c9e08daf
+  - alio:sum-483e43133e5fdf6e
+- term: 하중
+  doc_freq: 50
+  chunk_freq: 55
+  doc_ratio: 0.0337
+  sources:
+    alio: 4
+    bai: 5
+    rnd_notice: 3
+    scienceon: 38
+  examples:
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-f1e218969ac2df50
+  - alio:sum-0b1307e4464ff3ab
+- term: 자갈도상
+  doc_freq: 25
+  chunk_freq: 28
+  doc_ratio: 0.0169
+  sources:
+    alio: 1
+    own: 1
+    scienceon: 23
+  examples:
+  - alio:sum-b349baa893b6ddd3
+  - own:5aa54f4eeea6284a
+  - scienceon:JAKO200630335055772
+  hint: rail_seed
+- term: 철도궤
+  doc_freq: 25
+  chunk_freq: 25
+  doc_ratio: 0.0169
+  sources:
+    scienceon: 25
+  examples:
+  - scienceon:JAKO201219037961474
+  - scienceon:DIKO0011938619
+  - scienceon:TRKO202300002868
+  hint: rail_seed
+- term: 철도화물
+  doc_freq: 25
+  chunk_freq: 38
+  doc_ratio: 0.0169
+  sources:
+    alio: 7
+    molit: 1
+    own: 17
+  examples:
+  - alio:sum-866719d09ecdfa8a
+  - alio:sum-5afb19f62b912e63
+  - alio:sum-4c21a58b1a1f4e6f
+  hint: rail_seed
+- term: 기여
+  doc_freq: 49
+  chunk_freq: 63
+  doc_ratio: 0.033
+  sources:
+    alio: 30
+    bai: 2
+    korail_web: 3
+    mofe: 3
+    molit: 2
+    rnd_notice: 4
+    scienceon: 5
+  examples:
+  - alio:sum-700aa3c1f24338f1
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-2b91fb3d9c70f8d4
+- term: 산정
+  doc_freq: 49
+  chunk_freq: 148
+  doc_ratio: 0.033
+  sources:
+    alio: 7
+    bai: 7
+    korail_web: 1
+    mofe: 1
+    molit: 1
+    own: 10
+    rnd_notice: 5
+    scienceon: 17
+  examples:
+  - alio:sum-2f5fa7a12b9225af
+  - alio:sum-f66df369dfdf986b
+  - alio:sum-04811bb76954f320
+- term: 실시간
+  doc_freq: 49
+  chunk_freq: 147
+  doc_ratio: 0.033
+  sources:
+    alio: 10
+    bai: 1
+    korail_web: 3
+    own: 4
+    rnd_notice: 5
+    scienceon: 26
+  examples:
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-76e62110d7562fe4
+  - alio:sum-8584da591771a3de
+- term: 안정성
+  doc_freq: 49
+  chunk_freq: 74
+  doc_ratio: 0.033
+  sources:
+    alio: 5
+    bai: 4
+    korail_web: 1
+    molit: 1
+    rnd_notice: 4
+    scienceon: 34
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-88971fc30eceb729
+  - alio:sum-d2502d564a738da6
+- term: 에서
+  doc_freq: 49
+  chunk_freq: 152
+  doc_ratio: 0.033
+  sources:
+    alio: 4
+    bai: 10
+    datago: 1
+    korail_web: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 26
+  examples:
+  - alio:sum-2b91fb3d9c70f8d4
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+- term: 나타났다
+  doc_freq: 48
+  chunk_freq: 63
+  doc_ratio: 0.0324
+  sources:
+    bai: 6
+    mofe: 2
+    scienceon: 40
+  examples:
+  - bai:3287
+  - bai:3137
+  - bai:3108
+- term: 다음
+  doc_freq: 48
+  chunk_freq: 93
+  doc_ratio: 0.0324
+  sources:
+    alio: 2
+    bai: 6
+    korail_web: 1
+    mofe: 1
+    rnd_notice: 5
+    scienceon: 33
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-4c21a58b1a1f4e6f
+  - bai:3287
+- term: 모두
+  doc_freq: 48
+  chunk_freq: 97
+  doc_ratio: 0.0324
+  sources:
+    bai: 10
+    korail_web: 5
+    mofe: 4
+    molit: 1
+    rnd_notice: 5
+    scienceon: 23
+  examples:
+  - bai:3360
+  - bai:3287
+  - bai:3137
+- term: 분석하여
+  doc_freq: 48
+  chunk_freq: 58
+  doc_ratio: 0.0324
+  sources:
+    alio: 5
+    bai: 3
+    korail_web: 1
+    mofe: 2
+    rnd_notice: 5
+    scienceon: 32
+  examples:
+  - alio:sum-c39e3053ebf06701
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-db3c5bdd560c7518
+- term: 수행하였다
+  doc_freq: 48
+  chunk_freq: 50
+  doc_ratio: 0.0324
+  sources:
+    bai: 4
+    scienceon: 44
+  examples:
+  - bai:3287
+  - bai:3109
+  - bai:3108
+- term: 예방
+  doc_freq: 48
+  chunk_freq: 98
+  doc_ratio: 0.0324
+  sources:
+    alio: 28
+    bai: 3
+    korail_web: 2
+    mofe: 2
+    own: 1
+    rnd_notice: 4
+    scienceon: 8
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-76e62110d7562fe4
+- term: 인해
+  doc_freq: 48
+  chunk_freq: 90
+  doc_ratio: 0.0324
+  sources:
+    alio: 3
+    bai: 9
+    korail_web: 1
+    mofe: 2
+    rnd_notice: 5
+    scienceon: 28
+  examples:
+  - alio:sum-dfc888753b28306a
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-f66df369dfdf986b
+- term: 자체
+  doc_freq: 48
+  chunk_freq: 85
+  doc_ratio: 0.0324
+  sources:
+    alio: 2
+    bai: 8
+    korail_web: 3
+    mofe: 1
+    own: 18
+    rnd_notice: 5
+    scienceon: 11
+  examples:
+  - alio:sum-11a2f8d32dfdf26f
+  - alio:sum-812b30d071845692
+  - bai:3287
+- term: 정립
+  doc_freq: 48
+  chunk_freq: 132
+  doc_ratio: 0.0324
+  sources:
+    alio: 20
+    korail_web: 1
+    own: 6
+    rnd_notice: 5
+    scienceon: 16
+  examples:
+  - alio:sum-7e3d59f9a1bb2c0c
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-62bf43f61914e227
+- term: 차이
+  doc_freq: 48
+  chunk_freq: 72
+  doc_ratio: 0.0324
+  sources:
+    alio: 4
+    bai: 9
+    korail_web: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 28
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-1c14f67142f43dd8
+  - alio:sum-4c21a58b1a1f4e6f
+- term: 크게
+  doc_freq: 48
+  chunk_freq: 58
+  doc_ratio: 0.0324
+  sources:
+    alio: 2
+    bai: 4
+    korail_web: 1
+    mofe: 1
+    molit: 1
+    rnd_notice: 4
+    scienceon: 35
+  examples:
+  - alio:sum-4c21a58b1a1f4e6f
+  - alio:own-8c3ede505d984164
+  - bai:3287
+- term: 하나
+  doc_freq: 48
+  chunk_freq: 87
+  doc_ratio: 0.0324
+  sources:
+    alio: 3
+    bai: 6
+    korail_web: 2
+    mofe: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 30
+  examples:
+  - alio:sum-62abec14608a0eab
+  - alio:sum-f1e218969ac2df50
+  - alio:sum-25070a7eb6df239c
+- term: 효율성
+  doc_freq: 48
+  chunk_freq: 162
+  doc_ratio: 0.0324
+  sources:
+    alio: 18
+    bai: 4
+    korail_web: 1
+    mofe: 4
+    molit: 1
+    own: 1
+    rnd_notice: 5
+    scienceon: 14
+  examples:
+  - alio:sum-e34ca80bbb58ffdf
+  - alio:sum-36ad9ca6b9bf8a40
+  - alio:sum-c39e3053ebf06701
+- term: 궤도회
+  doc_freq: 24
+  chunk_freq: 30
+  doc_ratio: 0.0162
+  sources:
+    alio: 1
+    bai: 1
+    own: 4
+    scienceon: 18
+  examples:
+  - alio:sum-d2502d564a738da6
+  - bai:3108
+  - own:38408d9e822bb6de
+  hint: rail_seed
+- term: 역사
+  doc_freq: 24
+  chunk_freq: 66
+  doc_ratio: 0.0162
+  sources:
+    alio: 7
+    bai: 4
+    korail_web: 2
+    molit: 1
+    own: 4
+    rnd_notice: 1
+    scienceon: 5
+  examples:
+  - alio:sum-6e4e2b2d0a477d96
+  - alio:sum-f66df369dfdf986b
+  - alio:sum-cb1e72fc26e10a59
+  hint: rail_seed
+- term: 철도교량
+  doc_freq: 24
+  chunk_freq: 24
+  doc_ratio: 0.0162
+  sources:
+    alio: 1
+    scienceon: 23
+  examples:
+  - alio:sum-850bd199802ffd58
+  - scienceon:JAKO201217449889296
+  - scienceon:DIKO0013491688
+  hint: rail_seed
+- term: 가장
+  doc_freq: 47
+  chunk_freq: 66
+  doc_ratio: 0.0317
+  sources:
+    alio: 2
+    bai: 7
+    korail_web: 1
+    molit: 1
+    rnd_notice: 4
+    scienceon: 32
+  examples:
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-9024bd37c9e08daf
+  - bai:3287
+- term: 대해
+  doc_freq: 47
+  chunk_freq: 217
+  doc_ratio: 0.0317
+  sources:
+    alio: 2
+    bai: 9
+    korail_web: 1
+    mofe: 8
+    molit: 2
+    rnd_notice: 5
+    scienceon: 20
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-25070a7eb6df239c
+  - bai:3360
+- term: 보다
+  doc_freq: 47
+  chunk_freq: 66
+  doc_ratio: 0.0317
+  sources:
+    alio: 4
+    bai: 3
+    korail_web: 1
+    mofe: 1
+    rnd_notice: 1
+    scienceon: 37
+  examples:
+  - alio:sum-04811bb76954f320
+  - alio:sum-d46694bf81859964
+  - alio:sum-25070a7eb6df239c
+- term: 있을
+  doc_freq: 47
+  chunk_freq: 53
+  doc_ratio: 0.0317
+  sources:
+    alio: 3
+    bai: 8
+    korail_web: 1
+    scienceon: 35
+  examples:
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-c83e7c80c3619a7b
+  - alio:own-8c3ede505d984164
+- term: 중심
+  doc_freq: 47
+  chunk_freq: 262
+  doc_ratio: 0.0317
+  sources:
+    alio: 9
+    bai: 5
+    korail_web: 2
+    mofe: 4
+    molit: 1
+    own: 8
+    rnd_notice: 5
+    scienceon: 13
+  examples:
+  - alio:sum-533718cc04b2eecc
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-62bf43f61914e227
+- term: 소음
+  doc_freq: 46
+  chunk_freq: 58
+  doc_ratio: 0.031
+  sources:
+    alio: 1
+    korail_web: 1
+    molit: 1
+    own: 3
+    rnd_notice: 4
+    scienceon: 36
+  examples:
+  - alio:sum-4c21a58b1a1f4e6f
+  - korail_web:262ce54cdd97762b
+  - molit:86f486de41385dcd
+- term: 승차감
+  doc_freq: 46
+  chunk_freq: 48
+  doc_ratio: 0.031
+  sources:
+    bai: 1
+    korail_web: 1
+    molit: 1
+    rnd_notice: 2
+    scienceon: 41
+  examples:
+  - bai:3108
+  - korail_web:262ce54cdd97762b
+  - molit:86f486de41385dcd
+- term: 외부
+  doc_freq: 46
+  chunk_freq: 83
+  doc_ratio: 0.031
+  sources:
+    alio: 24
+    bai: 6
+    korail_web: 3
+    rnd_notice: 4
+    scienceon: 9
+  examples:
+  - alio:sum-7e3d59f9a1bb2c0c
+  - alio:sum-d03d8bbf4e1511b9
+  - alio:sum-ca2a4c7c5464848f
+- term: 있어서
+  doc_freq: 46
+  chunk_freq: 58
+  doc_ratio: 0.031
+  sources:
+    bai: 5
+    korail_web: 1
+    rnd_notice: 1
+    scienceon: 39
+  examples:
+  - bai:3287
+  - bai:3137
+  - bai:3109
+- term: 함께
+  doc_freq: 46
+  chunk_freq: 119
+  doc_ratio: 0.031
+  sources:
+    alio: 5
+    bai: 8
+    korail_web: 5
+    mofe: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 21
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-40fd995ab55a3eda
+  - alio:sum-9024bd37c9e08daf
+- term: 수송실적
+  doc_freq: 23
+  chunk_freq: 26
+  doc_ratio: 0.0155
+  sources:
+    alio: 11
+    datago: 9
+    molit: 1
+    own: 2
+  examples:
+  - alio:sum-62bf43f61914e227
+  - alio:sum-193a7fc09665d358
+  - alio:sum-e01291827bf21949
+  hint: rail_seed
+- term: 방향
+  doc_freq: 45
+  chunk_freq: 134
+  doc_ratio: 0.0303
+  sources:
+    alio: 10
+    bai: 6
+    korail_web: 1
+    mofe: 1
+    molit: 2
+    rnd_notice: 5
+    scienceon: 20
+  examples:
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-aa8524320594e401
+  - alio:sum-75ed29c2205be243
+- term: 으로
+  doc_freq: 45
+  chunk_freq: 165
+  doc_ratio: 0.0303
+  sources:
+    alio: 6
+    bai: 10
+    datago: 3
+    korail_web: 2
+    mofe: 3
+    molit: 1
+    rnd_notice: 5
+    scienceon: 15
+  examples:
+  - alio:sum-b349baa893b6ddd3
+  - alio:sum-46fbac1116635377
+  - alio:sum-88971fc30eceb729
+- term: 제시하였다
+  doc_freq: 45
+  chunk_freq: 57
+  doc_ratio: 0.0303
+  sources:
+    bai: 8
+    scienceon: 37
+  examples:
+  - bai:3287
+  - bai:3137
+  - bai:3109
+- term: 중요한
+  doc_freq: 45
+  chunk_freq: 53
+  doc_ratio: 0.0303
+  sources:
+    alio: 4
+    bai: 3
+    korail_web: 1
+    molit: 1
+    rnd_notice: 3
+    scienceon: 33
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-850bd199802ffd58
+  - alio:sum-a0505d3ec0f62152
+- term: 형상
+  doc_freq: 45
+  chunk_freq: 51
+  doc_ratio: 0.0303
+  sources:
+    alio: 3
+    bai: 3
+    own: 1
+    rnd_notice: 4
+    scienceon: 34
+  examples:
+  - alio:sum-f1e218969ac2df50
+  - alio:sum-04811bb76954f320
+  - alio:sum-8e2a38f330531c2d
+- term: 것이
+  doc_freq: 44
+  chunk_freq: 108
+  doc_ratio: 0.0297
+  sources:
+    alio: 2
+    bai: 6
+    korail_web: 1
+    rnd_notice: 1
+    scienceon: 34
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-4c21a58b1a1f4e6f
+  - bai:3287
+- term: 구성
+  doc_freq: 44
+  chunk_freq: 187
+  doc_ratio: 0.0297
+  sources:
+    alio: 2
+    bai: 7
+    korail_web: 3
+    mofe: 4
+    molit: 1
+    rnd_notice: 5
+    scienceon: 22
+  examples:
+  - alio:sum-88971fc30eceb729
+  - alio:sum-4c21a58b1a1f4e6f
+  - bai:3137
+- term: 기획
+  doc_freq: 44
+  chunk_freq: 241
+  doc_ratio: 0.0297
+  sources:
+    alio: 6
+    bai: 1
+    korail_web: 1
+    own: 27
+    rnd_notice: 5
+    scienceon: 4
+  examples:
+  - alio:sum-36ad9ca6b9bf8a40
+  - alio:sum-40fd995ab55a3eda
+  - alio:sum-483e43133e5fdf6e
+- term: 단위
+  doc_freq: 44
+  chunk_freq: 289
+  doc_ratio: 0.0297
+  sources:
+    alio: 1
+    bai: 11
+    datago: 4
+    korail_web: 2
+    mofe: 9
+    molit: 5
+    rnd_notice: 5
+    scienceon: 7
+  examples:
+  - alio:sum-04811bb76954f320
+  - bai:3360
+  - bai:3287
+- term: 수치해석
+  doc_freq: 44
+  chunk_freq: 49
+  doc_ratio: 0.0297
+  sources:
+    alio: 1
+    bai: 2
+    rnd_notice: 2
+    scienceon: 39
+  examples:
+  - alio:sum-bf7a113ee747aa7b
+  - bai:3287
+  - bai:2563
+- term: 위해서
+  doc_freq: 44
+  chunk_freq: 81
+  doc_ratio: 0.0297
+  sources:
+    alio: 1
+    bai: 6
+    molit: 1
+    rnd_notice: 3
+    scienceon: 33
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - bai:3360
+  - bai:3287
+- term: 일반철
+  doc_freq: 44
+  chunk_freq: 143
+  doc_ratio: 0.0297
+  sources:
+    alio: 9
+    bai: 7
+    datago: 4
+    korail_web: 1
+    molit: 2
+    own: 8
+    scienceon: 13
+  examples:
+  - alio:sum-700aa3c1f24338f1
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-193a7fc09665d358
+- term: 있고
+  doc_freq: 44
+  chunk_freq: 106
+  doc_ratio: 0.0297
+  sources:
+    alio: 2
+    bai: 10
+    korail_web: 1
+    molit: 1
+    rnd_notice: 4
+    scienceon: 26
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:own-8c3ede505d984164
+  - bai:3360
+- term: 적용하여
+  doc_freq: 44
+  chunk_freq: 50
+  doc_ratio: 0.0297
+  sources:
+    alio: 2
+    bai: 3
+    korail_web: 1
+    rnd_notice: 5
+    scienceon: 33
+  examples:
+  - alio:sum-8584da591771a3de
+  - alio:sum-3abad073b3288dec
+  - bai:3108
+- term: 전체
+  doc_freq: 44
+  chunk_freq: 119
+  doc_ratio: 0.0297
+  sources:
+    alio: 3
+    bai: 9
+    datago: 3
+    korail_web: 1
+    mofe: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 21
+  examples:
+  - alio:sum-04811bb76954f320
+  - alio:sum-25070a7eb6df239c
+  - alio:sum-9e55c8e4ccddc25f
+- term: 추가
+  doc_freq: 44
+  chunk_freq: 131
+  doc_ratio: 0.0297
+  sources:
+    alio: 5
+    bai: 9
+    korail_web: 2
+    mofe: 4
+    molit: 1
+    rnd_notice: 5
+    scienceon: 18
+  examples:
+  - alio:sum-62abec14608a0eab
+  - alio:sum-04811bb76954f320
+  - alio:sum-e666b32b9997edd2
+- term: 하여
+  doc_freq: 44
+  chunk_freq: 132
+  doc_ratio: 0.0297
+  sources:
+    alio: 5
+    bai: 11
+    datago: 1
+    korail_web: 1
+    mofe: 2
+    molit: 1
+    rnd_notice: 5
+    scienceon: 18
+  examples:
+  - alio:sum-850bd199802ffd58
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-62abec14608a0eab
+- term: 확인하였다
+  doc_freq: 44
+  chunk_freq: 48
+  doc_ratio: 0.0297
+  sources:
+    alio: 1
+    bai: 5
+    scienceon: 38
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - bai:3287
+  - bai:3137
+- term: 과정
+  doc_freq: 43
+  chunk_freq: 152
+  doc_ratio: 0.029
+  sources:
+    alio: 12
+    bai: 11
+    korail_web: 1
+    mofe: 1
+    molit: 1
+    rnd_notice: 5
+    scienceon: 12
+  examples:
+  - alio:sum-71fac170cdd41cbc
+  - alio:sum-5e5d11ff2fd7d672
+  - alio:sum-a9ba4b519a500bb2
+- term: 그리고
+  doc_freq: 43
+  chunk_freq: 137
+  doc_ratio: 0.029
+  sources:
+    alio: 2
+    bai: 11
+    datago: 1
+    korail_web: 1
+    rnd_notice: 1
+    scienceon: 27
+  examples:
+  - alio:sum-c83e7c80c3619a7b
+  - alio:sum-4c21a58b1a1f4e6f
+  - bai:3360
+- term: 기법
+  doc_freq: 43
+  chunk_freq: 47
+  doc_ratio: 0.029
+  sources:
+    alio: 2
+    bai: 1
+    korail_web: 1
+    own: 1
+    rnd_notice: 2
+    scienceon: 36
+  examples:
+  - alio:sum-75ff411b9a6e0eb5
+  - alio:sum-25070a7eb6df239c
+  - bai:3109
