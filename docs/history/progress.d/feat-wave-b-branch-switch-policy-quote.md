@@ -10,3 +10,4 @@
 - 14:30 e2e branch-switch 2건·novel·policy-popup 통과(가짜 모드). (a)(b) 는 409 를 거치지 않고 [선택 적용] 한 번으로 전환됨을 확인.
   되돌림(novelty_reverted) 세션은 전환으로 보지 않도록 웹·서버 모두 예외. pytest 2675/21 skip, vitest 270, ruff·lint-imports 통과.
 - 14:35 ADR 0061·timeline.d·status.d 작성, e2e 전체 돌리는 중 → 커밋·푸시·PR.
+- 14:50 PR #136 생성(병합 안 함). 전체 e2e 에서 argon-live 1건 시간 초과 → 단독 3회 통과(내 변경 전 단계).
