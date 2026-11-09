@@ -1,0 +1,221 @@
+{
+  "suite": "l1",
+  "seed": 1109048,
+  "n": 20,
+  "repeats": 1,
+  "metrics": {
+    "recall_at5": null,
+    "false_block": 0.8333,
+    "novel_rate": 0.875,
+    "novel_estimated_barrier_ratio": null,
+    "latency_p50": 30.5,
+    "latency_p90": 82.59,
+    "rec_zero_rate": null
+  },
+  "ci95": {},
+  "config_flags": {
+    "facets.enabled": false,
+    "idf_weighting.enabled": true,
+    "synonyms.enabled": false,
+    "judgment.enabled": true,
+    "series.enabled": true,
+    "rerank.threshold": 0.5,
+    "llm": "gemini",
+    "rerank.enabled": true,
+    "with_recommend": false,
+    "keywords": "rule"
+  },
+  "label": "ra-idf-on",
+  "commit": "3854659",
+  "started_at": "2026-11-09T16:16:40+09:00",
+  "seconds": 931.9,
+  "sealed": false,
+  "llm_calls": 20,
+  "cache_hits": 0,
+  "notes": [
+    "새 영역 문제 차단 0/8건 (false_block 분모 밖)",
+    "문제 종류: novel 8, trap 12"
+  ],
+  "problems": [
+    {
+      "id": "ec4a6001cbbb9235",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 34.146
+    },
+    {
+      "id": "3de0932a396eae5b",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 23.277
+    },
+    {
+      "id": "3d7498f4cb636cb4",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 17.014
+    },
+    {
+      "id": "db144e0a36ea9f2c",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 28.13
+    },
+    {
+      "id": "a4a1902bb51cc9be",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 121.005
+    },
+    {
+      "id": "2b565d63c369954a",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 16.708
+    },
+    {
+      "id": "c0958c3c72cb4459",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 28.652
+    },
+    {
+      "id": "e9796f301875f9ab",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 78.321
+    },
+    {
+      "id": "0532d4e65c0de65f",
+      "kind": "novel",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": false,
+      "seconds": 47.36
+    },
+    {
+      "id": "6467087a2c06f1ce",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 26.231
+    },
+    {
+      "id": "1c70d6eb563ec6e4",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 50.221
+    },
+    {
+      "id": "524ef79235622965",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 32.356
+    },
+    {
+      "id": "66b69c2289716d2d",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 42.267
+    },
+    {
+      "id": "aa13834aa5cda391",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 56.96
+    },
+    {
+      "id": "a7e19f704a7f3f9e",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 48.957
+    },
+    {
+      "id": "486c5aef67b51102",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 188.391
+    },
+    {
+      "id": "9889720d37cda072",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 19.63
+    },
+    {
+      "id": "50a452ad212746ab",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 28.611
+    },
+    {
+      "id": "9b66cc8d3e7c162b",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 16.677
+    },
+    {
+      "id": "e314ee1473ceda1f",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 27.006
+    }
+  ]
+}

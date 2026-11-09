@@ -1,0 +1,401 @@
+{
+  "suite": "l1",
+  "seed": 1109048,
+  "n": 40,
+  "repeats": 1,
+  "metrics": {
+    "recall_at5": 1.0,
+    "false_block": 0.9167,
+    "novel_rate": 0.875,
+    "novel_estimated_barrier_ratio": null,
+    "latency_p50": 22.54,
+    "latency_p90": 34.67,
+    "rec_zero_rate": null
+  },
+  "ci95": {},
+  "config_flags": {
+    "facets.enabled": true,
+    "idf_weighting.enabled": true,
+    "synonyms.enabled": false,
+    "judgment.enabled": true,
+    "series.enabled": true,
+    "rerank.threshold": 0.5,
+    "llm": "gemini",
+    "rerank.enabled": true,
+    "with_recommend": false,
+    "keywords": "rule"
+  },
+  "label": "da-e-on",
+  "commit": "a0531b4",
+  "started_at": "2026-11-09T15:39:10+09:00",
+  "seconds": 1038.3,
+  "sealed": false,
+  "llm_calls": 40,
+  "cache_hits": 0,
+  "notes": [
+    "새 영역 문제 차단 0/8건 (false_block 분모 밖)",
+    "문제 종류: novel 8, reverse 20, trap 12"
+  ],
+  "problems": [
+    {
+      "id": "c3a2189ce8b7ce7c",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 44.464
+    },
+    {
+      "id": "5554aebf7412f40b",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 14.291
+    },
+    {
+      "id": "115c272b5d2a8ce6",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 21.402
+    },
+    {
+      "id": "ec4a6001cbbb9235",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 21.324
+    },
+    {
+      "id": "3de0932a396eae5b",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 19.772
+    },
+    {
+      "id": "3d7498f4cb636cb4",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 22.438
+    },
+    {
+      "id": "db144e0a36ea9f2c",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 14.79
+    },
+    {
+      "id": "a4a1902bb51cc9be",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 29.062
+    },
+    {
+      "id": "ea81a93acaed0390",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 14.654
+    },
+    {
+      "id": "ee20631e8968e340",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 31.781
+    },
+    {
+      "id": "e83cc7b89df763d3",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 31.788
+    },
+    {
+      "id": "2b565d63c369954a",
+      "kind": "trap",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 26.556
+    },
+    {
+      "id": "82c9ab839dcfa4ab",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 16.437
+    },
+    {
+      "id": "9b76315c41ff92d1",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 29.003
+    },
+    {
+      "id": "51981d9241b71104",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 17.409
+    },
+    {
+      "id": "c0958c3c72cb4459",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 28.154
+    },
+    {
+      "id": "0cde0e2cbe9af2f7",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 30.018
+    },
+    {
+      "id": "64bc98d8a47407b5",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 33.65
+    },
+    {
+      "id": "e9796f301875f9ab",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 26.759
+    },
+    {
+      "id": "0532d4e65c0de65f",
+      "kind": "novel",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": false,
+      "seconds": 21.472
+    },
+    {
+      "id": "144e315483bf080f",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 27.422
+    },
+    {
+      "id": "165909f353f8c782",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 16.318
+    },
+    {
+      "id": "64a5da3403d897d1",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 25.913
+    },
+    {
+      "id": "6467087a2c06f1ce",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 23.661
+    },
+    {
+      "id": "1c70d6eb563ec6e4",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 16.903
+    },
+    {
+      "id": "524ef79235622965",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 17.344
+    },
+    {
+      "id": "748ce595df6528f9",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 31.04
+    },
+    {
+      "id": "66b69c2289716d2d",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 77.762
+    },
+    {
+      "id": "0cfa7c339a4d39e5",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 19.136
+    },
+    {
+      "id": "aa13834aa5cda391",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 30.607
+    },
+    {
+      "id": "a7e19f704a7f3f9e",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 24.191
+    },
+    {
+      "id": "486c5aef67b51102",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 43.835
+    },
+    {
+      "id": "571906f5f642d94c",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 20.861
+    },
+    {
+      "id": "fe48bffaa3080da6",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 22.647
+    },
+    {
+      "id": "9889720d37cda072",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 21.148
+    },
+    {
+      "id": "84012d1ebd751356",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 19.201
+    },
+    {
+      "id": "50a452ad212746ab",
+      "kind": "trap",
+      "correct": false,
+      "runs": 1,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 21.486
+    },
+    {
+      "id": "fa7418c8fd649346",
+      "kind": "reverse",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": true,
+      "seconds": 15.765
+    },
+    {
+      "id": "9b66cc8d3e7c162b",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 20.731
+    },
+    {
+      "id": "e314ee1473ceda1f",
+      "kind": "novel",
+      "correct": true,
+      "runs": 1,
+      "correct_runs": 1,
+      "blocked": false,
+      "seconds": 47.067
+    }
+  ]
+}

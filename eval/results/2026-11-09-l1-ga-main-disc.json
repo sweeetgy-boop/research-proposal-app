@@ -1,0 +1,114 @@
+{
+  "suite": "l1",
+  "seed": 1109048,
+  "n": 7,
+  "repeats": 3,
+  "metrics": {
+    "recall_at5": null,
+    "false_block": 1.0,
+    "novel_rate": 0.5,
+    "novel_estimated_barrier_ratio": null,
+    "latency_p50": 23.34,
+    "latency_p90": 32.3,
+    "rec_zero_rate": null
+  },
+  "ci95": {
+    "false_block": {
+      "low": 1.0,
+      "high": 1.0
+    },
+    "novel_rate": {
+      "low": 0.0,
+      "high": 1.0
+    }
+  },
+  "config_flags": {
+    "facets.enabled": false,
+    "idf_weighting.enabled": false,
+    "synonyms.enabled": false,
+    "judgment.enabled": true,
+    "series.enabled": true,
+    "rerank.threshold": 0.5,
+    "llm": "gemini",
+    "rerank.enabled": true,
+    "with_recommend": false,
+    "keywords": "rule"
+  },
+  "label": "ga-main-disc",
+  "commit": "561ad78",
+  "started_at": "2026-11-09T15:57:39+09:00",
+  "seconds": 531.6,
+  "sealed": false,
+  "llm_calls": 21,
+  "cache_hits": 0,
+  "notes": [
+    "새 영역 문제 차단 0/2건 (false_block 분모 밖)",
+    "ci95: 문제별 반복 평균의 부트스트랩 2000회 (2.5·97.5 백분위)",
+    "문제 종류: novel 2, trap 5"
+  ],
+  "problems": [
+    {
+      "id": "3d7498f4cb636cb4",
+      "kind": "trap",
+      "correct": false,
+      "runs": 3,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 18.854
+    },
+    {
+      "id": "db144e0a36ea9f2c",
+      "kind": "trap",
+      "correct": false,
+      "runs": 3,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 22.427
+    },
+    {
+      "id": "c0958c3c72cb4459",
+      "kind": "novel",
+      "correct": true,
+      "runs": 3,
+      "correct_runs": 3,
+      "blocked": false,
+      "seconds": 23.741
+    },
+    {
+      "id": "e9796f301875f9ab",
+      "kind": "trap",
+      "correct": false,
+      "runs": 3,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 17.752
+    },
+    {
+      "id": "0532d4e65c0de65f",
+      "kind": "novel",
+      "correct": false,
+      "runs": 3,
+      "correct_runs": 0,
+      "blocked": false,
+      "seconds": 33.127
+    },
+    {
+      "id": "1c70d6eb563ec6e4",
+      "kind": "trap",
+      "correct": false,
+      "runs": 3,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 34.208
+    },
+    {
+      "id": "50a452ad212746ab",
+      "kind": "trap",
+      "correct": false,
+      "runs": 3,
+      "correct_runs": 0,
+      "blocked": true,
+      "seconds": 27.081
+    }
+  ]
+}
