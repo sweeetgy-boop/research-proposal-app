@@ -211,6 +211,8 @@ facets:
   # 늘리지 않음. 모델이 없거나 출력이 형식에 안 맞으면 규칙(domain/rules/facets 사전)으로. 레인 E.
   local_stage: clarify
 idf_weighting:
+  # 2026-11-09 밤 방침: 평가는 보류(문제가 생기면 그때 고침) — 검증 없이 켜 두면 중복을 놓쳐도 드러나지 않으므로 off 유지.
+  # 연습용 묶음 40문제 비교(docs/eval-2026-11-09-compare.md)에서는 recall@5·역방향 차단 변화 없음, 함정 1건 덜 차단.
   enabled: false        # 핵심어 겹침에 말뭉치 IDF 가중 (data/cache/idf.json, 적재·재색인 때 계산)
   cache: data/cache/idf.json   # `rra db idf` 가 쓰고 스위치가 켜졌을 때 ② 판정이 읽는다 (없으면 가중 없음)
   # 핵심어 조건 = 겹친 핵심어 가중 합 ≥ core_min_hits × 평균 가중 × min_weight_ratio. 1.0 = 계약 그대로.

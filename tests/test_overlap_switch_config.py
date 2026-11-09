@@ -27,6 +27,8 @@ def _settings(tmp_path: Path, overlap: str) -> Settings:
 
 
 def test_repo_config_has_all_switches_off():
+    """운영 설정의 스위치는 모두 off — 2026-11-09 밤 방침(평가 보류, 검증 없이 켜지 않음),
+    ADR 0059."""
     s = Settings(_env_file=None, config_dir=ROOT / "config")
     assert load_overlap_switches(s) == OFF
     assert idf_weighting_rule(s).min_weight_ratio == 1.0

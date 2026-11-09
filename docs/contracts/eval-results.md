@@ -23,7 +23,7 @@
 ## 2. 지표 정의 (문제 종류 → 지표)
 | 문제 종류 | 정답 | 지표 |
 |---|---|---|
-| 역방향(reverse) — DB 의 실제 과제(사내·NTIS 과제·알리오)를 제목 단어 없이 아이디어로 바꿔 씀 | 원래 과제 doc_id 가 ② 상위 5행 | `recall_at5` |
+| 역방향(reverse) — DB 의 실제 과제(사내·NTIS 과제·알리오)를 제목 단어 없이 아이디어로 바꿔 씀 | 원래 과제 doc_id 가 ② 상위 5행 | `recall_at5`, `reverse_block`(차단된 비율 — 정답을 유사과제로 잡았는가, 높을수록 좋음; 2026-11-09 사용자 요청, idf 켬 판단 기준) |
 | 함정(trap) — 과제 A 의 대상 × 과제 B 의 방법 | 차단되지 않음 | `false_block`(차단된 비율) |
 | 새 영역(novel) — 유사 과제가 없을 아이디어 | `recommend_mode == novel` | `novel_rate`, `novel_estimated_barrier_ratio`, `rec_zero_rate` |
 | 모두 | — | `latency_p50`·`latency_p90`(② 표+판정, L1 은 과제안 포함 여부를 `config_flags.with_recommend` 로 적는다) |
