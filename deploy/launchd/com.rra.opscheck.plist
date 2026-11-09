@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  운영 점검 (rra ops check) — launchd 사용자 에이전트, 5분마다 (계약 docs/contracts/healthz-status.md §3, ADR 0062).
+  tailscale status(JSON) · tailscale funnel status · 로컬 모델 GET /v1/models(5초) 를 보고
+  data/cache/ops_status.json 에 열거값(tunnel ok|down, llm_local ok|unavailable)·시각만 적는다. /healthz 가 읽는다.
+  읽기만 한다 — serve/funnel 설정·launchd 서비스를 바꾸는 명령은 없다. 출력 원문(IP·이름)은 저장·로그하지 않는다.
+  설치: cp deploy/launchd/com.rra.opscheck.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/com.rra.opscheck.plist
+  해제: launchctl unload -w ~/Library/LaunchAgents/com.rra.opscheck.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.rra.opscheck</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin/rra</string>
+    <string>ops</string>
+    <string>check</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chan/projects/research-proposal-app</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/chan/projects/research-proposal-app/.venv/bin:/usr/bin:/bin</string>
+    <key>RRA_CONFIG_DIR</key>
+    <string>/Users/chan/projects/research-proposal-app/config</string>
+    <key>RRA_DATA_DIR</key>
+    <string>/Users/chan/projects/research-proposal-app/data</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/chan/Library/Logs/rra-opscheck.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chan/Library/Logs/rra-opscheck.err.log</string>
+</dict>
+</plist>

@@ -32,6 +32,8 @@ PROBLEM_LABELS: dict[str, str] = {
     "generation_failed": "작성하지 못한 섹션",
     "schedule_exceeds_period": "일정이 연구 기간을 넘음",
     "figure_schedule_exceeds_period": "그림 일정이 연구 기간을 넘음",
+    # ② 과제안 갈래 전환 — problem+json code (레인 B, 2026-11-09)
+    "mode_changed": "선택이 바뀌어 과제안을 다시 받습니다",
 }
 UNKNOWN_PROBLEM = "확인이 필요한 알림"
 
