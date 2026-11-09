@@ -22,3 +22,4 @@ sources:
   scienceon: {enabled: true, top_n: 30, max_requests: 8}   # 논문·보고서·특허 target 마다 10건, 질의 2개까지
   ntis:      {enabled: true, top_n: 30, max_requests: 6}   # 과제 15 + 연구보고서 15. IP 거부면 그 세션은 건너뜀
   openalex:  {enabled: true, top_n: 30, max_requests: 3}   # 영문 키워드, 초록 있는 것만
+  kipris_kr: {enabled: true, top_n: 20, max_requests: 3}   # KIPRIS Plus 특허·실용신안 자유검색(국문 키워드), 2026-11-09 키 투입 뒤 추가

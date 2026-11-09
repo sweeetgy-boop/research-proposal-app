@@ -179,3 +179,24 @@ async def test_scienceon_live_targets_share_limit_and_token_reused():
     assert all(not d.authors for d in docs)
     await live.fetch(["궤도"], 30)  # 둘째 세션 — 토큰은 재사용, 예산은 처음부터
     assert sum(r.url.path == "/tokenrequest.do" for r in seen) == 1
+
+
+# ── KIPRIS (2026-11-09 키 투입 뒤 실시간 검색·새로움 확인에 추가) ─────────────────
+async def test_kipris_live_fetches_korean_queries_dedupes_and_resets_budget():
+    from rra.adapters.sources.live import LiveKipris
+    from tests.adapters.test_kipris import page, source_for
+
+    # 질의 1 → 2건(출원번호 1·2), 질의 2 → 같은 2건 + 새 1건(3): 같은 출원번호는 한 번만
+    src, requests = source_for(
+        [page(2, 2), page(3, 3), page(1, 1), page(1, 1), page(1, 1)], docs=50, max_requests=None
+    )
+    live = LiveKipris(src, max_requests=3)
+    assert live.source == "kipris_kr" and live.lang == "ko"
+    docs = await live.fetch(["비둘기 침입 방지", "비둘기 퇴치"], 20)
+    assert 2 <= len(docs) <= 3 and len({d.doc_id for d in docs}) == len(docs)
+    assert all(d.source == "kipris_kr" and d.doc_type == "patent" for d in docs)
+    assert len(requests) == 2
+    for r in requests:  # 키는 요청 파라미터로만, 국문 질의 그대로
+        assert "accessKey" in str(r.url) and "word=" in str(r.url)
+    assert await live.fetch([], 20) == [] and await live.fetch(["x"], 0) == []
+    assert len(await live.fetch(["x"], 5)) >= 1  # 세션마다 예산이 처음부터

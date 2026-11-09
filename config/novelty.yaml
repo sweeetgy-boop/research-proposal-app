@@ -47,6 +47,7 @@ analogy:
       scienceon: {enabled: true, top_n: 30, max_requests: 8}
       ntis:      {enabled: true, top_n: 20, max_requests: 6}
       openalex:  {enabled: true, top_n: 30, max_requests: 3}
+      kipris_kr: {enabled: true, top_n: 20, max_requests: 3}   # 2026-11-09 KIPRIS 키 투입 뒤 — 새로움 확인에 국내 특허 포함
 
 # 같은 분야(철도) 판정 — 데이터에 있는 것만 본다. 하나라도 맞으면 유추 사례에서 뺀다.
 rail_field:

@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-LIVE_SOURCES: tuple[str, ...] = ("scienceon", "ntis", "openalex")
+LIVE_SOURCES: tuple[str, ...] = ("scienceon", "ntis", "openalex", "kipris_kr")  # kipris_kr 2026-11-09
 LiveSourceName = Literal["scienceon", "ntis", "openalex"]
 # ok=검색 완료(0건 포함), timeout=제한 시간 초과로 건너뜀, ip_blocked=호출 IP 거부(NTIS),
 # error=그 밖의 실패(예외 클래스명만 로그), off=설정에서 끔
