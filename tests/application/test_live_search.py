@@ -124,7 +124,9 @@ async def test_all_sources_saved_public_live_and_keywords():
     # 영문 키워드는 OpenAlex, 국문은 ScienceON·NTIS
     assert srcs[2].calls[0][0][0] == "train delay"
     assert srcs[0].calls[0][0] == ["열차 지연 예측", "운행 데이터", "머신러닝"]
-    assert all(r.status == "ok" and r.count == 1 and r.new == 1 for r in summary.sources)
+    live_rows = [r for r in summary.sources if r.status != "off"]  # kipris_kr 은 기본 꺼짐 → off 행
+    assert len(live_rows) == 3
+    assert all(r.status == "ok" and r.count == 1 and r.new == 1 for r in live_rows)
 
 
 async def test_per_source_timeout_skips_only_that_source():
@@ -239,7 +241,7 @@ async def test_cache_hit_within_ttl_and_miss_after(tmp_path: Path):
     await live.prepare("u1", _req())
     now[0] = 23 * 3600
     second = await live.prepare("u2", _req())  # 다른 사용자, 같은 키워드 → 캐시
-    assert all(r.cached for r in second.sources)
+    assert all(r.cached for r in second.sources if r.status != "off")
     assert sorted(second.doc_ids) == ["ntis:P1", "openalex:W1", "scienceon:A1"]
     assert [len(s.calls) for s in srcs] == [1, 1, 1]
     assert len(llm.calls) == 1  # 같은 입력의 키워드도 캐시 (Argon 호출 절약)
@@ -423,7 +425,7 @@ async def test_partial_session_retried_after_five_minutes_and_store_failure():
     failing = _live(_three(), repo=FailingRepo())
     summary = await failing.prepare("u1", _req())
     assert summary.doc_ids == [] and summary.status == "partial"
-    assert all(r.status == "error" and r.notice for r in summary.sources)
+    assert all(r.status == "error" and r.notice for r in summary.sources if r.status != "off")
 
 
 async def test_concurrent_sessions_store_each_document_once():

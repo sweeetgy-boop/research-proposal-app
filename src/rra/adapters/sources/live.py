@@ -187,3 +187,32 @@ class LiveOpenAlex:
                 if len(out) >= limit:
                     break
         return list(out.values())
+
+
+class LiveKipris:
+    """KIPRIS Plus 특허·실용신안 자유검색(국문 키워드) — Document.source kipris_kr, doc_type patent.
+    2026-11-09 키 투입 뒤 실시간 검색·새로움 확인에 더했다. 야간 적재의 KiprisPatentSource 와 다른
+    인스턴스라 요청 예산이 섞이지 않는다. 질의마다 limit 건까지, 같은 출원번호는 한 번만."""
+
+    source = "kipris_kr"
+    lang = "ko"
+
+    def __init__(self, inner: Any, *, max_requests: int = 3):
+        self.inner = inner  # KiprisPatentSource
+        self._budget = _Budget([inner.client], max_requests)
+
+    def __repr__(self) -> str:
+        return "LiveKipris()"
+
+    async def fetch(self, queries: list[str], limit: int) -> list[Document]:
+        if limit <= 0 or not queries:
+            return []
+        async with self._budget.lock:
+            self._budget.reset()
+            out: dict[str, Document] = {}
+            for q in queries:
+                raws = await self.inner.search(q, limit)
+                _add(out, _normalized(raws, self.inner.normalize), limit)
+                if len(out) >= limit:
+                    break
+        return list(out.values())

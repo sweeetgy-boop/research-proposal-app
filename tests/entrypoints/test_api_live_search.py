@@ -11,7 +11,7 @@ import asyncio
 import httpx
 from pydantic import SecretStr
 
-from rra.domain.models.live_search import LiveSearchConfig
+from rra.domain.models.live_search import LIVE_SOURCES, LiveSearchConfig, LiveSourceConfig
 from rra.settings import Settings
 
 TOKEN = "api-live-token"  # noqa: S105 — 테스트용
@@ -30,7 +30,12 @@ def _app(tmp_path, monkeypatch=None, *, enabled=True):
     from rra.composition import build_api
 
     if monkeypatch is not None:
-        cfg = LiveSearchConfig(enabled=enabled, fake_mode=True)
+        # 가짜 자료원 넷(kipris_kr 포함) 모두 켬 — 기본값은 kipris_kr 이 꺼져 있다
+        cfg = LiveSearchConfig(
+            enabled=enabled,
+            fake_mode=True,
+            sources={n: LiveSourceConfig() for n in LIVE_SOURCES},
+        )
         monkeypatch.setattr(loader, "live_search_config", lambda s: cfg)
 
     settings = Settings(
@@ -61,7 +66,12 @@ async def test_precheck_and_run_carry_live_search(tmp_path, monkeypatch):
         live = pre["live_search"]
         assert live["status"] == "done"
         assert live["keywords"]["ko"][0] == "궤도 상태 감지"  # 가짜 키워드 LLM
-        assert [s["source"] for s in live["sources"]] == ["scienceon", "ntis", "openalex"]
+        assert [s["source"] for s in live["sources"]] == [
+            "scienceon",
+            "ntis",
+            "openalex",
+            "kipris_kr",
+        ]
         for row in live["sources"]:
             assert row["status"] == "ok" and row["count"] == 2
             assert {"source", "status", "count", "seconds", "notice"} <= set(row)

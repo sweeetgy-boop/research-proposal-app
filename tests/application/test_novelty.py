@@ -175,6 +175,7 @@ async def test_no_live_coverage_is_stored_only_and_honest():
         {"source": "scienceon", "status": "off"},
         {"source": "ntis", "status": "off"},
         {"source": "openalex", "status": "off"},
+        {"source": "kipris_kr", "status": "off"},
     ]
     # 새 자료가 없으면 판정을 다시 돌리지 않는다 — 되돌림 없음
     assert out.new_alerts == [] and rule.calls == []

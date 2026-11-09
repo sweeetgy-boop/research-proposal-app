@@ -3214,7 +3214,7 @@ def build_live_sources(
     예산이 섞이지 않는다. 키가 없는 자료원(MissingCredential)은 빠진다 — 세션 상태에 error 로
     보인다. config 를 주면 그 자료원 상한(max_requests)으로 만든다 — 새로움 확인의 넓힌 검색은
     질의가 많아 상한이 크다(config/novelty.yaml, ADR 0057)."""
-    from rra.adapters.sources.live import LiveNtis, LiveOpenAlex, LiveScienceOn
+    from rra.adapters.sources.live import LiveKipris, LiveNtis, LiveOpenAlex, LiveScienceOn
     from rra.config_loader import live_search_config
 
     settings = settings or load_settings()
@@ -3243,6 +3243,14 @@ def build_live_sources(
             build_openalex_source(settings, transport=transport),
             max_requests=cfg.source("openalex").max_requests,
         )
+    if cfg.source("kipris_kr").enabled:  # KIPRIS Plus 국내 특허 (2026-11-09 키 투입 뒤)
+        try:
+            out["kipris_kr"] = LiveKipris(
+                build_kipris_source(settings, **kw),
+                max_requests=cfg.source("kipris_kr").max_requests,
+            )
+        except MissingCredential:
+            logger.info("live.source_missing_key source=kipris_kr")
     return out
 
 

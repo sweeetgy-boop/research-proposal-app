@@ -17,6 +17,7 @@ novelty:
       scienceon: {enabled: true, top_n: 45, max_requests: 16}   # 논문·보고서·특허 target 3 × 질의 5 + 토큰 1
       ntis:      {enabled: true, top_n: 40, max_requests: 10}   # IP 거부가 기록돼 있으면 호출하지 않고 ip_blocked
       openalex:  {enabled: true, top_n: 40, max_requests: 5}    # 해외 논문, 영문 키워드
+      kipris_kr: {enabled: true, top_n: 30, max_requests: 3}   # 2026-11-09 KIPRIS 키 투입 뒤 — 새로움 확인 coverage 에 국내 특허
 
 # ② 유추 검색: 아이디어에서 장소·시설·철도 단어를 빼고 '문제' 축 단어만 남겨(예: "철도역사 비둘기 침입 방지" →
 #    비둘기·침입·방지) 저장 자료 + 실시간 검색 → 철도 분야 자료를 빼고 관련도 하한(overlap.yaml evidence_floor
@@ -47,6 +48,7 @@ analogy:
       scienceon: {enabled: true, top_n: 30, max_requests: 8}
       ntis:      {enabled: true, top_n: 20, max_requests: 6}
       openalex:  {enabled: true, top_n: 30, max_requests: 3}
+      kipris_kr: {enabled: true, top_n: 30, max_requests: 3}   # 2026-11-09 KIPRIS 키 투입 뒤 — 새로움 확인에 국내 특허 포함
 
 # 같은 분야(철도) 판정 — 데이터에 있는 것만 본다. 하나라도 맞으면 유추 사례에서 뺀다.
 rail_field:

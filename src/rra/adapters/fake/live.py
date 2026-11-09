@@ -56,6 +56,23 @@ _DOCS: dict[str, list[dict[str, Any]]] = {
             "lang": "en",
         },
     ],
+    # KIPRIS 국내 특허 (2026-11-09 실시간 추가) — 가짜 모드도 네 자료원이 모두 응답한다
+    "kipris_kr": [
+        {
+            "doc_id": "kipris_kr:1020990000001",
+            "doc_type": "patent",
+            "title": "궤도 틀림 자동 검측 장치 (가짜 실시간)",
+            "abstract": "영상으로 궤도 틀림을 자동 검측하는 장치에 관한 것이다.",
+            "lang": "ko",
+        },
+        {
+            "doc_id": "kipris_kr:1020990000002",
+            "doc_type": "patent",
+            "title": "철도 선로 상태 감시 시스템 (가짜 실시간)",
+            "abstract": "선로 상태를 센서로 감시해 이상을 알리는 시스템이다.",
+            "lang": "ko",
+        },
+    ],
 }
 
 
@@ -91,4 +108,5 @@ def fake_live_sources() -> dict[str, FakeLiveSource]:
         "scienceon": FakeLiveSource("scienceon", "ko"),
         "ntis": FakeLiveSource("ntis", "ko"),
         "openalex": FakeLiveSource("openalex", "en"),
+        "kipris_kr": FakeLiveSource("kipris_kr", "ko"),  # 2026-11-09 KIPRIS 실시간 추가
     }

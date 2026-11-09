@@ -90,7 +90,8 @@ NOTICE_NO_SOURCE = "자료원 키가 없거나 조립되지 않아 건너뜀"
 NOTICE_STORE_FAILED = "받은 자료를 저장하지 못해 이번에는 쓰지 않음"
 RETRY_AFTER_SECONDS = 300  # 일부 자료원이 실패한 세션은 5분 뒤 같은 입력이면 다시 검색한다
 NOTICE_TIMEOUT = "제한 시간 {sec:.0f}초를 넘어 건너뜀"
-SOURCE_ORDER = ("ntis", "scienceon", "openalex")  # 중복이면 앞 자료원(과제·국내 기록)을 남긴다
+# 중복이면 앞 자료원(과제·국내 기록)을 남긴다
+SOURCE_ORDER = ("ntis", "scienceon", "kipris_kr", "openalex")
 
 
 # ── 키워드 ─────────────────────────────────────────────────

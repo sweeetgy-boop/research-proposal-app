@@ -8,13 +8,15 @@ from rra.config_loader import data_location, live_search_config
 from rra.settings import Settings
 
 
-def test_repo_config_is_on_with_three_sources():
+def test_repo_config_is_on_with_four_sources():
+    """2026-11-09 KIPRIS 키 투입 뒤 kipris_kr(국내 특허, top_n 20) 추가 — 나머지 셋은 종전."""
     cfg = live_search_config(Settings(_env_file=None))
     assert cfg.enabled is True and cfg.fake_mode is False
-    assert cfg.enabled_sources() == ["scienceon", "ntis", "openalex"]
+    assert cfg.enabled_sources() == ["scienceon", "ntis", "openalex", "kipris_kr"]
     assert cfg.per_source_timeout_seconds == 10 and cfg.overall_timeout_seconds == 15
     assert cfg.wait_seconds == 15 and cfg.cache_hours == 24
-    assert all(cfg.source(n).top_n == 30 for n in cfg.enabled_sources())
+    assert all(cfg.source(n).top_n == 30 for n in ("scienceon", "ntis", "openalex"))
+    assert cfg.source("kipris_kr").top_n == 20 and cfg.source("kipris_kr").max_requests == 3
     assert cfg.keywords.stage == "review"
 
 
