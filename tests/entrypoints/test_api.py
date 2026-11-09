@@ -140,7 +140,9 @@ async def test_fake_mode_healthz_llm_is_unknown_unless_simulated(
         body = (await c.get("/healthz")).json()
     assert body["status"] == "ok" and "version" in body
     assert body["llm"]["gemini"] == expected
-    assert set(body["llm"]) == {"gemini", "since"}
+    # tunnel·llm.local 은 상태 파일(없음) 기준 unknown — 가짜 모드도 칸은 있다 (healthz-status.md)
+    assert set(body["llm"]) == {"gemini", "since", "local"}
+    assert body["llm"]["local"] == "unknown" and body["tunnel"] == "unknown"
     assert (body["llm"]["since"] is None) == (env is None)
 
 

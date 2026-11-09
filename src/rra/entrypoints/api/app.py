@@ -76,6 +76,7 @@ from rra.domain.rules.trust import UNTRUSTED_NOTICE
 from rra.entrypoints.api.cancellable import CANCELLED_STATUS, ClientCancelled, cancel_on_disconnect
 from rra.entrypoints.api.choice_dedupe import ChoiceDedupe
 from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
+from rra.entrypoints.api.health_view import with_ops
 from rra.entrypoints.api.local_review_routes import register as register_local_review_routes
 from rra.entrypoints.api.progress_routes import register as register_progress_routes
 from rra.entrypoints.api.routes_format import register_format_routes
@@ -318,6 +319,7 @@ def create_app(
     client_ip: Callable[..., str] | None = None,
     version: dict[str, Any] | None = None,
     llm_health: Callable[[], dict[str, Any]] | None = None,
+    ops_status: Any | None = None,  # OpsStatusPort (build_ops_status) — tunnel·llm.local
     availability_notices: Callable[[], dict[str, str]] | None = None,
     live_search: Any | None = None,
     polish: Any | None = None,
@@ -493,6 +495,7 @@ def create_app(
             out["version"] = version
         if llm_health is not None:
             out["llm"] = llm_health()
+        with_ops(out, ops_status)  # tunnel·llm.local (계약 healthz-status.md, 상태 파일만 읽는다)
         return out
 
     # ── 세션 ────────────────────────────────────────────

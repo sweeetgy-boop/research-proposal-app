@@ -2588,6 +2588,7 @@ def build_api(
         availability_notices=build_source_availability(settings).notices,
         version=build_version_info(settings),
         llm_health=build_llm_health(settings),
+        ops_status=build_ops_status(settings),
         live_search=live if live.enabled else None,
     )
 
