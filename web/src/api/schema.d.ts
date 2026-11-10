@@ -1171,6 +1171,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ideas/diagnose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Diagnose Route */
+        post: operations["diagnose_route_v1_ideas_diagnose_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ideas/diagnose/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Diagnose Edit Route */
+        post: operations["diagnose_edit_route_v1_ideas_diagnose_edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run_id}/sections-progress": {
         parameters: {
             query?: never;
@@ -1600,6 +1634,46 @@ export interface components {
             ai_worsen?: string;
         };
         /**
+         * DiagnoseEditIn
+         * @description POST /v1/ideas/diagnose/edit — fields: 사용자가 고친 항목 이름.
+         */
+        DiagnoseEditIn: {
+            request: components["schemas"]["IdeaIn"];
+            before: components["schemas"]["ProblemCard"];
+            after: components["schemas"]["ProblemCard"];
+            /** Fields */
+            fields: ("function_ko" | "function_en" | "ladder" | "terms" | "cause" | "contradiction" | "ipc" | "science_class" | "facets" | "nature")[];
+        };
+        /**
+         * DiagnoseIn
+         * @description POST /v1/ideas/diagnose — previous: 화면이 갖고 있던 카드(사용자 항목은 그대로 둔다).
+         */
+        DiagnoseIn: {
+            /** Title Hint */
+            title_hint?: string | null;
+            /**
+             * Current State
+             * @default
+             */
+            current_state?: string;
+            /**
+             * Root Cause
+             * @default
+             */
+            root_cause?: string;
+            /**
+             * Limitation
+             * @default
+             */
+            limitation?: string;
+            /**
+             * Goal
+             * @default
+             */
+            goal?: string;
+            previous?: components["schemas"]["ProblemCard"] | null;
+        };
+        /**
          * DifferentiationTransferIn
          * @description POST /v1/precheck/differentiate 응답의 transfer 를 되돌려 보내면 run manifest 에 남는다.
          *     doc_id 와 개수만 — 본문은 받지 않는다 (보안 I).
@@ -1796,6 +1870,34 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * IdeaIn
+         * @description 네 칸 + 가제. 필수 칸 검사는 ProposalRequest 한 곳(문구도 그곳).
+         */
+        IdeaIn: {
+            /** Title Hint */
+            title_hint?: string | null;
+            /**
+             * Current State
+             * @default
+             */
+            current_state?: string;
+            /**
+             * Root Cause
+             * @default
+             */
+            root_cause?: string;
+            /**
+             * Limitation
+             * @default
+             */
+            limitation?: string;
+            /**
+             * Goal
+             * @default
+             */
+            goal?: string;
         };
         /** IdeaVersion */
         IdeaVersion: {
@@ -5038,6 +5140,76 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    diagnose_route_v1_ideas_diagnose_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiagnoseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    diagnose_edit_route_v1_ideas_diagnose_edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiagnoseEditIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

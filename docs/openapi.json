@@ -3009,6 +3009,86 @@
         }
       }
     },
+    "/v1/ideas/diagnose": {
+      "post": {
+        "summary": "Diagnose Route",
+        "operationId": "diagnose_route_v1_ideas_diagnose_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagnoseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Diagnose Route V1 Ideas Diagnose Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ideas/diagnose/edit": {
+      "post": {
+        "summary": "Diagnose Edit Route",
+        "operationId": "diagnose_edit_route_v1_ideas_diagnose_edit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagnoseEditIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Diagnose Edit Route V1 Ideas Diagnose Edit Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/runs/{run_id}/sections-progress": {
       "get": {
         "summary": "Sections Progress Route",
@@ -4109,6 +4189,104 @@
         "title": "Contradiction",
         "description": "모순 — 좋게 하려는 것 ↔ 그 때문에 나빠지는 것. 1차는 novel 갈래의 장벽·과제명에만 쓴다."
       },
+      "DiagnoseEditIn": {
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/IdeaIn"
+          },
+          "before": {
+            "$ref": "#/components/schemas/ProblemCard"
+          },
+          "after": {
+            "$ref": "#/components/schemas/ProblemCard"
+          },
+          "fields": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "function_ko",
+                "function_en",
+                "ladder",
+                "terms",
+                "cause",
+                "contradiction",
+                "ipc",
+                "science_class",
+                "facets",
+                "nature"
+              ]
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Fields"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request",
+          "before",
+          "after",
+          "fields"
+        ],
+        "title": "DiagnoseEditIn",
+        "description": "POST /v1/ideas/diagnose/edit — fields: 사용자가 고친 항목 이름."
+      },
+      "DiagnoseIn": {
+        "properties": {
+          "title_hint": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Hint"
+          },
+          "current_state": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Current State",
+            "default": ""
+          },
+          "root_cause": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Root Cause",
+            "default": ""
+          },
+          "limitation": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Limitation",
+            "default": ""
+          },
+          "goal": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Goal",
+            "default": ""
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemCard"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DiagnoseIn",
+        "description": "POST /v1/ideas/diagnose — previous: 화면이 갖고 있던 카드(사용자 항목은 그대로 둔다)."
+      },
       "DifferentiationTransferIn": {
         "properties": {
           "provider": {
@@ -4592,6 +4770,50 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "IdeaIn": {
+        "properties": {
+          "title_hint": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Hint"
+          },
+          "current_state": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Current State",
+            "default": ""
+          },
+          "root_cause": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Root Cause",
+            "default": ""
+          },
+          "limitation": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Limitation",
+            "default": ""
+          },
+          "goal": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Goal",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IdeaIn",
+        "description": "네 칸 + 가제. 필수 칸 검사는 ProposalRequest 한 곳(문구도 그곳)."
       },
       "IdeaVersion": {
         "properties": {
