@@ -109,6 +109,8 @@ stages:
   vision: {provider: gemini, max_tokens: 3000}
   # U5 선행연구 브리핑 = 검토와 같은 Gemini. 키가 없으면 조립이 compose(로컬) 모델로 대신한다
   brief: {provider: gemini, max_tokens: 2500}
+  # 문제 정의 카드 진단(ADR 0065, config/problem_card.yaml) = Gemini 1회. 실패하면 clarify(로컬) 가 대신한다
+  diagnose: {provider: gemini, max_tokens: 1500}
   # [G] 그림 명세(JSON) 작성 = 로컬 모델. 교정 재요청 1회 뒤에도 실패하면 compose.fallback 과 같은 provider 가 대신 쓴다
   figures: {max_tokens: 1500}
 

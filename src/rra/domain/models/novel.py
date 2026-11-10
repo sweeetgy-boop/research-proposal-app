@@ -83,6 +83,9 @@ class NovelTitle(BaseModel):
     title: str = Field(min_length=1, max_length=MAX_NOVEL_TITLE_CHARS)
     resolves: list[int] = Field(min_length=1)
     reason: str = Field(min_length=1, max_length=MAX_NOVEL_CHARS)
+    # ADR 0065 — 이 과제명이 기댄 TRIZ 발명 원리 번호(1~40). 문제 정의 카드의 모순에 붙은 원리
+    # 안에서만(그 밖의 번호는 검증이 뺀다). 카드가 없으면 늘 비어 있다.
+    principles: list[int] = Field(default_factory=list, max_length=3)
 
 
 class NovelStage(BaseModel):

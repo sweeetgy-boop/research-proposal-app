@@ -303,6 +303,12 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "log",
         "data/feedback/similar_choices.jsonl",
     ),
+    # 문제 정의 카드 수정 짝(JSONL, ADR 0065) — 카드 내용·가명 ID 만, 이름·연락처 없음
+    "card_edits": (
+        lambda s: read_config("problem_card.yaml", s).get("paths") or {},
+        "edits",
+        "data/feedback/card_edits.jsonl",
+    ),
     "bench": (lambda s: {}, "", "data/bench"),
     # 로그인 저장소(secret·staff.json·guest.json, 레인 A)·외부 LLM 일일 예산 카운터
     "auth": (lambda s: read_config("auth.yaml", s), "store_dir", "data/auth"),
@@ -738,6 +744,18 @@ def novelty_config(settings: Settings):
     if unknown:
         raise ValueError(f"config/novelty.yaml 에 모르는 키: {sorted(unknown)}")
     return NoveltyConfig.model_validate(cfg)
+
+
+def problem_card_config(settings: Settings):
+    """config/problem_card.yaml → ProblemCardConfig (문제 정의 카드, ADR 0065). 파일이 없으면
+    기본값(꺼짐). 모르는 키는 오류."""
+    from rra.domain.models.problem_card import ProblemCardConfig
+
+    cfg = read_config("problem_card.yaml", settings) or {}
+    unknown = set(cfg) - set(ProblemCardConfig.model_fields)
+    if unknown:
+        raise ValueError(f"config/problem_card.yaml 에 모르는 키: {sorted(unknown)}")
+    return ProblemCardConfig.model_validate(cfg)
 
 
 def eval_config(settings: Settings):

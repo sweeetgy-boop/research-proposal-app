@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator, model_v
 from pydantic_core import PydanticCustomError
 
 from .policy import PolicyChoice
+from .problem_card import ProblemCard
 
 SLOT_MAX = 2000
 SHORT_MAX = 200
@@ -51,9 +52,10 @@ def validation_message(
 # LLM 에 보내지 않는 입력 — 양식 칸에 그대로 옮기는 값과 ② 유사과제 선택 기록. policy_choice 는
 # 앱이 2-가-(1) 에 그대로 옮기는 제안자 확정값이라 프롬프트에는 policy_basis(요지)로만 들어간다.
 # reference_ids(② 관련 연구에서 고른 참고 논문, ADR 0053)는 판정·차단에 쓰지 않고
-# 차별화·과제안 구획으로만 간다.
+# 차별화·과제안 구획으로만 간다. problem_card(문제 정의 카드, ADR 0065)는 유추 검색·새 과제안
+# 구획·보완 질문이 직접 꺼내 쓰고, 그 밖의 프롬프트·판정·차단·캐시 키에는 들어가지 않는다.
 FORM_ONLY_FIELDS = frozenset(
-    {"budget", "department", "similar_choices", "policy_choice", "reference_ids"}
+    {"budget", "department", "similar_choices", "policy_choice", "reference_ids", "problem_card"}
 )
 MAX_SIMILAR_CHOICES = 30
 MAX_REFERENCE_IDS = 5
@@ -141,6 +143,12 @@ class ProposalRequest(BaseModel):
         default_factory=list,
         max_length=MAX_REFERENCE_IDS,
         description="② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)",
+    )
+    # ADR 0065 — 문제 정의 카드. 없으면(None) 모든 단계가 종전 방식으로 돈다. search_text·
+    # prompt_view 에 들어가지 않으므로 기존 캐시 키(실시간 검색 키워드 24시간 캐시 등)는 그대로다.
+    problem_card: ProblemCard | None = Field(
+        default=None,
+        description="문제 정의 카드 (① 진단 결과 + 제안자 수정, 판정·차단에 쓰지 않음)",
     )
     department: str = Field(default="", description="제안부서 (양식 칸에만 쓴다)")
     budget: Budget | None = None
