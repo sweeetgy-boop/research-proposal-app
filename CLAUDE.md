@@ -227,15 +227,15 @@
   유추 검색 `ProblemAnalogySearch`(대상·장소 말 뺀 문제 축, 철도 분야 제외 `rail_field`, 분야 이름은 메타데이터만, 하한 0.79) → `recommend_novel.md`(안 2~3, 장벽 5갈래
   근거 있음/추정+확인 방법, 장벽 해소형 과제명) → 검증 `domain/rules/novel_recommendation`. 조립 `composition.build_novelty`. novel 세션은 `/more`·`/apply` 409,
   웹 `features/precheck/NovelPlans.tsx`([이 과제명으로 진행] = 가제 칸만). 측정 줄 `branch`·`barriers`·`titles`. CLI·MCP·Streamlit 은 novelty 없이 저장 자료만.
-- **문제 정의 카드**(2026-11-10, ADR 0065, 계약 `docs/contracts/problem-card.md`, **스위치 `config/problem_card.yaml enabled: false` — 소유자 확인 뒤 켠다**): ① 네 칸이 차면 뒤에서
+- **문제 정의 카드**(2026-11-10, ADR 0065, 계약 `docs/contracts/problem-card.md`, **스위치 `config/problem_card.yaml enabled: true`(2026-11-10 켬) — 이상하면 false 한 줄로 끈다, 그러면 모든 단계가 종전 방식**): ① 네 칸이 차면 뒤에서
   진단 1회(`usecases/diagnose_problem`, Argon→로컬, `prompts/diagnose.md`) → 규칙 검증(`domain/rules/problem_card`: 근거 있음/추정은 규칙 판정, 장소어 제거, TRIZ 40 `rules/triz`,
   분류 코드 = 저장 자료 + KIPRIS 건수 `adapters/classification`) → 카드(`domain/models/problem_card`, `ProposalRequest.problem_card` — FORM_ONLY, 캐시 키·②판정 무관).
   REST `POST /v1/ideas/diagnose(·/edit)`(`entrypoints/api/problem_card_routes`), 웹 `features/idea/ProblemCard*`(문제 성격·신호는 화면에 없음). 쓰는 곳(novel 갈래):
   유추 질의 `rules/card_queries`(세션·메모 키는 **실제 보낸 질의 지문**, 자료원 응답 캐시는 공유)·정렬 `rules/analogy_rank`(대상어 겹침 → 재순위 max(기능 문장, 제안문 질의) →
   자료원당 2건 우선은 상위 15·점수 25% 이상만)·영문 → OpenAlex·IPC → KIPRIS 분류 검색(`getAdvancedSearch ipcNumber`)·모순+발명 원리 → novel 과제명(모순이 비면 구획 없음)·
   보완 질문 규칙 문장. 수정: 고친 항목은 AI 가 덮어쓰지 않고 의존 항목만 재계산, 과제안 다시 만들기는 버튼. 기록 `data/feedback/card_edits.jsonl`(본인 수정만 예시, 공용 계정 제외)·
-  선택 기록 `event: card_edit`. 기능 문장·사다리는 화면에 "AI가 다시 쓴 문장"(근거 있음/추정은 원인·모순·분류에만). 유추 보강(계약 4.3절): 겹치는 제목은 하나만
-  (`rank.dup_title_ratio` 0.6), 약한 자료 제외(1위 대비 `weak_ratio` 0.15 — 5건을 억지로 채우지 않는다), **대상 자체가 철도 시설이면**(`novelty.rail_asset_basis` — 대상어·대상 칸,
+  선택 기록 `event: card_edit`. 기능 문장·사다리는 화면에 "AI가 다시 쓴 문장"(근거 있음/추정은 원인·모순·분류에만). 유추 보강(계약 4.3절): 겹치는 제목 지우기는 **끔**
+  (`rank.dup_title_ratio` 0 — 제목이 비슷해도 다른 발명이었다, 묶어서 비교 분석하는 방식으로 다시 설계), 약한 자료 제외(1위 대비 `weak_ratio` 0.15 — 5건을 억지로 채우지 않는다), **대상 자체가 철도 시설이면**(`novelty.rail_asset_basis` — 대상어·대상 칸,
   장소 칸 제외) 철도 거르기 없이 '관련 선행 자료', 검색 범위 보고 `analogy_report`('없는 것'과 '못 찾은 것' 구분). 철도 분야 판정은 영문 구·합성어까지(`rail_field.phrases_en`·
   `contains_ko`, 스위치 무관). 2차: 조건부 분석 실행·사전 후보·관리자 통계·새로움 확인에 카드 쓰기.
   재사용·고정(계약 4.4절, `reuse: {enabled, cache_days}`): `diagnose` = 고정한 카드 → 공용 캐시 → AI(`usecases/card_reuse`, `rules/card_reuse` — 키는 입력 글 + 지시문 지문 + 모델,

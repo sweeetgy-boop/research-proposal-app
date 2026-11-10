@@ -49,9 +49,11 @@ def test_defaults_are_empty_and_off():
     assert ProblemCardConfig(use={"analogy_rank": True}).uses("analogy_rank") is False
 
 
-def test_repo_config_is_off_and_valid():
+def test_repo_config_is_on_and_valid():
+    """2026-11-10 소유자 승인으로 켬(실제 AI 카드 4사례 확인 뒤). 파일이 없을 때의 기본값은
+    여전히 꺼짐(`test_defaults_are_empty_and_off`)."""
     cfg = problem_card_config(Settings())
-    assert cfg.enabled is False
+    assert cfg.enabled is True
     assert cfg.rank.per_source == 2
     assert all(v is False for v in cfg.conditional.values())
 
