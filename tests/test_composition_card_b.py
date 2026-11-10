@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -35,18 +36,27 @@ def _settings(config_dir: Path, tmp_path: Path, **kw) -> Settings:
     )
 
 
-def _enabled_copy(tmp_path: Path) -> Path:
-    target = tmp_path / "config"
+def _copy(tmp_path: Path, *, enabled: bool) -> Path:
+    """설정 사본 — 맨 위 스위치만 원하는 값으로(저장소 값이 무엇이든)."""
+    target = tmp_path / ("config_on" if enabled else "config_off")
     shutil.copytree(ROOT_CONFIG, target)
     path = target / "problem_card.yaml"
     text = path.read_text(encoding="utf-8")
-    assert "enabled: false" in text  # 저장소 값은 꺼짐
-    path.write_text(text.replace("enabled: false", "enabled: true", 1), encoding="utf-8")
+    new, n = re.subn(
+        r"(?m)^enabled: (true|false)$", f"enabled: {str(enabled).lower()}", text, count=1
+    )
+    assert n == 1
+    path.write_text(new, encoding="utf-8")
     return target
 
 
-def test_repository_config_keeps_everything_off(tmp_path):
-    settings = _settings(ROOT_CONFIG, tmp_path)
+def _enabled_copy(tmp_path: Path) -> Path:
+    return _copy(tmp_path, enabled=True)
+
+
+def test_switched_off_config_keeps_everything_off(tmp_path):
+    """스위치를 끄면(끄는 PR 한 줄) 유추·보완 질문이 카드를 쓰지 않는다."""
+    settings = _settings(_copy(tmp_path, enabled=False), tmp_path)
     _, analogies = composition.build_novelty(
         settings, repo=InMemoryRepository(), precheck=_Precheck(), live=_Live()
     )

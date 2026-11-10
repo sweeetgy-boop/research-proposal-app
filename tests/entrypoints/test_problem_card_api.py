@@ -249,4 +249,4 @@ def test_composition_builds_port_implementations_and_off_by_default(tmp_path):
     assert isinstance(composition.build_class_code_check(settings, repo=repo), ClassCodeCheck)
     assert not (tmp_path / "data").exists()  # 가짜 모드는 데이터 폴더를 건드리지 않는다
     stored = yaml.safe_load(Path("config/problem_card.yaml").read_text(encoding="utf-8"))
-    assert stored["enabled"] is False  # 저장소 값은 꺼짐 그대로
+    assert stored["enabled"] is True  # 2026-11-10 소유자 승인으로 켬 — 끌 때는 이 값만 false
