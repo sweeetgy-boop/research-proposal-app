@@ -48,6 +48,17 @@ class NoveltyCoverage(BaseModel):
     note: str = COVERAGE_NOTE
 
 
+class AnalogyMember(BaseModel):
+    """대표 자료와 비슷해 한 묶음으로 접힌 자료 (계약 problem-card.md 4.6절). 지우지 않고 담는다."""
+
+    doc_id: str
+    title: str  # 수집 문서 제목 (비신뢰)
+    source: str = ""
+    source_label: str = ""
+    url: str | None = None
+    year: int | None = None
+
+
 class Analogy(BaseModel):
     """다른 분야 사례 한 건 (유추 검색, 최대 5). domain_label 은 자료원 메타데이터에서만."""
 
@@ -61,6 +72,9 @@ class Analogy(BaseModel):
     year: int | None = None
     live: bool = False  # 실시간 검색에서 찾은 자료
     similarity: float | None = None
+    # 이 자료와 비슷해(제목 낱말 겹침 또는 초록 의미 유사도) 함께 묶인 자료 — 이 자료가 대표다.
+    # 묶기가 꺼져 있거나 비슷한 자료가 없으면 빈 목록(종전과 같다)
+    similar: list[AnalogyMember] = Field(default_factory=list)
 
 
 AnalogyKind = Literal["other_field", "related"]
@@ -83,6 +97,9 @@ class AnalogyReport(BaseModel):
     # 카드 방식이 0건일 때만 센다 — 카드 없이(종전 문제어·종전 고르기) 찾으면 나오는 건수.
     # 1건 이상이면 화면이 "카드를 확인해 주세요" 안내를 보인다(자료 자체는 싣지 않는다)
     legacy_count: int = 0
+    groups: int = 0  # 최종 목록에서 비슷한 자료를 묶은 묶음 수(구성원이 있는 대표 수)
+    # 한 화면에서 비교 분석할 묶음 수 상한 — 분석이 꺼져 있으면 0 (웹이 지킨다)
+    group_analyze_max: int = 0
     # 확인 범위 — NoveltyCoverage 와 같은 뜻(실제로 확인한 자료원만)
     searched: list[str] = Field(default_factory=list)
     unavailable: list[dict[str, str]] = Field(default_factory=list)  # {source, status}

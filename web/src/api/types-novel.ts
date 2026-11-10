@@ -43,6 +43,50 @@ export interface Analogy {
   url: string | null;
   year: number | null;
   live: boolean;
+  /** 이 자료와 비슷해 한 자리로 묶인 자료(대표 제외) — 묶음이 없으면 빈 배열이거나 칸이 없다 (계약 problem-card.md 4.6절) */
+  similar?: AnalogyMember[];
+  /** 묶음이면 묶음 식별값, 아니면 null */
+  group_id?: string | null;
+}
+
+/** 묶음 구성원 한 건 — 제목·자료원·연도만 */
+export interface AnalogyMember {
+  doc_id: string;
+  title: string;
+  source: string;
+  source_label: string;
+  url: string | null;
+  year: number | null;
+}
+
+export type AnalogyGroupStatus = "ok" | "failed" | "skipped" | "off";
+
+/** 묶음 비교 분석의 한 행 — 글 칸은 외부 LLM 출력(비신뢰) */
+export interface AnalogyGroupItem {
+  doc_id: string;
+  title: string;
+  source_label: string;
+  url: string | null;
+  year: number | null;
+  core_method: string;
+  difference: string;
+  use: string;
+  /** 활용할 점은 늘 추정 — 화면 '추정' 배지 */
+  use_basis: string;
+  limit: string;
+  /** 초록만으로 구분되지 않은 칸이 있다 → 그 칸 옆에 [원문 보기] */
+  needs_source: boolean;
+}
+
+/** POST /v1/precheck/analogy-groups/analyze 응답. status 가 ok 가 아니면 화면은 묶음만 보인다 */
+export interface AnalogyGroupAnalysis {
+  status: AnalogyGroupStatus;
+  group_id: string | null;
+  items: AnalogyGroupItem[];
+  summary: { common: string; gap: string } | null;
+  cached: boolean;
+  seconds: number;
+  reason_label: string | null;
 }
 
 /** 다른 분야 사례·관련 선행 자료 구획의 검색 범위 보고 — 문제 정의 카드를 쓴 요청에만 온다(없으면 종전 화면 그대로).
@@ -72,6 +116,10 @@ export interface AnalogyReport {
   empty_text: string;
   /** 카드 방식만 0건이고 카드 없이 찾으면 자료가 있을 때의 안내 문장(서버가 만든다) — 아니면 없음·null */
   card_hint?: string | null;
+  /** 묶음 수 */
+  groups?: number;
+  /** 한 화면에서 비교 분석할 묶음 수 상한 — 없으면 2, 0 이면 분석하지 않는다 */
+  group_analyze_max?: number;
 }
 
 export interface NovelRef {

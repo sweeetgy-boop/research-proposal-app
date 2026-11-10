@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Lightbulb, PencilLine, RefreshCw } from "lucide-react";
 import type { PlanRecommendation } from "@/api/types";
+import type { PrecheckRequest } from "@/api/types-precheck";
 import { isNovel, type AnyRecommendations } from "@/api/types-novel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ export function PlanCards({
   referenceCount = 0,
   onFindReferences,
   novelTitle,
+  analysisRequest,
 }: {
   rec: AnyRecommendations | null | undefined;
   waiting: CardsWaiting;
@@ -77,6 +79,8 @@ export function PlanCards({
   onFindReferences?: () => void;
   /** novel 갈래의 [이 과제명으로 진행]·가제 칸 — 없으면 가제 칸 없이 보인다 */
   novelTitle?: NovelTitleProps;
+  /** novel 갈래의 비슷한 자료 묶음 비교 분석에 보낼 입력 — 없으면 묶음만 보인다 */
+  analysisRequest?: PrecheckRequest;
 }) {
   const loading = waiting.pending;
   const novel = isNovel(rec) ? rec : null;
@@ -147,7 +151,7 @@ export function PlanCards({
         {waitingRow}
         {staleNote}
         {revertedNote}
-        {novel && <NovelContext rec={novel} onAddReference={onFindReferences} />}
+        {novel && <NovelContext rec={novel} onAddReference={onFindReferences} analysisRequest={analysisRequest} />}
         <EmptyState
           icon={Lightbulb}
           title={rec ? "추천 0건" : "과제안 없음"}
@@ -198,7 +202,7 @@ export function PlanCards({
         {header}
         {waitingRow}
         {staleNote}
-        <NovelContext rec={novel} onAddReference={onFindReferences} />
+        <NovelContext rec={novel} onAddReference={onFindReferences} analysisRequest={analysisRequest} />
         {retryNote}
         <NovelPlans
           rec={novel}

@@ -376,6 +376,27 @@ class CardRank(BaseModel):
     require_object: bool = True  # 대상어(구체·일반화)가 겹친 자료만
 
 
+class CardGroups(BaseModel):
+    """비슷한 유추 자료 묶기 + 묶음 비교 분석 (계약 problem-card.md 4.6절). 지우지 않고 묶는다.
+
+    묶는 기준: 제목 낱말 겹침(`title_ratio`, 꼬리말 제외·짧은 쪽 기준) **또는** 초록 의미 유사도
+    (`abstract_similarity`, e5 코사인). 이어진 것끼리 한 묶음."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = True  # False 면 묶지 않는다(종전 동작)
+    title_ratio: float = Field(default=0.6, ge=0, le=1)  # 0 이면 제목 기준 끔
+    # e5 는 무관한 글끼리도 0.82~0.87 — 0.90 은 과하게 묶인다(2026-11-10 사전 실험). 0 이면 끔
+    abstract_similarity: float = Field(default=0.92, ge=0, le=1)
+    window: int = Field(default=15, ge=2, le=50)  # 순위 상위 몇 건 안에서 묶을지
+    max_members: int = Field(default=5, ge=2, le=5)  # 묶음 크기 상한(대표 포함)
+    analyze: bool = True  # 묶음 비교 분석(Argon). False 면 묶음만
+    max_groups: int = Field(default=2, ge=0, le=5)  # 한 화면에서 분석할 묶음 수(웹이 지킨다)
+    timeout_seconds: float = Field(default=45.0, gt=0, le=300)
+    cache_days: int = Field(default=30, ge=0)  # 0 이면 캐시 없음
+    stage: str = "review"  # llm.yaml stages 의 Argon 단계
+
+
 class CardLearning(BaseModel):
     """누적 학습 — 모델 학습 없음. 1차는 수정 짝 저장과 **본인** 수정 예시만."""
 
@@ -428,13 +449,25 @@ class ProblemCardConfig(BaseModel):
     verify: CardVerify = Field(default_factory=CardVerify)
     learning: CardLearning = Field(default_factory=CardLearning)
     reuse: CardReuseConfig = Field(default_factory=CardReuseConfig)
+    groups: CardGroups = Field(default_factory=CardGroups)
     # 대상어 동의어 묶음 — 묶음 안의 말은 같은 대상어로 본다(대상어 겹침 판정). 띄어쓰기 차이
     # ("가속도센서" = "가속도 센서")는 목록 없이도 같게 본다
     object_synonyms: tuple[tuple[str, ...], ...] = ()
     # 저장 위치 덮어쓰기 — edits: 수정 짝 JSONL (기본 data/feedback/card_edits.jsonl),
-    # cards: 카드 재사용 캐시 폴더 (기본 data/cache/problem_cards, 고정 카드는 그 아래 pinned/)
+    # cards: 카드 재사용 캐시 폴더 (기본 data/cache/problem_cards, 고정 카드는 그 아래 pinned/),
+    # analogy_groups: 묶음 비교 분석 캐시 폴더 (기본 data/cache/analogy_groups)
     paths: dict[str, str] = Field(default_factory=dict)
 
     def uses(self, name: str) -> bool:
         """그 쓰임새가 켜져 있는가 — 맨 위 스위치와 함께 본다."""
         return self.enabled and bool(getattr(self.use, name))
+
+    @property
+    def groups_on(self) -> bool:
+        """비슷한 자료 묶기가 켜져 있는가(맨 위 스위치 포함)."""
+        return self.enabled and self.groups.enabled
+
+    @property
+    def group_analysis_on(self) -> bool:
+        """묶음 비교 분석이 켜져 있는가 — 맨 위·묶기·분석 스위치 모두."""
+        return self.groups_on and self.groups.analyze

@@ -1057,6 +1057,23 @@ def novel_analogies_payload(
             "url": a.url,
             "year": a.year,
             "live": bool(a.live),
+            # 비슷해서 함께 묶인 자료(계약 problem-card.md 4.6절) — 없으면 빈 목록·null
+            "similar": [
+                {
+                    "doc_id": m.doc_id,
+                    "title": clean(display_title(m.title)),
+                    "source": m.source,
+                    "source_label": clean(m.source_label) or _ref_source_label(m.source, m.doc_id),
+                    "url": m.url,
+                    "year": m.year,
+                }
+                for m in (getattr(a, "similar", None) or [])
+            ],
+            "group_id": (
+                analogy_group_id([a.doc_id, *(m.doc_id for m in a.similar)])
+                if getattr(a, "similar", None)
+                else None
+            ),
         }
         for a in analogies
     ]

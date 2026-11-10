@@ -18,6 +18,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UntrustedText } from "@/components/UntrustedText";
+import { DEFAULT_GROUP_ANALYZE_MAX, isGroup } from "@/api/analogyGroups";
+import type { PrecheckRequest } from "@/api/types-precheck";
+import { AnalogyGroup } from "./AnalogyGroup";
 
 /** 새 과제안 고르기 (신규 영역, ADR 0057) — [유사함] 0건·차단 없음일 때의 갈래. 계약 docs/contracts/novel-recommend.md §5·§8.
  *  글 칸은 모두 외부 LLM 출력·수집 문서 제목(비신뢰) → UntrustedText. 내부 문서 번호(doc_id)는 화면에 내지 않고
@@ -88,15 +91,26 @@ export function AnalogyList({
   items,
   report,
   onAddReference,
+  analysisRequest,
 }: {
   items: Analogy[];
   report?: AnalogyReport | null;
+  /** 비슷한 자료 묶음의 비교 분석에 보낼 입력(과제안 요청과 같은 몸통) — 없으면 묶음만 보인다 */
+  analysisRequest?: PrecheckRequest;
   /** 관련 연구 목록으로 이동·포커스 — 없으면(관련 연구가 없는 화면) 버튼을 내지 않는다 */
   onAddReference?: () => void;
 }) {
   const empty = items.length === 0;
   if (empty && !report) return null;
   const partial = !!report?.partial;
+  // 비교 분석은 앞에서부터 상한까지의 묶음만 — 서버가 준 값이 없으면 2
+  const analyzeMax = report?.group_analyze_max ?? DEFAULT_GROUP_ANALYZE_MAX;
+  const analyzed = new Set(
+    items
+      .map((a, i) => (isGroup(a) ? i : -1))
+      .filter((i) => i >= 0)
+      .slice(0, Math.max(0, analyzeMax)),
+  );
   const showScope = !!report && !!report.scope_text && (partial || (!empty && report.count < ANALOGY_FULL));
   return (
     <section className="space-y-2" aria-labelledby="novel-analogies-heading" data-testid="novel-analogies">
@@ -154,6 +168,7 @@ export function AnalogyList({
                 {a.year ? ` · ${a.year}` : ""}
               </p>
               {a.why_relevant && <UntrustedText as="p" text={a.why_relevant} className="mt-1" />}
+              {isGroup(a) && <AnalogyGroup item={a} request={analysisRequest} analyze={analyzed.has(i)} />}
             </li>
           ))}
         </ul>
@@ -352,11 +367,19 @@ function NovelCard({
 }
 
 /** 새 과제안 갈래의 맥락(맨 위 coverage + 다른 분야 사례) — 추천 0건이어도 보인다 */
-export function NovelContext({ rec, onAddReference }: { rec: NovelRecommendations; onAddReference?: () => void }) {
+export function NovelContext({
+  rec,
+  onAddReference,
+  analysisRequest,
+}: {
+  rec: NovelRecommendations;
+  onAddReference?: () => void;
+  analysisRequest?: PrecheckRequest;
+}) {
   return (
     <div className="space-y-3">
       <NoveltyCoverageNote coverage={rec.coverage} />
-      <AnalogyList items={rec.analogies ?? []} report={rec.analogy_report} onAddReference={onAddReference} />
+      <AnalogyList items={rec.analogies ?? []} report={rec.analogy_report} onAddReference={onAddReference} analysisRequest={analysisRequest} />
     </div>
   );
 }

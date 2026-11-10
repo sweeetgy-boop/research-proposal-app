@@ -83,6 +83,9 @@ class FakePromptLibrary:
     def diagnose(self) -> str:
         return "DIAGNOSE: 문제 정의 카드 JSON 하나, 근거 없으면 빈 값, 숫자·기관명 지어내기 금지"
 
+    def analogy_group(self) -> str:
+        return "ANALOGY_GROUP: 묶음 비교 JSON 하나, 초록에 있는 내용만, 숫자·기관명 지어내기 금지"
+
 
 class FakeEmbedding:
     dim = 4

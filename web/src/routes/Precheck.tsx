@@ -486,6 +486,7 @@ export default function Precheck() {
         onWrite={() => setEditing(true)}
         onRegenerate={() => void runCards(planReq, applied)}
         novelTitle={{ titleHint: idea.request.title_hint ?? "", onUseTitle: applyNovelTitle, onTitleHintChange: editNovelTitle }}
+        analysisRequest={planReq}
       />
       {editing && (
         <PlanEditor request={req} initial={planFields(idea.request)} original={original} onConfirm={confirmEdit} onCancel={() => setEditing(false)} />

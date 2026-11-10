@@ -40,7 +40,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
-from rra.application.ports import DocumentRepository
+from rra.application.ports import DocumentRepository, EmbeddingPort
 from rra.application.ports.reranker import DocumentScorerPort
 from rra.application.usecases.live_search import NOTICE_NO_KEYWORDS, NOTICE_NO_SOURCE
 from rra.application.usecases.novel_contract import NoveltyOutcome
@@ -51,10 +51,12 @@ from rra.domain.models.novel import (
     ANALOGY_RELATED,
     MAX_ANALOGIES,
     Analogy,
+    AnalogyMember,
     AnalogyReport,
     NoveltyCoverage,
 )
 from rra.domain.models.problem_card import ProblemCard, ProblemCardConfig
+from rra.domain.rules.analogy_group import Grouped, dot_matrix, group_similar
 from rra.domain.rules.analogy_rank import (
     RankRow,
     card_shared_terms,
@@ -102,6 +104,7 @@ logger = logging.getLogger("rra.novelty")
 NOTE_STORED_ONLY = "저장 자료 범위 안에서 기존 과제 없음"
 NOVELTY_OWNER = "novelty"
 ANALOGY_OWNER = "analogy"
+GROUP_EMBED_CHARS = 1500  # 묶기용 초록 임베딩에 넣는 글자 수
 
 RuleCheck = Callable[[ProposalRequest, list[str] | None], Awaitable[Sequence[OverlapAlert]]]
 KeywordSource = Callable[[ProposalRequest], Awaitable[LiveKeywords]]
@@ -401,8 +404,11 @@ class ProblemAnalogySearch:
         clock: Callable[[], float] = time.monotonic,
         card_config: ProblemCardConfig | None = None,
         scorer: DocumentScorerPort | None = None,
+        embedding: EmbeddingPort | None = None,
     ):
         self.repo = repo
+        # 비슷한 자료 묶기(계약 4.6절)의 초록 의미 유사도 — None·실패면 제목 기준만으로 묶는다
+        self.embedding = embedding
         # 문제 정의 카드(ADR 0065) — None 이면 꺼짐. scorer: 최종 정렬의 재순위(없으면 규칙 순)
         self.card_config = card_config
         self.scorer = scorer
@@ -486,7 +492,9 @@ class ProblemAnalogySearch:
         """카드 질의로 실시간 검색(세션 소유자 = 질의 지문) → 저장 자료를 질의마다 검색해 같은
         문서는 높은 유사도로 합침 → 최종 5건. 메모 키 = 입력 + 핵심어 + 검색·정렬 지문."""
         key = input_key(
-            req, core_keywords or [], *memo_groups(pick_fingerprint(queries, card, config.rank))
+            req,
+            core_keywords or [],
+            *memo_groups(pick_fingerprint(queries, card, config.rank, config.groups)),
         )
         cached = self._memo.get(key)
         if cached is not None:
@@ -579,7 +587,9 @@ class ProblemAnalogySearch:
         key = input_key(
             req,
             core_keywords or [],
-            *memo_groups(pick_fingerprint(queries, card, self.card_config.rank)),
+            *memo_groups(
+                pick_fingerprint(queries, card, self.card_config.rank, self.card_config.groups)
+            ),
         )
         return self._reports.get(key)
 
@@ -657,8 +667,12 @@ class ProblemAnalogySearch:
             keep_title_object=rank.weak_keep_title_object,
         )
         limit = min(self.settings.max_results, MAX_ANALOGIES)
+        # 비슷한 자료는 지우지 않고 묶는다(계약 4.6절) — 묶음은 대표 한 자리만 차지하고, 자료원당
+        # 우선은 대표들에 적용한다. 꺼져 있으면 자료마다 한 묶음(종전과 같다)
+        grouped = await self._group(strong, config)
+        members = {id(g.head): g.members for g in grouped}
         picked = take_by_source(
-            strong,
+            [g.head for g in grouped],
             per_source=rank.per_source,
             limit=limit,
             window=rank.priority_window,
@@ -675,9 +689,55 @@ class ProblemAnalogySearch:
             # 약해서 뺀 탓에 비게 된 자리 수 — 어차피 5건 밖이던 자료는 세지 않는다
             dropped_weak=min(len(weak), max(0, limit - len(picked))),
             dropped_similar=len(ordered) - len(distinct),
+            groups=sum(1 for r in picked if members.get(id(r))),
+            group_analyze_max=config.groups.max_groups if config.group_analysis_on else 0,
         )
-        out = [self._analogy(r, card, live_ids, related=related) for r in picked]
+        out = [
+            self._analogy(r, card, live_ids, related=related).model_copy(
+                update={"similar": [self._member(m) for m in members.get(id(r), ())]}
+            )
+            for r in picked
+        ]
         return out, scores is not None, report
+
+    async def _group(
+        self, strong: Sequence[RankRow], config: ProblemCardConfig
+    ) -> list[Grouped[RankRow]]:
+        """순위 순 목록 → 묶음 목록. 초록 유사도는 상위 window 건만 임베딩해 메모리에서 견준다
+        (초록이 비면 제목). 임베딩이 없거나 실패하면 제목 기준만."""
+        groups = config.groups
+        if not config.groups_on or len(strong) < 2:
+            return [Grouped(r) for r in strong]
+        head = list(strong[: groups.window])
+        sims: list[list[float]] | None = None
+        if self.embedding is not None and groups.abstract_similarity > 0 and len(head) > 1:
+            try:
+                texts = [(r.doc.abstract or r.doc.title or "")[:GROUP_EMBED_CHARS] for r in head]
+                sims = dot_matrix(await self.embedding.embed(texts))
+            except Exception as exc:  # 임베딩 실패 — 제목 기준만으로 계속
+                logger.warning("analogy.group_embed_failed err=%s", type(exc).__name__)
+                sims = None
+        return group_similar(
+            strong,
+            [r.doc.title for r in strong],
+            title_ratio=groups.title_ratio,
+            abstract_similarity=groups.abstract_similarity,
+            window=groups.window,
+            max_members=groups.max_members,
+            suffixes=config.rank.dup_title_suffixes,
+            similarities=sims,
+        )
+
+    def _member(self, row: RankRow) -> AnalogyMember:
+        doc = row.doc
+        return AnalogyMember(
+            doc_id=doc.doc_id,
+            title=doc.title,
+            source=doc.source,
+            source_label=SOURCE_LABELS.get(doc.source, doc.source),
+            url=doc.url,
+            year=doc.pub_date.year if doc.pub_date else None,
+        )
 
     def _analogy(
         self, row: RankRow, card: ProblemCard, live_ids: set[str], *, related: bool = False

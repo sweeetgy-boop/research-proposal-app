@@ -21,6 +21,8 @@ _FREE_TEXT = re.compile(r'"text": "([^"]*)"')
 # 2026-10-28 레인 B — 작성·편집 AI 버튼 프롬프트 머리
 _CLARIFY_HEAD = "[보강 질문]"
 _DIAGNOSE_HEAD = "[문제 진단"  # ADR 0065 문제 정의 카드 진단·다시 만들기 프롬프트 머리
+_GROUP_HEAD = "[묶음 비교]"  # 비슷한 유추 자료 묶음 비교 분석(계약 problem-card.md 4.6절)
+_GROUP_DOC = re.compile(r'<doc id="(D\d+)"')
 _DIAGNOSE_INPUT = re.compile(r"^\[제안 입력\]\n(\{.*\})$", re.M)
 _POLICY_CARDS_HEAD = "[정책적 중요도 작성안]"
 _POLICY_POLISH_HEAD = "[정책적 중요도 다듬기]"
@@ -325,6 +327,32 @@ def _diagnose_answer(prompt: str) -> str:
     )
 
 
+def _group_answer(prompt: str) -> str:
+    """묶음 비교 분석 — 받은 자료 표식마다 한 행. 숫자·기관명 없이 써서 규칙 검증을 통과하고,
+    마지막 자료의 한계 칸은 '모름' 답으로 둔다(앱이 정해진 문구로 통일하는 것을 e2e 가 본다)."""
+    keys = list(dict.fromkeys(_GROUP_DOC.findall(prompt)))
+    items = [
+        {
+            "id": key,
+            "core_method": "초록에 적힌 구조로 문제를 막는 방식",
+            "difference": "적용하는 위치와 작동 원리가 다른 자료와 다름",
+            "use": "이 과제의 문제에 같은 원리를 적용해 볼 수 있음",
+            "limit": "초록에 없음" if i == len(keys) - 1 else "적용 범위가 한 가지 시설에 한정됨",
+        }
+        for i, key in enumerate(keys)
+    ]
+    return json.dumps(
+        {
+            "items": items,
+            "summary": {
+                "common": "구조를 바꿔 원인을 막는 접근",
+                "gap": "여러 시설에 함께 적용하는 방법은 다루지 않음",
+            },
+        },
+        ensure_ascii=False,
+    )
+
+
 class ScriptedComposeLLM:
     """섹션 키에 따라 한국어 문장 1~2개를 JSON 으로 돌려준다. 근거는 프롬프트의 첫 구획 id."""
 
@@ -340,6 +368,8 @@ class ScriptedComposeLLM:
         self.calls.append(prompt)
         if prompt.startswith(_DIAGNOSE_HEAD):
             return _diagnose_answer(prompt)
+        if prompt.startswith(_GROUP_HEAD):
+            return _group_answer(prompt)
         if prompt.startswith(_CLARIFY_HEAD):
             return json.dumps(
                 {

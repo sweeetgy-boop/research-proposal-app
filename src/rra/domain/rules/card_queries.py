@@ -25,7 +25,7 @@ from collections.abc import Iterable, Sequence
 
 from pydantic import BaseModel, ConfigDict
 
-from rra.domain.models.problem_card import CardRank, ProblemCard
+from rra.domain.models.problem_card import CardGroups, CardRank, ProblemCard
 from rra.domain.rules.live_search import normalize_query
 
 FINGERPRINT_VERSION = "card-queries:v1"
@@ -125,11 +125,32 @@ def rerank_query(card: ProblemCard) -> str:
     return " / ".join(p for p in (card.function_ko.value, card.function_en.value) if p)
 
 
-def pick_fingerprint(queries: CardQueries | None, card: ProblemCard | None, rank: CardRank) -> str:
-    """검색 지문 + 최종 정렬에 쓰는 값의 지문 — 유추 결과 메모 키용. 카드가 없으면 빈 문자열."""
+def pick_fingerprint(
+    queries: CardQueries | None,
+    card: ProblemCard | None,
+    rank: CardRank,
+    groups: CardGroups | None = None,
+) -> str:
+    """검색 지문 + 최종 정렬에 쓰는 값의 지문 — 유추 결과 메모 키용. 카드가 없으면 빈 문자열.
+    groups: 비슷한 자료 묶기 설정(계약 4.6절) — 묶는 기준이 바뀌면 최종 목록이 달라지므로 키에
+    넣는다. None 이면(묶기를 쓰지 않는 호출) 넣지 않는다 — 지문이 종전과 같다."""
     if queries is None or card is None:
         return ""
     terms = card.terms
+    extra: list[tuple[str, list[str]]] = []
+    if groups is not None:
+        extra.append(
+            (
+                "groups",
+                [
+                    str(groups.enabled),
+                    str(groups.title_ratio),
+                    str(groups.abstract_similarity),
+                    str(groups.window),
+                    str(groups.max_members),
+                ],
+            )
+        )
     return _digest(
         [
             ("search", [search_fingerprint(queries)]),
@@ -151,6 +172,7 @@ def pick_fingerprint(queries: CardQueries | None, card: ProblemCard | None, rank
                     str(rank.require_object),
                 ],
             ),
+            *extra,
         ]
     )
 

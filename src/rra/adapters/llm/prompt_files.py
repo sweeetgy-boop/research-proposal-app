@@ -21,6 +21,7 @@ VISION_NAME = "vision"
 STRUCTURE_NAME = "structure"
 BRIEF_NAME = "brief"
 DIAGNOSE_NAME = "diagnose"
+ANALOGY_GROUP_NAME = "analogy_group"
 FIGURES_NAME = "figures"
 FIGURE_EDIT_NAME = "figure_edit"
 FIGURE_TECHNIQUES_NAME = "figure_techniques"
@@ -104,6 +105,9 @@ class FilePromptLibrary:
 
     def diagnose(self) -> str:
         return self._read(DIAGNOSE_NAME)
+
+    def analogy_group(self) -> str:
+        return self._read(ANALOGY_GROUP_NAME)
 
     # ── 부가 ───────────────────────────────────────────────
     def json_fallback(self) -> str:
