@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import secrets
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 from http.cookies import SimpleCookie
 
 from starlette.responses import JSONResponse
@@ -10,7 +11,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from rra.adapters.security.client_ip import access_user_hash, client_ip
 from rra.adapters.security.sessions import COOKIE_NAME, CSRF_HEADER, SessionStore
-from rra.domain.rules.auth_policy import admin_principal
+from rra.domain.rules.auth_policy import LoginGuard, admin_principal, lock_log_lines, lockout_ip
 
 log = logging.getLogger("rra.api.auth")
 
@@ -150,6 +151,9 @@ class TokenAuthMiddleware:
     /v1/session 은 로그인 자체라 인증을 면제하되(Origin 은 검사) 본문의 토큰을 라우트가 검사한다.
     정적 파일(/v1·/healthz 밖)은 인증 없이 서빙한다 — SPA 가 로그인 화면을 보여야 하므로.
     접속자 IP(client_ip, trust_cf)·Access 사용자 해시는 scope state 에 두고 거부 로그에만 쓴다.
+    `guard`(로그인과 같은 LoginGuard)가 있으면 틀린 헤더 토큰을 접속자 IP 창에 센다 — 상한을 넘은
+    IP 는 헤더 토큰을 낸 요청이 401(맞는 토큰도). 계정 키 없음·IP 를 모르면(루프백) 잠금 없음.
+    헤더 토큰을 내지 않은 요청(세션 쿠키)은 이 잠금과 무관하다.
     """
 
     def __init__(
@@ -163,9 +167,13 @@ class TokenAuthMiddleware:
         public_origin: str = "",
         trust_cf: bool = False,
         trust_forwarded: bool = False,
+        guard: LoginGuard | None = None,
+        clock: Callable[[], float] = time.time,
     ):
         self.app = app
         self.token = token or ""
+        self.guard = guard
+        self._clock = clock
         self.trust_forwarded = bool(trust_forwarded)
         self.exempt = frozenset(exempt_paths)
         self.sessions = sessions
@@ -203,7 +211,21 @@ class TokenAuthMiddleware:
             await self.app(scope, receive, send)
             return
         presented = self._presented(scope)
-        if bool(self.token) and bool(presented) and secrets.compare_digest(presented, self.token):
+        matches = (
+            bool(self.token) and bool(presented) and secrets.compare_digest(presented, self.token)
+        )
+        if presented and self.guard is not None:
+            if self._header_token_refused(state.get("rra_client_ip"), matches):
+                await self._reject(
+                    scope,
+                    receive,
+                    send,
+                    401,
+                    "인증 토큰이 필요합니다.",
+                    headers={"www-authenticate": "Bearer"},
+                )
+                return
+        if matches:
             state["rra_auth"] = "token"
             state["rra_principal"] = admin_principal()  # 관리 토큰 = 관리자
             await self.app(scope, receive, send)
@@ -232,6 +254,25 @@ class TokenAuthMiddleware:
         state["rra_session_id"] = session.id
         state["rra_principal"] = session.who
         await self.app(scope, receive, send)
+
+    def _header_token_refused(self, raw_ip: str | None, matches: bool) -> bool:
+        """헤더 토큰 시도 한 건을 판정한다. True 면 거부(그 IP 가 잠겨 있다). 틀린 토큰은 IP 창에
+        세고(잠기기 전에는 종전대로 세션 쿠키 검사로 넘어간다) 잠금 시작·잠긴 뒤 시도를 남긴다
+        — 종류·범위·IP 만, 토큰 값 없음."""
+        guard = self.guard
+        if guard is None:
+            return False
+        now = self._clock()
+        ip = lockout_ip(raw_ip)
+        blocked = guard.lock_scope(None, ip, now)
+        if blocked is None and matches:
+            return False
+        outcome = guard.failure(None, ip, now)
+        for line in lock_log_lines(
+            "token", ip, blocked=blocked, outcome=outcome, policy=guard.policy
+        ):
+            log.warning("%s", line)
+        return blocked is not None
 
     async def _reject(
         self,

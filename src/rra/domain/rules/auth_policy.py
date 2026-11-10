@@ -5,6 +5,8 @@
 - 잠금·지연 판정(`LoginGuard`): 계정별 연속 실패 N회 → 잠금, 접속자 IP 별 창 안 실패 M회 → 잠금,
   전체 실패가 창 안 K회를 넘으면 응답 지연. 시각은 호출자가 넣는다(테스트 가능).
 - 일일 생성 상한(`daily_run_limit`, `daily_limit_reached`): 공용 계정·직원 1인 기준. 관리자는 없음.
+- 관리 토큰 시도(세션 로그인 kind=token·헤더 토큰)는 계정 키 없이 IP·전체만 센다 — 남이 관리자를
+  잠가 버릴 수 없게(2026-11-10). 잠금 로그 문장은 `lock_log_lines`(종류·범위·IP 만).
 - 사번·비밀번호 원문은 이 모듈에 들어오지 않는다 — 계정 키는 가명 ID 다.
 """
 
@@ -14,6 +16,7 @@ import ipaddress
 import re
 from collections import deque
 from dataclasses import dataclass, field
+from typing import Literal
 
 from rra.domain.models.principal import Principal
 
@@ -132,6 +135,18 @@ class LockoutPolicy:
     global_delay_sec: float = 2.0
 
 
+LockScope = Literal["account", "ip"]
+
+
+@dataclass(frozen=True)
+class FailureOutcome:
+    """실패 한 건을 기록한 결과 — 로그용 열거값·숫자만(계정 키·값 없음)."""
+
+    started: tuple[LockScope, ...] = ()  # 이 실패로 새로 걸린 잠금 범위
+    slowdown_started: bool = False  # 이 실패로 전체 지연이 걸리기 시작했다
+    failures: int = 0  # 창 안 전체 실패 수(이 실패 포함)
+
+
 @dataclass
 class LoginGuard:
     """실패 기록으로 잠금·지연을 판정한다. 메모리에만(프로세스 재시작이면 초기화). 키는 가명
@@ -142,25 +157,40 @@ class LoginGuard:
     _ip: dict[str, deque[float]] = field(default_factory=dict)
     _all: deque[float] = field(default_factory=deque)
 
+    def _account_locked(self, account: str | None, now: float) -> bool:
+        if account is None:
+            return False
+        count, last = self._account.get(account, (0, 0.0))
+        return count >= self.policy.account_failures and now - last < self.policy.account_lock_sec
+
+    def _ip_locked(self, ip: str | None, now: float) -> bool:
+        window = self._ip.get(ip) if ip is not None else None
+        if window is None:
+            return False
+        self._trim(window, now - self.policy.ip_window_sec)
+        return len(window) >= self.policy.ip_failures
+
+    def lock_scope(self, account: str | None, ip: str | None, now: float) -> LockScope | None:
+        """지금 잠겨 있으면 그 범위(계정 먼저), 아니면 None."""
+        if self._account_locked(account, now):
+            return "account"
+        if self._ip_locked(ip, now):
+            return "ip"
+        return None
+
     def locked(self, account: str | None, ip: str | None, now: float) -> bool:
-        if account is not None:
-            count, last = self._account.get(account, (0, 0.0))
-            if count >= self.policy.account_failures and now - last < self.policy.account_lock_sec:
-                return True
-        if ip is not None:
-            window = self._ip.get(ip)
-            if window is not None:
-                self._trim(window, now - self.policy.ip_window_sec)
-                if len(window) >= self.policy.ip_failures:
-                    return True
-        return False
+        return self.lock_scope(account, ip, now) is not None
 
     def delay(self, now: float) -> float:
         """전체 실패가 창 안에 상한을 넘으면 지연 초, 아니면 0."""
         self._trim(self._all, now - self.policy.global_window_sec)
         return self.policy.global_delay_sec if len(self._all) > self.policy.global_failures else 0.0
 
-    def failure(self, account: str | None, ip: str | None, now: float) -> None:
+    def failure(self, account: str | None, ip: str | None, now: float) -> FailureOutcome:
+        """실패 한 건을 센다. 돌려주는 값은 "방금 무엇이 시작됐는가"(잠금 범위·전체 지연)."""
+        was_account = self._account_locked(account, now)
+        was_ip = self._ip_locked(ip, now)
+        was_slow = self.delay(now) > 0
         if account is not None:
             count, last = self._account.get(account, (0, 0.0))
             if now - last >= self.policy.account_lock_sec:
@@ -172,8 +202,19 @@ class LoginGuard:
             self._trim(window, now - self.policy.ip_window_sec)
         self._all.append(now)
         self._trim(self._all, now - self.policy.global_window_sec)
+        started: list[LockScope] = []
+        if not was_account and self._account_locked(account, now):
+            started.append("account")
+        if not was_ip and self._ip_locked(ip, now):
+            started.append("ip")
+        outcome = FailureOutcome(
+            started=tuple(started),
+            slowdown_started=not was_slow and self.delay(now) > 0,
+            failures=len(self._all),
+        )
         if len(self._ip) > 10_000:  # 메모리 상한 — 오래된 IP 부터 버린다
             self._ip.pop(next(iter(self._ip)))
+        return outcome
 
     def success(self, account: str | None) -> None:
         if account is not None:
@@ -183,3 +224,32 @@ class LoginGuard:
     def _trim(window: deque[float], cutoff: float) -> None:
         while window and window[0] <= cutoff:
             window.popleft()
+
+
+def lock_log_lines(
+    kind: str,
+    ip: str | None,
+    *,
+    blocked: LockScope | None,
+    outcome: FailureOutcome | None,
+    policy: LockoutPolicy,
+) -> tuple[str, ...]:
+    """잠금 상태 로그 문장(WARNING 용). 종류·범위·접속자 IP·초만 — 사번·아이디·가명 ID·비밀번호·
+    토큰 값은 인자로도 받지 않는다. `ip` 는 `lockout_ip` 를 거친 값(모르면 `-`).
+
+    - 잠긴 상태에서 또 온 시도: `api.login.blocked kind=… scope=… ip=…`
+    - 이 실패로 잠금 시작: `api.login.locked kind=… scope=… ip=… seconds=…`
+    - 이 실패로 전체 지연 시작: `api.login.slowdown failures=… delay=…`
+    """
+    where = ip or "-"
+    lines: list[str] = []
+    if blocked is not None:
+        lines.append(f"api.login.blocked kind={kind} scope={blocked} ip={where}")
+    for scope in outcome.started if outcome else ():
+        seconds = policy.account_lock_sec if scope == "account" else policy.ip_window_sec
+        lines.append(f"api.login.locked kind={kind} scope={scope} ip={where} seconds={seconds}")
+    if outcome is not None and outcome.slowdown_started:
+        lines.append(
+            f"api.login.slowdown failures={outcome.failures} delay={policy.global_delay_sec:g}"
+        )
+    return tuple(lines)
