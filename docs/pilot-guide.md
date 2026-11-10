@@ -211,7 +211,7 @@ grep "api.access\|api.login.fail\|api.auth.reject" ~/Library/Logs/rra-api.err.lo
 
 ### 6.2 공용 계정
 
-`rra auth guest set --id korail`(비밀번호 두 번, 시범 기간 4자 이상) / 끄기 `rra auth guest disable`.
+`rra auth guest set --id korail`(비밀번호 두 번, 8자 이상 — 2026-11-10 복원) / 끄기 `rra auth guest disable`.
 
 ### 6.3 배포 (시범 기간 규칙, 2026-10-28)
 
