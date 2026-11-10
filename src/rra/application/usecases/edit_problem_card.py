@@ -2,7 +2,7 @@
 
 `problem_card_contract.CardEditor` 구현.
 
-- `fields` 의 항목만 `after` 에서 가져와 origin=user 로 만든다(AI 값 보존). 나머지는 `before` 그대로.
+- `fields` 의 항목만 `after` 에서 가져와 origin=user 로 만든다(AI 값 보존). 나머지는 `before`.
 - `function_ko` → 영문·사다리·문제어 중 사용자 항목이 아닌 것만 AI 1회로 다시 만든다. 실패해도
   수정은 반영하고 그 칸들은 그대로 둔다.
 - `contradiction` → 발명 원리 재검증(규칙). `ipc`·`science_class` → 코드 확인. `cause` → '확인 필요'

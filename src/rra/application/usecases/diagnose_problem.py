@@ -36,7 +36,6 @@ from rra.domain.rules import problem_card as rules
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.llm_output import parse_object
 from rra.domain.rules.novelty import ProblemAxisRule
-from rra.domain.rules.privacy import strip_personal
 from rra.domain.rules.trust import escape_untrusted
 
 logger = logging.getLogger("rra.problem_card")
@@ -52,7 +51,7 @@ INPUT_KEYS = ("title_hint", "current_state", "root_cause", "limitation", "goal")
 
 def safe_text(text: str | None) -> str:
     """프롬프트에 넣을 제안자 글 — 이름·연락처 제거 + 구획 태그 무력화."""
-    return escape_untrusted(strip_personal(text or "").text)
+    return escape_untrusted(card_edits.strip_contacts(text or ""))
 
 
 def input_block(req: ProposalRequest) -> str:

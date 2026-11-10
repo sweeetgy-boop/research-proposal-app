@@ -46,13 +46,13 @@ from rra.domain.models.problem_card import (
     Rerun,
 )
 from rra.domain.rules import triz
+from rra.domain.rules.card_edits import strip_contacts
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.keywords import KeywordRule, query_keywords, tokens
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.novel_recommendation import unsupported_names
 from rra.domain.rules.novelty import ProblemAxisRule, is_place_ko
 from rra.domain.rules.numbers import unsupported_numbers
-from rra.domain.rules.privacy import strip_personal
 from rra.domain.rules.trust import escape_untrusted
 
 METHOD_CORE = "core"
@@ -526,7 +526,7 @@ def field_text(card: ProblemCard, name: str) -> str:
 
 def _user_text(new: CardText, old: CardText | None) -> CardText:
     """사용자가 쓴 글 한 칸 — 개인정보를 지우고, 고치기 전 AI 값을 남긴다."""
-    value = strip_personal(new.value).text
+    value = strip_contacts(new.value)
     if old is None:
         ai_value = ""
     else:
@@ -562,7 +562,7 @@ def apply_edits(
             update[name] = _user_text(getattr(after, name), getattr(before, name))
         elif name == "ladder":
             update["ladder"] = [
-                s.model_copy(update={"text": strip_personal(s.text).text}) for s in after.ladder
+                s.model_copy(update={"text": strip_contacts(s.text)}) for s in after.ladder
             ]
             update["ladder_origin"] = "user"
         elif name == "terms":
@@ -584,8 +584,8 @@ def apply_edits(
             old_c, new_c = before.contradiction, after.contradiction
             ai = old_c.origin == "ai"
             update["contradiction"] = Contradiction(
-                improve=strip_personal(new_c.improve).text,
-                worsen=strip_personal(new_c.worsen).text,
+                improve=strip_contacts(new_c.improve),
+                worsen=strip_contacts(new_c.worsen),
                 principles=triz.principles(new_c.principles),  # 원리 재검증(번호·이름)
                 origin="user",
                 basis=BASIS_STATED,

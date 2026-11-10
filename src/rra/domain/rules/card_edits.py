@@ -38,8 +38,25 @@ EDIT_KEYS = frozenset(
 CHOICE_LINE_EXTRA_KEYS = frozenset({"field", "before", "after", "methods", "signals"})
 
 
+NAME_MARK = "[이름]"
+
+
+def strip_contacts(text: str) -> str:
+    """카드 글에서 이름·연락처를 지운다(`rules/privacy`).
+
+    privacy 의 '부서 + 이름' 규칙은 문서 본문용이라 카드의 짧은 구("차단 효과"·"미관과 유지관리")를
+    부서 뒤 이름으로 보고 뒷말을 지울 수 있다. 그 규칙이 걸린 것으로 보이면(이름을 지웠다는데
+    표식이 그만큼 없다) 낱말을 잃지 않게 어절마다 따로 지운다 — 전화·이메일·번호는 그대로 지워진다.
+    """
+    report = strip_personal(text or "")
+    names = report.removed.get("name", 0)
+    if names and report.text.count(NAME_MARK) < names:
+        return " ".join(strip_personal(w).text for w in (text or "").split())
+    return report.text
+
+
 def _safe(text: str, limit: int) -> str:
-    return " ".join(strip_personal(text or "").text.split())[:limit]
+    return " ".join(strip_contacts(text).split())[:limit]
 
 
 def cosine(a: Sequence[float], b: Sequence[float]) -> float | None:
