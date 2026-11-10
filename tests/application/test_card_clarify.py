@@ -33,19 +33,18 @@ def req(c=None, **kw) -> ProposalRequest:
     return ProposalRequest(**IDEA, problem_card=c, **kw)
 
 
-def test_cause_question_then_first_guessed_item():
+def test_cause_question_then_guessed_contradiction_and_never_the_function_sentence():
     c = card(causes=[CAUSE], contradiction=CON)  # 기능 문장 basis 기본값 = 추정
     qs = card_questions(c)
-    assert qs == [
+    assert qs[0] == (
         "문제의 원인을 '출입구가 열려 있어 침입 경로가 막히지 않음'(으)로 보았습니다. "
-        "이를 확인한 자료(점검·측정 기록 등)가 있습니까?",
-        "이 과제가 풀려는 문제를 '조류가 구조물에 앉거나 둥지를 틀지 못하게 막는다'(으)로 "
-        "정리했습니다. 맞습니까? 다르면 고쳐 적어 주십시오.",
-    ]
-    # 기능 문장이 근거 있음이면 모순(추정)을 묻는다
-    stated_fn = CardText(value="조류가 구조물에 앉지 못하게 막는다", basis="근거 있음")
-    qs = card_questions(card(causes=[CAUSE], contradiction=CON, function_ko=stated_fn))
+        "이를 확인한 자료(점검·측정 기록 등)가 있습니까?"
+    )
+    # 기능 문장은 AI 가 다시 쓴 문장 — 추정이어도 묻지 않고, 모순(추정)을 묻는다
     assert len(qs) == 2 and "'침입을 막음'" in qs[1] and "'미관과 유지관리'" in qs[1]
+    assert not any("정리했습니다" in q for q in qs)
+    only_fn = card(causes=[STATED])  # 원인은 근거 있음, 모순 없음, 기능 문장만 추정
+    assert card_questions(only_fn) == []
 
 
 def test_cause_question_only_when_needs_check_or_guessed():
@@ -83,17 +82,23 @@ async def test_card_questions_lead_and_stay_within_the_limit():
     # 정책 근거가 있으면 카드 2 + 모델 2
     llm = FakeLLM([MODEL])
     uc = ClarifyInput(llm, FakePromptLibrary(), card_config=ON)
-    result = await uc.inspect(req(card(causes=[CAUSE]), policy_basis="철도 안전 강화"))
+    result = await uc.inspect(
+        req(card(causes=[CAUSE], contradiction=CON), policy_basis="철도 안전 강화")
+    )
     assert [q.id for q in result.questions] == ["c0", "c1", "q0", "q1"]
     assert "최대 2개" in llm.calls[0]
 
 
 async def test_card_questions_survive_model_failure_and_enough():
     uc = ClarifyInput(FakeLLM(['{"questions": []}']), FakePromptLibrary(), card_config=ON)
-    result = await uc.inspect(req(card(causes=[CAUSE]), policy_basis="철도 안전 강화"))
+    result = await uc.inspect(
+        req(card(causes=[CAUSE], contradiction=CON), policy_basis="철도 안전 강화")
+    )
     assert [q.id for q in result.questions] == ["c0", "c1"] and result.status == "ok"
     uc = ClarifyInput(FakeLLM(["깨진 출력", "깨진 출력"]), FakePromptLibrary(), card_config=ON)
-    result = await uc.inspect(req(card(causes=[CAUSE]), policy_basis="철도 안전 강화"))
+    result = await uc.inspect(
+        req(card(causes=[CAUSE], contradiction=CON), policy_basis="철도 안전 강화")
+    )
     assert [q.id for q in result.questions][:2] == ["c0", "c1"] and result.status == "ok"
     assert len(result.questions) <= MAX_QUESTIONS
 

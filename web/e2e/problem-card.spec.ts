@@ -36,7 +36,7 @@ test("네 칸 → 카드 4줄 → 기능 문장 고치기 → 과제안·보강 
   for (const key of ["function", "cause", "contradiction", "codes"]) await expect(card.getByTestId(`card-line-${key}`).getByTestId("card-line-text")).not.toBeEmpty();
   if (!REAL_CARD) {
     await expect(card.getByTestId("card-line-function")).toContainText("궤도 틀림의 진행을 늦춘다");
-    await expect(card.getByTestId("card-line-function").getByTestId("card-basis")).toHaveText("근거 있음");
+    await expect(card.getByTestId("card-line-function").getByTestId("card-rewritten")).toHaveText("AI가 다시 쓴 문장");
     await expect(card.getByTestId("card-line-cause").getByTestId("card-needs-check")).toHaveText("확인 필요");
     await expect(card.getByTestId("card-line-contradiction").getByTestId("card-basis")).toHaveText("추정");
     await expect(card.getByTestId("card-code-unverified")).toHaveText("확인 못 함");

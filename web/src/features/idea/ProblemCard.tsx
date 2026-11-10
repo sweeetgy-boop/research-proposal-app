@@ -64,8 +64,9 @@ function CodeChips({ codes }: { codes: ClassCode[] }) {
 }
 
 /** 그 줄의 배지 재료 — 제안자가 고친 줄은 '직접 고침', 아니면 근거 수준. 분류는 성격상 AI 가 채운 것이라 '추정' */
-function lineMeta(card: Card, key: CardLineKey): { basis: CardBasis | null; needsCheck: boolean } {
-  if (key === "function") return { basis: card.function_ko.value ? card.function_ko.basis : null, needsCheck: card.function_ko.needs_check };
+function lineMeta(card: Card, key: CardLineKey): { basis: CardBasis | null; rewritten?: boolean; needsCheck: boolean } {
+  // 기능 문장은 AI 가 제안문을 다시 쓴 문장 — 근거 있음/추정 판정 대상이 아니다(판정은 원인·모순·분류에만)
+  if (key === "function") return { basis: null, rewritten: !!card.function_ko.value, needsCheck: card.function_ko.needs_check };
   if (key === "cause") {
     const c = card.causes[0];
     return { basis: c?.value ? c.basis : null, needsCheck: !!c?.needs_check };
@@ -112,6 +113,11 @@ function Expert({ card }: { card: Card }) {
           </dl>
         </ExpertItem>
         <ExpertItem title={CARD_EXPERT_LABELS.ladder} testId="card-ladder">
+          {card.ladder.length > 0 && card.ladder_origin !== "user" && (
+            <Badge variant="outline" className="mb-1" data-testid="card-ladder-rewritten">
+              {CARD_BADGES.rewritten}
+            </Badge>
+          )}
           {card.ladder.length ? (
             <ol className="space-y-1">
               {card.ladder.map((s) => (
@@ -225,7 +231,14 @@ export function ProblemCard({ card, lines, changed = false, changedNote = CARD_I
                     {CARD_BADGES.user}
                   </Badge>
                 ) : (
-                  meta.basis && <BasisBadge basis={meta.basis} />
+                  <>
+                    {meta.rewritten && (
+                      <Badge variant="outline" data-testid="card-rewritten">
+                        {CARD_BADGES.rewritten}
+                      </Badge>
+                    )}
+                    {meta.basis && <BasisBadge basis={meta.basis} />}
+                  </>
                 )}
                 {meta.needsCheck && (
                   <Badge variant="destructive" data-testid="card-needs-check">

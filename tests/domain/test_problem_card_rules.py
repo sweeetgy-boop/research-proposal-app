@@ -401,7 +401,9 @@ def test_card_lines_and_signal_labels_are_korean():
     assert labels[0] == {"signal": "unclear_cause", "label": "원인이 뚜렷하지 않거나 여러 가지"}
     assert all(not x["label"].isascii() for x in labels)
     counts = rules.basis_counts(c)
-    assert counts[BASIS_STATED] + counts[BASIS_GUESSED] >= 8
+    # 판정 대상은 원인·모순뿐 — 기능 문장·사다리·항목 나누기는 세지 않는다
+    filled = sum(1 for x in c.causes if x.value) + int(c.contradiction.filled)
+    assert counts[BASIS_STATED] + counts[BASIS_GUESSED] == filled
 
 
 def test_subject_words_stay_as_objects_even_if_listed_as_place():
