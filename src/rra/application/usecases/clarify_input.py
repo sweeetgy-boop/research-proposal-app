@@ -15,7 +15,7 @@
 
 문제 정의 카드(ADR 0065, 계약 problem-card.md 4절 `clarify`): 요청에 카드가 있고 `use.clarify` 가
 켜져 있으면 질문 맨 앞에 규칙 문장(AI 호출 없음) 최대 2개 — 원인 질문 1(근본 원인이 '확인 필요'
-이거나 '추정'일 때) + 추정 항목 확인 1(기능 문장 → 모순 순으로 첫 '추정' 항목). 기존 상한(4) 안에서
+이거나 '추정'일 때) + 모순이 '추정'이면 확인 1(기능 문장은 묻지 않는다). 기존 상한(4) 안에서
 세고, 모델에게는 남은 자리만큼만 묻는다. 카드가 없거나 꺼져 있으면 종전과 같다.
 """
 
@@ -65,9 +65,6 @@ MAX_CARD_QUOTE = 70  # 질문에 옮겨 적는 카드 글 상한
 CAUSE_QUESTION = (
     "문제의 원인을 '{cause}'(으)로 보았습니다. 이를 확인한 자료(점검·측정 기록 등)가 있습니까?"
 )
-FUNCTION_QUESTION = (
-    "이 과제가 풀려는 문제를 '{function}'(으)로 정리했습니다. 맞습니까? 다르면 고쳐 적어 주십시오."
-)
 CONTRADICTION_QUESTION = (
     "'{improve}'을(를) 좋게 하려 하면 '{worsen}'이(가) 나빠진다고 보았습니다. "
     "현장에서도 그렇습니까? 다르면 알려 주십시오."
@@ -80,7 +77,7 @@ def _quote(text: str) -> str:
 
 
 def card_questions(card: ProblemCard | None) -> list[str]:
-    """카드 → 규칙 질문(최대 2, AI 호출 없음). 원인 질문 1 + 추정 항목 확인 1(기능 문장 → 모순 순).
+    """카드 → 규칙 질문(최대 2, AI 호출 없음). 원인 질문 1 + 모순(추정일 때) 확인 1.
     한자·가나가 섞인 글은 묻지 않는다. 내부 코드는 문구에 넣지 않는다."""
     if card is None:
         return []
@@ -96,11 +93,10 @@ def card_questions(card: ProblemCard | None) -> list[str]:
         value = _quote(cause.value)
         if value:
             add(CAUSE_QUESTION.format(cause=value))
+    # 기능 문장·사다리는 AI 가 다시 쓴 문장이라 근거 판정·확인 질문 대상이 아니다(2026-11-10
+    # 소유자 결정) — 판정은 원인·모순·분류에만
     con = card.contradiction
-    function = _quote(card.function_ko.value)
-    if function and card.function_ko.basis == BASIS_GUESSED:
-        add(FUNCTION_QUESTION.format(function=function))
-    elif con.filled and con.basis == BASIS_GUESSED:
+    if con.filled and con.basis == BASIS_GUESSED:
         improve, worsen = _quote(con.improve), _quote(con.worsen)
         if improve and worsen:
             add(CONTRADICTION_QUESTION.format(improve=improve, worsen=worsen))

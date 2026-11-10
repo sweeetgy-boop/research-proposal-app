@@ -27,7 +27,9 @@ describe("핵심 문제 카드 — 보기", () => {
     const { container } = renderCard();
     expect(screen.getByRole("heading", { name: "핵심 문제" })).toBeInTheDocument();
     expect(within(line("function")).getByText("궤도 틀림의 진행을 늦춘다")).toBeInTheDocument();
-    expect(within(line("function")).getByTestId("card-basis")).toHaveTextContent("근거 있음");
+    // 기능 문장은 근거 있음/추정이 아니라 "AI가 다시 쓴 문장"
+    expect(within(line("function")).queryByTestId("card-basis")).toBeNull();
+    expect(within(line("function")).getByTestId("card-rewritten")).toHaveTextContent("AI가 다시 쓴 문장");
     expect(within(line("cause")).getByText("다짐 효과가 오래 가지 않음")).toBeInTheDocument();
     expect(within(line("cause")).getByTestId("card-needs-check")).toHaveTextContent("확인 필요");
     expect(within(line("function")).queryByTestId("card-needs-check")).toBeNull();
