@@ -2974,7 +2974,15 @@ def build_clarifier(settings: Settings | None = None, *, llm=None, local_slot=No
         local_gate=ask.local_gate,
         argon_model=ask.argon_model,
         local_model=ask.local_model,
+        card_config=_problem_card_config(settings),
     )
+
+
+def _problem_card_config(settings: Settings):
+    """문제 정의 카드 설정(ADR 0065, config/problem_card.yaml) — 기본 꺼짐."""
+    from rra.config_loader import problem_card_config
+
+    return problem_card_config(settings)
 
 
 def build_card_check(
@@ -3063,6 +3071,7 @@ def build_recommender(
         metrics=build_recommend_metrics(settings),
         novelty=novelty,
         analogies=analogies,
+        card_config=_problem_card_config(settings),
     )
 
 
@@ -3094,9 +3103,21 @@ def build_novelty(settings: Settings, *, repo, precheck, live, include_internal:
         WideNoveltyCheck,
         precheck_rule_check,
     )
-    from rra.config_loader import live_search_config, novelty_config, relevance_floor
+    from rra.config_loader import (
+        live_search_config,
+        novelty_config,
+        problem_card_config,
+        relevance_floor,
+    )
 
     nov = novelty_config(settings)
+    # 문제 정의 카드(ADR 0065) — 꺼져 있으면 유추 검색은 종전 그대로(재순위 모델도 올리지 않는다)
+    card_cfg = problem_card_config(settings)
+    scorer = (
+        build_reranker(settings)
+        if card_cfg.uses("analogy_rank") and not settings.fake_llm
+        else None
+    )
     base = live_search_config(settings)
     if settings.fake_llm and not base.fake_mode:
         base = base.model_copy(update={"enabled": False})
@@ -3142,7 +3163,7 @@ def build_novelty(settings: Settings, *, repo, precheck, live, include_internal:
         memo_size=nov.memo_size,
         memo_minutes=nov.memo_minutes,
     )
-    maker = ProblemKeywords(rule=keyword_rule(settings), settings=nov.analogy)
+    maker = ProblemKeywords(rule=keyword_rule(settings), settings=nov.analogy, card_config=card_cfg)
     analogy_live = LiveSearch(
         analogy_cfg,
         repo,
@@ -3166,8 +3187,27 @@ def build_novelty(settings: Settings, *, repo, precheck, live, include_internal:
         include_internal=include_internal,
         memo_size=nov.memo_size,
         memo_minutes=nov.memo_minutes,
+        card_config=card_cfg,
+        scorer=scorer,
     )
     return novelty, analogies
+
+
+def build_patent_class_count(settings: Settings | None = None, *, transport=None, resolver=None):
+    """KIPRIS 분류(IPC) 검색 총 건수 — `problem_card_contract.PatentClassCount` (ADR 0065, 레인 B).
+    조립이 분류 코드 확인(ClassCodeCheck)에 넣는다. 일일 호출 카운터는 실시간 검색과 같은 파일.
+    가짜 모드·KIPRIS 키 없음이면 None(확인 못 함으로 둔다)."""
+    from rra.adapters.sources.kipris import KiprisClassCount
+
+    settings = settings or load_settings()
+    if settings.fake_llm and transport is None:
+        return None
+    try:
+        source = build_kipris_source(settings, transport=transport, resolver=resolver)
+    except MissingCredential:
+        logger.info("patent_class_count.missing_key")
+        return None
+    return KiprisClassCount(source, counter=build_kipris_daily_counter(settings))
 
 
 def build_recommend_metrics(settings: Settings | None = None):

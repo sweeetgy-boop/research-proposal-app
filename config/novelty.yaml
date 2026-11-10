@@ -51,7 +51,8 @@ analogy:
       scienceon: {enabled: true, top_n: 30, max_requests: 10}   # 대상 3 × 질의 3 + 토큰 1 (8 이면 budget_exhausted, 2026-11-09)
       ntis:      {enabled: true, top_n: 20, max_requests: 6}
       openalex:  {enabled: true, top_n: 30, max_requests: 3}
-      kipris_kr: {enabled: true, top_n: 30, max_requests: 3}   # 2026-11-09 KIPRIS 키 투입 뒤 — 새로움 확인에 국내 특허 포함
+      # 키워드 질의 3 + 분류(IPC) 검색 최대 3(문제 정의 카드가 있을 때만, ADR 0065). 카드가 없으면 종전처럼 3건만 쓴다
+      kipris_kr: {enabled: true, top_n: 30, max_requests: 6}
 
 # 같은 분야(철도) 판정 — 데이터에 있는 것만 본다. 하나라도 맞으면 유추 사례에서 뺀다.
 rail_field:

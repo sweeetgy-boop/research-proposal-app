@@ -12,6 +12,11 @@
 정한다).
 답은 ProposalRequest.supplement("보충 정보")에 "질문: 답" 줄로 저장되어 설계도·작성 프롬프트에
 들어간다(제안자 입력 근거로 취급). 건너뛸 수 있다.
+
+문제 정의 카드(ADR 0065, 계약 problem-card.md 4절 `clarify`): 요청에 카드가 있고 `use.clarify` 가
+켜져 있으면 질문 맨 앞에 규칙 문장(AI 호출 없음) 최대 2개 — 원인 질문 1(근본 원인이 '확인 필요'
+이거나 '추정'일 때) + 추정 항목 확인 1(기능 문장 → 모순 순으로 첫 '추정' 항목). 기존 상한(4) 안에서
+세고, 모델에게는 남은 자리만큼만 묻는다. 카드가 없거나 꺼져 있으면 종전과 같다.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from typing import Any
 from rra.application.ports import LLMPort, PromptLibraryPort
 from rra.application.usecases.argon_first import FAILURE_REASONS, ArgonFirst, reason_label
 from rra.domain.models import ProposalRequest
+from rra.domain.models.problem_card import BASIS_GUESSED, ProblemCard, ProblemCardConfig
 from rra.domain.rules.foreign_script import has_foreign_script
 from rra.domain.rules.llm_output import clean_sentence, parse_object
 from rra.domain.rules.policy_cards import needs_policy_basis
@@ -52,6 +58,53 @@ RULE_QUESTIONS = {
     "target": "연구 결과를 적용할 대상(노선·구간·설비·차량·업무)과 활용 부서는 어디입니까?",
     "metric": "목표를 무엇으로 재고(지표) 어느 수준까지 달성하려 합니까? (예: 오류율 ○% 감소)",
 }
+
+
+MAX_CARD_QUESTIONS = 2
+MAX_CARD_QUOTE = 70  # 질문에 옮겨 적는 카드 글 상한
+CAUSE_QUESTION = (
+    "문제의 원인을 '{cause}'(으)로 보았습니다. 이를 확인한 자료(점검·측정 기록 등)가 있습니까?"
+)
+FUNCTION_QUESTION = (
+    "이 과제가 풀려는 문제를 '{function}'(으)로 정리했습니다. 맞습니까? 다르면 고쳐 적어 주십시오."
+)
+CONTRADICTION_QUESTION = (
+    "'{improve}'을(를) 좋게 하려 하면 '{worsen}'이(가) 나빠진다고 보았습니다. "
+    "현장에서도 그렇습니까? 다르면 알려 주십시오."
+)
+
+
+def _quote(text: str) -> str:
+    value = clean_sentence(escape_untrusted(text)).replace("'", "").strip()
+    return value[:MAX_CARD_QUOTE].rstrip()
+
+
+def card_questions(card: ProblemCard | None) -> list[str]:
+    """카드 → 규칙 질문(최대 2, AI 호출 없음). 원인 질문 1 + 추정 항목 확인 1(기능 문장 → 모순 순).
+    한자·가나가 섞인 글은 묻지 않는다. 내부 코드는 문구에 넣지 않는다."""
+    if card is None:
+        return []
+    out: list[str] = []
+
+    def add(text: str) -> None:
+        text = text[:MAX_QUESTION_CHARS]
+        if text and not has_foreign_script(text) and text not in out:
+            out.append(text)
+
+    cause = card.causes[0] if card.causes else None
+    if cause is not None and (cause.needs_check or cause.basis == BASIS_GUESSED):
+        value = _quote(cause.value)
+        if value:
+            add(CAUSE_QUESTION.format(cause=value))
+    con = card.contradiction
+    function = _quote(card.function_ko.value)
+    if function and card.function_ko.basis == BASIS_GUESSED:
+        add(FUNCTION_QUESTION.format(function=function))
+    elif con.filled and con.basis == BASIS_GUESSED:
+        improve, worsen = _quote(con.improve), _quote(con.worsen)
+        if improve and worsen:
+            add(CONTRADICTION_QUESTION.format(improve=improve, worsen=worsen))
+    return out[:MAX_CARD_QUESTIONS]
 
 
 def gaps(req: ProposalRequest) -> list[str]:
@@ -160,8 +213,18 @@ class ClarifyInput:
     local_gate: Any = None  # 로컬 호출 슬롯 (callable → async cm)
     argon_model: str = "argon"
     local_model: str = "local"
+    # 문제 정의 카드 설정(ADR 0065). None 이면 꺼짐 — 요청에 카드가 있어도 종전과 같다
+    card_config: ProblemCardConfig | None = None
 
-    def _prompt(self, req: ProposalRequest, found: list[str]) -> str:
+    def _card_questions(self, req: ProposalRequest) -> list[ClarifyQuestion]:
+        if self.card_config is None or not self.card_config.uses("clarify"):
+            return []
+        return [
+            ClarifyQuestion(f"c{i}", text, "other")
+            for i, text in enumerate(card_questions(req.problem_card))
+        ]
+
+    def _prompt(self, req: ProposalRequest, found: list[str], taken: int = 0) -> str:
         checklist = [
             f"- {key}: {item.get('element')}"
             for key, items in self.checklists.items()
@@ -177,7 +240,7 @@ class ClarifyInput:
                 "[섹션 체크리스트 — 초안 각 칸이 갖춰야 할 요소]\n" + "\n".join(checklist),
                 '[출력] JSON 객체 하나: {"questions": [{"topic": '
                 '"budget_period|target|metric|other", "question": "…"}]}'
-                f" — 최대 {self.max_questions - int('policy' in found)}개."
+                f" — 최대 {self.max_questions - int('policy' in found) - taken}개."
                 " 정책 근거는 묻지 않는다(앱이 따로 묻는다). 이미 충분하면 빈 배열.",
             ]
         )
@@ -192,6 +255,9 @@ class ClarifyInput:
         head: list[ClarifyQuestion] = (
             [ClarifyQuestion("policy", POLICY_QUESTION, "policy")] if policy else []
         )
+        # 카드 규칙 질문은 맨 앞 — 모델 질문 자리 하나는 남긴다(기존 상한 안에서)
+        card_head = self._card_questions(req)[: max(0, self.max_questions - len(head) - 1)]
+        head = card_head + head
         room = self.max_questions - len(head)
 
         def check(raw: str) -> tuple[list[tuple[str, str]] | None, str | None]:
@@ -208,7 +274,9 @@ class ClarifyInput:
             argon_model=self.argon_model,
             local_model=self.local_model,
         )
-        res = await ask.ask(self._prompt(req, found), system=self.prompts.clarify(), check=check)
+        res = await ask.ask(
+            self._prompt(req, found, len(card_head)), system=self.prompts.clarify(), check=check
+        )
         result = ClarifyResult(policy_needed=policy, record=res.record())
         if res.value:
             result.questions = head + [

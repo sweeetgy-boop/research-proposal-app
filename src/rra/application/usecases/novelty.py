@@ -21,6 +21,14 @@
 실시간 검색이 안 되면 저장 자료만(live=false). 공용 계정 인스턴스(include_internal=False)는
 internal 문서를 analogies·new_alerts 에서 뺀다. 수집 텍스트는 비신뢰(A) — 제목은 그대로
 담고 화면이 정리한다. 로그에는 건수·상태·예외 클래스명만(D).
+
+문제 정의 카드(ADR 0065, 계약 problem-card.md 4·4.1절) — 요청에 카드가 있고
+`problem_card.yaml` 의 `use.analogy_queries` 가 켜져 있을 때만 유추 검색이 카드로 돈다:
+질의는 `domain/rules/card_queries.card_queries` 한 곳(저장 자료 = 사다리 3단 + 국문·영문 기능 문장,
+실시간 = 국문·영문 → OpenAlex 가 영문 질의를 받는다, 확인된 IPC → KIPRIS 분류 검색),
+실시간 세션 소유자·결과 메모 키는 **실제로 보낸 질의의 지문**으로 가른다. `use.analogy_rank` 면
+최종 5건을 `domain/rules/analogy_rank`(대상어 겹침 → 기능 문장 재순위 → 자료원당 상한)로 고른다.
+카드가 없거나 꺼져 있으면 아래 종전 경로가 그대로 돈다. 새로움 확인은 카드를 쓰지 않는다.
 """
 
 from __future__ import annotations
@@ -33,11 +41,30 @@ from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 from rra.application.ports import DocumentRepository
+from rra.application.ports.reranker import DocumentScorerPort
 from rra.application.usecases.live_search import NOTICE_NO_KEYWORDS, NOTICE_NO_SOURCE
 from rra.application.usecases.novel_contract import NoveltyOutcome
 from rra.domain.models import Document, OverlapAlert, ProposalRequest
 from rra.domain.models.live_search import LIVE_SOURCES, LiveKeywords, LiveSearchSummary
 from rra.domain.models.novel import MAX_ANALOGIES, Analogy, NoveltyCoverage
+from rra.domain.models.problem_card import ProblemCard, ProblemCardConfig
+from rra.domain.rules.analogy_rank import (
+    RankRow,
+    card_shared_terms,
+    few_analogies,
+    order_rows,
+    rank_rows,
+    take_by_source,
+)
+from rra.domain.rules.card_queries import (
+    CardQueries,
+    analogy_owner,
+    card_queries,
+    class_query,
+    memo_groups,
+    pick_fingerprint,
+    rerank_query,
+)
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.live_search import keyword_cache_key, normalized_title, rule_keywords
 from rra.domain.rules.novelty import (
@@ -271,19 +298,54 @@ class WideNoveltyCheck:
 
 
 # ── 유추 검색 ──────────────────────────────────────────────
+def queries_for(req: ProposalRequest, config: ProblemCardConfig | None) -> CardQueries | None:
+    """카드 → 질의 묶음(0단계 모듈 한 곳). 카드가 없거나 `use.analogy_queries` 가 꺼져 있으면
+    None."""
+    card = getattr(req, "problem_card", None)
+    if config is None or card is None:
+        return None
+    return card_queries(
+        card,
+        use_queries=config.uses("analogy_queries"),
+        use_class=config.uses("kipris_class"),
+    )
+
+
 class ProblemKeywords:
     """유추 검색용 LiveSearch 의 키워드 — ProblemAnalogySearch 가 입력마다 '문제' 축 질의를
     넣어 두면 LiveSearch 가 그것으로 검색한다. 넣어 둔 것이 없으면 규칙 기반 문제어(LLM 없음)."""
 
-    def __init__(self, rule: KeywordRule | None = None, settings: AnalogySettings | None = None):
+    def __init__(
+        self,
+        rule: KeywordRule | None = None,
+        settings: AnalogySettings | None = None,
+        *,
+        card_config: ProblemCardConfig | None = None,
+    ):
         self.rule = rule or KeywordRule()
         self.settings = settings or AnalogySettings()
+        # 문제 정의 카드 설정(ADR 0065). None 이면 꺼짐 — 요청에 카드가 있어도 보지 않는다
+        self.card_config = card_config
         self._remembered: _Memo = _Memo(256, 3600.0, time.monotonic)
 
     def remember(self, req: ProposalRequest, keywords: LiveKeywords) -> None:
         self._remembered.put(keyword_cache_key(req), keywords)
 
+    def card_queries(self, req: ProposalRequest) -> CardQueries | None:
+        """요청에 실린 카드의 질의 묶음 — 카드가 없거나 꺼져 있으면 None(종전 방식)."""
+        return queries_for(req, self.card_config)
+
+    def class_queries(self, req: ProposalRequest) -> list[str]:
+        """분류 코드 검색 질의("ipc:" 표식) — 분류 검색을 하는 자료원(KIPRIS)만 받는다."""
+        queries = self.card_queries(req)
+        return [class_query(code) for code in queries.ipc] if queries is not None else []
+
     async def __call__(self, req: ProposalRequest) -> LiveKeywords:
+        # 카드 질의는 요청에 실린 카드에서 그대로 만든다 — 입력 글 키의 기억(remember)을 거치지
+        # 않는다(같은 입력·다른 카드가 서로 덮어쓰지 않게, 계약 4.1절 3)
+        queries = self.card_queries(req)
+        if queries is not None:
+            return LiveKeywords(ko=list(queries.live_ko), en=list(queries.live_en), origin="rule")
         found = self._remembered.get(keyword_cache_key(req))
         if found is not None:
             return found
@@ -326,8 +388,13 @@ class ProblemAnalogySearch:
         memo_size: int = 64,
         memo_minutes: float = 30.0,
         clock: Callable[[], float] = time.monotonic,
+        card_config: ProblemCardConfig | None = None,
+        scorer: DocumentScorerPort | None = None,
     ):
         self.repo = repo
+        # 문제 정의 카드(ADR 0065) — None 이면 꺼짐. scorer: 최종 정렬의 재순위(없으면 규칙 순)
+        self.card_config = card_config
+        self.scorer = scorer
         self.settings = settings or AnalogySettings()
         self.rail = rail or RailFieldRule()
         self.rule = keywords or KeywordRule()
@@ -344,6 +411,10 @@ class ProblemAnalogySearch:
             if getattr(self.live, "keyword_cache", False):
                 raise ValueError("유추 검색 LiveSearch 는 keyword_cache=False 로 만든다")
         self.problem_keywords = problem_keywords
+        if problem_keywords is not None:
+            # 실시간 검색 키워드와 저장 자료 질의가 같은 설정으로 같은 카드 질의를 보게 — 설정은
+            # 이 객체 것 하나(꺼짐 포함)
+            problem_keywords.card_config = card_config
         self._memo = _Memo(memo_size, memo_minutes * 60, clock)
 
     async def __call__(
@@ -351,6 +422,11 @@ class ProblemAnalogySearch:
     ) -> list[Analogy]:
         if not self.settings.enabled or self.settings.max_results <= 0:
             return []
+        queries = queries_for(req, self.card_config)
+        if queries is not None and req.problem_card is not None and self.card_config is not None:
+            return await self._call_card(
+                req, req.problem_card, queries, self.card_config, core_keywords
+            )
         key = input_key(req, core_keywords or [])
         cached = self._memo.get(key)
         if cached is not None:
@@ -384,6 +460,131 @@ class ProblemAnalogySearch:
         if summary is None or summary.status != "pending":
             self._memo.put(key, out)
         return list(out)
+
+    # ── 문제 정의 카드 경로 (ADR 0065) ─────────────────────
+    async def _call_card(
+        self,
+        req: ProposalRequest,
+        card: ProblemCard,
+        queries: CardQueries,
+        config: ProblemCardConfig,
+        core_keywords: list[str] | None,
+    ) -> list[Analogy]:
+        """카드 질의로 실시간 검색(세션 소유자 = 질의 지문) → 저장 자료를 질의마다 검색해 같은
+        문서는 높은 유사도로 합침 → 최종 5건. 메모 키 = 입력 + 핵심어 + 검색·정렬 지문."""
+        key = input_key(
+            req, core_keywords or [], *memo_groups(pick_fingerprint(queries, card, config.rank))
+        )
+        cached = self._memo.get(key)
+        if cached is not None:
+            return list(cached)
+        summary = None
+        if self.live is not None and self.live.enabled and self.problem_keywords is not None:
+            # 키워드는 ProblemKeywords 가 요청의 카드에서 그대로 만든다(remember 없음)
+            summary = await _prepare(
+                self.live, analogy_owner(ANALOGY_OWNER, queries), req, "analogy"
+            )
+        live_ids = set(summary.doc_ids) if summary is not None else set()
+        merged: dict[str, _Candidate] = {}
+        for query in queries.stored:
+            for c in await self._candidates(query):
+                old = merged.get(c.doc.doc_id)
+                if old is None or c.similarity > old.similarity:
+                    merged[c.doc.doc_id] = c
+        found = list(merged.values())
+        reranked = False
+        if config.uses("analogy_rank"):
+            out, reranked = await self._pick_card(found, card, config, live_ids)
+        else:  # 질의만 카드 — 종전 정렬에 카드 문제어를 쓴다
+            terms = card.terms
+            out = self._pick(
+                found,
+                [*terms.objects_ko, *terms.actions_ko],
+                [*terms.objects_en, *terms.actions_en],
+                live_ids,
+            )
+        logger.info(
+            "analogy.done card=1 queries=%d candidates=%d picked=%d live=%s reranked=%s "
+            "few_analogies=%s",
+            len(queries.stored),
+            len(found),
+            len(out),
+            summary is not None and summary.status in ("done", "partial"),
+            reranked,
+            few_analogies(len(out)),
+        )
+        if summary is None or summary.status != "pending":
+            self._memo.put(key, out)
+        return list(out)
+
+    def _eligible(self, found: Sequence[_Candidate]) -> list[_Candidate]:
+        """종전 규칙 — 하한·공용 계정 internal 제외·철도 분야 제외·같은 제목 제외(유사도 높은
+        것을 남긴다)."""
+        out: list[_Candidate] = []
+        seen_titles: set[str] = set()
+        for c in sorted(found, key=lambda c: (-c.similarity, c.doc.doc_id)):
+            doc = c.doc
+            if c.similarity < self.floor.min_similarity:
+                continue
+            if not self.include_internal and doc.visibility == "internal":
+                continue
+            if rail_reason(doc, self.rail) is not None:
+                continue
+            title_key = normalized_title(doc.title)
+            if title_key and title_key in seen_titles:
+                continue
+            seen_titles.add(title_key)
+            out.append(c)
+        return out
+
+    async def _pick_card(
+        self,
+        found: Sequence[_Candidate],
+        card: ProblemCard,
+        config: ProblemCardConfig,
+        live_ids: set[str],
+    ) -> tuple[list[Analogy], bool]:
+        """계약 4절 `analogy_rank` — (최종 5건, 재순위를 썼는가)."""
+        rank = config.rank
+        rows = rank_rows([(c.doc, c.similarity) for c in self._eligible(found)], card, rank)
+        if not rank.require_object:  # 대상어를 요구하지 않으면 종전처럼 한글 자료는 문제어 겹침
+            rows = [
+                r
+                for r in rows
+                if len(r.shared) >= self.settings.min_shared_terms
+                or not has_hangul(f"{r.doc.title} {r.doc.abstract or ''}")
+            ]
+        scores: list[float] | None = None
+        query = rerank_query(card)
+        if self.scorer is not None and rows and query:
+            try:
+                scores = list(
+                    await self.scorer.score_documents(query, [(r.doc, r.similarity) for r in rows])
+                )
+            except Exception as exc:  # 재순위 실패는 규칙 순으로 계속
+                logger.warning("analogy.rerank_failed err=%s", type(exc).__name__)
+                scores = None
+            if scores is not None and len(scores) != len(rows):
+                scores = None
+        limit = min(self.settings.max_results, MAX_ANALOGIES)
+        picked = take_by_source(order_rows(rows, scores), per_source=rank.per_source, limit=limit)
+        return [self._analogy(r, card, live_ids) for r in picked], scores is not None
+
+    def _analogy(self, row: RankRow, card: ProblemCard, live_ids: set[str]) -> Analogy:
+        doc = row.doc
+        shared = list(row.shared) or card_shared_terms(card, doc)
+        return Analogy(
+            doc_id=doc.doc_id,
+            title=doc.title,
+            source=doc.source,
+            source_label=SOURCE_LABELS.get(doc.source, doc.source),
+            domain_label=domain_label(doc),
+            why_relevant=why_relevant(shared, row.similarity),
+            url=doc.url,
+            year=doc.pub_date.year if doc.pub_date else None,
+            live=doc.doc_id in live_ids,
+            similarity=round(row.similarity, 4),
+        )
 
     async def _base_keywords(self, req: ProposalRequest) -> LiveKeywords:
         if self.keyword_source is not None:
