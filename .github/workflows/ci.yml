@@ -33,6 +33,23 @@ jobs:
         run: |
           if [ -f web/package.json ]; then echo "web=true" >> "$GITHUB_OUTPUT"; else echo "web=false" >> "$GITHUB_OUTPUT"; fi
 
+  secrets:
+    # 비밀값 검사(gitleaks) — 모든 브랜치·과거 커밋 포함 전체 기록. 키·토큰·비밀번호가 들어오면 실패한다.
+    # 시험용 가짜 값은 .gitleaksignore 에 지문으로 적는다(2026-11-10 공개 전 점검에서 추가).
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks 설치 (고정 버전)
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o /tmp/gitleaks.tgz
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+      - name: gitleaks (전체 기록)
+        run: /tmp/gitleaks git . --log-opts="--all -m" --redact --no-banner
+
   backend-unit:
     # 단위·계약: domain·application·adapters·contracts·조립·설정 + lint-imports + ruff
     runs-on: ubuntu-latest

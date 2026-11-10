@@ -1,0 +1,4 @@
+# gitleaks 예외 — 시험용 가짜 값(실제 키 아님). 2026-11-10 전체 기록 점검에서 확인.
+# 형식: <커밋>:<파일>:<규칙>:<줄>
+428ed2c3fc260f622dfabfe9a2d3d45dcb2d4523:tests/test_composition.py:generic-api-key:319
+428ed2c3fc260f622dfabfe9a2d3d45dcb2d4523:tests/adapters/test_scienceon.py:generic-api-key:26
