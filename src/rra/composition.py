@@ -2640,6 +2640,7 @@ def build_api(
     # ADR 0065 문제 정의 카드 — 꺼져 있으면 진단은 status="off", 카드를 받는 단계는 카드를 무시한다.
     # 수정 짝·선택 기록 저장소는 진단·수정·REST 가 같은 것을 쓴다(가짜 모드는 메모리).
     choice_log = build_choice_log(settings)
+    card_reuse = build_card_reuse(settings)  # 진단·고정이 같은 저장소를 쓴다(가짜 모드는 메모리)
     card_kwargs = dict(
         repo=repo,
         llm=llm,
@@ -2653,7 +2654,8 @@ def build_api(
     return create_app(
         manager=manager,
         precheck=precheck,
-        problem_diagnosis=build_problem_diagnosis(settings, **card_kwargs),
+        problem_diagnosis=build_problem_diagnosis(settings, reuse=card_reuse, **card_kwargs),
+        card_pin=card_reuse.pin if card_reuse is not None else None,
         card_editor=build_card_editor(settings, choice_log=choice_log, **card_kwargs),
         policy_suggest=build_policy_suggest(settings, repo=repo),
         notice_match=build_notice_match(settings, repo=repo),
@@ -3723,19 +3725,23 @@ def build_problem_diagnosis(
     local_slot=None,
     embedding=None,
     edit_log=None,
+    reuse=None,
 ):
     """문제 정의 카드 진단(ProblemDiagnosis) — AI 1회 + 규칙 검증 + 분류 코드 확인 + 본인 수정 예시.
 
     class_count: 레인 B 의 KIPRIS 분류 건수(PatentClassCount) — 없으면 저장 자료로만 확인한다.
     embedding: 본인 예시를 고를 때만 쓴다(API 가 이미 띄운 것을 넘긴다 — 없으면 예시 없음, 새로
     띄우지 않는다). edit_log: 수정 반영(build_card_editor)과 **같은 것**을 넘긴다(가짜 모드는
-    메모리라 따로 만들면 서로 보지 못한다). 스위치가 꺼져 있으면 호출 결과는 늘 status="off"."""
+    메모리라 따로 만들면 서로 보지 못한다). 스위치가 꺼져 있으면 호출 결과는 늘 status="off".
+    reuse: 카드 재사용·고정(build_card_reuse) — REST 의 고정(card_pin)과 **같은 것**을 넘긴다.
+    None 이면 재사용 없음(부를 때마다 AI)."""
     from rra.application.usecases.diagnose_problem import DiagnoseProblem
     from rra.config_loader import problem_card_config
 
     settings = settings or load_settings()
     cfg = problem_card_config(settings)
     ask, max_tokens, provider = _card_ask(settings, llm=llm, local_slot=local_slot)
+    stage_cfg = llm_config(settings, cfg.stage)
     return DiagnoseProblem(
         ask,
         build_prompt_library(settings),
@@ -3747,6 +3753,32 @@ def build_problem_diagnosis(
         embedding=embedding,
         max_tokens=max_tokens,
         argon_provider=provider,
+        reuse=reuse,
+        model_name=str(stage_cfg.get("served_model") or stage_cfg.get("model") or ""),
+    )
+
+
+def build_card_reuse(settings: Settings | None = None):
+    """문제 정의 카드 재사용·고정(CardReuse, 계약 problem-card.md 4.4절). 카드 스위치나
+    `reuse.enabled` 가 꺼져 있으면 None — 저장소를 만들지도 건드리지도 않는다. 공용 캐시는
+    `data/cache/problem_cards`(보관 `reuse.cache_days`, 0 이면 없음), 고정 카드는 그 아래 `pinned/`
+    (만료 없음). 폴더 700·파일 600. 가짜 모드는 메모리(데이터 폴더를 건드리지 않는다)."""
+    from rra.adapters.persistence.card_store import MemoryCache, PrivateFileCache
+    from rra.application.usecases.card_reuse import CardReuse
+    from rra.config_loader import problem_card_config
+
+    settings = settings or load_settings()
+    cfg = problem_card_config(settings)
+    if not cfg.enabled or not cfg.reuse.enabled:
+        return None
+    if settings.fake_llm:
+        return CardReuse(cfg, cache=MemoryCache(), pins=MemoryCache())
+    root = data_location(settings, "problem_cards")
+    days = cfg.reuse.cache_days
+    return CardReuse(
+        cfg,
+        cache=PrivateFileCache(root, ttl_sec=days * 86400) if days > 0 else None,
+        pins=PrivateFileCache(root / "pinned", ttl_sec=None, secure_parent=True),
     )
 
 

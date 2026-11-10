@@ -60,6 +60,8 @@ def diagnose_payload(
         "model": outcome.model,
         "fallback_local": outcome.fallback,
         "seconds": outcome.seconds,
+        # 재사용한 카드인가(계약 4.4절) — pinned: 확인해 고정한 카드, cached: 전에 만든 카드
+        "reused": outcome.reused if card is not None else None,
     }
 
 

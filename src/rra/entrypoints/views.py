@@ -1107,6 +1107,13 @@ def analogy_report_payload(
     empty = f"찾지 못했습니다(검색 범위: {languages}, 자료원 {where})."
     if unavailable:
         empty += " 확인하지 못한 자료원이 있어 '없음'이 아니라 일부만 확인한 결과입니다."
+    legacy = int(getattr(report, "legacy_count", 0) or 0)
+    card_hint = (
+        f"문제 정의 카드 기준으로는 찾지 못했지만, 카드 없이 찾으면 {legacy}건이 있습니다. "
+        "핵심 문제 카드(기능 문장·대상)를 확인해 주세요."
+        if legacy > 0 and int(report.count) == 0
+        else None
+    )
     return {
         "kind": report.kind,
         "heading": ANALOGY_HEADINGS.get(report.kind, ANALOGY_HEADINGS["other_field"]),
@@ -1121,6 +1128,8 @@ def analogy_report_payload(
         "languages": list(report.languages),
         "scope_text": clean(scope),
         "empty_text": clean(empty),
+        # 카드 방식만 0건일 때의 안내(계약 problem-card.md 4.4절) — 아니면 None
+        "card_hint": card_hint,
     }
 
 

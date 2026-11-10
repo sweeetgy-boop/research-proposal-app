@@ -198,3 +198,35 @@ describe("편집 모델", () => {
     expect("x".repeat(400).length > changeFunction(CARD, "x".repeat(400))!.after.function_ko.value.length).toBe(true);
   });
 });
+
+describe("핵심 문제 카드 — 다시 정리·확인한 카드 (계약 4.4절)", () => {
+  it("[다시 정리] 는 onRefresh 가 있을 때만 — 누르면 부르고, 정리 중에는 '문제 정리 중…' 으로 막힌다", async () => {
+    const first = renderCard();
+    expect(screen.queryByTestId("card-refresh")).toBeNull();
+    first.unmount();
+    const onRefresh = vi.fn();
+    const view = renderCard({ onRefresh });
+    const button = screen.getByRole("button", { name: "다시 정리" });
+    await userEvent.click(button);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    view.unmount();
+    const { container } = renderCard({ onRefresh, refreshing: true });
+    expect(screen.getByTestId("card-refresh")).toHaveTextContent("문제 정리 중…");
+    expect(screen.getByTestId("card-refresh")).toBeDisabled();
+    for (const b of screen.getAllByRole("button", { name: /고치기$/ })) expect(b).toBeDisabled();
+    await expectNoA11yViolations(container);
+  });
+
+  it("확인해 고정한 카드면 머리에 '확인한 카드', 전에 만든 카드를 다시 쓴 것·새 카드는 표시 없음 — 내부 값은 화면에 없다", () => {
+    const pinned = renderCard({ reused: "pinned" });
+    expect(screen.getByTestId("card-pinned")).toHaveTextContent("확인한 카드");
+    expect(pinned.container.textContent).not.toMatch(/pinned|cached/);
+    pinned.unmount();
+    for (const reused of ["cached", null] as const) {
+      const view = renderCard({ reused });
+      expect(screen.queryByTestId("card-pinned")).toBeNull();
+      expect(view.container.textContent).not.toMatch(/확인한 카드|pinned|cached/);
+      view.unmount();
+    }
+  });
+});

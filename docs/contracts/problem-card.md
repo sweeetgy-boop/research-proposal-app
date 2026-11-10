@@ -72,6 +72,7 @@
 - `status: "off"`(설정 꺼짐)·`"failed"`(실패·시간 초과)면 `card: null` — 화면은 카드를 보이지 않고 그대로 진행한다. 오류 응답(5xx)으로 만들지 않는다.
 - 네 칸 중 빈 칸이 있으면 422(기존 필수 슬롯 문구). 클라이언트가 끊으면 취소(`cancel_on_disconnect`).
 - `previous` 의 `origin=user` 항목은 그대로 두고 나머지만 채운다.
+- 선택 칸 `refresh`(요청)·`reused`(응답) — 같은 제안문의 카드 재사용·고정은 4.4절.
 
 ### 3.2 `POST /v1/ideas/diagnose/edit`
 요청 `{request: {네 칸+가제}, before: ProblemCard, after: ProblemCard, fields: CardField[]}`.
@@ -162,6 +163,33 @@
   기준값 근거(2026-11-10 4사례·실제 AI 카드): 화면에 나온 관련 자료의 최저 비율 0.196(비둘기 5위 "교량용 버드넷"), 무관 자료의 최고 비율 0.117(굴뚝칼새 논문) → 그 사이 0.15.
   네 사례 모두 자르기 전·후 표시 5건이 같았다(잘린 것은 6위 이하). `dropped_weak` 는 자른 탓에 비게 된 자리 수만 센다.
   한계: 1위 점수가 유독 높은 사례(관광 0.95)는 6위 이하의 관련 자료도 비율상 '약함'이 된다 — 5건이 차는 한 화면에는 영향이 없다.
+
+### 4.4 같은 제안문은 같은 카드 — 재사용·고정·'카드 방식만 0건' 안내 (2026-11-10)
+부를 때마다 AI 를 새로 부르면 같은 제안문에도 카드가 달라져 유추 결과가 흔들린다. 스위치는 `problem_card.yaml reuse: {enabled, cache_days}` —
+맨 위 `enabled` 가 꺼져 있으면 저장소를 만들지도 읽지도 쓰지도 않는다(종전과 같다). 규칙 `domain/rules/card_reuse.py`, 유스케이스 `usecases/card_reuse.CardReuse`,
+저장소 `adapters/persistence/card_store.py`(CachePort), 조립 `composition.build_card_reuse`.
+
+- **순서**: `diagnose` = ① 이 사용자가 고정한 카드 → ② 공용 캐시 → ③ AI. 응답에 선택 칸 `reused: "pinned" | "cached" | null`(새로 만들었으면 null).
+  재사용한 응답은 AI·분류 코드 확인을 부르지 않는다(`provider`·`model` null, `seconds` 0). `previous` 의 사용자 항목(origin=user)은 재사용한 카드 위에도 그대로 얹는다.
+- **공용 캐시(제안문 기준)**: 키 = sha256(입력 글 해시 + 진단 지시문 지문 + 모델 이름). 입력 글 해시 = 가제·현황·원인·한계·목표를 칸 순서대로 `normalize_query`(NFKC·소문자·공백 하나) 한 것.
+  값은 **검증을 통과한 AI 카드만**(입력 원문·사용자 식별값 없음, 클라이언트가 보낸 카드는 넣지 않는다). 보관 `reuse.cache_days`(기본 30, 0 이면 공용 캐시 없음).
+  실패·시간 초과는 캐시하지 않는다. 지시문이나 모델이 바뀌면 키가 달라져 옛 카드는 쓰이지 않는다(보관 기간 뒤 읽히지 않음).
+  **그 사람에게 맞춘 결과는 넣지 않는다** — 본인 수정 예시가 지시문에 들어갔거나(`examples > 0`) `previous` 에 사용자 항목이 있던 진단.
+- **고정(사용자별)**: 키 = sha256(가명 ID + 입력 글 해시), 값 = 그 사용자가 확인한 카드. 만료 없음. 확인 = (a) `problem_card` 를 실은 요청이
+  `/v1/precheck/recommendations`(·`/stream`)·`/v1/runs` 에 온 것, (b) `diagnose/edit` 로 고친 것(응답의 카드). **공용 계정(guest)·로그인 없음은 고정하지 않고 읽지도 않는다**
+  (공용 캐시만). 시험 계정·관리자는 고정한다. 다른 사용자의 고정 카드는 어떤 경우에도 돌려주지 않는다(키에 가명 ID).
+- **다시 진단**: 요청 선택 칸 `refresh: bool = false`. true 면 ①② 를 건너뛰고 AI 를 새로 부른다. 결과는 공용 캐시를 갈아 끼운다(위 '맞춘 결과' 는 제외).
+  고정은 그대로 두고, 사용자가 새 카드로 진행하면(확인) 그때 갈아 끼운다. 웹 카드 머리의 [다시 정리] 가 `refresh: true` 로 부른다(진행 중 "문제 정리 중…",
+  실패하면 지금 카드를 그대로). `reused = "pinned"` 면 머리에 "확인한 카드", "cached" 는 표시 없음.
+- **저장 위치**: `data/cache/problem_cards/<sha256>.json`(공용), `data/cache/problem_cards/pinned/<sha256>.json`(고정) — 폴더 700·파일 600, 파일 이름은 해시뿐.
+  데이터 위치 표 키 `problem_cards`(`problem_card.yaml paths.cards` 로 덮어씀). 가짜 모드(`RRA_FAKE_LLM`)는 메모리.
+- **키는 입력 글 기준**이다 — 4.1절의 유추 세션·메모 키(실제 보낸 질의 지문)와 별개이고 서로 건드리지 않는다.
+- **로그**: `card.reuse kind=pinned|cached|none`(INFO, 값 없음). 저장소 오류는 재사용 없이 진행(예외 클래스명만).
+- **카드 방식만 0건**: 카드 경로(`analogy_rank`)의 최종이 0건일 때만, 이미 받아 둔 **종전 문제어 질의**(`rank.with_request_query` 로 후보에 합친 것)의 후보에 종전 고르기
+  (`_pick` — 규칙 문제어 1개 이상·종전 철도 거르기)를 한 번 적용해 건수를 센다 → `AnalogyReport.legacy_count`. 저장소·자료원을 더 부르지 않는다(1건 이상이면 계산도 안 함).
+  응답 `analogy_report.card_hint`(선택, 서버가 만든 문장): `legacy_count > 0` 이고 `count == 0` 일 때
+  "문제 정의 카드 기준으로는 찾지 못했지만, 카드 없이 찾으면 n건이 있습니다. 핵심 문제 카드(기능 문장·대상)를 확인해 주세요." 웹은 0건 구획에 그 문장 +
+  [카드 확인하러 가기](① `/new`). 종전 방식의 자료 자체는 보이지 않는다(카드 기준이 아니다). `with_request_query` 가 꺼져 있으면 세지 않는다(더 부르지 않기 위해).
 
 ## 5. 웹 (레인 C)
 - ① 상세 입력 아래 '핵심 문제' 카드 4줄(기능 문장·원인·모순·분류). 네 칸이 채워지면(간편 입력 `onFilled` 또는 상세 입력에서 네 칸이 모두 찬 뒤

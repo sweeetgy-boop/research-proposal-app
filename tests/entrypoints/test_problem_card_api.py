@@ -106,7 +106,9 @@ async def test_diagnose_ok_returns_card_lines_and_labels(tmp_path):
         "model",
         "fallback_local",
         "seconds",
+        "reused",  # 계약 4.4절 — 새로 만든 카드면 None
     }
+    assert body["reused"] is None
     card = body["card"]
     assert card["function_ko"]["value"] == IDEA["goal"]
     assert card["function_ko"]["basis"] == "근거 있음" and card["function_ko"]["origin"] == "ai"

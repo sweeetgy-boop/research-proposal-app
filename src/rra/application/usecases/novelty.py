@@ -504,8 +504,12 @@ class ProblemAnalogySearch:
         if config.rank.with_request_query and config.uses("analogy_rank"):
             request_query = problem_query(problem_terms(req, self.rule, self.settings.axis), [])
         merged: dict[str, _Candidate] = {}
+        request_found: list[_Candidate] = []  # 종전 문제어 질의의 후보 — 0건 안내에만 쓴다
         for query in [*queries.stored, request_query]:
-            for c in await self._candidates(query):
+            hits = await self._candidates(query)
+            if query and query == request_query:
+                request_found = hits
+            for c in hits:
                 old = merged.get(c.doc.doc_id)
                 if old is None or c.similarity > old.similarity:
                     merged[c.doc.doc_id] = c
@@ -518,6 +522,12 @@ class ProblemAnalogySearch:
             )
             # 검색 범위 — 실제로 확인한 자료원만(새로움 확인과 같은 규칙). 응답하지 않은 자료원이
             # 있으면 '없음'이 아니라 '일부만 확인'
+            if not out and request_found:
+                # 카드 방식만 0건인가(계약 4.4절) — 이미 받은 종전 질의 후보에 종전 고르기만 한 번
+                # (저장소·자료원을 다시 부르지 않는다). 자료는 싣지 않고 건수만
+                legacy_terms = problem_terms(req, self.rule, self.settings.axis)
+                legacy = self._pick(request_found, legacy_terms, [], live_ids)
+                report = report.model_copy(update={"legacy_count": len(legacy)})
             live_names = self._live_sources()
             coverage = build_coverage([], summary, live_sources=live_names)
             report = report.model_copy(

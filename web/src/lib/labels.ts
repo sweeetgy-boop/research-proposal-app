@@ -157,6 +157,9 @@ export function providerLabel(provider: string | null | undefined): string {
 export const CARD_TITLE = "핵심 문제";
 export const CARD_INTRO = "입력을 AI 가 한 번 정리한 내용입니다. 맞으면 그대로 다음으로, 틀리면 그 줄을 고치십시오.";
 export const CARD_PENDING = "문제 정리 중…";
+export const CARD_REFRESH = "다시 정리";
+export const CARD_PINNED = "확인한 카드";
+export const CARD_HINT_LINK = "카드 확인하러 가기";
 export const CARD_INPUT_CHANGED = "입력이 바뀌었습니다 — 다시 정리하는 중";
 export const CARD_INPUT_INCOMPLETE = "입력이 바뀌었습니다 — 네 칸을 모두 채우면 다시 정리합니다";
 export const CARD_EDIT_FAILED = "고친 내용을 반영하지 못했습니다. 잠시 뒤 다시 [적용] 하십시오.";

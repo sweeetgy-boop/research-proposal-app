@@ -238,6 +238,9 @@
   (`rank.dup_title_ratio` 0.6), 약한 자료 제외(1위 대비 `weak_ratio` 0.15 — 5건을 억지로 채우지 않는다), **대상 자체가 철도 시설이면**(`novelty.rail_asset_basis` — 대상어·대상 칸,
   장소 칸 제외) 철도 거르기 없이 '관련 선행 자료', 검색 범위 보고 `analogy_report`('없는 것'과 '못 찾은 것' 구분). 철도 분야 판정은 영문 구·합성어까지(`rail_field.phrases_en`·
   `contains_ko`, 스위치 무관). 2차: 조건부 분석 실행·사전 후보·관리자 통계·새로움 확인에 카드 쓰기.
+  재사용·고정(계약 4.4절, `reuse: {enabled, cache_days}`): `diagnose` = 고정한 카드 → 공용 캐시 → AI(`usecases/card_reuse`, `rules/card_reuse` — 키는 입력 글 + 지시문 지문 + 모델,
+  응답 `reused`, 요청 `refresh` = 웹 [다시 정리]). 확인한 카드(카드를 실은 과제안·생성 요청, `diagnose/edit`)는 사용자별 고정 — 공용 계정 제외. 저장 `data/cache/problem_cards`
+  (고정은 `pinned/`, 700/600, 카드만). 카드 방식만 0건이면 `analogy_report.card_hint`("카드를 확인해 주세요", `AnalogyReport.legacy_count` — 추가 호출 없음).
 - **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.
   이제 쓰지 않는 방식(로컬 7B 주 작성·③ 1차 검토·Cloudflare 계획·화면 "run" 표기)은 지우지 않고 "이전 방식"으로 표시한다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),

@@ -309,6 +309,12 @@ _DATA_LOCATIONS: dict[str, tuple[Callable[[Settings], Mapping[str, Any]], str, s
         "edits",
         "data/feedback/card_edits.jsonl",
     ),
+    # 문제 정의 카드 재사용 캐시(계약 4.4절) — 카드만(입력 원문·식별값 없음), 고정 카드는 pinned/
+    "problem_cards": (
+        lambda s: read_config("problem_card.yaml", s).get("paths") or {},
+        "cards",
+        "data/cache/problem_cards",
+    ),
     "bench": (lambda s: {}, "", "data/bench"),
     # 로그인 저장소(secret·staff.json·guest.json, 레인 A)·외부 LLM 일일 예산 카운터
     "auth": (lambda s: read_config("auth.yaml", s), "store_dir", "data/auth"),

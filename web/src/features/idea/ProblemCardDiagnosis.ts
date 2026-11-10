@@ -41,6 +41,8 @@ export interface ProblemDiagnosis {
   incomplete: boolean;
   /** 지금 바로 진단(네 칸이 찼고 아직 진단하지 않은 입력일 때만) */
   run: () => void;
+  /** [다시 정리] — 고정·캐시를 건너뛰고 새로 진단한다. 실패하면 지금 카드를 그대로 둔다 */
+  refresh: () => void;
   /** 진행 중 호출을 끊는다 — [다음] 은 기다리지 않는다 */
   cancel: () => void;
 }
@@ -56,10 +58,11 @@ export function useProblemDiagnosis(idea: IdeaState, active: boolean): ProblemDi
     setPending(false);
   }, []);
 
-  const run = React.useCallback(() => {
+  const start = React.useCallback((refresh: boolean) => {
     const now = getIdea();
     const sig = fourSignature(now.request);
-    if (!sig || sig === now.cardSig || flight.current?.sig === sig) return;
+    if (!sig || flight.current?.sig === sig) return;
+    if (!refresh && sig === now.cardSig) return;
     flight.current?.ctl.abort();
     const mine = { ctl: new AbortController(), sig };
     flight.current = mine;
@@ -67,7 +70,10 @@ export function useProblemDiagnosis(idea: IdeaState, active: boolean): ProblemDi
     void (async () => {
       let out: DiagnoseOut | null = null;
       try {
-        out = await diagnoseProblem({ ...four(now.request), ...(now.problemCard ? { previous: now.problemCard } : {}) }, { signal: mine.ctl.signal });
+        out = await diagnoseProblem(
+          { ...four(now.request), ...(now.problemCard ? { previous: now.problemCard } : {}), ...(refresh ? { refresh: true } : {}) },
+          { signal: mine.ctl.signal },
+        );
       } catch {
         out = null; // 경로 없음·서버 오류·네트워크 — 카드 없이 간다
       }
@@ -75,13 +81,26 @@ export function useProblemDiagnosis(idea: IdeaState, active: boolean): ProblemDi
       flight.current = null;
       setPending(false);
       if (out?.status === "ok" && out.card && out.lines) {
-        updateIdea({ problemCard: out.card, cardLines: out.lines, cardSignals: out.signal_labels ?? [], cardSig: sig });
+        // 다시 정리한 카드는 이미 받은 과제안의 문제 정의와 다를 수 있다 → ② 에 [과제안 다시 만들기] 표시만
+        const stale = refresh && !!(getIdea().precheck as { recommendations?: unknown } | null)?.recommendations;
+        updateIdea({
+          problemCard: out.card,
+          cardLines: out.lines,
+          cardSignals: out.signal_labels ?? [],
+          cardSig: sig,
+          cardReused: out.reused ?? null,
+          ...(stale ? { plansStale: true } : {}),
+        });
+      } else if (refresh) {
+        return; // 다시 정리에 실패하면 지금 카드를 그대로 둔다
       } else {
-        updateIdea({ problemCard: null, cardLines: null, cardSignals: [], cardSig: sig });
+        updateIdea({ problemCard: null, cardLines: null, cardSignals: [], cardSig: sig, cardReused: null });
       }
       syncCarried();
     })();
   }, []);
+  const run = React.useCallback(() => start(false), [start]);
+  const refresh = React.useCallback(() => start(true), [start]);
 
   const sig = fourSignature(idea.request);
   React.useEffect(() => {
@@ -93,7 +112,7 @@ export function useProblemDiagnosis(idea: IdeaState, active: boolean): ProblemDi
   }, [active, sig, idea.cardSig, run, cancel]);
   React.useEffect(() => () => flight.current?.ctl.abort(), []);
 
-  return { pending, changed: !!idea.problemCard && sig !== idea.cardSig, incomplete: sig === null, run, cancel };
+  return { pending, changed: !!idea.problemCard && sig !== idea.cardSig, incomplete: sig === null, run, refresh, cancel };
 }
 
 /** 한 줄 [적용] — diagnose/edit 응답의 카드·4줄로 갈아 끼운다. 실패하면 던진다(카드가 편집을 연 채 안내).
