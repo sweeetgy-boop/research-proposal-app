@@ -550,3 +550,45 @@ describe("② 화면 — 새 과제안 갈래", () => {
     expect(screen.queryByTestId("novelty-coverage")).toBeNull();
   });
 });
+
+describe("카드 방식만 0건일 때 안내 (계약 problem-card.md 4.4절)", () => {
+  const HINT = "문제 정의 카드 기준으로는 찾지 못했지만, 카드 없이 찾으면 3건이 있습니다. 핵심 문제 카드(기능 문장·대상)를 확인해 주세요.";
+  const emptyReport = (over: Partial<AnalogyReport> = {}): AnalogyReport => ({
+    kind: "other_field",
+    heading: "다른 분야 사례",
+    description: "철도 밖에서 비슷한 문제를 다룬 자료입니다(가짜 설명).",
+    count: 0,
+    dropped_weak: 0,
+    sources_total: 4,
+    sources_checked: 4,
+    checked_labels: ["ScienceON", "OpenAlex", "KIPRIS", "NTIS"],
+    unavailable: [],
+    partial: false,
+    languages: ["한국어", "영어"],
+    scope_text: "자료원 4곳 중 4곳 확인",
+    empty_text: "찾지 못했습니다(검색 범위: 한국어·영어, 자료원 4곳)",
+    ...over,
+  });
+
+  it("card_hint 가 오면 0건 구획에 그 문장과 ① 로 가는 [카드 확인하러 가기] 링크 (axe 0)", async () => {
+    const { container } = renderCards(novel({ analogies: [], analogy_report: emptyReport({ card_hint: HINT }) }));
+    expect(screen.getByTestId("analogy-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("analogy-card-hint")).toHaveTextContent(HINT);
+    const link = screen.getByRole("link", { name: "카드 확인하러 가기" });
+    expect(link).toHaveAttribute("href", "/new");
+    expect(screen.getByTestId("novel-analogies").textContent).not.toMatch(/legacy|card_hint/);
+    await expectNoA11yViolations(container);
+  });
+
+  it("card_hint 가 없거나 null 이면 종전 0건 화면 그대로, 자료가 있으면 안내를 보이지 않는다", () => {
+    for (const hint of [undefined, null]) {
+      const view = renderCards(novel({ analogies: [], analogy_report: emptyReport({ card_hint: hint }) }));
+      expect(screen.getByTestId("analogy-empty")).toBeInTheDocument();
+      expect(screen.queryByTestId("analogy-card-hint")).toBeNull();
+      expect(screen.queryByRole("link", { name: "카드 확인하러 가기" })).toBeNull();
+      view.unmount();
+    }
+    renderCards(novel({ analogy_report: emptyReport({ count: 2, card_hint: HINT }) }));
+    expect(screen.queryByTestId("analogy-card-hint")).toBeNull();
+  });
+});

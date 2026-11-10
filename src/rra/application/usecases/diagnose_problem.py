@@ -9,6 +9,9 @@
 - 분류 코드는 코드마다 `ClassCodeCheck` 로 함께 확인한다(없거나 늦으면 unverified).
 - 본인 예시: 그 사용자의 수정 짝 중 지금 입력과 비슷한 것만 지시문에 넣는다. 공용 계정·로그인
   없음이면 넣지 않는다. **다른 사용자 줄은 어떤 경우에도 넣지 않는다.**
+- 재사용(계약 4.4절, `card_reuse.CardReuse`): 이 사용자가 고정한 카드 → 같은 제안문의 공용 캐시 →
+  AI 순. `refresh=True` 면 AI 를 새로 부른다. 실패·시간 초과는 캐시하지 않는다. 본인 예시나 제안자가
+  고친 항목이 지시문에 들어간 결과는 그 사람에게 맞춘 카드라 공용 캐시에 넣지 않는다.
 - 프롬프트 입력은 이름·연락처를 지우고 태그를 무력화한다. 로그에는 건수·상태·예외 클래스명만.
 """
 
@@ -24,6 +27,7 @@ from typing import Any
 
 from rra.application.ports import EmbeddingPort, PromptLibraryPort
 from rra.application.usecases.argon_first import ArgonFirst
+from rra.application.usecases.card_reuse import CardReuse
 from rra.application.usecases.problem_card_contract import (
     CardEditLogPort,
     ClassCodeCheck,
@@ -31,7 +35,7 @@ from rra.application.usecases.problem_card_contract import (
 )
 from rra.domain.models import Principal, ProposalRequest
 from rra.domain.models.problem_card import ProblemCard, ProblemCardConfig
-from rra.domain.rules import card_edits
+from rra.domain.rules import card_edits, card_reuse
 from rra.domain.rules import problem_card as rules
 from rra.domain.rules.keywords import KeywordRule
 from rra.domain.rules.llm_output import parse_object
@@ -102,6 +106,8 @@ class DiagnoseProblem:
     max_tokens: int | None = None
     argon_provider: str = "gemini"
     clock: Callable[[], float] = time.monotonic
+    reuse: CardReuse | None = None  # 카드 재사용·고정(계약 4.4절) — None 이면 늘 AI 를 부른다
+    model_name: str = ""  # 공용 캐시 키에 넣는 모델 이름(바뀌면 옛 카드를 다시 쓰지 않는다)
 
     def _rule(self) -> KeywordRule:
         return self.keywords or KeywordRule()
@@ -178,15 +184,37 @@ class DiagnoseProblem:
         )
         return res, res.value
 
+    def _reuse_version(self) -> str:
+        return card_reuse.prompt_version(self.prompts.diagnose(), self.model_name)
+
+    def _reused(
+        self, req: ProposalRequest, previous: ProblemCard | None, principal: Principal | None
+    ) -> DiagnoseOutcome | None:
+        """고정한 카드 → 공용 캐시. AI·분류 코드 확인을 부르지 않는다. 화면이 갖고 있던 사용자
+        항목(previous)은 새 진단 때와 같이 그대로 얹는다."""
+        if self.reuse is None or not self.reuse.active:
+            return None
+        found, kind = self.reuse.lookup(req, principal, self._reuse_version())
+        logger.info("card.reuse kind=%s", kind or "none")
+        if found is None:
+            return None
+        card = rules.recheck_cause(rules.keep_user_items(found, previous), req, self._rule())
+        return DiagnoseOutcome(status="ok", card=card, reused=kind)
+
     async def __call__(
         self,
         req: ProposalRequest,
         *,
         previous: ProblemCard | None = None,
         principal: Principal | None = None,
+        refresh: bool = False,
     ) -> DiagnoseOutcome:
         if not self.config.enabled:
             return DiagnoseOutcome(status="off")
+        if not refresh:
+            reused = self._reused(req, previous, principal)
+            if reused is not None:
+                return reused
         started = self.clock()
         examples = await self._examples(req, principal)
         try:
@@ -221,6 +249,9 @@ class DiagnoseProblem:
         card = rules.keep_user_items(parsed.card, previous)
         card = rules.recheck_cause(card, req, self._rule())
         card = await check_codes(card, self.code_check)
+        # 공용 캐시에는 누구에게나 같은 카드만 — 본인 예시·제안자가 고친 항목이 들어간 결과는 뺀다
+        if self.reuse is not None and not examples and not (previous and previous.user_fields()):
+            self.reuse.store(req, card, self._reuse_version())
         seconds = round(self.clock() - started, 1)
         logger.info(
             "problem_card.diagnose status=ok calls=%d fallback=%s cleared=%d changed=%d "

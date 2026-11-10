@@ -381,3 +381,54 @@ describe("화면 상태 호환", () => {
     expect(withoutCard(FIELDS as typeof FIELDS & { problem_card?: unknown })).toEqual(FIELDS);
   });
 });
+
+describe("① [다시 정리] 와 확인한 카드 (계약 4.4절)", () => {
+  it("고정한 카드 응답이면 '확인한 카드' — [다시 정리] 는 refresh 를 실어 부르고 새 카드로 갈아 끼운다", async () => {
+    const fresh = { ...OK, reused: null, lines: { ...OK.lines!, function: "새로 정리한 기능 문장" } };
+    const { calls } = mockFetch({ [DIAGNOSE_PATH]: (init?: RequestInit) => (body(init).refresh ? fresh : { ...OK, reused: "pinned" }) });
+    startDetail();
+    renderIdea();
+    expect(await screen.findByTestId("card-pinned", undefined, WAIT)).toHaveTextContent("확인한 카드");
+    expect(getIdea().cardReused).toBe("pinned");
+    expect(body(calls.filter((c) => c.url === DIAGNOSE_PATH)[0]!.init)).not.toHaveProperty("refresh");
+    await userEvent.click(screen.getByRole("button", { name: "다시 정리" }));
+    expect(await screen.findByText("새로 정리한 기능 문장")).toBeInTheDocument();
+    expect(screen.queryByTestId("card-pinned")).toBeNull();
+    const sent = calls.filter((c) => c.url === DIAGNOSE_PATH);
+    expect(sent).toHaveLength(2);
+    expect(body(sent[1]!.init)).toMatchObject({ ...FIELDS, refresh: true, previous: CARD });
+    expect(getIdea().cardReused ?? null).toBeNull();
+    expect(getIdea().plansStale ?? false).toBe(false); // 받은 과제안이 없으면 표시 없음
+  }, 15_000);
+
+  it("다시 정리하는 동안 버튼은 '문제 정리 중…', 실패하면 지금 카드를 그대로 둔다", async () => {
+    mockFetch({});
+    startDetail({ problemCard: CARD, cardLines: OK.lines, cardSignals: OK.signal_labels, cardSig: fourSignature(FIELDS), cardReused: "pinned" });
+    const held = holdFetch(DIAGNOSE_PATH);
+    renderIdea();
+    await userEvent.click(screen.getByRole("button", { name: "다시 정리" }));
+    expect(await screen.findByTestId("card-refresh")).toHaveTextContent("문제 정리 중…");
+    expect(screen.getByTestId("card-refresh")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "다음: 유사과제 확인" })).toBeEnabled();
+    await act(async () => held.release({ ...OFF, status: "failed", reason: "invalid" }));
+    await waitFor(() => expect(screen.getByTestId("card-refresh")).toHaveTextContent("다시 정리"));
+    expect(screen.getByTestId("problem-card")).toBeInTheDocument();
+    expect(getIdea().problemCard).toEqual(CARD);
+    expect(screen.getByTestId("card-pinned")).toBeInTheDocument();
+    expect(held.calls).toBe(1);
+  }, 15_000);
+
+  it("이미 받은 과제안이 있으면 다시 정리한 뒤 ② 에 [과제안 다시 만들기] 표시만 켠다", async () => {
+    mockFetch({ [DIAGNOSE_PATH]: { ...OK, reused: null } });
+    startDetail({
+      problemCard: CARD,
+      cardLines: OK.lines,
+      cardSignals: OK.signal_labels,
+      cardSig: fourSignature(FIELDS),
+      precheck: { ...precheckFx, recommendations: { id: "rec-1", recommendations: [] } } as unknown as PrecheckOut,
+    });
+    renderIdea();
+    await userEvent.click(screen.getByRole("button", { name: "다시 정리" }));
+    await waitFor(() => expect(getIdea().plansStale).toBe(true));
+  }, 15_000);
+});

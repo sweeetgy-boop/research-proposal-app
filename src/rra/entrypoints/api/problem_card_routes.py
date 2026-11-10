@@ -4,6 +4,9 @@
 - POST /v1/ideas/diagnose        제안 입력 → 카드(AI 1회 + 규칙 검증). 꺼짐·실패면 card: null
                                  (오류 응답으로 만들지 않는다 — 화면은 카드 없이 진행)
 - POST /v1/ideas/diagnose/edit   사용자 수정 → 그 항목에 기대는 것만 다시 계산 + 기록
+                                 (고친 카드는 그 사용자 몫으로 고정한다 — 계약 4.4절)
+
+diagnose 의 `refresh: true` 는 고정·캐시를 건너뛰고 AI 를 새로 부른다([다시 정리]).
 
 카드는 ① 화면의 상태다 — 서버는 세션에 저장하지 않는다. 요청 몸통은 모르는 칸을 거부한다.
 네 칸 중 빈 칸이 있으면 422(기존 필수 슬롯 문구). 브라우저가 끊으면 작업을 취소한다(ADR 0038).
@@ -58,6 +61,7 @@ class DiagnoseIn(IdeaIn):
     """POST /v1/ideas/diagnose — previous: 화면이 갖고 있던 카드(사용자 항목은 그대로 둔다)."""
 
     previous: ProblemCard | None = None
+    refresh: bool = False  # true 면 고정·캐시를 건너뛰고 새로 진단한다
 
 
 class DiagnoseEditIn(BaseModel):
@@ -79,8 +83,10 @@ def register(
     editor: CardEditor | None,
     who: Callable[[Request], Principal],
     clean: Callable[[str], str],
+    pin: Callable[..., Any] | None = None,
 ) -> None:
-    """diagnosis·editor 가 None 이면(조립이 만들지 않음) 진단은 꺼짐 응답, 수정은 409."""
+    """diagnosis·editor 가 None 이면(조립이 만들지 않음) 진단은 꺼짐 응답, 수정은 409.
+    pin: 확인한 카드 고정(`CardReuse.pin`) — None 이면 고정하지 않는다."""
     V = api_version
 
     @app.post(f"/{V}/ideas/diagnose")
@@ -88,8 +94,9 @@ def register(
         req = body.request()
         if diagnosis is None:
             return {"notice": UNTRUSTED_NOTICE, **off_payload()}
+        extra = {"refresh": True} if body.refresh else {}  # 기본 호출 모양은 종전 그대로
         outcome = await cancel_on_disconnect(  # 끊기면 진단만 멈춘다 (ADR 0038)
-            request, diagnosis(req, previous=body.previous, principal=who(request))
+            request, diagnosis(req, previous=body.previous, principal=who(request), **extra)
         )
         return {"notice": UNTRUSTED_NOTICE, **diagnose_payload(outcome, clean=clean)}
 
@@ -111,4 +118,6 @@ def register(
             )
         except CardDisabled as exc:
             raise HTTPException(409, DISABLED_DETAIL) from exc
+        if pin is not None:  # 직접 고친 카드 = 확인한 카드
+            pin(req, outcome.card, who(request))
         return {"notice": UNTRUSTED_NOTICE, **edit_payload(outcome, clean=clean)}

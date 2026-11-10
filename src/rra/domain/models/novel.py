@@ -80,6 +80,9 @@ class AnalogyReport(BaseModel):
     candidates: int = 0  # 종전 규칙(하한·같은 제목)을 지난 후보 수
     dropped_weak: int = 0  # 관련이 약해 뺀 수(재순위 점수 기준)
     dropped_similar: int = 0  # 제목이 겹쳐 뺀 수
+    # 카드 방식이 0건일 때만 센다 — 카드 없이(종전 문제어·종전 고르기) 찾으면 나오는 건수.
+    # 1건 이상이면 화면이 "카드를 확인해 주세요" 안내를 보인다(자료 자체는 싣지 않는다)
+    legacy_count: int = 0
     # 확인 범위 — NoveltyCoverage 와 같은 뜻(실제로 확인한 자료원만)
     searched: list[str] = Field(default_factory=list)
     unavailable: list[dict[str, str]] = Field(default_factory=list)  # {source, status}

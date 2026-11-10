@@ -178,6 +178,9 @@ export default function Idea() {
             changed={diagnosis.changed}
             changedNote={diagnosis.incomplete ? CARD_INPUT_INCOMPLETE : CARD_INPUT_CHANGED}
             onEdit={applyCardEdit}
+            reused={idea.cardReused ?? null}
+            onRefresh={diagnosis.refresh}
+            refreshing={diagnosis.pending && !diagnosis.changed}
           />
         ) : diagnosis.pending ? (
           <ProblemCardPending />

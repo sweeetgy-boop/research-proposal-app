@@ -391,3 +391,78 @@ async def test_weak_items_are_not_padded_and_report_counts_the_empty_slots():
     assert [a.doc_id for a in out] == ["scienceon:B4"]  # 5건을 억지로 채우지 않는다
     report = search.details(req(card()))
     assert report.count == 1 and report.dropped_weak == 4
+
+
+# ── 카드 방식만 0건일 때 (계약 4.4절) ─────────────────────────
+def no_object_pool() -> list[tuple[Document, float]]:
+    """카드의 대상어(비둘기·조류)가 없는 자료뿐 — 카드 방식 0건. 종전 문제어(침입·방지)는 겹친다."""
+    return [
+        (doc("scienceon:S1", "지하 제연설비 역류 침입 방지", "연기 침입을 방지한다"), 0.93),
+        (doc("ntis:N2", "하수 역류 침입 방지 밸브", "역류 침입을 방지한다"), 0.90),
+        (doc("scienceon:R1", "도시철도 승강장 침입 방지"), 0.89),  # 철도 — 종전 방식도 뺀다
+        (doc("scienceon:X1", "토양 미생물 군집 분석"), 0.88),  # 문제어가 겹치지 않는다
+    ]
+
+
+class CountingSearch(ProblemAnalogySearch):
+    """종전 고르기(_pick)를 몇 번 불렀는지 센다."""
+
+    picks = 0
+
+    def _pick(self, *args, **kw):
+        self.picks += 1
+        return super()._pick(*args, **kw)
+
+
+def find_calls(repo) -> int:
+    return len([1 for name, _ in repo.calls if name == "find_similar"])
+
+
+async def test_empty_card_result_counts_what_the_old_way_would_find_without_new_calls():
+    repo = Repo()
+    repo.similar = no_object_pool()
+    search = CountingSearch(repo, card_config=ON, scorer=Scorer())
+    out = await search(req(card()))
+    assert out == []
+    report = search.details(req(card()))
+    assert report.count == 0 and report.legacy_count == 2  # S1·N2 (철도·무관 자료 제외)
+    assert search.picks == 1
+    # 저장소 호출 수는 안내를 세지 않는 설정(종전 질의를 함께 쓰지 않음)보다 그 질의 몫만큼만 많다 —
+    # 0건 안내 때문에 더 부르지 않는다
+    with_hint = find_calls(repo)
+    plain_repo = Repo()
+    plain_repo.similar = no_object_pool()
+    plain = ProblemCardConfig(enabled=True, rank=CardRank(with_request_query=False))
+    plain_search = CountingSearch(plain_repo, card_config=plain, scorer=Scorer())
+    assert await plain_search(req(card())) == []
+    per_query = find_calls(plain_repo) // len(card_queries(card()).stored)
+    assert with_hint == find_calls(plain_repo) + per_query
+    # 종전 질의를 후보에 합치지 않는 설정이면 세지 않는다(추가 호출 없음)
+    assert plain_search.details(req(card())).legacy_count == 0 and plain_search.picks == 0
+
+
+async def test_non_empty_card_result_does_not_run_the_old_pick():
+    repo = Repo()
+    repo.similar = pool()
+    search = CountingSearch(repo, card_config=ON, scorer=Scorer())
+    out = await search(req(card()))
+    assert len(out) >= 1
+    report = search.details(req(card()))
+    assert report.legacy_count == 0 and search.picks == 0
+    # 저장소 호출 수도 0건일 때와 같다(자료만 다르다) — 안내가 호출을 늘리지 않는다
+    empty_repo = Repo()
+    empty_repo.similar = no_object_pool()
+    await CountingSearch(empty_repo, card_config=ON, scorer=Scorer())(req(card()))
+    assert find_calls(repo) == find_calls(empty_repo)
+
+
+async def test_empty_both_ways_gives_no_hint_and_cardless_path_never_counts():
+    repo = Repo()
+    repo.similar = [(doc("scienceon:X1", "토양 미생물 군집 분석"), 0.88)]
+    search = CountingSearch(repo, card_config=ON, scorer=Scorer())
+    assert await search(req(card())) == []
+    assert search.details(req(card())).legacy_count == 0 and search.picks == 1
+    # 카드가 없거나 꺼져 있으면 보고 자체가 없다(종전 그대로)
+    off = CountingSearch(repo, card_config=OFF)
+    await off(req(card()))
+    assert off.details(req(card())) is None

@@ -58,6 +58,8 @@ export interface IdeaState {
   cardSignals?: DiagnoseOut["signal_labels"];
   /** 진단을 마친(성공·꺼짐·실패 모두) 네 칸의 서명 — 지금 네 칸과 다르면 다시 진단한다 */
   cardSig?: string | null;
+  /** 진단 응답의 재사용 표시 — "pinned" 면 카드 머리에 '확인한 카드' */
+  cardReused?: DiagnoseOut["reused"];
   /** 카드를 고쳐 이미 받은 과제안이 옛 문제 정의 기준이다 → ② 에 [과제안 다시 만들기] 한 줄(자동 실행 없음) */
   plansStale?: boolean;
 }

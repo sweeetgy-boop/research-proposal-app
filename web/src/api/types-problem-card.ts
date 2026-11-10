@@ -113,6 +113,8 @@ export interface DiagnoseIn {
   goal: string;
   /** 화면이 갖고 있던 카드 — origin=user 항목은 서버가 그대로 둔다 */
   previous?: ProblemCard | null;
+  /** true 면 고정·캐시를 건너뛰고 새로 진단한다 — [다시 정리] */
+  refresh?: boolean;
 }
 
 /** POST /v1/ideas/diagnose 응답. status 가 off·failed 면 card 는 null — 카드 없이 진행한다 */
@@ -127,6 +129,8 @@ export interface DiagnoseOut {
   model: string | null;
   fallback_local: boolean;
   seconds: number;
+  /** 재사용한 카드인가 — pinned: 이 사용자가 확인해 고정한 카드, cached: 같은 제안문으로 전에 만든 카드, 없음·null: 새로 만듦 */
+  reused?: "pinned" | "cached" | null;
 }
 
 /** POST /v1/ideas/diagnose/edit 요청 */

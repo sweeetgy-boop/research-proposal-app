@@ -36,3 +36,17 @@ def test_related_heading_and_full_scope_and_stored_only():
     stored = analogy_report_payload(AnalogyReport())
     assert stored["scope_text"].startswith("저장 자료 범위에서만")
     assert "자료원 저장 자료" in stored["empty_text"]
+
+
+def test_card_hint_only_when_card_path_is_empty_but_the_old_way_finds_some():
+    """계약 4.4절 — 카드 방식만 0건이면 "카드를 확인해 주세요". 자료 자체는 싣지 않는다."""
+    out = analogy_report_payload(AnalogyReport(count=0, legacy_count=3))
+    assert out["card_hint"] == (
+        "문제 정의 카드 기준으로는 찾지 못했지만, 카드 없이 찾으면 3건이 있습니다. "
+        "핵심 문제 카드(기능 문장·대상)를 확인해 주세요."
+    )
+    assert "legacy" not in str(out) and "run" not in out["card_hint"]
+    assert "legacy_count" not in out
+    # 종전 방식도 0건이거나, 카드 방식에 자료가 있으면 안내가 없다
+    assert analogy_report_payload(AnalogyReport(count=0))["card_hint"] is None
+    assert analogy_report_payload(AnalogyReport(count=2, legacy_count=3))["card_hint"] is None

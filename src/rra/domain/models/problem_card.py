@@ -402,6 +402,15 @@ class CardVerify(BaseModel):
     cache_days: int = Field(default=30, ge=0)
 
 
+class CardReuseConfig(BaseModel):
+    """같은 제안문의 카드 재사용·확인한 카드 고정 (계약 4.4절) — 부를 때마다 흔들리지 않게."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = True  # 꺼지면 종전처럼 부를 때마다 AI 를 새로 부른다(고정도 하지 않는다)
+    cache_days: int = Field(default=30, ge=0)  # 공용 캐시 보관 기간. 0 이면 공용 캐시 없음(고정만)
+
+
 class ProblemCardConfig(BaseModel):
     """config/problem_card.yaml (ADR 0065). 파일이 없으면 기본값 = **꺼짐**."""
 
@@ -418,10 +427,12 @@ class ProblemCardConfig(BaseModel):
     rank: CardRank = Field(default_factory=CardRank)
     verify: CardVerify = Field(default_factory=CardVerify)
     learning: CardLearning = Field(default_factory=CardLearning)
+    reuse: CardReuseConfig = Field(default_factory=CardReuseConfig)
     # 대상어 동의어 묶음 — 묶음 안의 말은 같은 대상어로 본다(대상어 겹침 판정). 띄어쓰기 차이
     # ("가속도센서" = "가속도 센서")는 목록 없이도 같게 본다
     object_synonyms: tuple[tuple[str, ...], ...] = ()
-    # 저장 위치 덮어쓰기 — edits: 수정 짝 JSONL (기본 data/feedback/card_edits.jsonl)
+    # 저장 위치 덮어쓰기 — edits: 수정 짝 JSONL (기본 data/feedback/card_edits.jsonl),
+    # cards: 카드 재사용 캐시 폴더 (기본 data/cache/problem_cards, 고정 카드는 그 아래 pinned/)
     paths: dict[str, str] = Field(default_factory=dict)
 
     def uses(self, name: str) -> bool:

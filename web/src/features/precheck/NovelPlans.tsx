@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { Link } from "react-router";
 import type {
   Analogy,
   AnalogyReport,
@@ -11,7 +12,7 @@ import type {
   NoveltyCoverage,
 } from "@/api/types-novel";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
-import { principleLabel } from "@/lib/labels";
+import { CARD_HINT_LINK, principleLabel } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -117,6 +118,16 @@ export function AnalogyList({
           <p data-testid="analogy-empty">
             <UntrustedText text={report.empty_text} />
           </p>
+          {report.card_hint && (
+            <p className="flex flex-wrap items-center gap-2 rounded-md border border-warning/30 bg-apricot p-2 text-apricot-foreground">
+              <span data-testid="analogy-card-hint">
+                <UntrustedText text={report.card_hint} />
+              </span>
+              <Link to="/new" className="font-medium underline underline-offset-2" data-testid="analogy-card-hint-link">
+                {CARD_HINT_LINK}
+              </Link>
+            </p>
+          )}
           <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {onAddReference && (
               <Button variant="outline" size="sm" onClick={onAddReference} data-testid="analogy-add-reference">

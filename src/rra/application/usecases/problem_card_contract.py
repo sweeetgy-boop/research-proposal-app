@@ -38,6 +38,9 @@ class DiagnoseOutcome:
     fallback: bool = False
     seconds: float = 0.0
     examples: int = 0
+    # 재사용한 카드인가(계약 4.4절) — "pinned": 이 사용자가 확인해 고정한 카드, "cached": 같은
+    # 제안문으로 전에 만든 카드, None: 이번에 AI 가 새로 만듦
+    reused: str | None = None
 
 
 @runtime_checkable
@@ -45,7 +48,8 @@ class ProblemDiagnosis(Protocol):
     """[1단계] AI 1회 + [3단계] 규칙 검증 → 카드 한 장.
 
     previous: 화면이 갖고 있던 카드. 사용자가 고친 항목(origin=user)은 그대로 두고 나머지만
-      새로 채운다. principal: 본인 수정 예시를 고를 때만 쓴다(없으면 예시 없음).
+      새로 채운다. principal: 본인 수정 예시·고정한 카드를 고를 때 쓴다(없으면 둘 다 없음).
+      refresh: True 면 고정·캐시를 건너뛰고 AI 를 새로 부른다([다시 정리], 계약 4.4절).
     """
 
     async def __call__(
@@ -54,6 +58,7 @@ class ProblemDiagnosis(Protocol):
         *,
         previous: ProblemCard | None = None,
         principal: Principal | None = None,
+        refresh: bool = False,
     ) -> DiagnoseOutcome: ...
 
 

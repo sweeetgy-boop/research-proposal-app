@@ -70,6 +70,8 @@ export interface AnalogyReport {
   scope_text: string;
   /** 0건일 때 보일 문장 */
   empty_text: string;
+  /** 카드 방식만 0건이고 카드 없이 찾으면 자료가 있을 때의 안내 문장(서버가 만든다) — 아니면 없음·null */
+  card_hint?: string | null;
 }
 
 export interface NovelRef {

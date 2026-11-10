@@ -43,7 +43,7 @@ export interface paths {
          * Session Login
          * @description 로그인 → httpOnly·SameSite=Strict 세션 쿠키 + CSRF 토큰. 본문 kind:
          *     token(관리 토큰) | staff(사번) | guest(아이디·비밀번호). 값은 본문으로만(URL·로그 금지).
-         *     실패 메시지는 종류를 가리지 않고 하나. 잠금·지연은 usecases.login.
+         *     실패 메시지는 종류를 가리지 않고 하나. 잠금·지연(관리 토큰은 IP·전체만)은 usecases.login.
          */
         post: operations["session_login_v1_session_post"];
         /** Session Logout */
@@ -1672,6 +1672,11 @@ export interface components {
              */
             goal?: string;
             previous?: components["schemas"]["ProblemCard"] | null;
+            /**
+             * Refresh
+             * @default false
+             */
+            refresh?: boolean;
         };
         /**
          * DifferentiationTransferIn

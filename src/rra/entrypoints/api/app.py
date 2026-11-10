@@ -333,6 +333,7 @@ def create_app(
     choice_log: Any | None = None,
     problem_diagnosis: Any | None = None,  # ADR 0065 문제 정의 카드 진단
     card_editor: Any | None = None,
+    card_pin: Any | None = None,  # 확인한 문제 정의 카드 고정(계약 problem-card.md 4.4절)
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api().
 
@@ -983,6 +984,7 @@ def create_app(
     ) -> dict[str, Any]:
         """과제안 경로 한 벌 — 지금 AI 판정 → 추천(progress 콜백) → 되돌림 행 합치기 → 응답 본문.
         POST /recommendations 와 SSE /recommendations/stream(레인 A, ADR 0060)이 같이 쓴다."""
+        _pin_card(request, req)
         alerts, core = await _current_alerts(request, req)
         rec = await _recommend(
             request, req, alerts, similar_only=True, core_keywords=core, progress=progress
@@ -994,6 +996,12 @@ def create_app(
             # [과제안 다시 만들기] — [유사함] 으로 고른 과제와 겹치지 않는 안 (레인 A)
             "recommendations": rec,
         }
+
+    def _pin_card(request: Request, req: ProposalRequest) -> None:
+        """카드를 실은 채 다음 단계로 온 것 = 사용자가 확인한 카드 → 그 사용자 몫으로 고정한다
+        (공용 계정·스위치 꺼짐이면 유스케이스가 아무것도 하지 않는다)."""
+        if card_pin is not None and req.problem_card is not None:
+            card_pin(req, req.problem_card, _who(request))
 
     async def _current_alerts(
         request: Request, req: ProposalRequest
@@ -1219,6 +1227,7 @@ def create_app(
     @app.post(f"/{API_VERSION}/runs", status_code=202)
     async def submit_route(request: Request, body: RunIn) -> dict[str, Any]:
         req = body.request()
+        _pin_card(request, req)
         choices = req.choice_map()
         alerts = None
         if not body.acknowledged or choices:
@@ -1762,6 +1771,7 @@ def create_app(
         editor=card_editor,
         who=_who,
         clean=_clean,
+        pin=card_pin,
     )
     register_progress_routes(  # ADR 0045 작성 중 섹션 먼저 보기
         app, api_version=API_VERSION, manager=manager, own=_own, clean=_clean

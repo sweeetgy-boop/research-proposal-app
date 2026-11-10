@@ -2,7 +2,7 @@
  *  줄마다 '근거 있음'/'추정'(제안문에 있는 내용인지 AI 가 채운 것인지)·'확인 필요', 줄마다 [고치기] → 그 줄만 고쳐 [적용].
  *  "전문가 분석 펼치기"는 기본 접힘(문제 성격·신호는 보이지 않는다). 카드 글은 모델 출력·제안자 수정(비신뢰) → UntrustedText. 열거값은 화면에 내보내지 않는다. */
 import * as React from "react";
-import { PencilLine } from "lucide-react";
+import { PencilLine, RefreshCw } from "lucide-react";
 import type { CardBasis, CardLines, ClassCode, ProblemCard as Card } from "@/api/types-problem-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import {
   CARD_INTRO,
   CARD_LINE_LABELS,
   CARD_PENDING,
+  CARD_PINNED,
+  CARD_REFRESH,
   CARD_TITLE,
   principleLabel,
 } from "@/lib/labels";
@@ -177,9 +179,15 @@ export interface ProblemCardProps {
   changedNote?: string;
   /** 한 줄 [적용] — 서버가 돌려준 카드로 갈아 끼우는 일은 부르는 쪽. 실패하면 던진다(편집을 연 채 안내) */
   onEdit: (change: CardChange) => Promise<void>;
+  /** 진단 응답의 재사용 표시 — "pinned"(이 사용자가 확인해 고정한 카드)일 때만 머리에 '확인한 카드' */
+  reused?: "pinned" | "cached" | null;
+  /** [다시 정리] — 저장해 둔 카드를 쓰지 않고 새로 정리한다. 없으면 버튼을 내지 않는다 */
+  onRefresh?: () => void;
+  /** 다시 정리하는 중 — 버튼 글이 "문제 정리 중…" */
+  refreshing?: boolean;
 }
 
-export function ProblemCard({ card, lines, changed = false, changedNote = CARD_INPUT_CHANGED, onEdit }: ProblemCardProps) {
+export function ProblemCard({ card, lines, changed = false, changedNote = CARD_INPUT_CHANGED, onEdit, reused = null, onRefresh, refreshing = false }: ProblemCardProps) {
   const [editing, setEditing] = React.useState<CardLineKey | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -206,9 +214,22 @@ export function ProblemCard({ card, lines, changed = false, changedNote = CARD_I
     <section aria-labelledby="problem-card-heading" className="space-y-3 rounded-lg border bg-card p-4" data-testid="problem-card">
       <div>
         <Eyebrow className="mb-1">Core problem</Eyebrow>
-        <h2 id="problem-card-heading" className="text-base font-semibold">
-          {CARD_TITLE}
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="problem-card-heading" className="text-base font-semibold">
+            {CARD_TITLE}
+          </h2>
+          {reused === "pinned" && (
+            <Badge variant="outline" data-testid="card-pinned">
+              {CARD_PINNED}
+            </Badge>
+          )}
+          {onRefresh && (
+            <Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={onRefresh} disabled={changed || busy || refreshing} data-testid="card-refresh">
+              <RefreshCw aria-hidden="true" />
+              {refreshing ? CARD_PENDING : CARD_REFRESH}
+            </Button>
+          )}
+        </div>
         <p className="mt-1 text-xs text-muted-foreground">{CARD_INTRO}</p>
       </div>
       {changed && (
@@ -251,7 +272,7 @@ export function ProblemCard({ card, lines, changed = false, changedNote = CARD_I
                   variant="ghost"
                   className="ml-auto"
                   onClick={() => open(key)}
-                  disabled={changed || busy || editing === key}
+                  disabled={changed || busy || refreshing || editing === key}
                   aria-label={`${label} 고치기`}
                 >
                   <PencilLine aria-hidden="true" />
