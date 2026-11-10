@@ -142,6 +142,9 @@
 - **수정 기록**: 표현 다듬기(유사도 ≥ `polish_similarity`)도 줄은 남기고(`recorded=true`) 본인 예시에서만 뺀다. 꺼진 상태의 `diagnose/edit` 는 409.
 - **근거 있음/추정 판정은 원인·모순·분류에만**(2026-11-10 소유자 결정). 기능 문장·사다리는 화면에 '추정' 대신 **"AI가 다시 쓴 문장"** 으로 표시하고(제안자가 고치면 '직접 고침'),
   보완 질문의 확인 문장도 기능 문장은 묻지 않는다(원인 1 + 모순이 추정일 때 1). 카드의 `function_*.basis` 값은 남아 있지만 화면·질문·분포(`basis_counts`)에 쓰지 않는다.
+- **겹치는 제목**: 꼬리말(`rank.dup_title_suffixes`)을 뺀 제목 낱말이 짧은 쪽 기준 `rank.dup_title_ratio`(0.6) 이상 겹치면 순위 높은 하나만(`analogy_rank.drop_similar_titles`).
+- **철도 분야 판정 보강**(`novelty.yaml rail_field`, 스위치와 무관): 영문 구 `phrases_en`·약한 말 `context_terms_en`(2개 이상 함께일 때만)·붙여 쓴 한글 합성어 `contains_ko`.
+  카드의 대상·장소가 철도 시설이면 그 요청에 한해 약한 영문 말은 혼자서도, 한글 철도 용어는 낱말 안 어디에든(`novelty.card_rail_terms`).
 - `science_class` 는 운영 DB 에 이름만 있어 **분류 이름**으로 받고 이름으로 센다. IPC 저장 자료 확인은 메인그룹 단위.
 
 ## 5. 웹 (레인 C)
