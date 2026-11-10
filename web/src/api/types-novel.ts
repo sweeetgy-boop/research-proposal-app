@@ -68,6 +68,8 @@ export interface NovelTitle {
   /** resolves 순서대로 장벽 유형 — 화면 "해소: 규제·비용" 배지 */
   resolves_types: BarrierType[];
   reason: string;
+  /** ADR 0065 — 이 과제명이 기댄 TRIZ 발명 원리(문제 정의 카드가 있을 때만). 없으면 빈 배열이거나 칸이 없다 */
+  principles?: { number: number; name: string }[];
 }
 
 export interface NovelRecommendation {

@@ -1,0 +1,53 @@
+# 문제 정의 카드 (ADR 0065, 계약 docs/contracts/problem-card.md). 모델 src/rra/domain/models/problem_card.py.
+# 제안 입력을 AI 1회로 진단해 카드(기능 문장·사다리·모순·원인·분류 코드)를 만들고, 유추 검색·새 과제안·보완 질문이
+# 장소어가 아니라 '문제' 기준으로 돌게 한다. 꺼져 있거나 카드가 없으면 모든 단계가 종전 방식이다.
+
+# 맨 위 스위치 — 기본 꺼짐. 실제 AI 출력(4사례 카드)을 소유자가 확인한 뒤에 켠다.
+enabled: false
+
+stage: diagnose          # llm.yaml stages 의 Argon 단계
+local_stage: clarify     # Argon 이 오류일 때 로컬 단계
+timeout_seconds: 20      # 진단이 이보다 늦으면 카드 없이 진행(화면은 기다리지 않는다)
+
+# [1단계] 실행할 방법 — 1차는 core(항목 나누기·기능 문장·사다리·모순·근본 원인·분류 후보·문제 성격·신호) 하나
+methods:
+  core: true
+
+# [2단계] 조건부 분석 — 1차는 신호만 기록하고 실행하지 않는다(어떤 신호가 얼마나 자주 켜지는지 먼저 본다)
+conditional:
+  broad_scope: false     # 범위 넓음 → KT IS/IS NOT
+  unclear_cause: false   # 원인 불명확·다수 → 특성요인도(4M+환경)
+  safety_failure: false  # 안전·고장 → FMEA·RAMS 심각도
+  policy_service: false  # 정책·서비스·이용자 → JTBD·HMW
+  few_analogies: false   # 유추 3건 미만 → 생체모방 기능 분류로 넓혀 재검색
+
+# 카드를 쓰는 곳 (enabled 가 false 면 모두 꺼짐)
+use:
+  analogy_queries: true  # 사다리 단별 질의 + 영문 기능 문장 → OpenAlex
+  analogy_rank: true     # 유추 최종 5건: 대상어 겹침 → 기능 문장 재순위 → 자료원당 상한
+  contradiction: true    # 모순·TRIZ 발명 원리 → 새 과제(novel) 갈래의 장벽·과제명 (차별화 갈래는 쓰지 않음)
+  kipris_class: true     # 분류 코드 → KIPRIS 분류 검색 (키워드 검색과 함께)
+  clarify: true          # 원인·추정 항목 → 보완 질문
+
+rank:
+  rerank_top: 40         # 재순위(cross-encoder)에 넘길 후보 수. 40건 2.4~4.0초(2026-11-10 측정)
+  per_source: 2          # 자료원당 우선 건수 — 5건이 안 차면 순위대로 채운다
+  require_object: true   # 대상어(구체·일반화 단)가 겹친 자료만
+
+# [3단계] 분류 코드 확인
+verify:
+  ipc_corpus: true       # 저장 특허에 실제로 붙어 있는 IPC
+  ipc_kipris: true       # KIPRIS 분류 검색 건수(일일 상한 안에서, 코드별 캐시)
+  code_table: false      # 공식 코드표 — 내려받은 뒤 켠다(출처·날짜 기록)
+  cache_days: 30
+
+# 누적 학습 — 모델 학습 없음. 1차: 수정 짝 저장 + 본인 수정만 예시로. 공용 계정 수정은 저장하지 않는다.
+learning:
+  store_edits: true
+  examples: true              # 새 진단 지시문에 '본인의' 비슷한 수정 2~3건 (다른 사용자 것은 넣지 않는다)
+  max_examples: 3
+  example_min_similarity: 0.80
+  polish_similarity: 0.95     # 변경 전후 의미 유사도가 이 이상이면 표현 다듬기 — 학습에서 뺀다
+  candidate_min_count: 3      # (2차) 사전 후보: 같은 수정 3회 이상
+  candidate_min_users: 2      # (2차) 2명 이상
+  per_user_cap: 5             # (2차) 사람당 반영 상한

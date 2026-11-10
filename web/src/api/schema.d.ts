@@ -1188,6 +1188,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/precheck/recommendations/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recommend Stream Route */
+        post: operations["recommend_stream_route_v1_precheck_recommendations_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/search/docs": {
         parameters: {
             query?: never;
@@ -1473,6 +1490,66 @@ export interface components {
             /** Base Version */
             base_version?: number | null;
         };
+        /**
+         * CardText
+         * @description 카드의 글 한 칸. 비어 있을 수 있다(근거가 없어 비워 둠).
+         */
+        CardText: {
+            /**
+             * Value
+             * @default
+             */
+            value?: string;
+            /**
+             * Origin
+             * @default ai
+             * @enum {string}
+             */
+            origin?: "ai" | "user";
+            /**
+             * Basis
+             * @default 추정
+             * @enum {string}
+             */
+            basis?: "근거 있음" | "추정";
+            /**
+             * Ai Value
+             * @default
+             */
+            ai_value?: string;
+            /**
+             * Needs Check
+             * @default false
+             */
+            needs_check?: boolean;
+        };
+        /**
+         * ClassCode
+         * @description 분류 코드 후보 — verified 가 unverified 면 검색에 쓰지 않고 화면에 '확인 못 함' 으로 둔다.
+         */
+        ClassCode: {
+            /** Code */
+            code: string;
+            /**
+             * Label
+             * @default
+             */
+            label?: string;
+            /**
+             * Origin
+             * @default ai
+             * @enum {string}
+             */
+            origin?: "ai" | "user";
+            /**
+             * Verified
+             * @default unverified
+             * @enum {string}
+             */
+            verified?: "table" | "corpus" | "kipris" | "unverified";
+            /** Count */
+            count?: number | null;
+        };
         /** ConfirmIn */
         ConfirmIn: {
             /** Task Type */
@@ -1481,6 +1558,46 @@ export interface components {
             utilization?: string[] | null;
             /** Strategy */
             strategy?: string[] | null;
+        };
+        /**
+         * Contradiction
+         * @description 모순 — 좋게 하려는 것 ↔ 그 때문에 나빠지는 것. 1차는 novel 갈래의 장벽·과제명에만 쓴다.
+         */
+        Contradiction: {
+            /**
+             * Improve
+             * @default
+             */
+            improve?: string;
+            /**
+             * Worsen
+             * @default
+             */
+            worsen?: string;
+            /** Principles */
+            principles?: components["schemas"]["TrizPrinciple"][];
+            /**
+             * Origin
+             * @default ai
+             * @enum {string}
+             */
+            origin?: "ai" | "user";
+            /**
+             * Basis
+             * @default 추정
+             * @enum {string}
+             */
+            basis?: "근거 있음" | "추정";
+            /**
+             * Ai Improve
+             * @default
+             */
+            ai_improve?: string;
+            /**
+             * Ai Worsen
+             * @default
+             */
+            ai_worsen?: string;
         };
         /**
          * DifferentiationTransferIn
@@ -1566,6 +1683,20 @@ export interface components {
             note?: string;
             /** Base Version */
             base_version?: number | null;
+        };
+        /**
+         * Facets
+         * @description 항목 나누기 — 현상 / 대상 / 장소 / 원인 / 피해 / 원하는 결과.
+         *
+         *     place(장소)는 유추 질의·공유 문제어에서 **빼는** 말이다(예: 철도역사·승강장).
+         */
+        Facets: {
+            phenomenon?: components["schemas"]["CardText"];
+            target?: components["schemas"]["CardText"];
+            place?: components["schemas"]["CardText"];
+            cause?: components["schemas"]["CardText"];
+            harm?: components["schemas"]["CardText"];
+            desired?: components["schemas"]["CardText"];
         };
         /**
          * FeedbackIn
@@ -1690,10 +1821,39 @@ export interface components {
              */
             at?: string;
         };
+        /**
+         * LadderStep
+         * @description 추상화 사다리 한 단 — 유추 검색의 단별 질의가 된다.
+         */
+        LadderStep: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "구체" | "일반화" | "추상화";
+            /**
+             * Text
+             * @default
+             */
+            text?: string;
+        };
         /** LocalApplyIn */
         LocalApplyIn: {
             /** Base Version */
             base_version?: number | null;
+        };
+        /** Nature */
+        Nature: {
+            /** Kind */
+            kind?: ("단순" | "난해" | "복잡") | null;
+            /** Mode */
+            mode?: ("도입형" | "실증형" | "연구형") | null;
+            /**
+             * Origin
+             * @default ai
+             * @enum {string}
+             */
+            origin?: "ai" | "user";
         };
         /** PersonIn */
         PersonIn: {
@@ -1802,6 +1962,8 @@ export interface components {
              * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
              */
             reference_ids?: string[];
+            /** @description 문제 정의 카드 (① 진단 결과 + 제안자 수정, 판정·차단에 쓰지 않음) */
+            problem_card?: components["schemas"]["ProblemCard"] | null;
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
@@ -1935,6 +2097,8 @@ export interface components {
              * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
              */
             reference_ids?: string[];
+            /** @description 문제 정의 카드 (① 진단 결과 + 제안자 수정, 판정·차단에 쓰지 않음) */
+            problem_card?: components["schemas"]["ProblemCard"] | null;
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
@@ -2076,6 +2240,8 @@ export interface components {
              * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
              */
             reference_ids?: string[];
+            /** @description 문제 정의 카드 (① 진단 결과 + 제안자 수정, 판정·차단에 쓰지 않음) */
+            problem_card?: components["schemas"]["ProblemCard"] | null;
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
@@ -2103,6 +2269,68 @@ export interface components {
              * @default
              */
             text?: string;
+        };
+        /**
+         * ProblemCard
+         * @description 문제 정의 카드 한 장.
+         */
+        ProblemCard: {
+            /**
+             * Version
+             * @default 1
+             */
+            version?: number;
+            facets?: components["schemas"]["Facets"];
+            function_ko?: components["schemas"]["CardText"];
+            function_en?: components["schemas"]["CardText"];
+            /** Ladder */
+            ladder?: components["schemas"]["LadderStep"][];
+            /**
+             * Ladder Origin
+             * @default ai
+             * @enum {string}
+             */
+            ladder_origin?: "ai" | "user";
+            terms?: components["schemas"]["ProblemTerms"];
+            contradiction?: components["schemas"]["Contradiction"];
+            /** Causes */
+            causes?: components["schemas"]["CardText"][];
+            /** Ipc */
+            ipc?: components["schemas"]["ClassCode"][];
+            /** Science Class */
+            science_class?: components["schemas"]["ClassCode"][];
+            nature?: components["schemas"]["Nature"];
+            /** Signals */
+            signals?: ("broad_scope" | "unclear_cause" | "safety_failure" | "policy_service" | "few_analogies")[];
+            /** Methods */
+            methods?: string[];
+            /** Checks */
+            checks?: string[];
+        };
+        /**
+         * ProblemTerms
+         * @description 문제어 — 유추 최종 정렬의 '대상어 겹침' 판정과 공유 문제어 표시에 쓴다. 장소어는 넣지 않는다.
+         *
+         *     objects: 문제를 일으키거나 다루는 대상. 구체 단과 **일반화 단의 대상어를 함께** 넣는다
+         *       (비둘기 + 조류). 추상화 단의 말(유해동물 등 너무 넓은 말)은 넣지 않는다.
+         *     actions: 작용·현상 낱말(퇴치·착좌·둥지). 이것만 겹친 자료는 대상어 겹침으로 보지 않는다.
+         *     영문은 영문 자료(OpenAlex 등) 판정용 — 소문자, 낱말 앞부분 일치로 본다.
+         */
+        ProblemTerms: {
+            /** Objects Ko */
+            objects_ko?: string[];
+            /** Actions Ko */
+            actions_ko?: string[];
+            /** Objects En */
+            objects_en?: string[];
+            /** Actions En */
+            actions_en?: string[];
+            /**
+             * Origin
+             * @default ai
+             * @enum {string}
+             */
+            origin?: "ai" | "user";
         };
         /**
          * ProposalRequest
@@ -2196,6 +2424,8 @@ export interface components {
              * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
              */
             reference_ids?: string[];
+            /** @description 문제 정의 카드 (① 진단 결과 + 제안자 수정, 판정·차단에 쓰지 않음) */
+            problem_card?: components["schemas"]["ProblemCard"] | null;
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
@@ -2222,6 +2452,7 @@ export interface components {
         RecommendationApplyIn: {
             /** Index */
             index: number;
+            request?: components["schemas"]["ProposalRequest"] | null;
         };
         /**
          * RegenerateIn
@@ -2365,6 +2596,8 @@ export interface components {
              * @description ② 관련 연구에서 차별화에 참고로 고른 doc_id (최대 5, 판정·차단에 쓰지 않음)
              */
             reference_ids?: string[];
+            /** @description 문제 정의 카드 (① 진단 결과 + 제안자 수정, 판정·차단에 쓰지 않음) */
+            problem_card?: components["schemas"]["ProblemCard"] | null;
             /**
              * Department
              * @description 제안부서 (양식 칸에만 쓴다)
@@ -2529,6 +2762,19 @@ export interface components {
             answers?: {
                 [key: string]: string;
             };
+        };
+        /**
+         * TrizPrinciple
+         * @description TRIZ 발명 원리 — 번호는 1~40, 이름은 고정 목록(domain/rules/triz)과 대조해 맞춘다.
+         */
+        TrizPrinciple: {
+            /** Number */
+            number: number;
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -4835,6 +5081,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recommend_stream_route_v1_precheck_recommendations_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
