@@ -171,6 +171,7 @@ export const CARD_LINE_LABELS = {
 export const CARD_BADGES = {
   stated: "근거 있음",
   guessed: "추정",
+  rewritten: "AI가 다시 쓴 문장",
   needsCheck: "확인 필요",
   unverified: "확인 못 함",
   user: "직접 고침",

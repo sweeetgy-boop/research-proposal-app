@@ -696,11 +696,11 @@ def signal_labels(card: ProblemCard) -> list[dict[str, str]]:
 
 
 def basis_counts(card: ProblemCard) -> dict[str, int]:
-    """근거 있음/추정 분포(값이 있는 글 칸만) — 기록·보고용."""
-    items = [getattr(card.facets, n) for n in FACET_NAMES]
-    items += [card.function_ko, card.function_en, *card.causes]
+    """근거 있음/추정 분포 — 기록·보고용. 판정 대상은 원인(근본 원인)·모순뿐이다. 기능 문장·
+    사다리는 AI 가 다시 쓴 문장이라 세지 않는다(2026-11-10 소유자 결정). 분류 코드는 근거 대신
+    확인 경로(`verified`)를 갖는다."""
     out = {BASIS_STATED: 0, BASIS_GUESSED: 0}
-    for item in items:
+    for item in card.causes:
         if item.value:
             out[item.basis] += 1
     if card.contradiction.filled:
