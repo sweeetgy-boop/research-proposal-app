@@ -2306,9 +2306,12 @@ def build_sessions(settings: Settings | None = None):
 
 
 def api_middlewares(
-    settings: Settings, token: str, *, sessions=None
+    settings: Settings, token: str, *, sessions=None, guard=None, clock=None
 ) -> list[tuple[type, dict[str, Any]]]:
     """등록 순서(안쪽부터): 인증 → 본문 상한 → 헤더 → 접근 로그(4xx·5xx 만).
+
+    `guard` 는 로그인 유스케이스의 LoginGuard — 틀린 헤더 토큰도 같은 접속자 IP 창에 센다.
+    `clock` 은 그 판정에 쓸 시계(시험용, 기본 time.time — 로그인 유스케이스와 같아야 한다).
 
     FastAPI.add_middleware 는 마지막에 넣은 것이 바깥이 된다.
     → 접근 로그가 가장 바깥에서 모든 응답 상태를 본다.
@@ -2340,6 +2343,8 @@ def api_middlewares(
                 "public_origin": api["public_origin"],
                 "trust_cf": api["trust_cf_connecting_ip"],
                 "trust_forwarded": api["trust_forwarded_from_loopback"],
+                "guard": guard,
+                **({"clock": clock} if clock is not None else {}),
             },
         ),
     ]
@@ -2609,6 +2614,8 @@ def build_api(
         live = build_live_search(settings, repo=repo)  # [4] REST·run 이 세션을 공유한다
         manager = build_run_manager(settings, repo=repo, llm=llm, runner=runner, live_search=live)
     sessions = build_sessions(settings)
+    # 로그인과 헤더 토큰 검사(미들웨어)가 같은 잠금 기록(LoginGuard)을 쓴다
+    login = build_login(settings, store=fake["auth"] if fake else None)
     static = static_dir if static_dir is not None else Path(settings.static_dir)
     slot = getattr(manager.generate, "local_slot", None)  # 로컬 모델 — 생성과 같은 슬롯
     # ② 판정(레인 A): AI 같음 판정 + 핵심 키워드(실시간 검색과 같은 LiveKeywordMaker)
@@ -2674,14 +2681,14 @@ def build_api(
         brief=build_briefer(settings, repo=repo, llm=llm),
         ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
-        login=build_login(settings, store=fake["auth"] if fake else None),
+        login=login,
         auth_limits=auth["limits"],
         trust_cf=auth["trust_cf_connecting_ip"],
         trust_forwarded=auth["trust_forwarded_from_loopback"],
         client_ip=client_ip,
         guest_services=guest_services,
         user=LOCAL_USER,
-        middlewares=api_middlewares(settings, token, sessions=sessions),
+        middlewares=api_middlewares(settings, token, sessions=sessions, guard=login.guard),
         query_max_chars=int(input_limits(settings).get("query_max_chars", 500)),
         on_shutdown=manager.generate.llm.aclose,
         session_auth=SessionAuth(token, sessions),

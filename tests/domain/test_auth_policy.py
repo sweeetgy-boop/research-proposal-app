@@ -72,3 +72,58 @@ def test_valid_password_min_length_is_configurable():
     assert not valid_password("1234567") and valid_password("12345678")
     assert valid_password("1234", 4) and not valid_password("123", 4)  # 시범 한정 4자
     assert valid_password("x", 0)  # 0·음수는 1 로 본다 (빈 값은 항상 거부)
+
+
+def test_failure_reports_the_moment_a_lock_starts_and_its_scope():
+    """잠금이 시작된 그 실패에서만 started 가 채워진다(계정·IP 따로). 잠긴 뒤 실패는 비어 있다."""
+    g = LoginGuard()
+    for i in range(4):
+        assert g.failure("guest:team", "1.1.1.1", now=100 + i).started == ()
+        assert g.lock_scope("guest:team", "1.1.1.1", now=100 + i) is None
+    assert g.failure("guest:team", "1.1.1.1", now=104).started == ("account",)
+    assert g.lock_scope("guest:team", "1.1.1.1", now=105) == "account"
+    assert g.failure("guest:team", "1.1.1.1", now=105).started == ()  # 이미 잠김 — 다시 알리지 않음
+    assert g.lock_scope("guest:other", "1.1.1.1", now=105) is None
+    assert g.lock_scope("guest:team", "1.1.1.1", now=105 + 601) is None  # 마지막 실패 뒤 10분
+
+
+def test_ip_lock_start_scope_and_release_after_window():
+    g = LoginGuard()
+    for i in range(19):
+        assert g.failure(None, "9.9.9.9", now=1000 + i).started == ()
+    assert g.failure(None, "9.9.9.9", now=1019).started == ("ip",)
+    assert g.lock_scope(None, "9.9.9.9", now=1020) == "ip"
+    assert g.lock_scope("staff:x", "9.9.9.9", now=1020) == "ip"
+    assert g.lock_scope(None, "8.8.8.8", now=1020) is None
+    assert g.lock_scope(None, None, now=1020) is None  # 접속자를 모르면 IP 잠금 없음
+    assert g.lock_scope(None, "9.9.9.9", now=1000 + 601) is None  # 창이 지나면 풀린다
+    assert g.failure(None, "9.9.9.9", now=1000 + 700).started == ()  # 풀린 뒤 새로 센다
+    # 계정·IP 가 같은 실패에서 함께 걸리면 둘 다 알린다
+    both = LoginGuard(LockoutPolicy(account_failures=2, ip_failures=2))
+    both.failure("guest:team", "7.7.7.7", now=1)
+    assert both.failure("guest:team", "7.7.7.7", now=2).started == ("account", "ip")
+    assert both.lock_scope("guest:team", "7.7.7.7", now=3) == "account"  # 계정 먼저
+
+
+def test_slowdown_start_is_reported_once_with_the_failure_count():
+    g = LoginGuard(LockoutPolicy(global_failures=3, global_delay_sec=2.0, ip_failures=100))
+    outcomes = [g.failure(None, None, now=10 + i) for i in range(6)]
+    assert [o.slowdown_started for o in outcomes] == [False, False, False, True, False, False]
+    assert outcomes[3].failures == 4
+    assert g.failure(None, None, now=10 + 700).slowdown_started is False  # 창이 지나 다시 0 부터
+
+
+def test_lock_log_lines_carry_kind_scope_ip_only():
+    policy = LockoutPolicy(global_delay_sec=2.0)
+    started = ap.FailureOutcome(started=("account", "ip"), slowdown_started=True, failures=51)
+    lines = ap.lock_log_lines("guest", "5.5.5.5", blocked=None, outcome=started, policy=policy)
+    assert lines == (
+        "api.login.locked kind=guest scope=account ip=5.5.5.5 seconds=600",
+        "api.login.locked kind=guest scope=ip ip=5.5.5.5 seconds=600",
+        "api.login.slowdown failures=51 delay=2",
+    )
+    quiet = ap.FailureOutcome(failures=3)
+    assert ap.lock_log_lines("token", None, blocked="ip", outcome=quiet, policy=policy) == (
+        "api.login.blocked kind=token scope=ip ip=-",
+    )
+    assert ap.lock_log_lines("staff", "1.1.1.1", blocked=None, outcome=quiet, policy=policy) == ()

@@ -152,3 +152,70 @@ def test_unknown_client_ip_has_no_ip_lockout_but_account_lockout_stays():
             login.guest("team", "nope", ip="127.0.0.1")
     with pytest.raises(LoginFailed):  # 계정 잠금은 IP 를 몰라도 걸린다
         login.guest("team", "pw-secret-1", ip="127.0.0.1")
+
+
+def test_token_failures_lock_the_ip_and_even_the_right_token_fails_there():
+    """관리 토큰: 계정 키 없이 IP 창만. 20회 틀리면 그 IP 는 맞는 토큰도 실패, 다른 IP 는 무관."""
+    now = [100.0]
+    login = Login(FakeAuthStore(), clock=lambda: now[0])
+    assert login.token(True, ip="5.5.5.5").principal.kind == "admin"
+    for i in range(20):
+        with pytest.raises(LoginFailed) as exc:
+            login.token(False, ip="5.5.5.5")
+        assert exc.value.blocked is None
+        assert exc.value.outcome.started == (("ip",) if i == 19 else ())
+    assert exc.value.log_lines == ("api.login.locked kind=token scope=ip ip=5.5.5.5 seconds=600",)
+    with pytest.raises(LoginFailed) as exc:  # 잠금 — 맞는 토큰도 거부
+        login.token(True, ip="5.5.5.5")
+    assert exc.value.blocked == "ip" and str(exc.value) == LOGIN_FAILED_MESSAGE
+    assert exc.value.log_lines == ("api.login.blocked kind=token scope=ip ip=5.5.5.5",)
+    assert login.token(True, ip="5.5.5.6").principal.kind == "admin"
+    now[0] += 601
+    assert login.token(True, ip="5.5.5.5").principal.kind == "admin"  # 창이 지나면 풀린다
+
+
+def test_token_never_locks_loopback_or_unknown_clients_and_has_no_account_lock():
+    login = Login(FakeAuthStore(), clock=lambda: 10.0)
+    for ip in ("127.0.0.1", "::1", "", None, "unknown"):
+        for _ in range(30):
+            with pytest.raises(LoginFailed) as exc:
+                login.token(False, ip=ip)
+            assert exc.value.blocked is None and exc.value.outcome.started == ()
+        assert login.token(True, ip=ip).principal.kind == "admin"
+    assert login.guard._account == {}  # 관리자 계정 키로는 세지 않는다
+
+
+def test_token_failures_share_the_ip_window_with_staff_and_get_the_global_delay():
+    policy = LockoutPolicy(global_failures=3, global_delay_sec=2.0, ip_failures=4)
+    login = Login(FakeAuthStore(staff={"K-1"}), guard=LoginGuard(policy), clock=lambda: 1.0)
+    for _ in range(2):
+        with pytest.raises(LoginFailed):
+            login.token(False, ip="6.6.6.6")
+    with pytest.raises(LoginFailed):
+        login.staff("NO-1", ip="6.6.6.6")
+    with pytest.raises(LoginFailed) as exc:
+        login.staff("NO-2", ip="6.6.6.6")
+    assert exc.value.outcome.started == ("ip",) and exc.value.outcome.slowdown_started
+    assert exc.value.log_lines == (
+        "api.login.locked kind=staff scope=ip ip=6.6.6.6 seconds=600",
+        "api.login.slowdown failures=4 delay=2",
+    )
+    with pytest.raises(LoginFailed) as exc:  # 같은 IP 창 — 토큰도 잠긴다
+        login.token(True, ip="6.6.6.6")
+    assert exc.value.blocked == "ip" and exc.value.delay_sec == 2.0
+    assert login.token(True, ip="6.6.6.7").delay_sec == 2.0  # 성공에도 지연
+
+
+def test_account_lock_failure_carries_scope_without_account_identity():
+    login = Login(FakeAuthStore(guest=("team", "pw-secret-1")), clock=lambda: 10.0)
+    for _ in range(5):
+        with pytest.raises(LoginFailed) as exc:
+            login.guest("team", "nope", ip="5.5.5.5")
+    assert exc.value.log_lines == (
+        "api.login.locked kind=guest scope=account ip=5.5.5.5 seconds=600",
+    )
+    with pytest.raises(LoginFailed) as exc:
+        login.guest("team", "pw-secret-1", ip="5.5.5.5")
+    assert exc.value.blocked == "account"
+    assert exc.value.log_lines == ("api.login.blocked kind=guest scope=account ip=5.5.5.5",)
+    assert "team" not in "".join(exc.value.log_lines)

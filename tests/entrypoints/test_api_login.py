@@ -77,14 +77,18 @@ def build(*, limits=None, budget=None, store=None):
     auth_store = store or FakeAuthStore(staff={STAFF_A, STAFF_B}, guest=GUEST)
     settings = Settings(_env_file=None)
     sessions = SessionStore()
+    login_uc = Login(auth_store, clock=lambda: 1000.0)  # 미들웨어도 같은 시계
     app = create_app(
         manager=a.manager,
         precheck=a.precheck,
         repo=a.repo,
         user=a.user,
-        middlewares=api_middlewares(settings, TOKEN, sessions=sessions),
+        # 운영 조립(build_api)처럼 로그인과 헤더 토큰 검사가 같은 잠금 기록을 쓴다
+        middlewares=api_middlewares(
+            settings, TOKEN, sessions=sessions, guard=login_uc.guard, clock=lambda: 1000.0
+        ),
         session_auth=SessionAuth(TOKEN, sessions),
-        login=Login(auth_store, clock=lambda: 1000.0),
+        login=login_uc,
         auth_limits=limits or {"guest_runs_per_day": 10, "staff_runs_per_day": 20},
         guest_services={
             "repo": public_repo,
@@ -337,3 +341,132 @@ async def test_login_without_login_usecase_fails_closed(kind):
         body = {"kind": kind, "staff_no": "K-1", "id": "team", "password": "x"}
         r = await c.post("/v1/session", json=body)
         assert r.status_code == 401
+
+
+WRONG = "wrong-token-value-zzz"
+
+
+def _lock_lines(caplog) -> list[str]:
+    return [
+        f"{r.levelname} {r.getMessage()}"
+        for r in caplog.records
+        if r.name == "rra.api.auth" and "api.login." in r.getMessage()
+    ]
+
+
+async def test_token_login_is_ip_limited_and_logs_lock_without_token_value(caplog):
+    """관리 토큰 세션 로그인: 같은 접속자가 20회 틀리면 그 IP 는 맞는 토큰도 401(문구 그대로).
+    다른 접속자·127.0.0.1 직접 접속은 영향 없음. 로그에 토큰 값 없음."""
+    app, _, _ = build()
+    one = {"X-Forwarded-For": "198.51.100.30"}
+    with caplog.at_level(logging.INFO, logger="rra.api.auth"):
+        async with client_for(app) as c:
+            for _ in range(20):
+                r = await c.post("/v1/session", json={"kind": "token", "token": WRONG}, headers=one)
+                assert r.status_code == 401 and r.json()["detail"] == "인증 토큰이 맞지 않습니다."
+                assert r.headers["www-authenticate"] == "Bearer"
+            r = await c.post("/v1/session", json={"kind": "token", "token": TOKEN}, headers=one)
+            assert r.status_code == 401 and r.json()["detail"] == "인증 토큰이 맞지 않습니다."
+            assert "set-cookie" not in r.headers
+            other = {"X-Forwarded-For": "198.51.100.31"}
+            r = await c.post("/v1/session", json={"kind": "token", "token": TOKEN}, headers=other)
+            assert r.status_code == 200 and r.json()["kind"] == "admin"
+        async with client_for(app) as c:  # 접속자를 모르는 로컬 운영자는 잠기지 않는다
+            for _ in range(25):
+                r = await c.post("/v1/session", json={"kind": "token", "token": WRONG})
+                assert r.status_code == 401
+            r = await c.post("/v1/session", json={"token": TOKEN})
+            assert r.status_code == 200 and r.json()["kind"] == "admin"
+    lines = _lock_lines(caplog)
+    assert sum("api.login.fail kind=token" in m for m in lines) == 46
+    locked = [m for m in lines if "api.login.locked" in m]
+    assert locked == ["WARNING api.login.locked kind=token scope=ip ip=198.51.100.30 seconds=600"]
+    blocked = [m for m in lines if "api.login.blocked" in m]
+    assert blocked == ["WARNING api.login.blocked kind=token scope=ip ip=198.51.100.30"]
+    assert WRONG not in caplog.text and TOKEN not in caplog.text
+
+
+async def test_guest_lockout_logs_locked_once_then_blocked(caplog):
+    app, _, _ = build()
+    one = {"X-Forwarded-For": "198.51.100.40"}
+    with caplog.at_level(logging.INFO, logger="rra.api.auth"):
+        async with client_for(app) as c:
+            for _ in range(5):
+                await c.post(
+                    "/v1/session",
+                    json={"kind": "guest", "id": "team", "password": "bad-pw-xyz"},
+                    headers=one,
+                )
+            assert not any("api.login.blocked" in m for m in _lock_lines(caplog))
+            for _ in range(2):
+                r = await c.post(
+                    "/v1/session",
+                    json={"kind": "guest", "id": "team", "password": GUEST[1]},
+                    headers=one,
+                )
+                assert r.status_code == 401 and r.json()["detail"] == LOGIN_FAILED_MESSAGE
+    lines = _lock_lines(caplog)
+    assert [m for m in lines if "api.login.locked" in m] == [
+        "WARNING api.login.locked kind=guest scope=account ip=198.51.100.40 seconds=600"
+    ]
+    assert [m for m in lines if "api.login.blocked" in m] == [
+        "WARNING api.login.blocked kind=guest scope=account ip=198.51.100.40"
+    ] * 2
+    assert sum("INFO api.login.fail kind=guest" in m for m in lines) == 7
+    # 아이디·비밀번호·가명 ID 는 어느 줄에도 없다
+    assert not any(v in caplog.text for v in ("team", "bad-pw-xyz", GUEST[1], "guest:"))
+
+
+async def test_header_token_is_ip_limited_and_session_cookies_are_unaffected(caplog):
+    """헤더 토큰(X-RRA-Token·Bearer): 같은 접속자가 20회 틀리면 그 IP 의 헤더 토큰은 맞아도 401.
+    세션 쿠키 요청(헤더 토큰 없음)·다른 접속자·127.0.0.1 직접 접속은 그대로."""
+    app, _, _ = build()
+    one = {"X-Forwarded-For": "198.51.100.50"}
+    with caplog.at_level(logging.INFO, logger="rra.api.auth"):
+        async with client_for(app) as browser, client_for(app) as c:
+            await login(browser, kind="staff", staff_no=STAFF_A)  # 잠기기 전에 받은 세션
+            for i in range(20):
+                bad = {"X-RRA-Token": WRONG} if i % 2 else {"Authorization": f"Bearer {WRONG}"}
+                r = await c.get("/v1/runs", headers={**one, **bad})
+                assert r.status_code == 401 and r.json()["detail"] == "인증 토큰이 필요합니다."
+            r = await c.get("/v1/runs", headers={**one, **AUTH})
+            assert r.status_code == 401 and r.json()["detail"] == "인증 토큰이 필요합니다."
+            assert (await browser.get("/v1/runs", headers=one)).status_code == 200  # 쿠키는 무관
+            other = {"X-Forwarded-For": "198.51.100.51", **AUTH}
+            assert (await c.get("/v1/runs", headers=other)).status_code == 200
+            # 같은 IP 창 — 그 접속자의 세션 로그인도 잠긴다(관리 토큰 포함)
+            r = await c.post("/v1/session", json={"kind": "token", "token": TOKEN}, headers=one)
+            assert r.status_code == 401
+            for _ in range(25):  # 로컬 운영자는 몇 번 틀려도 잠기지 않는다
+                await c.get("/v1/runs", headers={"X-RRA-Token": WRONG})
+            assert (await c.get("/v1/runs", headers=AUTH)).status_code == 200
+    lines = _lock_lines(caplog)
+    assert [m for m in lines if "api.login.locked" in m] == [
+        "WARNING api.login.locked kind=token scope=ip ip=198.51.100.50 seconds=600"
+    ]
+    assert sum("api.login.blocked kind=token scope=ip ip=198.51.100.50" in m for m in lines) == 2
+    assert WRONG not in caplog.text and TOKEN not in caplog.text
+
+
+async def test_header_token_without_guard_keeps_old_behaviour():
+    """guard 없이 조립한 미들웨어(시험·가짜)는 종전대로 — 틀린 헤더 토큰을 세지 않는다."""
+    a = make_assistant()
+    sessions = SessionStore()
+    app = create_app(
+        manager=a.manager,
+        precheck=a.precheck,
+        repo=a.repo,
+        user=a.user,
+        middlewares=api_middlewares(Settings(_env_file=None), TOKEN, sessions=sessions),
+        session_auth=SessionAuth(TOKEN, sessions),
+    )
+    one = {"X-Forwarded-For": "198.51.100.60"}
+    async with client_for(app) as c:
+        for _ in range(25):
+            r = await c.get("/v1/runs", headers={**one, "X-RRA-Token": WRONG})
+            assert r.status_code == 401
+            r = await c.post("/v1/session", json={"kind": "token", "token": WRONG}, headers=one)
+            assert r.status_code == 401 and r.json()["detail"] == "인증 토큰이 맞지 않습니다."
+        assert (await c.get("/v1/runs", headers={**one, **AUTH})).status_code == 200
+        r = await c.post("/v1/session", json={"kind": "token", "token": TOKEN}, headers=one)
+        assert r.status_code == 200

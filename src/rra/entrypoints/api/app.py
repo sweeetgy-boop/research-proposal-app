@@ -519,31 +519,39 @@ def create_app(
     async def session_login(body: SessionIn, request: Request) -> JSONResponse:
         """로그인 → httpOnly·SameSite=Strict 세션 쿠키 + CSRF 토큰. 본문 kind:
         token(관리 토큰) | staff(사번) | guest(아이디·비밀번호). 값은 본문으로만(URL·로그 금지).
-        실패 메시지는 종류를 가리지 않고 하나. 잠금·지연은 usecases.login."""
+        실패 메시지는 종류를 가리지 않고 하나. 잠금·지연(관리 토큰은 IP·전체만)은 usecases.login."""
         if session_auth is None:
             raise HTTPException(
                 401, "인증 토큰이 맞지 않습니다.", headers={"www-authenticate": "Bearer"}
             )
         principal: Principal
-        if body.kind == "token":
+        token_fail = HTTPException(
+            401, "인증 토큰이 맞지 않습니다.", headers={"www-authenticate": "Bearer"}
+        )
+        if body.kind == "token" and login is None:  # 로그인 유스케이스 없는 조립 — 토큰 비교만
             if not session_auth.token_ok(body.token or ""):
-                raise HTTPException(
-                    401, "인증 토큰이 맞지 않습니다.", headers={"www-authenticate": "Bearer"}
-                )
+                raise token_fail
             principal = auth_policy.admin_principal()
+        elif login is None:
+            raise HTTPException(401, auth_policy.LOGIN_FAILED_MESSAGE)
         else:
-            if login is None:
-                raise HTTPException(401, auth_policy.LOGIN_FAILED_MESSAGE)
             try:
-                if body.kind == "staff":
+                if body.kind == "token":  # 계정 키 없이 접속자 IP·전체 지연만 (usecases.login)
+                    ok = session_auth.token_ok(body.token or "")
+                    result = login.token(ok, ip=_ip(request))
+                elif body.kind == "staff":
                     result = login.staff(body.staff_no or "", ip=_ip(request))
                 else:
                     result = login.guest(body.id or "", body.password or "", ip=_ip(request))
             except LoginFailed as exc:
-                # 사번·아이디 값은 남기지 않는다 — 종류·접속자 IP 만 (접속 장애 진단용)
+                # 사번·아이디·토큰 값은 남기지 않는다 — 종류·접속자 IP 만 (접속 장애 진단용)
                 auth_log.info("api.login.fail kind=%s ip=%s", body.kind, _ip(request) or "-")
+                for line in exc.log_lines:  # 잠금 시작·잠긴 뒤 시도·전체 지연 (값 없음)
+                    auth_log.warning("%s", line)
                 if exc.delay_sec > 0:
                     await asyncio.sleep(exc.delay_sec)
+                if body.kind == "token":
+                    raise token_fail from exc
                 raise HTTPException(401, auth_policy.LOGIN_FAILED_MESSAGE) from exc
             if result.delay_sec > 0:
                 await asyncio.sleep(result.delay_sec)

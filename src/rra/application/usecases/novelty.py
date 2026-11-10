@@ -662,7 +662,8 @@ class ProblemAnalogySearch:
             rail_basis=basis,
             count=len(picked),
             candidates=len(eligible),
-            dropped_weak=len(weak),
+            # 약해서 뺀 탓에 비게 된 자리 수 — 어차피 5건 밖이던 자료는 세지 않는다
+            dropped_weak=min(len(weak), max(0, limit - len(picked))),
             dropped_similar=len(ordered) - len(distinct),
         )
         out = [self._analogy(r, card, live_ids, related=related) for r in picked]

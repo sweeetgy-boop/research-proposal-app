@@ -16,7 +16,13 @@ from rra.application.usecases.novelty import (
 )
 from rra.domain.models import Document, ProposalRequest
 from rra.domain.models.live_search import LiveKeywords
-from rra.domain.models.problem_card import CardRank, CardText, CardUse, ProblemCardConfig
+from rra.domain.models.problem_card import (
+    CardRank,
+    CardText,
+    CardUse,
+    ProblemCardConfig,
+    ProblemTerms,
+)
 from rra.domain.rules.card_queries import (
     analogy_owner,
     card_queries,
@@ -339,3 +345,49 @@ async def test_request_query_joins_candidates_and_rerank_and_weak_sources_get_no
     assert stored[: len(card_queries(card()).stored)] == list(card_queries(card()).stored)
     assert len(stored) == len(card_queries(card()).stored) + 1  # + 제안문 문제어 질의
     assert len(scorer.calls) == 2 and scorer.calls[1][0] == stored[-1]
+
+
+async def test_rail_asset_card_keeps_rail_documents_as_related_prior_work():
+    """대상 자체가 철도 시설이면(대상어·대상 칸이 철도 용어) 철도 분야 자료를 거르지 않고
+    '관련 선행 자료'로 보인다. 철도 밖에도 있는 대상(비둘기)은 종전대로 거른다."""
+    from rra.domain.models.problem_card import Facets
+
+    rail_doc = doc("scienceon:T1", "궤도 틀림 실시간 감시시스템", "철도 궤도 틀림을 감시한다")
+    other = doc(
+        "scienceon:T2", "교량 가속도계 기반 구조물 모니터링", "가속도계로 궤도 없이 진동을 본다"
+    )
+    repo = Repo()
+    repo.similar = [(rail_doc, 0.86), (other, 0.84)]
+    track = card(
+        facets=Facets(target=CardText(value="궤도")),
+        terms=ProblemTerms(objects_ko=["궤도", "가속도계"], actions_ko=["틀림"]),
+    )
+    search = search_for(repo, scorer=Scorer({"scienceon:T1": 0.9, "scienceon:T2": 0.5}))
+    out = await search(req(track))
+    assert [a.doc_id for a in out] == ["scienceon:T1", "scienceon:T2"]
+    assert out[0].why_relevant.startswith("같은 대상(") and "철도 밖" not in out[0].why_relevant
+    report = search.details(req(track))
+    assert report.kind == "related" and report.rail_basis == ["궤도"] and report.count == 2
+    # 같은 자료, 대상이 철도 시설이 아닌 카드 → 철도 자료는 빠진다
+    pigeon = card(terms=ProblemTerms(objects_ko=["가속도계"], actions_ko=["틀림"]))
+    repo2 = Repo()
+    repo2.similar = [(rail_doc, 0.86), (other, 0.84)]
+    search2 = search_for(repo2, scorer=Scorer({"scienceon:T2": 0.5}))
+    out2 = await search2(req(pigeon))
+    assert [a.doc_id for a in out2] == ["scienceon:T2"]
+    assert search2.details(req(pigeon)).kind == "other_field"
+    assert search2.details(req()) is None  # 카드 없는 요청에는 보고가 없다
+
+
+async def test_weak_items_are_not_padded_and_report_counts_the_empty_slots():
+    repo = Repo()
+    repo.similar = pool()
+    scorer = Scorer({"scienceon:B4": 0.9})  # 나머지는 0.1 — 1위의 15% 미만
+    cfg = ProblemCardConfig(
+        enabled=True, rank=CardRank(dup_title_ratio=0, weak_keep_title_object=False)
+    )
+    search = search_for(repo, config=cfg, scorer=scorer)
+    out = await search(req(card()))
+    assert [a.doc_id for a in out] == ["scienceon:B4"]  # 5건을 억지로 채우지 않는다
+    report = search.details(req(card()))
+    assert report.count == 1 and report.dropped_weak == 4
