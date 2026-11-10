@@ -485,8 +485,13 @@ class ProblemAnalogySearch:
                 self.live, analogy_owner(ANALOGY_OWNER, queries), req, "analogy"
             )
         live_ids = set(summary.doc_ids) if summary is not None else set()
+        # 제안문 문제어 질의(종전 규칙, AI 호출 없음) — 카드 기능 문장이 좁게 잡혀도 직접 관련
+        # 자료가 후보·재순위에서 밀리지 않게 함께 쓴다(rank.with_request_query)
+        request_query = ""
+        if config.rank.with_request_query and config.uses("analogy_rank"):
+            request_query = problem_query(problem_terms(req, self.rule, self.settings.axis), [])
         merged: dict[str, _Candidate] = {}
-        for query in queries.stored:
+        for query in [*queries.stored, request_query]:
             for c in await self._candidates(query):
                 old = merged.get(c.doc.doc_id)
                 if old is None or c.similarity > old.similarity:
@@ -494,7 +499,7 @@ class ProblemAnalogySearch:
         found = list(merged.values())
         reranked = False
         if config.uses("analogy_rank"):
-            out, reranked = await self._pick_card(found, card, config, live_ids)
+            out, reranked = await self._pick_card(found, card, config, live_ids, request_query)
         else:  # 질의만 카드 — 종전 정렬에 카드 문제어를 쓴다
             terms = card.terms
             out = self._pick(
@@ -543,8 +548,10 @@ class ProblemAnalogySearch:
         card: ProblemCard,
         config: ProblemCardConfig,
         live_ids: set[str],
+        request_query: str = "",
     ) -> tuple[list[Analogy], bool]:
-        """계약 4절 `analogy_rank` — (최종 5건, 재순위를 썼는가)."""
+        """계약 4절 `analogy_rank` — (최종 5건, 재순위를 썼는가). 재순위 점수는 카드 기능 문장
+        질의와 제안문 문제어 질의(request_query, 있으면) 중 높은 쪽."""
         rank = config.rank
         rows = rank_rows([(c.doc, c.similarity) for c in self._eligible(found)], card, rank)
         if not rank.require_object:  # 대상어를 요구하지 않으면 종전처럼 한글 자료는 문제어 겹침
@@ -558,9 +565,12 @@ class ProblemAnalogySearch:
         query = rerank_query(card)
         if self.scorer is not None and rows and query:
             try:
-                scores = list(
-                    await self.scorer.score_documents(query, [(r.doc, r.similarity) for r in rows])
-                )
+                pairs = [(r.doc, r.similarity) for r in rows]
+                scores = [float(x) for x in await self.scorer.score_documents(query, pairs)]
+                if request_query and len(scores) == len(rows):
+                    extra = await self.scorer.score_documents(request_query, pairs)
+                    if len(extra) == len(rows):
+                        scores = [max(a, float(b)) for a, b in zip(scores, extra, strict=True)]
             except Exception as exc:  # 재순위 실패는 규칙 순으로 계속
                 logger.warning("analogy.rerank_failed err=%s", type(exc).__name__)
                 scores = None
@@ -572,6 +582,7 @@ class ProblemAnalogySearch:
             per_source=rank.per_source,
             limit=limit,
             window=rank.priority_window,
+            min_ratio=rank.priority_min_ratio,
         )
         return [self._analogy(r, card, live_ids) for r in picked], scores is not None
 

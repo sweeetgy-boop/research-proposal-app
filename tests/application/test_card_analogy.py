@@ -91,7 +91,10 @@ async def test_card_path_requires_object_term_reranks_and_caps_per_source():
     scorer = Scorer(
         {"scienceon:B4": 0.42, "scienceon:B1": 0.3, "scienceon:B3": 0.25, "openalex:W1": 0.2}
     )
-    out = await search_for(repo, scorer=scorer)(req(card()))
+    plain = ProblemCardConfig(
+        enabled=True, rank=CardRank(priority_min_ratio=0, with_request_query=False)
+    )
+    out = await search_for(repo, config=plain, scorer=scorer)(req(card()))
     ids = [a.doc_id for a in out]
     # 제연설비(방지만 겹침)·설치류(퇴치만)·철도·영문 무관 자료(perch 만)·하한 아래는 없다
     # 순위 = 재순위 점수. 자료원당 2건 먼저(B4·B1·W1·특허) → 모자란 1건은 넘긴 B3 — 결과는 순위 순
@@ -209,7 +212,7 @@ async def test_edited_function_sentence_searches_again_without_reusing_memo_or_s
     await search(req(b))  # 기능 문장을 고침 — 새 세션·새 질의·새 메모
     qb = card_queries(b)
     assert len(ko.calls) == n_live + 1 and ko.calls[-1][0] == list(qb.live_ko)
-    assert EDITED.value in ko.calls[-1][0]
+    # 실시간 국문 키워드는 짧은 대상어+작용어 짝이라 문장은 저장 자료 질의에만 들어간다
     assert EDITED.value in stored_queries(repo)
     keys = set(live._sessions)
     assert keys == {
@@ -231,7 +234,8 @@ async def test_terms_only_edit_changes_memo_but_not_the_live_session():
     live, maker, ko, _, _ = live_setup(repo)
     search = search_for(repo, live=live, maker=maker)
     a = card()
-    b = card(terms={**a.terms.model_dump(), "objects_ko": ["비둘기"]})
+    # 질의에 쓰이지 않는 문제어(둘째 작용어)만 바꾼다 — 실시간 키워드 짝은 첫 작용어만 쓴다
+    b = card(terms={**a.terms.model_dump(), "actions_ko": [a.terms.actions_ko[0], "기피"]})
     await search(req(a))
     await search(req(b))
     assert len(ko.calls) == 1 and len(live._sessions) == 1  # 질의가 같아 실시간 세션은 그대로
@@ -313,3 +317,22 @@ async def test_switch_off_results_queries_and_keys_equal_the_cardless_call():
     ]
     for got in variants:
         assert got == baseline
+
+
+async def test_request_query_joins_candidates_and_rerank_and_weak_sources_get_no_priority():
+    """기본 설정(2026-11-10 실제 카드 측정 뒤): 제안문 문제어 질의를 후보·재순위에 함께 쓰고(높은
+    점수를 취함), 재순위 점수가 1위의 25% 미만인 다른 자료원 자료는 자료원 몫으로 끌어오지
+    않는다."""
+    repo = Repo()
+    repo.similar = pool()
+    scorer = Scorer(
+        {"scienceon:B4": 0.42, "scienceon:B1": 0.3, "scienceon:B3": 0.25, "openalex:W1": 0.2}
+    )  # 특허는 0.1 — 1위(0.42)의 25% 미만
+    out = await search_for(repo, scorer=scorer)(req(card()))
+    ids = [a.doc_id for a in out]
+    assert ids[:4] == ["scienceon:B4", "scienceon:B1", "scienceon:B3", "openalex:W1"]
+    assert "kipris_kr:1020200000001" not in ids[:4]
+    stored = stored_queries(repo)
+    assert stored[: len(card_queries(card()).stored)] == list(card_queries(card()).stored)
+    assert len(stored) == len(card_queries(card()).stored) + 1  # + 제안문 문제어 질의
+    assert len(scorer.calls) == 2 and scorer.calls[1][0] == stored[-1]

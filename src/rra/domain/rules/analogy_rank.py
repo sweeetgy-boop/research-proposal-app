@@ -116,24 +116,34 @@ def order_rows(rows: Sequence[RankRow], scores: Sequence[float] | None = None) -
 
 
 def take_by_source(
-    ordered: Sequence[RankRow], *, per_source: int, limit: int, window: int | None = None
+    ordered: Sequence[RankRow],
+    *,
+    per_source: int,
+    limit: int,
+    window: int | None = None,
+    min_ratio: float = 0.0,
 ) -> list[RankRow]:
     """순위대로 자료원당 per_source 건까지 먼저, limit 이 안 차면 넘긴 것을 순위대로.
     결과는 순위 순.
 
     window: 자료원당 우선을 적용하는 범위(순위 상위 몇 건). 그 밖의 자료는 '넘긴 것'보다 먼저
     담지 않는다 — 상위가 한 자료원에 몰렸을 때 순위가 한참 낮은 다른 자료원 자료가 들어오지
-    않게. None 이면 범위 제한 없음."""
+    않게. None 이면 범위 제한 없음.
+    min_ratio: 재순위 점수가 1위의 이 비율 미만인 자료는 자료원 우선을 받지 못한다(순위대로
+    채울 때만 들어온다). 점수가 없으면(재순위 없음) 적용하지 않는다."""
     if limit <= 0:
         return []
     head = ordered if window is None else ordered[: max(window, limit)]
+    top = ordered[0].score if ordered and ordered[0].score is not None else None
+    floor = top * min_ratio if top is not None and min_ratio > 0 else None
     counts: dict[str, int] = {}
     picked: list[int] = []
     skipped: list[int] = []
     for i, row in enumerate(head):
         if len(picked) >= limit:
             break
-        if counts.get(row.doc.source, 0) >= per_source:
+        weak = floor is not None and (row.score or 0.0) < floor
+        if weak or counts.get(row.doc.source, 0) >= per_source:
             skipped.append(i)
             continue
         counts[row.doc.source] = counts.get(row.doc.source, 0) + 1
@@ -141,7 +151,8 @@ def take_by_source(
     for i in [*skipped, *range(len(head), len(ordered))]:
         if len(picked) >= limit:
             break
-        picked.append(i)
+        if i not in picked:
+            picked.append(i)
     return [ordered[i] for i in sorted(picked)]
 
 
