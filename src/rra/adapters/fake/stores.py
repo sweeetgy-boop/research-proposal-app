@@ -79,6 +79,26 @@ class InMemoryDocumentRepository:
             for s, n in counts.items()
         }
 
+    # ── 분류 코드 건수 (CodeCountPort, ADR 0065) ─────────────
+    async def count_by_code(self, prefix):
+        from rra.domain.rules.problem_card import normalize_ipc
+
+        if not prefix:
+            return 0
+        return sum(
+            1
+            for d in self.docs.values()
+            if any((normalize_ipc(c) or "").startswith(prefix) for c in d.codes)
+        )
+
+    async def count_by_science_class(self, name):
+        name = " ".join(str(name or "").split())
+        if not name:
+            return 0
+        return sum(
+            1 for d in self.docs.values() if name in str((d.raw or {}).get("science_class") or "")
+        )
+
 
 class _Claim:
     def __init__(self, store: InMemoryRunStore, key: tuple[str, str]):

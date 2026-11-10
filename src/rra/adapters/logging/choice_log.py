@@ -12,6 +12,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from rra.domain.rules.card_edits import CHOICE_LINE_EXTRA_KEYS
+
 ALLOWED_KEYS = frozenset(
     {
         "at",
@@ -35,6 +37,9 @@ ALLOWED_KEYS = frozenset(
         # ADR 0056 2026-11-04 덧붙임 — 시험 계정(배포 확인용 임시 사번) 세션의 줄만 true. 그 밖의
         # 줄에는 키가 없다. `rra feedback stats` 는 기본으로 이 줄을 세지 않는다
         "test",
+        # ADR 0065 — 문제 정의 카드 수정 줄(event: card_edit): 항목 이름·변경 전후 80자 요약·
+        # 실행한 방법·신호 (domain/rules/card_edits.choice_line)
+        *CHOICE_LINE_EXTRA_KEYS,
     }
 )
 
