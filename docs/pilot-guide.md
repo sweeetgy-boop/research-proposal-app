@@ -48,6 +48,11 @@ grep "api.access\|api.login.fail\|api.auth.reject" ~/Library/Logs/rra-api.err.lo
   붙어 있는지, DNS 에서 HTTPS Certificates 가 켜져 있는지 확인 ④ 1~2분 뒤 밖에서 다시 확인.
 - 로그인 IP 잠금은 접속자 IP(Funnel 이 넘겨주는 `X-Forwarded-For` 맨 오른쪽, 127.0.0.1 에서 온 요청일 때만)로 겁니다. 접속자 IP 를
   모르면 IP 잠금은 걸지 않습니다(계정별 잠금·전체 지연은 그대로). 잠금은 메모리에만 있어 API 재시작 때 풀립니다.
+- 잠금 로그(2026-11-10~): `grep "api.login" ~/Library/Logs/rra-api.err.log | tail -50` — `api.login.locked kind=… scope=account|ip ip=… seconds=…`
+  (잠금이 시작된 순간), `api.login.blocked …`(잠긴 상태에서 또 온 시도), `api.login.slowdown failures=… delay=…`(전체 실패 과다로 응답 지연 시작).
+  사번·아이디·비밀번호·토큰 값은 남지 않습니다(종류·범위·접속자 IP 만). 동료가 "10분 뒤에도 안 된다"면 `blocked` 줄이 이어지는지 봅니다 — 잠긴 동안의 시도도 실패로 세어 잠금이 늘어납니다.
+- 관리 토큰(세션 로그인의 토큰·`X-RRA-Token`/Bearer 헤더)도 접속자 IP 창(10분 20회)에 함께 셉니다. 넘으면 그 IP 에서는 맞는 토큰도 401 입니다.
+  계정 잠금은 없고(남이 관리자를 잠글 수 없음), 이 맥에서 `127.0.0.1` 로 직접 부르는 요청은 IP 잠금 대상이 아닙니다.
 
 ## 2. 사용 순서 (2026-10-29 개정 — 시범 의견 2·3차 + Research Studio 화면 + 정책 근거 팝업 반영)
 
@@ -162,7 +167,7 @@ grep "api.access\|api.login.fail\|api.auth.reject" ~/Library/Logs/rra-api.err.lo
 
 - 앱: `~/Library/Logs/rra-api.log`, `rra-api.err.log` / 로컬 LLM: `rra-mlx*.log` / (터널 `rra-tunnel*.log` 는 Cloudflare 이전 계획용 — 지금은 없음)
 - run 기록: `data/runs/<run_id>/`(manifest·versions·reviews), 거부 로그는 `rra.api.auth`(IP·해시만), 4xx·5xx 접근 로그는
-  `rra.api.access`(상태·경로·IP만), 로그인 실패는 `api.login.fail kind=… ip=…`(사번·아이디 값 없음) — 모두 `rra-api.err.log`
+  `rra.api.access`(상태·경로·IP만), 로그인 실패는 `api.login.fail kind=… ip=…`, 잠금은 `api.login.locked`·`blocked`·`slowdown`(사번·아이디·토큰 값 없음, §1 운영자 점검) — 모두 `rra-api.err.log`
 - 상태 확인: `launchctl list | grep com.rra`, `curl http://127.0.0.1:8000/healthz`, `rra sources status`
 
 ## 5.5 그림(인포그래픽) 안내 (2026-10-29 개정)

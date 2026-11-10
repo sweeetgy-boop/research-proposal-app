@@ -13,10 +13,12 @@ limits:                       # 사용자별 일일 생성 상한 (관리자는 
 lockout:                      # 무차별 대입 방지 (프로세스 메모리, 재시작이면 초기화)
   account_failures: 5         # 계정별 연속 실패 → 잠금
   account_lock_sec: 600
-  ip_failures: 20             # 접속자 IP 별 창 안 실패 → 잠금
+  ip_failures: 20             # 접속자 IP 별 창 안 실패 → 잠금. 사번·공용 계정·관리 토큰(세션 로그인 + 헤더 토큰) 실패를 함께 센다
   ip_window_sec: 600
   global_failures: 50         # 전체 실패가 창 안에 이를 넘으면 응답 지연
   global_window_sec: 600
   global_delay_sec: 2
+  # 관리 토큰은 계정 키로 세지 않는다(IP 창·전체 지연만) — 남이 관리자를 잠글 수 없게. 접속자 IP 를 모르는 요청
+  # (127.0.0.1 직접 접속)은 IP 잠금 없음. 잠금 로그: api.login.locked / blocked / slowdown (rra-api.err.log, 값 없음)
 
 # 접속자 IP: config/api.yaml trust_cf_connecting_ip (레인 W) 가 true 이고 peer 가 127.0.0.1 일 때만 CF-Connecting-IP

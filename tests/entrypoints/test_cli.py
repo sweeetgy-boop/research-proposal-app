@@ -1513,6 +1513,29 @@ def test_ingest_ip_blocked_source_is_skipped_only_with_skip_unavailable(monkeypa
     assert IP_NOTICE in capsys.readouterr().err
 
 
+def test_api_logging_writes_login_lock_lines_once_with_timestamp(capsys):
+    """잠금 로그(`rra.api.auth` WARNING)와 로그인 실패(INFO)가 `rra api` 로그 설정에서 걸러지지
+    않고 한 번씩만(rra 루트 핸들러로 다시 흘러 두 번 찍히지 않게) stderr 에 남는다."""
+    import logging
+
+    cli._api_logging()
+    auth = logging.getLogger("rra.api.auth")
+    auth.info("api.login.fail kind=token ip=198.51.100.9")
+    auth.warning("api.login.locked kind=token scope=ip ip=198.51.100.9 seconds=600")
+    auth.warning("api.login.blocked kind=guest scope=account ip=-")
+    auth.warning("api.login.slowdown failures=51 delay=2")
+    err = capsys.readouterr().err
+    for text, level in (
+        ("api.login.fail kind=token", " INFO "),
+        ("api.login.locked kind=token scope=ip", " WARNING "),
+        ("api.login.blocked kind=guest scope=account", " WARNING "),
+        ("api.login.slowdown failures=51", " WARNING "),
+    ):
+        hits = [ln for ln in err.splitlines() if text in ln]
+        assert len(hits) == 1, text
+        assert hits[0][:4].isdigit() and level in hits[0] and " rra.api.auth " in hits[0]
+
+
 def test_api_logging_timestamps_warnings_and_passes_live_info(capsys):
     """`rra api` 로거(2026-11-09): rra.* WARNING 이상과 실시간 검색 로거의 INFO 는 시각을 붙여
     stderr 에, 그 밖의 INFO 는 버린다. 핸들러는 한 번만 단다."""
