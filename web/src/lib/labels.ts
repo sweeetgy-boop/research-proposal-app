@@ -153,7 +153,7 @@ export function providerLabel(provider: string | null | undefined): string {
 }
 
 /** ① '핵심 문제' 카드 (ADR 0065, docs/contracts/problem-card.md 5절) — 화면 문구는 여기 한 곳.
- *  카드의 열거값(신호·확인 경로·확인 필요 사유·방법 이름)은 화면에 내보내지 않는다 — 신호는 서버가 준 한국어 라벨만. */
+ *  카드의 열거값(신호·확인 경로·확인 필요 사유·방법 이름)은 화면에 내보내지 않는다. 문제 성격·켜진 신호는 1차에 기록만 — 화면 문구가 없다. */
 export const CARD_TITLE = "핵심 문제";
 export const CARD_INTRO = "입력을 AI 가 한 번 정리한 내용입니다. 맞으면 그대로 다음으로, 틀리면 그 줄을 고치십시오.";
 export const CARD_PENDING = "문제 정리 중…";
@@ -193,8 +193,6 @@ export const CARD_EXPERT_LABELS = {
   functionEn: "영문 기능 문장",
   causes: "근본 원인 (2단계)",
   principles: "발명 원리",
-  nature: "문제 성격",
-  signals: "켜진 신호",
 } as const;
 /** 발명 원리 표시 — "1. 분할" */
 export function principleLabel(p: { number: number; name: string }): string {

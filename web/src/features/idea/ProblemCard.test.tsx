@@ -17,7 +17,7 @@ const INTERNAL_CODES = /unclear_cause|cause_mismatch|unverified|corpus|\bcore\b|
 
 function renderCard(over: Partial<React.ComponentProps<typeof ProblemCard>> = {}) {
   const onEdit = vi.fn<(c: CardChange) => Promise<void>>(async () => undefined);
-  const view = renderWithProviders(<ProblemCard card={CARD} lines={LINES} signalLabels={out.signal_labels} onEdit={onEdit} {...over} />);
+  const view = renderWithProviders(<ProblemCard card={CARD} lines={LINES} onEdit={onEdit} {...over} />);
   return { ...view, onEdit };
 }
 const line = (key: string) => screen.getByTestId(`card-line-${key}`);
@@ -42,7 +42,7 @@ describe("핵심 문제 카드 — 보기", () => {
     await expectNoA11yViolations(container);
   });
 
-  it("전문가 분석은 기본 접힘 — 펼치면 항목 나누기 6칸·사다리 3단·영문 기능 문장·근본 원인 2단계·발명 원리·문제 성격·신호 라벨", async () => {
+  it("전문가 분석은 기본 접힘 — 펼치면 항목 나누기 6칸·사다리 3단·영문 기능 문장·근본 원인 2단계·발명 원리", async () => {
     renderCard();
     const expert = screen.getByTestId("problem-card-expert") as HTMLDetailsElement;
     expect(expert.open).toBe(false);
@@ -61,11 +61,22 @@ describe("핵심 문제 카드 — 보기", () => {
     expect(within(screen.getByTestId("card-causes")).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByTestId("card-principles")).toHaveTextContent("10. 사전 조치");
     expect(screen.getByTestId("card-principles")).toHaveTextContent("35. 속성 변환");
-    expect(screen.getByTestId("card-nature")).toHaveTextContent("난해 · 실증형");
-    expect(screen.getByTestId("card-signals")).toHaveTextContent("원인이 뚜렷하지 않거나 여러 가지");
   });
 
-  it("빈 줄은 '(비어 있음)', 제안자가 고친 줄은 '직접 고침', 라벨 없는 신호는 보이지 않는다", () => {
+  it("문제 성격·켜진 신호 문구는 화면에 없다 — 접혀 있을 때도 펼친 뒤에도 (1차는 기록만)", async () => {
+    const { container } = renderCard();
+    const hidden = /문제 성격|켜진 신호|난해|실증형|도입형|연구형|원인이 뚜렷하지 않거나 여러 가지/;
+    expect(CARD.nature.kind).toBe("난해");
+    expect(CARD.signals).toEqual(["unclear_cause"]);
+    expect(out.signal_labels[0]!.label).toMatch(hidden);
+    expect(container.textContent).not.toMatch(hidden);
+    await userEvent.click(screen.getByText("전문가 분석 펼치기"));
+    expect(container.textContent).not.toMatch(hidden);
+    expect(screen.queryByTestId("card-nature")).toBeNull();
+    expect(screen.queryByTestId("card-signals")).toBeNull();
+  });
+
+  it("빈 줄은 '(비어 있음)', 제안자가 고친 줄은 '직접 고침'", () => {
     const card: Card = {
       ...CARD,
       function_ko: { ...CARD.function_ko, origin: "user", value: "틀림 진행을 미리 안다" },
@@ -73,7 +84,6 @@ describe("핵심 문제 카드 — 보기", () => {
       contradiction: { ...CARD.contradiction, improve: "", worsen: "", principles: [] },
       ipc: [],
       science_class: [],
-      signals: ["unclear_cause", "broad_scope"],
     };
     renderCard({ card, lines: { function: "틀림 진행을 미리 안다", cause: "", contradiction: "", codes: "" } });
     expect(within(line("function")).getByTestId("card-by-user")).toHaveTextContent("직접 고침");
@@ -82,7 +92,6 @@ describe("핵심 문제 카드 — 보기", () => {
       expect(within(line(key)).getByTestId("card-line-text")).toHaveTextContent("(비어 있음)");
       expect(within(line(key)).queryByTestId("card-basis")).toBeNull();
     }
-    expect(within(screen.getByTestId("card-signals")).getAllByRole("listitem")).toHaveLength(1);
   });
 
   it("입력이 바뀌면 안내 한 줄을 보이고 고치기를 막는다 / 진단 중 표시는 작은 한 줄", () => {

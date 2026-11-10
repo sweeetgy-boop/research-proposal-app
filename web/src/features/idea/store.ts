@@ -54,7 +54,7 @@ export interface IdeaState {
   problemCard?: ProblemCard | null;
   /** 카드 4줄의 표시 문장(서버가 만든 것) */
   cardLines?: CardLines | null;
-  /** 켜진 신호의 한국어 라벨 — 전문가 분석에 보인다 */
+  /** 켜진 신호의 한국어 라벨 — 1차는 받아 두기만 하고 화면에 그리지 않는다 */
   cardSignals?: DiagnoseOut["signal_labels"];
   /** 진단을 마친(성공·꺼짐·실패 모두) 네 칸의 서명 — 지금 네 칸과 다르면 다시 진단한다 */
   cardSig?: string | null;

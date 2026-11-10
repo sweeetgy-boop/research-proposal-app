@@ -175,7 +175,6 @@ export default function Idea() {
           <ProblemCard
             card={idea.problemCard}
             lines={idea.cardLines}
-            signalLabels={idea.cardSignals ?? []}
             changed={diagnosis.changed}
             changedNote={diagnosis.incomplete ? CARD_INPUT_INCOMPLETE : CARD_INPUT_CHANGED}
             onEdit={applyCardEdit}

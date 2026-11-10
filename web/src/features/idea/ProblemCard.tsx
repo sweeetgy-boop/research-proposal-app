@@ -1,9 +1,9 @@
 /** ① '핵심 문제' 카드 (ADR 0065, 계약 5절) — 네 칸을 AI 가 한 번 정리한 4줄(기능 문장·원인·모순·분류).
  *  줄마다 '근거 있음'/'추정'(제안문에 있는 내용인지 AI 가 채운 것인지)·'확인 필요', 줄마다 [고치기] → 그 줄만 고쳐 [적용].
- *  "전문가 분석 펼치기"는 기본 접힘. 카드 글은 모델 출력·제안자 수정(비신뢰) → UntrustedText. 열거값은 화면에 내보내지 않는다. */
+ *  "전문가 분석 펼치기"는 기본 접힘(문제 성격·신호는 보이지 않는다). 카드 글은 모델 출력·제안자 수정(비신뢰) → UntrustedText. 열거값은 화면에 내보내지 않는다. */
 import * as React from "react";
 import { PencilLine } from "lucide-react";
-import type { CardBasis, CardLines, ClassCode, DiagnoseOut, ProblemCard as Card } from "@/api/types-problem-card";
+import type { CardBasis, CardLines, ClassCode, ProblemCard as Card } from "@/api/types-problem-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
@@ -94,11 +94,9 @@ function ExpertItem({ title, children, testId }: { title: string; children: Reac
   );
 }
 
-function Expert({ card, signalLabels }: { card: Card; signalLabels: DiagnoseOut["signal_labels"] }) {
+/** 문제 성격(nature)·켜진 신호(signals)는 1차에 기록만 한다 — 카드에 들고 다니되 화면 어디에도 그리지 않는다 (2026-11-10 소유자 결정) */
+function Expert({ card }: { card: Card }) {
   const facets = Object.keys(CARD_FACET_LABELS) as (keyof typeof CARD_FACET_LABELS)[];
-  // 켜진 신호 — 카드에 남아 있는 신호 중 서버가 한국어 라벨을 준 것만 (열거값은 보이지 않는다)
-  const signals = signalLabels.filter((s) => card.signals.includes(s.signal) && s.label);
-  const nature = [card.nature.kind, card.nature.mode].filter(Boolean).join(" · ");
   return (
     <details className="rounded-md border bg-background p-3" data-testid="problem-card-expert">
       <summary className="cursor-pointer text-sm font-semibold">{CARD_EXPERT_SUMMARY}</summary>
@@ -159,20 +157,6 @@ function Expert({ card, signalLabels }: { card: Card; signalLabels: DiagnoseOut[
             <Empty />
           )}
         </ExpertItem>
-        <ExpertItem title={CARD_EXPERT_LABELS.nature} testId="card-nature">
-          {nature || <Empty />}
-        </ExpertItem>
-        <ExpertItem title={CARD_EXPERT_LABELS.signals} testId="card-signals">
-          {signals.length ? (
-            <ul className="list-disc space-y-1 pl-5">
-              {signals.map((s) => (
-                <UntrustedText key={s.signal} as="li" text={s.label} />
-              ))}
-            </ul>
-          ) : (
-            <Empty />
-          )}
-        </ExpertItem>
       </div>
     </details>
   );
@@ -181,7 +165,6 @@ function Expert({ card, signalLabels }: { card: Card; signalLabels: DiagnoseOut[
 export interface ProblemCardProps {
   card: Card;
   lines: CardLines;
-  signalLabels?: DiagnoseOut["signal_labels"];
   /** 네 칸이 카드를 만든 때와 달라졌다 — 다시 정리하는 동안은 고치기를 막는다 */
   changed?: boolean;
   /** 그때 보일 한 줄 (기본: 다시 정리하는 중) */
@@ -190,7 +173,7 @@ export interface ProblemCardProps {
   onEdit: (change: CardChange) => Promise<void>;
 }
 
-export function ProblemCard({ card, lines, signalLabels = [], changed = false, changedNote = CARD_INPUT_CHANGED, onEdit }: ProblemCardProps) {
+export function ProblemCard({ card, lines, changed = false, changedNote = CARD_INPUT_CHANGED, onEdit }: ProblemCardProps) {
   const [editing, setEditing] = React.useState<CardLineKey | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -273,7 +256,7 @@ export function ProblemCard({ card, lines, signalLabels = [], changed = false, c
           );
         })}
       </ul>
-      <Expert card={card} signalLabels={signalLabels} />
+      <Expert card={card} />
     </section>
   );
 }
