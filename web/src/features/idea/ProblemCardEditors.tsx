@@ -142,7 +142,7 @@ export function LineEditor({ line, card, busy, failed, onApply, onCancel }: Line
   };
 
   return (
-    <form onSubmit={submit} noValidate className="mt-2 space-y-3 rounded-md border bg-background p-3" aria-label={`${CARD_LINE_LABELS[line]} 고치기`}>
+    <form onSubmit={submit} noValidate className="mt-2 space-y-3 rounded-md border bg-background p-3" data-testid="card-line-editor">
       {(line === "function" || line === "cause") && (
         <TextField id={`card-edit-${line}`} label={CARD_LINE_LABELS[line]} value={text} onChange={setText} autoFocus />
       )}
