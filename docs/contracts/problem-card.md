@@ -8,7 +8,8 @@
 `src/rra/domain/models/request.py`(`problem_card` 칸), `src/rra/domain/models/novel.py`(`NovelTitle.principles`),
 `src/rra/application/usecases/problem_card_contract.py`, `config/problem_card.yaml`(키 이름 — 값은 통합 담당이 바꾼다),
 `config/llm.yaml` 의 `stages.diagnose`, `src/rra/config_loader.py`(`problem_card_config`·`card_edits` 경로),
-`web/src/api/types-problem-card.ts`, `web/src/api/types-novel.ts`(`principles`).
+`web/src/api/types-problem-card.ts`, `web/src/api/types-novel.ts`(`principles`),
+`src/rra/domain/rules/card_queries.py`(카드 → 질의·지문)와 그 시험 두 파일.
 
 ## 0. 소유자 결정 (2026-11-10)
 1. 유추 정렬 = 대상어 겹침 → 기능 문장 재순위 → 자료원당 2건 우선, 모자라면 순위대로. 대상어에는 사다리 **일반화 단**의 대상어도 포함(비둘기 → 조류).
@@ -83,16 +84,45 @@
 ## 4. 카드를 쓰는 곳 (레인 B) — 모두 "카드가 있고 그 스위치가 켜져 있을 때만", 아니면 종전 코드 경로 그대로
 | 스위치 `use.*` | 동작 |
 |---|---|
-| `analogy_queries` | 저장 자료 질의 = 사다리 3단 + 영문 기능 문장(질의마다 종전 `_candidates`, 같은 문서는 높은 유사도). 실시간 검색 키워드 = ko: 사다리 구체·일반화 단, en: 영문 기능 문장(+ `objects_en`·`actions_en` 조합) → OpenAlex 가 영문 질의를 받는다 |
+| `analogy_queries` | 질의는 `card_queries` 가 만든다(4.1절). 저장 자료 질의 = 사다리 3단 + 국문·영문 기능 문장(질의마다 종전 `_candidates`, 같은 문서는 높은 유사도). 실시간 검색 키워드 = ko: 사다리 구체·일반화 단 + 국문 기능 문장, en: 영문 대상어·작용어 조합 + 영문 기능 문장 → OpenAlex 가 영문 질의를 받는다 |
 | `analogy_rank` | 최종 5건 = ① 하한 0.79·철도 분야 제외·같은 제목 제외(종전) ② `rank.require_object` 면 대상어(`objects_ko`/`objects_en`, 낱말 앞부분 일치)가 겹친 자료만 — **영문 자료도** ③ 유사도 상위 `rank.rerank_top` 건을 reranker 로 재순위(질의 = 국문 기능 문장 + " / " + 영문 기능 문장), 점수는 **순서에만** 쓴다(하한 없음) ④ 순위대로 자료원당 `rank.per_source` 건까지 먼저 담고, 5건이 안 차면 넘긴 것을 순위대로 채운다. reranker 가 없으면 ③ 을 (공유 문제어 수, 유사도) 순으로 대신한다. 규칙은 `domain/rules/analogy_rank.py`(순수 함수) |
 | `contradiction` | novel 프롬프트에 `[문제 정의]` 구획(기능 문장·모순·발명 원리 번호·이름·근본 원인·문제 성격). 과제명 `principles`(카드의 원리 번호 안에서만, 밖이면 뺀다) → 화면 "발명 원리 n. 이름". differentiate 경로에는 넣지 않는다 |
 | `kipris_class` | `verified != unverified` 인 IPC 로 KIPRIS 분류 검색(실시간, 키워드 검색과 함께, 일일 상한 공유) → 유추 후보에 합친다. 분류 검색 파라미터는 KIPRIS 실응답으로 확정하고 fixture 를 남긴다 |
 | `clarify` | 보완 질문 앞자리에 규칙 문장(AI 호출 없음) 최대 2개: 원인 질문 1(`needs_check` 또는 원인이 `추정`) + `추정` 항목 확인 1(기능 문장 → 모순 순). 기존 상한 4 안에서 |
 
 - `why_relevant` 의 공유 문제어 = 카드 문제어 중 문서에 나온 것(장소어 없음).
-- 메모 키: 카드를 쓰는 호출만 `input_key(req, core, [카드 서명])`. 카드가 없으면 키가 종전과 같다. 카드 서명 = 쓰는 칸만의 sha256(레인 B `analogy_rank` 또는 `novelty`).
+- 캐시·세션·메모 키는 4.1절(0단계 모듈 `domain/rules/card_queries.py`)을 따른다.
 - `few_analogies` 신호: 유추 결과가 3건 미만이면 측정 줄에 기록만(재검색 없음).
 - `PatentClassCount`(계약 모듈) = KIPRIS 분류 검색 총 건수 — 레인 B 가 구현, 조립이 레인 A 의 `ClassCodeCheck` 에 넣는다.
+
+### 4.1 캐시·세션·메모 키 — **카드 전체가 아니라 실제로 보낸 질의 기준** (2026-11-10 소유자 지시)
+현재 구조(확인): 유추 검색이 거치는 재사용 지점은 넷이고, 그대로 두면 둘이 틀린다.
+
+| 지점 | 지금 키 | 기능 문장을 고치면 |
+|---|---|---|
+| 자료원 응답 24시간 캐시(`live_search.cache_key`) | 자료원 + **보낸 질의** + 건수 | 질의가 달라져 새로 호출 — 이미 질의 기준 ✅ |
+| 실시간 검색 세션(`session_key`, 프로세스 안) | 소유자 + 입력 글 + 정책 근거 | ❌ 입력 글이 같아 **옛 세션(옛 질의 결과)을 다시 쓴다** |
+| 유추 키워드 기억(`ProblemKeywords.remember`) | 입력 글 | ❌ 같은 입력·다른 카드가 서로 덮어쓴다 |
+| 유추 결과 메모(`ProblemAnalogySearch._memo`, 30분) | 입력 글 + 핵심어 | ❌ 옛 5건을 다시 준다 |
+| 평소 키워드 24시간 캐시(`keyword_cache_key`) | 입력 글 + 정책 근거 | 유추 인스턴스는 `keyword_cache=False` 라 읽지도 쓰지도 않는다 ✅ (그대로 둔다) |
+
+레인 B 가 지킬 것:
+1. 질의는 `card_queries(card, use_queries=…, use_class=…)` **한 곳**에서 만든다. None 이면 종전 코드 경로(규칙 문제어·종전 소유자·종전 메모 키)를
+   한 글자도 바꾸지 않고 탄다.
+2. 실시간 검색 세션 소유자 = `analogy_owner(ANALOGY_OWNER, queries)` — 카드가 있으면 `analogy:card:<질의 지문>`. 질의가 바뀌면 새 세션이다.
+3. 유추 키워드는 `remember` 를 거치지 않고 **요청에 실린 카드에서 그대로** 만든다(`ProblemKeywords.__call__` 이 `card_queries(req.problem_card)` 를 먼저 본다).
+   카드 질의를 입력 글 키의 캐시·기억에 쓰지 않는다.
+4. 유추 결과 메모 키 = `input_key(req, core, *memo_groups(pick_fingerprint(queries, card, rank)))` — 검색 지문 + 정렬에 쓰는 값(문제어·재순위 질의·정렬 설정).
+5. KIPRIS 분류 검색의 캐시 키 질의 문자열은 `class_query(code)`("ipc:" 표식) — 같은 글자의 키워드 검색과 겹치지 않는다.
+6. 새로움 확인(`WideNoveltyCheck`)은 1차에 카드를 쓰지 않는다 — 평소 키워드·종전 키 그대로(② 판정과 같은 기준이어야 하므로).
+
+성질(시험으로 고정 — `tests/domain/test_card_queries.py`·`tests/application/test_card_query_cache.py`, 레인 B 는 지우거나 약하게 하지 않는다):
+- 기능 문장(또는 그에 따라 다시 만든 사다리·영문)을 고치면 지문·세션 키·메모 키가 바뀌고, 자료원을 **다시 호출**한다(24시간 캐시 재사용 없음).
+- 원인·모순처럼 질의에 들어가지 않는 칸만 고치면 검색 지문은 그대로다(다시 검색하지 않는다). 문제어만 바뀌면 정렬 메모 키만 바뀐다.
+- 카드를 쓰는 키에는 늘 `:card:` 표식이 있어 스위치 꺼짐(카드 없음) 때의 세션·메모와 **같아질 수 없다**. 카드가 없을 때의 키는 종전 값과 같다.
+- 자료원 응답 캐시는 "그 자료원에 그 질의를 보낸 응답"이라, 카드에서 나온 질의와 종전 질의가 글자까지 같을 때만 같은 항목을 쓴다(같은 요청의 같은 응답).
+- 레인 B 는 여기에 `ProblemAnalogySearch` 수준 시험을 더한다: 카드 A → 카드 A'(기능 문장 수정) 호출이 메모·세션을 다시 쓰지 않고 새 질의로 검색하는지,
+  스위치 꺼짐 호출의 결과·키가 종전 스냅샷과 같은지.
 
 ## 5. 웹 (레인 C)
 - ① 상세 입력 아래 '핵심 문제' 카드 4줄(기능 문장·원인·모순·분류). 네 칸이 채워지면(간편 입력 `onFilled` 또는 상세 입력에서 네 칸이 모두 찬 뒤
