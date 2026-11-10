@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { applyRecommendation, ntisOutcomes } from "@/api/endpoints";
 import { applyChoices as recordApply, comparisonFlow, differentiateFlow, judgePrecheck, recommendFlow, recommendMore } from "@/api/endpoints-precheck";
 import type { PlanField, PlanRecommendation, PrecheckFlowOut, PrecheckOut, PrecheckRequest, SimilarChoiceValue } from "@/api/types";
-import { getIdea, updateIdea, useIdea } from "@/features/idea/store";
+import { getIdea, updateIdea, useIdea, withoutCard } from "@/features/idea/store";
 import { RelatedResearchList } from "@/features/idea/RelatedResearchList";
 import { focusRelatedResearch } from "@/features/idea/relatedResearchFocus";
 import { DifferentiationPanel } from "@/features/idea/DifferentiationPanel";
@@ -50,6 +50,8 @@ import { Label } from "@/components/ui/label";
 import { ProblemBanner } from "@/components/ProblemBanner";
 import { useToast } from "@/components/ui/toast";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { Button } from "@/components/ui/button";
+import { PLANS_REGENERATE, PLANS_STALE_NOTE } from "@/lib/labels";
 
 const currentPre = () => getIdea().precheck as unknown as PrecheckFlowOut | null;
 /** 갈래 전환 표식 — [더 만들기]·카드 적용이 "선택이 바뀌어 갈래가 다르다" 로 끝났다 (화면 판단 또는 서버 409 code=mode_changed) */
@@ -78,10 +80,14 @@ export default function Precheck() {
   const [editing, setEditing] = React.useState(false);
   const [defaultsAdded, setDefaultsAdded] = React.useState({ similar: 0, unrelated: 0 });
 
+  // 문제 정의 카드 (ADR 0065) 는 ② 판정·비교표·활용 제안에 쓰이지 않는다 — 그 요청과 캐시 키에는 카드를 뗀 입력(plain)을 쓰고,
+  // 과제안 요청(planReq·runCards)과 다음 단계로 넘기는 입력(next)에만 싣는다
+  const problemCard = idea.request.problem_card;
+  const plain = React.useMemo(() => withoutCard(idea.request), [idea.request]);
   // 서버로 보내는 입력 = 입력 + 가제(간편 입력 가제가 있으면) + 행별 선택 + 참고 논문
   const base = React.useMemo(
-    () => ({ ...idea.request, title_hint: idea.request.title_hint || idea.quickTitle || "" }),
-    [idea.request, idea.quickTitle],
+    () => ({ ...plain, title_hint: plain.title_hint || idea.quickTitle || "" }),
+    [plain, idea.quickTitle],
   );
   const req: PrecheckRequest = React.useMemo(
     () => ({ ...base, similar_choices: choiceList(choices, sources), reference_ids: refs }),
@@ -93,7 +99,10 @@ export default function Precheck() {
     [base, applied, appliedSources, appliedRefs],
   );
   // 과제안(다시 만들기·더 만들기) = 적용한 [유사함] 선택 + 지금 고른 참고 논문 — "참고 논문을 골라 [과제안 다시 만들기]" (ADR 0053)
-  const planReq: PrecheckRequest = React.useMemo(() => ({ ...appliedReq, reference_ids: refs }), [appliedReq, refs]);
+  const planReq: PrecheckRequest = React.useMemo(
+    () => ({ ...appliedReq, reference_ids: refs, ...(problemCard ? { problem_card: problemCard } : {}) }),
+    [appliedReq, refs, problemCard],
+  );
   const original = idea.originalPlan ?? planFields(idea.request);
 
   React.useEffect(() => {
@@ -137,10 +146,13 @@ export default function Precheck() {
   // ── 차별화 과제안 (표가 보이자마자 뒤에서) ──
   const cards = useAiCall((r: PrecheckRequest, signal: AbortSignal) => recommendFlow(r, signal));
   const runCards = async (r: PrecheckRequest, used: ChoiceMap) => {
-    const out = await cards.run(r);
+    // 과제안은 지금의 문제 정의 카드로 만든다(있을 때만) — 받으면 "문제 정의가 바뀌었습니다" 표시를 지운다
+    const card = getIdea().request.problem_card;
+    const out = await cards.run(card ? { ...r, problem_card: card } : r);
     const cur = currentPre();
     if (!out || !cur) return;
     setPre({ ...cur, recommendations: out.recommendations }, {
+      plansStale: false,
       recommendationId: out.recommendations?.id ?? null,
       recommendationIndex: null,
       // 서버가 실제로 쓴 선택(기본 선택 포함)의 갈래 + 서명. AI 판정이 아직 화면에 없으면 모름(null) — [선택 적용] 이 다시 받는다
@@ -203,8 +215,8 @@ export default function Precheck() {
   const cmpElapsed = useElapsed(cmpFetching);
   const hasNtis = !!pre?.alerts.some((a) => a.tier === NATIONAL_RND);
   const ntis = useQuery({
-    queryKey: ["ntis-outcomes", idea.request],
-    queryFn: () => ntisOutcomes(idea.request),
+    queryKey: ["ntis-outcomes", plain],
+    queryFn: () => ntisOutcomes(plain),
     enabled: !!pre && hasNtis && !cmpFetching,
     staleTime: Infinity,
     retry: false,
@@ -361,7 +373,12 @@ export default function Precheck() {
 
   function next() {
     // 차단 해제(모든 차단 행 [관련 없음])면 ③ 화면 게이트도 풀리게 precheck.blocking 을 맞춘다
-    updateIdea({ precheck: { ...pre!, blocking } as unknown as PrecheckOut, similarChoices: choices, request: req });
+    // req 는 카드를 뗀 입력이라 여기서 다시 싣는다 — 보강 질문·초안 생성이 카드를 받는다
+    updateIdea({
+      precheck: { ...pre!, blocking } as unknown as PrecheckOut,
+      similarChoices: choices,
+      request: problemCard ? { ...req, problem_card: problemCard } : req,
+    });
     navigate("/new/brief");
   }
 
@@ -447,6 +464,15 @@ export default function Precheck() {
       </div>
 
       <ProblemBanner error={cards.error ?? more.error ?? pickM.error} />
+      {/* 문제 정의 카드를 고친 뒤 (ADR 0065) — 알리기만 하고 자동으로 다시 만들지 않는다 */}
+      {idea.plansStale && pre.recommendations && !cards.pending && (
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-md border border-warning/30 bg-apricot p-2 text-sm text-apricot-foreground" data-testid="plans-stale-note">
+          <span>{PLANS_STALE_NOTE}</span>
+          <Button size="sm" variant="outline" onClick={() => void runCards(planReq, applied)}>
+            {PLANS_REGENERATE}
+          </Button>
+        </div>
+      )}
       <PlanCards
         rec={pre.recommendations}
         waiting={{ pending: cards.pending, elapsed: cards.elapsed, cancelled: cards.cancelled, onCancel: cards.cancel }}

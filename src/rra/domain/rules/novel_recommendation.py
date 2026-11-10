@@ -22,7 +22,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from rra.domain.models.novel import (
@@ -84,6 +84,7 @@ UNKNOWN_COVERAGE_STATUS = "확인 못 함"
 # 계약 3.1 — 실시간 검색을 하지 않았을 때(live=false)의 확인 범위 문구
 COVERAGE_NOTE_STORED = "저장 자료 범위 안에서 기존 과제 없음"
 
+MAX_TITLE_PRINCIPLES = 3  # NovelTitle.principles 상한
 NO_NOVEL_REASON = "만들 만한 새 과제안이 없음"
 EXCLUDED_SUFFIX = "검증에서 제외됨 {n}건"
 
@@ -239,8 +240,26 @@ def _barriers(
     return kept, remap, None
 
 
+def _principles(value: Any, allowed_numbers: Sequence[int]) -> list[int]:
+    """과제명이 기댄 발명 원리 번호 — 카드 모순에 붙은 번호 안에서만(밖의 번호만 뺀다, 안은 살린다).
+    카드가 없으면(allowed_numbers 빔) 늘 빈 목록."""
+    if not allowed_numbers:
+        return []
+    items = value if isinstance(value, list) else [value]
+    out: list[int] = []
+    for v in items:
+        n = _index(v.get("number") if isinstance(v, Mapping) else v)
+        if n is not None and n in allowed_numbers and n not in out:
+            out.append(n)
+    return out[:MAX_TITLE_PRINCIPLES]
+
+
 def _titles(
-    raw: Any, raw_barrier_count: int, remap: dict[int, int], allowed: list[str]
+    raw: Any,
+    raw_barrier_count: int,
+    remap: dict[int, int],
+    allowed: list[str],
+    principle_numbers: Sequence[int] = (),
 ) -> tuple[list[NovelTitle], str | None]:
     """과제명 → (남은 과제명 — 해소 장벽 수 많은 순, 안 폐기 사유)."""
     items = raw if isinstance(raw, list) else []
@@ -267,7 +286,14 @@ def _titles(
                 return [], bad
         if any(near_same(title, o.title) for o in out):
             continue
-        out.append(NovelTitle(title=title, resolves=sorted(resolves), reason=reason))
+        out.append(
+            NovelTitle(
+                title=title,
+                resolves=sorted(resolves),
+                reason=reason,
+                principles=_principles(t.get("principles"), principle_numbers),
+            )
+        )
     out.sort(key=lambda x: -len(x.resolves))  # 안정 정렬 — 같은 수면 모델 순서
     return out[:MAX_TITLES], None
 
@@ -296,8 +322,12 @@ def validate_novel(
     allowed_doc_ids: Iterable[str],
     allowed_texts: Iterable[str],
     reference_doc_ids: Iterable[str] = (),
+    principle_numbers: Iterable[int] = (),
 ) -> tuple[NovelRecommendation | None, str | None]:
     """LLM 새 과제안 하나 → (검증된 안, None) 또는 (None, 폐기 사유).
+
+    principle_numbers: 문제 정의 카드의 모순에 붙은 발명 원리 번호(ADR 0065). 과제명의
+    `principles` 는 이 안의 번호만 남긴다. 비면(카드 없음) 과제명의 principles 는 늘 빈 목록.
 
     allowed_doc_ids 는 이번 입력 구획([참고 논문]·[다른 분야 사례]·[근거])에 실제로 넣은 doc_id.
     evidence 의 범위 밖 id 는 목록에서만 뺀다(안은 남김). 참고 논문(제안자 선택)을 앞에 둔다.
@@ -321,7 +351,9 @@ def validate_novel(
     barriers, remap, bad = _barriers(raw_barriers, id_set, allowed)
     if bad:
         return None, bad
-    titles, bad = _titles(raw.get("titles"), len(raw_barriers), remap, allowed)
+    titles, bad = _titles(
+        raw.get("titles"), len(raw_barriers), remap, allowed, list(principle_numbers)
+    )
     if bad:
         return None, bad
     if not titles:

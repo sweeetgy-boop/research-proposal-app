@@ -42,7 +42,7 @@ class CardQueries(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     stored: tuple[str, ...] = ()  # 저장 자료(벡터) 질의 — 사다리 3단 + 국문·영문 기능 문장
-    live_ko: tuple[str, ...] = ()  # 실시간 국문 자료원 키워드 — 사다리 구체·일반화 단
+    live_ko: tuple[str, ...] = ()  # 실시간 국문 자료원 키워드 — 대상어+작용어 짝, 구체 단
     live_en: tuple[str, ...] = ()  # 실시간 영문 자료원(OpenAlex) 키워드
     ipc: tuple[str, ...] = ()  # KIPRIS 분류 검색에 쓰는 코드(확인된 것만)
 
@@ -80,7 +80,12 @@ def card_queries(
     ko, en = card.function_ko.value, card.function_en.value
     concrete, general = card.ladder_text("구체"), card.ladder_text("일반화")
     stored = _unique([concrete, general, card.ladder_text("추상화"), ko, en], MAX_STORED_QUERIES)
-    live_ko = _unique([concrete, general, ko], max_live)
+    # 실시간 국문 키워드는 짧은 "대상어 작용어" 짝 먼저 — 긴 구절은 국문 자료원(ScienceON 등)이
+    # 낱말을 모두 요구해 0~4건만 돌려준다(2026-11-10 실제 카드 측정). 모자라면 구체 단.
+    pairs_ko = [
+        f"{obj} {act}" for obj in card.terms.objects_ko[:2] for act in card.terms.actions_ko[:1]
+    ]
+    live_ko = _unique([*pairs_ko, concrete, general, ko], max_live)
     pairs = [
         f"{obj} {act}" for obj in card.terms.objects_en[:2] for act in card.terms.actions_en[:1]
     ]
@@ -131,7 +136,17 @@ def pick_fingerprint(queries: CardQueries | None, card: ProblemCard | None, rank
             ("objects", [*terms.objects_ko, *terms.objects_en]),
             ("actions", [*terms.actions_ko, *terms.actions_en]),
             ("rerank", [rerank_query(card)]),
-            ("rank", [str(rank.rerank_top), str(rank.per_source), str(rank.require_object)]),
+            (
+                "rank",
+                [
+                    str(rank.rerank_top),
+                    str(rank.per_source),
+                    str(rank.priority_window),
+                    str(rank.priority_min_ratio),
+                    str(rank.with_request_query),
+                    str(rank.require_object),
+                ],
+            ),
         ]
     )
 

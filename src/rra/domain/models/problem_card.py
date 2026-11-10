@@ -352,8 +352,17 @@ class CardUse(BaseModel):
 class CardRank(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    rerank_top: int = Field(default=40, ge=5, le=100)  # 재순위에 넘길 후보 수(유사도 순)
+    rerank_top: int = Field(default=30, ge=5, le=100)  # 재순위에 넘길 후보 수(유사도 순)
     per_source: int = Field(default=2, ge=1, le=5)  # 자료원당 우선 건수 — 모자라면 순위대로 채움
+    # 자료원당 우선은 재순위 상위 이 범위 안에서만 — 범위 밖의 약한 다른 자료원 자료를 먼저 담지
+    # 않는다(2026-11-10 악취 사례: 30위 밖 0.019 점 자료가 5번째로 들어옴)
+    priority_window: int = Field(default=15, ge=5, le=100)
+    # 자료원당 우선은 재순위 점수가 1위의 이 비율 이상인 자료에만 — 점수가 거의 0 인 다른 자료원
+    # 자료를 자료원 몫으로 끌어오지 않는다(2026-11-10 실제 카드: 같은 무관 특허가 두 사례에 들어옴)
+    priority_min_ratio: float = Field(default=0.25, ge=0, le=1)
+    # 재순위 질의에 제안문 문제어 질의(종전 규칙)도 써서 높은 점수를 취한다 — 카드 기능 문장이
+    # 좁게 잡혀도 직접 관련 자료가 밀리지 않게. 후보에도 그 질의의 검색 결과를 합친다
+    with_request_query: bool = True
     require_object: bool = True  # 대상어(구체·일반화)가 겹친 자료만
 
 

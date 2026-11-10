@@ -4,7 +4,10 @@ import { BookMarked } from "lucide-react";
 import { IdeaForm } from "@/features/idea/IdeaForm";
 import { QuickInput } from "@/features/idea/QuickInput";
 import { POLICY_LATER_NOTE, PolicyPickDialog } from "@/features/idea/PolicyPickDialog";
-import { getIdea, resetIdea, updateIdea, updateRequest, useIdea } from "@/features/idea/store";
+import { getIdea, resetIdea, updateIdea, updateRequest, useIdea, withoutCard } from "@/features/idea/store";
+import { ProblemCard, ProblemCardPending } from "@/features/idea/ProblemCard";
+import { applyCardEdit, usableCard, useProblemDiagnosis } from "@/features/idea/ProblemCardDiagnosis";
+import { CARD_INPUT_CHANGED, CARD_INPUT_INCOMPLETE } from "@/lib/labels";
 import { mergePolicyBasis } from "@/api/policySuggestions";
 import { useMutation } from "@tanstack/react-query";
 import { precheckFast } from "@/api/endpoints-precheck";
@@ -33,14 +36,20 @@ export default function Idea() {
   // 정책 근거 추천 팝업 (ADR 0052) — 네 칸이 채워질 때 자동, [다음] 때 칸이 비었으면 먼저, 칸 아래 버튼으로 언제든
   const [policyOpen, setPolicyOpen] = React.useState(false);
   const [gated, setGated] = React.useState<ProposalRequest | null>(null);
+  // '핵심 문제' 카드 (ADR 0065) — 네 칸이 차면 뒤에서 진단한다. 정책 근거 팝업과 독립이고, [다음] 은 기다리지 않는다
+  const diagnosis = useProblemDiagnosis(idea, mode === "detail" && !precheck.isPending);
 
   const runPrecheck = async (req: ProposalRequest) => {
     try {
       const budget = req.budget && (req.budget.account || req.budget.amount_thousand_krw !== null) ? req.budget : null;
-      const clean = { ...req, budget };
+      // 카드는 ② 판정에 쓰이지 않는다 — 유사과제 확인 요청에는 싣지 않고, 진단이 아직이면 끊고 카드 없이 간다
+      diagnosis.cancel();
+      const clean = { ...withoutCard(req), budget };
       const out = await precheck.mutateAsync(clean);
+      // 지금 네 칸으로 진단을 마친 카드가 있으면 이후 요청(과제안·보강 질문·초안 생성)에 실어 보낸다
+      const card = usableCard({ ...getIdea(), request: clean });
       updateIdea({
-        request: clean,
+        request: card ? { ...clean, problem_card: card } : clean,
         precheck: out,
         acknowledged: false,
         recommendationId: out.recommendations?.id ?? null,
@@ -153,12 +162,26 @@ export default function Idea() {
             updateIdea({ request: { ...idea.request, ...fields, title_hint: title || idea.request.title_hint }, inputMode: "detail" });
             toast("네 칸을 상세 입력에 채웠습니다. 확인·수정한 뒤 유사과제 확인으로 가십시오.", "success");
             setPolicyOpen(true);
+            diagnosis.run();
           }}
           onUnavailable={() => updateIdea({ inputMode: "detail" })}
         />
       ) : (
         <IdeaForm value={idea.request} onChange={updateRequest} onSubmit={onSubmit} busy={precheck.isPending} hideSubmit policyTools={policyTools} />
       )}
+      {/* 꺼짐·실패·오류면 아무것도 그리지 않는다 — 스위치가 꺼진 화면은 종전과 같다 */}
+      {mode === "detail" &&
+        (idea.problemCard && idea.cardLines ? (
+          <ProblemCard
+            card={idea.problemCard}
+            lines={idea.cardLines}
+            changed={diagnosis.changed}
+            changedNote={diagnosis.incomplete ? CARD_INPUT_INCOMPLETE : CARD_INPUT_CHANGED}
+            onEdit={applyCardEdit}
+          />
+        ) : diagnosis.pending ? (
+          <ProblemCardPending />
+        ) : null)}
 
       <PolicyPickDialog open={policyOpen} request={idea.request} gate={gated !== null} onApply={applyPolicy} onLater={deferPolicy} onClose={closePolicy} />
       <StepNavBar

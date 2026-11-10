@@ -151,3 +151,53 @@ export function providerLabel(provider: string | null | undefined): string {
   if (provider === "mlx" || provider === "local") return "로컬 모델";
   return "외부 모델";
 }
+
+/** ① '핵심 문제' 카드 (ADR 0065, docs/contracts/problem-card.md 5절) — 화면 문구는 여기 한 곳.
+ *  카드의 열거값(신호·확인 경로·확인 필요 사유·방법 이름)은 화면에 내보내지 않는다. 문제 성격·켜진 신호는 1차에 기록만 — 화면 문구가 없다. */
+export const CARD_TITLE = "핵심 문제";
+export const CARD_INTRO = "입력을 AI 가 한 번 정리한 내용입니다. 맞으면 그대로 다음으로, 틀리면 그 줄을 고치십시오.";
+export const CARD_PENDING = "문제 정리 중…";
+export const CARD_INPUT_CHANGED = "입력이 바뀌었습니다 — 다시 정리하는 중";
+export const CARD_INPUT_INCOMPLETE = "입력이 바뀌었습니다 — 네 칸을 모두 채우면 다시 정리합니다";
+export const CARD_EDIT_FAILED = "고친 내용을 반영하지 못했습니다. 잠시 뒤 다시 [적용] 하십시오.";
+export const CARD_EMPTY = "(비어 있음)";
+export const CARD_EXPERT_SUMMARY = "전문가 분석 펼치기";
+export const CARD_LINE_LABELS = {
+  function: "기능 문장",
+  cause: "원인",
+  contradiction: "모순",
+  codes: "분류",
+} as const;
+export const CARD_BADGES = {
+  stated: "근거 있음",
+  guessed: "추정",
+  needsCheck: "확인 필요",
+  unverified: "확인 못 함",
+  user: "직접 고침",
+} as const;
+export const CARD_FACET_LABELS = {
+  phenomenon: "현상",
+  target: "대상",
+  place: "장소",
+  cause: "원인",
+  harm: "피해",
+  desired: "원하는 결과",
+} as const;
+export const CARD_CODE_KIND_LABELS = {
+  ipc: "특허 분류(IPC)",
+  science_class: "과학기술 분류",
+} as const;
+export const CARD_EXPERT_LABELS = {
+  facets: "항목 나누기",
+  ladder: "추상화 사다리",
+  functionEn: "영문 기능 문장",
+  causes: "근본 원인 (2단계)",
+  principles: "발명 원리",
+} as const;
+/** 발명 원리 표시 — "1. 분할" */
+export function principleLabel(p: { number: number; name: string }): string {
+  return p.name ? `${p.number}. ${p.name}` : `${p.number}`;
+}
+/** ② 과제안 — 카드를 고친 뒤 (자동으로 다시 만들지 않는다) */
+export const PLANS_STALE_NOTE = "문제 정의가 바뀌었습니다.";
+export const PLANS_REGENERATE = "과제안 다시 만들기";

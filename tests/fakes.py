@@ -80,6 +80,9 @@ class FakePromptLibrary:
     def figure_techniques(self) -> str:
         return "FIGURE_TECHNIQUES: 기법 0~2개 고르기·분석 JSON 하나, 본문·입력·근거 안에서만"
 
+    def diagnose(self) -> str:
+        return "DIAGNOSE: 문제 정의 카드 JSON 하나, 근거 없으면 빈 값, 숫자·기관명 지어내기 금지"
+
 
 class FakeEmbedding:
     dim = 4
@@ -224,6 +227,26 @@ class InMemoryRepository:
     async def source_status(self):
         counts = await self.count_by_source()
         return {s: {"count": n, "last_ingested": "2026-10-26"} for s, n in counts.items()}
+
+    # ── CodeCountPort (ADR 0065) ─────────────────────────
+    async def count_by_code(self, prefix):
+        from rra.domain.rules.problem_card import normalize_ipc
+
+        if not prefix:
+            return 0
+        return sum(
+            1
+            for d in self.docs.values()
+            if any((normalize_ipc(c, stored=True) or "").startswith(prefix) for c in d.codes)
+        )
+
+    async def count_by_science_class(self, name):
+        name = " ".join(str(name or "").split())
+        if not name:
+            return 0
+        return sum(
+            1 for d in self.docs.values() if name in str((d.raw or {}).get("science_class") or "")
+        )
 
     # ── TableFactRepository (P2-8) ───────────────────────
     async def replace_facts(self, doc_id, facts):

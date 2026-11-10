@@ -2630,9 +2630,24 @@ def build_api(
             keyword_source=live.keywords,
             live=live,
         )
+    # ADR 0065 문제 정의 카드 — 꺼져 있으면 진단은 status="off", 카드를 받는 단계는 카드를 무시한다.
+    # 수정 짝·선택 기록 저장소는 진단·수정·REST 가 같은 것을 쓴다(가짜 모드는 메모리).
+    choice_log = build_choice_log(settings)
+    card_kwargs = dict(
+        repo=repo,
+        llm=llm,
+        local_slot=slot,
+        embedding=getattr(repo, "embedding", None),  # API 가 이미 띄운 임베딩(새로 띄우지 않는다)
+        edit_log=build_card_edit_log(settings),
+        class_count=build_patent_class_count(settings)
+        if _problem_card_config(settings).enabled
+        else None,
+    )
     return create_app(
         manager=manager,
         precheck=precheck,
+        problem_diagnosis=build_problem_diagnosis(settings, **card_kwargs),
+        card_editor=build_card_editor(settings, choice_log=choice_log, **card_kwargs),
         policy_suggest=build_policy_suggest(settings, repo=repo),
         notice_match=build_notice_match(settings, repo=repo),
         differentiate=build_differentiator(settings, repo=repo, llm=llm, local_slot=slot),
@@ -2655,7 +2670,7 @@ def build_api(
         structure=build_structurer(settings, llm=llm),
         compare=build_comparer(settings, repo=repo, precheck=precheck, llm=llm, local_slot=slot),
         polish=build_polisher(settings, llm=llm, local_slot=slot),
-        choice_log=build_choice_log(settings),
+        choice_log=choice_log,
         brief=build_briefer(settings, repo=repo, llm=llm),
         ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
@@ -2974,7 +2989,15 @@ def build_clarifier(settings: Settings | None = None, *, llm=None, local_slot=No
         local_gate=ask.local_gate,
         argon_model=ask.argon_model,
         local_model=ask.local_model,
+        card_config=_problem_card_config(settings),
     )
+
+
+def _problem_card_config(settings: Settings):
+    """문제 정의 카드 설정(ADR 0065, config/problem_card.yaml) — 기본 꺼짐."""
+    from rra.config_loader import problem_card_config
+
+    return problem_card_config(settings)
 
 
 def build_card_check(
@@ -3063,6 +3086,7 @@ def build_recommender(
         metrics=build_recommend_metrics(settings),
         novelty=novelty,
         analogies=analogies,
+        card_config=_problem_card_config(settings),
     )
 
 
@@ -3094,9 +3118,21 @@ def build_novelty(settings: Settings, *, repo, precheck, live, include_internal:
         WideNoveltyCheck,
         precheck_rule_check,
     )
-    from rra.config_loader import live_search_config, novelty_config, relevance_floor
+    from rra.config_loader import (
+        live_search_config,
+        novelty_config,
+        problem_card_config,
+        relevance_floor,
+    )
 
     nov = novelty_config(settings)
+    # 문제 정의 카드(ADR 0065) — 꺼져 있으면 유추 검색은 종전 그대로(재순위 모델도 올리지 않는다)
+    card_cfg = problem_card_config(settings)
+    scorer = (
+        build_reranker(settings)
+        if card_cfg.uses("analogy_rank") and not settings.fake_llm
+        else None
+    )
     base = live_search_config(settings)
     if settings.fake_llm and not base.fake_mode:
         base = base.model_copy(update={"enabled": False})
@@ -3142,7 +3178,7 @@ def build_novelty(settings: Settings, *, repo, precheck, live, include_internal:
         memo_size=nov.memo_size,
         memo_minutes=nov.memo_minutes,
     )
-    maker = ProblemKeywords(rule=keyword_rule(settings), settings=nov.analogy)
+    maker = ProblemKeywords(rule=keyword_rule(settings), settings=nov.analogy, card_config=card_cfg)
     analogy_live = LiveSearch(
         analogy_cfg,
         repo,
@@ -3166,8 +3202,27 @@ def build_novelty(settings: Settings, *, repo, precheck, live, include_internal:
         include_internal=include_internal,
         memo_size=nov.memo_size,
         memo_minutes=nov.memo_minutes,
+        card_config=card_cfg,
+        scorer=scorer,
     )
     return novelty, analogies
+
+
+def build_patent_class_count(settings: Settings | None = None, *, transport=None, resolver=None):
+    """KIPRIS 분류(IPC) 검색 총 건수 — `problem_card_contract.PatentClassCount` (ADR 0065, 레인 B).
+    조립이 분류 코드 확인(ClassCodeCheck)에 넣는다. 일일 호출 카운터는 실시간 검색과 같은 파일.
+    가짜 모드·KIPRIS 키 없음이면 None(확인 못 함으로 둔다)."""
+    from rra.adapters.sources.kipris import KiprisClassCount
+
+    settings = settings or load_settings()
+    if settings.fake_llm and transport is None:
+        return None
+    try:
+        source = build_kipris_source(settings, transport=transport, resolver=resolver)
+    except MissingCredential:
+        logger.info("patent_class_count.missing_key")
+        return None
+    return KiprisClassCount(source, counter=build_kipris_daily_counter(settings))
 
 
 def build_recommend_metrics(settings: Settings | None = None):
@@ -3570,4 +3625,153 @@ def build_eval_usage(settings: Settings | None = None):
             data_location(settings, "similar_choices"),
             data_location(settings, "recommend_metrics"),
         )
+    )
+
+
+# ── 문제 정의 카드 (ADR 0065, 계약 docs/contracts/problem-card.md) ─────────────
+def build_card_edit_log(settings: Settings | None = None):
+    """문제 정의 카드 수정 짝 저장소(JSONL, data/feedback/card_edits.jsonl). 가짜 모드는 메모리
+    (데이터 폴더를 건드리지 않는다)."""
+    from rra.adapters.logging.card_edit_log import JsonlCardEditLog, MemoryCardEditLog
+
+    settings = settings or load_settings()
+    if settings.fake_llm:
+        return MemoryCardEditLog()
+    return JsonlCardEditLog(data_location(settings, "card_edits"))
+
+
+def build_class_code_check(settings: Settings | None = None, *, repo=None, class_count=None):
+    """분류 코드 확인(ClassCodeCheck) — 저장 자료의 실제 코드 → KIPRIS 건수(class_count, 레인 B 의
+    PatentClassCount — 없으면 건너뜀). 코드별 캐시(`verify.cache_days`). 가짜 모드는 캐시 없음."""
+    from rra.adapters.classification import StoredClassCodeCheck
+    from rra.adapters.persistence.file_cache import FileCache
+    from rra.config_loader import problem_card_config
+
+    settings = settings or load_settings()
+    verify = problem_card_config(settings).verify
+    cache = (
+        FileCache(data_path(settings, "data/cache/class_codes"), ttl_sec=verify.cache_days * 86400)
+        if verify.cache_days > 0 and not settings.fake_llm
+        else None
+    )
+    return StoredClassCodeCheck(
+        repo,
+        patent_count=class_count,
+        cache=cache,
+        use_corpus=verify.ipc_corpus,
+        use_kipris=verify.ipc_kipris,
+    )
+
+
+def _card_ask(settings: Settings, *, llm=None, local_slot=None):
+    """문제 정의 카드의 AI 호출 순서 — Argon(`problem_card.yaml stage`, 기본 diagnose = gemini,
+    일일 예산 공유) 먼저, 오류 응답일 때만 로컬(`local_stage`, local_slot 안에서). 가짜 모드는 llm
+    하나가 Argon 자리를 맡는다(외부 호출 없음). 그 밖에 llm 을 주면 로컬 자리에 그대로 쓴다
+    (build_argon_first 와 같다). 돌려주는 것: (ArgonFirst, max_tokens, provider 이름)."""
+    from rra.application.usecases.argon_first import ArgonFirst
+    from rra.config_loader import problem_card_config
+
+    cfg = problem_card_config(settings)
+    stage_cfg = llm_config(settings, cfg.stage)
+    max_tokens = int(stage_cfg["max_tokens"])
+    provider = str(stage_cfg.get("provider") or "gemini")
+    if llm is not None and settings.fake_llm:  # 가짜 모드 — 외부 호출 없음
+        return ArgonFirst(None, llm), max_tokens, provider
+    argon = local = None
+    if llm_available(settings, stage=cfg.stage):
+        try:
+            argon = build_llm(settings, stage=cfg.stage)
+        except (LLMUnavailable, KeyError, ValueError):
+            argon = None
+    try:
+        local = llm if llm is not None else build_llm(settings, stage=cfg.local_stage)
+        local_cfg = llm_config(settings, cfg.local_stage)
+    except (LLMUnavailable, KeyError, ValueError):
+        local, local_cfg = None, {}
+    return (
+        ArgonFirst(
+            local,
+            argon,
+            local_gate=local_slot.acquire if local_slot is not None else None,
+            argon_model=str(stage_cfg.get("served_model") or stage_cfg.get("model") or "argon"),
+            local_model=str(local_cfg.get("served_model") or local_cfg.get("model") or "local"),
+        ),
+        max_tokens,
+        provider,
+    )
+
+
+def _card_axis(settings: Settings):
+    from rra.config_loader import novelty_config
+
+    return novelty_config(settings).analogy.axis
+
+
+def build_problem_diagnosis(
+    settings: Settings | None = None,
+    *,
+    repo,
+    class_count=None,
+    llm=None,
+    local_slot=None,
+    embedding=None,
+    edit_log=None,
+):
+    """문제 정의 카드 진단(ProblemDiagnosis) — AI 1회 + 규칙 검증 + 분류 코드 확인 + 본인 수정 예시.
+
+    class_count: 레인 B 의 KIPRIS 분류 건수(PatentClassCount) — 없으면 저장 자료로만 확인한다.
+    embedding: 본인 예시를 고를 때만 쓴다(API 가 이미 띄운 것을 넘긴다 — 없으면 예시 없음, 새로
+    띄우지 않는다). edit_log: 수정 반영(build_card_editor)과 **같은 것**을 넘긴다(가짜 모드는
+    메모리라 따로 만들면 서로 보지 못한다). 스위치가 꺼져 있으면 호출 결과는 늘 status="off"."""
+    from rra.application.usecases.diagnose_problem import DiagnoseProblem
+    from rra.config_loader import problem_card_config
+
+    settings = settings or load_settings()
+    cfg = problem_card_config(settings)
+    ask, max_tokens, provider = _card_ask(settings, llm=llm, local_slot=local_slot)
+    return DiagnoseProblem(
+        ask,
+        build_prompt_library(settings),
+        cfg,
+        axis=_card_axis(settings),
+        keywords=keyword_rule(settings),
+        code_check=build_class_code_check(settings, repo=repo, class_count=class_count),
+        edit_log=edit_log if edit_log is not None else build_card_edit_log(settings),
+        embedding=embedding,
+        max_tokens=max_tokens,
+        argon_provider=provider,
+    )
+
+
+def build_card_editor(
+    settings: Settings | None = None,
+    *,
+    repo,
+    class_count=None,
+    llm=None,
+    local_slot=None,
+    embedding=None,
+    edit_log=None,
+    choice_log=None,
+):
+    """문제 정의 카드 수정 반영(CardEditor) — 고친 항목에 기대는 것만 다시 계산 + 수정 짝·card_edit
+    기록. choice_log: REST 가 쓰는 선택 기록 저장소(build_choice_log)를 그대로 넘긴다(없으면
+    card_edit 줄은 남기지 않는다). embedding: 변경 전후 의미 유사도(없으면 None 으로 기록)."""
+    from rra.application.usecases.edit_problem_card import EditProblemCard
+    from rra.config_loader import problem_card_config
+
+    settings = settings or load_settings()
+    cfg = problem_card_config(settings)
+    ask, max_tokens, _ = _card_ask(settings, llm=llm, local_slot=local_slot)
+    return EditProblemCard(
+        cfg,
+        build_prompt_library(settings),
+        ask=ask,
+        axis=_card_axis(settings),
+        keywords=keyword_rule(settings),
+        code_check=build_class_code_check(settings, repo=repo, class_count=class_count),
+        edit_log=edit_log if edit_log is not None else build_card_edit_log(settings),
+        choice_log=choice_log,
+        embedding=embedding,
+        max_tokens=max_tokens,
     )

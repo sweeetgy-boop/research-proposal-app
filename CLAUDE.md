@@ -227,6 +227,14 @@
   유추 검색 `ProblemAnalogySearch`(대상·장소 말 뺀 문제 축, 철도 분야 제외 `rail_field`, 분야 이름은 메타데이터만, 하한 0.79) → `recommend_novel.md`(안 2~3, 장벽 5갈래
   근거 있음/추정+확인 방법, 장벽 해소형 과제명) → 검증 `domain/rules/novel_recommendation`. 조립 `composition.build_novelty`. novel 세션은 `/more`·`/apply` 409,
   웹 `features/precheck/NovelPlans.tsx`([이 과제명으로 진행] = 가제 칸만). 측정 줄 `branch`·`barriers`·`titles`. CLI·MCP·Streamlit 은 novelty 없이 저장 자료만.
+- **문제 정의 카드**(2026-11-10, ADR 0065, 계약 `docs/contracts/problem-card.md`, **스위치 `config/problem_card.yaml enabled: false` — 소유자 확인 뒤 켠다**): ① 네 칸이 차면 뒤에서
+  진단 1회(`usecases/diagnose_problem`, Argon→로컬, `prompts/diagnose.md`) → 규칙 검증(`domain/rules/problem_card`: 근거 있음/추정은 규칙 판정, 장소어 제거, TRIZ 40 `rules/triz`,
+  분류 코드 = 저장 자료 + KIPRIS 건수 `adapters/classification`) → 카드(`domain/models/problem_card`, `ProposalRequest.problem_card` — FORM_ONLY, 캐시 키·②판정 무관).
+  REST `POST /v1/ideas/diagnose(·/edit)`(`entrypoints/api/problem_card_routes`), 웹 `features/idea/ProblemCard*`(문제 성격·신호는 화면에 없음). 쓰는 곳(novel 갈래):
+  유추 질의 `rules/card_queries`(세션·메모 키는 **실제 보낸 질의 지문**, 자료원 응답 캐시는 공유)·정렬 `rules/analogy_rank`(대상어 겹침 → 재순위 max(기능 문장, 제안문 질의) →
+  자료원당 2건 우선은 상위 15·점수 25% 이상만)·영문 → OpenAlex·IPC → KIPRIS 분류 검색(`getAdvancedSearch ipcNumber`)·모순+발명 원리 → novel 과제명(모순이 비면 구획 없음)·
+  보완 질문 규칙 문장. 수정: 고친 항목은 AI 가 덮어쓰지 않고 의존 항목만 재계산, 과제안 다시 만들기는 버튼. 기록 `data/feedback/card_edits.jsonl`(본인 수정만 예시, 공용 계정 제외)·
+  선택 기록 `event: card_edit`. 2차: 조건부 분석 실행·사전 후보·관리자 통계·새로움 확인에 카드 쓰기.
 - **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.
   이제 쓰지 않는 방식(로컬 7B 주 작성·③ 1차 검토·Cloudflare 계획·화면 "run" 표기)은 지우지 않고 "이전 방식"으로 표시한다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),
