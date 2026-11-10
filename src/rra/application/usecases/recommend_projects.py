@@ -85,6 +85,7 @@ from rra.application.usecases.recommend_novel import (
     build_novel_prompt,
     gather_analogies,
     novel_allowed,
+    principle_numbers,
     screen_novel,
     stored_only_coverage,
     with_novel_refs,
@@ -100,6 +101,7 @@ from rra.domain.models import (
     RetrievalSnapshot,
 )
 from rra.domain.models.novel import MODE_NOVEL, NoveltyCoverage
+from rra.domain.models.problem_card import ProblemCardConfig
 from rra.domain.models.recommendation import RecommendationRef
 from rra.domain.rules.card_overlap import overlap_hint, shown_hint, warning_fields
 from rra.domain.rules.differentiation import candidate_text
@@ -199,6 +201,9 @@ class RecommendProjects:
     # 새 과제 추천 갈래의 협력자 (ADR 0057). 둘 다 None 이면 novel 은 저장 자료만·사례 없이 계속
     novelty: NoveltyCheck | None = None
     analogies: AnalogySearch | None = None
+    # 문제 정의 카드 설정(ADR 0065). None 이면 꺼짐 — novel 프롬프트·검증이 종전과 같다.
+    # 켜져 있어도 차별화(differentiate) 경로에는 카드를 넣지 않는다
+    card_config: ProblemCardConfig | None = None
 
     async def __call__(
         self,
@@ -432,8 +437,13 @@ class RecommendProjects:
             )
         )
         sizes = {"max_doc_chars": self.max_doc_chars, "max_chunk_chars": self.max_chunk_chars}
-        prompt = build_novel_prompt(req, refs, pairs, sent_chunks, **sizes)
-        allowed_ids, allowed_texts = novel_allowed(req, refs, pairs, sent_chunks, **sizes)
+        card = None
+        if self.card_config is not None and self.card_config.uses("contradiction"):
+            card = req.problem_card  # 모순·발명 원리 → [문제 정의] 구획 (novel 갈래만)
+        prompt = build_novel_prompt(req, refs, pairs, sent_chunks, **sizes, card=card)
+        allowed_ids, allowed_texts = novel_allowed(
+            req, refs, pairs, sent_chunks, **sizes, card=card
+        )
         reference_ids = [d.doc_id for d in refs]
         base = {
             **base,
@@ -457,6 +467,7 @@ class RecommendProjects:
             "allowed_doc_ids": allowed_ids,
             "allowed_texts": allowed_texts,
             "reference_doc_ids": reference_ids,
+            "principle_numbers": principle_numbers(card),
         }
         items, discarded = screen_novel(data, **screen)
         retry_used = False

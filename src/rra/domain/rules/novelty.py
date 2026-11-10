@@ -448,11 +448,16 @@ def problem_query(terms: Sequence[str], phrases_en: Sequence[str]) -> str:
     return " ".join(parts).strip()
 
 
+def doc_tokens(doc: Document) -> list[str]:
+    """문서(제목·초록·키워드)의 낱말 — 문제어 겹침 판정용."""
+    text = " ".join(p for p in (doc.title, doc.abstract or "", _raw_text(doc, "keywords")) if p)
+    return _text_tokens(text)
+
+
 def shared_terms(terms: Sequence[str], terms_en: Sequence[str], doc: Document) -> list[str]:
     """문서(제목·초록·키워드)에 나오는 문제어. 한글은 문서 어절이 문제어로 시작하면, 영문은 낱말이
     문제어로 시작하면(복수형·파생형)."""
-    text = " ".join(p for p in (doc.title, doc.abstract or "", _raw_text(doc, "keywords")) if p)
-    toks = _text_tokens(text)
+    toks = doc_tokens(doc)
     out = [t for t in terms if any(d.startswith(t) for d in toks)]
     out += [t for t in terms_en if any(d.startswith(t) for d in toks if not _HANGUL.search(d))]
     return out
