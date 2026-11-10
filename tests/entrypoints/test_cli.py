@@ -1513,7 +1513,33 @@ def test_ingest_ip_blocked_source_is_skipped_only_with_skip_unavailable(monkeypa
     assert IP_NOTICE in capsys.readouterr().err
 
 
-def test_api_logging_writes_login_lock_lines_once_with_timestamp(capsys):
+@pytest.fixture
+def api_logging_reset():
+    """`cli._api_logging()` 이 다는 핸들러는 만든 순간의 stderr(그 시험의 capsys 스트림)를 잡는다.
+    떼지 않으면 다음 시험이 닫힌 스트림에 써서 "--- Logging error ---" 가 섞인다(순서 의존).
+    시험 앞뒤로 핸들러·수준·propagate 를 원래대로 돌린다."""
+    import logging
+
+    names = ("rra.api", "rra")
+    marks = ("_rra_api", "_rra_warn")
+
+    def strip() -> None:
+        for name in names:
+            lg = logging.getLogger(name)
+            for h in list(lg.handlers):
+                if any(getattr(h, m, False) for m in marks):
+                    lg.removeHandler(h)
+
+    saved = {n: (logging.getLogger(n).level, logging.getLogger(n).propagate) for n in names}
+    strip()
+    yield
+    strip()
+    for name, (level, propagate) in saved.items():
+        logging.getLogger(name).setLevel(level)
+        logging.getLogger(name).propagate = propagate
+
+
+def test_api_logging_writes_login_lock_lines_once_with_timestamp(capsys, api_logging_reset):
     """잠금 로그(`rra.api.auth` WARNING)와 로그인 실패(INFO)가 `rra api` 로그 설정에서 걸러지지
     않고 한 번씩만(rra 루트 핸들러로 다시 흘러 두 번 찍히지 않게) stderr 에 남는다."""
     import logging
@@ -1536,7 +1562,7 @@ def test_api_logging_writes_login_lock_lines_once_with_timestamp(capsys):
         assert hits[0][:4].isdigit() and level in hits[0] and " rra.api.auth " in hits[0]
 
 
-def test_api_logging_timestamps_warnings_and_passes_live_info(capsys):
+def test_api_logging_timestamps_warnings_and_passes_live_info(capsys, api_logging_reset):
     """`rra api` 로거(2026-11-09): rra.* WARNING 이상과 실시간 검색 로거의 INFO 는 시각을 붙여
     stderr 에, 그 밖의 INFO 는 버린다. 핸들러는 한 번만 단다."""
     import logging
