@@ -7,10 +7,11 @@ import userEvent from "@testing-library/user-event";
 import { expectNoA11yViolations, mockFetch, renderWithProviders } from "@/test/utils";
 import { clearSession } from "@/auth/session";
 import { getIdea, resetIdea, updateIdea } from "@/features/idea/store";
+import { focusRelatedResearch, RELATED_RESEARCH_HEADING_ID } from "@/features/idea/relatedResearchFocus";
 import { emptyRequest } from "@/lib/validation";
 import Precheck from "@/routes/Precheck";
 import type { PlanRecommendations, PrecheckAlert, PrecheckOut } from "@/api/types";
-import type { AnyRecommendations, DifferentiateRecommendations, NovelRecommendation, NovelRecommendations } from "@/api/types-novel";
+import type { AnalogyReport, AnyRecommendations, DifferentiateRecommendations, NovelRecommendation, NovelRecommendations } from "@/api/types-novel";
 import { NOVELTY_REVERTED_NOTE, PLAN_HEADINGS, PlanCards, type NovelTitleProps } from "./PlanCards";
 import { SummaryBar } from "./SummaryBar";
 
@@ -216,6 +217,141 @@ describe("② 새 과제안 화면", () => {
     renderCards(novel({ analogies: [] }));
     expect(screen.queryByTestId("novel-analogies")).toBeNull();
     expect(screen.queryByText("다른 분야 사례")).toBeNull();
+  });
+
+  describe("검색 범위 보고(analogy_report)", () => {
+    const report = (over: Partial<AnalogyReport> = {}): AnalogyReport => ({
+      kind: "other_field",
+      heading: "다른 분야 사례",
+      description: "철도 밖에서 비슷한 문제를 다룬 자료입니다(가짜 설명).",
+      count: 2,
+      dropped_weak: 0,
+      sources_total: 4,
+      sources_checked: 4,
+      checked_labels: ["ScienceON", "OpenAlex", "KIPRIS", "NTIS"],
+      unavailable: [],
+      partial: false,
+      languages: ["한국어", "영어"],
+      scope_text: "자료원 4곳 중 4곳 확인 — ScienceON·OpenAlex·KIPRIS·NTIS",
+      empty_text: "찾지 못했습니다(검색 범위: 한국어·영어, 자료원 4곳)",
+      ...over,
+    });
+    const five = Array.from({ length: 5 }, (_, i) => ({ ...novel().analogies[0]!, doc_id: `openalex:W${i}`, title: `사례 ${i + 1} (가짜)` }));
+
+    it("보고가 없으면 종전과 같다 — 제목·설명 그대로, 범위 줄·배지·빈 문구 없음, 0건이면 구획 없음", () => {
+      const { unmount } = renderCards(novel());
+      const list = screen.getByTestId("novel-analogies");
+      expect(within(list).getByRole("heading", { name: "다른 분야 사례" })).toBeInTheDocument();
+      expect(list).toHaveTextContent("철도 밖에서 비슷한 문제를 다룬 자료입니다. 과제안의 참고일 뿐 근거로 그대로 쓰지 마십시오.");
+      for (const id of ["analogy-scope", "analogy-partial", "analogy-empty", "analogy-add-reference", "analogy-dropped"]) {
+        expect(screen.queryByTestId(id)).toBeNull();
+      }
+      unmount();
+      renderCards(novel({ analogies: [], analogy_report: null }), undefined, { onFindReferences: vi.fn() });
+      expect(screen.queryByTestId("novel-analogies")).toBeNull();
+    });
+
+    it("대상이 철도 시설이면 제목 '관련 선행 자료' 와 서버 설명을 보인다", () => {
+      renderCards(novel({ analogy_report: report({ kind: "related", heading: "관련 선행 자료", description: "대상이 철도 시설이라 철도 자료를 함께 보입니다." }) }));
+      const list = screen.getByTestId("novel-analogies");
+      expect(within(list).getByRole("heading", { level: 3, name: "관련 선행 자료" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "관련 선행 자료" })).toBe(list);
+      expect(list).toHaveTextContent("대상이 철도 시설이라 철도 자료를 함께 보입니다.");
+      expect(screen.queryByText("다른 분야 사례")).toBeNull();
+      expect(list).not.toHaveTextContent("철도 밖에서 비슷한 문제를 다룬 자료입니다. 과제안의 참고일 뿐");
+      expect(list.textContent).not.toMatch(/other_field|related/);
+    });
+
+    it("3건·일부만 확인 — 범위 줄과 '일부만 확인' 배지 (axe 0)", async () => {
+      const scope = "자료원 4곳 중 3곳 확인 — ScienceON·OpenAlex·KIPRIS. 확인 못 함: NTIS(서버 IP 등록 필요)";
+      const { container } = renderCards(
+        novel({
+          analogies: five.slice(0, 3),
+          analogy_report: report({
+            count: 3,
+            partial: true,
+            sources_checked: 3,
+            unavailable: [{ source: "ntis", label: "NTIS", status: "ip_blocked", status_label: "서버 IP 등록 필요" }],
+            scope_text: scope,
+          }),
+        }),
+      );
+      expect(screen.getByTestId("analogy-scope")).toHaveTextContent(scope);
+      expect(screen.getByTestId("analogy-partial")).toHaveTextContent("일부만 확인");
+      expect(screen.getAllByTestId("novel-analogy")).toHaveLength(3);
+      expect(screen.queryByTestId("analogy-empty")).toBeNull();
+      expect(screen.getByTestId("novel-analogies").textContent).not.toMatch(INTERNAL_CODES);
+      await expectNoA11yViolations(container);
+    });
+
+    it("5건 미만이면 전부 확인했어도 범위 줄을 보인다(배지는 없음)", () => {
+      renderCards(novel({ analogy_report: report({ count: 2 }) }));
+      expect(screen.getByTestId("analogy-scope")).toBeInTheDocument();
+      expect(screen.queryByTestId("analogy-partial")).toBeNull();
+    });
+
+    it("5건이 찼고 전부 확인했으면 범위 줄·배지가 없다", () => {
+      renderCards(novel({ analogies: five, analogy_report: report({ count: 5 }) }));
+      expect(screen.getAllByTestId("novel-analogy")).toHaveLength(5);
+      expect(screen.queryByTestId("analogy-scope")).toBeNull();
+      expect(screen.queryByTestId("analogy-partial")).toBeNull();
+      expect(screen.queryByTestId("analogy-dropped")).toBeNull();
+    });
+
+    it("0건 — 구획을 그리고 빈 문구·[아는 자료 직접 추가]·안내 줄, 버튼은 관련 연구로 포커스를 옮긴다", async () => {
+      const onFind = vi.fn(focusRelatedResearch);
+      const { container } = renderWithProviders(
+        <>
+          <h2 id={RELATED_RESEARCH_HEADING_ID} tabIndex={-1}>
+            관련 연구 3건
+          </h2>
+          <PlanCards
+            rec={novel({ analogies: [], analogy_report: report({ count: 0 }) })}
+            waiting={waiting}
+            chosenIndex={null}
+            stale={false}
+            onPick={vi.fn()}
+            onKeepOriginal={vi.fn()}
+            onWrite={vi.fn()}
+            onRegenerate={vi.fn()}
+            onFindReferences={onFind}
+          />
+        </>,
+      );
+      const list = screen.getByTestId("novel-analogies");
+      expect(within(list).getByRole("heading", { name: "다른 분야 사례" })).toBeInTheDocument();
+      expect(screen.getByTestId("analogy-empty")).toHaveTextContent("찾지 못했습니다(검색 범위: 한국어·영어, 자료원 4곳)");
+      expect(list).toHaveTextContent("관련 연구에서 [차별화에 참고]로 고르면 다음 과제안에 반영됩니다.");
+      expect(screen.queryByTestId("novel-analogy")).toBeNull();
+      // 전부 확인한 0건은 빈 문구가 범위를 말하므로 범위 줄·배지를 따로 내지 않는다
+      expect(screen.queryByTestId("analogy-scope")).toBeNull();
+      expect(screen.queryByTestId("analogy-partial")).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "아는 자료 직접 추가" }));
+      expect(onFind).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("heading", { name: "관련 연구 3건" })).toHaveFocus();
+      await expectNoA11yViolations(container);
+    });
+
+    it("0건·일부만 확인 — 빈 문구에 더해 배지와 범위 줄, 추천 0건 화면에서도 보인다", () => {
+      renderCards(
+        novel({
+          analogies: [],
+          recommendations: [],
+          analogy_report: report({ count: 0, partial: true, scope_text: "자료원 4곳 중 2곳 확인 — ScienceON·OpenAlex" }),
+        }),
+        undefined,
+        { onFindReferences: vi.fn() },
+      );
+      expect(screen.getByTestId("analogy-empty")).toBeInTheDocument();
+      expect(screen.getByTestId("analogy-partial")).toHaveTextContent("일부만 확인");
+      expect(screen.getByTestId("analogy-scope")).toHaveTextContent("자료원 4곳 중 2곳 확인 — ScienceON·OpenAlex");
+      expect(screen.getByTestId("analogy-add-reference")).toBeInTheDocument();
+    });
+
+    it("약해서 뺀 자료가 있으면 건수를 작은 글로 알린다", () => {
+      renderCards(novel({ analogy_report: report({ dropped_weak: 3 }) }));
+      expect(screen.getByTestId("analogy-dropped")).toHaveTextContent("관련이 약한 자료 3건은 뺐습니다.");
+    });
   });
 
   it("안 카드 — 접근 방식·요약·성숙도 배지·단계(기획 → 시범 → 확대)·첫 단계·근거(제목·자료원)", () => {

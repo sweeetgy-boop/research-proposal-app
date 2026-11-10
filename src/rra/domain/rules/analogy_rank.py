@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 
 from rra.domain.models import Document
 from rra.domain.models.problem_card import CardRank, ProblemCard
+from rra.domain.rules.keywords import tokens
 from rra.domain.rules.novelty import doc_tokens
 
 _HANGUL = re.compile(r"[가-힣]")
@@ -41,10 +42,29 @@ class RankRow:
     score: float | None = field(default=None, compare=False)  # 재순위 점수(순서에만)
 
 
-def _hit(term: str, toks: Sequence[str]) -> bool:
+MIN_COMPACT_CHARS = 4  # 띄어쓰기를 무시하고 견주는 한글 말의 최소 길이("조류" ⊂ "해조류" 방지)
+_SPACE = re.compile(r"\s+")
+
+
+def compact_text(doc: Document) -> str:
+    """문서 글(제목·초록·키워드)에서 공백을 뺀 것 — "가속도 센서" 를 "가속도센서" 로 견준다."""
+    raw = doc.raw.get("keywords")
+    kw = " ".join(raw) if isinstance(raw, list) else (raw if isinstance(raw, str) else "")
+    return _SPACE.sub("", f"{doc.title} {doc.abstract or ''} {kw}").lower()
+
+
+def _hit(term: str, toks: Sequence[str], compact: str = "") -> bool:
     words = term.lower().split()
     if not words:
         return False
+    joined = "".join(words)
+    if (
+        compact
+        and _HANGUL.search(joined)
+        and len(joined) >= MIN_COMPACT_CHARS
+        and joined in compact
+    ):
+        return True  # 띄어쓰기만 다른 같은 말
     for w in words:
         if _HANGUL.search(w):
             if not any(d.startswith(w) for d in toks):
@@ -54,18 +74,32 @@ def _hit(term: str, toks: Sequence[str]) -> bool:
     return True
 
 
-def _found(terms: Sequence[str], toks: Sequence[str]) -> list[str]:
+def _found(terms: Sequence[str], toks: Sequence[str], compact: str = "") -> list[str]:
     out: list[str] = []
     for t in terms:
-        if t not in out and _hit(t, toks):
+        if t not in out and _hit(t, toks, compact):
             out.append(t)
     return out
 
 
-def object_hits(card: ProblemCard, doc: Document) -> list[str]:
-    """문서에 나온 카드 대상어(국문 → 영문 순)."""
-    toks = doc_tokens(doc)
-    return _found([*card.terms.objects_ko, *card.terms.objects_en], toks)
+def object_terms(card: ProblemCard, synonyms: Sequence[Sequence[str]] = ()) -> list[str]:
+    """대상어 겹침 판정에 쓰는 말 — 카드 대상어(구체 + 일반화 단, 국문·영문) + 동의어 묶음에서
+    같은 묶음의 말. 순서 유지·중복 제거."""
+    base = [*card.terms.objects_ko, *card.terms.objects_en]
+    out = list(dict.fromkeys(t.lower() for t in base if t))
+    for group in synonyms:
+        members = [m.lower().strip() for m in group if m and m.strip()]
+        compact = {m.replace(" ", "") for m in members}
+        if any(t.replace(" ", "") in compact for t in out):
+            out += [m for m in members if m not in out]
+    return out
+
+
+def object_hits(
+    card: ProblemCard, doc: Document, synonyms: Sequence[Sequence[str]] = ()
+) -> list[str]:
+    """문서에 나온 카드 대상어(국문 → 영문 순, 동의어 포함)."""
+    return _found(object_terms(card, synonyms), doc_tokens(doc), compact_text(doc))
 
 
 def card_shared_terms(card: ProblemCard, doc: Document) -> list[str]:
@@ -73,23 +107,33 @@ def card_shared_terms(card: ProblemCard, doc: Document) -> list[str]:
     toks = doc_tokens(doc)
     terms = card.terms
     return _found(
-        [*terms.objects_ko, *terms.objects_en, *terms.actions_ko, *terms.actions_en], toks
+        [*terms.objects_ko, *terms.objects_en, *terms.actions_ko, *terms.actions_en],
+        toks,
+        compact_text(doc),
     )
 
 
 def rank_rows(
-    candidates: Sequence[tuple[Document, float]], card: ProblemCard, rank: CardRank
+    candidates: Sequence[tuple[Document, float]],
+    card: ProblemCard,
+    rank: CardRank,
+    synonyms: Sequence[Sequence[str]] = (),
 ) -> list[RankRow]:
-    """후보(종전 규칙 통과분) → 대상어 겹침을 본 정렬 대상. 유사도 높은 순, 상위 `rerank_top` 건."""
+    """후보(종전 규칙 통과분) → 대상어 겹침을 본 정렬 대상. 유사도 높은 순, 상위 `rerank_top` 건.
+    대상어는 띄어쓰기를 무시하고, 동의어 묶음(`object_synonyms`)의 말도 같은 대상어로 본다."""
+    wanted = object_terms(card, synonyms)
+    terms = card.terms
     rows: list[RankRow] = []
     for doc, similarity in candidates:
         toks = doc_tokens(doc)
-        terms = card.terms
-        objects = _found([*terms.objects_ko, *terms.objects_en], toks)
+        compact = compact_text(doc)
+        objects = _found(wanted, toks, compact)
         if rank.require_object and not objects:
             continue
         actions = [
-            t for t in _found([*terms.actions_ko, *terms.actions_en], toks) if t not in objects
+            t
+            for t in _found([*terms.actions_ko, *terms.actions_en], toks, compact)
+            if t not in objects
         ]
         rows.append(
             RankRow(
@@ -154,6 +198,96 @@ def take_by_source(
         if i not in picked:
             picked.append(i)
     return [ordered[i] for i in sorted(picked)]
+
+
+_EN_WORD = re.compile(r"[a-z]+")
+_KO_WORD = re.compile(r"[가-힣]+")
+_EN_STOP = frozenset(
+    "a an and at by for from in into of on or the to using use based with via its their".split()
+)
+MIN_DUP_WORDS = 2  # 낱말이 이보다 적은 제목은 겹침 판정을 하지 않는다
+
+
+def title_words(title: str, suffixes: Sequence[str] = ()) -> list[str]:
+    """제목의 낱말 — 한글은 흔한 꼬리말(장치·방지기·시스템…)을 떼고(낱말이 꼬리말뿐이면 버림),
+    영문은 소문자·불용어 제외. 한 글자 낱말은 뺀다. 순서 유지·중복 제거."""
+    text = (title or "").lower()
+    ordered = sorted((x for x in suffixes if x), key=len, reverse=True)
+    out: list[str] = []
+    for w in _KO_WORD.findall(text):
+        for suffix in ordered:
+            if w == suffix:
+                w = ""
+                break
+            if w.endswith(suffix) and len(w) - len(suffix) >= 2:
+                w = w[: -len(suffix)]
+                break
+        if len(w) >= 2 and w not in out:
+            out.append(w)
+    for w in _EN_WORD.findall(text):
+        if len(w) >= 3 and w not in _EN_STOP and w not in out:
+            out.append(w)
+    return out
+
+
+def _same_word(a: str, b: str) -> bool:
+    if a == b:
+        return True
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    return len(short) >= 2 and long.startswith(short)  # 퇴치 ↔ 퇴치기, pigeon ↔ pigeons
+
+
+def title_overlap(a: Sequence[str], b: Sequence[str]) -> float:
+    """겹친 낱말 수 / 짧은 쪽 낱말 수. 낱말이 MIN_DUP_WORDS 보다 적으면 0."""
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    if len(short) < MIN_DUP_WORDS:
+        return 0.0
+    hit = sum(1 for w in short if any(_same_word(w, x) for x in long))
+    return hit / len(short)
+
+
+def drop_similar_titles(
+    ordered: Sequence[RankRow], *, ratio: float, suffixes: Sequence[str] = ()
+) -> list[RankRow]:
+    """순위 순 목록에서, 앞선(순위 높은) 자료와 제목 낱말이 ratio 이상 겹치는 자료를 뺀다.
+    ratio 가 0 이하면 그대로."""
+    if ratio <= 0:
+        return list(ordered)
+    kept: list[RankRow] = []
+    words: list[list[str]] = []
+    for row in ordered:
+        mine = title_words(row.doc.title, suffixes)
+        if any(title_overlap(mine, other) >= ratio for other in words):
+            continue
+        kept.append(row)
+        words.append(mine)
+    return kept
+
+
+def cut_weak(
+    ordered: Sequence[RankRow],
+    *,
+    ratio: float,
+    objects: Sequence[str] = (),
+    keep_title_object: bool = True,
+) -> tuple[list[RankRow], list[RankRow]]:
+    """약한 자료 제외 — 재순위 점수가 1위의 ratio 미만인 자료를 뺀다 (남긴 것, 뺀 것).
+    절대값이 아니라 1위 대비 비율이다(점수 눈금이 사례마다 다르다). 점수가 없거나(재순위 없음)
+    ratio 가 0 이하면 그대로. keep_title_object: 대상어가 **제목**에 나온 자료는 점수가 낮아도
+    남긴다 — 재순위 모델이 낮게 본 직접 관련 자료(예: "공중화장실 복합악취 …")를 지킨다."""
+    if ratio <= 0 or not ordered or ordered[0].score is None:
+        return list(ordered), []
+    floor = (ordered[0].score or 0.0) * ratio
+    kept: list[RankRow] = []
+    cut: list[RankRow] = []
+    for row in ordered:
+        strong = (row.score or 0.0) >= floor
+        if not strong and keep_title_object and objects:
+            title = row.doc.title or ""  # 제목만으로 다시 본다
+            compact = _SPACE.sub("", title).lower()
+            strong = bool(_found(list(objects), tokens(title), compact))
+        (kept if strong else cut).append(row)
+    return kept, cut
 
 
 def few_analogies(count: int) -> bool:

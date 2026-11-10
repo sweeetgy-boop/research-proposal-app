@@ -45,6 +45,33 @@ export interface Analogy {
   live: boolean;
 }
 
+/** 다른 분야 사례·관련 선행 자료 구획의 검색 범위 보고 — 문제 정의 카드를 쓴 요청에만 온다(없으면 종전 화면 그대로).
+ *  heading·description·scope_text·empty_text 는 서버가 만든 문장 — 웹은 조립하지 않고 그대로 보인다. */
+export interface AnalogyReport {
+  /** other_field: 철도 밖 사례(종전) / related: 대상이 철도 시설이라 철도 자료 포함 */
+  kind: "other_field" | "related";
+  /** 화면 제목 — "다른 분야 사례" | "관련 선행 자료" */
+  heading: string;
+  /** 제목 아래 설명 한 줄 */
+  description: string;
+  count: number;
+  /** 약해서 뺀 자료 수 (0 이면 표시 안 함) */
+  dropped_weak: number;
+  sources_total: number;
+  sources_checked: number;
+  /** 확인한 자료원 화면 이름 */
+  checked_labels: string[];
+  /** 확인 못 한 자료원 */
+  unavailable: NoveltyUnavailable[];
+  /** 응답하지 않은 자료원이 있다 → '없음'이 아니라 '일부만 확인' */
+  partial: boolean;
+  languages: string[];
+  /** 검색 범위 한 줄 */
+  scope_text: string;
+  /** 0건일 때 보일 문장 */
+  empty_text: string;
+}
+
 export interface NovelRef {
   doc_id: string;
   title: string;
@@ -103,6 +130,8 @@ export interface NovelRecommendations
   mode: "novel";
   coverage: NoveltyCoverage;
   analogies: Analogy[];
+  /** 검색 범위 보고 — 없으면(카드 없는 요청) 종전 화면 그대로 */
+  analogy_report?: AnalogyReport | null;
   recommendations: NovelRecommendation[];
 }
 

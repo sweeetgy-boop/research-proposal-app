@@ -1062,16 +1062,86 @@ def novel_analogies_payload(
     ]
 
 
+ANALOGY_HEADINGS = {"other_field": "다른 분야 사례", "related": "관련 선행 자료"}
+ANALOGY_DESCRIPTIONS = {
+    "other_field": (
+        "철도 밖에서 비슷한 문제를 다룬 자료입니다. 과제안의 참고일 뿐 근거로 그대로 쓰지 마십시오."
+    ),
+    "related": (
+        "이 과제의 대상이 철도 시설이라 철도 분야 자료를 포함해 같은 대상을 다룬 선행 자료를 "
+        "보입니다. 과제안의 참고일 뿐 근거로 그대로 쓰지 마십시오."
+    ),
+}
+
+
+def analogy_report_payload(
+    report: Any, *, clean: Callable[[str], str] = _same
+) -> dict[str, Any] | None:
+    """AnalogyReport → 화면용(문장은 여기서 만든다 — 웹은 그대로 보인다). 없으면 None(종전 화면).
+
+    '없는 것'과 '못 찾은 것'을 구분한다: 응답하지 않은 자료원이 있으면 `partial`(일부만 확인)."""
+    if report is None:
+        return None
+    checked = [SOURCE_LABELS.get(s, s) for s in report.searched]
+    unavailable = [
+        {
+            "source": u.get("source", ""),
+            "label": SOURCE_LABELS.get(u.get("source", ""), u.get("source", "")),
+            "status": u.get("status", "error"),
+            "status_label": coverage_status_label(str(u.get("status", "error"))),
+        }
+        for u in report.unavailable
+    ]
+    languages = "·".join(report.languages)
+    if report.sources_total:
+        scope = f"실시간 자료원 {report.sources_total}곳 중 {len(checked)}곳 확인"
+        if checked:
+            scope += " — " + "·".join(checked)
+        scope += " (저장 자료 포함)."
+    else:
+        scope = "저장 자료 범위에서만 확인했습니다(실시간 검색 안 함)."
+    if unavailable:
+        missed = ", ".join(f"{u['label']}({u['status_label']})" for u in unavailable)
+        scope += f" 확인 못 함: {missed}."
+    where = "·".join(checked) if checked else "저장 자료"
+    empty = f"찾지 못했습니다(검색 범위: {languages}, 자료원 {where})."
+    if unavailable:
+        empty += " 확인하지 못한 자료원이 있어 '없음'이 아니라 일부만 확인한 결과입니다."
+    return {
+        "kind": report.kind,
+        "heading": ANALOGY_HEADINGS.get(report.kind, ANALOGY_HEADINGS["other_field"]),
+        "description": ANALOGY_DESCRIPTIONS.get(report.kind, ANALOGY_DESCRIPTIONS["other_field"]),
+        "count": int(report.count),
+        "dropped_weak": int(report.dropped_weak),
+        "sources_total": int(report.sources_total),
+        "sources_checked": len(checked),
+        "checked_labels": [clean(x) for x in checked],
+        "unavailable": unavailable,
+        "partial": bool(unavailable),
+        "languages": list(report.languages),
+        "scope_text": clean(scope),
+        "empty_text": clean(empty),
+    }
+
+
 def novel_progress_payload(
-    coverage: Any, analogies: Any, *, clean: Callable[[str], str] = _same
+    coverage: Any,
+    analogies: Any,
+    *,
+    clean: Callable[[str], str] = _same,
+    analogy_report: Any = None,
 ) -> dict[str, Any]:
     """과제안 SSE 의 `analogies` 이벤트(2026-11-09) — 과제안보다 먼저 보내는 확인 범위·다른 분야
     사례. 칸 모양은 최종 novel 응답의 `coverage`·`analogies` 와 같다."""
-    return {
+    out = {
         "mode": "novel",
         "coverage": novel_coverage_payload(coverage, clean=clean),
         "analogies": novel_analogies_payload(analogies, clean=clean),
     }
+    report = analogy_report_payload(analogy_report, clean=clean)
+    if report is not None:  # 카드 경로에서만 — 없으면 칸 자체가 없다(종전 응답 그대로)
+        out["analogy_report"] = report
+    return out
 
 
 def _principle_names(card: Any) -> dict[int, str]:
@@ -1091,7 +1161,9 @@ def novel_recommendations_payload(
     card(요청의 문제 정의 카드)가 있으면 과제명의 `principles` 를 `[{number, name}]` 로(이름은 카드
     에서), 없으면 빈 배열."""
     names = _principle_names(card)
+    report = analogy_report_payload(getattr(result, "analogy_report", None), clean=clean)
     return {
+        **({"analogy_report": report} if report is not None else {}),
         "mode": "novel",
         "coverage": novel_coverage_payload(getattr(result, "coverage", None), clean=clean),
         "analogies": novel_analogies_payload(result.analogies, clean=clean),

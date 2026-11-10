@@ -147,7 +147,7 @@ export function PlanCards({
         {waitingRow}
         {staleNote}
         {revertedNote}
-        {novel && <NovelContext rec={novel} />}
+        {novel && <NovelContext rec={novel} onAddReference={onFindReferences} />}
         <EmptyState
           icon={Lightbulb}
           title={rec ? "추천 0건" : "과제안 없음"}
@@ -198,7 +198,7 @@ export function PlanCards({
         {header}
         {waitingRow}
         {staleNote}
-        <NovelContext rec={novel} />
+        <NovelContext rec={novel} onAddReference={onFindReferences} />
         {retryNote}
         <NovelPlans
           rec={novel}

@@ -46,12 +46,22 @@ from rra.application.usecases.live_search import NOTICE_NO_KEYWORDS, NOTICE_NO_S
 from rra.application.usecases.novel_contract import NoveltyOutcome
 from rra.domain.models import Document, OverlapAlert, ProposalRequest
 from rra.domain.models.live_search import LIVE_SOURCES, LiveKeywords, LiveSearchSummary
-from rra.domain.models.novel import MAX_ANALOGIES, Analogy, NoveltyCoverage
+from rra.domain.models.novel import (
+    ANALOGY_OTHER_FIELD,
+    ANALOGY_RELATED,
+    MAX_ANALOGIES,
+    Analogy,
+    AnalogyReport,
+    NoveltyCoverage,
+)
 from rra.domain.models.problem_card import ProblemCard, ProblemCardConfig
 from rra.domain.rules.analogy_rank import (
     RankRow,
     card_shared_terms,
+    cut_weak,
+    drop_similar_titles,
     few_analogies,
+    object_terms,
     order_rows,
     rank_rows,
     take_by_source,
@@ -79,6 +89,7 @@ from rra.domain.rules.novelty import (
     problem_phrases_ko,
     problem_query,
     problem_terms,
+    rail_asset_basis,
     rail_reason,
     shared_terms,
     why_relevant,
@@ -416,6 +427,8 @@ class ProblemAnalogySearch:
             # 이 객체 것 하나(꺼짐 포함)
             problem_keywords.card_config = card_config
         self._memo = _Memo(memo_size, memo_minutes * 60, clock)
+        self._reports = _Memo(memo_size, memo_minutes * 60, clock)
+        self.last_ranked: list[tuple[str, str, float | None, bool]] = []
 
     async def __call__(
         self, req: ProposalRequest, *, core_keywords: list[str] | None = None
@@ -498,8 +511,22 @@ class ProblemAnalogySearch:
                     merged[c.doc.doc_id] = c
         found = list(merged.values())
         reranked = False
+        report: AnalogyReport | None = None
         if config.uses("analogy_rank"):
-            out, reranked = await self._pick_card(found, card, config, live_ids, request_query)
+            out, reranked, report = await self._pick_card(
+                found, card, config, live_ids, request_query
+            )
+            # 검색 범위 — 실제로 확인한 자료원만(새로움 확인과 같은 규칙). 응답하지 않은 자료원이
+            # 있으면 '없음'이 아니라 '일부만 확인'
+            live_names = self._live_sources()
+            coverage = build_coverage([], summary, live_sources=live_names)
+            report = report.model_copy(
+                update={
+                    "searched": list(coverage.searched),
+                    "unavailable": list(coverage.unavailable),
+                    "sources_total": len(live_names),
+                }
+            )
         else:  # 질의만 카드 — 종전 정렬에 카드 문제어를 쓴다
             terms = card.terms
             out = self._pick(
@@ -518,13 +545,40 @@ class ProblemAnalogySearch:
             reranked,
             few_analogies(len(out)),
         )
+        if report is not None:
+            self._reports.put(key, report)
         if summary is None or summary.status != "pending":
             self._memo.put(key, out)
         return list(out)
 
-    def _eligible(self, found: Sequence[_Candidate]) -> list[_Candidate]:
+    def _live_sources(self) -> list[str]:
+        """유추 실시간 검색이 켜 둔 자료원(없으면 빈 목록)."""
+        cfg = getattr(self.live, "config", None)
+        if cfg is None or not getattr(self.live, "enabled", False):
+            return []
+        return list(cfg.enabled_sources())
+
+    def details(
+        self, req: ProposalRequest, *, core_keywords: list[str] | None = None
+    ) -> AnalogyReport | None:
+        """방금(같은 입력·같은 카드로) 한 유추 검색의 보고 — 카드 경로가 아니면 None."""
+        queries = queries_for(req, self.card_config)
+        card = req.problem_card
+        if queries is None or card is None or self.card_config is None:
+            return None
+        key = input_key(
+            req,
+            core_keywords or [],
+            *memo_groups(pick_fingerprint(queries, card, self.card_config.rank)),
+        )
+        return self._reports.get(key)
+
+    def _eligible(
+        self, found: Sequence[_Candidate], *, keep_rail: bool = False
+    ) -> list[_Candidate]:
         """종전 규칙 — 하한·공용 계정 internal 제외·철도 분야 제외·같은 제목 제외(유사도 높은
-        것을 남긴다)."""
+        것을 남긴다). keep_rail: 카드의 대상이 철도 시설이면 철도 분야 자료를 거르지 않는다
+        ('관련 선행 자료')."""
         out: list[_Candidate] = []
         seen_titles: set[str] = set()
         for c in sorted(found, key=lambda c: (-c.similarity, c.doc.doc_id)):
@@ -533,7 +587,7 @@ class ProblemAnalogySearch:
                 continue
             if not self.include_internal and doc.visibility == "internal":
                 continue
-            if rail_reason(doc, self.rail) is not None:
+            if not keep_rail and rail_reason(doc, self.rail) is not None:
                 continue
             title_key = normalized_title(doc.title)
             if title_key and title_key in seen_titles:
@@ -549,11 +603,17 @@ class ProblemAnalogySearch:
         config: ProblemCardConfig,
         live_ids: set[str],
         request_query: str = "",
-    ) -> tuple[list[Analogy], bool]:
-        """계약 4절 `analogy_rank` — (최종 5건, 재순위를 썼는가). 재순위 점수는 카드 기능 문장
-        질의와 제안문 문제어 질의(request_query, 있으면) 중 높은 쪽."""
+    ) -> tuple[list[Analogy], bool, AnalogyReport]:
+        """계약 4절 `analogy_rank` — (최종 목록, 재순위를 썼는가, 보고). 재순위 점수는 카드 기능
+        문장 질의와 제안문 문제어 질의(request_query, 있으면) 중 높은 쪽. 5건을 억지로 채우지
+        않는다 — 겹치는 제목·약한 자료를 뺀 만큼만."""
         rank = config.rank
-        rows = rank_rows([(c.doc, c.similarity) for c in self._eligible(found)], card, rank)
+        basis = rail_asset_basis(card, self.rail)  # 대상 자체가 철도 시설인가
+        related = bool(basis)
+        eligible = self._eligible(found, keep_rail=related)
+        rows = rank_rows(
+            [(c.doc, c.similarity) for c in eligible], card, rank, config.object_synonyms
+        )
         if not rank.require_object:  # 대상어를 요구하지 않으면 종전처럼 한글 자료는 문제어 겹침
             rows = [
                 r
@@ -576,17 +636,42 @@ class ProblemAnalogySearch:
                 scores = None
             if scores is not None and len(scores) != len(rows):
                 scores = None
+        ordered = order_rows(rows, scores)
+        distinct = drop_similar_titles(
+            ordered, ratio=rank.dup_title_ratio, suffixes=rank.dup_title_suffixes
+        )
+        strong, weak = cut_weak(
+            distinct,
+            ratio=rank.weak_ratio,
+            objects=object_terms(card, config.object_synonyms),
+            keep_title_object=rank.weak_keep_title_object,
+        )
         limit = min(self.settings.max_results, MAX_ANALOGIES)
         picked = take_by_source(
-            order_rows(rows, scores),
+            strong,
             per_source=rank.per_source,
             limit=limit,
             window=rank.priority_window,
             min_ratio=rank.priority_min_ratio,
         )
-        return [self._analogy(r, card, live_ids) for r in picked], scores is not None
+        self.last_ranked = [  # 측정·진단용(제목·자료원·점수만) — 응답에 싣지 않는다
+            (r.doc.title, r.doc.source, r.score, r in weak) for r in distinct[:20]
+        ]
+        report = AnalogyReport(
+            kind=ANALOGY_RELATED if related else ANALOGY_OTHER_FIELD,
+            rail_basis=basis,
+            count=len(picked),
+            candidates=len(eligible),
+            # 약해서 뺀 탓에 비게 된 자리 수 — 어차피 5건 밖이던 자료는 세지 않는다
+            dropped_weak=min(len(weak), max(0, limit - len(picked))),
+            dropped_similar=len(ordered) - len(distinct),
+        )
+        out = [self._analogy(r, card, live_ids, related=related) for r in picked]
+        return out, scores is not None, report
 
-    def _analogy(self, row: RankRow, card: ProblemCard, live_ids: set[str]) -> Analogy:
+    def _analogy(
+        self, row: RankRow, card: ProblemCard, live_ids: set[str], *, related: bool = False
+    ) -> Analogy:
         doc = row.doc
         shared = list(row.shared) or card_shared_terms(card, doc)
         return Analogy(
@@ -595,7 +680,7 @@ class ProblemAnalogySearch:
             source=doc.source,
             source_label=SOURCE_LABELS.get(doc.source, doc.source),
             domain_label=domain_label(doc),
-            why_relevant=why_relevant(shared, row.similarity),
+            why_relevant=why_relevant(shared, row.similarity, related=related),
             url=doc.url,
             year=doc.pub_date.year if doc.pub_date else None,
             live=doc.doc_id in live_ids,

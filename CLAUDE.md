@@ -234,7 +234,10 @@
   유추 질의 `rules/card_queries`(세션·메모 키는 **실제 보낸 질의 지문**, 자료원 응답 캐시는 공유)·정렬 `rules/analogy_rank`(대상어 겹침 → 재순위 max(기능 문장, 제안문 질의) →
   자료원당 2건 우선은 상위 15·점수 25% 이상만)·영문 → OpenAlex·IPC → KIPRIS 분류 검색(`getAdvancedSearch ipcNumber`)·모순+발명 원리 → novel 과제명(모순이 비면 구획 없음)·
   보완 질문 규칙 문장. 수정: 고친 항목은 AI 가 덮어쓰지 않고 의존 항목만 재계산, 과제안 다시 만들기는 버튼. 기록 `data/feedback/card_edits.jsonl`(본인 수정만 예시, 공용 계정 제외)·
-  선택 기록 `event: card_edit`. 2차: 조건부 분석 실행·사전 후보·관리자 통계·새로움 확인에 카드 쓰기.
+  선택 기록 `event: card_edit`. 기능 문장·사다리는 화면에 "AI가 다시 쓴 문장"(근거 있음/추정은 원인·모순·분류에만). 유추 보강(계약 4.3절): 겹치는 제목은 하나만
+  (`rank.dup_title_ratio` 0.6), 약한 자료 제외(1위 대비 `weak_ratio` 0.15 — 5건을 억지로 채우지 않는다), **대상 자체가 철도 시설이면**(`novelty.rail_asset_basis` — 대상어·대상 칸,
+  장소 칸 제외) 철도 거르기 없이 '관련 선행 자료', 검색 범위 보고 `analogy_report`('없는 것'과 '못 찾은 것' 구분). 철도 분야 판정은 영문 구·합성어까지(`rail_field.phrases_en`·
+  `contains_ko`, 스위치 무관). 2차: 조건부 분석 실행·사전 후보·관리자 통계·새로움 확인에 카드 쓰기.
 - **문서 최신화 [D]**(2026-10-29, docs/final-docs): 문서 목록·분류 `docs/final-docs-inventory.md`, 최종보고서 재료 `docs/final-report-materials.md`.
   이제 쓰지 않는 방식(로컬 7B 주 작성·③ 1차 검토·Cloudflare 계획·화면 "run" 표기)은 지우지 않고 "이전 방식"으로 표시한다.
 - 후속: 검토 채점은 별도 critique_draft 없이 Argon 검토에 합침(P5), 예산표·차별성 매트릭스는 양식 밖(화면·API 표만),

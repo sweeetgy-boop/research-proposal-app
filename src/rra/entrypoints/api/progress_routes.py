@@ -95,7 +95,12 @@ def shape_event(name: str, data: dict[str, Any], *, clean: Callable[[str], str])
     if name == EVENT_ANALOGIES:
         return sse(
             EVENT_ANALOGIES,
-            novel_progress_payload(data.get("coverage"), data.get("analogies") or [], clean=clean),
+            novel_progress_payload(
+                data.get("coverage"),
+                data.get("analogies") or [],
+                clean=clean,
+                analogy_report=data.get("analogy_report"),
+            ),
         )
     return None
 
