@@ -2566,10 +2566,18 @@ def _api_logging() -> None:
         warn = logging.StreamHandler()
         warn._rra_warn = True  # type: ignore[attr-defined]
         warn.setFormatter(fmt)
-        warn.setLevel(logging.WARNING)
+        warn.setLevel(logging.INFO)
+        # WARNING 이상은 모두, INFO 는 실시간 검색 로거만(자료원별 상태·KIPRIS 호출 수
+        # `live.kipris_calls` 를 파일에서 셀 수 있게, 2026-11-09). 그 밖의 INFO 는 종전처럼 버린다
+        warn.addFilter(
+            lambda r: (
+                r.levelno >= logging.WARNING
+                or r.name.startswith(("rra.sources.live", "rra.live_search"))
+            )
+        )
         root.addHandler(warn)
-        if root.level == logging.NOTSET or root.level > logging.WARNING:
-            root.setLevel(logging.WARNING)
+        if root.level == logging.NOTSET or root.level > logging.INFO:
+            root.setLevel(logging.INFO)
 
 
 def cmd_api(args: argparse.Namespace) -> int:

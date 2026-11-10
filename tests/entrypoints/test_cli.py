@@ -1511,3 +1511,22 @@ def test_ingest_ip_blocked_source_is_skipped_only_with_skip_unavailable(monkeypa
     _ingest_with_report(monkeypatch, report)
     assert cli.main(["ingest", "--source", "ntis"]) == cli.EXIT_ERROR  # 플래그 없으면 실패
     assert IP_NOTICE in capsys.readouterr().err
+
+
+def test_api_logging_timestamps_warnings_and_passes_live_info(capsys):
+    """`rra api` 로거(2026-11-09): rra.* WARNING 이상과 실시간 검색 로거의 INFO 는 시각을 붙여
+    stderr 에, 그 밖의 INFO 는 버린다. 핸들러는 한 번만 단다."""
+    import logging
+
+    cli._api_logging()
+    cli._api_logging()  # 두 번 불러도 핸들러 중복 없음
+    root = logging.getLogger("rra")
+    assert sum(1 for h in root.handlers if getattr(h, "_rra_warn", False)) == 1
+    logging.getLogger("rra.sources.live").info("live.kipris_calls session=3 today=3 cap=500")
+    logging.getLogger("rra.scienceon").warning("scienceon.target_failed target=ARTI code=500")
+    logging.getLogger("rra.novelty").info("novelty.quiet_info")
+    err = capsys.readouterr().err
+    assert "live.kipris_calls session=3" in err and "scienceon.target_failed" in err
+    assert "novelty.quiet_info" not in err
+    for line in [ln for ln in err.splitlines() if "rra." in ln]:
+        assert line[:4].isdigit() and " WARNING " in line or " INFO " in line  # asctime 머리
