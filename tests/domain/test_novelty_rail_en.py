@@ -8,7 +8,7 @@ import pytest
 from rra.config_loader import novelty_config
 from rra.domain.models import Document
 from rra.domain.models.problem_card import CardText, Facets, ProblemCard, ProblemTerms
-from rra.domain.rules.novelty import card_rail_terms, card_rail_terms_en, rail_reason
+from rra.domain.rules.novelty import rail_asset_basis, rail_reason
 from rra.settings import Settings
 
 RULE = novelty_config(Settings()).rail_field
@@ -77,20 +77,20 @@ def card(objects_ko, objects_en, target="", place="") -> ProblemCard:
     )
 
 
-def test_card_about_rail_asset_promotes_weak_words_for_that_request_only():
-    track = card(["궤도", "가속도센서"], ["track", "vehicle", "accelerometer"], target="궤도")
-    extra = card_rail_terms_en(track, RULE)
-    assert "track" in extra and "sleeper" in extra and "vehicle" not in extra
-    single = doc("Long-term track settlement prediction")  # 약한 말 하나
-    assert rail_reason(single, RULE) is None
-    assert rail_reason(single, RULE, extra_en=extra) == "terms"
-    # 초록에만 있는 약한 말은 승격해도 보지 않는다(제목·키워드만)
-    assert rail_reason(doc("Vibration data", "the track was wet"), RULE, extra_en=extra) is None
-    # 대상이 철도 시설이 아니면(비둘기·악취) 승격 없음 — 장소 칸이 철도여도 대상어 영문은 그대로
-    pigeon = card(["비둘기", "조류"], ["pigeon", "bird"], target="비둘기")
-    assert card_rail_terms_en(pigeon, RULE) == ()
-    in_station = card(["비둘기"], ["pigeon"], target="비둘기", place="철도역사 승강장 지붕")
-    assert "pigeon" not in card_rail_terms_en(in_station, RULE)
+def test_rail_asset_is_judged_by_object_and_target_not_place():
+    """대상 자체가 철도 시설인가 — 대상어·대상 칸만 본다. 장소 칸(철도역사)은 보지 않는다."""
+    track = card(["궤도", "가속도센서"], ["track"], target="궤도 및 운행 차량 탑재 가속도 센서")
+    assert rail_asset_basis(track, RULE) == ["궤도"]
+    assert rail_asset_basis(card(["전차선", "아크"], [], target="전차선"), RULE) == ["전차선"]
+    # 철도역사의 비둘기·공중화장실 악취·관광객 — 대상은 철도 밖에도 있다
+    pigeon = card(["비둘기", "조류"], ["pigeon"], target="비둘기", place="철도역사 승강장 지붕")
+    odor = card(
+        ["악취", "배수구"], ["odor"], target="배관·배수구 악취 가스", place="철도역사 공중화장실"
+    )
+    tour = card(["관광객", "이동수단"], ["tourist"], target="관광객, 연계 이동 수단")
+    for c in (pigeon, odor, tour):
+        assert rail_asset_basis(c, RULE) == []
+    assert rail_asset_basis(None, RULE) == []
 
 
 def ko(title: str) -> Document:
@@ -119,17 +119,5 @@ def test_korean_compound_rail_titles_are_rail(title):
         "설비 예지 진단을 위한 진동 분석",
     ],
 )
-def test_korean_non_rail_titles_are_not_rail_without_a_rail_card(title):
+def test_korean_non_rail_titles_are_not_rail(title):
     assert rail_reason(ko(title), RULE) is None
-
-
-def test_rail_card_promotes_korean_rail_terms_inside_compounds():
-    track = card(["궤도", "가속도센서"], ["track"], target="궤도")
-    rail_ko, rail_en = card_rail_terms(track, RULE)
-    assert "궤도" in rail_ko and "선로" in rail_ko and "track" in rail_en
-    doc_ = ko("현방식 방향틀림 검측치의 기준선 보정: 슬래브궤도 구간")
-    assert rail_reason(doc_, RULE) is None
-    assert rail_reason(doc_, RULE, extra_ko=rail_ko) == "terms"
-    # 철도 밖 자료는 그대로 남는다
-    assert rail_reason(ko("교량 가속도센서 기반 구조물 모니터링"), RULE, extra_ko=rail_ko) is None
-    assert card_rail_terms(card(["비둘기"], ["pigeon"], target="비둘기"), RULE) == ((), ())

@@ -12,7 +12,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .gap import OverlapAlert
-from .novel import Analogy, NovelRecommendation, NoveltyCoverage, RecommendMode
+from .novel import (
+    Analogy,
+    AnalogyReport,
+    NovelRecommendation,
+    NoveltyCoverage,
+    RecommendMode,
+)
 
 MAX_RECOMMENDATIONS = 5  # 한 번에 받는 과제안 상한
 # [차별화 과제안 더 만들기] 로 쌓이는 전체 상한 (2026-10-28 밤 레인 A, ADR 0039)
@@ -101,6 +107,8 @@ class RecommendationResult(BaseModel):
     coverage: NoveltyCoverage | None = None  # novel 일 때 새로움 확인 범위
     analogies: list[Analogy] = Field(default_factory=list)  # novel 일 때 다른 분야 사례 (최대 5)
     novel: list[NovelRecommendation] = Field(default_factory=list)  # novel 일 때 새 과제안 (최대 3)
+    # 유추 검색 보고(문제 정의 카드 경로에서만, ADR 0065) — 검색 범위·자른 수·'관련 선행 자료' 여부
+    analogy_report: AnalogyReport | None = None
     # 새로움 확인에서 유사 과제가 새로 걸려 novel 을 취소하고 differentiate 로 되돌렸다
     novelty_reverted: bool = False
     # 그때 새로 걸린 행 — ② 표에 더한다 (진입점이 알림 목록에 합친다)

@@ -178,3 +178,64 @@ def test_similar_titles_keep_only_the_highest_ranked():
     kept = drop_similar_titles(rows, ratio=0.6, suffixes=suffixes)
     assert [r.doc.title for r in kept] == [titles[0], titles[2], titles[4]]
     assert len(drop_similar_titles(rows, ratio=0, suffixes=suffixes)) == 5  # 0 이면 끔
+
+
+def test_object_match_ignores_spacing_and_uses_synonyms():
+    """대상어 일치 — 띄어쓰기만 다른 말("가속도 센서")과 동의어 묶음의 말은 같은 대상어."""
+    from rra.domain.models.problem_card import ProblemTerms
+    from rra.domain.rules.analogy_rank import object_hits, object_terms
+
+    c = card(terms=ProblemTerms(objects_ko=["가속도센서", "악취"], objects_en=["accelerometer"]))
+    spaced = doc("scienceon:S", "3축 가속도 센서를 이용한 진동 계측")
+    assert object_hits(c, spaced) == ["가속도센서"]
+    assert object_hits(c, doc("scienceon:N", "진동 계측 장치")) == []
+    syn = [["악취", "냄새", "취기"], ["가속도센서", "가속도계"]]
+    assert object_terms(c, syn) == [
+        "가속도센서",
+        "악취",
+        "accelerometer",
+        "냄새",
+        "취기",
+        "가속도계",
+    ]
+    assert object_hits(c, doc("scienceon:O", "좌변기용 냄새제거장치"), syn) == ["냄새"]
+    assert object_hits(c, doc("scienceon:O", "좌변기용 냄새제거장치")) == []
+    # 짧은 말은 띄어쓰기 무시 대조를 하지 않는다("조류" ⊂ "해조류")
+    birds = card(terms=ProblemTerms(objects_ko=["조류"]))
+    assert object_hits(birds, doc("scienceon:A", "해조류 양식 기술")) == []
+
+
+def test_weak_items_are_cut_by_ratio_to_the_top_not_absolute_score():
+    """약한 자료 제외 — 1위 대비 비율. 대상어가 제목에 나온 자료는 점수가 낮아도 남긴다.
+    5건을 억지로 채우지 않는다."""
+    from rra.domain.rules.analogy_rank import cut_weak
+
+    titles = ["조류 퇴치 장치", "버드넷 설치구조", "굴뚝 서식 관찰", "전신주 조류퇴치장치"]
+    rows = order_rows(
+        rank_rows(
+            [(doc(f"scienceon:{i}", t, "조류"), 0.9 - i * 0.01) for i, t in enumerate(titles)],
+            card(),
+            CardRank(dup_title_ratio=0),
+        ),
+        [0.60, 0.12, 0.05, 0.004],
+    )
+    kept, cut = cut_weak(rows, ratio=0.15, objects=["조류", "비둘기"])
+    # 0.12/0.60 = 0.2 → 남음, 0.05 → 빠짐, 0.004 는 제목에 대상어(조류)가 있어 남음
+    assert [r.doc.title for r in kept] == [titles[0], titles[1], titles[3]]
+    assert [r.doc.title for r in cut] == [titles[2]]
+    strict, cut2 = cut_weak(rows, ratio=0.15, objects=["조류"], keep_title_object=False)
+    assert len(strict) == 2 and len(cut2) == 2
+    # 눈금이 작은 사례(1위 0.02)도 같은 비율로 — 절대값 기준이 아니다
+    small = order_rows(rows, [0.020, 0.010, 0.001, 0.0001])
+    assert len(cut_weak(small, ratio=0.15, objects=[])[0]) == 2
+    assert cut_weak(rows, ratio=0, objects=[]) == (list(rows), [])  # 0 이면 끔
+    unscored = order_rows(
+        rank_rows(
+            [(doc(f"scienceon:{i}", t, "조류"), 0.9) for i, t in enumerate(titles)],
+            card(),
+            CardRank(dup_title_ratio=0),
+        ),
+        None,
+    )
+    assert cut_weak(unscored, ratio=0.15, objects=[]) == (list(unscored), [])  # 재순위 없음
+    assert CardRank().weak_ratio == 0.15

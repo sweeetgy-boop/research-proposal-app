@@ -145,6 +145,8 @@ def pick_fingerprint(queries: CardQueries | None, card: ProblemCard | None, rank
                     str(rank.priority_min_ratio),
                     str(rank.with_request_query),
                     str(rank.dup_title_ratio),
+                    str(rank.weak_ratio),
+                    str(rank.weak_keep_title_object),
                     *rank.dup_title_suffixes,
                     str(rank.require_object),
                 ],

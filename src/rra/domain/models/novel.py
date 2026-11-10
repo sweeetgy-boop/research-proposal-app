@@ -63,6 +63,35 @@ class Analogy(BaseModel):
     similarity: float | None = None
 
 
+AnalogyKind = Literal["other_field", "related"]
+ANALOGY_OTHER_FIELD: AnalogyKind = "other_field"  # 철도 밖 사례 (종전)
+ANALOGY_RELATED: AnalogyKind = "related"  # 대상이 철도 시설 — 철도 자료 포함 '관련 선행 자료'
+
+
+class AnalogyReport(BaseModel):
+    """유추 검색 보고 (ADR 0065, 문제 정의 카드 경로에서만) — 무엇을 어디까지 찾았는가.
+
+    자료가 없거나 적을 때 '없는 것'과 '못 찾은 것'을 구분해 보이기 위한 값이다. 문장은 진입점이
+    만든다(`views`). 카드를 쓰지 않은 유추에는 보고가 없다(None) — 화면은 종전 그대로."""
+
+    kind: AnalogyKind = ANALOGY_OTHER_FIELD
+    rail_basis: list[str] = Field(default_factory=list)  # 철도 시설 과제로 본 근거 낱말(기록용)
+    count: int = 0  # 최종 건수
+    candidates: int = 0  # 종전 규칙(하한·같은 제목)을 지난 후보 수
+    dropped_weak: int = 0  # 관련이 약해 뺀 수(재순위 점수 기준)
+    dropped_similar: int = 0  # 제목이 겹쳐 뺀 수
+    # 확인 범위 — NoveltyCoverage 와 같은 뜻(실제로 확인한 자료원만)
+    searched: list[str] = Field(default_factory=list)
+    unavailable: list[dict[str, str]] = Field(default_factory=list)  # {source, status}
+    sources_total: int = 0
+    languages: list[str] = Field(default_factory=lambda: ["한국어", "영어"])
+
+    @property
+    def partial(self) -> bool:
+        """응답하지 않은 자료원이 있다 — '없음'이 아니라 '일부만 확인'."""
+        return bool(self.unavailable)
+
+
 class BarrierBasis(BaseModel):
     level: BasisLevel
     doc_ids: list[str] = Field(default_factory=list)  # level=근거 있음 이면 1개 이상, 입력 구획 안

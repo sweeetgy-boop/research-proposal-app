@@ -368,6 +368,11 @@ class CardRank(BaseModel):
     # 방지기"·"악취 역류 방지장치" 가 5건 중 3건
     dup_title_ratio: float = Field(default=0.6, ge=0, le=1)
     dup_title_suffixes: tuple[str, ...] = ("방지기", "장치", "시스템", "방법", "구조")
+    # 약한 자료 제외 — 재순위 점수가 1위의 이 비율 미만이면 뺀다(절대값이 아니라 1위 대비).
+    # 5건을 억지로 채우지 않는다. 0 이면 끔. 값과 근거는 docs/contracts/problem-card.md 4.3절
+    weak_ratio: float = Field(default=0.15, ge=0, le=1)
+    # 대상어가 제목에 나온 자료는 점수가 낮아도 남긴다(재순위 모델이 놓치는 직접 관련 자료 보호)
+    weak_keep_title_object: bool = True
     require_object: bool = True  # 대상어(구체·일반화)가 겹친 자료만
 
 
@@ -413,6 +418,9 @@ class ProblemCardConfig(BaseModel):
     rank: CardRank = Field(default_factory=CardRank)
     verify: CardVerify = Field(default_factory=CardVerify)
     learning: CardLearning = Field(default_factory=CardLearning)
+    # 대상어 동의어 묶음 — 묶음 안의 말은 같은 대상어로 본다(대상어 겹침 판정). 띄어쓰기 차이
+    # ("가속도센서" = "가속도 센서")는 목록 없이도 같게 본다
+    object_synonyms: tuple[tuple[str, ...], ...] = ()
     # 저장 위치 덮어쓰기 — edits: 수정 짝 JSONL (기본 data/feedback/card_edits.jsonl)
     paths: dict[str, str] = Field(default_factory=dict)
 

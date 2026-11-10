@@ -316,6 +316,7 @@ class RecommendProjects:
                 {
                     "coverage": coverage or stored_only_coverage(),
                     "analogies": [a for a, _ in pairs],
+                    "analogy_report": self._analogy_report(req, core_keywords, len(pairs)),
                 },
             )
             return await self._novel(
@@ -359,6 +360,21 @@ class RecommendProjects:
             return None
         finally:
             timings[STAGE_SEARCH] = time.perf_counter() - started
+
+    def _analogy_report(
+        self, req: ProposalRequest, core_keywords: list[str] | None, count: int
+    ) -> Any:
+        """유추 검색 보고(문제 정의 카드 경로에서만 — 아니면 None). count 는 참고 논문과 겹친 것을
+        뺀 뒤의 건수로 맞춘다."""
+        details = getattr(self.analogies, "details", None)
+        if details is None:
+            return None
+        try:
+            report = details(req, core_keywords=core_keywords)
+        except Exception as exc:  # 보고는 부가 — 없으면 화면이 종전대로
+            logger.info("recommend.analogy_report_failed kind=%s", type(exc).__name__)
+            return None
+        return report.model_copy(update={"count": count}) if report is not None else None
 
     async def _analogy_pairs(
         self, req: ProposalRequest, core_keywords: list[str] | None, timings: dict[str, float]
@@ -449,6 +465,7 @@ class RecommendProjects:
             **base,
             "reference_doc_ids": reference_ids,
             "analogies": [a for a, _ in pairs],
+            "analogy_report": self._analogy_report(req, core_keywords, len(pairs)),
             "public_doc_ids": public_ids,
             "internal_doc_ids": internal_ids,
             "excluded_doc_ids": list(dict.fromkeys(excluded)),

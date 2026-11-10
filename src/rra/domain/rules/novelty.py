@@ -124,7 +124,7 @@ class RailFieldRule(BaseModel):
     )
     # 한글 — 낱말 **안 어디에든** 들어 있으면 철도로 보는 말(붙여 쓴 합성어: 자기부상선로·
     # 침목플로팅궤도·고속선). 다른 분야에서 쓰이지 않는 말만 둔다("궤도"(위성)·"선로"(전송선로)는
-    # 여기 두지 않고, 카드의 대상이 철도 시설일 때만 `card_rail_terms` 로 승격한다)
+    # 여기 두지 않는다)
     contains_ko: tuple[str, ...] = (
         "철도",
         "열차",
@@ -159,8 +159,7 @@ class RailFieldRule(BaseModel):
         "level crossing",
     )
     # 약한 말 — 혼자서는 철도로 보지 않는다("track record", 선박 ballast water). 제목·키워드에
-    # 서로 다른 약한 말이 2개 이상 함께 나오거나, 문제 정의 카드의 대상이 철도 시설일 때
-    # (`card_rail_terms_en`)만 철도 자료로 본다
+    # 서로 다른 약한 말이 2개 이상 함께 나올 때만 철도 자료로 본다
     context_terms_en: tuple[str, ...] = (
         "track",
         "tracks",
@@ -397,28 +396,26 @@ def _context_hits(words: Sequence[str], terms: Iterable[str]) -> set[str]:
     return found
 
 
-def card_rail_terms(card: object, rule: RailFieldRule) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """문제 정의 카드의 대상·장소가 철도 시설이면(대상어·대상 칸·장소 칸에 철도 용어) 그 요청에서
-    더 넓게 철도 자료로 볼 말 (한글, 영문):
-    - 한글: 철도 용어 전부를 낱말 안 어디에든(합성어 "침목플로팅궤도"·"자기부상선로")
-    - 영문: 약한 말 전부(혼자서도) + 카드 영문 대상어 중 철도 용어
-    철도 시설이 아니면(비둘기·악취 등) 둘 다 빈 값 — 종전 규칙 그대로."""
+def rail_asset_basis(card: object, rule: RailFieldRule) -> list[str]:
+    """문제 정의 카드의 **대상 자체가 철도 시설**인가 — 그렇다고 본 근거 낱말(없으면 빈 목록).
+
+    판정: 카드의 대상어(`terms.objects_ko`)나 대상 칸(`facets.target`)의 낱말이 철도 용어
+    (`rail_field.terms_ko` — 궤도·선로·레일·전차선·열차…)로 시작하면 철도 시설 과제다.
+    **장소 칸(`facets.place`)은 보지 않는다** — "철도역사의 비둘기"는 대상이 비둘기라 철도 시설
+    과제가 아니다(철도 밖에도 있는 대상 → 다른 분야 사례를 찾는다).
+
+    철도 시설 과제는 유추에서 철도 분야 자료를 거르지 않고 '관련 선행 자료'로 보인다
+    (2026-11-10 소유자 결정 — 대상이 철도 시설이면 철도 자료가 나오는 것이 맞다)."""
     terms = getattr(card, "terms", None)
     facets = getattr(card, "facets", None)
     if terms is None or facets is None:
-        return (), ()
-    ko_text = " ".join([*terms.objects_ko, facets.target.value or "", facets.place.value or ""])
-    if not _has_term(ko_text, rule.terms_ko, ()):
-        return (), ()
-    rail_en = {t.lower() for t in (*rule.terms_en, *rule.context_terms_en)}
-    en = [t.lower() for t in rule.context_terms_en]
-    en += [w for w in terms.objects_en if w.lower() in rail_en and w.lower() not in en]
-    ko = tuple(t for t in rule.terms_ko if _HANGUL.search(t))
-    return ko, tuple(en)
-
-
-def card_rail_terms_en(card: object, rule: RailFieldRule) -> tuple[str, ...]:
-    return card_rail_terms(card, rule)[1]
+        return []
+    ko_terms = [t.lower() for t in rule.terms_ko if _HANGUL.search(t)]
+    out: list[str] = []
+    for tok in _text_tokens(" ".join([*terms.objects_ko, facets.target.value or ""])):
+        if _HANGUL.search(tok) and _ko_hit(tok, ko_terms) and tok not in out:
+            out.append(tok)
+    return out
 
 
 def _contains_ko(text: str | None, terms: Iterable[str]) -> bool:
@@ -426,17 +423,8 @@ def _contains_ko(text: str | None, terms: Iterable[str]) -> bool:
     return any(t and t in value for t in terms)
 
 
-def rail_reason(
-    doc: Document,
-    rule: RailFieldRule,
-    *,
-    extra_en: Sequence[str] = (),
-    extra_ko: Sequence[str] = (),
-) -> RailReason | None:
-    """철도 분야 문서면 그 근거, 아니면 None. 데이터(자료원·기관 태그·적재 분야·용어)만 본다.
-
-    extra_en·extra_ko: 이 요청에서 더 넓게 철도로 볼 말(`card_rail_terms`) — 제목·키워드에서만.
-    영문은 낱말이 같으면, 한글은 낱말 안 어디에든."""
+def rail_reason(doc: Document, rule: RailFieldRule) -> RailReason | None:
+    """철도 분야 문서면 그 근거, 아니면 None. 데이터(자료원·기관 태그·적재 분야·용어)만 본다."""
     if doc.source in rule.sources:
         return "source"
     if any(o in rule.orgs for o in doc.orgs):
@@ -457,11 +445,7 @@ def rail_reason(
             return "terms"
         if _contains_ko(text, rule.contains_ko):
             return "terms"
-    if extra_ko and _contains_ko(f"{doc.title} {_raw_text(doc, 'keywords')}", extra_ko):
-        return "terms"
     head_words = _en_words(f"{doc.title} {_raw_text(doc, 'keywords')}")
-    if extra_en and set(extra_en).intersection(head_words):
-        return "terms"
     if len(_context_hits(head_words, rule.context_terms_en)) >= 2:
         return "terms"
     if rule.abstract_chars and _has_phrase_en(
@@ -632,8 +616,13 @@ def domain_label(doc: Document) -> str:
     return SOURCE_LABELS.get(doc.source, doc.source)
 
 
-def why_relevant(shared: Sequence[str], similarity: float | None) -> str:
-    """규칙 문장 — 공유 문제어가 있으면 그것, 없으면 문제 축 질의와의 의미 유사도."""
+def why_relevant(shared: Sequence[str], similarity: float | None, *, related: bool = False) -> str:
+    """규칙 문장 — 공유 문제어가 있으면 그것, 없으면 문제 축 질의와의 의미 유사도.
+    related: 대상이 철도 시설인 과제의 '관련 선행 자료'(철도 자료 포함) — 문장이 다르다."""
+    if related:
+        if shared:
+            return f"같은 대상({'·'.join(shared[:4])})을 다룬 선행 자료"
+        return "같은 문제를 다룬 선행 자료"
     if shared:
         return f"철도 밖에서 같은 문제({'·'.join(shared[:4])})를 다룬 자료"
     if similarity is not None:
