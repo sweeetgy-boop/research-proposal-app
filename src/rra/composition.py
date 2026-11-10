@@ -3610,8 +3610,9 @@ def build_class_code_check(settings: Settings | None = None, *, repo=None, class
 
 def _card_ask(settings: Settings, *, llm=None, local_slot=None):
     """문제 정의 카드의 AI 호출 순서 — Argon(`problem_card.yaml stage`, 기본 diagnose = gemini,
-    일일 예산 공유) 먼저, 오류 응답일 때만 로컬(`local_stage`, local_slot 안에서). 가짜 모드·시험은
-    llm 하나가 Argon 자리를 맡는다. 돌려주는 것: (ArgonFirst, max_tokens, provider 이름)."""
+    일일 예산 공유) 먼저, 오류 응답일 때만 로컬(`local_stage`, local_slot 안에서). 가짜 모드는 llm
+    하나가 Argon 자리를 맡는다(외부 호출 없음). 그 밖에 llm 을 주면 로컬 자리에 그대로 쓴다
+    (build_argon_first 와 같다). 돌려주는 것: (ArgonFirst, max_tokens, provider 이름)."""
     from rra.application.usecases.argon_first import ArgonFirst
     from rra.config_loader import problem_card_config
 
@@ -3619,7 +3620,7 @@ def _card_ask(settings: Settings, *, llm=None, local_slot=None):
     stage_cfg = llm_config(settings, cfg.stage)
     max_tokens = int(stage_cfg["max_tokens"])
     provider = str(stage_cfg.get("provider") or "gemini")
-    if llm is not None:  # 가짜 모드·시험 — 외부 호출 없음
+    if llm is not None and settings.fake_llm:  # 가짜 모드 — 외부 호출 없음
         return ArgonFirst(None, llm), max_tokens, provider
     argon = local = None
     if llm_available(settings, stage=cfg.stage):
@@ -3628,7 +3629,7 @@ def _card_ask(settings: Settings, *, llm=None, local_slot=None):
         except (LLMUnavailable, KeyError, ValueError):
             argon = None
     try:
-        local = build_llm(settings, stage=cfg.local_stage)
+        local = llm if llm is not None else build_llm(settings, stage=cfg.local_stage)
         local_cfg = llm_config(settings, cfg.local_stage)
     except (LLMUnavailable, KeyError, ValueError):
         local, local_cfg = None, {}
