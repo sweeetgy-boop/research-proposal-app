@@ -156,6 +156,70 @@ def take_by_source(
     return [ordered[i] for i in sorted(picked)]
 
 
+_EN_WORD = re.compile(r"[a-z]+")
+_KO_WORD = re.compile(r"[가-힣]+")
+_EN_STOP = frozenset(
+    "a an and at by for from in into of on or the to using use based with via its their".split()
+)
+MIN_DUP_WORDS = 2  # 낱말이 이보다 적은 제목은 겹침 판정을 하지 않는다
+
+
+def title_words(title: str, suffixes: Sequence[str] = ()) -> list[str]:
+    """제목의 낱말 — 한글은 흔한 꼬리말(장치·방지기·시스템…)을 떼고(낱말이 꼬리말뿐이면 버림),
+    영문은 소문자·불용어 제외. 한 글자 낱말은 뺀다. 순서 유지·중복 제거."""
+    text = (title or "").lower()
+    ordered = sorted((x for x in suffixes if x), key=len, reverse=True)
+    out: list[str] = []
+    for w in _KO_WORD.findall(text):
+        for suffix in ordered:
+            if w == suffix:
+                w = ""
+                break
+            if w.endswith(suffix) and len(w) - len(suffix) >= 2:
+                w = w[: -len(suffix)]
+                break
+        if len(w) >= 2 and w not in out:
+            out.append(w)
+    for w in _EN_WORD.findall(text):
+        if len(w) >= 3 and w not in _EN_STOP and w not in out:
+            out.append(w)
+    return out
+
+
+def _same_word(a: str, b: str) -> bool:
+    if a == b:
+        return True
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    return len(short) >= 2 and long.startswith(short)  # 퇴치 ↔ 퇴치기, pigeon ↔ pigeons
+
+
+def title_overlap(a: Sequence[str], b: Sequence[str]) -> float:
+    """겹친 낱말 수 / 짧은 쪽 낱말 수. 낱말이 MIN_DUP_WORDS 보다 적으면 0."""
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    if len(short) < MIN_DUP_WORDS:
+        return 0.0
+    hit = sum(1 for w in short if any(_same_word(w, x) for x in long))
+    return hit / len(short)
+
+
+def drop_similar_titles(
+    ordered: Sequence[RankRow], *, ratio: float, suffixes: Sequence[str] = ()
+) -> list[RankRow]:
+    """순위 순 목록에서, 앞선(순위 높은) 자료와 제목 낱말이 ratio 이상 겹치는 자료를 뺀다.
+    ratio 가 0 이하면 그대로."""
+    if ratio <= 0:
+        return list(ordered)
+    kept: list[RankRow] = []
+    words: list[list[str]] = []
+    for row in ordered:
+        mine = title_words(row.doc.title, suffixes)
+        if any(title_overlap(mine, other) >= ratio for other in words):
+            continue
+        kept.append(row)
+        words.append(mine)
+    return kept
+
+
 def few_analogies(count: int) -> bool:
     """유추 결과가 3건 미만 — 신호만 기록한다(재검색 없음, 계약 4절)."""
     return count < FEW_ANALOGIES

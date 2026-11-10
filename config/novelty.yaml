@@ -64,7 +64,16 @@ rail_field:
   terms_ko: [철도, 열차, 전동차, 지하철, 도시철도, 고속철도, 광역철도, 경전철, 궤도, 선로, 승강장, 철도역, 전차선,
              레일, 코레일, 철도차량, ktx, srt]
   terms_en: [railway, railways, railroad, railroads, rail, rails, train, trains, metro, subway, tram, tramway,
-             locomotive, locomotives, catenary, pantograph, bogie, ktx]
+             locomotive, locomotives, catenary, pantograph, bogie, ktx, maglev, wheelset, wheelsets, railcar, railcars]
+  # 영문 구(잇달아 나온 낱말, 마지막 낱말은 앞부분 일치) — 제목·키워드·학술지 칸과 초록 앞부분. 2026-11-10: "Track irregularity
+  # data" 처럼 railway·train 낱말이 없는 철도 논문이 '철도 밖 자료'로 남던 것
+  phrases_en: [track irregularity, track geometry, track inspection, track maintenance, track structure, railway track,
+               rail track, ballasted track, slab track, rolling stock, high speed rail, light rail, rail vehicle, rail transit,
+               wheel rail, overhead contact line, level crossing]
+  # 약한 말 — 혼자서는 철도로 보지 않는다("track record", 선박 "ballast water"). 제목·키워드에 서로 다른 약한 말이 2개 이상
+  # 함께 나오거나, 문제 정의 카드의 대상·장소가 철도 시설일 때만(그 요청에 한해) 철도 자료로 본다. "train" 은 낱말이 같을 때만
+  # 걸리므로 "training" 은 걸리지 않는다
+  context_terms_en: [track, tracks, trackbed, sleeper, sleepers, ballast, ballasted]
   # 초록 앞부분(abstract_chars)에서는 강한 말만
   abstract_terms_ko: [철도, 도시철도, 고속철도]
   abstract_terms_en: [railway, railways, railroad, railroads]

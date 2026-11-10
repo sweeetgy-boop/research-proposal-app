@@ -363,6 +363,11 @@ class CardRank(BaseModel):
     # 재순위 질의에 제안문 문제어 질의(종전 규칙)도 써서 높은 점수를 취한다 — 카드 기능 문장이
     # 좁게 잡혀도 직접 관련 자료가 밀리지 않게. 후보에도 그 질의의 검색 결과를 합친다
     with_request_query: bool = True
+    # 제목에서 흔한 꼬리말을 뺀 낱말이 이 비율 이상 겹치면(짧은 쪽 기준) 같은 자료로 보고 순위 높은
+    # 하나만 남긴다. 0 이면 끔. 2026-11-10 악취 사례: "악취 역류 차단 장치"·"하수구 악취 역류
+    # 방지기"·"악취 역류 방지장치" 가 5건 중 3건
+    dup_title_ratio: float = Field(default=0.6, ge=0, le=1)
+    dup_title_suffixes: tuple[str, ...] = ("방지기", "장치", "시스템", "방법", "구조")
     require_object: bool = True  # 대상어(구체·일반화)가 겹친 자료만
 
 

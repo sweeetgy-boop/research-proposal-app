@@ -134,3 +134,47 @@ def test_priority_window_keeps_far_low_ranked_sources_out():
     near = take_by_source(ordered, per_source=2, limit=5, window=8)
     assert near[-1].doc.doc_id == "kipris_kr:far"
     assert CardRank().priority_window == 15
+
+
+def test_similar_titles_keep_only_the_highest_ranked():
+    """제목에서 흔한 꼬리말을 뺀 낱말이 60% 이상 겹치면 같은 자료 — 순위 높은 하나만
+    (2026-11-10 악취 사례: 역류 방지 장치 3건이 5건 중 3건)."""
+    from rra.domain.models.problem_card import ProblemTerms
+    from rra.domain.rules.analogy_rank import drop_similar_titles, title_overlap, title_words
+
+    suffixes = CardRank().dup_title_suffixes
+    a = title_words("악취 역류 차단 장치", suffixes)
+    b = title_words("하수구 악취 역류 방지기", suffixes)
+    c = title_words("악취 역류 방지장치", suffixes)
+    assert a == ["악취", "역류", "차단"] and b == ["하수구", "악취", "역류"]
+    assert c == ["악취", "역류", "방지"]
+    assert title_overlap(a, b) >= 0.6 and title_overlap(a, c) >= 0.6
+    other = title_words("공중화장실 복합악취 및 개선에 관한 연구 (대전광역시 동구)", suffixes)
+    assert title_overlap(a, other) < 0.6
+    # 낱말이 하나뿐인 제목은 판정하지 않는다, 영문은 불용어를 빼고 본다
+    assert title_overlap(title_words("악취 장치", suffixes), a) == 0.0
+    assert (
+        title_overlap(
+            title_words("Deterrence of pigeons on buildings"),
+            title_words("Pigeon deterrence for a building"),
+        )
+        == 1.0
+    )
+    titles = [
+        "악취 역류 차단 장치",
+        "하수구 악취 역류 방지기",
+        "공중화장실 악취 개선에 관한 연구",
+        "악취 역류 방지장치",
+        "변기용 악취 제거 장치",
+    ]
+    rows = order_rows(
+        rank_rows(
+            [(doc(f"scienceon:{i}", t), 0.9 - i * 0.01) for i, t in enumerate(titles)],
+            card(terms=ProblemTerms(objects_ko=["악취"])),
+            CardRank(),
+        ),
+        [0.9, 0.8, 0.7, 0.6, 0.5],
+    )
+    kept = drop_similar_titles(rows, ratio=0.6, suffixes=suffixes)
+    assert [r.doc.title for r in kept] == [titles[0], titles[2], titles[4]]
+    assert len(drop_similar_titles(rows, ratio=0, suffixes=suffixes)) == 5  # 0 이면 끔

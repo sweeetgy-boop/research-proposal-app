@@ -51,6 +51,7 @@ from rra.domain.models.problem_card import ProblemCard, ProblemCardConfig
 from rra.domain.rules.analogy_rank import (
     RankRow,
     card_shared_terms,
+    drop_similar_titles,
     few_analogies,
     order_rows,
     rank_rows,
@@ -71,6 +72,7 @@ from rra.domain.rules.novelty import (
     AnalogySettings,
     NoveltySettings,
     RailFieldRule,
+    card_rail_terms_en,
     domain_label,
     en_terms,
     input_key,
@@ -522,9 +524,11 @@ class ProblemAnalogySearch:
             self._memo.put(key, out)
         return list(out)
 
-    def _eligible(self, found: Sequence[_Candidate]) -> list[_Candidate]:
+    def _eligible(
+        self, found: Sequence[_Candidate], rail_en: Sequence[str] = ()
+    ) -> list[_Candidate]:
         """종전 규칙 — 하한·공용 계정 internal 제외·철도 분야 제외·같은 제목 제외(유사도 높은
-        것을 남긴다)."""
+        것을 남긴다). rail_en: 카드의 대상이 철도 시설일 때 혼자서도 철도로 볼 영문 낱말."""
         out: list[_Candidate] = []
         seen_titles: set[str] = set()
         for c in sorted(found, key=lambda c: (-c.similarity, c.doc.doc_id)):
@@ -533,7 +537,7 @@ class ProblemAnalogySearch:
                 continue
             if not self.include_internal and doc.visibility == "internal":
                 continue
-            if rail_reason(doc, self.rail) is not None:
+            if rail_reason(doc, self.rail, extra_en=rail_en) is not None:
                 continue
             title_key = normalized_title(doc.title)
             if title_key and title_key in seen_titles:
@@ -553,7 +557,10 @@ class ProblemAnalogySearch:
         """계약 4절 `analogy_rank` — (최종 5건, 재순위를 썼는가). 재순위 점수는 카드 기능 문장
         질의와 제안문 문제어 질의(request_query, 있으면) 중 높은 쪽."""
         rank = config.rank
-        rows = rank_rows([(c.doc, c.similarity) for c in self._eligible(found)], card, rank)
+        rail_en = card_rail_terms_en(card, self.rail)
+        rows = rank_rows(
+            [(c.doc, c.similarity) for c in self._eligible(found, rail_en)], card, rank
+        )
         if not rank.require_object:  # 대상어를 요구하지 않으면 종전처럼 한글 자료는 문제어 겹침
             rows = [
                 r
@@ -578,7 +585,11 @@ class ProblemAnalogySearch:
                 scores = None
         limit = min(self.settings.max_results, MAX_ANALOGIES)
         picked = take_by_source(
-            order_rows(rows, scores),
+            drop_similar_titles(
+                order_rows(rows, scores),
+                ratio=rank.dup_title_ratio,
+                suffixes=rank.dup_title_suffixes,
+            ),
             per_source=rank.per_source,
             limit=limit,
             window=rank.priority_window,

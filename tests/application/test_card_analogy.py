@@ -31,6 +31,8 @@ from tests.domain.test_card_queries import IDEA, card
 from tests.fakes import FakeTaskRunner
 
 ON = ProblemCardConfig(enabled=True)
+# 겹치는 제목 걸러내기(dup_title_ratio)를 끈 설정 — 정렬·상한 규칙만 보는 시험용
+NO_DUP = ProblemCardConfig(enabled=True, rank=CardRank(dup_title_ratio=0))
 OFF = ProblemCardConfig(enabled=False)
 EDITED = CardText(value="조류가 전선과 구조물에 내려앉지 못하게 한다", origin="user")
 
@@ -92,7 +94,8 @@ async def test_card_path_requires_object_term_reranks_and_caps_per_source():
         {"scienceon:B4": 0.42, "scienceon:B1": 0.3, "scienceon:B3": 0.25, "openalex:W1": 0.2}
     )
     plain = ProblemCardConfig(
-        enabled=True, rank=CardRank(priority_min_ratio=0, with_request_query=False)
+        enabled=True,
+        rank=CardRank(priority_min_ratio=0, with_request_query=False, dup_title_ratio=0),
     )
     out = await search_for(repo, config=plain, scorer=scorer)(req(card()))
     ids = [a.doc_id for a in out]
@@ -124,12 +127,12 @@ async def test_card_path_requires_object_term_reranks_and_caps_per_source():
 async def test_low_rerank_scores_are_not_a_floor_and_missing_reranker_falls_back():
     repo = Repo()
     repo.similar = pool()
-    low = await search_for(repo, scorer=Scorer({}))(req(card()))  # 모두 0.1
+    low = await search_for(repo, config=NO_DUP, scorer=Scorer({}))(req(card()))  # 모두 0.1
     assert len(low) == 5
     for scorer in (None, Scorer(error=RuntimeError("모델 없음"))):
         repo = Repo()
         repo.similar = pool()
-        out = await search_for(repo, scorer=scorer)(req(card()))
+        out = await search_for(repo, config=NO_DUP, scorer=scorer)(req(card()))
         # (공유 문제어 수, 유사도) 순 — W1 은 3개(pigeon·bird·deterr), 나머지는 2개에서 유사도 순.
         # 자료원당 2건 먼저(B1·B2), 모자란 1건은 넘긴 B4
         assert [a.doc_id for a in out] == [

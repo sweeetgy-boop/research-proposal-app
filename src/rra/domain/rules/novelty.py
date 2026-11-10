@@ -116,6 +116,45 @@ class RailFieldRule(BaseModel):
         "pantograph",
         "bogie",
         "ktx",
+        "maglev",
+        "wheelset",
+        "wheelsets",
+        "railcar",
+        "railcars",
+    )
+    # 영문 구(잇달아 나온 낱말, 마지막 낱말은 앞부분 일치 — irregularity/irregularities). 제목·
+    # 키워드·학술지 칸과 초록 앞부분에서 본다. 2026-11-10: "Track irregularity data" 같은 철도
+    # 논문이 railway·train 낱말이 없어 '철도 밖 자료'로 남던 것
+    phrases_en: tuple[str, ...] = (
+        "track irregularity",
+        "track geometry",
+        "track inspection",
+        "track maintenance",
+        "track structure",
+        "railway track",
+        "rail track",
+        "ballasted track",
+        "slab track",
+        "rolling stock",
+        "high speed rail",
+        "light rail",
+        "rail vehicle",
+        "rail transit",
+        "wheel rail",
+        "overhead contact line",
+        "level crossing",
+    )
+    # 약한 말 — 혼자서는 철도로 보지 않는다("track record", 선박 ballast water). 제목·키워드에
+    # 서로 다른 약한 말이 2개 이상 함께 나오거나, 문제 정의 카드의 대상이 철도 시설일 때
+    # (`card_rail_terms_en`)만 철도 자료로 본다
+    context_terms_en: tuple[str, ...] = (
+        "track",
+        "tracks",
+        "trackbed",
+        "sleeper",
+        "sleepers",
+        "ballast",
+        "ballasted",
     )
     # 초록에서는 강한 말만 (초록이 철도를 한 번 언급했다고 철도 문서로 보지 않게 — 강한 말은 예외)
     abstract_terms_ko: tuple[str, ...] = ("철도", "도시철도", "고속철도")
@@ -310,8 +349,63 @@ def _raw_text(doc: Document, key: str) -> str:
     return ""
 
 
-def rail_reason(doc: Document, rule: RailFieldRule) -> RailReason | None:
-    """철도 분야 문서면 그 근거, 아니면 None. 데이터(자료원·기관 태그·적재 분야·용어)만 본다."""
+_EN_WORD = re.compile(r"[a-z]+")
+_EN_JOIN = re.compile(r"[-‐‑–/]")
+
+
+def _en_words(text: str | None) -> list[str]:
+    """영문 낱말(소문자, 붙임표·빗금은 띄어 쓴 것으로) — "wheel-rail" → wheel, rail."""
+    return _EN_WORD.findall(_EN_JOIN.sub(" ", unicodedata.normalize("NFKC", text or "").lower()))
+
+
+def _has_phrase_en(words: Sequence[str], phrases: Iterable[str]) -> bool:
+    """words 에 구가 잇달아 나오는가. 구의 마지막 낱말은 앞부분 일치(끝의 y 는 뗀다 —
+    irregularity ↔ irregularities, stock ↔ stocks)."""
+    for phrase in phrases:
+        parts = _en_words(phrase)
+        if not parts:
+            continue
+        *head, last = parts
+        stem_last = last[:-1] if last.endswith("y") and len(last) > 3 else last
+        n = len(parts)
+        for i in range(len(words) - n + 1):
+            if list(words[i : i + n - 1]) == head and words[i + n - 1].startswith(stem_last):
+                return True
+    return False
+
+
+def _context_hits(words: Sequence[str], terms: Iterable[str]) -> set[str]:
+    """약한 말 중 나온 것 — 단수·복수는 하나로 센다(track·tracks)."""
+    found = set()
+    for t in {x.lower() for x in terms}:
+        if t in words:
+            found.add(t[:-1] if t.endswith("s") else t)
+    return found
+
+
+def card_rail_terms_en(card: object, rule: RailFieldRule) -> tuple[str, ...]:
+    """문제 정의 카드의 대상·장소가 철도 시설이면(대상어·대상 칸·장소 칸에 철도 용어) 그 요청에서
+    혼자서도 철도 자료로 볼 영문 낱말 — 약한 말 전부 + 카드 영문 대상어 중 철도 용어.
+    철도 시설이 아니면(비둘기·악취 등) 빈 값 — 약한 말은 종전대로 2개가 함께 나와야 한다."""
+    terms = getattr(card, "terms", None)
+    facets = getattr(card, "facets", None)
+    if terms is None or facets is None:
+        return ()
+    ko_text = " ".join([*terms.objects_ko, facets.target.value or "", facets.place.value or ""])
+    if not _has_term(ko_text, rule.terms_ko, ()):
+        return ()
+    rail_en = {t.lower() for t in (*rule.terms_en, *rule.context_terms_en)}
+    out = [t.lower() for t in rule.context_terms_en]
+    out += [w for w in terms.objects_en if w.lower() in rail_en and w.lower() not in out]
+    return tuple(out)
+
+
+def rail_reason(
+    doc: Document, rule: RailFieldRule, *, extra_en: Sequence[str] = ()
+) -> RailReason | None:
+    """철도 분야 문서면 그 근거, 아니면 None. 데이터(자료원·기관 태그·적재 분야·용어)만 본다.
+
+    extra_en: 이 요청에서 혼자서도 철도로 볼 영문 낱말(`card_rail_terms_en`) — 제목·키워드에서만."""
     if doc.source in rule.sources:
         return "source"
     if any(o in rule.orgs for o in doc.orgs):
@@ -328,6 +422,17 @@ def rail_reason(doc: Document, rule: RailFieldRule) -> RailReason | None:
     ):
         if _has_term(text, rule.terms_ko, rule.terms_en):
             return "terms"
+        if _has_phrase_en(_en_words(text), rule.phrases_en):
+            return "terms"
+    head_words = _en_words(f"{doc.title} {_raw_text(doc, 'keywords')}")
+    if extra_en and set(extra_en).intersection(head_words):
+        return "terms"
+    if len(_context_hits(head_words, rule.context_terms_en)) >= 2:
+        return "terms"
+    if rule.abstract_chars and _has_phrase_en(
+        _en_words((doc.abstract or "")[: rule.abstract_chars]), rule.phrases_en
+    ):
+        return "abstract"
     if rule.abstract_chars and _has_term(
         (doc.abstract or "")[: rule.abstract_chars], rule.abstract_terms_ko, rule.abstract_terms_en
     ):
