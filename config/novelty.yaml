@@ -65,6 +65,9 @@ rail_field:
              레일, 코레일, 철도차량, ktx, srt]
   terms_en: [railway, railways, railroad, railroads, rail, rails, train, trains, metro, subway, tram, tramway,
              locomotive, locomotives, catenary, pantograph, bogie, ktx, maglev, wheelset, wheelsets, railcar, railcars]
+  # 한글 — 낱말 안 어디에든 들어 있으면 철도로 보는 말(붙여 쓴 합성어: 자기부상선로·침목플로팅궤도·고속선). 다른 분야에서
+  # 쓰이지 않는 말만. "궤도"(위성 궤도)·"선로"(전송선로)는 여기 두지 않는다 — 문제 정의 카드의 대상이 철도 시설일 때만 승격
+  contains_ko: [철도, 열차, 전동차, 지하철, 침목, 자기부상, 전차선, 분기기, 고속선]
   # 영문 구(잇달아 나온 낱말, 마지막 낱말은 앞부분 일치) — 제목·키워드·학술지 칸과 초록 앞부분. 2026-11-10: "Track irregularity
   # data" 처럼 railway·train 낱말이 없는 철도 논문이 '철도 밖 자료'로 남던 것
   phrases_en: [track irregularity, track geometry, track inspection, track maintenance, track structure, railway track,

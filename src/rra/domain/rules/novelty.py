@@ -122,6 +122,20 @@ class RailFieldRule(BaseModel):
         "railcar",
         "railcars",
     )
+    # 한글 — 낱말 **안 어디에든** 들어 있으면 철도로 보는 말(붙여 쓴 합성어: 자기부상선로·
+    # 침목플로팅궤도·고속선). 다른 분야에서 쓰이지 않는 말만 둔다("궤도"(위성)·"선로"(전송선로)는
+    # 여기 두지 않고, 카드의 대상이 철도 시설일 때만 `card_rail_terms` 로 승격한다)
+    contains_ko: tuple[str, ...] = (
+        "철도",
+        "열차",
+        "전동차",
+        "지하철",
+        "침목",
+        "자기부상",
+        "전차선",
+        "분기기",
+        "고속선",
+    )
     # 영문 구(잇달아 나온 낱말, 마지막 낱말은 앞부분 일치 — irregularity/irregularities). 제목·
     # 키워드·학술지 칸과 초록 앞부분에서 본다. 2026-11-10: "Track irregularity data" 같은 철도
     # 논문이 railway·train 낱말이 없어 '철도 밖 자료'로 남던 것
@@ -383,29 +397,46 @@ def _context_hits(words: Sequence[str], terms: Iterable[str]) -> set[str]:
     return found
 
 
-def card_rail_terms_en(card: object, rule: RailFieldRule) -> tuple[str, ...]:
+def card_rail_terms(card: object, rule: RailFieldRule) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """문제 정의 카드의 대상·장소가 철도 시설이면(대상어·대상 칸·장소 칸에 철도 용어) 그 요청에서
-    혼자서도 철도 자료로 볼 영문 낱말 — 약한 말 전부 + 카드 영문 대상어 중 철도 용어.
-    철도 시설이 아니면(비둘기·악취 등) 빈 값 — 약한 말은 종전대로 2개가 함께 나와야 한다."""
+    더 넓게 철도 자료로 볼 말 (한글, 영문):
+    - 한글: 철도 용어 전부를 낱말 안 어디에든(합성어 "침목플로팅궤도"·"자기부상선로")
+    - 영문: 약한 말 전부(혼자서도) + 카드 영문 대상어 중 철도 용어
+    철도 시설이 아니면(비둘기·악취 등) 둘 다 빈 값 — 종전 규칙 그대로."""
     terms = getattr(card, "terms", None)
     facets = getattr(card, "facets", None)
     if terms is None or facets is None:
-        return ()
+        return (), ()
     ko_text = " ".join([*terms.objects_ko, facets.target.value or "", facets.place.value or ""])
     if not _has_term(ko_text, rule.terms_ko, ()):
-        return ()
+        return (), ()
     rail_en = {t.lower() for t in (*rule.terms_en, *rule.context_terms_en)}
-    out = [t.lower() for t in rule.context_terms_en]
-    out += [w for w in terms.objects_en if w.lower() in rail_en and w.lower() not in out]
-    return tuple(out)
+    en = [t.lower() for t in rule.context_terms_en]
+    en += [w for w in terms.objects_en if w.lower() in rail_en and w.lower() not in en]
+    ko = tuple(t for t in rule.terms_ko if _HANGUL.search(t))
+    return ko, tuple(en)
+
+
+def card_rail_terms_en(card: object, rule: RailFieldRule) -> tuple[str, ...]:
+    return card_rail_terms(card, rule)[1]
+
+
+def _contains_ko(text: str | None, terms: Iterable[str]) -> bool:
+    value = unicodedata.normalize("NFKC", text or "")
+    return any(t and t in value for t in terms)
 
 
 def rail_reason(
-    doc: Document, rule: RailFieldRule, *, extra_en: Sequence[str] = ()
+    doc: Document,
+    rule: RailFieldRule,
+    *,
+    extra_en: Sequence[str] = (),
+    extra_ko: Sequence[str] = (),
 ) -> RailReason | None:
     """철도 분야 문서면 그 근거, 아니면 None. 데이터(자료원·기관 태그·적재 분야·용어)만 본다.
 
-    extra_en: 이 요청에서 혼자서도 철도로 볼 영문 낱말(`card_rail_terms_en`) — 제목·키워드에서만."""
+    extra_en·extra_ko: 이 요청에서 더 넓게 철도로 볼 말(`card_rail_terms`) — 제목·키워드에서만.
+    영문은 낱말이 같으면, 한글은 낱말 안 어디에든."""
     if doc.source in rule.sources:
         return "source"
     if any(o in rule.orgs for o in doc.orgs):
@@ -424,6 +455,10 @@ def rail_reason(
             return "terms"
         if _has_phrase_en(_en_words(text), rule.phrases_en):
             return "terms"
+        if _contains_ko(text, rule.contains_ko):
+            return "terms"
+    if extra_ko and _contains_ko(f"{doc.title} {_raw_text(doc, 'keywords')}", extra_ko):
+        return "terms"
     head_words = _en_words(f"{doc.title} {_raw_text(doc, 'keywords')}")
     if extra_en and set(extra_en).intersection(head_words):
         return "terms"
