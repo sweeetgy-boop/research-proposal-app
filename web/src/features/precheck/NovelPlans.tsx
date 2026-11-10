@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import type {
   Analogy,
+  AnalogyReport,
   Barrier,
   BarrierType,
   Maturity,
@@ -76,32 +77,86 @@ function ExternalTitle({ title, url }: { title: string; url: string | null | und
   );
 }
 
-export function AnalogyList({ items }: { items: Analogy[] }) {
-  if (items.length === 0) return null;
+/** 검색 범위 한 줄을 보일 만큼 목록이 찼는가 — 이 수를 채웠고 전부 확인했으면 범위 줄을 숨긴다 */
+const ANALOGY_FULL = 5;
+
+/** 다른 분야 사례 / 관련 선행 자료. report(검색 범위 보고)가 없으면 종전 그대로 — 0건이면 그리지 않는다.
+ *  report 가 있으면 제목·설명·범위·빈 문구는 서버 문장을 그대로 보이고(웹은 조립하지 않음), 0건이어도 구획을 그려
+ *  '없는 것'과 '못 찾은 것'을 구분한다. [아는 자료 직접 추가] 는 ② 관련 연구의 [차별화에 참고](ADR 0053)로 잇는다. */
+export function AnalogyList({
+  items,
+  report,
+  onAddReference,
+}: {
+  items: Analogy[];
+  report?: AnalogyReport | null;
+  /** 관련 연구 목록으로 이동·포커스 — 없으면(관련 연구가 없는 화면) 버튼을 내지 않는다 */
+  onAddReference?: () => void;
+}) {
+  const empty = items.length === 0;
+  if (empty && !report) return null;
+  const partial = !!report?.partial;
+  const showScope = !!report && !!report.scope_text && (partial || (!empty && report.count < ANALOGY_FULL));
   return (
     <section className="space-y-2" aria-labelledby="novel-analogies-heading" data-testid="novel-analogies">
-      <h3 id="novel-analogies-heading" className="text-base font-semibold">
-        다른 분야 사례
+      <h3 id="novel-analogies-heading" className="flex flex-wrap items-center gap-2 text-base font-semibold">
+        {report ? <UntrustedText text={report.heading} /> : "다른 분야 사례"}
+        {partial && (
+          <Badge variant="warning" data-testid="analogy-partial">
+            일부만 확인
+          </Badge>
+        )}
       </h3>
-      <p className="text-xs text-muted-foreground">철도 밖에서 비슷한 문제를 다룬 자료입니다. 과제안의 참고일 뿐 근거로 그대로 쓰지 마십시오.</p>
-      <ul className="space-y-2">
-        {items.map((a, i) => (
-          <li key={i} className="rounded-md border bg-card p-3 text-sm" data-testid="novel-analogy">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <ExternalTitle title={a.title} url={a.url} />
-              <span className="flex shrink-0 gap-1">
-                <Badge variant="secondary">참고</Badge>
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              <UntrustedText text={a.domain_label} />
-              {a.source_label && a.source_label !== a.domain_label ? ` · ${a.source_label}` : ""}
-              {a.year ? ` · ${a.year}` : ""}
-            </p>
-            {a.why_relevant && <UntrustedText as="p" text={a.why_relevant} className="mt-1" />}
-          </li>
-        ))}
-      </ul>
+      {report ? (
+        report.description && <UntrustedText as="p" text={report.description} className="text-xs text-muted-foreground" />
+      ) : (
+        <p className="text-xs text-muted-foreground">철도 밖에서 비슷한 문제를 다룬 자료입니다. 과제안의 참고일 뿐 근거로 그대로 쓰지 마십시오.</p>
+      )}
+      {empty && report && (
+        <div className="space-y-2 rounded-md border bg-card p-3 text-sm">
+          <p data-testid="analogy-empty">
+            <UntrustedText text={report.empty_text} />
+          </p>
+          <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {onAddReference && (
+              <Button variant="outline" size="sm" onClick={onAddReference} data-testid="analogy-add-reference">
+                아는 자료 직접 추가
+              </Button>
+            )}
+            <span>관련 연구에서 [차별화에 참고]로 고르면 다음 과제안에 반영됩니다.</span>
+          </p>
+        </div>
+      )}
+      {!empty && (
+        <ul className="space-y-2">
+          {items.map((a, i) => (
+            <li key={i} className="rounded-md border bg-card p-3 text-sm" data-testid="novel-analogy">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <ExternalTitle title={a.title} url={a.url} />
+                <span className="flex shrink-0 gap-1">
+                  <Badge variant="secondary">참고</Badge>
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                <UntrustedText text={a.domain_label} />
+                {a.source_label && a.source_label !== a.domain_label ? ` · ${a.source_label}` : ""}
+                {a.year ? ` · ${a.year}` : ""}
+              </p>
+              {a.why_relevant && <UntrustedText as="p" text={a.why_relevant} className="mt-1" />}
+            </li>
+          ))}
+        </ul>
+      )}
+      {showScope && report && (
+        <p className="text-xs text-muted-foreground" data-testid="analogy-scope">
+          <UntrustedText text={report.scope_text} />
+        </p>
+      )}
+      {report && report.dropped_weak > 0 && (
+        <p className="text-xs text-muted-foreground" data-testid="analogy-dropped">
+          관련이 약한 자료 {report.dropped_weak}건은 뺐습니다.
+        </p>
+      )}
     </section>
   );
 }
@@ -286,11 +341,11 @@ function NovelCard({
 }
 
 /** 새 과제안 갈래의 맥락(맨 위 coverage + 다른 분야 사례) — 추천 0건이어도 보인다 */
-export function NovelContext({ rec }: { rec: NovelRecommendations }) {
+export function NovelContext({ rec, onAddReference }: { rec: NovelRecommendations; onAddReference?: () => void }) {
   return (
     <div className="space-y-3">
       <NoveltyCoverageNote coverage={rec.coverage} />
-      <AnalogyList items={rec.analogies ?? []} />
+      <AnalogyList items={rec.analogies ?? []} report={rec.analogy_report} onAddReference={onAddReference} />
     </div>
   );
 }
