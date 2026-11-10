@@ -237,7 +237,7 @@ class InMemoryRepository:
         return sum(
             1
             for d in self.docs.values()
-            if any((normalize_ipc(c) or "").startswith(prefix) for c in d.codes)
+            if any((normalize_ipc(c, stored=True) or "").startswith(prefix) for c in d.codes)
         )
 
     async def count_by_science_class(self, name):

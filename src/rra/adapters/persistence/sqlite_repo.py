@@ -371,7 +371,7 @@ class SQLiteDocumentRepository:
                 codes = json.loads(codes_json)
             except ValueError:
                 continue
-            if any((normalize_ipc(c) or "").startswith(prefix) for c in codes):
+            if any((normalize_ipc(c, stored=True) or "").startswith(prefix) for c in codes):
                 count += 1
         return count
 

@@ -48,7 +48,7 @@ from rra.domain.models.problem_card import (
 from rra.domain.rules import triz
 from rra.domain.rules.card_edits import strip_contacts
 from rra.domain.rules.foreign_script import has_foreign_script
-from rra.domain.rules.keywords import KeywordRule, query_keywords, tokens
+from rra.domain.rules.keywords import KeywordRule, query_keywords, stem, tokens
 from rra.domain.rules.llm_output import clean_sentence
 from rra.domain.rules.novel_recommendation import unsupported_names
 from rra.domain.rules.novelty import ProblemAxisRule, is_place_ko
@@ -98,6 +98,9 @@ _EN_TOKEN = re.compile(r"[a-z][a-z0-9-]*")
 # IPC: 섹션(A~H) + 클래스 2자리 + 서브클래스 1자 [+ 메인그룹[/서브그룹]]
 # — "A01M 29/00"·"A01M-029/00"
 _IPC = re.compile(r"\A([A-H]\d{2}[A-Z])(?:[\s\-]*(\d{1,4})(?:\s*/\s*(\d{1,6}))?)?\Z")
+# 저장 자료의 표기 — 뒤에 판 표시 등이 붙는다("G06Q-050/00B0"). 앞부분만 읽는다
+_IPC_STORED = re.compile(r"\A([A-H]\d{2}[A-Z])[\s\-]*(\d{1,4})\s*/\s*(\d{2,6})")
+_WORD = re.compile(r"[^\W_]+", re.UNICODE)
 
 
 def request_texts(req: ProposalRequest) -> list[str]:
@@ -150,12 +153,15 @@ def shares_words(a: str, b: str, rule: KeywordRule) -> bool:
 
 
 # ── 분류 코드 ──────────────────────────────────────────────
-def normalize_ipc(code: object) -> str | None:
+def normalize_ipc(code: object, *, stored: bool = False) -> str | None:
     """IPC 표기를 한 가지로 — "A01M-029/00"·"a01m29/00" → "A01M 29/00". 형식이 아니면 None.
-    메인그룹만 있으면 서브그룹 "00", 서브클래스만 있으면 "A01M"."""
+    메인그룹만 있으면 서브그룹 "00", 서브클래스만 있으면 "A01M".
+    stored: 저장 자료의 코드 — 뒤에 붙은 꼬리("…/00B0")는 무시하고 앞부분만 읽는다. AI·사용자가
+    보낸 코드에는 쓰지 않는다(형식이 어긋나면 받지 않는다)."""
     if not isinstance(code, str):
         return None
-    m = _IPC.match(" ".join(code.upper().split()))
+    text = " ".join(code.upper().split())
+    m = _IPC.match(text) or (_IPC_STORED.match(text) if stored else None)
     if m is None:
         return None
     sub, main, group = m.groups()
@@ -205,10 +211,11 @@ def _science_codes(raw: object) -> list[ClassCode]:
 
 # ── 문제어 ─────────────────────────────────────────────────
 def _term_words(raw: object) -> list[str]:
+    """문제어 낱말 — 조사를 떼지 않는다(AI 가 낸 명사 그대로: "주행로" 를 줄이지 않는다)."""
     out: list[str] = []
     for item in raw if isinstance(raw, (list, tuple)) else []:
         if isinstance(item, str):
-            out.extend(tokens(item))
+            out.extend(w.lower() for w in _WORD.findall(item))
     return out
 
 
@@ -238,14 +245,15 @@ def clean_terms(
         nonlocal dropped
         out: list[str] = []
         for w in _term_words(data.get(key)):
+            base = stem(w)  # 견줄 때만 어간으로
             bad = (
                 len(w) < 2
                 or not _HANGUL.search(w)
                 or has_foreign_script(w)
-                or w in rule.generic_terms
-                or w in place_words
-                or (axis is not None and is_place_ko(w, axis))
-                or (objects and w in far)
+                or bool({w, base} & rule.generic_terms)
+                or bool({w, base} & place_words)
+                or (axis is not None and (is_place_ko(w, axis) or w in axis.place_ko))
+                or (objects and bool({w, base} & far))
             )
             if bad:
                 dropped += 1

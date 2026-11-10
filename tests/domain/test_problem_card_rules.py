@@ -150,6 +150,8 @@ def test_ipc_codes_are_normalized_deduped_and_capped():
     assert rules.normalize_ipc("A01M") == "A01M"
     assert rules.normalize_ipc("A01M 29") == "A01M 29/00"
     assert rules.normalize_ipc("ZZ9") is None
+    assert rules.normalize_ipc("G06Q-050/00B0") is None  # AI·사용자 코드는 꼬리를 받지 않는다
+    assert rules.normalize_ipc("G06Q-050/00B0", stored=True) == "G06Q 50/00"
     assert rules.ipc_group_prefix("A01M-029/00") == "A01M 29/"
     assert rules.ipc_group_prefix("A01M") == "A01M"
 
@@ -188,6 +190,13 @@ def test_terms_drop_words_of_place_facet_even_if_not_in_axis_list():
         terms={"objects_ko": ["비둘기", "캐노피", "환승통로"], "actions_ko": ["침입"]},
     )
     assert parse(raw).card.terms.objects_ko == ["비둘기"]
+
+
+def test_terms_keep_nouns_unstemmed():
+    terms, _ = rules.clean_terms(
+        {"objects_ko": ["주행로", "배수로", "궤도"], "actions_ko": ["틀림"]}, axis=AXIS, rule=RULE
+    )
+    assert terms.objects_ko == ["주행로", "배수로"]  # 조사처럼 보이는 끝 글자를 떼지 않는다
 
 
 def test_terms_split_phrases_into_words_and_keep_language_apart():

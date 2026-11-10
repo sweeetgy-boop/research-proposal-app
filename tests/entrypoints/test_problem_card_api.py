@@ -2,7 +2,8 @@
 
 라우트는 `problem_card_routes.register` 로 시험 앱에 붙인다(app.py 연결은 통합 때 — PR 설명).
 유스케이스는 조립(`build_problem_diagnosis`·`build_card_editor`)이 가짜 모드로 만든다 —
-설정 사본에서만 `enabled: true`(저장소의 config/problem_card.yaml 은 false 그대로). 네트워크·모델 없음.
+설정 사본에서만 `enabled: true`(저장소의 config/problem_card.yaml 은 false 그대로).
+네트워크·모델 없음.
 """
 
 from __future__ import annotations

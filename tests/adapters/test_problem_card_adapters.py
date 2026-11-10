@@ -45,7 +45,7 @@ def doc(doc_id: str, codes=(), science_class: str | None = None) -> Document:
 DOCS = [
     doc("kipris_kr:1", ["A01M 29/00", "G06Q 50/10"]),
     doc("scienceon:2", ["A01M-029/16", "E04H-001/12"]),
-    doc("scienceon:3", ["A01M-001/00"]),
+    doc("scienceon:3", ["A01M-001/00", "G06Q-050/00B0"]),
     doc("ntis:4", science_class="철도교통기술 | 재난정보관리"),
     doc("ntis:5", science_class="자동차/철도차량"),
 ]
@@ -114,6 +114,7 @@ async def test_sqlite_repo_counts_codes_across_notations(tmp_path):
     assert await repo.count_by_code("A01M") == 3
     assert await repo.count_by_code("E04H 1/") == 1
     assert await repo.count_by_code("B61L 23/") == 0
+    assert await repo.count_by_code("G06Q 50/") == 2  # 꼬리가 붙은 저장 표기("…/00B0")도 센다
     assert await repo.count_by_code("") == 0 and await repo.count_by_code('A0"%') == 0
     assert await repo.count_by_science_class("철도교통기술") == 1
     assert await repo.count_by_science_class("없는 분류") == 0
