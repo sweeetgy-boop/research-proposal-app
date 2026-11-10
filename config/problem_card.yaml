@@ -30,8 +30,11 @@ use:
   clarify: true          # 원인·추정 항목 → 보완 질문
 
 rank:
-  rerank_top: 40         # 재순위(cross-encoder)에 넘길 후보 수. 40건 2.4~4.0초(2026-11-10 측정)
+  rerank_top: 30         # 재순위(cross-encoder)에 넘길 후보 수. 40건 2.4~4.0초(2026-11-10 측정) — 질의 2개라 30
   per_source: 2          # 자료원당 우선 건수 — 5건이 안 차면 순위대로 채운다
+  priority_window: 15    # 자료원당 우선은 재순위 상위 15건 안에서만 (범위 밖의 약한 다른 자료원 자료를 먼저 담지 않는다)
+  priority_min_ratio: 0.25   # 자료원당 우선은 재순위 점수가 1위의 25% 이상인 자료에만
+  with_request_query: true   # 재순위·후보에 제안문 문제어 질의(종전 규칙)도 함께 — 카드가 좁게 잡혀도 직접 관련 자료 유지
   require_object: true   # 대상어(구체·일반화 단)가 겹친 자료만
 
 # [3단계] 분류 코드 확인

@@ -63,3 +63,8 @@ class PromptLibraryPort(Protocol):
     def brief(self) -> str:
         """U5 선행연구 브리핑 시스템 프롬프트 — 구획별 한 줄 요약·연구 공백 후보, JSON 객체."""
         ...
+
+    def diagnose(self) -> str:
+        """문제 정의 카드 진단(ADR 0065) 시스템 프롬프트 — 항목 나누기·기능 문장·사다리·문제어·
+        모순·근본 원인·분류 후보·문제 성격·신호, 근거 없으면 빈 값, JSON 객체 하나."""
+        ...

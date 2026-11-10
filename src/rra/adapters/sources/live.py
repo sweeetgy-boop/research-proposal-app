@@ -21,6 +21,7 @@ from typing import Any
 
 from rra.adapters.sources._base import GuardedClient, RateLimited
 from rra.domain.models import Document
+from rra.domain.rules.card_queries import CLASS_QUERY_PREFIX
 from rra.domain.rules.source_ip import SourceIpBlocked
 from rra.domain.rules.source_limits import (
     OPENALEX_KEY_ENV,
@@ -197,10 +198,17 @@ class LiveOpenAlex:
 class LiveKipris:
     """KIPRIS Plus 특허·실용신안 자유검색(국문 키워드) — Document.source kipris_kr, doc_type patent.
     2026-11-09 키 투입 뒤 실시간 검색·새로움 확인에 더했다. 야간 적재의 KiprisPatentSource 와 다른
-    인스턴스라 요청 예산이 섞이지 않는다. 질의마다 limit 건까지, 같은 출원번호는 한 번만."""
+    인스턴스라 요청 예산이 섞이지 않는다. 질의마다 limit 건까지, 같은 출원번호는 한 번만.
+
+    분류 검색(ADR 0065): "ipc:" 표식 질의(`card_queries.class_query`)는 키워드 검색이 아니라
+    분류(IPC) 검색으로 보낸다. 분류 질의가 섞여 있으면 분류 검색을 먼저 돌려 limit 의 절반까지
+    담고 나머지를 키워드 검색이 채운다 — 한쪽이 limit 을 다 채워 다른 쪽을 보내지 않는 일이
+    없게. 표식 질의가 없으면 종전과 같다. 일일 호출 카운터는 두 검색이 함께 쓴다(질의 1건 =
+    요청 1건)."""
 
     source = "kipris_kr"
     lang = "ko"
+    class_search = True  # LiveSearch 가 분류 검색 질의를 이 자료원에만 덧붙인다
 
     def __init__(self, inner: Any, *, max_requests: int = 3, counter: Any | None = None):
         self.inner = inner  # KiprisPatentSource
@@ -219,7 +227,16 @@ class LiveKipris:
         async with self._budget.lock:
             self._budget.reset()
             out: dict[str, Document] = {}
-            for q in queries:
+            classes = [q for q in queries if q.startswith(CLASS_QUERY_PREFIX)]
+            words = [q for q in queries if not q.startswith(CLASS_QUERY_PREFIX)]
+            if not hasattr(self.inner, "search_class"):
+                classes = []
+            class_cap = (limit + 1) // 2 if words else limit
+            for q in [*classes, *words]:
+                by_class = bool(classes) and q.startswith(CLASS_QUERY_PREFIX)
+                cap_now = class_cap if by_class else limit
+                if len(out) >= cap_now:
+                    continue  # 분류 몫이 찼다 — 남은 분류 질의는 건너뛰고 키워드로
                 if self.counter is not None and not self.counter.try_spend(1):
                     cap = int(getattr(self.counter, "limit", 0))
                     used = cap - int(self.counter.remaining())
@@ -230,8 +247,12 @@ class LiveKipris:
                         break
                     raise SourceRateLimited(daily_cap_notice("KIPRIS", used, cap))
                 calls += 1
-                raws = await self.inner.search(q, limit)
-                _add(out, _normalized(raws, self.inner.normalize), limit)
+                if by_class:
+                    code = q[len(CLASS_QUERY_PREFIX) :]
+                    raws = await self.inner.search_class(code, cap_now - len(out))
+                else:
+                    raws = await self.inner.search(q, limit)
+                _add(out, _normalized(raws, self.inner.normalize), cap_now)
                 if len(out) >= limit:
                     break
         if self.counter is not None:

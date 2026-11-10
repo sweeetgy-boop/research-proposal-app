@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import sqlite3
@@ -38,6 +39,7 @@ from rra.domain.models import Chunk, Document, TableFact
 from rra.domain.rules.fusion import DEFAULT_K as RRF_K
 from rra.domain.rules.fusion import reciprocal_rank_fusion
 from rra.domain.rules.live_search import match_existing, normalized_title
+from rra.domain.rules.problem_card import normalize_ipc
 
 if TYPE_CHECKING:  # 포트는 구조적 타입 — 런타임 의존 없음
     from rra.application.ports.embedding import EmbeddingPort
@@ -347,6 +349,47 @@ class SQLiteDocumentRepository:
         with self._lock:
             rows = self.conn.execute("SELECT source, COUNT(*) FROM documents GROUP BY source")
             return {str(source): int(n) for source, n in rows}
+
+    # ── 분류 코드 건수 (CodeCountPort, ADR 0065) ─────────────
+    async def count_by_code(self, prefix: str) -> int:
+        """IPC 가 prefix("A01M 29/" 또는 "A01M")로 시작하는 문서 수. 저장 표기가 자료원마다
+        달라("A01M 29/00"·"A01M-029/00") 서브클래스로 후보를 좁힌 뒤 표기를 맞춰 센다."""
+        return await asyncio.to_thread(self._count_by_code_sync, str(prefix or ""))
+
+    def _count_by_code_sync(self, prefix: str) -> int:
+        subclass = prefix[:4].upper()
+        if len(subclass) < 4 or not subclass.isalnum():
+            return 0
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT codes_json FROM documents WHERE codes_json LIKE ?",
+                (f'%"{subclass}%',),  # 영숫자 4자뿐이라 LIKE 와일드카드가 섞일 수 없다
+            ).fetchall()
+        count = 0
+        for (codes_json,) in rows:
+            try:
+                codes = json.loads(codes_json)
+            except ValueError:
+                continue
+            if any((normalize_ipc(c, stored=True) or "").startswith(prefix) for c in codes):
+                count += 1
+        return count
+
+    async def count_by_science_class(self, name: str) -> int:
+        """국가과학기술표준분류 이름(raw.science_class 에 든 이름)이 붙은 문서 수."""
+        return await asyncio.to_thread(self._count_by_science_class_sync, str(name or ""))
+
+    def _count_by_science_class_sync(self, name: str) -> int:
+        name = " ".join(name.split())
+        if not name:
+            return 0
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT COUNT(*) FROM documents "
+                "WHERE json_extract(raw_json, '$.science_class') LIKE ? ESCAPE '\\'",
+                (_like_pattern(name),),
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     async def source_status(self) -> dict[str, dict[str, Any]]:
         return await asyncio.to_thread(self._source_status_sync)

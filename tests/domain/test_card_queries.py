@@ -62,7 +62,8 @@ def test_queries_come_from_ladder_and_function_sentences():
         "조류가 구조물에 앉거나 둥지를 틀지 못하게 막는다",
         "Prevent birds from perching and nesting on structures",
     )
-    assert q.live_ko[:2] == ("비둘기 착좌 둥지 방지", "조류 접근 방지 장치")
+    # 실시간 국문 키워드는 짧은 대상어+작용어 짝 먼저(긴 구절은 국문 자료원이 거의 못 찾는다)
+    assert q.live_ko == ("비둘기 퇴치", "조류 퇴치", "비둘기 착좌 둥지 방지")
     assert q.live_en == (
         "pigeon deterr",
         "bird deterr",

@@ -10,6 +10,7 @@ import type {
   NoveltyCoverage,
 } from "@/api/types-novel";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { principleLabel } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -255,6 +256,12 @@ function NovelCard({
                           해소: {t.resolves_types.join("·")}
                         </Badge>
                       )}
+                      {/* 문제 정의 카드의 모순에서 온 TRIZ 발명 원리 (ADR 0065) — 카드가 없으면 칸이 없거나 비어 있다 */}
+                      {(t.principles ?? []).map((p) => (
+                        <Badge key={p.number} variant="outline" className="whitespace-normal" data-testid="title-principle">
+                          발명 원리 {principleLabel(p)}
+                        </Badge>
+                      ))}
                     </p>
                     {t.reason && <UntrustedText as="p" text={t.reason} className="mt-1 text-xs text-muted-foreground" />}
                     <Button

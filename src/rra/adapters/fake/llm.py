@@ -20,6 +20,8 @@ _EDIT_REQUEST = re.compile(r"<request>(.*?)</request>", re.S)
 _FREE_TEXT = re.compile(r'"text": "([^"]*)"')
 # 2026-10-28 레인 B — 작성·편집 AI 버튼 프롬프트 머리
 _CLARIFY_HEAD = "[보강 질문]"
+_DIAGNOSE_HEAD = "[문제 진단"  # ADR 0065 문제 정의 카드 진단·다시 만들기 프롬프트 머리
+_DIAGNOSE_INPUT = re.compile(r"^\[제안 입력\]\n(\{.*\})$", re.M)
 _POLICY_CARDS_HEAD = "[정책적 중요도 작성안]"
 _POLICY_POLISH_HEAD = "[정책적 중요도 다듬기]"
 _SECTION_Q_HEAD = re.compile(r"^\[보완 질문: ([a-z_]+)\]")
@@ -276,6 +278,53 @@ def _technique_answer(key: str) -> str:
     return json.dumps(_FAKE_TECHNIQUES[key], ensure_ascii=False)
 
 
+def _diagnose_answer(prompt: str) -> str:
+    """문제 정의 카드(ADR 0065) — 제안 입력의 글을 그대로 써서 규칙 검증을 통과한다(지어낸 숫자·
+    기관명 없음). 발명 원리 이름은 일부러 틀리게 — 앱이 고정 목록으로 바꿔 쓰는 것을 e2e 가 본다."""
+    m = _DIAGNOSE_INPUT.search(prompt)
+    try:
+        src = json.loads(m.group(1)) if m else {}
+    except ValueError:
+        src = {}
+    goal = str(src.get("goal") or "")
+    cause = str(src.get("root_cause") or "")
+    limit = str(src.get("limitation") or "")
+    head = str(src.get("title_hint") or goal)
+    words = [w for w in re.findall(r"[가-힣]{2,}", f"{head} {goal}")][:6]
+    return json.dumps(
+        {
+            "facets": {
+                "phenomenon": str(src.get("current_state") or ""),
+                "target": head,
+                "place": "",
+                "cause": cause,
+                "harm": limit,
+                "desired": goal,
+            },
+            "function_ko": goal,
+            "function_en": "resolve the problem stated in the proposal",
+            "ladder": {"concrete": head, "general": goal, "abstract": "원인 제거와 재발 방지"},
+            "terms": {
+                "objects_ko": words[:3],
+                "actions_ko": words[3:6],
+                "objects_en": ["object"],
+                "actions_en": ["prevention"],
+            },
+            "contradiction": {
+                "improve": goal,
+                "worsen": limit,
+                "principles": [{"number": 10, "name": "틀린 이름"}, 35],
+            },
+            "causes": [cause],
+            "ipc": ["B61L-023/00"],
+            "science_class": ["철도교통기술"],
+            "nature": {"kind": "난해", "mode": "실증형"},
+            "signals": ["unclear_cause"],
+        },
+        ensure_ascii=False,
+    )
+
+
 class ScriptedComposeLLM:
     """섹션 키에 따라 한국어 문장 1~2개를 JSON 으로 돌려준다. 근거는 프롬프트의 첫 구획 id."""
 
@@ -289,6 +338,8 @@ class ScriptedComposeLLM:
 
     async def complete(self, prompt, *, system=None, max_tokens=None, json_mode=False) -> str:
         self.calls.append(prompt)
+        if prompt.startswith(_DIAGNOSE_HEAD):
+            return _diagnose_answer(prompt)
         if prompt.startswith(_CLARIFY_HEAD):
             return json.dumps(
                 {

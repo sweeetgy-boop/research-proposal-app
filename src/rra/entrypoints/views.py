@@ -996,13 +996,16 @@ OVERLAP_BY_LABELS: dict[str, str] = {
 }
 
 
-def recommendations_payload(result: Any, *, clean: Callable[[str], str] = _same) -> dict[str, Any]:
+def recommendations_payload(
+    result: Any, *, clean: Callable[[str], str] = _same, card: Any = None
+) -> dict[str, Any]:
     """RecommendationResult → dict (CLI·MCP·REST 공용). 본문은 LLM 출력(비신뢰) → clean.
+    card: 요청의 문제 정의 카드(ADR 0065) — novel 과제명의 발명 원리 이름에만 쓴다.
 
     모든 응답에 `mode` (ADR 0057). differentiate 는 종전 모양 그대로 + `novelty_reverted`·
     `novelty_alert_ids`, novel 은 계약 5절 모양(`novel_recommendations_payload`)."""
     if getattr(result, "mode", "differentiate") == "novel":
-        return novel_recommendations_payload(result, clean=clean)
+        return novel_recommendations_payload(result, clean=clean, card=card)
     return {
         **_differentiate_payload(result, clean=clean),
         "mode": "differentiate",
@@ -1071,11 +1074,23 @@ def novel_progress_payload(
     }
 
 
+def _principle_names(card: Any) -> dict[int, str]:
+    """문제 정의 카드의 모순에 붙은 발명 원리 번호 → 이름 (ADR 0065). 카드가 없으면 빈 표."""
+    contradiction = getattr(card, "contradiction", None)
+    out: dict[int, str] = {}
+    for p in getattr(contradiction, "principles", None) or []:
+        out.setdefault(int(p.number), str(p.name or ""))
+    return out
+
+
 def novel_recommendations_payload(
-    result: Any, *, clean: Callable[[str], str] = _same
+    result: Any, *, clean: Callable[[str], str] = _same, card: Any = None
 ) -> dict[str, Any]:
     """새 과제 추천(novel) → 계약 5절 모양 (web `types-novel.ts` NovelRecommendations).
-    글 칸은 모두 clean(비신뢰). doc_id 는 화면에 보이지 않는다 — 화면은 refs·analogies 제목."""
+    글 칸은 모두 clean(비신뢰). doc_id 는 화면에 보이지 않는다 — 화면은 refs·analogies 제목.
+    card(요청의 문제 정의 카드)가 있으면 과제명의 `principles` 를 `[{number, name}]` 로(이름은 카드
+    에서), 없으면 빈 배열."""
+    names = _principle_names(card)
     return {
         "mode": "novel",
         "coverage": novel_coverage_payload(getattr(result, "coverage", None), clean=clean),
@@ -1118,6 +1133,11 @@ def novel_recommendations_payload(
                             r.barriers[k].type for k in t.resolves if 0 <= k < len(r.barriers)
                         ],
                         "reason": clean(t.reason),
+                        "principles": [
+                            {"number": n, "name": clean(names[n])}
+                            for n in getattr(t, "principles", [])
+                            if n in names
+                        ],
                     }
                     for t in r.titles
                 ],

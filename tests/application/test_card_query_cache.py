@@ -12,7 +12,7 @@ from rra.adapters.runs import AsyncioTaskRunner
 from rra.application.usecases.live_search import LiveSearch
 from rra.domain.models import ProposalRequest
 from rra.domain.models.live_search import LiveKeywords
-from rra.domain.models.problem_card import CardText
+from rra.domain.models.problem_card import CardText, LadderStep, ProblemTerms
 from rra.domain.rules.card_queries import analogy_owner, card_queries
 from tests.application.test_live_search import FakeSource, IdentityRepo, _cfg, _doc
 from tests.domain.test_card_queries import IDEA, card
@@ -57,21 +57,48 @@ async def test_edited_function_sentence_is_searched_again_not_served_from_cache(
     live, (ko_src, en_src) = setup(tmp_path)
     first = req_with(card())
     await live.prepare(owner(first), first)
-    assert ko_src.calls[0][0][:2] == ["비둘기 착좌 둥지 방지", "조류 접근 방지 장치"]
+    assert ko_src.calls[0][0] == ["비둘기 퇴치", "조류 퇴치", "비둘기 착좌 둥지 방지"]
     assert en_src.calls[0][0][-1] == "Prevent birds from perching and nesting on structures"
 
+    # 기능 문장을 고치고 그에 따라 사다리·문제어·영문이 다시 만들어진 카드
     edited = req_with(
         card(
             function_ko=CardText(value="조류가 지붕에 머무르지 못하게 한다", origin="user"),
             function_en=CardText(value="Keep birds from staying on station roofs"),
+            ladder=[
+                LadderStep(level="구체", text="비둘기 체류 방지"),
+                LadderStep(level="일반화", text="조류 체류 억제 장치"),
+            ],
+            terms=ProblemTerms(
+                objects_ko=["비둘기", "조류"],
+                actions_ko=["체류"],
+                objects_en=["pigeon", "bird"],
+                actions_en=["roost"],
+            ),
         )
     )
     again = await live.prepare(owner(edited), edited)
     # 입력 글은 같지만 보낸 질의가 달라 새 세션·새 호출(24시간 캐시 재사용 없음)
     assert len(ko_src.calls) == 2 and len(en_src.calls) == 2
     assert not any(r.cached for r in again.sources if r.status == "ok")
-    assert "조류가 지붕에 머무르지 못하게 한다" in ko_src.calls[1][0]
+    assert ko_src.calls[1][0] == ["비둘기 체류", "조류 체류", "비둘기 체류 방지"]
     assert en_src.calls[1][0][-1] == "Keep birds from staying on station roofs"
+
+
+async def test_only_sentence_changed_resends_only_the_queries_that_changed(tmp_path):
+    """국문 기능 문장만 바뀌고 문제어·사다리가 그대로면(다시 만들기 실패 등) 새 세션이지만, 글자가
+    같은 실시간 질의는 자료원 응답 캐시가 맞는다 — 키는 카드가 아니라 실제 보낸 질의다."""
+    live, (ko_src, en_src) = setup(tmp_path)
+    first = req_with(card())
+    await live.prepare(owner(first), first)
+    sentence_only = req_with(
+        card(function_ko=CardText(value="조류가 지붕에 머무르지 못하게 한다", origin="user"))
+    )
+    assert owner(sentence_only) != owner(first)  # 저장 자료 질의가 달라 지문·세션은 새로
+    again = await live.prepare(owner(sentence_only), sentence_only)
+    assert live.find(owner(sentence_only), sentence_only) is not live.find(owner(first), first)
+    assert all(r.cached for r in again.sources if r.status == "ok")  # 같은 질의 → 같은 응답
+    assert len(ko_src.calls) == 1 and len(en_src.calls) == 1
 
 
 async def test_same_queries_reuse_cache_and_switch_off_is_separate(tmp_path):

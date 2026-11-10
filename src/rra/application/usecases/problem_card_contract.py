@@ -73,7 +73,8 @@ class EditOutcome:
       순서 유지).
       plans_stale 이 있으면 화면이 [과제안 다시 만들기] 를 보인다 — 서버가 과제안을 자동으로
       다시 만들지 않는다(모순 수정 포함).
-    recorded: 수정 짝·card_edit 기록을 남겼는가(공용 계정·표현 다듬기·저장 꺼짐이면 False).
+    recorded: 수정 짝·card_edit 기록을 남겼는가(공용 계정·저장 꺼짐이면 False). 표현 다듬기도 줄은
+      남기고 본인 예시에서만 뺀다.
     """
 
     card: ProblemCard

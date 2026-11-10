@@ -92,6 +92,7 @@ RETRY_AFTER_SECONDS = 300  # 일부 자료원이 실패한 세션은 5분 뒤 �
 NOTICE_TIMEOUT = "제한 시간 {sec:.0f}초를 넘어 건너뜀"
 # 중복이면 앞 자료원(과제·국내 기록)을 남긴다
 SOURCE_ORDER = ("ntis", "scienceon", "kipris_kr", "openalex")
+MAX_CLASS_QUERIES = 3  # 카드의 IPC 는 최대 3 (problem_card.MAX_IPC)
 
 
 # ── 키워드 ─────────────────────────────────────────────────
@@ -155,6 +156,9 @@ class LiveSession:
     keywords: LiveKeywords = field(default_factory=LiveKeywords)
     results: dict[str, LiveSourceResult] = field(default_factory=dict)
     doc_ids: list[str] = field(default_factory=list)
+    # 분류 코드 검색 질의("ipc:" 표식, ADR 0065) — 키워드를 만드는 쪽이 `class_queries(req)` 를
+    # 갖고 있을 때만 찬다(유추 검색의 카드). 분류 검색을 하는 자료원(`class_search`)만 받는다
+    class_queries: list[str] = field(default_factory=list)
     finished: bool = False
     done: asyncio.Event = field(default_factory=asyncio.Event)
 
@@ -291,6 +295,7 @@ class LiveSearch:
             session.keywords = cached or await self.keywords(req)
             if cached is None:
                 self._cache_keywords(req, session.keywords)
+            session.class_queries = self._class_queries(req)
             fetched = await self._search_all(session)
             async with self._store_lock:
                 await self._store(session, fetched)
@@ -361,6 +366,9 @@ class LiveSearch:
             return result("error", notice=NOTICE_NO_SOURCE), []
         words = session.keywords.en if port.lang == "en" else session.keywords.ko
         queries = source_queries(words, limit=self.config.max_queries)
+        if session.class_queries and getattr(port, "class_search", False):
+            # 분류 검색 질의는 키워드 뒤에 덧붙인다 — 캐시 키에도 "ipc:" 표식째 들어간다
+            queries = [*queries, *source_queries(session.class_queries, limit=MAX_CLASS_QUERIES)]
         if not queries:
             return result("ok", notice=NOTICE_NO_KEYWORDS), []
         blocked = self._recent_block(name)
@@ -428,6 +436,16 @@ class LiveSearch:
         session.doc_ids = ids
 
     # ── 보조 ───────────────────────────────────────────────
+    def _class_queries(self, req: ProposalRequest) -> list[str]:
+        maker = getattr(self.keywords, "class_queries", None)
+        if not callable(maker):
+            return []
+        try:
+            return [q for q in maker(req) if isinstance(q, str) and q]
+        except Exception as exc:  # 분류 질의 실패는 키워드 검색만으로 계속
+            logger.info("live.class_queries_failed err=%s", type(exc).__name__)
+            return []
+
     def _recent_block(self, name: str) -> str | None:
         """최근(ip_block_recheck_minutes 안)에 IP 거부가 기록된 자료원이면 그 안내 — 호출하지
         않는다."""

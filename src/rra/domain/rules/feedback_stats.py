@@ -15,6 +15,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from rra.domain.rules.card_edits import EVENT_CARD_EDIT
 from rra.domain.rules.recommend_metrics import BRANCHES, STAGE_FIELDS, TEST_FIELD, enum_value
 from rra.domain.rules.similar_choice import EVENTS, SOURCE_AI_PREFILL, SOURCE_USER
 
@@ -41,6 +42,16 @@ def _ordered(counter: Counter[str], first: Iterable[str]) -> dict[str, int]:
     for k in keys[len(tuple(first)) :]:
         if counter.get(k):
             out[k] = counter[k]
+    return out
+
+
+def _with_card_edits(by_event: dict[str, int], count: int) -> dict[str, int]:
+    """card_edit 줄이 있을 때만 그 칸을 더한다(열거값 뒤, 기타·없음 앞) — 없으면 종전 출력."""
+    if not count:
+        return by_event
+    out = {k: v for k, v in by_event.items() if k in EVENTS}
+    out[EVENT_CARD_EDIT] = count
+    out.update({k: v for k, v in by_event.items() if k not in EVENTS})
     return out
 
 
@@ -79,13 +90,16 @@ def choice_stats(rows: Iterable[Mapping[str, Any]], *, include_test: bool = Fals
     """선택 기록 줄 → 개수. event 가 없는 옛 줄은 "없음"(그때는 생성 요청만 기록했다)."""
     events: Counter[str] = Counter()
     sources: Counter[str] = Counter()
-    total = tests = 0
+    total = tests = card_edits = 0
     for row in rows:
         if is_test_line(row):
             tests += 1
             if not include_test:
                 continue
         total += 1
+        if row.get("event") == EVENT_CARD_EDIT:  # 문제 정의 카드 수정 줄(ADR 0065) — 출처 칸 없음
+            card_edits += 1
+            continue
         events[_bucket(row.get("event"), EVENTS)] += 1
         sources[_bucket(row.get("source"), SOURCES)] += 1
     return ChoiceStats(
@@ -93,7 +107,7 @@ def choice_stats(rows: Iterable[Mapping[str, Any]], *, include_test: bool = Fals
         total=total,
         test_lines=tests,
         include_test=include_test,
-        by_event=_ordered(events, EVENTS),
+        by_event=_with_card_edits(_ordered(events, EVENTS), card_edits),
         by_source=_ordered(sources, SOURCES),
     )
 
