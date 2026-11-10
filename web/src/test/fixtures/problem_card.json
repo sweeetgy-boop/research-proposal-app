@@ -1,0 +1,67 @@
+{
+  "status": "ok",
+  "card": {
+    "version": 1,
+    "facets": {
+      "phenomenon": { "value": "궤도 틀림이 반복 발생함", "origin": "ai", "basis": "근거 있음", "ai_value": "", "needs_check": false },
+      "target": { "value": "궤도", "origin": "ai", "basis": "근거 있음", "ai_value": "", "needs_check": false },
+      "place": { "value": "일반선 자갈 도상 구간", "origin": "ai", "basis": "추정", "ai_value": "", "needs_check": false },
+      "cause": { "value": "다짐 효과가 오래 가지 않음", "origin": "ai", "basis": "근거 있음", "ai_value": "", "needs_check": false },
+      "harm": { "value": "", "origin": "ai", "basis": "추정", "ai_value": "", "needs_check": false },
+      "desired": { "value": "검측 이력 기반 보수 우선순위 산정", "origin": "ai", "basis": "근거 있음", "ai_value": "", "needs_check": false }
+    },
+    "function_ko": { "value": "궤도 틀림의 진행을 늦춘다", "origin": "ai", "basis": "근거 있음", "ai_value": "", "needs_check": false },
+    "function_en": { "value": "slow the progression of track geometry irregularity", "origin": "ai", "basis": "추정", "ai_value": "", "needs_check": false },
+    "ladder": [
+      { "level": "구체", "text": "궤도 틀림 진행 억제" },
+      { "level": "일반화", "text": "선로 구조물의 변형 진행 억제" },
+      { "level": "추상화", "text": "반복 하중을 받는 구조물의 열화 억제" }
+    ],
+    "ladder_origin": "ai",
+    "terms": {
+      "objects_ko": ["궤도", "선로"],
+      "actions_ko": ["틀림", "다짐"],
+      "objects_en": ["track", "ballast"],
+      "actions_en": ["irregularity", "tamping"],
+      "origin": "ai"
+    },
+    "contradiction": {
+      "improve": "보수 주기 단축",
+      "worsen": "보수 비용과 작업 시간 증가",
+      "principles": [
+        { "number": 10, "name": "사전 조치" },
+        { "number": 35, "name": "속성 변환" }
+      ],
+      "origin": "ai",
+      "basis": "추정",
+      "ai_improve": "",
+      "ai_worsen": ""
+    },
+    "causes": [
+      { "value": "다짐 효과가 오래 가지 않음", "origin": "ai", "basis": "근거 있음", "ai_value": "", "needs_check": true },
+      { "value": "자갈 마모로 도상 지지력이 떨어짐", "origin": "ai", "basis": "추정", "ai_value": "", "needs_check": false }
+    ],
+    "ipc": [
+      { "code": "E01B 27/00", "label": "궤도 보수 장비", "origin": "ai", "verified": "corpus", "count": 12 },
+      { "code": "B61K 9/08", "label": "", "origin": "ai", "verified": "unverified", "count": null }
+    ],
+    "science_class": [{ "code": "EI0703", "label": "철도 시설", "origin": "ai", "verified": "table", "count": null }],
+    "nature": { "kind": "난해", "mode": "실증형", "origin": "ai" },
+    "signals": ["unclear_cause"],
+    "methods": ["core"],
+    "checks": ["cause_mismatch"]
+  },
+  "lines": {
+    "function": "궤도 틀림의 진행을 늦춘다",
+    "cause": "다짐 효과가 오래 가지 않음",
+    "contradiction": "보수 주기 단축 ↔ 보수 비용과 작업 시간 증가",
+    "codes": "E01B 27/00 · B61K 9/08 · EI0703"
+  },
+  "signal_labels": [{ "signal": "unclear_cause", "label": "원인이 뚜렷하지 않거나 여러 가지" }],
+  "reason": null,
+  "reason_label": null,
+  "provider": "gemini",
+  "model": "fake/argon",
+  "fallback_local": false,
+  "seconds": 0.1
+}
