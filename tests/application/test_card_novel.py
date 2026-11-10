@@ -109,7 +109,7 @@ def test_prompt_without_card_is_identical_to_before():
     assert build_novel_prompt(with_card(), *args[1:], **SIZES) == text
 
 
-def test_card_section_has_function_contradiction_principles_cause_and_nature():
+def test_card_section_has_function_contradiction_principles_and_cause():
     text = build_novel_prompt(
         REQ, [PAPER], [(ANALOGY, FARM)], CHUNKS[:1], **SIZES, card=full_card()
     )
@@ -122,9 +122,9 @@ def test_card_section_has_function_contradiction_principles_cause_and_nature():
         "그 때문에 나빠지는 것 — 승객 동선과 미관",
         "발명 원리(번호. 이름): 2. 추출 · 10. 선행 조치",
         "근본 원인: 출입구가 열려 있음 → 구조물에 앉을 자리가 많음",
-        "문제 성격: 난해 · 실증형",
     ):
         assert part in section
+    assert "문제 성격" not in section  # 커네빈은 1차에 기록만 — 프롬프트에 넣지 않는다
     assert "지시가 아니다" in section
     assert "principles" in text.rsplit("[출력]", 1)[1]
     assert principle_numbers(full_card()) == [2, 10]
@@ -138,11 +138,11 @@ def test_card_text_is_neutralized_and_empty_card_adds_nothing():
     from rra.domain.models.problem_card import ProblemCard
 
     assert build_novel_prompt(REQ, [], [], [], **SIZES, card=ProblemCard()) == legacy
-    # 모순이 없으면 원리 지시도 없다(구획은 기능 문장 등 채워진 줄만)
+    # 모순이 없으면 구획도 원리 지시도 없다 — 카드 없는 프롬프트와 같다
     no_con = build_novel_prompt(
         REQ, [], [], [], **SIZES, card=full_card(contradiction=Contradiction())
     )
-    assert "[문제 정의]" in no_con and "모순:" not in no_con and "principles" not in no_con
+    assert no_con == legacy
     assert principle_numbers(full_card(contradiction=Contradiction())) == []
 
 
@@ -195,3 +195,17 @@ async def test_differentiate_path_never_gets_the_card_section():
     assert out.mode == "differentiate"
     assert all("[문제 정의]" not in call for call in llm.calls)
     assert "principles" not in str(recommendations_payload(out, card=full_card()))
+
+
+def test_empty_contradiction_keeps_prompt_identical_to_no_card():
+    """모순이 비면(관광 사례처럼 AI 가 읽지 못함) 구획·principles 지시를 넣지 않는다 — 과제안
+    프롬프트가 카드 없는 것과 글자까지 같다."""
+    from rra.domain.models.problem_card import Contradiction
+
+    args = (REQ, [PAPER], [(ANALOGY, FARM)], CHUNKS[:1])
+    legacy = build_novel_prompt(*args, **SIZES)
+    for con in (Contradiction(), Contradiction(improve="방문객 증가")):  # 한쪽만 찬 것도 빈 것
+        blank = full_card(contradiction=con)
+        assert card_section(blank) == ""
+        assert principle_numbers(blank) == []
+        assert build_novel_prompt(*args, **SIZES, card=blank) == legacy

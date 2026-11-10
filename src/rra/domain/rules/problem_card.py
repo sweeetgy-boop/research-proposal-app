@@ -228,14 +228,26 @@ def clean_terms(
     abstract: str = "",
     axis: ProblemAxisRule | None = None,
     rule: KeywordRule | None = None,
+    subject: str = "",
 ) -> tuple[ProblemTerms, int]:
     """AI 문제어 → 낱말 단위로 정리한 문제어와 뺀 낱말 수.
 
     뺀다: 장소어(`facets.place` 의 낱말·axis 의 장소 말)·일반어·한 글자·한자/가나·추상화 단에만
-    나오는 대상어. 국문 칸에는 한글 낱말만, 영문 칸에는 영문 낱말만 둔다."""
+    나오는 대상어. 국문 칸에는 한글 낱말만, 영문 칸에는 영문 낱말만 둔다.
+
+    subject: 국문·영문 기능 문장(대상 + 작용, 장소어를 넣지 않는 칸). 여기 나온 말은
+      axis 의 장소 말 목록에 있어도 **대상어로 남긴다** — "궤도 틀림"처럼 철도 시설 자체가 문제의
+      대상인 과제에서 핵심 대상어(궤도·track)가 사라지지 않게(2026-11-10 실제 카드에서 확인).
+      `facets.place` 에 적힌 말은 그래도 뺀다."""
     rule = rule or KeywordRule()
     data = raw if isinstance(raw, Mapping) else {}
     place_words = set(tokens(place))
+    subject_ko = {t for t in tokens(subject) if _HANGUL.search(t)}
+    subject_en = set(_EN_TOKEN.findall(subject.lower()))
+
+    def is_subject(w: str, base: str) -> bool:
+        return any(t == w or t.startswith(base) for t in subject_ko)
+
     near = set(tokens(f"{concrete} {general}"))
     far = set(tokens(abstract)) - near
     place_en = {p.lower() for p in axis.place_en} if axis is not None else set()
@@ -252,7 +264,11 @@ def clean_terms(
                 or has_foreign_script(w)
                 or bool({w, base} & rule.generic_terms)
                 or bool({w, base} & place_words)
-                or (axis is not None and (is_place_ko(w, axis) or w in axis.place_ko))
+                or (
+                    axis is not None
+                    and (is_place_ko(w, axis) or w in axis.place_ko)
+                    and not (objects and is_subject(w, base))
+                )
                 or (objects and bool({w, base} & far))
             )
             if bad:
@@ -261,7 +277,7 @@ def clean_terms(
                 out.append(w)
         return out
 
-    def en(key: str) -> list[str]:
+    def en(key: str, *, objects: bool = False) -> list[str]:
         nonlocal dropped
         out: list[str] = []
         for item in data.get(key) if isinstance(data.get(key), (list, tuple)) else []:
@@ -269,7 +285,7 @@ def clean_terms(
                 dropped += 1
                 continue
             for w in _EN_TOKEN.findall(item.lower()):
-                if len(w) < 2 or w in place_en:
+                if len(w) < 2 or (w in place_en and not (objects and w in subject_en)):
                     dropped += 1
                 elif w not in out:
                     out.append(w)
@@ -278,7 +294,7 @@ def clean_terms(
     terms = ProblemTerms(
         objects_ko=ko("objects_ko", objects=True),
         actions_ko=ko("actions_ko", objects=False),
-        objects_en=en("objects_en"),
+        objects_en=en("objects_en", objects=True),
         actions_en=en("actions_en"),
     )
     return terms, dropped
@@ -371,6 +387,7 @@ def parse_card(
         abstract=step.get("추상화", ""),
         axis=axis,
         rule=rule,
+        subject=" ".join(p for p in (fn_ko.value, en_value) if p),
     )
     if dropped:
         out.changed.append("terms")

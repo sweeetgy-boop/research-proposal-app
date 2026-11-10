@@ -131,7 +131,15 @@ def pick_fingerprint(queries: CardQueries | None, card: ProblemCard | None, rank
             ("objects", [*terms.objects_ko, *terms.objects_en]),
             ("actions", [*terms.actions_ko, *terms.actions_en]),
             ("rerank", [rerank_query(card)]),
-            ("rank", [str(rank.rerank_top), str(rank.per_source), str(rank.require_object)]),
+            (
+                "rank",
+                [
+                    str(rank.rerank_top),
+                    str(rank.per_source),
+                    str(rank.priority_window),
+                    str(rank.require_object),
+                ],
+            ),
         ]
     )
 

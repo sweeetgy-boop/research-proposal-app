@@ -78,6 +78,7 @@ from rra.entrypoints.api.choice_dedupe import ChoiceDedupe
 from rra.entrypoints.api.edit_ai_routes import register as register_edit_ai_routes
 from rra.entrypoints.api.health_view import with_ops
 from rra.entrypoints.api.local_review_routes import register as register_local_review_routes
+from rra.entrypoints.api.problem_card_routes import register as register_problem_card_routes
 from rra.entrypoints.api.progress_routes import register as register_progress_routes
 from rra.entrypoints.api.progress_routes import register_recommend_stream
 from rra.entrypoints.api.recommend_switch import (
@@ -330,6 +331,8 @@ def create_app(
     live_search: Any | None = None,
     polish: Any | None = None,
     choice_log: Any | None = None,
+    problem_diagnosis: Any | None = None,  # ADR 0065 문제 정의 카드 진단
+    card_editor: Any | None = None,
 ) -> FastAPI:
     """조립된 서비스로 앱을 만든다. 기본 조립은 composition.build_api().
 
@@ -644,7 +647,10 @@ def create_app(
         else:
             result = await svc(req, alerts, **mark)
         rec_id = recommendation_sessions.put(req, result)
-        out = {"id": rec_id, **recommendations_payload(result, clean=_clean)}
+        out = {
+            "id": rec_id,
+            **recommendations_payload(result, clean=_clean, card=req.problem_card),
+        }
         # ADR 0057 — 새로움 확인에서 새로 걸린 유사 과제(differentiate 로 되돌림)는 ② 표에 더한다.
         # 응답 최상위 alerts 에 합치는 것은 부른 쪽(_with_novelty_rows) — 여기는 행만 넘긴다
         out[_NOVELTY_ROWS] = list(getattr(result, "novelty_alerts", []) or [])
@@ -1741,6 +1747,14 @@ def create_app(
         app, api_version=API_VERSION, manager=manager, svc=_svc, own=_own, clean=_clean
     )
     register_local_review_routes(app, api_version=API_VERSION, manager=manager, own=_own)
+    register_problem_card_routes(  # ADR 0065 문제 정의 카드 (꺼져 있으면 진단은 status=off)
+        app,
+        api_version=API_VERSION,
+        diagnosis=problem_diagnosis,
+        editor=card_editor,
+        who=_who,
+        clean=_clean,
+    )
     register_progress_routes(  # ADR 0045 작성 중 섹션 먼저 보기
         app, api_version=API_VERSION, manager=manager, own=_own, clean=_clean
     )

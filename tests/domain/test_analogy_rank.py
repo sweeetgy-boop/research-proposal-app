@@ -112,3 +112,25 @@ def test_per_source_first_then_fill_in_rank_order():
 
 def test_few_analogies_signal_is_under_three():
     assert few_analogies(0) and few_analogies(2) and not few_analogies(3)
+
+
+def test_priority_window_keeps_far_low_ranked_sources_out():
+    """자료원당 우선은 순위 상위 window 안에서만 — 한참 아래의 다른 자료원 자료가 5번째로
+    들어오지 않는다(2026-11-10 악취 사례: 30위 밖 0.019 점 특허)."""
+    names = [*(f"scienceon:{i}" for i in range(1, 8)), "kipris_kr:far"]
+    ordered = order_rows(
+        rank_rows(
+            [(doc(n, f"조류 {n}"), 0.9 - i * 0.01) for i, n in enumerate(names)],
+            card(),
+            CardRank(require_object=False),
+        ),
+        [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.01],
+    )
+    loose = take_by_source(ordered, per_source=2, limit=5)
+    assert loose[-1].doc.doc_id == "kipris_kr:far"  # 범위 제한이 없으면 들어온다
+    tight = take_by_source(ordered, per_source=2, limit=5, window=6)
+    assert [r.doc.doc_id for r in tight] == [f"scienceon:{i}" for i in range(1, 6)]
+    # 범위 안의 다른 자료원 자료는 여전히 우선
+    near = take_by_source(ordered, per_source=2, limit=5, window=8)
+    assert near[-1].doc.doc_id == "kipris_kr:far"
+    assert CardRank().priority_window == 15

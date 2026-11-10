@@ -62,6 +62,10 @@ def app_for(tmp_path: Path, *, enabled: bool = True, who=None, wired: bool = Tru
             edit_log=parts["edit_log"],
             choice_log=parts["choice_log"],
         )
+    # create_app 이 이미 붙인(진단 없음 = off) 같은 경로를 떼고 시험용 유스케이스로 다시 붙인다
+    app.router.routes[:] = [
+        r for r in app.router.routes if not getattr(r, "path", "").startswith("/v1/ideas/diagnose")
+    ]
     register(
         app,
         api_version="v1",

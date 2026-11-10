@@ -115,15 +115,22 @@ def order_rows(rows: Sequence[RankRow], scores: Sequence[float] | None = None) -
     return sorted(rows, key=lambda r: (-len(r.shared), -r.similarity, r.doc.doc_id))
 
 
-def take_by_source(ordered: Sequence[RankRow], *, per_source: int, limit: int) -> list[RankRow]:
+def take_by_source(
+    ordered: Sequence[RankRow], *, per_source: int, limit: int, window: int | None = None
+) -> list[RankRow]:
     """순위대로 자료원당 per_source 건까지 먼저, limit 이 안 차면 넘긴 것을 순위대로.
-    결과는 순위 순."""
+    결과는 순위 순.
+
+    window: 자료원당 우선을 적용하는 범위(순위 상위 몇 건). 그 밖의 자료는 '넘긴 것'보다 먼저
+    담지 않는다 — 상위가 한 자료원에 몰렸을 때 순위가 한참 낮은 다른 자료원 자료가 들어오지
+    않게. None 이면 범위 제한 없음."""
     if limit <= 0:
         return []
+    head = ordered if window is None else ordered[: max(window, limit)]
     counts: dict[str, int] = {}
     picked: list[int] = []
     skipped: list[int] = []
-    for i, row in enumerate(ordered):
+    for i, row in enumerate(head):
         if len(picked) >= limit:
             break
         if counts.get(row.doc.source, 0) >= per_source:
@@ -131,7 +138,7 @@ def take_by_source(ordered: Sequence[RankRow], *, per_source: int, limit: int) -
             continue
         counts[row.doc.source] = counts.get(row.doc.source, 0) + 1
         picked.append(i)
-    for i in skipped:
+    for i in [*skipped, *range(len(head), len(ordered))]:
         if len(picked) >= limit:
             break
         picked.append(i)

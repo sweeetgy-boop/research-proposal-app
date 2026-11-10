@@ -121,24 +121,24 @@ def analogy_text(analogy: Analogy, doc: Document | None, max_chars: int) -> str:
 
 
 def card_lines(card: ProblemCard | None) -> list[str]:
-    """[문제 정의] 구획의 줄 — 기능 문장·모순·발명 원리·근본 원인·문제 성격 중 채워진 것만."""
-    if card is None:
+    """[문제 정의] 구획의 줄 — 기능 문장·모순·발명 원리·근본 원인.
+
+    모순이 비어 있으면(AI 가 제안문에서 읽지 못함) **구획을 넣지 않는다** — 과제안 프롬프트가 카드
+    없는 것과 글자까지 같다(2026-11-10 소유자 확인 항목). 문제 성격(커네빈)은 1차에 기록만 하므로
+    프롬프트에도 넣지 않는다."""
+    if card is None or not card.contradiction.filled:
         return []
     lines: list[str] = []
     if card.function_ko.value:
         lines.append(f"기능 문장: {card.function_ko.value}")
     con = card.contradiction
-    if con.filled:
-        lines.append(f"모순: 좋게 하려는 것 — {con.improve} / 그 때문에 나빠지는 것 — {con.worsen}")
-        if con.principles:
-            names = " · ".join(f"{p.number}. {p.name}".rstrip(". ") for p in con.principles)
-            lines.append(f"발명 원리(번호. 이름): {names}")
+    lines.append(f"모순: 좋게 하려는 것 — {con.improve} / 그 때문에 나빠지는 것 — {con.worsen}")
+    if con.principles:
+        names = " · ".join(f"{p.number}. {p.name}".rstrip(". ") for p in con.principles)
+        lines.append(f"발명 원리(번호. 이름): {names}")
     causes = [c.value for c in card.causes if c.value]
     if causes:
         lines.append("근본 원인: " + " → ".join(causes))
-    nature = [x for x in (card.nature.kind, card.nature.mode) if x]
-    if nature:
-        lines.append("문제 성격: " + " · ".join(nature))
     return lines
 
 

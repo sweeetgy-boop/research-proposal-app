@@ -402,3 +402,24 @@ def test_card_lines_and_signal_labels_are_korean():
     assert all(not x["label"].isascii() for x in labels)
     counts = rules.basis_counts(c)
     assert counts[BASIS_STATED] + counts[BASIS_GUESSED] >= 8
+
+
+def test_subject_words_stay_as_objects_even_if_listed_as_place():
+    """문제의 대상 자체가 철도 시설이면(궤도 틀림) 장소 말 목록에 있어도 대상어로 남긴다.
+    `facets.place` 에 적힌 말과 작용어 칸은 종전대로 뺀다."""
+    raw = {
+        "objects_ko": ["궤도", "레일", "승강장"],
+        "actions_ko": ["틀림", "궤도"],
+        "objects_en": ["track", "rail", "station"],
+        "actions_en": ["irregularity", "track"],
+    }
+    subject = "궤도 틀림 주행 중 가속도 신호로 궤도 틀림을 감지한다 detect track irregularity"
+    terms, _ = rules.clean_terms(raw, axis=AXIS, rule=RULE, subject=subject)
+    assert terms.objects_ko == ["궤도", "레일"]  # 승강장은 대상 글에 없다 → 장소어
+    assert terms.actions_ko == ["틀림"]
+    assert terms.objects_en == ["track"]  # rail·station 은 대상 글에 없다
+    assert terms.actions_en == ["irregularity"]
+    placed, _ = rules.clean_terms(raw, place="궤도 구간", axis=AXIS, rule=RULE, subject=subject)
+    assert "궤도" not in placed.objects_ko  # 카드가 장소로 적은 말은 뺀다
+    plain, _ = rules.clean_terms(raw, axis=AXIS, rule=RULE)
+    assert "궤도" not in plain.objects_ko and plain.objects_en == []

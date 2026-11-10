@@ -567,7 +567,12 @@ class ProblemAnalogySearch:
             if scores is not None and len(scores) != len(rows):
                 scores = None
         limit = min(self.settings.max_results, MAX_ANALOGIES)
-        picked = take_by_source(order_rows(rows, scores), per_source=rank.per_source, limit=limit)
+        picked = take_by_source(
+            order_rows(rows, scores),
+            per_source=rank.per_source,
+            limit=limit,
+            window=rank.priority_window,
+        )
         return [self._analogy(r, card, live_ids) for r in picked], scores is not None
 
     def _analogy(self, row: RankRow, card: ProblemCard, live_ids: set[str]) -> Analogy:

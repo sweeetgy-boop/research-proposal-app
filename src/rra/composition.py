@@ -2630,9 +2630,24 @@ def build_api(
             keyword_source=live.keywords,
             live=live,
         )
+    # ADR 0065 문제 정의 카드 — 꺼져 있으면 진단은 status="off", 카드를 받는 단계는 카드를 무시한다.
+    # 수정 짝·선택 기록 저장소는 진단·수정·REST 가 같은 것을 쓴다(가짜 모드는 메모리).
+    choice_log = build_choice_log(settings)
+    card_kwargs = dict(
+        repo=repo,
+        llm=llm,
+        local_slot=slot,
+        embedding=getattr(repo, "embedding", None),  # API 가 이미 띄운 임베딩(새로 띄우지 않는다)
+        edit_log=build_card_edit_log(settings),
+        class_count=build_patent_class_count(settings)
+        if _problem_card_config(settings).enabled
+        else None,
+    )
     return create_app(
         manager=manager,
         precheck=precheck,
+        problem_diagnosis=build_problem_diagnosis(settings, **card_kwargs),
+        card_editor=build_card_editor(settings, choice_log=choice_log, **card_kwargs),
         policy_suggest=build_policy_suggest(settings, repo=repo),
         notice_match=build_notice_match(settings, repo=repo),
         differentiate=build_differentiator(settings, repo=repo, llm=llm, local_slot=slot),
@@ -2655,7 +2670,7 @@ def build_api(
         structure=build_structurer(settings, llm=llm),
         compare=build_comparer(settings, repo=repo, precheck=precheck, llm=llm, local_slot=slot),
         polish=build_polisher(settings, llm=llm, local_slot=slot),
-        choice_log=build_choice_log(settings),
+        choice_log=choice_log,
         brief=build_briefer(settings, repo=repo, llm=llm),
         ntis_insights=fake["ntis_insights"] if fake else build_ntis_insights(settings, repo=repo),
         repo=repo,
